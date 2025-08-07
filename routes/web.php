@@ -267,7 +267,7 @@ Route::get('/test-shell', function () {
     // --- Configuration ---
     $pythonPath = '/var/www/OrganizerPro/rembg-env/bin/python';
     $scriptPath = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
-    $inputImage = '/var/www/OrganizerPro/storage/app/public/player_images/rVDJHJpaYqbNZ0j32rYb1qLB0ArhnFhbQClvvBK3.jpg';
+    $inputImage = '/var/www/OrganizerPro/storage/app/public/player_images/player.jpeg';
     $outputImage = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
     
     // Define the writable cache directory
