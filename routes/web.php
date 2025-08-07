@@ -33,6 +33,7 @@ use App\Models\Player;
 use App\Models\User;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -265,35 +266,52 @@ Route::get('/test-mail', function () {
 });
 
 Route::get('/test-shell', function () {
-    $python = '/var/www/OrganizerPro/rembg-env/bin/python';
-    $script = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
-    $input = '/var/www/OrganizerPro/storage/app/public/player_images/rVDJHJpaYqbNZ0j32rYb1qLB0ArhnFhbQClvvBK3.jpg';
-    $output = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
-    
-    $xdgCacheHome = '/var/www/OrganizerPro/storage/rembg-models';
+    $basePath = base_path();
+    $storagePath = storage_path('app/public/player_images');
+    $inputImage = $storagePath . '/sample-input.jpg';
+    $outputImage = $storagePath . '/test-output-' . Str::random(8) . '.png';
+
+    // Ensure required directories exist and are writable
+    $homeDir = '/var/www/OrganizerPro/storage/rembg-home';
+    $xdgCacheDir = '/var/www/OrganizerPro/storage/rembg-models';
     $numbaCacheDir = '/var/www/OrganizerPro/storage/rembg-numba';
 
-    // Make sure cache folders exist and are writable
-    @mkdir($xdgCacheHome, 0775, true);
-    @mkdir($numbaCacheDir, 0775, true);
-    exec("chown -R www-data:www-data " . escapeshellarg($xdgCacheHome));
-    exec("chmod -R 775 " . escapeshellarg($xdgCacheHome));
-    exec("chown -R www-data:www-data " . escapeshellarg($numbaCacheDir));
-    exec("chmod -R 775 " . escapeshellarg($numbaCacheDir));
+    foreach ([$homeDir, $xdgCacheDir, $numbaCacheDir] as $dir) {
+        File::ensureDirectoryExists($dir, 0775, true);
+        exec("chown -R www-data:www-data " . escapeshellarg($dir));
+        exec("chmod -R 775 " . escapeshellarg($dir));
+    }
+
+    // Python binary and script
+    $pythonBinary = $basePath . '/rembg-env/bin/python';
+    $scriptPath = $basePath . '/resources/scripts/remove_bg.py';
+
+    // Make sure sample input exists
+    if (!file_exists($inputImage)) {
+        return 'Sample input image not found: ' . $inputImage;
+    }
 
     $command = implode(' ', [
-        "XDG_CACHE_HOME=" . escapeshellarg($xdgCacheHome),
+        "HOME=" . escapeshellarg($homeDir),
+        "XDG_CACHE_HOME=" . escapeshellarg($xdgCacheDir),
         "NUMBA_CACHE_DIR=" . escapeshellarg($numbaCacheDir),
-        escapeshellcmd($python),
-        escapeshellarg($script),
-        escapeshellarg($input),
-        escapeshellarg($output),
+        escapeshellcmd($pythonBinary),
+        escapeshellarg($scriptPath),
+        escapeshellarg($inputImage),
+        escapeshellarg($outputImage),
         '2>&1'
     ]);
 
+    Log::debug('Running test-shell command: ' . $command);
+
     $output = shell_exec($command);
 
-    return response()->make("<pre>$command\n\n$output</pre>");
+    $result = "Command Output:\n" . $output . "\n\n";
+    if (file_exists($outputImage)) {
+        $result .= "✅ Output image generated: " . $outputImage;
+    } else {
+        $result .= "❌ Output image not found. Something went wrong.";
+    }
+
+    return "<pre>$result</pre>";
 });
-
-
