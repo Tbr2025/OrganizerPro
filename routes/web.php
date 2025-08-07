@@ -263,3 +263,9 @@ Route::get('/test-mail', function () {
 
     return 'Mail Sent!';
 });
+
+Route::get('/test-shell', function () {
+    $cmd = '/var/www/OrganizerPro/rembg-env/bin/python --version 2>&1';
+    return shell_exec($cmd);
+});
+
