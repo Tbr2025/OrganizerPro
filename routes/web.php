@@ -33,8 +33,6 @@ use App\Models\Player;
 use App\Models\User;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -265,56 +263,56 @@ Route::get('/test-mail', function () {
 
     return 'Mail Sent!';
 });
-
-use Illuminate\Support\Str;
-
 Route::get('/test-shell', function () {
-    $basePath = base_path();
-    $storagePath = storage_path('app/public/player_images');
-    $inputImage = $storagePath . '/sample-input.jpg';
-    $outputImage = $storagePath . '/test-output-' . Str::random(8) . '.png';
+    // --- Configuration ---
+    $pythonPath = '/var/www/OrganizerPro/rembg-env/bin/python';
+    $scriptPath = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
+    $inputImage = '/var/www/OrganizerPro/storage/app/public/player_images/rVDJHJpaYqbNZ0j32rYb1qLB0ArhnFhbQClvvBK3.jpg';
+    $outputImage = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
 
-    // Ensure required directories exist and are writable
-    $homeDir = '/var/www/OrganizerPro/storage/rembg-home';
-    $xdgCacheDir = '/var/www/OrganizerPro/storage/rembg-models';
-    $numbaCacheDir = '/var/www/OrganizerPro/storage/rembg-numba';
-
-    foreach ([$homeDir, $xdgCacheDir, $numbaCacheDir] as $dir) {
-        File::ensureDirectoryExists($dir, 0775, true);
-        exec("chown -R www-data:www-data " . escapeshellarg($dir));
-        exec("chmod -R 775 " . escapeshellarg($dir));
+    // --- Verification ---
+    // Check if the files and executables actually exist before trying to run the command.
+    if (!file_exists($pythonPath)) {
+        return "ERROR: Python executable not found at: " . htmlspecialchars($pythonPath);
     }
-
-    // Python binary and script
-    $pythonBinary = $basePath . '/rembg-env/bin/python';
-    $scriptPath = $basePath . '/resources/scripts/remove_bg.py';
-
-    // Make sure sample input exists
+    if (!file_exists($scriptPath)) {
+        return "ERROR: Python script not found at: " . htmlspecialchars($scriptPath);
+    }
     if (!file_exists($inputImage)) {
-        return 'Sample input image not found: ' . $inputImage;
+        return "ERROR: Input image not found at: " . htmlspecialchars($inputImage);
     }
 
-    $command = implode(' ', [
-        "HOME=" . escapeshellarg($homeDir),
-        "XDG_CACHE_HOME=" . escapeshellarg($xdgCacheDir),
-        "NUMBA_CACHE_DIR=" . escapeshellarg($numbaCacheDir),
-        escapeshellcmd($pythonBinary),
-        escapeshellarg($scriptPath),
-        escapeshellarg($inputImage),
-        escapeshellarg($outputImage),
-        '2>&1'
-    ]);
+    // --- Command Construction ---
+    // Use escapeshellarg() to safely pass arguments to the command line.
+    // This prevents errors with special characters and protects against command injection.
+    $command = escapeshellcmd($pythonPath) . ' ' .
+        escapeshellarg($scriptPath) . ' ' .
+        escapeshellarg($inputImage) . ' ' .
+        escapeshellarg($outputImage) . ' 2>&1'; // '2>&1' redirects stderr to stdout
 
-    Log::debug('Running test-shell command: ' . $command);
+    // --- Diagnostics ---
+    $currentUser = shell_exec('whoami');
+    echo "<h1>Running Command...</h1>";
+    echo "<strong>As User:</strong> " . htmlspecialchars(trim($currentUser)) . "<br>";
+    echo "<strong>Full Command:</strong><pre>" . htmlspecialchars($command) . "</pre>";
+    echo "<strong>Output:</strong><br>";
 
+    // --- Execution ---
     $output = shell_exec($command);
 
-    $result = "Command Output:\n" . $output . "\n\n";
-    if (file_exists($outputImage)) {
-        $result .= "✅ Output image generated: " . $outputImage;
+    // --- Result ---
+    echo "<pre>";
+    if ($output !== null) {
+        echo htmlspecialchars($output);
     } else {
-        $result .= "❌ Output image not found. Something went wrong.";
+        echo "No output was returned. This often means the command failed to execute. Check web server logs (e.g., /var/log/apache2/error.log or /var/log/nginx/error.log) for more details.";
     }
+    echo "</pre>";
 
-    return "<pre>$result</pre>";
+    // --- Final Check ---
+    if (file_exists($outputImage)) {
+        echo "<strong>Success!</strong> The output file was created.";
+    } else {
+        echo "<strong>Failure:</strong> The output file was NOT created.";
+    }
 });
