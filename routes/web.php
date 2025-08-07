@@ -265,7 +265,35 @@ Route::get('/test-mail', function () {
 });
 
 Route::get('/test-shell', function () {
-    $cmd = '/var/www/OrganizerPro/rembg-env/bin/python --version 2>&1';
-    return shell_exec($cmd);
+    $python = '/var/www/OrganizerPro/rembg-env/bin/python';
+    $script = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
+    $input = '/var/www/OrganizerPro/storage/app/public/player_images/rVDJHJpaYqbNZ0j32rYb1qLB0ArhnFhbQClvvBK3.jpg';
+    $output = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
+    
+    $xdgCacheHome = '/var/www/OrganizerPro/storage/rembg-models';
+    $numbaCacheDir = '/var/www/OrganizerPro/storage/rembg-numba';
+
+    // Make sure cache folders exist and are writable
+    @mkdir($xdgCacheHome, 0775, true);
+    @mkdir($numbaCacheDir, 0775, true);
+    exec("chown -R www-data:www-data " . escapeshellarg($xdgCacheHome));
+    exec("chmod -R 775 " . escapeshellarg($xdgCacheHome));
+    exec("chown -R www-data:www-data " . escapeshellarg($numbaCacheDir));
+    exec("chmod -R 775 " . escapeshellarg($numbaCacheDir));
+
+    $command = implode(' ', [
+        "XDG_CACHE_HOME=" . escapeshellarg($xdgCacheHome),
+        "NUMBA_CACHE_DIR=" . escapeshellarg($numbaCacheDir),
+        escapeshellcmd($python),
+        escapeshellarg($script),
+        escapeshellarg($input),
+        escapeshellarg($output),
+        '2>&1'
+    ]);
+
+    $output = shell_exec($command);
+
+    return response()->make("<pre>$command\n\n$output</pre>");
 });
+
 
