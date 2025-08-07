@@ -22,8 +22,7 @@ class UsersController extends Controller
     public function __construct(
         private readonly UserService $userService,
         private readonly RolesService $rolesService
-    ) {
-    }
+    ) {}
 
     public function index(): Renderable
     {
@@ -53,23 +52,24 @@ class UsersController extends Controller
 
         return view('backend.pages.users.create', [
             'roles' => $this->rolesService->getRolesDropdown(),
+            'organizations' => \App\Models\Organization::orderBy('name')->get(),
             'breadcrumbs' => [
                 'title' => __('New User'),
                 'items' => [
-                    [
-                        'label' => __('Users'),
-                        'url' => route('admin.users.index'),
-                    ],
+                    ['label' => __('Users'), 'url' => route('admin.users.index')],
                 ],
             ],
         ]);
     }
 
+
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $user = new User();
+        $user->organization_id = $request->organization_id;
         $user->name = $request->name;
         $user->username = $request->username;
+
         $user->email = $request->email;
         $user->password = Hash::make($request->password);
 
@@ -193,7 +193,7 @@ class UsersController extends Controller
         // Prevent deleting current user.
         if (in_array(Auth::id(), $ids)) {
             // Remove current user from the deletion list.
-            $ids = array_filter($ids, fn ($id) => $id != Auth::id());
+            $ids = array_filter($ids, fn($id) => $id != Auth::id());
             session()->flash('error', __('You cannot delete your own account. Other selected users will be processed.'));
 
             // If no users left to delete after filtering out current user.

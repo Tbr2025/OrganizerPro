@@ -14,8 +14,23 @@
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="p-5 space-y-6 border-t border-gray-100 dark:border-gray-800 sm:p-6">
                     <form action="{{ route('admin.users.store') }}" method="POST" enctype="multipart/form-data">
-                        @csrf
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            @csrf
+                            @hasrole('Superadmin')
+                                <div class="space-y-1">
+                                    <label for="organization_id"
+                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Organization') }}</label>
+                                    <select name="organization_id" id="organization_id" required class="form-control">
+                                        <option value="">{{ __('Select Organization') }}</option>
+                                        @foreach ($organizations as $org)
+                                            <option value="{{ $org->id }}"
+                                                {{ old('organization_id') == $org->id ? 'selected' : '' }}>
+                                                {{ $org->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endhasrole
                             <div class="space-y-1">
                                 <label for="name"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Full Name') }}</label>

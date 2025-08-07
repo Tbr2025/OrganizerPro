@@ -37,6 +37,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'username',
+        'organization_id',
+
     ];
 
     /**
@@ -118,8 +120,12 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     public function player()
-{
-    return $this->hasOne(Player::class);
-}
-
+    {
+        return $this->hasOne(Player::class);
+    }
+    
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
+    }
 }

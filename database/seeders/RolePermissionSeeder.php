@@ -55,7 +55,9 @@ class RolePermissionSeeder extends Seeder
                 // Get a random role from the available roles
                 $randomRole = $availableRoles[array_rand($availableRoles)];
                 $user->assignRole($randomRole);
-            }
+            } else {
+            $this->command->warn("Skipping user {$user->id} - No organization_id");
+        }
         }
 
         $this->command->info('Roles and Permissions created successfully!');

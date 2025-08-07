@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Spatie\Permission\Models\Permission;
@@ -221,7 +222,7 @@ class RolesService
         $roles['superadmin'] = $this->createRole('Superadmin', $allPermissionNames);
 
         // 2. Admin - all permissions except some critical ones
-        $adminExcludedPermissions = ['user.delete', 'role.delete', 'permission.delete']; // Added more critical exclusions
+        $adminExcludedPermissions = ['user.delete', 'role.delete', 'permission.delete', 'settings.view','settings.edit']; // Added more critical exclusions
         $adminPermissions = array_diff($allPermissionNames, $adminExcludedPermissions);
         $roles['admin'] = $this->createRole('Admin', $adminPermissions);
 
@@ -348,8 +349,26 @@ class RolesService
 
         return $roles;
     }
+    // public function getOrCreateRoleForOrganization(string $roleName, int $organizationId): Role
+    // {
+    //     return Role::firstOrCreate(
+    //         [
+    //             'name' => $roleName,
+    //             'organization_id' => $organizationId,
+    //             'guard_name' => 'web', // change if you're using another guard
+    //         ]
+    //     );
+    // }
+    // public function assignRoleToUser(User $user, string $roleName): void
+    // {
+    //     if (!$user->organization_id) {
+    //         throw new \InvalidArgumentException('User must have an organization_id to assign role');
+    //     }
 
+    //     $role = $this->getOrCreateRoleForOrganization($roleName, $user->organization_id);
 
+    //     $user->assignRole($role);
+    // }
     /**
      * Get a specific predefined role's permissions
      */
