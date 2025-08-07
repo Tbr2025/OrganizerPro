@@ -543,12 +543,12 @@ class PlayerController extends Controller
     $escapedScript = escapeshellarg($pythonScript);
     $escapedInput = escapeshellarg($inputPath);
     $escapedOutput = escapeshellarg($outputPath);
+$command = "export NUMBA_DISABLE_JIT=1 && \"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
 
-    $command = "{$escapedPython} {$escapedScript} {$escapedInput} {$escapedOutput}";
+    // $command = "{$escapedPython} {$escapedScript} {$escapedInput} {$escapedOutput}";
 
     try {
-$output = shell_exec($command . ' 2>&1');  // Capture stderr too
-Log::debug("Rembg command output: " . $output);
+        shell_exec($command);
 
         if (file_exists($outputPath)) {
             @unlink($inputPath); // delete original
