@@ -518,38 +518,38 @@ class PlayerController extends Controller
 
 
         if ($request->hasFile('image_path')) {
-            // Remove old image if exists
+            // Remove old image
             if ($player->image_path) {
                 Storage::delete('public/' . $player->image_path);
             }
 
             $imageFile = $request->file('image_path');
 
-            // Save original uploaded image to player_images/
+            // Save original uploaded image
             $originalFilename = $imageFile->hashName();
             $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
             $inputPath = storage_path('app/public/player_images/' . $originalFilename);
 
-            // Output file for background-removed image
+            // Output path
             $outputFilename = 'processed-' . Str::random(8) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Set Python script path and virtual environment
+            // Script & Python path
             $pythonScript = base_path('resources/scripts/remove_bg.py');
-            $virtualEnvPath = base_path('rembg-env'); // adjust if different
+            $pythonBinary = PHP_OS_FAMILY === 'Windows'
+                ? base_path('venv/Scripts/python.exe')  // Adjust if you're using a virtualenv
+                : 'python3';
 
-            // Build bash command to activate venv and run script
-            $command = "source {$virtualEnvPath}/bin/activate && python {$pythonScript} \"{$inputPath}\" \"{$outputPath}\"";
+            $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
 
             try {
-                // Execute inside bash shell so "source" works
-                $output = shell_exec("bash -c '{$command}'");
+                shell_exec($command);
 
                 if (file_exists($outputPath)) {
-                    @unlink($inputPath); // delete original uploaded file
+                    @unlink($inputPath); // delete original
                     $player->image_path = 'player_images/' . $outputFilename;
                 } else {
-                    throw new \Exception('Background removal failed. Output not found. Shell output: ' . $output);
+                    throw new \Exception('Background removal failed.');
                 }
             } catch (\Exception $e) {
                 Log::error("Background removal error (update): " . $e->getMessage());
