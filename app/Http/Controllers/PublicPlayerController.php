@@ -176,7 +176,7 @@ class PublicPlayerController extends Controller
         $outputFilename = 'processed-' . Str::random(8) . '.png';
         $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-        $pythonScript = base_path('storage/app/scripts/remove_bg.py');
+        $pythonScript = base_path('resources/scripts/remove_bg.py');
         $pythonBinary = PHP_OS_FAMILY === 'Windows' ? base_path('venv/Scripts/python.exe') : 'python3';
         $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
 

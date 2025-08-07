@@ -45,7 +45,7 @@ class ImageTemplateController extends Controller
 
         // Build command
         $pythonPath = base_path('venv/Scripts/python.exe');
-        $scriptPath = base_path('storage/app/scripts/remove_bg.py');
+        $scriptPath = base_path('resources/scripts/remove_bg.py');
         $command = "\"{$pythonPath}\" \"{$scriptPath}\" \"{$inputPath}\" \"{$outputPath}\"";
 
         try {

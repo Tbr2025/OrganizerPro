@@ -535,7 +535,7 @@ class PlayerController extends Controller
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
             // Script & Python path
-            $pythonScript = base_path('storage/app/scripts/remove_bg.py');
+            $pythonScript = base_path('resources/scripts/remove_bg.py');
             $pythonBinary = PHP_OS_FAMILY === 'Windows'
                 ? base_path('venv/Scripts/python.exe')  // Adjust if you're using a virtualenv
                 : 'python3';
