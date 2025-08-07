@@ -1,0 +1,13 @@
+diff --git a/src/Illuminate/Database/Schema/Grammars/MySqlGrammar.php b/src/Illuminate/Database/Schema/Grammars/MySqlGrammar.php
+index 9c9c4c9..a9c9c4c 100644
+--- a/src/Illuminate/Database/Schema/Grammars/MySqlGrammar.php
++++ b/src/Illuminate/Database/Schema/Grammars/MySqlGrammar.php
+@@ -76,7 +76,7 @@ class MySqlGrammar extends Grammar
+      * @param  string  $table
+      * @return string
+      */
+-    public function compileTableExists($schema, $table): string
++    public function compileTableExists($schema, $table)
+     {
+         return sprintf(
+             'select exists (select 1 from information_schema.tables where '

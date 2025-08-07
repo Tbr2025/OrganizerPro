@@ -1,0 +1,10 @@
+{
+    "patches": {
+        "opis/closure": {
+            "Fix PHP 8.4 nullable parameter deprecation": "patches/opis-closure-php84.patch"
+        },
+        "laravel/framework": {
+            "Fix PHP 8.4 return type compatibility in MySqlGrammar": "patches/laravel-mysql-grammar-php84.patch"
+        }
+    }
+}

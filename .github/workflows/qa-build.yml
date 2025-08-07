@@ -1,0 +1,104 @@
+permissions:
+  contents: read
+  pull-requests: write
+name: QA Build
+
+on:
+  pull_request:
+    types: [ labeled ]
+  pull_request_review:
+      types: [submitted]
+
+jobs:
+  build:
+    if: github.event.label.name == 'QA Ready' || github.event.review.state == 'APPROVED'
+    name: "Build Zip For QA"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, intl, zip, pdo, pdo_mysql, bcmath, gd, curl, xml, json, fileinfo, tokenizer, openssl
+          tools: composer
+
+      - name: Verify PHP version
+        run: php -v
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Optimize Laravel for production
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+      - name: Create storage directories
+        run: |
+          mkdir -p storage/logs
+          mkdir -p storage/framework/cache
+          mkdir -p storage/framework/sessions
+          mkdir -p storage/framework/views
+          mkdir -p bootstrap/cache
+
+      - name: Set proper permissions
+        run: |
+          chmod -R 755 storage
+          chmod -R 755 bootstrap/cache
+
+      - name: Clean up development files
+        run: |
+          rm -rf node_modules
+          rm -rf .git
+          rm -rf .github
+          rm -rf demo-screenshots
+          rm -f CONTRIBUTING.md
+      #     rm -rf tests
+      #     rm -f .env.example
+      #     rm -f .gitignore
+      #     rm -f .gitattributes
+      #     rm -f phpunit.xml
+      #     rm -f package.json
+      #     rm -f package-lock.json
+      #     rm -f vite.config.js
+      #     rm -f tailwind.config.js
+      #     rm -f eslint.config.js
+      #     rm -f pint.json
+      #     rm -f rector.php
+      #     rm -f phpstan.neon
+      #     rm -f composer.lock
+      #     rm -f README.md
+      #     rm -rf scripts
+
+      - name: Generate application zip
+        run: |
+          cd ..
+          zip -r laradashboard.zip laradashboard/ -x "laradashboard/.env"
+          mv laradashboard.zip laradashboard/
+
+      - name: Upload Zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: laradashboard
+          path: laradashboard.zip
