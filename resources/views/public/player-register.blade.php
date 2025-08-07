@@ -70,6 +70,7 @@
             display: inline-block;
         }
 
+
         .tooltip-content {
             position: absolute;
             background-color: #2d3748;
@@ -199,6 +200,16 @@
             margin: 0.5rem;
             color: #000;
         }
+
+        @media screen and (max-width: 767px) {
+            .tooltip-content {
+                position: relative;
+                width: 100%;
+                max-width: 100%;
+                padding: 1rem;
+                /* Reduce padding slightly */
+                font-size: 0.875rem;
+            }
     </style>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
