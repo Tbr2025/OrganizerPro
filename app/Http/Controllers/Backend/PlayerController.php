@@ -517,44 +517,49 @@ class PlayerController extends Controller
 
 
 
-        if ($request->hasFile('image_path')) {
-            // Remove old image
-            if ($player->image_path) {
-                Storage::delete('public/' . $player->image_path);
-            }
+  if ($request->hasFile('image_path')) {
+    // Remove old image if exists
+    if ($player->image_path) {
+        Storage::delete('public/' . $player->image_path);
+    }
 
-            $imageFile = $request->file('image_path');
+    $imageFile = $request->file('image_path');
 
-            // Save original uploaded image
-            $originalFilename = $imageFile->hashName();
-            $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
-            $inputPath = storage_path('app/public/player_images/' . $originalFilename);
+    // Save original uploaded image
+    $originalFilename = $imageFile->hashName();
+    $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
+    $inputPath = storage_path('app/public/player_images/' . $originalFilename);
 
-            // Output path
-            $outputFilename = 'processed-' . Str::random(8) . '.png';
-            $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+    // Output file details
+    $outputFilename = 'processed-' . Str::random(8) . '.png';
+    $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Script & Python path
-            $pythonScript = base_path('resources/scripts/remove_bg.py');
-            $pythonBinary = PHP_OS_FAMILY === 'Windows'
-                ? base_path('venv/Scripts/python.exe')  // Adjust if you're using a virtualenv
-                : 'python3';
+    // Python script & binary (using virtualenv rembg-env)
+    $pythonScript = base_path('resources/scripts/remove_bg.py');
+    $pythonBinary = base_path('rembg-env/bin/python3');
 
-            $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+    // Escape paths safely
+    $escapedPython = escapeshellcmd($pythonBinary);
+    $escapedScript = escapeshellarg($pythonScript);
+    $escapedInput = escapeshellarg($inputPath);
+    $escapedOutput = escapeshellarg($outputPath);
 
-            try {
-                shell_exec($command);
+    $command = "{$escapedPython} {$escapedScript} {$escapedInput} {$escapedOutput}";
 
-                if (file_exists($outputPath)) {
-                    @unlink($inputPath); // delete original
-                    $player->image_path = 'player_images/' . $outputFilename;
-                } else {
-                    throw new \Exception('Background removal failed.');
-                }
-            } catch (\Exception $e) {
-                Log::error("Background removal error (update): " . $e->getMessage());
-            }
+    try {
+        shell_exec($command);
+
+        if (file_exists($outputPath)) {
+            @unlink($inputPath); // delete original
+            $player->image_path = 'player_images/' . $outputFilename;
+        } else {
+            throw new \Exception('Background removal failed or output not found.');
         }
+    } catch (\Exception $e) {
+        Log::error("Background removal error (update): " . $e->getMessage());
+    }
+}
+
 
 
         // If clear image checkbox was checked
