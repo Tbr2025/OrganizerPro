@@ -203,15 +203,7 @@
                 return;
             }
 
-
-             // Temporarily remove background image from canvas
-        const originalBg = canvas.backgroundImage;
-        canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
-
-        const layoutJson = JSON.stringify(canvas.toJSON(['type', 'placeholder']));
-
-        // Restore background image after JSON export
-        canvas.setBackgroundImage(originalBg, canvas.renderAll.bind(canvas));
+            const layoutJson = JSON.stringify(canvas.toJSON(['type', 'placeholder']));
 
             const formData = new FormData();
             formData.append('name', name);
