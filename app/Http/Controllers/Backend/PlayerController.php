@@ -11,6 +11,7 @@ use App\Models\ImageTemplate;
 use App\Models\KitSize;
 use App\Models\Matches;
 use App\Models\Player;
+use App\Models\PlayerLocation;
 use App\Models\PlayerType;
 use App\Models\Team;
 use App\Models\Tournament;
@@ -63,6 +64,8 @@ class PlayerController extends Controller
         return view('backend.pages.players.create', [
             'teams' => Team::all(),
             'kitSizes' => KitSize::all(),
+            'locations' => PlayerLocation::all(),
+
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
@@ -107,7 +110,10 @@ class PlayerController extends Controller
             'batting_profile_id' => 'required|exists:batting_profiles,id',
             'bowling_profile_id' => 'required|exists:bowling_profiles,id',
             'player_type_id' => 'required|exists:player_types,id',
-
+            'location_id' => 'required|exists:player_locations,id',
+            'total_matches' => 'required|integer|min:0',
+            'total_runs' => 'required|integer|min:0',
+            'total_wickets' => 'required|integer|min:0',
             'cricheroes_country_code' => 'nullable|string|max:10',
             'cricheroes_national_number' => 'nullable|string|max:20',
             'cricheroes_number_full' => [
@@ -215,6 +221,7 @@ class PlayerController extends Controller
         return view('backend.pages.players.edit', [
             'player' => $player,
             'teams' => Team::all(),
+            'locations' => PlayerLocation::all(),
             'kitSizes' => KitSize::all(),
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
@@ -511,7 +518,11 @@ class PlayerController extends Controller
             'batting_profile_id' => 'nullable|exists:batting_profiles,id',
             'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
             'player_type_id' => 'nullable|exists:player_types,id',
-            'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:7048',
+            'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'location_id' => 'required|exists:player_locations,id',
+            'total_matches' => 'required|integer|min:0',
+            'total_runs' => 'required|integer|min:0',
+            'total_wickets' => 'required|integer|min:0',
             'is_wicket_keeper' => 'sometimes|boolean',
             'is_transportation_required' => 'sometimes|boolean',
         ]);
@@ -615,7 +626,6 @@ class PlayerController extends Controller
                 // Optionally, return an error response to the user
                 // return back()->withErrors(['image_path' => 'Failed to process the image.']);
             }
-
         }
 
 
@@ -859,7 +869,7 @@ class PlayerController extends Controller
                 Player::create($data);
                 $imported++;
             } catch (\Exception $e) {
-                \Log::error('CSV import error for ' . $data['name'] . ': ' . $e->getMessage());
+
                 $skipped[] = [
                     'name' => $data['name'],
                     'email' => $data['email'],

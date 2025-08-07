@@ -53,7 +53,11 @@ class Player extends Model implements MustVerifyEmail
         'no_travel_plan',
         'verified_no_travel_plan',
         'travel_date_from',
-        'travel_date_to'
+        'travel_date_to',
+        'location_id',
+        'total_matches',
+        'total_runs',
+        'total_wickets'
     ];
 
     protected $casts = [

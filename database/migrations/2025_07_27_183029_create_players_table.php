@@ -76,7 +76,10 @@ return new class extends Migration
             $table->date('travel_date_from')->nullable();
             $table->date('travel_date_to')->nullable();
             $table->boolean('verified_no_travel_plan')->default(false);
-
+            $table->unsignedBigInteger('location_id')->nullable();
+            $table->integer('total_matches')->nullable();
+            $table->integer('total_runs')->nullable();
+            $table->integer('total_wickets')->nullable();
             $table->timestamps(); // created_at and updated_at
         });
     }

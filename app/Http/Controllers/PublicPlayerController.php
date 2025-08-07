@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\BattingProfile;
 use App\Models\BowlingProfile;
 use App\Models\KitSize;
+use App\Models\Location;
 use App\Models\Player;
+use App\Models\PlayerLocation;
 use App\Models\PlayerType;
 use App\Models\Team;
 use App\Models\User;
@@ -23,6 +25,7 @@ class PublicPlayerController extends Controller
     {
         return view('public.player-register', [
             'teams' => Team::all(),
+            'locations' => PlayerLocation::all(),
             'kitSizes' => KitSize::all(),
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
@@ -50,7 +53,12 @@ class PublicPlayerController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'email' => 'required|email|unique:players,email|unique:users,email',
-            'image_path' => 'nullable|string|max:255',
+            'location_id' => 'required|exists:player_locations,id',
+            'total_matches' => 'required|integer|min:0',
+            'total_runs' => 'required|integer|min:0',
+            'total_wickets' => 'required|integer|min:0',
+
+
             'team_name_ref' => 'nullable|string|max:100',
             'mobile_country_code' => 'required|string|max:10',
             'mobile_national_number' => 'required|string|max:20',
@@ -120,52 +128,55 @@ class PublicPlayerController extends Controller
 
             'player_type_id.required' => 'Please select your player type.',
             'player_type_id.exists' => 'The selected player type is invalid.',
+            'location_id.required' => 'Please select your location.',
+            'location_id.exists' => 'The selected location is invalid.',
+
         ]);
 
 
-    Log::info('--- Background Removal Process Starting ---');
-    $finalImagePath = null;
+        Log::info('--- Background Removal Process Starting ---');
+        $finalImagePath = null;
 
-    $imageFile = $validated['image']; // Get the validated file object
-    $originalTempName = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
-    $imageFile->storeAs('public/player_images', $originalTempName); // Save temporarily
-    $inputPath = storage_path('app/public/player_images/' . $originalTempName);
+        $imageFile = $validated['image']; // Get the validated file object
+        $originalTempName = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
+        $imageFile->storeAs('public/player_images', $originalTempName); // Save temporarily
+        $inputPath = storage_path('app/public/player_images/' . $originalTempName);
 
-    // Define paths and command exactly like in the working test
-    $outputFilename = 'processed-' . Str::random(10) . '.png';
-    $outputPath = storage_path('app/public/player_images/' . $outputFilename);
-    $pythonBinary = '/var/www/OrganizerPro/rembg-env/bin/python'; // Absolute path to venv python
-    $pythonScript = resource_path('scripts/remove_bg.py');
-    $cachePath = storage_path('app/rembg_cache');
-    File::ensureDirectoryExists($cachePath); // Ensure cache dir exists
+        // Define paths and command exactly like in the working test
+        $outputFilename = 'processed-' . Str::random(10) . '.png';
+        $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+        $pythonBinary = '/var/www/OrganizerPro/rembg-env/bin/python'; // Absolute path to venv python
+        $pythonScript = resource_path('scripts/remove_bg.py');
+        $cachePath = storage_path('app/rembg_cache');
+        File::ensureDirectoryExists($cachePath); // Ensure cache dir exists
 
-    $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
-               escapeshellcmd($pythonBinary) . ' ' .
-               escapeshellarg($pythonScript) . ' ' .
-               escapeshellarg($inputPath) . ' ' .
-               escapeshellarg($outputPath) . ' 2>&1'; // Crucially, capture errors
+        $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+            escapeshellcmd($pythonBinary) . ' ' .
+            escapeshellarg($pythonScript) . ' ' .
+            escapeshellarg($inputPath) . ' ' .
+            escapeshellarg($outputPath) . ' 2>&1'; // Crucially, capture errors
 
-    Log::info('Executing shell command: ' . $command);
-    $shellOutput = shell_exec($command);
+        Log::info('Executing shell command: ' . $command);
+        $shellOutput = shell_exec($command);
 
-    if (!File::exists($outputPath)) {
-        Log::error("Background removal FAILED. Shell Output: " . $shellOutput);
-        File::delete($inputPath); // Clean up the temp file
-        // Return user to form with an error
-        return back()->withInput()->withErrors(['image' => 'Could not process the uploaded image. Please try a different one.']);
-    }
+        if (!File::exists($outputPath)) {
+            Log::error("Background removal FAILED. Shell Output: " . $shellOutput);
+            File::delete($inputPath); // Clean up the temp file
+            // Return user to form with an error
+            return back()->withInput()->withErrors(['image' => 'Could not process the uploaded image. Please try a different one.']);
+        }
 
-    Log::info("Background removal successful. Output: " . $shellOutput);
-    $finalImagePath = 'player_images/' . $outputFilename;
-    File::delete($inputPath); // Clean up the temp original file
+        Log::info("Background removal successful. Output: " . $shellOutput);
+        $finalImagePath = 'player_images/' . $outputFilename;
+        File::delete($inputPath); // Clean up the temp original file
 
 
-    // --- 4. Create Database Records (Only after image is processed) ---
-    $username = Str::slug(Str::before($validated['email'], '@'), '_');
-    if (User::where('username', $username)->exists()) {
-        $username .= '_' . Str::random(5);
-    }
-    $password = Str::random(12);
+        // --- 4. Create Database Records (Only after image is processed) ---
+        $username = Str::slug(Str::before($validated['email'], '@'), '_');
+        if (User::where('username', $username)->exists()) {
+            $username .= '_' . Str::random(5);
+        }
+        $password = Str::random(12);
         $password = Str::random(12);
         $user = User::create([
             'name' => $validated['name'],
@@ -175,7 +186,7 @@ class PublicPlayerController extends Controller
             'email_verified_at' => null,
         ]);
 
-       
+
 
         // Build player data
         $player = Player::create(array_merge([

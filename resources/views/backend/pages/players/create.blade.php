@@ -27,7 +27,39 @@
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
                             </div>
-
+                            {{-- Location --}}
+                            <div>
+                                <label for="location_id" class="block font-semibold mb-1">Location <span
+                                        class="text-red-500">*</span></label>
+                                <select name="location_id" id="location_id" class="form-control" required>
+                                    <option value="">Select Location</option>
+                                    @foreach ($locations as $location)
+                                        <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
+                                            {{ $location->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('location_id')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            {{-- Leather Ball Stats --}}
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                @foreach ([
+            'total_matches' => 'Total Matches',
+            'total_runs' => 'Total Runs',
+            'total_wickets' => 'Total Wickets',
+        ] as $field => $label)
+                                    <div class="space-y-1">
+                                        <label for="{{ $field }}"
+                                            class="block font-semibold">{{ $label }}</label>
+                                        <input type="number" name="{{ $field }}" id="{{ $field }}"
+                                            min="0" value="{{ old($field, 0) }}" class="form-control">
+                                        @error($field)
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                @endforeach
+                            </div>
                             {{-- Player Email --}}
                             <div class="space-y-1">
                                 <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -123,11 +155,12 @@
 
                             {{-- Jersey Name --}}
                             <div class="space-y-1">
-                                <label for="jersey_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label for="jersey_name"
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     {{ __('Jersey Name') }}
                                 </label>
-                                <input type="text" name="jersey_name" id="jersey_name" value="{{ old('jersey_name') }}"
-                                    placeholder="Enter Jersey Name"
+                                <input type="text" name="jersey_name" id="jersey_name"
+                                    value="{{ old('jersey_name') }}" placeholder="Enter Jersey Name"
                                     class="form-control @error('jersey_name') border-red-500 @enderror">
                                 @error('jersey_name')
                                     <p class="text-sm text-red-500">{{ $message }}</p>
@@ -136,7 +169,8 @@
 
                             {{-- Jersey Size --}}
                             <div class="space-y-1">
-                                <label for="kit_size_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label for="kit_size_id"
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     {{ __('Jersey Size') }}
                                 </label>
                                 <select name="kit_size_id" id="kit_size_id"

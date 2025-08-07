@@ -63,6 +63,48 @@
                                     @enderror
                                 </div>
                             @endforeach
+                            {{-- Leather Ball Profile Stats --}}
+                            <div class="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                                @php
+                                    $stats = [
+                                        'total_matches' => 'Total Matches',
+                                        'total_runs' => 'Total Runs',
+                                        'total_wickets' => 'Total Wickets',
+                                    ];
+                                @endphp
+
+                                @foreach ($stats as $field => $label)
+                                    <div class="space-y-1">
+                                        <label for="{{ $field }}"
+                                            class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ $label }}
+                                        </label>
+                                        <input type="number" name="{{ $field }}" id="{{ $field }}"
+                                            value="{{ old($field, $player->$field) }}"
+                                            class="form-control @error($field) border-red-500 @enderror" min="0">
+                                        @error($field)
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                @endforeach
+                            </div>
+                            <div class="space-y-1">
+                                <label for="location_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Player Location <span class="text-red-500">*</span>
+                                </label>
+                                <select name="location_id" id="location_id" class="form-control">
+                                    <option value="">-- Select Location --</option>
+                                    @foreach ($locations as $location)
+                                        <option value="{{ $location->id }}"
+                                            {{ old('location_id', $player->location_id) == $location->id ? 'selected' : '' }}>
+                                            {{ $location->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('location_id')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
 
                             {{-- Dropdowns --}}
                             @php
@@ -131,82 +173,75 @@
                             @endforeach
 
                             {{-- Image Upload --}}
-{{-- Player Image Upload --}}
-<div class="sm:col-span-2">
-    <label for="image_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Player Image
-    </label>
+                            {{-- Player Image Upload --}}
+                            <div class="sm:col-span-2">
+                                <label for="image_path"
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Player Image
+                                </label>
 
-    <div 
-        x-data="{
-            previewUrl: '{{ $player->image_path ? Storage::url($player->image_path) : '' }}',
-            handleFileChange(event) {
-                const file = event.target.files[0];
-                if (file && file.type.startsWith('image/')) {
-                    this.previewUrl = URL.createObjectURL(file);
-                } else {
-                    this.previewUrl = '';
-                }
-            },
-            dropHandler(event) {
-                event.preventDefault();
-                const file = event.dataTransfer.files[0];
-                if (file && file.type.startsWith('image/')) {
-                    this.$refs.fileInput.files = event.dataTransfer.files;
-                    this.previewUrl = URL.createObjectURL(file);
-                }
-            }
-        }"
-        @drop.prevent="dropHandler($event)"
-        @dragover.prevent
-        class="border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg text-center cursor-pointer relative"
-        @click="$refs.fileInput.click()"
-    >
-        <input
-            type="file"
-            name="image_path"
-            id="image_path"
-            accept="image/png,image/jpeg"
-            class="absolute w-0 h-0 opacity-0"
-            x-ref="fileInput"
-            @change="handleFileChange"
-        >
+                                <div x-data="{
+                                    previewUrl: '{{ $player->image_path ? Storage::url($player->image_path) : '' }}',
+                                    handleFileChange(event) {
+                                        const file = event.target.files[0];
+                                        if (file && file.type.startsWith('image/')) {
+                                            this.previewUrl = URL.createObjectURL(file);
+                                        } else {
+                                            this.previewUrl = '';
+                                        }
+                                    },
+                                    dropHandler(event) {
+                                        event.preventDefault();
+                                        const file = event.dataTransfer.files[0];
+                                        if (file && file.type.startsWith('image/')) {
+                                            this.$refs.fileInput.files = event.dataTransfer.files;
+                                            this.previewUrl = URL.createObjectURL(file);
+                                        }
+                                    }
+                                }" @drop.prevent="dropHandler($event)" @dragover.prevent
+                                    class="border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg text-center cursor-pointer relative"
+                                    @click="$refs.fileInput.click()">
+                                    <input type="file" name="image_path" id="image_path" accept="image/png,image/jpeg"
+                                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
 
-        {{-- Image Preview --}}
-        <template x-if="previewUrl">
-            <img :src="previewUrl" class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
-        </template>
+                                    {{-- Image Preview --}}
+                                    <template x-if="previewUrl">
+                                        <img :src="previewUrl"
+                                            class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
+                                    </template>
 
-        <p x-show="!previewUrl" class="text-gray-600 text-sm">
-            Drag & drop or click to upload image (PNG/JPG, max 2MB)
-        </p>
-    </div>
+                                    <p x-show="!previewUrl" class="text-gray-600 text-sm">
+                                        Drag & drop or click to upload image (PNG/JPG, max 2MB)
+                                    </p>
+                                </div>
 
-    {{-- Remove Existing Image --}}
-    @if ($player->image_path)
-        <label class="inline-flex items-center mt-2 space-x-2 text-sm text-gray-600 dark:text-gray-300">
-            <input type="checkbox" name="clear_image" value="1"
-                class="form-checkbox text-red-600 border-gray-300 rounded focus:ring-red-500">
-            <span>Remove Existing Image</span>
-        </label>
-    @endif
+                                {{-- Remove Existing Image --}}
+                                @if ($player->image_path)
+                                    <label
+                                        class="inline-flex items-center mt-2 space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                                        <input type="checkbox" name="clear_image" value="1"
+                                            class="form-checkbox text-red-600 border-gray-300 rounded focus:ring-red-500">
+                                        <span>Remove Existing Image</span>
+                                    </label>
+                                @endif
 
-    {{-- Verified Toggle --}}
-    <div class="mt-4">
-        <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" name="verified_image_path" value="1"
-                class="sr-only peer"
-                {{ old('verified_image_path', $player->verified_image_path ?? false) ? 'checked' : '' }}>
-            <div
-                class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
-            </div>
-            <div
-                class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-300 peer-checked:translate-x-full">
-            </div>
-            <span class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
-        </label>
-    </div>
-</div>
+                                {{-- Verified Toggle --}}
+                                <div class="mt-4">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="verified_image_path" value="1"
+                                            class="sr-only peer"
+                                            {{ old('verified_image_path', $player->verified_image_path ?? false) ? 'checked' : '' }}>
+                                        <div
+                                            class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
+                                        </div>
+                                        <div
+                                            class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-300 peer-checked:translate-x-full">
+                                        </div>
+                                        <span
+                                            class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
+                                    </label>
+                                </div>
+                            </div>
 
 
 
@@ -227,8 +262,9 @@
                                     <div>
                                         <label for="travel_date_from" class="block font-semibold mb-1">Travel Date
                                             From</label>
-                                        <input type="date" name="travel_date_from" id="travel_date_from" x-model="from"
-                                            :min="today" class="w-full px-3 py-2 border rounded text-black"
+                                        <input type="date" name="travel_date_from" id="travel_date_from"
+                                            x-model="from" :min="today"
+                                            class="w-full px-3 py-2 border rounded text-black"
                                             placeholder="Select start date">
                                         @error('travel_date_from')
                                             <p class="text-sm text-red-600">{{ $message }}</p>
@@ -237,7 +273,8 @@
 
                                     <!-- Travel To -->
                                     <div>
-                                        <label for="travel_date_to" class="block font-semibold mb-1">Travel Date To</label>
+                                        <label for="travel_date_to" class="block font-semibold mb-1">Travel Date
+                                            To</label>
                                         <input type="date" name="travel_date_to" id="travel_date_to" x-model="to"
                                             :min="from || today" class="w-full px-3 py-2 border rounded text-black"
                                             placeholder="Select end date">

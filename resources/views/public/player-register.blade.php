@@ -279,7 +279,8 @@
                 <p class="text-lg md:text-xl font-bold uppercase tracking-widest text-yellow-400 mb-2 animate-pulse">
                     Let the Battle Begins
                 </p>
-                <img src="{{ asset('images/logo/landing.png') }}" alt="IPL Logo" class="mx-auto my-4 w-[250px] h-auto">
+                <img src="{{ asset('images/logo/landing.png') }}" alt="IPL Logo"
+                    class="mx-auto my-4 w-[250px] h-auto">
 
 
 
@@ -320,7 +321,7 @@
         </div>
     </section>
 
-    <section class="py-20 bg-gray-900">
+    {{-- <section class="py-20 bg-gray-900">
         <div class="max-w-4xl mx-auto px-4 text-center">
             <h2 class="text-4xl md:text-5xl font-bold mb-12 text-yellow-400">Why Join The League?</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -342,7 +343,7 @@
                 </div>
             </div>
         </div>
-    </section>
+    </section> --}}
 
     {{-- Registration Form --}}
     <section
@@ -389,7 +390,20 @@
                     <p class="text-sm text-red-600">{{ $message }}</p>
                 @enderror
             </div>
-
+ <div>
+            <label for="location_id" class="block font-semibold mb-1">Location <span class="text-red-500">*</span></label>
+            <select name="location_id" id="location_id" class="w-full px-3 py-2 border rounded text-black" required>
+                <option value="">Select location</option>
+                @foreach ($locations as $location)
+                    <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
+                        {{ $location->name }}
+                    </option>
+                @endforeach
+            </select>
+            @error('location_id')
+                <p class="text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
             {{-- Team Selection Dropdown --}}
             <div x-data="{ selectedTeam: '{{ old('team_id') }}', newTeamName: '{{ old('team_name_ref') }}' }">
                 <label for="team_id" class="block font-semibold mb-1">Select Team ( Currently Playing) <span
@@ -418,9 +432,49 @@
                     @enderror
                 </div>
             </div>
+
+
+            <div class="block">
+                {{-- Leather Ball Stats + Location Dropdown --}}
+                <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
+                    <label for="team_id" class="block font-semibold mb-1">Leather Ball Profile Stats (as of
+                        registration date)
+                        <span class="text-red-500">*</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="total_matches" class="block font-semibold mb-1">Total Matches</label>
+                        <input type="number" name="total_matches" id="total_matches"
+                            class="w-full px-3 py-2 border rounded text-black" value="{{ old('total_matches') }}"
+                            min="0" placeholder="0" required>
+                        @error('total_matches')
+                            <p class="text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="total_runs" class="block font-semibold mb-1">Total Runs</label>
+                        <input type="number" name="total_runs" id="total_runs"
+                            class="w-full px-3 py-2 border rounded text-black" value="{{ old('total_runs') }}"
+                            min="0" placeholder="0" required>
+                        @error('total_runs')
+                            <p class="text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="total_wickets" class="block font-semibold mb-1">Total Wickets</label>
+                        <input type="number" name="total_wickets" id="total_wickets"
+                            class="w-full px-3 py-2 border rounded text-black" value="{{ old('total_wickets') }}"
+                            min="0" placeholder="0" required>
+                        @error('total_wickets')
+                            <p class="text-sm text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                </div>
+            </div>
             {{-- Player Type Dropdown --}}
             <div>
-                <label for="player_type_id" class="block font-semibold mb-1">Player Type <span
+                <label for="player_type_id" class="block font-semibold mb-8">Player Type <span
                         class="text-red-500">*</span> </label>
                 <select name="player_type_id" id="player_type_id" class="w-full px-3 py-2 border rounded text-black">
                     <option value="">Select Player Type</option>
@@ -442,8 +496,7 @@
 
                     <div x-data="{ showTooltip: false }" class="relative ml-2 tooltip-container">
                         <i class="fas fa-info-circle text-gray-400 hover:text-yellow-400 cursor-pointer"
-                            @mouseclick="showTooltip = true" 
-                            @click="showTooltip = !showTooltip"></i>
+                            @mouseclick="showTooltip = true" @click="showTooltip = !showTooltip"></i>
 
                         <div x-show="showTooltip" @click.outside="showTooltip = false"
                             x-transition:enter="transition ease-out duration-100"
@@ -458,11 +511,11 @@
                             <ul class="list-disc list-inside mb-3 space-y-1">
                                 <li><span class="font-semibold">3:4 Aspect Ratio</span> (e.g., 300px width x 400px
                                     height minimum)</li>
-                                <li><span class="font-semibold">Average Quality</span> (around 1MB–2MB)</li>
-                                <li><span class="font-semibold">Background Removed</span> (transparent)</li>
+                                <li><span class="font-semibold">Average Quality</span> (Max 2MB)</li>
+                                <li><span class="font-semibold">Only *.jpg/ *.jpeg files</li>
                             </ul>
                             <p class="font-semibold mb-2">Example:</p>
-                            <img src="https://organizerpro.booklyman.com/images/product/example.png"
+                            <img src="https://sportzley.com/images/product/example.png"
                                 alt="Example Player Image"
                                 class="w-24 h-auto rounded border border-gray-600 mx-auto sm:mx-0">
                             <p class="text-xs text-gray-500 mt-3 text-center sm:text-left">
@@ -505,7 +558,7 @@
                     </template>
 
                     <p x-show="!previewUrl" class="text-gray-600 text-sm">
-                        Drag & drop or click to upload image (JPG/PNG, max 2MB)
+                        Drag & drop or click to upload image (JPG/JPEG, max 2MB)
                     </p>
                 </div>
 
