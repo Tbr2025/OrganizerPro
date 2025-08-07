@@ -1,24 +1,20 @@
-import sys
+import os
+os.environ["NUMBA_CACHE_DIR"] = "/tmp"  # Optional: redirect cache if needed
+os.environ["NUMBA_DISABLE_CACHE"] = "1"
+
 from rembg import remove
 from PIL import Image
-import os
-
-if len(sys.argv) != 3:
-    print("Usage: remove_bg.py input_path output_path")
-    sys.exit(1)
+import sys
 
 input_path = sys.argv[1]
 output_path = sys.argv[2]
 
-if not os.path.exists(input_path):
-    print(f"Input file does not exist: {input_path}")
-    sys.exit(1)
+with open(input_path, 'rb') as input_file:
+    input_data = input_file.read()
 
-try:
-    with Image.open(input_path) as input_image:
-        output_image = remove(input_image)
-        output_image.save(output_path)
-        print(f"Background removed and saved to {output_path}")
-except Exception as e:
-    print(f"Error: {str(e)}")
-    sys.exit(1)
+output_data = remove(input_data)
+
+with open(output_path, 'wb') as output_file:
+    output_file.write(output_data)
+
+print(f"Background removed and saved to {output_path}")
