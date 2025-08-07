@@ -1,21 +1,27 @@
-import os
 import sys
+import os
+
+# Set writable cache directories
+os.environ["XDG_CACHE_HOME"] = "/var/www/OrganizerPro/storage/framework/cache/.rembg"
+os.environ["NUMBA_CACHE_DIR"] = "/var/www/OrganizerPro/storage/framework/cache/.numba"
+
 from rembg import remove
 from PIL import Image
-
-# Set a safe, writable cache directory
-os.environ["U2NET_HOME"] = "/var/www/OrganizerPro/storage/app/.u2net"
-os.environ["NUMBA_DISABLE_CACHE"] = "1"
 
 input_path = sys.argv[1]
 output_path = sys.argv[2]
 
-with open(input_path, 'rb') as input_file:
-    input_data = input_file.read()
+try:
+    with open(input_path, 'rb') as i:
+        input_data = i.read()
 
-output_data = remove(input_data)
+    output_data = remove(input_data)
 
-with open(output_path, 'wb') as output_file:
-    output_file.write(output_data)
+    with open(output_path, 'wb') as o:
+        o.write(output_data)
 
-print(f"Background removed and saved to {output_path}")
+    print("Background removal successful.")
+
+except Exception as e:
+    print(f"Error: {e}")
+    sys.exit(1)
