@@ -269,26 +269,22 @@ Route::get('/test-shell', function () {
     $scriptPath = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
     $inputImage = '/var/www/OrganizerPro/storage/app/public/player_images/rVDJHJpaYqbNZ0j32rYb1qLB0ArhnFhbQClvvBK3.jpg';
     $outputImage = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
+    
+    // Define the writable cache directory
+    $cachePath = '/var/www/OrganizerPro/storage/app/rembg_cache';
 
     // --- Verification ---
-    // Check if the files and executables actually exist before trying to run the command.
-    if (!file_exists($pythonPath)) {
-        return "ERROR: Python executable not found at: " . htmlspecialchars($pythonPath);
-    }
-    if (!file_exists($scriptPath)) {
-        return "ERROR: Python script not found at: " . htmlspecialchars($scriptPath);
-    }
-    if (!file_exists($inputImage)) {
-        return "ERROR: Input image not found at: " . htmlspecialchars($inputImage);
+    if (!is_dir($cachePath) || !is_writable($cachePath)) {
+        return "ERROR: Cache path does not exist or is not writable by the web server: " . htmlspecialchars($cachePath);
     }
 
     // --- Command Construction ---
-    // Use escapeshellarg() to safely pass arguments to the command line.
-    // This prevents errors with special characters and protects against command injection.
-    $command = escapeshellcmd($pythonPath) . ' ' .
-        escapeshellarg($scriptPath) . ' ' .
-        escapeshellarg($inputImage) . ' ' .
-        escapeshellarg($outputImage) . ' 2>&1'; // '2>&1' redirects stderr to stdout
+    // Prepend the U2NET_HOME environment variable to the command
+    $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+               escapeshellcmd($pythonPath) . ' ' .
+               escapeshellarg($scriptPath) . ' ' .
+               escapeshellarg($inputImage) . ' ' .
+               escapeshellarg($outputImage) . ' 2>&1';
 
     // --- Diagnostics ---
     $currentUser = shell_exec('whoami');
@@ -298,6 +294,8 @@ Route::get('/test-shell', function () {
     echo "<strong>Output:</strong><br>";
 
     // --- Execution ---
+    // Increase the time limit for the first run, as it needs to download the model
+    set_time_limit(300); // 5 minutes
     $output = shell_exec($command);
 
     // --- Result ---
@@ -305,13 +303,17 @@ Route::get('/test-shell', function () {
     if ($output !== null) {
         echo htmlspecialchars($output);
     } else {
-        echo "No output was returned. This often means the command failed to execute. Check web server logs (e.g., /var/log/apache2/error.log or /var/log/nginx/error.log) for more details.";
+        echo "No output was returned. Check web server logs.";
     }
     echo "</pre>";
 
     // --- Final Check ---
     if (file_exists($outputImage)) {
         echo "<strong>Success!</strong> The output file was created.";
+        // You can optionally check the cache directory too
+        if (count(scandir($cachePath)) > 2) { // >2 because of '.' and '..'
+            echo "<br>Model appears to be cached successfully in " . htmlspecialchars($cachePath);
+        }
     } else {
         echo "<strong>Failure:</strong> The output file was NOT created.";
     }
