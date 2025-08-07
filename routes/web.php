@@ -33,6 +33,7 @@ use App\Models\Player;
 use App\Models\User;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
@@ -264,6 +265,8 @@ Route::get('/test-mail', function () {
 
     return 'Mail Sent!';
 });
+
+use Illuminate\Support\Str;
 
 Route::get('/test-shell', function () {
     $basePath = base_path();
