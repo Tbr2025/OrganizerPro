@@ -525,27 +525,28 @@ class PlayerController extends Controller
 
             $imageFile = $request->file('image_path');
 
-            // Save original uploaded image to storage/app/public/player_images/
+            // Save original uploaded image to player_images/
             $originalFilename = $imageFile->hashName();
             $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
             $inputPath = storage_path('app/public/player_images/' . $originalFilename);
 
-            // Output file (background removed image)
+            // Output file for background-removed image
             $outputFilename = 'processed-' . Str::random(8) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Python script & venv path
+            // Set Python script path and virtual environment
             $pythonScript = base_path('resources/scripts/remove_bg.py');
-            $virtualEnvPath = base_path('rembg-env');
+            $virtualEnvPath = base_path('rembg-env'); // adjust if different
 
-            // Activate virtualenv and run the script
+            // Build bash command to activate venv and run script
             $command = "source {$virtualEnvPath}/bin/activate && python {$pythonScript} \"{$inputPath}\" \"{$outputPath}\"";
 
             try {
+                // Execute inside bash shell so "source" works
                 $output = shell_exec("bash -c '{$command}'");
 
                 if (file_exists($outputPath)) {
-                    @unlink($inputPath); // Remove the uploaded original
+                    @unlink($inputPath); // delete original uploaded file
                     $player->image_path = 'player_images/' . $outputFilename;
                 } else {
                     throw new \Exception('Background removal failed. Output not found. Shell output: ' . $output);
@@ -554,7 +555,6 @@ class PlayerController extends Controller
                 Log::error("Background removal error (update): " . $e->getMessage());
             }
         }
-
 
 
         // If clear image checkbox was checked
