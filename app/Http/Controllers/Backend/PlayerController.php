@@ -517,8 +517,46 @@ class PlayerController extends Controller
 
 
 
+        // if ($request->hasFile('image_path')) {
+        //     // Remove old image
+        //     if ($player->image_path) {
+        //         Storage::delete('public/' . $player->image_path);
+        //     }
+
+        //     $imageFile = $request->file('image_path');
+
+        //     // Save original uploaded image
+        //     $originalFilename = $imageFile->hashName();
+        //     $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
+        //     $inputPath = storage_path('app/public/player_images/' . $originalFilename);
+
+        //     // Output path
+        //     $outputFilename = 'processed-' . Str::random(8) . '.png';
+        //     $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+
+        //     // Script & Python path
+        //     $pythonScript = base_path('resources/scripts/remove_bg.py');
+        //     $pythonBinary = PHP_OS_FAMILY === 'Windows'
+        //         ? base_path('venv/Scripts/python.exe')  // Adjust if you're using a virtualenv
+        //         : 'python3';
+
+        //     $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+
+        //     try {
+        //         shell_exec($command);
+
+        //         if (file_exists($outputPath)) {
+        //             @unlink($inputPath); // delete original
+        //             $player->image_path = 'player_images/' . $outputFilename;
+        //         } else {
+        //             throw new \Exception('Background removal failed.');
+        //         }
+        //     } catch (\Exception $e) {
+        //         Log::error("Background removal error (update): " . $e->getMessage());
+        //     }
+        // }
         if ($request->hasFile('image_path')) {
-            // Remove old image
+            // Remove old image if exists
             if ($player->image_path) {
                 Storage::delete('public/' . $player->image_path);
             }
@@ -530,29 +568,33 @@ class PlayerController extends Controller
             $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
             $inputPath = storage_path('app/public/player_images/' . $originalFilename);
 
-            // Output path
+            // Output file
             $outputFilename = 'processed-' . Str::random(8) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Script & Python path
+            // Script & interpreter path
             $pythonScript = base_path('resources/scripts/remove_bg.py');
-            $pythonBinary = PHP_OS_FAMILY === 'Windows'
-                ? base_path('venv/Scripts/python.exe')  // Adjust if you're using a virtualenv
-                : 'python3';
+            $pythonBinary = base_path('rembg-env/bin/python');
 
-            $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+            // Sanitize paths (wrap in escapeshellarg)
+            $command = implode(' ', [
+                escapeshellcmd($pythonBinary),
+                escapeshellarg($pythonScript),
+                escapeshellarg($inputPath),
+                escapeshellarg($outputPath),
+            ]);
 
             try {
-                shell_exec($command);
+                $output = shell_exec($command);
 
                 if (file_exists($outputPath)) {
-                    @unlink($inputPath); // delete original
+                    @unlink($inputPath); // optional: delete original
                     $player->image_path = 'player_images/' . $outputFilename;
                 } else {
-                    throw new \Exception('Background removal failed.');
+                    throw new \Exception('Python script failed: ' . $output);
                 }
             } catch (\Exception $e) {
-                Log::error("Background removal error (update): " . $e->getMessage());
+                Log::error("Background removal error: " . $e->getMessage());
             }
         }
 
