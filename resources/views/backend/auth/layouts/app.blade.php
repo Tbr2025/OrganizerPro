@@ -15,9 +15,9 @@
     @vite(['resources/js/app.js', 'resources/css/app.css'])
 
     @if (!empty(config('settings.global_custom_css')))
-    <style>
-        /* {!! config('settings.global_custom_css') !!} */
-    </style>
+        <style>
+            /* {!! config('settings.global_custom_css') !!} */
+        </style>
     @endif
 
     @include('backend.layouts.partials.integration-scripts')
@@ -54,8 +54,9 @@ $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(valu
                         </div>
                     </div>
 
-                    <div
-                        class="relative items-center hidden w-full h-full bg-gray-900 dark:bg-white/5 lg:grid lg:w-1/2">
+                    <div class="relative items-center hidden w-full h-full lg:grid lg:w-1/2"
+                        style="background: linear-gradient(to bottom, rgb(0, 86, 37) 33%,  rgb(8, 3, 94) 67%);">
+
                         <div class="flex items-center justify-center z-1">
                             <!-- ===== Common Grid Shape Start ===== -->
                             <div class="absolute right-0 top-0 -z-1 w-full max-w-[250px] xl:max-w-[450px]">
@@ -67,16 +68,18 @@ $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(valu
 
                             <div class="flex flex-col items-center max-w-xs">
                                 <a href="#" class="block mb-4">
-                                    <img src="/images/logo/logo.png" alt="Logo">
+                                    <img src="{{ config('settings.site_logo_lite') ?? asset('images/logo/lara-dashboard.png') }}"
+                                        alt="{{ config('app.name') }}">
                                 </a>
-                              
+
                             </div>
                         </div>
                     </div>
                     <!-- Toggler -->
                     <div class="fixed z-50 hidden bottom-6 right-6 sm:flex gap-2 items-center justify-center">
                         @include('backend.layouts.partials.locale-switcher', [
-                            'buttonClass' => 'inline-flex items-center justify-center text-white transition-colors rounded-full size-14 bg-brand-500 hover:bg-brand-600',
+                            'buttonClass' =>
+                                'inline-flex items-center justify-center text-white transition-colors rounded-full size-14 bg-brand-500 hover:bg-brand-600',
                             'iconClass' => 'text-white',
                             'iconSize' => '24',
                         ])
@@ -106,9 +109,9 @@ $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(valu
     @stack('scripts')
 
     @if (!empty(config('settings.global_custom_js')))
-    <script>
-        {!! config('settings.global_custom_js') !!}
-    </script>
+        <script>
+            {!! config('settings.global_custom_js') !!}
+        </script>
     @endif
 </body>
 

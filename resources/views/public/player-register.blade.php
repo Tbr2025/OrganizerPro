@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <title>You Selects - IPL - Player Registration</title>
     <meta name="title" content="You Selects - IPL - Player Registration" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <meta name="description"
         content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
 
