@@ -555,75 +555,63 @@ class PlayerController extends Controller
         //         Log::error("Background removal error (update): " . $e->getMessage());
         //     }
         // }
-        if ($request->hasFile('image_path')) {
-            Log::debug('Image upload started.');
+  if ($request->hasFile('image_path')) {
+    Log::debug('Image upload started.');
 
-            // Remove old image if exists
-            if ($player->image_path) {
-                Storage::delete('public/' . $player->image_path);
-                Log::debug('Old image deleted: ' . $player->image_path);
-            }
+    // Remove old image
+    if ($player->image_path) {
+        Storage::delete('public/' . $player->image_path);
+        Log::debug('Old image deleted: ' . $player->image_path);
+    }
 
-            $imageFile = $request->file('image_path');
+    $imageFile = $request->file('image_path');
 
-            // Save original uploaded image
-            $originalFilename = $imageFile->hashName();
-            $destinationDir = storage_path('app/public/player_images/');
+    // Save uploaded file
+    $originalFilename = $imageFile->hashName();
+    $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
+    $inputPath = storage_path('app/public/player_images/' . $originalFilename);
 
-            // Ensure directory exists
-            if (!file_exists($destinationDir)) {
-                mkdir($destinationDir, 0775, true);
-                Log::debug('Directory created: ' . $destinationDir);
-            }
+    Log::debug("Uploaded image saved to: $inputPath");
 
-            // Set permissions before shell execution
-            @shell_exec('sudo chown -R www-data:www-data ' . escapeshellarg($destinationDir));
-            @shell_exec('sudo chmod -R 775 ' . escapeshellarg($destinationDir));
-            Log::debug('Permissions fixed for: ' . $destinationDir);
+    // Output path
+    $outputFilename = 'processed-' . Str::random(8) . '.png';
+    $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Move file to destination
-            $imageFile->move($destinationDir, $originalFilename);
-            $inputPath = $destinationDir . $originalFilename;
-            Log::debug('Uploaded image saved to: ' . $inputPath);
+    // Ensure permissions
+    $playerImageDir = storage_path('app/public/player_images/');
+    exec("chmod -R 775 " . escapeshellarg($playerImageDir));
+    exec("chown -R www-data:www-data " . escapeshellarg($playerImageDir));
+    Log::debug("Permissions fixed for: $playerImageDir");
 
-            // Define output file path
-            $outputFilename = 'processed-' . Str::random(8) . '.png';
-            $outputPath = $destinationDir . $outputFilename;
+    // Python command
+    $pythonBinary = base_path('rembg-env/bin/python');
+    $pythonScript = base_path('resources/scripts/remove_bg.py');
 
-            // Python script and interpreter paths
-            $pythonScript = base_path('resources/scripts/remove_bg.py');
-            $pythonBinary = base_path('rembg-env/bin/python');
+    $command = implode(' ', [
+        escapeshellcmd($pythonBinary),
+        escapeshellarg($pythonScript),
+        escapeshellarg($inputPath),
+        escapeshellarg($outputPath),
+        '2>&1' // ✅ Redirect stderr to stdout
+    ]);
 
-            // Prepare command
-            $command = implode(' ', [
-                escapeshellcmd($pythonBinary),
-                escapeshellarg($pythonScript),
-                escapeshellarg($inputPath),
-                escapeshellarg($outputPath),
-            ]);
+    Log::debug('Executing shell command: ' . $command);
 
-            Log::debug('Executing shell command: ' . $command);
+    try {
+        $output = shell_exec($command);
+        Log::debug('Shell output: ' . $output);
 
-            try {
-                $output = shell_exec($command);
-
-                Log::debug('Shell output: ' . $output);
-
-                if (file_exists($outputPath)) {
-                    // Optionally remove input
-                    @unlink($inputPath);
-                    Log::debug('Input file deleted: ' . $inputPath);
-
-                    $player->image_path = 'player_images/' . $outputFilename;
-                    $player->save();
-                    Log::debug('Processed image saved to player: ' . $player->image_path);
-                } else {
-                    throw new \Exception('Python script failed or output not found. Output: ' . $output);
-                }
-            } catch (\Exception $e) {
-                Log::error("Background removal error: " . $e->getMessage());
-            }
+        if (file_exists($outputPath)) {
+            @unlink($inputPath); // optional
+            $player->image_path = 'player_images/' . $outputFilename;
+        } else {
+            throw new \Exception('Python script failed or output not found. Output: ' . $output);
         }
+    } catch (\Exception $e) {
+        Log::error("Background removal error: " . $e->getMessage());
+    }
+}
+
 
 
         // If clear image checkbox was checked
