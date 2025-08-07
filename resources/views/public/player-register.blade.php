@@ -14,7 +14,7 @@
     <meta property="og:title" content="You Selects - IPL - Player Registration" />
     <meta property="og:description"
         content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
-    <meta property="og:image" content="https://metatags.io/images/meta-tags.png" />
+    <meta property="og:image" content="https://sportzley.com/images/logo/logo.png" />
 
     <!-- X (Twitter) -->
     <meta property="twitter:card" content="summary_large_image" />
@@ -22,7 +22,7 @@
     <meta property="twitter:title" content="You Selects - IPL - Player Registration" />
     <meta property="twitter:description"
         content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
-    <meta property="twitter:image" content="https://metatags.io/images/meta-tags.png" />
+    <meta property="twitter:image" content="https://sportzley.com/images/logo/logo.png" />
 
 
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
