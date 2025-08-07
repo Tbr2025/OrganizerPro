@@ -279,7 +279,7 @@
                 <p class="text-lg md:text-xl font-bold uppercase tracking-widest text-yellow-400 mb-2 animate-pulse">
                     Let the Battle Begins
                 </p>
-                <img src="{{ asset('images/logo/logo.png') }}" alt="IPL Logo" class="mx-auto my-4 w-[250px] h-auto">
+                <img src="{{ asset('images/logo/landing.png') }}" alt="IPL Logo" class="mx-auto my-4 w-[250px] h-auto">
 
 
 
