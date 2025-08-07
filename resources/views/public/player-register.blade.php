@@ -4,27 +4,26 @@
 <head>
     <meta charset="UTF-8">
     <title>You Selects - IPL - Player Registration</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Primary Meta Tags -->
-    <meta name="title" content="You Selects - IPL Player Registration">
+    <meta name="title" content="You Selects - IPL - Player Registration" />
     <meta name="description"
-        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!">
+        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
 
     <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://sportzley.com/">
-    <meta property="og:title" content="You Selects - IPL Player Registration">
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sportzley.com/player/register" />
+    <meta property="og:title" content="You Selects - IPL - Player Registration" />
     <meta property="og:description"
-        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!">
-    <meta property="og:image" content="https://sportzley.com/images/logo/logo.png">
+        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
+    <meta property="og:image" content="https://metatags.io/images/meta-tags.png" />
 
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://sportzley.com/">
-    <meta name="twitter:title" content="You Selects - IPL Player Registration">
-    <meta name="twitter:description"
-        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!">
-    <meta name="twitter:image" content="https://sportzley.com/images/logo/logo.png">
+    <!-- X (Twitter) -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://sportzley.com/player/register" />
+    <meta property="twitter:title" content="You Selects - IPL - Player Registration" />
+    <meta property="twitter:description"
+        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
+    <meta property="twitter:image" content="https://metatags.io/images/meta-tags.png" />
+
 
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link
