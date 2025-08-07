@@ -18,7 +18,6 @@ class PlayerTypesSeeder extends Seeder
             ['type' => 'Batsman'],
             ['type' => 'Bowler'],
             ['type' => 'All-Rounder'],
-            ['type' => 'Wicket Keeper'],
             ['type' => 'Captain'],
             ['type' => 'Vice-Captain'],
             ['type' => 'Substitute'],

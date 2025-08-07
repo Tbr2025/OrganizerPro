@@ -267,7 +267,7 @@
         <div class="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
             <div class="bg-gray-700 p-8 rounded-xl shadow-lg border border-yellow-500">
                 <h2 class="text-3xl font-bold mb-3 text-yellow-400">📅 Auction Date</h2>
-                <p class="text-xl text-gray-200">23rd August 2025</p>
+                <p class="text-xl text-gray-200">15th August 2025</p>
             </div>
             <div class="bg-gray-700 p-8 rounded-xl shadow-lg border border-yellow-500">
                 <h2 class="text-3xl font-bold mb-3 text-yellow-400">📅 Tournament Schedule</h2>
@@ -408,8 +408,7 @@
 
                     <div x-data="{ showTooltip: false }" class="relative ml-2 tooltip-container">
                         <i class="fas fa-info-circle text-gray-400 hover:text-yellow-400 cursor-pointer"
-       @mouseenter="showTooltip = true"
-       @mouseleave="showTooltip = false"></i>
+                            @mouseenter="showTooltip = true" @mouseleave="showTooltip = false"></i>
                         <div x-show="showTooltip" @click.outside="showTooltip = false"
                             x-transition:enter="transition ease-out duration-100"
                             x-transition:enter-start="opacity-0 scale-95"
@@ -631,12 +630,12 @@
                 @enderror
             </div>
 
-            {{-- Kit Size --}}
+            {{-- Jersey Size --}}
             <div>
-                <label for="kit_size_id" class="block font-semibold mb-1">Kit Size <span
+                <label for="kit_size_id" class="block font-semibold mb-1">Jersey Size <span
                         class="text-red-500">*</span> </label>
                 <select name="kit_size_id" id="kit_size_id" class="w-full px-3 py-2 border rounded text-black">
-                    <option value="">Select Kit Size</option>
+                    <option value="">Select Jersey Size</option>
                     @foreach ($kitSizes as $kit)
                         <option value="{{ $kit->id }}" @selected(old('kit_size_id') == $kit->id)>{{ $kit->size }}
                         </option>
@@ -748,16 +747,6 @@
 
 
             <div class="md:col-span-2 space-y-4 mt-6">
-                <label class="inline-flex items-start space-x-2">
-                    <input type="checkbox" name="accept_terms" required class="mt-0 accent-yellow-500">
-                    <span class="text-sm text-gray-200">
-                        I agree to the
-                        <a href="{{ route('policies.terms') }}" target="_blank"
-                            class="underline text-yellow-400 hover:text-yellow-300">
-                            Terms and Conditions
-                        </a>
-                    </span>
-                </label>
 
                 <label class="inline-flex items-start space-x-2">
                     <input type="checkbox" name="accept_availability" required class="mt-0 accent-yellow-500">
@@ -781,9 +770,7 @@
                     </span>
                 </label>
 
-                @error('accept_terms')
-                    <p class="text-sm text-red-600">{{ $message }}</p>
-                @enderror
+    
                 @error('accept_availability')
                     <p class="text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -804,7 +791,7 @@
     </section>
 
     <footer class="text-center text-gray-500 text-sm mt-10 py-6 bg-gray-900">
-        &copy; {{ now()->year }} You Selects - IPL. All rights reserved.
+        &copy; {{ now()->year }} Sportzley Powered by TBR
     </footer>
 
 </body>

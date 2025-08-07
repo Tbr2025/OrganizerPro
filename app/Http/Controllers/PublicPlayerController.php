@@ -60,7 +60,7 @@ class PublicPlayerController extends Controller
             'batting_profile_id' => 'required|exists:batting_profiles,id',
             'bowling_profile_id' => 'required|exists:bowling_profiles,id',
             'player_type_id' => 'required|exists:player_types,id',
-            'accept_terms' => 'accepted',
+    
             'accept_availability' => 'accepted',
             'accept_auction_commitment' => 'accepted',
             'no_travel_plan' => 'nullable|boolean',

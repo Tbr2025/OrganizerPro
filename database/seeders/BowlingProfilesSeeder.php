@@ -13,13 +13,14 @@ class BowlingProfilesSeeder extends Seeder
      */
     public function run(): void
     {
-           DB::table('bowling_profiles')->insert([
+        DB::table('bowling_profiles')->insert([
             ['style' => 'Right-arm Fast'],
             ['style' => 'Right-arm Medium'],
             ['style' => 'Right-arm Offbreak'],
             ['style' => 'Left-arm Fast'],
             ['style' => 'Left-arm Orthodox'],
             ['style' => 'Left-arm Chinaman'],
-        ]);//
+            ['style' => 'Leg Spin ']
+        ]); //
     }
 }
