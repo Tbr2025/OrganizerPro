@@ -547,7 +547,8 @@ class PlayerController extends Controller
     $command = "{$escapedPython} {$escapedScript} {$escapedInput} {$escapedOutput}";
 
     try {
-        shell_exec($command);
+$output = shell_exec($command . ' 2>&1');  // Capture stderr too
+Log::debug("Rembg command output: " . $output);
 
         if (file_exists($outputPath)) {
             @unlink($inputPath); // delete original
