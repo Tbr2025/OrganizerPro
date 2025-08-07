@@ -380,7 +380,7 @@
 
             {{-- Team Selection Dropdown --}}
             <div x-data="{ selectedTeam: '{{ old('team_id') }}', newTeamName: '{{ old('team_name_ref') }}' }">
-                <label for="team_id" class="block font-semibold mb-1">Select Team <span
+                <label for="team_id" class="block font-semibold mb-1">Select Team ( Currently Playing) <span
                         class="text-red-500">*</span> </label>
                 <select name="team_id" id="team_id" class="w-full px-3 py-2 border rounded text-black"
                     x-model="selectedTeam" @change="newTeamName = ''" required>
