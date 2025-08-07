@@ -253,3 +253,13 @@ Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, 
 
     return view('public.player-verified-success'); // ✅ create this Blade file
 })->middleware('signed')->name('public.verification.verify');
+
+
+Route::get('/test-mail', function () {
+    \Illuminate\Support\Facades\Mail::raw('Test mail from Laravel on EC2', function ($message) {
+        $message->to('navasfazil@gmail.com')
+            ->subject('Test Email');
+    });
+
+    return 'Mail Sent!';
+});
