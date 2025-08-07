@@ -556,54 +556,72 @@ class PlayerController extends Controller
         //     }
         // }
         if ($request->hasFile('image_path')) {
+            Log::debug('Image upload started.');
+
+            // Remove old image if exists
+            if ($player->image_path) {
+                Storage::delete('public/' . $player->image_path);
+                Log::debug('Old image deleted: ' . $player->image_path);
+            }
+
+            $imageFile = $request->file('image_path');
+
+            // Save original uploaded image
+            $originalFilename = $imageFile->hashName();
+            $destinationDir = storage_path('app/public/player_images/');
+
+            // Ensure directory exists
+            if (!file_exists($destinationDir)) {
+                mkdir($destinationDir, 0775, true);
+                Log::debug('Directory created: ' . $destinationDir);
+            }
+
+            // Set permissions before shell execution
+            @shell_exec('sudo chown -R www-data:www-data ' . escapeshellarg($destinationDir));
+            @shell_exec('sudo chmod -R 775 ' . escapeshellarg($destinationDir));
+            Log::debug('Permissions fixed for: ' . $destinationDir);
+
+            // Move file to destination
+            $imageFile->move($destinationDir, $originalFilename);
+            $inputPath = $destinationDir . $originalFilename;
+            Log::debug('Uploaded image saved to: ' . $inputPath);
+
+            // Define output file path
+            $outputFilename = 'processed-' . Str::random(8) . '.png';
+            $outputPath = $destinationDir . $outputFilename;
+
+            // Python script and interpreter paths
+            $pythonScript = base_path('resources/scripts/remove_bg.py');
+            $pythonBinary = base_path('rembg-env/bin/python');
+
+            // Prepare command
+            $command = implode(' ', [
+                escapeshellcmd($pythonBinary),
+                escapeshellarg($pythonScript),
+                escapeshellarg($inputPath),
+                escapeshellarg($outputPath),
+            ]);
+
+            Log::debug('Executing shell command: ' . $command);
+
             try {
-                // Remove old image if exists
-                if ($player->image_path) {
-                    Storage::delete('public/' . $player->image_path);
-                }
-
-                $imageFile = $request->file('image_path');
-
-                // Save original uploaded image
-                $originalFilename = $imageFile->hashName();
-                $destinationDir = storage_path('app/public/player_images/');
-
-                // Check write permission
-                if (!is_writable($destinationDir)) {
-                    throw new \Exception("Directory not writable: {$destinationDir}");
-                }
-
-                // Move uploaded image
-                $imageFile->move($destinationDir, $originalFilename);
-                $inputPath = $destinationDir . $originalFilename;
-
-                // Output file
-                $outputFilename = 'processed-' . Str::random(8) . '.png';
-                $outputPath = $destinationDir . $outputFilename;
-
-                // Script & interpreter path
-                $pythonScript = base_path('resources/scripts/remove_bg.py');
-                $pythonBinary = base_path('rembg-env/bin/python');
-
-                // Shell-safe command
-                $command = implode(' ', [
-                    escapeshellcmd($pythonBinary),
-                    escapeshellarg($pythonScript),
-                    escapeshellarg($inputPath),
-                    escapeshellarg($outputPath),
-                ]);
-
-                // Execute command
                 $output = shell_exec($command);
 
+                Log::debug('Shell output: ' . $output);
+
                 if (file_exists($outputPath)) {
-                    @unlink($inputPath); // delete original
+                    // Optionally remove input
+                    @unlink($inputPath);
+                    Log::debug('Input file deleted: ' . $inputPath);
+
                     $player->image_path = 'player_images/' . $outputFilename;
+                    $player->save();
+                    Log::debug('Processed image saved to player: ' . $player->image_path);
                 } else {
-                    throw new \Exception("Background removal failed. Script output: " . $output);
+                    throw new \Exception('Python script failed or output not found. Output: ' . $output);
                 }
             } catch (\Exception $e) {
-                Log::error("Image processing error for player ID {$player->id}: " . $e->getMessage());
+                Log::error("Background removal error: " . $e->getMessage());
             }
         }
 
