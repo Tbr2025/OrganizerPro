@@ -588,14 +588,23 @@ class PlayerController extends Controller
             $pythonScript = base_path('resources/scripts/remove_bg.py');
 
             $xdgCacheHome = "/var/www/OrganizerPro/storage/rembg-models";
+            $numbaCacheDir = "/var/www/OrganizerPro/storage/rembg-numba";
+
             $command = implode(' ', [
                 "XDG_CACHE_HOME={$xdgCacheHome}",
+                "NUMBA_CACHE_DIR={$numbaCacheDir}",
                 escapeshellcmd($pythonBinary),
                 escapeshellarg($pythonScript),
                 escapeshellarg($inputPath),
                 escapeshellarg($outputPath),
-                '2>&1' // Redirect stderr to stdout
+                '2>&1'
             ]);
+            // Ensure cache dirs exist
+            @mkdir($xdgCacheHome, 0775, true);
+            @mkdir($numbaCacheDir, 0775, true);
+            exec("chown -R www-data:www-data " . escapeshellarg($xdgCacheHome));
+            exec("chown -R www-data:www-data " . escapeshellarg($numbaCacheDir));
+
 
 
 

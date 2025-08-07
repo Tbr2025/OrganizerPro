@@ -1,9 +1,6 @@
 import sys
 import os
 
-# Set writable cache directories
-os.environ["XDG_CACHE_HOME"] = "/var/www/OrganizerPro/storage/framework/cache/.rembg"
-os.environ["NUMBA_CACHE_DIR"] = "/var/www/OrganizerPro/storage/framework/cache/.numba"
 
 from rembg import remove
 from PIL import Image
