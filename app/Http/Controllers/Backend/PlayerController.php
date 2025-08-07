@@ -555,62 +555,66 @@ class PlayerController extends Controller
         //         Log::error("Background removal error (update): " . $e->getMessage());
         //     }
         // }
-  if ($request->hasFile('image_path')) {
-    Log::debug('Image upload started.');
+        if ($request->hasFile('image_path')) {
+            Log::debug('Image upload started.');
 
-    // Remove old image
-    if ($player->image_path) {
-        Storage::delete('public/' . $player->image_path);
-        Log::debug('Old image deleted: ' . $player->image_path);
-    }
+            // Remove old image
+            if ($player->image_path) {
+                Storage::delete('public/' . $player->image_path);
+                Log::debug('Old image deleted: ' . $player->image_path);
+            }
 
-    $imageFile = $request->file('image_path');
+            $imageFile = $request->file('image_path');
 
-    // Save uploaded file
-    $originalFilename = $imageFile->hashName();
-    $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
-    $inputPath = storage_path('app/public/player_images/' . $originalFilename);
+            // Save uploaded file
+            $originalFilename = $imageFile->hashName();
+            $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
+            $inputPath = storage_path('app/public/player_images/' . $originalFilename);
 
-    Log::debug("Uploaded image saved to: $inputPath");
+            Log::debug("Uploaded image saved to: $inputPath");
 
-    // Output path
-    $outputFilename = 'processed-' . Str::random(8) . '.png';
-    $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+            // Output path
+            $outputFilename = 'processed-' . Str::random(8) . '.png';
+            $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-    // Ensure permissions
-    $playerImageDir = storage_path('app/public/player_images/');
-    exec("chmod -R 775 " . escapeshellarg($playerImageDir));
-    exec("chown -R www-data:www-data " . escapeshellarg($playerImageDir));
-    Log::debug("Permissions fixed for: $playerImageDir");
+            // Ensure permissions
+            $playerImageDir = storage_path('app/public/player_images/');
+            exec("chmod -R 775 " . escapeshellarg($playerImageDir));
+            exec("chown -R www-data:www-data " . escapeshellarg($playerImageDir));
+            Log::debug("Permissions fixed for: $playerImageDir");
 
-    // Python command
-    $pythonBinary = base_path('rembg-env/bin/python');
-    $pythonScript = base_path('resources/scripts/remove_bg.py');
+            // Python command
+            $pythonBinary = base_path('rembg-env/bin/python');
+            $pythonScript = base_path('resources/scripts/remove_bg.py');
 
-    $command = implode(' ', [
-        escapeshellcmd($pythonBinary),
-        escapeshellarg($pythonScript),
-        escapeshellarg($inputPath),
-        escapeshellarg($outputPath),
-        '2>&1' // ✅ Redirect stderr to stdout
-    ]);
+            $xdgCacheHome = "/var/www/OrganizerPro/storage/rembg-models";
+            $command = implode(' ', [
+                "XDG_CACHE_HOME={$xdgCacheHome}",
+                escapeshellcmd($pythonBinary),
+                escapeshellarg($pythonScript),
+                escapeshellarg($inputPath),
+                escapeshellarg($outputPath),
+                '2>&1' // Redirect stderr to stdout
+            ]);
 
-    Log::debug('Executing shell command: ' . $command);
 
-    try {
-        $output = shell_exec($command);
-        Log::debug('Shell output: ' . $output);
 
-        if (file_exists($outputPath)) {
-            @unlink($inputPath); // optional
-            $player->image_path = 'player_images/' . $outputFilename;
-        } else {
-            throw new \Exception('Python script failed or output not found. Output: ' . $output);
+            Log::debug('Executing shell command: ' . $command);
+
+            try {
+                $output = shell_exec($command);
+                Log::debug('Shell output: ' . $output);
+
+                if (file_exists($outputPath)) {
+                    @unlink($inputPath); // optional
+                    $player->image_path = 'player_images/' . $outputFilename;
+                } else {
+                    throw new \Exception('Python script failed or output not found. Output: ' . $output);
+                }
+            } catch (\Exception $e) {
+                Log::error("Background removal error: " . $e->getMessage());
+            }
         }
-    } catch (\Exception $e) {
-        Log::error("Background removal error: " . $e->getMessage());
-    }
-}
 
 
 
