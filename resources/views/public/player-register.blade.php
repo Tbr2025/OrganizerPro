@@ -5,6 +5,27 @@
     <meta charset="UTF-8">
     <title>You Selects - IPL - Player Registration</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="You Selects - IPL Player Registration">
+    <meta name="description"
+        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sportzley.com/">
+    <meta property="og:title" content="You Selects - IPL Player Registration">
+    <meta property="og:description"
+        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!">
+    <meta property="og:image" content="https://sportzley.com/images/logo/logo.png">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://sportzley.com/">
+    <meta name="twitter:title" content="You Selects - IPL Player Registration">
+    <meta name="twitter:description"
+        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!">
+    <meta name="twitter:image" content="https://sportzley.com/images/logo/logo.png">
+
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link
         href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap"
@@ -770,7 +791,7 @@
                     </span>
                 </label>
 
-    
+
                 @error('accept_availability')
                     <p class="text-sm text-red-600">{{ $message }}</p>
                 @enderror
