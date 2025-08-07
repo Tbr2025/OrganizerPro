@@ -1,10 +1,11 @@
 import os
-os.environ["NUMBA_CACHE_DIR"] = "/tmp"  # Optional: redirect cache if needed
-os.environ["NUMBA_DISABLE_CACHE"] = "1"
-
+import sys
 from rembg import remove
 from PIL import Image
-import sys
+
+# Set a safe, writable cache directory
+os.environ["U2NET_HOME"] = "/var/www/OrganizerPro/storage/app/.u2net"
+os.environ["NUMBA_DISABLE_CACHE"] = "1"
 
 input_path = sys.argv[1]
 output_path = sys.argv[2]
