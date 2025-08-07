@@ -70,7 +70,6 @@
             display: inline-block;
         }
 
-
         .tooltip-content {
             position: absolute;
             background-color: #2d3748;
@@ -200,16 +199,6 @@
             margin: 0.5rem;
             color: #000;
         }
-
-        @media screen and (max-width: 767px) {
-            .tooltip-content {
-                position: relative;
-                width: 100%;
-                max-width: 100%;
-                padding: 1rem;
-                /* Reduce padding slightly */
-                font-size: 0.875rem;
-            }
     </style>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -441,27 +430,35 @@
 
                     <div x-data="{ showTooltip: false }" class="relative ml-2 tooltip-container">
                         <i class="fas fa-info-circle text-gray-400 hover:text-yellow-400 cursor-pointer"
-                            @mouseenter="showTooltip = true" @mouseleave="showTooltip = false"></i>
+                            @mouseenter="showTooltip = true" @mouseleave="showTooltip = false"
+                            @click="showTooltip = !showTooltip"></i>
+
                         <div x-show="showTooltip" @click.outside="showTooltip = false"
                             x-transition:enter="transition ease-out duration-100"
                             x-transition:enter-start="opacity-0 scale-95"
                             x-transition:enter-end="opacity-100 scale-100"
                             x-transition:leave="transition ease-in duration-75"
                             x-transition:leave-start="opacity-100 scale-100"
-                            x-transition:leave-end="opacity-0 scale-95" class="tooltip-content"
+                            x-transition:leave-end="opacity-0 scale-95"
+                            class="tooltip-content absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-80 max-w-[90vw] text-sm text-gray-800"
                             style="display: none;">
-                            <p class="text-sm mb-2">For best results, please upload an image with:</p>
-                            <ul class="list-disc list-inside text-sm mb-2">
-                                <li>**3:4 Aspect Ratio** (e.g., 300px width x 400px height minimum)</li>
-                                <li>**Average Quality** (not too high resolution, around 1MB-2MB)</li>
-                                <li>**Background Removed** (transparent )</li>
+                            <p class="mb-2">For best results, please upload an image with:</p>
+                            <ul class="list-disc list-inside mb-3 space-y-1">
+                                <li><span class="font-semibold">3:4 Aspect Ratio</span> (e.g., 300px width x 400px
+                                    height minimum)</li>
+                                <li><span class="font-semibold">Average Quality</span> (around 1MB–2MB)</li>
+                                <li><span class="font-semibold">Background Removed</span> (transparent)</li>
                             </ul>
-                            <p class="text-sm font-semibold mb-1">Example:</p>
+                            <p class="font-semibold mb-2">Example:</p>
                             <img src="https://organizerpro.booklyman.com/images/product/example.png"
-                                alt="Example Player Image" class="w-24 h-auto rounded border border-gray-600">
-                            <p class="text-xs text-gray-400 mt-2">Ensure the player's face is clearly visible.</p>
+                                alt="Example Player Image"
+                                class="w-24 h-auto rounded border border-gray-600 mx-auto sm:mx-0">
+                            <p class="text-xs text-gray-500 mt-3 text-center sm:text-left">
+                                Ensure the player's face is clearly visible.
+                            </p>
                         </div>
                     </div>
+
                 </label>
 
                 {{-- Upload & Preview --}}
