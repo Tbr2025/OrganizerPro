@@ -199,6 +199,18 @@
             margin: 0.5rem;
             color: #000;
         }
+
+
+        @media screen and (max-width: 767px) {
+            .tooltip-content {
+                position: relative;
+                width: 100%;
+                max-width: 100%;
+                padding: 1rem;
+                /* Reduce padding slightly */
+                font-size: 0.875rem;
+            }
+        }
     </style>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -430,7 +442,7 @@
 
                     <div x-data="{ showTooltip: false }" class="relative ml-2 tooltip-container">
                         <i class="fas fa-info-circle text-gray-400 hover:text-yellow-400 cursor-pointer"
-                            @mouseenter="showTooltip = true" @mouseleave="showTooltip = false"
+                            @mouseclick="showTooltip = true" 
                             @click="showTooltip = !showTooltip"></i>
 
                         <div x-show="showTooltip" @click.outside="showTooltip = false"
