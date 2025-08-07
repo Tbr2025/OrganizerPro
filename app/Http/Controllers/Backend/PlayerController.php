@@ -557,12 +557,10 @@ class PlayerController extends Controller
         //     }
         // }
         if ($request->hasFile('image_path')) {
-            Log::info('--- Background Removal Process Started ---');
 
             // 1. Delete the old image if it exists
             if ($player->image_path && Storage::disk('public')->exists($player->image_path)) {
                 Storage::disk('public')->delete($player->image_path);
-                Log::info('Old image deleted: ' . $player->image_path);
             }
 
             $imageFile = $request->file('image_path');
@@ -572,7 +570,6 @@ class PlayerController extends Controller
             // Use the Storage facade, it's cleaner
             $imageFile->storeAs('public/player_images', $originalFilename);
             $inputPath = storage_path('app/public/player_images/' . $originalFilename);
-            Log::info("Uploaded image saved to: $inputPath");
 
             // 3. Define paths for the background removal script
             $outputFilename = 'processed-' . Str::random(10) . '.png';
@@ -588,7 +585,6 @@ class PlayerController extends Controller
             // 4. Ensure the cache directory exists (this is safe to run every time)
             // This is better than shelling out to mkdir
             File::ensureDirectoryExists($cachePath);
-            Log::info("Cache directory ensured at: $cachePath");
 
             // 5. Build the shell command using the CORRECT environment variable
             $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
@@ -597,17 +593,14 @@ class PlayerController extends Controller
                 escapeshellarg($inputPath) . ' ' .
                 escapeshellarg($outputPath) . ' 2>&1'; // 2>&1 captures errors
 
-            Log::info('Executing shell command: ' . $command);
 
             try {
                 // 6. Execute the command
                 set_time_limit(300); // Allow up to 5 minutes for execution
                 $output = shell_exec($command);
-                Log::info('Shell output: ' . $output);
 
                 // 7. Verify the result and update the model
                 if (File::exists($outputPath)) {
-                    Log::info('Success! Output file created.');
                     // Delete the original uploaded file (optional)
                     File::delete($inputPath);
 
@@ -623,7 +616,6 @@ class PlayerController extends Controller
                 // return back()->withErrors(['image_path' => 'Failed to process the image.']);
             }
 
-            Log::info('--- Background Removal Process Finished ---');
         }
 
 

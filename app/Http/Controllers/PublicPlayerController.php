@@ -11,6 +11,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Notifications\CustomVerifyEmail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -60,7 +61,7 @@ class PublicPlayerController extends Controller
             'batting_profile_id' => 'required|exists:batting_profiles,id',
             'bowling_profile_id' => 'required|exists:bowling_profiles,id',
             'player_type_id' => 'required|exists:player_types,id',
-    
+
             'accept_availability' => 'accepted',
             'accept_auction_commitment' => 'accepted',
             'no_travel_plan' => 'nullable|boolean',
@@ -122,12 +123,49 @@ class PublicPlayerController extends Controller
         ]);
 
 
-        // Create user
-        $username = Str::slug(Str::before($validated['email'], '@'), '_');
-        if (User::where('username', $username)->exists()) {
-            $username .= '_' . Str::random(5);
-        }
+    Log::info('--- Background Removal Process Starting ---');
+    $finalImagePath = null;
 
+    $imageFile = $validated['image']; // Get the validated file object
+    $originalTempName = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
+    $imageFile->storeAs('public/player_images', $originalTempName); // Save temporarily
+    $inputPath = storage_path('app/public/player_images/' . $originalTempName);
+
+    // Define paths and command exactly like in the working test
+    $outputFilename = 'processed-' . Str::random(10) . '.png';
+    $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+    $pythonBinary = '/var/www/OrganizerPro/rembg-env/bin/python'; // Absolute path to venv python
+    $pythonScript = resource_path('scripts/remove_bg.py');
+    $cachePath = storage_path('app/rembg_cache');
+    File::ensureDirectoryExists($cachePath); // Ensure cache dir exists
+
+    $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+               escapeshellcmd($pythonBinary) . ' ' .
+               escapeshellarg($pythonScript) . ' ' .
+               escapeshellarg($inputPath) . ' ' .
+               escapeshellarg($outputPath) . ' 2>&1'; // Crucially, capture errors
+
+    Log::info('Executing shell command: ' . $command);
+    $shellOutput = shell_exec($command);
+
+    if (!File::exists($outputPath)) {
+        Log::error("Background removal FAILED. Shell Output: " . $shellOutput);
+        File::delete($inputPath); // Clean up the temp file
+        // Return user to form with an error
+        return back()->withInput()->withErrors(['image' => 'Could not process the uploaded image. Please try a different one.']);
+    }
+
+    Log::info("Background removal successful. Output: " . $shellOutput);
+    $finalImagePath = 'player_images/' . $outputFilename;
+    File::delete($inputPath); // Clean up the temp original file
+
+
+    // --- 4. Create Database Records (Only after image is processed) ---
+    $username = Str::slug(Str::before($validated['email'], '@'), '_');
+    if (User::where('username', $username)->exists()) {
+        $username .= '_' . Str::random(5);
+    }
+    $password = Str::random(12);
         $password = Str::random(12);
         $user = User::create([
             'name' => $validated['name'],
@@ -137,11 +175,7 @@ class PublicPlayerController extends Controller
             'email_verified_at' => null,
         ]);
 
-        // Handle image upload
-        $uploadedImage = $request->file('image');
-        $originalFilename = $uploadedImage->hashName();
-        $uploadedImage->move(storage_path('app/public/player_images/'), $originalFilename);
-        $inputPath = storage_path('app/public/player_images/' . $originalFilename);
+       
 
         // Build player data
         $player = Player::create(array_merge([
@@ -151,7 +185,7 @@ class PublicPlayerController extends Controller
             'mobile_national_number' => $validated['mobile_national_number'],
             'mobile_number_full' => $validated['mobile_number_full'],
             'player_type_id' => $validated['player_type_id'],
-            'image_path' => 'player_images/' . $originalFilename,
+            'image_path' => $finalImagePath,
             'is_wicket_keeper' => $request->boolean('wicket_keeper'),
             'transportation_required' => $request->boolean('need_transportation'),
             'status' => 'pending',
@@ -172,26 +206,26 @@ class PublicPlayerController extends Controller
             'cricheroes_number_full'
         ])->mapWithKeys(fn($field) => [$field => $validated[$field] ?? null])->toArray()));
 
-        // Remove image background via Python script
-        $outputFilename = 'processed-' . Str::random(8) . '.png';
-        $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+        // // Remove image background via Python script
+        // $outputFilename = 'processed-' . Str::random(8) . '.png';
+        // $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-        $pythonScript = base_path('resources/scripts/remove_bg.py');
-        $pythonBinary = PHP_OS_FAMILY === 'Windows' ? base_path('venv/Scripts/python.exe') : 'python3';
-        $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+        // $pythonScript = base_path('resources/scripts/remove_bg.py');
+        // $pythonBinary = PHP_OS_FAMILY === 'Windows' ? base_path('venv/Scripts/python.exe') : 'python3';
+        // $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
 
-        try {
-            shell_exec($command);
+        // try {
+        //     shell_exec($command);
 
-            if (file_exists($outputPath)) {
-                @unlink($inputPath); // delete original
-                $player->update(['image_path' => 'player_images/' . $outputFilename]);
-            } else {
-                throw new \Exception('Background removal failed.');
-            }
-        } catch (\Exception $e) {
-            Log::error("Background removal error: " . $e->getMessage());
-        }
+        //     if (file_exists($outputPath)) {
+        //         @unlink($inputPath); // delete original
+        //         $player->update(['image_path' => 'player_images/' . $outputFilename]);
+        //     } else {
+        //         throw new \Exception('Background removal failed.');
+        //     }
+        // } catch (\Exception $e) {
+        //     Log::error("Background removal error: " . $e->getMessage());
+        // }
 
         $user->assignRole('player');
         $user->notify(new CustomVerifyEmail($password));
