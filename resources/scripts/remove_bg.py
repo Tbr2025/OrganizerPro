@@ -1,6 +1,7 @@
 import sys
 import os
-
+os.environ["XDG_CACHE_HOME"] = os.environ.get("XDG_CACHE_HOME", "/tmp/rembg-cache")
+os.environ["NUMBA_CACHE_DIR"] = os.environ.get("NUMBA_CACHE_DIR", "/tmp/numba-cache")
 
 from rembg import remove
 from PIL import Image

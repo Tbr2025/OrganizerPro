@@ -558,7 +558,7 @@ class PlayerController extends Controller
         if ($request->hasFile('image_path')) {
             Log::debug('Image upload started.');
 
-            // Remove old image
+            // Delete old image if present
             if ($player->image_path) {
                 Storage::delete('public/' . $player->image_path);
                 Log::debug('Old image deleted: ' . $player->image_path);
@@ -570,43 +570,43 @@ class PlayerController extends Controller
             $originalFilename = $imageFile->hashName();
             $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
             $inputPath = storage_path('app/public/player_images/' . $originalFilename);
-
             Log::debug("Uploaded image saved to: $inputPath");
 
             // Output path
             $outputFilename = 'processed-' . Str::random(8) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Ensure permissions
+            // Create & fix permissions
             $playerImageDir = storage_path('app/public/player_images/');
             exec("chmod -R 775 " . escapeshellarg($playerImageDir));
             exec("chown -R www-data:www-data " . escapeshellarg($playerImageDir));
             Log::debug("Permissions fixed for: $playerImageDir");
 
-            // Python command
+            // Define env + paths
             $pythonBinary = base_path('rembg-env/bin/python');
             $pythonScript = base_path('resources/scripts/remove_bg.py');
 
-            $xdgCacheHome = "/var/www/OrganizerPro/storage/rembg-models";
-            $numbaCacheDir = "/var/www/OrganizerPro/storage/rembg-numba";
+            $xdgCacheHome = storage_path('rembg-models');
+            $numbaCacheDir = storage_path('rembg-numba');
 
+            // Ensure those directories exist and are writable
+            @mkdir($xdgCacheHome, 0775, true);
+            @mkdir($numbaCacheDir, 0775, true);
+            exec("chown -R www-data:www-data " . escapeshellarg($xdgCacheHome));
+            exec("chmod -R 775 " . escapeshellarg($xdgCacheHome));
+            exec("chown -R www-data:www-data " . escapeshellarg($numbaCacheDir));
+            exec("chmod -R 775 " . escapeshellarg($numbaCacheDir));
+
+            // Build command
             $command = implode(' ', [
-                "XDG_CACHE_HOME={$xdgCacheHome}",
-                "NUMBA_CACHE_DIR={$numbaCacheDir}",
+                "XDG_CACHE_HOME=" . escapeshellarg($xdgCacheHome),
+                "NUMBA_CACHE_DIR=" . escapeshellarg($numbaCacheDir),
                 escapeshellcmd($pythonBinary),
                 escapeshellarg($pythonScript),
                 escapeshellarg($inputPath),
                 escapeshellarg($outputPath),
-                '2>&1'
+                '2>&1' // Log errors too
             ]);
-            // Ensure cache dirs exist
-            @mkdir($xdgCacheHome, 0775, true);
-            @mkdir($numbaCacheDir, 0775, true);
-            exec("chown -R www-data:www-data " . escapeshellarg($xdgCacheHome));
-            exec("chown -R www-data:www-data " . escapeshellarg($numbaCacheDir));
-
-
-
 
             Log::debug('Executing shell command: ' . $command);
 
@@ -615,7 +615,7 @@ class PlayerController extends Controller
                 Log::debug('Shell output: ' . $output);
 
                 if (file_exists($outputPath)) {
-                    @unlink($inputPath); // optional
+                    @unlink($inputPath); // optional: remove original
                     $player->image_path = 'player_images/' . $outputFilename;
                 } else {
                     throw new \Exception('Python script failed or output not found. Output: ' . $output);
@@ -624,6 +624,7 @@ class PlayerController extends Controller
                 Log::error("Background removal error: " . $e->getMessage());
             }
         }
+
 
 
 
