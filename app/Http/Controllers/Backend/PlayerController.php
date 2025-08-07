@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
@@ -556,73 +557,73 @@ class PlayerController extends Controller
         //     }
         // }
         if ($request->hasFile('image_path')) {
-            Log::debug('Image upload started.');
+            Log::info('--- Background Removal Process Started ---');
 
-            // Delete old image if present
-            if ($player->image_path) {
-                Storage::delete('public/' . $player->image_path);
-                Log::debug('Old image deleted: ' . $player->image_path);
+            // 1. Delete the old image if it exists
+            if ($player->image_path && Storage::disk('public')->exists($player->image_path)) {
+                Storage::disk('public')->delete($player->image_path);
+                Log::info('Old image deleted: ' . $player->image_path);
             }
 
             $imageFile = $request->file('image_path');
 
-            // Save uploaded file
-            $originalFilename = $imageFile->hashName();
-            $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
+            // 2. Save the newly uploaded image file
+            $originalFilename = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
+            // Use the Storage facade, it's cleaner
+            $imageFile->storeAs('public/player_images', $originalFilename);
             $inputPath = storage_path('app/public/player_images/' . $originalFilename);
-            Log::debug("Uploaded image saved to: $inputPath");
+            Log::info("Uploaded image saved to: $inputPath");
 
-            // Output path
-            $outputFilename = 'processed-' . Str::random(8) . '.png';
+            // 3. Define paths for the background removal script
+            $outputFilename = 'processed-' . Str::random(10) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Create & fix permissions
-            $playerImageDir = storage_path('app/public/player_images/');
-            exec("chmod -R 775 " . escapeshellarg($playerImageDir));
-            exec("chown -R www-data:www-data " . escapeshellarg($playerImageDir));
-            Log::debug("Permissions fixed for: $playerImageDir");
-
-            // Define env + paths
+            // Use Laravel helpers for robust path definitions
             $pythonBinary = base_path('rembg-env/bin/python');
-            $pythonScript = base_path('resources/scripts/remove_bg.py');
+            $pythonScript = resource_path('scripts/remove_bg.py');
 
-            $xdgCacheHome = storage_path('rembg-models');
-            $numbaCacheDir = storage_path('rembg-numba');
+            // This is the cache directory that we know works from our test
+            $cachePath = storage_path('app/rembg_cache');
 
-            // Ensure those directories exist and are writable
-            @mkdir($xdgCacheHome, 0775, true);
-            @mkdir($numbaCacheDir, 0775, true);
-            exec("chown -R www-data:www-data " . escapeshellarg($xdgCacheHome));
-            exec("chmod -R 775 " . escapeshellarg($xdgCacheHome));
-            exec("chown -R www-data:www-data " . escapeshellarg($numbaCacheDir));
-            exec("chmod -R 775 " . escapeshellarg($numbaCacheDir));
+            // 4. Ensure the cache directory exists (this is safe to run every time)
+            // This is better than shelling out to mkdir
+            File::ensureDirectoryExists($cachePath);
+            Log::info("Cache directory ensured at: $cachePath");
 
-            // Build command
-            $command = implode(' ', [
-                "XDG_CACHE_HOME=" . escapeshellarg($xdgCacheHome),
-                "NUMBA_CACHE_DIR=" . escapeshellarg($numbaCacheDir),
-                escapeshellcmd($pythonBinary),
-                escapeshellarg($pythonScript),
-                escapeshellarg($inputPath),
-                escapeshellarg($outputPath),
-                '2>&1' // Log errors too
-            ]);
+            // 5. Build the shell command using the CORRECT environment variable
+            $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+                escapeshellcmd($pythonBinary) . ' ' .
+                escapeshellarg($pythonScript) . ' ' .
+                escapeshellarg($inputPath) . ' ' .
+                escapeshellarg($outputPath) . ' 2>&1'; // 2>&1 captures errors
 
-            Log::debug('Executing shell command: ' . $command);
+            Log::info('Executing shell command: ' . $command);
 
             try {
+                // 6. Execute the command
+                set_time_limit(300); // Allow up to 5 minutes for execution
                 $output = shell_exec($command);
-                Log::debug('Shell output: ' . $output);
+                Log::info('Shell output: ' . $output);
 
-                if (file_exists($outputPath)) {
-                    @unlink($inputPath); // optional: remove original
+                // 7. Verify the result and update the model
+                if (File::exists($outputPath)) {
+                    Log::info('Success! Output file created.');
+                    // Delete the original uploaded file (optional)
+                    File::delete($inputPath);
+
+                    // The path saved to the DB should be relative to the 'public/storage' folder
                     $player->image_path = 'player_images/' . $outputFilename;
                 } else {
-                    throw new \Exception('Python script failed or output not found. Output: ' . $output);
+                    // Throw an exception if the file wasn't created, including the script's output
+                    throw new \Exception('Python script failed to create the output file. Output: ' . $output);
                 }
             } catch (\Exception $e) {
-                Log::error("Background removal error: " . $e->getMessage());
+                Log::error("Background removal failed: " . $e->getMessage());
+                // Optionally, return an error response to the user
+                // return back()->withErrors(['image_path' => 'Failed to process the image.']);
             }
+
+            Log::info('--- Background Removal Process Finished ---');
         }
 
 
