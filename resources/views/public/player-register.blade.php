@@ -557,7 +557,7 @@
                     @click="$refs.fileInput.click()">
 
                     <input type="file" name="image" id="image" accept="image/png,image/jpeg"
-                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange" capture="environment" required>
+                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange"  required>
 
                     <template x-if="previewUrl">
                         <img :src="previewUrl"
