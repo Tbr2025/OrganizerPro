@@ -34,23 +34,77 @@ use Intervention\Image\ImageManager;
 
 class PlayerController extends Controller
 {
+    // public function index(): View
+    // {
+    //     $this->checkAuthorization(Auth::user(), ['player.view']);
+
+    //     $filters = [
+    //         'search' => request('search'),
+    //         'team_name' => request('team_name'),
+    //     ];
+
+    //     $players = Player::query()
+    //         ->when($filters['search'], fn($q) => $q->where('name', 'like', "%{$filters['search']}%"))
+    //         ->when($filters['team_name'], fn($q) => $q->where('team_name', $filters['team_name']))
+    //         ->latest()
+    //         ->paginate(20);
+
+    //     return view('backend.pages.players.index', [
+    //         'players' => $players,
+    //         'breadcrumbs' => [
+    //             'title' => __('Players'),
+    //         ],
+    //     ]);
+    // }
     public function index(): View
     {
         $this->checkAuthorization(Auth::user(), ['player.view']);
 
         $filters = [
-            'search' => request('search'),
-            'team_name' => request('team_name'),
+            'search'     => request('search'),
+            'team_name'  => request('team_name'),
+            'role'       => request('role'),
+            'status'     => request('status'),
         ];
 
         $players = Player::query()
-            ->when($filters['search'], fn($q) => $q->where('name', 'like', "%{$filters['search']}%"))
-            ->when($filters['team_name'], fn($q) => $q->where('team_name', $filters['team_name']))
+            ->when($filters['search'], function ($q) use ($filters) {
+                $q->where(function ($q) use ($filters) {
+                    $q->where('name', 'like', "%{$filters['search']}%")
+                        ->orWhere('email', 'like', "%{$filters['search']}%");
+                });
+            })
+            ->when($filters['team_name'], function ($q) use ($filters) {
+                $q->whereHas('team', function ($teamQuery) use ($filters) {
+                    $teamQuery->where('name', $filters['team_name']);
+                });
+            })
+            ->when($filters['role'], function ($q) use ($filters) {
+                $q->whereHas('playerType', function ($teamQuery) use ($filters) {
+                    $teamQuery->where('type', $filters['role']);
+                });
+            })
+
+            ->when($filters['status'], function ($q) use ($filters) {
+                if ($filters['status'] === 'verified') {
+                    $q->whereNotNull('welcome_email_sent_at'); // ✅ Only players with date in this column
+                } elseif ($filters['status'] === 'pending') {
+                    $q->whereNull('welcome_email_sent_at');    // ✅ Only players without date
+                }
+            })
+
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->appends($filters);
+
+        // ✅ Fetch teams for dropdown
+        $teams = Team::orderBy('name')->get();
+        $roles = PlayerType::orderBy('type')->get();
 
         return view('backend.pages.players.index', [
-            'players' => $players,
+            'players'     => $players,
+            'teams'       => $teams, // pass here
+            'roles'       => $roles, // pass here
             'breadcrumbs' => [
                 'title' => __('Players'),
             ],

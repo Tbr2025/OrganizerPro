@@ -21,66 +21,42 @@
         {!! ld_apply_filters('users_after_breadcrumbs', '') !!}
 
         <div class="space-y-6">
-            <div class="px-5">
-                <form action="{{ route('admin.players.import') }}" method="POST" enctype="multipart/form-data"
-                    class="flex flex-col md:flex-row items-center gap-4 mb-4">
-                    @csrf
-                    <input type="file" name="csv_file" accept=".csv" required class="form-input" />
-                    <button type="submit" class="btn-primary px-4 py-2">
-                        <iconify-icon icon="lucide:upload" class="mr-1"></iconify-icon>
-                        Import Players
-                    </button>
-                    <a href="{{ route('admin.players.sample') }}" class="btn-secondary px-4 py-2">
-                        <iconify-icon icon="lucide:download" class="mr-1"></iconify-icon>
-                        Download Sample CSV
-                    </a>
-                </form>
-            </div>
+         
 
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-                <div class="px-5 py-4 sm:px-6 sm:py-5 flex flex-col md:flex-row justify-between items-center gap-3">
-                    @include('backend.partials.search-form', [
-                        'placeholder' => __('Search by name or email'),
-                    ])
-                    <div class="flex items-center gap-3">
-                        <div class="flex items-center gap-2">
-                            <div class="flex items-center justify-center" x-show="selectedUsers.length > 0">
-                                <button id="bulkActionsButton" data-dropdown-toggle="bulkActionsDropdown"
-                                    class="btn-secondary flex items-center justify-center gap-2 text-sm" type="button">
-                                    <iconify-icon icon="lucide:more-vertical"></iconify-icon>
-                                    <span>{{ __('Bulk Actions') }} (<span x-text="selectedUsers.length"></span>)</span>
-                                    <iconify-icon icon="lucide:chevron-down"></iconify-icon>
-                                </button>
+                <form method="GET" action="{{ route('admin.players.index') }}" class="flex gap-1">
+                    <div class="px-5 py-4 sm:px-6 sm:py-5 flex flex-col md:flex-row justify-between items-center gap-1">
+                        @include('backend.partials.search-form', [
+                            'placeholder' => __('Search by name or email'),
+                        ])
+                        <select name="team_name" class="form-control !h-11 ">
+                            <option value="">All Teams</option>
+                            @foreach ($teams as $team)
+                                <option value="{{ $team->name }}" @selected(request('team_name') == $team->name)>
+                                    {{ $team->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <select name="role" class="form-control !h-11 ">
+                            <option value="">All Types</option>
+                            @foreach ($roles as $role)
+                                <option value="{{ $role->type }}" @selected(request('role') == $role->type)>
+                                    {{ $role->type }}
+                                </option>
+                            @endforeach
+                        </select>
 
-                                <div id="bulkActionsDropdown"
-                                    class="z-10 hidden w-48 p-2 bg-white rounded-md shadow dark:bg-gray-700">
-                                    <ul class="space-y-2">
-                                        <li class="cursor-pointer flex items-center gap-1 text-sm text-red-600 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-500 dark:hover:text-red-50 px-2 py-1.5 rounded transition-colors duration-300"
-                                            @click="bulkDeleteModalOpen = true">
-                                            <iconify-icon icon="lucide:trash"></iconify-icon> {{ __('Delete Selected') }}
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="flex items-center justify-center">
-                            <button id="roleDropdownButton" data-dropdown-toggle="roleDropdown"
-                                class="btn-secondary flex items-center justify-center gap-2" type="button">
-                                <iconify-icon icon="lucide:sliders"></iconify-icon>
-                                {{ __('Filter by Role') }}
-                                <iconify-icon icon="lucide:chevron-down"></iconify-icon>
-                            </button>
-                        </div>
+                        <select name="status" class="form-control !h-11 ">
+                            <option value="">All Status</option>
+                            <option value="verified" @selected(request('status') == 'verified')>Verified</option>
+                            <option value="pending" @selected(request('status') == 'pending')>Pending</option>
+                        </select> <button type="submit" class="btn-primary">Apply</button>
+                        <a href="{{ route('admin.players.index') }}"
+                             class="btn-secondary">Reset</a>
 
-                        @if (auth()->user()->can('user.edit'))
-                            <a href="{{ route('admin.players.create') }}" class="btn-primary flex items-center gap-2">
-                                <iconify-icon icon="feather:plus" height="16"></iconify-icon>
-                                {{ __('New Player') }}
-                            </a>
-                        @endif
                     </div>
-                </div>
+                </form>
 
                 <div class="space-y-3 border-t border-gray-100 dark:border-gray-800 overflow-x-auto overflow-y-visible">
                     <table id="dataTable" class="w-full dark:text-gray-300">
@@ -212,8 +188,7 @@
                                             </a>
 
                                             {{-- Delete Button --}}
-                                            <form action="{{ route('admin.players.destroy', $player->id) }}"
-                                                method="POST"
+                                            <form action="{{ route('admin.players.destroy', $player->id) }}" method="POST"
                                                 onsubmit="return confirm('Are you sure you want to delete this player?')">
                                                 @csrf
                                                 @method('DELETE')
