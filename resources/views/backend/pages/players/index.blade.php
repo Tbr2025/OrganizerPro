@@ -130,8 +130,14 @@
                                     </td>
 
                                     <td class="px-5 py-4 sm:px-6">
-                                        {{ $player->team->name ?? 'N/A' }} <br>
-                                        {{ $player->team->team_name_ref ?? '' }}
+
+                                        @if ($player->team->name === 'Others')
+                                            {{ $player->team_name_ref ?? '' }}
+                                        @else
+                                            {{ $player->team->name ?? 'N/A' }}
+                                        @endif
+
+
                                     </td>
 
                                     <td class="px-5 py-4 sm:px-6">
