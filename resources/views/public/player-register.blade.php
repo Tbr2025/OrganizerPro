@@ -732,87 +732,131 @@
                 </div>
 
                 {{-- Upload & Preview --}}
-                <label
-                    class="relative w-full border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg cursor-pointer text-center block"
-                    x-data="{
-                        previewUrl: '',
-                        errorMessage: '',
-                        handleFileChange(event) {
-                            const file = event.target.files[0];
-                            this.errorMessage = '';
-                    
-                            if (!file) {
-                                this.previewUrl = '';
-                                this.errorMessage = 'Please select an image.';
-                                return;
-                            }
-                    
-                            if (!file.type.match(/^image\/(jpeg|png)$/)) {
-                                this.previewUrl = '';
-                                this.errorMessage = 'Only JPG or PNG images are allowed.';
-                                this.$refs.fileInput.value = '';
-                                return;
-                            }
-                    
-                            if (file.size > 6 * 1024 * 1024) { // 6MB limit
-                                this.previewUrl = '';
-                                this.errorMessage = 'Image must be less than 6MB.';
-                                this.$refs.fileInput.value = '';
-                                return;
-                            }
-                    
-                            if (event.target.files.length > 1) {
-                                this.errorMessage = 'Only one image can be uploaded.';
-                                this.previewUrl = '';
-                                this.$refs.fileInput.value = '';
-                                return;
-                            }
-                    
-                            this.previewUrl = URL.createObjectURL(file);
-                        },
-                        dropHandler(event) {
-                            event.preventDefault();
-                            this.errorMessage = '';
-                    
-                            const file = event.dataTransfer.files[0];
-                    
-                            if (!file) {
-                                this.errorMessage = 'Please drop an image.';
-                                return;
-                            }
-                    
-                            if (!file.type.match(/^image\/(jpeg|png)$/)) {
-                                this.errorMessage = 'Only JPG or PNG images are allowed.';
-                                return;
-                            }
-                    
-                            if (file.size > 6 * 1024 * 1024) {
-                                this.errorMessage = 'Image must be less than 6MB.';
-                                return;
-                            }
-                    
-                            const dataTransfer = new DataTransfer();
-                            dataTransfer.items.add(file);
-                            this.$refs.fileInput.files = dataTransfer.files;
-                            this.previewUrl = URL.createObjectURL(file);
-                        }
-                    }" @drop.prevent="dropHandler($event)" @dragover.prevent>
-                    <input type="file" name="image" id="image" accept="image/png,image/jpeg"
-                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
+          <div
+    class="relative w-full border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg text-center"
+    x-data="{
+        previewUrl: '',
+        errorMessage: '',
+        cropper: null,
+        isCropped: false,
 
-                    <template x-if="previewUrl">
-                        <img :src="previewUrl"
-                            class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
-                    </template>
+        handleFileChange(event) {
+            const file = event.target.files[0];
+            this.errorMessage = '';
+            this.isCropped = false;
 
-                    <p x-show="!previewUrl" class="text-gray-600 text-sm">
-                        Drag & drop or tap to upload image (JPG/JPEG/PNG, max 6MB)
-                    </p>
+            if (!this.validateFile(file)) return;
 
-                    <template x-if="errorMessage">
-                        <p class="text-red-500 text-sm mt-2" x-text="errorMessage"></p>
-                    </template>
-                </label>
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.previewUrl = e.target.result;
+                this.$nextTick(() => {
+                    this.initCropper();
+                });
+            };
+            reader.readAsDataURL(file);
+        },
+
+        validateFile(file) {
+            if (!file) {
+                this.errorMessage = 'Please select an image.';
+                return false;
+            }
+
+            if (!file.type.match(/^image\/(jpeg|png)$/)) {
+                this.errorMessage = 'Only JPG or PNG images are allowed.';
+                this.reset();
+                return false;
+            }
+
+            if (file.size > 6 * 1024 * 1024) { // 6MB limit
+                this.errorMessage = 'Image must be less than 6MB.';
+                this.reset();
+                return false;
+            }
+            return true;
+        },
+
+        initCropper() {
+            if (this.cropper) {
+                this.cropper.destroy();
+            }
+            this.cropper = new Cropper(this.$refs.image, {
+                aspectRatio: 3 / 4,
+                viewMode: 1,
+                autoCropArea: 0.9,
+                movable: false,
+                scalable: false,
+                zoomable: false,
+                minCropBoxWidth: 150,
+                minCropBoxHeight: 200,
+            });
+        },
+
+        cropImage() {
+            if (!this.cropper) return;
+            const canvas = this.cropper.getCroppedCanvas();
+            this.previewUrl = canvas.toDataURL('image/jpeg');
+            this.cropper.destroy();
+            this.cropper = null;
+            this.isCropped = true; // Mark as cropped
+        },
+
+        removeImage() {
+            this.previewUrl = '';
+            if (this.cropper) {
+                this.cropper.destroy();
+                this.cropper = null;
+            }
+            this.$refs.fileInput.value = '';
+            this.errorMessage = '';
+            this.isCropped = false;
+        },
+
+        triggerFileInput() {
+             this.$refs.fileInput.click();
+        }
+    }"
+>
+    <!-- Hidden File Input -->
+    <input type="file" name="image" id="image" accept="image/png,image/jpeg"
+        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
+
+    <!-- Image Display Area -->
+    <div x-show="previewUrl" class="mb-4">
+        <img :src="previewUrl" x-ref="image" class="max-w-full h-auto mx-auto object-contain rounded border border-gray-300" :class="{'h-64': !cropper, 'h-auto': cropper}" />
+    </div>
+
+    <!-- Upload Prompt -->
+    <div x-show="!previewUrl" @click="triggerFileInput" class="cursor-pointer">
+        <p class="text-gray-600 text-sm">
+            Drag & drop or tap to upload image (JPG/JPEG/PNG, max 6MB)
+        </p>
+    </div>
+
+    <!-- Error Message -->
+    <template x-if="errorMessage">
+        <p class="text-red-500 text-sm mt-2" x-text="errorMessage"></p>
+    </template>
+
+    <!-- Action Buttons -->
+    <div x-show="previewUrl" class="mt-4 space-x-2">
+        <!-- Crop Button -->
+        <button x-show="cropper" @click.prevent="cropImage" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Crop Image
+        </button>
+
+        <!-- Change Image Button -->
+        <button x-show="isCropped" @click.prevent="triggerFileInput" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+            Change Image
+        </button>
+
+         <!-- Remove Image Button -->
+        <button @click.prevent="removeImage" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+            Remove Image
+        </button>
+    </div>
+</div>
 
 
                 {{-- Validation Error --}}
@@ -1153,7 +1197,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/libphonenumber-js@1.10.16/bundle/libphonenumber-min.js"></script>
-
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
 <script>
     // Constants and helper functions
     const DEFAULT_COUNTRY_CODE_ISO = 'AE'; // UAE as fallback
