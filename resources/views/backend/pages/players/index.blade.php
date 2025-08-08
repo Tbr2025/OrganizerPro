@@ -140,16 +140,24 @@
 
                                     </td>
 
-                                <td class="px-5 py-4 sm:px-6">
-    @php
-        $isVerified = $player->welcome_image_path !== null;
-    @endphp
+                                    <td class="px-5 py-4 sm:px-6">
+                                        @php
+                                            $isVerified = !is_null($player->welcome_email_sent_at);
+                                        @endphp
 
-    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold
-        {{ $isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
-        {{ $isVerified ? 'Verified' : 'Pending' }}
-    </span>
-</td>
+                                        @if ($isVerified)
+                                            <span
+                                                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                                                Verified
+                                            </span>
+                                        @else
+                                            <span
+                                                class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
+                                                Pending
+                                            </span>
+                                        @endif
+
+                                    </td>
 
 
                                     <td class="px-5 py-4 sm:px-6">
@@ -183,21 +191,20 @@
                                                     Reject
                                                 </button>
                                             </form> --}}
-@if ($player->welcome_image_path && Storage::disk('public')->exists($player->welcome_image_path))
-    <a href="{{ asset('storage/' . $player->welcome_image_path) }}"
-       download
-       class="inline-flex items-center px-4 py-2 text-white bg-green-600 rounded hover:bg-green-700">
-        Welcome Card
-    </a>
-@else
-    <p class="text-gray-500 italic"></p>
-@endif
+                                            @if ($player->welcome_image_path && Storage::disk('public')->exists($player->welcome_image_path))
+                                                <a href="{{ asset('storage/' . $player->welcome_image_path) }}" download
+                                                    class="inline-flex items-center px-4 py-2 text-white bg-green-600 rounded hover:bg-green-700">
+                                                    Welcome Card
+                                                </a>
+                                            @else
+                                                <p class="text-gray-500 italic"></p>
+                                            @endif
 
                                             {{-- Edit Button --}}
                                             <a href="{{ route('admin.players.edit', $player->id) }}"
                                                 class="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm font-medium">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    stroke-width="2" viewBox="0 0 24 24">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
+                                                    viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round"
                                                         d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
                                                 </svg>
