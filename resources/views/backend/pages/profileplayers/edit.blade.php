@@ -164,6 +164,9 @@
                                                 class="form-control w-48"
                                                 {{ $verifiedFields['team_id'] ? 'disabled' : '' }}>
                                         @endif
+                                         <input type="checkbox" name="verified_{{ $field }}" value="1"
+                                                class="sr-only peer"
+                                                {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}>
                                         <span class="ml-3 text-sm font-bold flex items-center gap-1">
                                             <span
                                                 class="{{ $verifiedFields[$field] ? 'text-green-500' : 'text-red-500' }}">

@@ -128,7 +128,7 @@ class PlayerController extends Controller
                 'image',
                 'mimes:png,jpg,jpeg',
                 'max:6144',
-             
+
             ],
 
             'wicket_keeper' => 'nullable|boolean',
@@ -534,21 +534,25 @@ class PlayerController extends Controller
             // Use Laravel helpers for robust path definitions
             $pythonBinary = base_path('rembg-env/bin/python');
             $pythonScript = resource_path('scripts/remove_bg.py');
+            if (app()->environment('production')) {
+                // === PRODUCTION ENVIRONMENT ===
+                $pythonBinary = base_path('rembg-env/bin/python');
+                $cachePath = storage_path('app/rembg_cache');
+                File::ensureDirectoryExists($cachePath);
 
-            // This is the cache directory that we know works from our test
-            $cachePath = storage_path('app/rembg_cache');
+                $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+                    escapeshellcmd($pythonBinary) . ' ' .
+                    escapeshellarg($pythonScript) . ' ' .
+                    escapeshellarg($inputPath) . ' ' .
+                    escapeshellarg($outputPath) . ' 2>&1';
+            } else {
+                // === LOCAL ENVIRONMENT ===
+                $pythonBinary = PHP_OS_FAMILY === 'Windows'
+                    ? base_path('venv/Scripts/python.exe')
+                    : 'python3';
 
-            // 4. Ensure the cache directory exists (this is safe to run every time)
-            // This is better than shelling out to mkdir
-            File::ensureDirectoryExists($cachePath);
-
-            // 5. Build the shell command using the CORRECT environment variable
-            $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
-                escapeshellcmd($pythonBinary) . ' ' .
-                escapeshellarg($pythonScript) . ' ' .
-                escapeshellarg($inputPath) . ' ' .
-                escapeshellarg($outputPath) . ' 2>&1'; // 2>&1 captures errors
-
+                $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+            }
 
             try {
                 // 6. Execute the command
@@ -590,6 +594,7 @@ class PlayerController extends Controller
 
                     // Save relative path to DB
                     $player->image_path = 'player_images/' . $outputFilename;
+                    $validated['image_path'] = $player->image_path;
                 } else {
                     // Throw an exception if the file wasn't created, including the script's output
                     throw new \Exception('Python script failed to create the output file. Output: ' . $output);
@@ -695,7 +700,7 @@ class PlayerController extends Controller
             );
 
 
-return redirect()->back()->with('success', 'Player updated and intimated.');
+            return redirect()->back()->with('success', 'Player updated and intimated.');
 
             // return redirect()->route('admin.players.index')->with('success', 'Player updated and intimated.');
         }
@@ -724,12 +729,11 @@ return redirect()->back()->with('success', 'Player updated and intimated.');
 
             // Mark email as sent
             $player->update(['welcome_email_sent_at' => now()]);
-return redirect()->back()->with('success', 'Player - Welcome image created and intimated.');
-
+            return redirect()->back()->with('success', 'Player - Welcome image created and intimated.');
         }
 
 
-return redirect()->back()->with('success', 'Player updated successfully.');
+        return redirect()->back()->with('success', 'Player updated successfully.');
     }
 
 

@@ -12,8 +12,11 @@ use App\Models\PlayerType;
 use App\Models\Team;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class PlayerProfileController extends Controller
 {
@@ -168,15 +171,26 @@ class PlayerProfileController extends Controller
         }
 
         // Always-validated fields
-        $rules['team_id'] = 'nullable|exists:teams,id';
         $rules['team_name_ref'] = 'nullable|string|max:100';
-        $rules['kit_size_id'] = 'required|exists:kit_sizes,id';
-        $rules['batting_profile_id'] = 'required|exists:batting_profiles,id';
-        $rules['bowling_profile_id'] = 'required|exists:bowling_profiles,id';
-        $rules['player_type_id'] = 'required|exists:player_types,id';
+        if (!($verifiedFields['kit_size_id'] ?? false)) {
+            $rules['kit_size_id'] = 'required|exists:kit_sizes,id';
+        }
+
+        if (!($player->verified_batting_profile_id ?? false)) {
+            $rules['batting_profile_id'] = 'required|exists:batting_profiles,id';
+        }
+
+        if (!($player->verified_bowling_profile_id ?? false)) {
+            $rules['bowling_profile_id'] = 'required|exists:bowling_profiles,id';
+        }
+
+        if (!($player->verified_player_type_id ?? false)) {
+            $rules['player_type_id'] = 'required|exists:player_types,id';
+        }
+
         $rules['image_path'] = 'nullable|image|mimes:png,jpg,jpeg|max:6144';
-        $rules['wicket_keeper'] = 'nullable';
-        $rules['need_transportation'] = 'nullable';
+        $rules['is_wicket_keeper'] = 'nullable';
+        $rules['transportation_required'] = 'nullable';
 
         $validated = $request->validate($rules, [
             'mobile_number_full.unique' => 'This mobile number is already registered.',
@@ -184,6 +198,101 @@ class PlayerProfileController extends Controller
             'image_path.mimes' => 'The profile image must be a PNG or JPG file.',
             'image_path.max' => 'The profile image size cannot be more than 6MB.',
         ]);
+
+
+        if ($request->hasFile('image_path')) {
+
+            // 1. Delete the old image if it exists
+            if ($player->image_path && Storage::disk('public')->exists($player->image_path)) {
+                Storage::disk('public')->delete($player->image_path);
+            }
+
+            $imageFile = $request->file('image_path');
+
+            // 2. Save the newly uploaded image file
+            $originalFilename = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
+            // Use the Storage facade, it's cleaner
+            $imageFile->storeAs('public/player_images', $originalFilename);
+            $inputPath = storage_path('app/public/player_images/' . $originalFilename);
+
+            // 3. Define paths for the background removal script
+            $outputFilename = 'processed-' . Str::random(10) . '.png';
+            $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+
+            // Use Laravel helpers for robust path definitions
+            $pythonBinary = base_path('rembg-env/bin/python');
+            $pythonScript = resource_path('scripts/remove_bg.py');
+            if (app()->environment('production')) {
+                // === PRODUCTION ENVIRONMENT ===
+                $pythonBinary = base_path('rembg-env/bin/python');
+                $cachePath = storage_path('app/rembg_cache');
+                File::ensureDirectoryExists($cachePath);
+
+                $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+                    escapeshellcmd($pythonBinary) . ' ' .
+                    escapeshellarg($pythonScript) . ' ' .
+                    escapeshellarg($inputPath) . ' ' .
+                    escapeshellarg($outputPath) . ' 2>&1';
+            } else {
+                // === LOCAL ENVIRONMENT ===
+                $pythonBinary = PHP_OS_FAMILY === 'Windows'
+                    ? base_path('venv/Scripts/python.exe')
+                    : 'python3';
+
+                $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+            }
+
+            try {
+                // 6. Execute the command
+                set_time_limit(300); // Allow up to 5 minutes for execution
+                $output = shell_exec($command);
+
+                // 7. Verify the result and update the model
+                if (File::exists($outputPath)) {
+                    // Delete the original uploaded file
+                    File::delete($inputPath);
+
+                    // Load the image (transparency supported)
+                    $sourceImage = imagecreatefrompng($outputPath);
+                    $origWidth = imagesx($sourceImage);
+                    $origHeight = imagesy($sourceImage);
+
+                    // Target width around 425 (average)
+                    $targetWidth = 425;
+                    $scale = $targetWidth / $origWidth;
+                    $newWidth = $targetWidth;
+                    $newHeight = (int)($origHeight * $scale);
+
+                    // Create a resized image canvas
+                    $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
+
+                    // Preserve transparency
+                    imagealphablending($resizedImage, false);
+                    imagesavealpha($resizedImage, true);
+
+                    // Copy and resize
+                    imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+
+                    // Save resized image (overwrite original)
+                    imagepng($resizedImage, $outputPath);
+
+                    // Cleanup memory
+                    imagedestroy($sourceImage);
+                    imagedestroy($resizedImage);
+
+                    // Save relative path to DB
+                    $player->image_path = 'player_images/' . $outputFilename;
+                    $validated['image_path'] = $player->image_path;
+                } else {
+                    // Throw an exception if the file wasn't created, including the script's output
+                    throw new \Exception('Python script failed to create the output file. Output: ' . $output);
+                }
+            } catch (\Exception $e) {
+                Log::error("Background removal failed: " . $e->getMessage());
+                // Optionally, return an error response to the user
+                // return back()->withErrors(['image_path' => 'Failed to process the image.']);
+            }
+        }
 
         // Clear image if requested
         if ($request->boolean('clear_image')) {
