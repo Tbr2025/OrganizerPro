@@ -161,7 +161,8 @@
             margin: 0.5rem;
             color: #000;
         }
- body {
+
+        body {
             font-family: 'Roboto', sans-serif;
         }
 
@@ -189,7 +190,7 @@
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
-      
+
         /* Custom checkbox style if @tailwindcss/forms is not used or to override default */
         input[type="checkbox"] {
             -webkit-appearance: none;
@@ -294,8 +295,8 @@
         }
 
 
-       
-        
+
+
         .logo-img {
             display: block;
             margin: 1rem auto;
@@ -464,7 +465,7 @@
             <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-6 max-w-2xl mx-auto">
 
                 <p class="text-lg md:text-xl font-bold uppercase tracking-widest text-yellow-400 mb-2 animate-pulse">
-                    Let the Battle Begins
+                    Let the Battle Begin!
                 </p>
 
 
@@ -1415,13 +1416,13 @@
 
     document.addEventListener('DOMContentLoaded', () => {
 
-         const registrationForm = document.getElementById('registration-form');
-            if (registrationForm) {
-                registrationForm.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
+        const registrationForm = document.getElementById('registration-form');
+        if (registrationForm) {
+            registrationForm.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
         // ... (The rest of the DOMContentLoaded listener remains the same)
         mobileNumberNationalInput.addEventListener('input', () => {
             const mobileAlpine = Alpine.$data(mobileCountryCodeHidden.parentElement);
