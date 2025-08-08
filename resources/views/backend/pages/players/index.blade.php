@@ -130,7 +130,8 @@
                                     </td>
 
                                     <td class="px-5 py-4 sm:px-6">
-                                        {{ $player->team->name ?? 'N/A' }}
+                                        {{ $player->team->name ?? 'N/A' }} <br>
+                                        {{ $player->team->team_name_ref ?? '' }}
                                     </td>
                                   
                                     <td class="px-5 py-4 sm:px-6">
