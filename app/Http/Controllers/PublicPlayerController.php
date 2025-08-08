@@ -164,6 +164,49 @@ class PublicPlayerController extends Controller
             return back()->withInput()->withErrors(['image' => 'Could not process the uploaded image. Please try a different one.']);
         }
 
+        try {
+            // ✅ Resize by width only (425px), maintain aspect ratio
+            $targetWidth = 425;
+
+            // Load source image
+            $sourceImage = imagecreatefrompng($outputPath);
+            list($sourceWidth, $sourceHeight) = getimagesize($outputPath);
+
+            // Calculate height to maintain aspect ratio
+            $aspectRatio = $sourceHeight / $sourceWidth;
+            $targetHeight = intval($targetWidth * $aspectRatio);
+
+            // Create blank canvas
+            $resizedImage = imagecreatetruecolor($targetWidth, $targetHeight);
+            imagealphablending($resizedImage, false);
+            imagesavealpha($resizedImage, true);
+
+            // Resize
+            imagecopyresampled(
+                $resizedImage,
+                $sourceImage,
+                0,
+                0,
+                0,
+                0,
+                $targetWidth,
+                $targetHeight,
+                $sourceWidth,
+                $sourceHeight
+            );
+
+            // Save resized image
+            imagepng($resizedImage, $outputPath);
+
+            // Clean up
+            imagedestroy($resizedImage);
+            imagedestroy($sourceImage);
+        } catch (\Throwable $e) {
+            Log::error("Resizing failed: " . $e->getMessage());
+            return back()->withInput()->withErrors(['image' => 'Image resizing failed.']);
+        }
+
+
         Log::info("Background removal successful. Output: " . $shellOutput);
         $finalImagePath = 'player_images/' . $outputFilename;
         File::delete($inputPath); // Clean up the temp original file

@@ -368,14 +368,14 @@ class PlayerController extends Controller
                     $g = hexdec(substr($colorHex, 2, 2));
                     $b = hexdec(substr($colorHex, 4, 2));
 
-                    $fontPath = public_path('fonts/Oswald-Bold.ttf');
+                    $fontPath = public_path('fonts/Montserrat-Medium.ttf');
                     if (!file_exists($fontPath)) {
                         throw new \Exception("Font not found at $fontPath");
                     }
 
                     $fontSize = $object['fontSize'] ?? 48;
                     $angle = $object['angle'] ?? 0;
-                    $text = $player->name;
+                    $text = $player->jersey_name;
 
                     // Calculate bounding box
                     $bbox = imagettfbbox($fontSize, 0, $fontPath, $text);
@@ -580,10 +580,38 @@ class PlayerController extends Controller
 
                 // 7. Verify the result and update the model
                 if (File::exists($outputPath)) {
-                    // Delete the original uploaded file (optional)
+                    // Delete the original uploaded file
                     File::delete($inputPath);
 
-                    // The path saved to the DB should be relative to the 'public/storage' folder
+                    // Load the image (transparency supported)
+                    $sourceImage = imagecreatefrompng($outputPath);
+                    $origWidth = imagesx($sourceImage);
+                    $origHeight = imagesy($sourceImage);
+
+                    // Target width around 425 (average)
+                    $targetWidth = 425;
+                    $scale = $targetWidth / $origWidth;
+                    $newWidth = $targetWidth;
+                    $newHeight = (int)($origHeight * $scale);
+
+                    // Create a resized image canvas
+                    $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
+
+                    // Preserve transparency
+                    imagealphablending($resizedImage, false);
+                    imagesavealpha($resizedImage, true);
+
+                    // Copy and resize
+                    imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+
+                    // Save resized image (overwrite original)
+                    imagepng($resizedImage, $outputPath);
+
+                    // Cleanup memory
+                    imagedestroy($sourceImage);
+                    imagedestroy($resizedImage);
+
+                    // Save relative path to DB
                     $player->image_path = 'player_images/' . $outputFilename;
                 } else {
                     // Throw an exception if the file wasn't created, including the script's output

@@ -390,20 +390,22 @@
                     <p class="text-sm text-red-600">{{ $message }}</p>
                 @enderror
             </div>
- <div>
-            <label for="location_id" class="block font-semibold mb-1">Location <span class="text-red-500">*</span></label>
-            <select name="location_id" id="location_id" class="w-full px-3 py-2 border rounded text-black" required>
-                <option value="">Select location</option>
-                @foreach ($locations as $location)
-                    <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
-                        {{ $location->name }}
-                    </option>
-                @endforeach
-            </select>
-            @error('location_id')
-                <p class="text-sm text-red-600">{{ $message }}</p>
-            @enderror
-        </div>
+            <div>
+                <label for="location_id" class="block font-semibold mb-1">Location <span
+                        class="text-red-500">*</span></label>
+                <select name="location_id" id="location_id" class="w-full px-3 py-2 border rounded text-black"
+                    required>
+                    <option value="">Select location</option>
+                    @foreach ($locations as $location)
+                        <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
+                            {{ $location->name }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('location_id')
+                    <p class="text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
             {{-- Team Selection Dropdown --}}
             <div x-data="{ selectedTeam: '{{ old('team_id') }}', newTeamName: '{{ old('team_name_ref') }}' }">
                 <label for="team_id" class="block font-semibold mb-1">Select Team ( Currently Playing) <span
@@ -515,8 +517,7 @@
                                 <li><span class="font-semibold">Only *.jpg/ *.jpeg files</li>
                             </ul>
                             <p class="font-semibold mb-2">Example:</p>
-                            <img src="https://sportzley.com/images/product/example.png"
-                                alt="Example Player Image"
+                            <img src="{{ asset('images/logo/player.png') }}" alt="Example Player Image"
                                 class="w-24 h-auto rounded border border-gray-600 mx-auto sm:mx-0">
                             <p class="text-xs text-gray-500 mt-3 text-center sm:text-left">
                                 Ensure the player's face is clearly visible.
