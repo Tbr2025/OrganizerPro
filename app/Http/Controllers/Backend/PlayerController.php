@@ -271,7 +271,7 @@ class PlayerController extends Controller
                 ],
             ],
             'verifiedFields' => $verifiedFields,
-            'verifiedprofile' => $player->allFieldsVerified()
+            'verifiedProfile' => $player->allFieldsVerified()
         ]);
     }
 

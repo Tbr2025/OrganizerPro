@@ -181,11 +181,23 @@
 
                             {{-- Image Upload --}}
                             {{-- Player Image Upload --}}
+                            
                             <div class="sm:col-span-2">
                                 <label for="image_path"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Player Image
                                 </label>
+                                <div class="flex items-center gap-1">
+                                    <span>{{ $player->name }}</span>
+                                    @if ($verifiedProfile)
+                                        <svg class="w-4 h-4 text-blue-500" xmlns="http://www.w3.org/2000/svg"
+                                            fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    @endif
+                                </div>
 
                                 <div x-data="{
                                     previewUrl: '{{ $player->image_path ? Storage::url($player->image_path) : '' }}',
@@ -331,7 +343,7 @@
 
                         </div>
                         <input type="hidden" name="intimate" id="intimate" value="0">
-                        <input type="hidden" name="allverified" id="allverified" value="0">
+
 
                         {{-- All Fields Verified --}}
                         {{-- Submit Buttons --}}
@@ -345,8 +357,12 @@
                                 Intimate Player
                             </button>
 
-                            @if ($verifiedprofile)
-                                <button type="submit" onclick="document.getElementById('allverified').value = 1;"
+                            @if ($templates->count() > 0)
+                                <input type="hidden" id="allverified" name="allverified"
+                                    value="{{ $verifiedProfile }}">
+
+                                <button type="submit"
+                                    onclick="document.getElementById('allverified').value = '{{ $verifiedProfile }}';"
                                     class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Welcome Player - Generate Image
                                 </button>

@@ -89,7 +89,26 @@
                                             value="{{ $player->id }}" x-model="selectedPlayers">
                                     </td>
                                     <td class="px-5 py-4 sm:px-6">
-                                        {{ $player->name }}
+                                      
+                                        <div class="relative inline-block">
+    <!-- Player profile image -->
+<img src="{{ $player->image_path ? Storage::url($player->image_path) : asset('images/icons/default-avatar.png') }}"
+     alt="{{ $player->name }}"
+     class="w-12 h-12 rounded-full border border-gray-300 object-cover">
+       
+
+    @if($player->welcome_email_sent_at) 
+        <!-- Verified badge -->
+        <span class="absolute bottom-0 right-0 bg-blue-500 rounded-full p-1 border-2 border-white">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-3 h-3">
+                <path fill-rule="evenodd" 
+                      d="M22.5 12a10.5 10.5 0 11-21 0 10.5 10.5 0 0121 0zm-11.707 3.293l5.5-5.5a1 1 0 00-1.414-1.414L10 12.586 8.121 10.707a1 1 0 00-1.414 1.414l2.586 2.586a1 1 0 001.414 0z" 
+                      clip-rule="evenodd"/>
+            </svg>
+        </span>
+    @endif
+</div>
+
                                     </td>
                                     <td class="px-5 py-4 sm:px-6">
                                         <div class="space-y-1 text-sm text-gray-800">
