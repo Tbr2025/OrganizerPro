@@ -124,7 +124,7 @@
                                             <div class="flex items-center gap-2">
                                                 <span class="font-medium text-green-600">CricHeroes:</span>
                                                 <span
-                                                    class="whitespace-nowrap">+{{ $player->cricheroes_national_number }}</span>
+                                                    class="whitespace-nowrap">+{{ $player->cricheroes_number_full }}</span>
                                             </div>
                                         </div>
                                     </td>
@@ -133,7 +133,7 @@
                                         {{ $player->team->name ?? 'N/A' }} <br>
                                         {{ $player->team->team_name_ref ?? '' }}
                                     </td>
-                                  
+
                                     <td class="px-5 py-4 sm:px-6">
                                         @php
                                             $statusClasses = [
@@ -170,8 +170,7 @@
                                             </form>
 
                                             {{-- Reject Button --}}
-                                            <form action="{{ route('admin.players.reject', $player->id) }}"
-                                                method="POST">
+                                            <form action="{{ route('admin.players.reject', $player->id) }}" method="POST">
                                                 @csrf
                                                 <button type="submit"
                                                     class="inline-flex items-center gap-1 bg-red-100 text-red-700 hover:bg-red-200 text-sm font-medium px-3 py-1 rounded-md transition">
