@@ -737,7 +737,6 @@
                     x-data="{
                         previewUrl: '',
                         errorMessage: '',
-                        cropper: null,
                         handleFileChange(event) {
                             const file = event.target.files[0];
                             this.errorMessage = '';
@@ -769,49 +768,42 @@
                                 return;
                             }
                     
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                                this.previewUrl = e.target.result;
-                                this.$nextTick(() => {
-                                    if (this.cropper) {
-                                        this.cropper.destroy();
-                                    }
-                                    this.cropper = new Cropper(this.$refs.image, {
-                                        aspectRatio: 3 / 4,
-                                        viewMode: 1,
-                                        autoCropArea: 0.8,
-                                        movable: false,
-                                        scalable: false,
-                                        zoomable: false,
-                                        minCropBoxWidth: 150, // Example minimum width
-                                        minCropBoxHeight: 200 // Example minimum height
-                                    });
-                                });
-                            };
-                            reader.readAsDataURL(file);
+                            this.previewUrl = URL.createObjectURL(file);
                         },
-                        cropImage() {
-                            if (!this.cropper) {
+                        dropHandler(event) {
+                            event.preventDefault();
+                            this.errorMessage = '';
+                    
+                            const file = event.dataTransfer.files[0];
+                    
+                            if (!file) {
+                                this.errorMessage = 'Please drop an image.';
                                 return;
                             }
-                            const canvas = this.cropper.getCroppedCanvas();
-                            this.previewUrl = canvas.toDataURL('image/jpeg');
-                            // You can also get the blob and append it to a FormData for upload
-                            // canvas.toBlob((blob) => {
-                            //     const formData = new FormData();
-                            //     formData.append('croppedImage', blob, 'cropped-image.jpg');
-                            //     // Now you can upload the formData
-                            // }, 'image/jpeg');
-                            this.cropper.destroy();
-                            this.cropper = null;
+                    
+                            if (!file.type.match(/^image\/(jpeg|png)$/)) {
+                                this.errorMessage = 'Only JPG or PNG images are allowed.';
+                                return;
+                            }
+                    
+                            if (file.size > 6 * 1024 * 1024) {
+                                this.errorMessage = 'Image must be less than 6MB.';
+                                return;
+                            }
+                    
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(file);
+                            this.$refs.fileInput.files = dataTransfer.files;
+                            this.previewUrl = URL.createObjectURL(file);
                         }
-                    }">
+                    }" @drop.prevent="dropHandler($event)" @dragover.prevent>
                     <input type="file" name="image" id="image" accept="image/png,image/jpeg"
                         class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
 
-                    <div x-show="previewUrl" class="mb-4">
-                        <img :src="previewUrl" x-ref="image" class="max-w-full h-auto" />
-                    </div>
+                    <template x-if="previewUrl">
+                        <img :src="previewUrl"
+                            class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
+                    </template>
 
                     <p x-show="!previewUrl" class="text-gray-600 text-sm">
                         Drag & drop or tap to upload image (JPG/JPEG/PNG, max 6MB)
@@ -820,11 +812,6 @@
                     <template x-if="errorMessage">
                         <p class="text-red-500 text-sm mt-2" x-text="errorMessage"></p>
                     </template>
-
-                    <button x-show="previewUrl && cropper" @click.prevent="cropImage"
-                        class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                        Crop Image
-                    </button>
                 </label>
 
 
