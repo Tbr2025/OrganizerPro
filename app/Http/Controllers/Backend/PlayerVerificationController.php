@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Mail\PlayerWelcomeMail;
+use App\Models\ImageTemplate;
 use App\Models\Player;
 use App\Models\Role;
 use App\Models\User;
@@ -12,6 +14,7 @@ use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 class PlayerVerificationController extends Controller
 {
@@ -160,7 +163,32 @@ class PlayerVerificationController extends Controller
     public function approve(Request $request, Player $player)
     {
 
-        $this->generateAppreciationImageGD($player);
+
+        if ($player->welcome_email_sent_at) {
+            return back()->with('info', 'Welcome image has already been sent.');
+        }
+
+        $template = ImageTemplate::where('category_id', 1)->first();
+
+        if (!$template) {
+            return back()->with('error', 'There is no welcome template associated! Please create and try again!');
+        }
+        if (!$player->allFieldsVerified()) {
+            return back()->with('error', 'Cannot approve now. All fields must be verified. Please check the player details');
+        }
+        if (!$player->image_path) {
+            return back()->with('error', 'There is no profile pic found for the player, please check');
+        }
+        $imagePath = PlayerController::generateWelcomePlayerImageGD($player, $template);
+
+        if (is_array($imagePath)) {
+            $imagePath = $imagePath[0] ?? '';
+        }
+
+        Mail::to($player->email)->send(new PlayerWelcomeMail($player, $imagePath));
+
+        // Mark email as sent
+        $player->update(['welcome_email_sent_at' => now()]);
 
         if (!$this->checkAuthorization(Auth::user(), ['player.edit'])) {
 

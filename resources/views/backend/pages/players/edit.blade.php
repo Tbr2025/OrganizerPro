@@ -134,6 +134,7 @@
                             @endphp
 
                             @foreach ($dropdowns as $field => $config)
+                            
                                 <div class="space-y-1">
 
                                     <label for="{{ $field }}"
@@ -150,6 +151,15 @@
                                                 </option>
                                             @endforeach
                                         </select>
+
+                                          @if ($field === 'team_id')
+                
+                    <input type="text" name="team_name_ref" id="team_name_ref"
+                        placeholder="Enter Team Name"
+                        value="{{ old('team_name_ref', $player->team_name_ref ?? '') }}"
+                        class="form-control w-48">
+               
+            @endif
                                         <label class="relative inline-flex items-center cursor-pointer">
                                             <input type="checkbox" name="verified_{{ $field }}" value="1"
                                                 class="sr-only peer"

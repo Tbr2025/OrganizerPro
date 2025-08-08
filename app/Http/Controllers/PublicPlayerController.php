@@ -57,8 +57,6 @@ class PublicPlayerController extends Controller
             'total_matches' => 'required|integer|min:0',
             'total_runs' => 'required|integer|min:0',
             'total_wickets' => 'required|integer|min:0',
-
-
             'team_name_ref' => 'nullable|string|max:100',
             'mobile_country_code' => 'required|string|max:10',
             'mobile_national_number' => 'required|string|max:20',
@@ -134,7 +132,7 @@ class PublicPlayerController extends Controller
         ]);
 
 
-        Log::info('--- Background Removal Process Starting ---');
+        // Log::info('--- Background Removal Process Starting ---');
         $finalImagePath = null;
 
         $imageFile = $validated['image']; // Get the validated file object
@@ -192,6 +190,10 @@ class PublicPlayerController extends Controller
         $player = Player::create(array_merge([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'total_matches' => $validated['total_matches'],
+            'total_runs' => $validated['total_runs'],
+            'total_wickets' => $validated['total_wickets'],
+            'location_id' => $validated['location_id'],
             'mobile_country_code' => $validated['mobile_country_code'],
             'mobile_national_number' => $validated['mobile_national_number'],
             'mobile_number_full' => $validated['mobile_number_full'],

@@ -242,7 +242,7 @@ class PlayerController extends Controller
 
 
 
-    public function generateWelcomePlayerImageGD(Player $player, ImageTemplate $template)
+    public static function generateWelcomePlayerImageGD(Player $player, ImageTemplate $template)
     {
         $layout = json_decode($template->layout_json, true);
         $bgPath = storage_path('app/public/image_templates/' . $template->background_image);
@@ -513,13 +513,20 @@ class PlayerController extends Controller
             'mobile_number_full' => 'required|string|max:20',
             'cricheroes_number_full' => 'required|string|max:20',
             'team_id' => 'nullable|exists:teams,id',
+            'location_id' => 'required|exists:player_locations,id',
+            'total_matches' => 'required|integer|min:0',
+            'total_runs' => 'required|integer|min:0',
+            'total_wickets' => 'required|integer|min:0',
+            'team_name_ref' => 'nullable|string|max:100',
+            'total_matches' => 'required|integer|min:0',
+            'total_runs' => 'required|integer|min:0',
+            'total_wickets' => 'required|integer|min:0',
             'jersey_name' => 'nullable|string|max:50',
             'kit_size_id' => 'nullable|exists:kit_sizes,id',
             'batting_profile_id' => 'nullable|exists:batting_profiles,id',
             'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
             'player_type_id' => 'nullable|exists:player_types,id',
             'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'location_id' => 'required|exists:player_locations,id',
             'total_matches' => 'required|integer|min:0',
             'total_runs' => 'required|integer|min:0',
             'total_wickets' => 'required|integer|min:0',
@@ -528,45 +535,6 @@ class PlayerController extends Controller
         ]);
 
 
-
-        // if ($request->hasFile('image_path')) {
-        //     // Remove old image
-        //     if ($player->image_path) {
-        //         Storage::delete('public/' . $player->image_path);
-        //     }
-
-        //     $imageFile = $request->file('image_path');
-
-        //     // Save original uploaded image
-        //     $originalFilename = $imageFile->hashName();
-        //     $imageFile->move(storage_path('app/public/player_images/'), $originalFilename);
-        //     $inputPath = storage_path('app/public/player_images/' . $originalFilename);
-
-        //     // Output path
-        //     $outputFilename = 'processed-' . Str::random(8) . '.png';
-        //     $outputPath = storage_path('app/public/player_images/' . $outputFilename);
-
-        //     // Script & Python path
-        //     $pythonScript = base_path('resources/scripts/remove_bg.py');
-        //     $pythonBinary = PHP_OS_FAMILY === 'Windows'
-        //         ? base_path('venv/Scripts/python.exe')  // Adjust if you're using a virtualenv
-        //         : 'python3';
-
-        //     $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
-
-        //     try {
-        //         shell_exec($command);
-
-        //         if (file_exists($outputPath)) {
-        //             @unlink($inputPath); // delete original
-        //             $player->image_path = 'player_images/' . $outputFilename;
-        //         } else {
-        //             throw new \Exception('Background removal failed.');
-        //         }
-        //     } catch (\Exception $e) {
-        //         Log::error("Background removal error (update): " . $e->getMessage());
-        //     }
-        // }
         if ($request->hasFile('image_path')) {
 
             // 1. Delete the old image if it exists
@@ -644,6 +612,12 @@ class PlayerController extends Controller
         $player->fill([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'total_matches' => $validated['total_matches'],
+            'total_runs' => $validated['total_runs'],
+            'total_wickets' => $validated['total_wickets'],
+            'location_id' => $validated['location_id'],
+            'team_name_ref' => $validated['team_name_ref'],
+
             'mobile_number_full' => $validated['mobile_number_full'],
             'cricheroes_number_full' => $validated['cricheroes_number_full'],
             'team_id' => $validated['team_id'] ?? null,
@@ -730,7 +704,10 @@ class PlayerController extends Controller
                 return back()->with('info', 'Welcome image has already been sent.');
             }
 
-            $template = ImageTemplate::first();
+            $template = ImageTemplate::where('category_id', 1)->first();
+            if (!$template) {
+                return back()->with('error', 'There is no welcome template associated! Please create and try again!');
+            }
             $imagePath = $this->generateWelcomePlayerImageGD($player, $template);
 
             if (is_array($imagePath)) {
