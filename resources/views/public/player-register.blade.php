@@ -161,7 +161,141 @@
             margin: 0.5rem;
             color: #000;
         }
+ body {
+            font-family: 'Roboto', sans-serif;
+        }
 
+        h1,
+        h2 {
+            font-family: 'Oswald', sans-serif;
+        }
+
+        /* Custom gradient for hero */
+
+        /* Optional: Add a subtle pulse animation for the "Let the Battle Begins" text */
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+      
+        /* Custom checkbox style if @tailwindcss/forms is not used or to override default */
+        input[type="checkbox"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            display: inline-block;
+            vertical-align: middle;
+            height: 1.25rem;
+            width: 1.25rem;
+            border-radius: 0.25rem;
+            border: 2px solid #a0aec0;
+            background-color: #2d3748;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #f6e05e;
+            border-color: #f6e05e;
+            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        input[type="checkbox"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.5);
+        }
+
+        /* Styles for the custom dropdown */
+        .custom-select-container {
+            position: relative;
+            font-family: 'Roboto', sans-serif;
+            width: 100%;
+        }
+
+        .custom-select-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #fff;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            height: 42px;
+            color: #000;
+        }
+
+        .custom-select-trigger.focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+
+        .custom-options-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: #fff;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 20;
+            max-height: 250px;
+            overflow-y: auto;
+            color: #000;
+            margin-top: 4px;
+        }
+
+        .custom-option {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            color: #000;
+        }
+
+        .custom-option:hover {
+            background-color: #f3f4f6;
+        }
+
+        .custom-option.selected {
+            background-color: #e5e7eb;
+            font-weight: 500;
+        }
+
+        .flag-icon {
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .country-search-input {
+            width: calc(100% - 1rem);
+            /* Adjusted for padding */
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            margin: 0.5rem;
+            color: #000;
+        }
+
+
+       
+        
         .logo-img {
             display: block;
             margin: 1rem auto;
