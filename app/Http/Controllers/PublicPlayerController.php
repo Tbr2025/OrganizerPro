@@ -86,7 +86,7 @@ class PublicPlayerController extends Controller
             'image' => [
                 'required',
                 'image',
-                'mimes:png,jpg,jpeg',
+                'mimes:jpeg,jpg,png',
                 'max:6144',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($request->hasFile('image')) {
