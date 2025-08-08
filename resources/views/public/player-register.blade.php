@@ -64,38 +64,6 @@
             animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
-        /* Tooltip specific styles */
-        .tooltip-container {
-            position: relative;
-            display: inline-block;
-        }
-
-        .tooltip-content {
-            position: absolute;
-            background-color: #2d3748;
-            color: #fff;
-            padding: 10px;
-            border-radius: 0.375rem;
-            z-index: 10;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 550px;
-            text-align: left;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid #4a5568;
-        }
-
-        .tooltip-content::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #2d3748 transparent transparent transparent;
-        }
 
         /* Custom checkbox style if @tailwindcss/forms is not used or to override default */
         input[type="checkbox"] {
@@ -198,18 +166,6 @@
             border-radius: 0.375rem;
             margin: 0.5rem;
             color: #000;
-        }
-
-
-        @media screen and (max-width: 767px) {
-            .tooltip-content {
-                position: relative;
-                width: 100%;
-                max-width: 100%;
-                padding: 1rem;
-                /* Reduce padding slightly */
-                font-size: 0.875rem;
-            }
         }
     </style>
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -490,15 +446,17 @@
                 @enderror
             </div>
 
-            {{-- Player Image Upload --}}
             <div class="flex flex-col space-y-2">
-                {{-- Label --}}
-                <label for="image" class="block   font-semibold mb-1">
-                    Player Image <span class="text-red-500">*</span>
+                {{-- Label with Tooltip --}}
+                <div class="flex items-center space-x-2">
+                    <label for="image" class="block font-semibold mb-1">
+                        Player Image <span class="text-red-500">*</span>
+                    </label>
 
-                    <div x-data="{ showTooltip: false }" class="relative ml-2 tooltip-container">
+                    {{-- Tooltip Icon --}}
+                    <div x-data="{ showTooltip: false }" class="relative">
                         <i class="fas fa-info-circle text-gray-400 hover:text-yellow-400 cursor-pointer"
-                            @mouseclick="showTooltip = true" @click="showTooltip = !showTooltip"></i>
+                            @click="showTooltip = !showTooltip"></i>
 
                         <div x-show="showTooltip" @click.outside="showTooltip = false"
                             x-transition:enter="transition ease-out duration-100"
@@ -507,13 +465,15 @@
                             x-transition:leave="transition ease-in duration-75"
                             x-transition:leave-start="opacity-100 scale-100"
                             x-transition:leave-end="opacity-0 scale-95"
-                            class="tooltip-content absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-80 max-w-[90vw] text-sm text-gray-800"
+                            class="absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-60 max-w-[70vw] text-sm text-gray-800 
+        left-0 sm:left-auto sm:right-0
+        -translate-x-full sm:translate-x-0
+        mr-2"
                             style="display: none;">
-                            <p class="mb-2">For best results, please upload an image with:</p>
+                            <p class="mb-2">For best results, <br>please upload an image with:</p>
                             <ul class="list-disc list-inside mb-3 space-y-1">
-                              
-                                <li><span class="font-semibold">Average Quality</span> (Max 2MB)</li>
-                                <li><span class="font-semibold">Only *.jpg/ *.jpeg files</li>
+                                <li><span class="font-semibold">Average Quality</span> (Max 6MB)</li>
+                                <li><span class="font-semibold">Only *.jpg/ *.jpeg files</span></li>
                             </ul>
                             <p class="font-semibold mb-2">Example:</p>
                             <img src="{{ asset('images/logo/player.png') }}" alt="Example Player Image"
@@ -523,48 +483,101 @@
                             </p>
                         </div>
                     </div>
-
-                </label>
+                </div>
 
                 {{-- Upload & Preview --}}
-                <div x-data="{
-                    previewUrl: '',
-                    handleFileChange(event) {
-                        const file = event.target.files[0];
-                        if (file && file.type.startsWith('image/')) {
-                            this.previewUrl = URL.createObjectURL(file);
-                        } else {
-                            this.previewUrl = '';
-                        }
-                            if (event.target.files.length > 1) {  alert('Only one image can be uploaded.');
-        this.$refs.fileInput.value = '';
-        this.previewUrl = '';
-    }
-                    },
-                    dropHandler(event) {
-                        event.preventDefault();
-                        const file = event.dataTransfer.files[0];
-                        if (file && file.type.startsWith('image/')) {
-                            this.$refs.fileInput.files = event.dataTransfer.files;
-                            this.previewUrl = URL.createObjectURL(file);
-                        }
-                    }
-                }" @drop.prevent="dropHandler($event)" @dragover.prevent
-                    class="relative w-full border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg cursor-pointer text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    @click="$refs.fileInput.click()">
+              <label
+    class="relative w-full border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg cursor-pointer text-center block"
+    x-data="{
+        previewUrl: '',
+        errorMessage: '',
+        handleFileChange(event) {
+            const file = event.target.files[0];
+            this.errorMessage = '';
 
-                    <input type="file" name="image" id="image" accept="image/png,image/jpeg"
-                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange" required>
+            if (!file) {
+                this.previewUrl = '';
+                this.errorMessage = 'Please select an image.';
+                return;
+            }
 
-                    <template x-if="previewUrl">
-                        <img :src="previewUrl"
-                            class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
-                    </template>
+            if (!file.type.match(/^image\/(jpeg|png)$/)) {
+                this.previewUrl = '';
+                this.errorMessage = 'Only JPG or PNG images are allowed.';
+                this.$refs.fileInput.value = '';
+                return;
+            }
 
-                    <p x-show="!previewUrl" class="text-gray-600 text-sm">
-                        Drag & drop or click to upload image (JPG/JPEG, max 2MB)
-                    </p>
-                </div>
+            if (file.size > 6 * 1024 * 1024) { // 6MB limit
+                this.previewUrl = '';
+                this.errorMessage = 'Image must be less than 6MB.';
+                this.$refs.fileInput.value = '';
+                return;
+            }
+
+            if (event.target.files.length > 1) {
+                this.errorMessage = 'Only one image can be uploaded.';
+                this.previewUrl = '';
+                this.$refs.fileInput.value = '';
+                return;
+            }
+
+            this.previewUrl = URL.createObjectURL(file);
+        },
+        dropHandler(event) {
+            event.preventDefault();
+            this.errorMessage = '';
+
+            const file = event.dataTransfer.files[0];
+
+            if (!file) {
+                this.errorMessage = 'Please drop an image.';
+                return;
+            }
+
+            if (!file.type.match(/^image\/(jpeg|png)$/)) {
+                this.errorMessage = 'Only JPG or PNG images are allowed.';
+                return;
+            }
+
+            if (file.size > 6 * 1024 * 1024) {
+                this.errorMessage = 'Image must be less than 6MB.';
+                return;
+            }
+
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            this.$refs.fileInput.files = dataTransfer.files;
+            this.previewUrl = URL.createObjectURL(file);
+        }
+    }"
+    @drop.prevent="dropHandler($event)"
+    @dragover.prevent
+>
+    <input
+        type="file"
+        name="image"
+        id="image"
+        accept="image/png,image/jpeg"
+        class="absolute w-0 h-0 opacity-0"
+        x-ref="fileInput"
+        @change="handleFileChange"
+        required
+    >
+
+    <template x-if="previewUrl">
+        <img :src="previewUrl" class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
+    </template>
+
+    <p x-show="!previewUrl" class="text-gray-600 text-sm">
+        Drag & drop or tap to upload image (JPG/JPEG/PNG, max 6MB)
+    </p>
+
+    <template x-if="errorMessage">
+        <p class="text-red-500 text-sm mt-2" x-text="errorMessage"></p>
+    </template>
+</label>
+
 
                 {{-- Validation Error --}}
                 @error('image')
@@ -1052,31 +1065,10 @@
     const copyMobileNumberCheckbox = document.getElementById('copyMobileNumberCheckbox');
     const registrationForm = document.getElementById('main-registration-form');
 
-    // New constants for the image upload field and its error message
-    const profileImageInput = document.getElementById('image_path');
-    const profileImageError = document.getElementById('image_path_error');
+
 
     // New validation function for the image field
-    window.validateImage = function() {
-        if (!profileImageInput) {
-            console.warn("Player image is required.");
-            return true;
-        }
 
-        if (profileImageInput.files.length === 0) {
-            // Updated error message here
-            profileImageError.textContent = 'Profile image is required.';
-            profileImageError.style.display = 'block';
-            profileImageInput.classList.add('border-red-500');
-            profileImageInput.classList.remove('border-gray-300');
-            return false;
-        } else {
-            profileImageError.style.display = 'none';
-            profileImageInput.classList.remove('border-red-500');
-            profileImageInput.classList.add('border-gray-300');
-            return true;
-        }
-    };
 
     window.validateInput = function(type) {
         let countryCodeHidden, nationalNumberInput, nationalNumberHidden, errorElement;
@@ -1193,21 +1185,21 @@
 
         const isMobileValid = window.validateInput('mobile');
         const isCricheroesValid = window.validateInput('cricheroes');
-        const isImageValid = window.validateImage(); // Call the new image validation function
+
 
         // Prevent form submission if any field is invalid
-        if (!isMobileValid || !isCricheroesValid || !isImageValid) {
-            event.preventDefault();
+        // if (!isMobileValid || !isCricheroesValid) {
+        //     event.preventDefault();
 
-            // Always scroll to the top of the registration form
-            const formHeader = document.querySelector('#registration-form');
-            formHeader.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
+        //     // Always scroll to the top of the registration form
+        //     const formHeader = document.querySelector('#registration-form');
+        //     formHeader.scrollIntoView({
+        //         behavior: 'smooth',
+        //         block: 'start'
+        //     });
 
-            alert('Please correct the errors in the form before submitting.');
-        }
+        //     alert('Please correct the errors in the form before submitting.');
+        // }
     });
 
 
@@ -1295,12 +1287,7 @@
             window.validateInput('cricheroes');
         });
 
-        // Add a listener for the image field to validate on change
-        // Validate the image field on initial load and on change
-        if (profileImageInput) {
-            window.validateImage(); // Validate on initial load
-            profileImageInput.addEventListener('change', () => window.validateImage());
-        }
+
 
     });
 
@@ -1316,11 +1303,6 @@
             });
         }
     });
-
-
-    const fileInput = document.getElementById('image_path');
-    const previewDiv = document.getElementById('remove-bg-preview');
-    const errorDiv = document.getElementById('remove-bg-error');
 </script>
 
 
