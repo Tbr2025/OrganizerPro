@@ -511,8 +511,7 @@
                             style="display: none;">
                             <p class="mb-2">For best results, please upload an image with:</p>
                             <ul class="list-disc list-inside mb-3 space-y-1">
-                                <li><span class="font-semibold">3:4 Aspect Ratio</span> (e.g., 300px width x 400px
-                                    height minimum)</li>
+                              
                                 <li><span class="font-semibold">Average Quality</span> (Max 6MB)</li>
                                 <li><span class="font-semibold">Only *.jpg/ *.jpeg files</li>
                             </ul>

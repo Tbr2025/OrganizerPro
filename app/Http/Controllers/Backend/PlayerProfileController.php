@@ -102,25 +102,7 @@ class PlayerProfileController extends Controller
                 'nullable',
                 'image',
                 'mimes:png,jpg,jpeg',
-                'max:6144',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($request->hasFile('image_path')) {
-                        $image = getimagesize($request->file('image_path')->getPathname());
-                        if (!$image) {
-                            return $fail('The uploaded file is not a valid image.');
-                        }
-
-                        $width = $image[0];
-                        $height = $image[1];
-                        $actualRatio = $width / $height;
-                        $expectedRatio = 3 / 4;
-                        $tolerance = 0.20 * $expectedRatio;
-
-                        if (abs($actualRatio - $expectedRatio) > $tolerance) {
-                            $fail('The image must have a 3:4 aspect ratio (e.g., 600X800 or 900x1200).');
-                        }
-                    }
-                },
+                'max:6144'
             ],
 
             'wicket_keeper' => 'nullable',

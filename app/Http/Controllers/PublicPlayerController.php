@@ -87,19 +87,7 @@ class PublicPlayerController extends Controller
                 'required',
                 'image',
                 'mimes:jpeg,jpg,png',
-                'max:6144',
-                function ($attribute, $value, $fail) use ($request) {
-                    if ($request->hasFile('image')) {
-                        $image = getimagesize($request->file('image')->getPathname());
-                        if (!$image) return $fail('The uploaded file is not a valid image.');
-
-                        $actualRatio = $image[0] / $image[1];
-                        $expectedRatio = 3 / 4;
-                        if (abs($actualRatio - $expectedRatio) > (0.20 * $expectedRatio)) {
-                            $fail('The image must have a 3:4 aspect ratio (e.g., 600x800 or 900x1200).');
-                        }
-                    }
-                },
+                'max:6144'
             ],
 
             'wicket_keeper' => 'nullable|boolean',
