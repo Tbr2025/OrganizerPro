@@ -5,6 +5,11 @@
 @section('admin-content')
     <x-backend.card>
         <x-slot name="header">All Templates</x-slot>
+        @if (session('success'))
+            <div class="bg-green-100 text-green-800 p-2 mb-4 rounded">
+                {{ session('success') }}
+            </div>
+        @endif
 
         <x-slot name="body">
             <a href="{{ route('admin.image-templates.create') }}" class="btn btn-primary mb-4">+ Create Template</a>
@@ -22,12 +27,24 @@
                         <tr>
                             <td>{{ $template->name }}</td>
                             <td>{{ $template->canvas_width }}x{{ $template->canvas_height }}</td>
-                            <td>
-                                <a href="{{ route('admin.image-templates.edit', $template) }}"
-                                    class="btn btn-sm btn-secondary">✏️ Edit</a>
+                            <td class="space-x-1">
                                 <a href="{{ route('admin.image-templates.show', $template) }}"
                                     class="btn btn-sm btn-success">👁️ Preview</a>
+
+                                <a href="{{ route('admin.image-templates.edit', $template) }}"
+                                    class="btn btn-sm btn-secondary">✏️ Edit</a>
+                                <form action="{{ route('admin.image-templates.remove') }}" method="POST"
+                                    onsubmit="return confirm('Are you sure you want to delete this template?');"
+                                    style="display:inline;">
+                                    @csrf
+                                    <input type="hidden" name="template_id" value="{{ $template->id }}">
+                                    <button type="submit" class="btn btn-sm btn-danger">🗑️ Delete</button>
+                                </form>
+
+
+
                             </td>
+
                         </tr>
                     @endforeach
                 </tbody>

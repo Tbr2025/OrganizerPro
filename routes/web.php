@@ -127,13 +127,17 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::post('/image-templates/save', [ImageTemplateController::class, 'store'])->name('image-templates.save');
     Route::get('/image-templates/generate/{player}', [ImageTemplateController::class, 'generateImage'])->name('image-templates.generate');
 
+    Route::delete('/image-templates/{image_template}', [ImageTemplateController::class, 'destroy'])->name('image-templates.destroy');
 
 
     Route::get('/background/remove', function () {
         return view('background.remove'); // blade file
     })->name('background.form');
 
-    Route::post('/background/remove', [ImageTemplateController::class, 'remove'])->name('background.remove');
+
+
+Route::post('/image-templates/remove', [ImageTemplateController::class, 'removeTemplate'])
+    ->name('image-templates.remove');
 
 
     Route::get('image-templates/remove-bg', [ImageTemplateController::class, 'removebg'])->name('image-templates.remove-bg');
@@ -269,7 +273,7 @@ Route::get('/test-shell', function () {
     $scriptPath = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
     $inputImage = '/var/www/OrganizerPro/storage/app/public/player_images/player.jpeg';
     $outputImage = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
-    
+
     // Define the writable cache directory
     $cachePath = '/var/www/OrganizerPro/storage/app/rembg_cache';
 
@@ -281,10 +285,10 @@ Route::get('/test-shell', function () {
     // --- Command Construction ---
     // Prepend the U2NET_HOME environment variable to the command
     $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
-               escapeshellcmd($pythonPath) . ' ' .
-               escapeshellarg($scriptPath) . ' ' .
-               escapeshellarg($inputImage) . ' ' .
-               escapeshellarg($outputImage) . ' 2>&1';
+        escapeshellcmd($pythonPath) . ' ' .
+        escapeshellarg($scriptPath) . ' ' .
+        escapeshellarg($inputImage) . ' ' .
+        escapeshellarg($outputImage) . ' 2>&1';
 
     // --- Diagnostics ---
     $currentUser = shell_exec('whoami');

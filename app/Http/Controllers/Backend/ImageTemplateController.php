@@ -91,12 +91,12 @@ class ImageTemplateController extends Controller
     {
         // This method can be used to handle background removal logic if needed
         // For now, it just returns a view or a message
-        return view('backend.pages.image_templates.remove_bg');
+        return view('backend.pages.image-templates.remove_bg');
     }
     public function index()
     {
         $templates = ImageTemplate::latest()->get();
-        return view('backend.pages.image_templates.index', compact('templates'));
+        return view('backend.pages.image-templates.index', compact('templates'));
     }
 
     // Show editor
@@ -104,7 +104,7 @@ class ImageTemplateController extends Controller
     {
         $categories = ImageTemplateCategories::all();
 
-        return view('backend.pages.image_templates.create', compact('categories'));
+        return view('backend.pages.image-templates.create', compact('categories'));
     }
 
     // Store layout JSON to DB
@@ -151,18 +151,24 @@ class ImageTemplateController extends Controller
 
     public function show(ImageTemplate $template)
     {
-        return view('backend.pages.image_templates.show', compact('template'));
+        return view('backend.pages.image-templates.show', compact('template'));
     }
 
-    public function destroy(ImageTemplate $template)
-    {
-        if ($template->background_path) {
-            Storage::disk('public')->delete($template->background_path);
-        }
-        $template->delete();
+ // In ImageTemplateController.php
 
-        return redirect()->route('backend.pages.image_templates.index')->with('success', 'Template deleted successfully.');
+public function removeTemplate(Request $request)
+{
+    $template = ImageTemplate::findOrFail($request->input('template_id'));
+
+    // Optional: Delete background image if exists
+    if ($template->background_path && Storage::disk('public')->exists($template->background_path)) {
+        Storage::disk('public')->delete($template->background_path);
     }
+
+    $template->delete();
+
+    return redirect()->route('admin.image-templates.index')->with('success', 'Template deleted successfully.');
+}
 
 
 
