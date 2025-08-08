@@ -140,28 +140,23 @@
 
                                     </td>
 
-                                    <td class="px-5 py-4 sm:px-6">
-                                        @php
-                                            $statusClasses = [
-                                                'active' => 'bg-green-100 text-green-800',
-                                                'inactive' => 'bg-gray-100 text-gray-800',
-                                                'pending' => 'bg-yellow-100 text-yellow-800',
-                                                'banned' => 'bg-red-100 text-red-800',
-                                            ];
-                                            $normalizedStatus = strtolower($player->status);
-                                        @endphp
+                                <td class="px-5 py-4 sm:px-6">
+    @php
+        $isVerified = $player->welcome_email_sent_at !== null;
+    @endphp
 
-                                        <span
-                                            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold {{ $statusClasses[$normalizedStatus] ?? 'bg-gray-100 text-gray-800' }}">
-                                            {{ ucfirst($player->status) }}
-                                        </span>
-                                    </td>
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold
+        {{ $isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
+        {{ $isVerified ? 'Verified' : 'Pending' }}
+    </span>
+</td>
+
 
                                     <td class="px-5 py-4 sm:px-6">
                                         <div class="flex flex-wrap items-center gap-2">
 
                                             {{-- Approve Button --}}
-                                            <form action="{{ route('admin.players.approve', $player->id) }}"
+                                            {{-- <form action="{{ route('admin.players.approve', $player->id) }}"
                                                 method="POST">
                                                 @csrf
                                                 <button type="submit"
@@ -173,10 +168,10 @@
                                                     </svg>
                                                     Approve
                                                 </button>
-                                            </form>
+                                            </form> --}}
 
                                             {{-- Reject Button --}}
-                                            <form action="{{ route('admin.players.reject', $player->id) }}" method="POST">
+                                            {{-- <form action="{{ route('admin.players.reject', $player->id) }}" method="POST">
                                                 @csrf
                                                 <button type="submit"
                                                     class="inline-flex items-center gap-1 bg-red-100 text-red-700 hover:bg-red-200 text-sm font-medium px-3 py-1 rounded-md transition">
@@ -187,7 +182,16 @@
                                                     </svg>
                                                     Reject
                                                 </button>
-                                            </form>
+                                            </form> --}}
+@if ($player->welcome_image_path && Storage::disk('public')->exists($player->welcome_image_path))
+    <a href="{{ asset('storage/' . $player->welcome_image_path) }}"
+       download
+       class="inline-flex items-center px-4 py-2 text-white bg-green-600 rounded hover:bg-green-700">
+        Welcome Card
+    </a>
+@else
+    <p class="text-gray-500 italic"></p>
+@endif
 
                                             {{-- Edit Button --}}
                                             <a href="{{ route('admin.players.edit', $player->id) }}"
