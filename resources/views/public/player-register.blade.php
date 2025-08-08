@@ -513,7 +513,7 @@
                             <ul class="list-disc list-inside mb-3 space-y-1">
                                 <li><span class="font-semibold">3:4 Aspect Ratio</span> (e.g., 300px width x 400px
                                     height minimum)</li>
-                                <li><span class="font-semibold">Average Quality</span> (Max 2MB)</li>
+                                <li><span class="font-semibold">Average Quality</span> (Max 6MB)</li>
                                 <li><span class="font-semibold">Only *.jpg/ *.jpeg files</li>
                             </ul>
                             <p class="font-semibold mb-2">Example:</p>
@@ -559,7 +559,7 @@
                     </template>
 
                     <p x-show="!previewUrl" class="text-gray-600 text-sm">
-                        Drag & drop or click to upload image (JPG/JPEG, max 2MB)
+                        Drag & drop or click to upload image (JPG/JPEG, max 6MB)
                     </p>
                 </div>
 

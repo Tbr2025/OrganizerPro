@@ -29,10 +29,10 @@ class UpdateTermRequest extends FormRequest
 
         $rules = [
             /** @example "Web Development" */
-            'name' => 'required|string|max:255|unique:terms,name,'.$termId,
+            'name' => 'required|string|max:255|unique:terms,name,' . $termId,
 
             /** @example "web-development" */
-            'slug' => 'nullable|string|max:255|unique:terms,slug,'.$termId,
+            'slug' => 'nullable|string|max:255|unique:terms,slug,' . $termId,
 
             /** @example "Topics related to web development and programming." */
             'description' => 'nullable|string',
@@ -47,7 +47,7 @@ class UpdateTermRequest extends FormRequest
 
         if ($taxonomyModel && $taxonomyModel->show_featured_image) {
             /** @example null */
-            $rules['featured_image'] = 'nullable|image|max:2048';
+            $rules['featured_image'] = 'nullable|image|max:6144';
         }
 
         return ld_apply_filters('term.update.validation.rules', $rules, $taxonomyName);

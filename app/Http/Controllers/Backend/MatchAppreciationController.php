@@ -56,7 +56,7 @@ class MatchAppreciationController extends Controller
         $validated = $request->validate([
             'player_id' => 'required|exists:players,id',
             'title' => 'required|string|max:255',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|max:6144',
         ]);
 
         $imagePath = null;

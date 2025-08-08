@@ -36,7 +36,7 @@ class TeamPlayerController extends Controller
             'player_id' => 'required|exists:players,id',
             'tournament_id' => 'nullable|exists:tournaments,id',
             'role' => 'nullable|string',
-            'image' => 'nullable|image|max:2048',
+            'image' => 'nullable|image|max:6144',
         ]);
 
         $playerId = $validated['player_id'];

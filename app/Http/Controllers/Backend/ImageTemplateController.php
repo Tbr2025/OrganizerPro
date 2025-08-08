@@ -22,7 +22,7 @@ class ImageTemplateController extends Controller
     public function remove(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:png,jpg,jpeg|max:2048',
+            'image' => 'required|image|mimes:png,jpg,jpeg|max:6144',
         ]);
 
         $image = $request->file('image');
@@ -154,21 +154,21 @@ class ImageTemplateController extends Controller
         return view('backend.pages.image-templates.show', compact('template'));
     }
 
- // In ImageTemplateController.php
+    // In ImageTemplateController.php
 
-public function removeTemplate(Request $request)
-{
-    $template = ImageTemplate::findOrFail($request->input('template_id'));
+    public function removeTemplate(Request $request)
+    {
+        $template = ImageTemplate::findOrFail($request->input('template_id'));
 
-    // Optional: Delete background image if exists
-    if ($template->background_path && Storage::disk('public')->exists($template->background_path)) {
-        Storage::disk('public')->delete($template->background_path);
+        // Optional: Delete background image if exists
+        if ($template->background_path && Storage::disk('public')->exists($template->background_path)) {
+            Storage::disk('public')->delete($template->background_path);
+        }
+
+        $template->delete();
+
+        return redirect()->route('admin.image-templates.index')->with('success', 'Template deleted successfully.');
     }
-
-    $template->delete();
-
-    return redirect()->route('admin.image-templates.index')->with('success', 'Template deleted successfully.');
-}
 
 
 
@@ -177,7 +177,7 @@ public function removeTemplate(Request $request)
         $request->validate([
             'name' => 'required|string|max:255',
             'layout_json' => 'required',
-            'background_image' => 'nullable|image|max:2048', // optional new background
+            'background_image' => 'nullable|image|max:6144', // optional new background
         ]);
 
         if ($request->hasFile('background_image')) {

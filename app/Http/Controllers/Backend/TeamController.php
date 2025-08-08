@@ -50,7 +50,7 @@ class TeamController extends Controller
             'name' => 'required|string|max:255',
             'short_name' => 'nullable|string|max:50',
             'admin_id' => 'nullable|exists:users,id',
-            'logo' => 'nullable|image|max:2048',
+            'logo' => 'nullable|image|max:6144',
         ]);
 
         if ($request->hasFile('logo')) {
@@ -100,7 +100,7 @@ class TeamController extends Controller
             'admin_id' => 'nullable|exists:users,id',
 
             'short_name' => 'nullable|string|max:50',
-            'logo' => 'nullable|image|max:2048',
+            'logo' => 'nullable|image|max:6144',
         ]);
 
         if ($request->hasFile('logo')) {

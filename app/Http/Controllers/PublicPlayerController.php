@@ -87,7 +87,7 @@ class PublicPlayerController extends Controller
                 'required',
                 'image',
                 'mimes:png,jpg,jpeg',
-                'max:2048',
+                'max:6144',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($request->hasFile('image')) {
                         $image = getimagesize($request->file('image')->getPathname());
@@ -112,7 +112,7 @@ class PublicPlayerController extends Controller
 
             'image.required' => 'Profile image is required.',
             'image.mimes' => 'The profile image must be a PNG, JPG, or JPEG file.',
-            'image.max' => 'The profile image size cannot be more than 2MB.',
+            'image.max' => 'The profile image size cannot be more than 6MB.',
 
             // 💡 Custom Dropdown Error Messages
             'kit_size_id.required' => 'Please select your Jersey Size.',

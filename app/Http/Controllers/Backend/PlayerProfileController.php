@@ -52,7 +52,7 @@ class PlayerProfileController extends Controller
 
     public function update(Request $request)
     {
-       
+
         $player = Auth::user()->player; // Assuming one-to-one relation: User hasOne Player
 
         // Sanitize and combine phone numbers
@@ -102,7 +102,7 @@ class PlayerProfileController extends Controller
                 'nullable',
                 'image',
                 'mimes:png,jpg,jpeg',
-                'max:2048',
+                'max:6144',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($request->hasFile('image_path')) {
                         $image = getimagesize($request->file('image_path')->getPathname());
@@ -129,7 +129,7 @@ class PlayerProfileController extends Controller
             'mobile_number_full.unique' => 'This mobile number is already registered.',
             'cricheroes_number_full.unique' => 'This CricHeroes number is already registered.',
             'image_path.mimes' => 'The profile image must be a PNG file.',
-            'image_path.max' => 'The profile image size cannot be more than 2MB.',
+            'image_path.max' => 'The profile image size cannot be more than 6MB.',
         ]);
 
         // Handle new image upload

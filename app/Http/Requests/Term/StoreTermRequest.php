@@ -52,7 +52,7 @@ class StoreTermRequest extends FormRequest
 
         if ($taxonomyModel && $taxonomyModel->show_featured_image) {
             /** @example null */
-            $rules['featured_image'] = 'nullable|image|max:2048';
+            $rules['featured_image'] = 'nullable|image|max:6144';
         }
 
         return ld_apply_filters('term.store.validation.rules', $rules, $taxonomyName);

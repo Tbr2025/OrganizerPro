@@ -127,7 +127,7 @@ class PlayerController extends Controller
                 'nullable',
                 'image',
                 'mimes:png,jpg,jpeg',
-                'max:2048',
+                'max:6144',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($request->hasFile('image_path')) {
                         $image = getimagesize($request->file('image_path')->getPathname());
@@ -159,7 +159,7 @@ class PlayerController extends Controller
             'mobile_number_full.unique' => 'This mobile number is already registered.',
             'cricheroes_number_full.unique' => 'This CricHeroes number is already registered.',
             'image_path.mimes' => 'The profile image must be a PNG, JPG, or JPEG file.',
-            'image_path.max' => 'The profile image size cannot be more than 2MB.',
+            'image_path.max' => 'The profile image size cannot be more than 6MB.',
             'travel_date_from.after_or_equal' => 'The travel start date must be today or later.',
             'travel_date_to.after_or_equal' => 'The travel end date must be after or equal to the start date.',
         ]);
@@ -526,7 +526,7 @@ class PlayerController extends Controller
             'batting_profile_id' => 'nullable|exists:batting_profiles,id',
             'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
             'player_type_id' => 'nullable|exists:player_types,id',
-            'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:6144',
             'total_matches' => 'required|integer|min:0',
             'total_runs' => 'required|integer|min:0',
             'total_wickets' => 'required|integer|min:0',
@@ -780,7 +780,7 @@ class PlayerController extends Controller
     public function importCsv(Request $request)
     {
         $request->validate([
-            'csv_file' => 'required|mimes:csv,txt|max:2048',
+            'csv_file' => 'required|mimes:csv,txt|max:6144',
         ]);
 
         $path = $request->file('csv_file')->getRealPath();
