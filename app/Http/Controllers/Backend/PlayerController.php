@@ -271,6 +271,7 @@ class PlayerController extends Controller
                 ],
             ],
             'verifiedFields' => $verifiedFields,
+            'verifiedprofile' => $player->allFieldsVerified()
         ]);
     }
 
@@ -762,16 +763,16 @@ class PlayerController extends Controller
         // ✅ Optional: Generate welcome image only if all fields verified
         if ($request->boolean('allverified')) {
             if (!$player->allFieldsVerified()) {
-                return back()->with('error', 'Cannot generate appreciation image. All fields must be verified.');
+                return redirect()->back()->with('error', 'Cannot generate appreciation image. All fields must be verified.');
             }
 
             if ($player->welcome_email_sent_at) {
-                return back()->with('info', 'Welcome image has already been sent.');
+                return redirect()->back()->with('error', 'Welcome image has already been sent.');
             }
 
             $template = ImageTemplate::where('category_id', 1)->first();
             if (!$template) {
-                return back()->with('error', 'There is no welcome template associated! Please create and try again!');
+                return redirect()->back()->with('error', 'There is no welcome template associated! Please create and try again!');
             }
             $imagePath = $this->generateWelcomePlayerImageGD($player, $template);
 

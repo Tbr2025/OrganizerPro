@@ -345,7 +345,7 @@
                                 Intimate Player
                             </button>
 
-                            @if ($templates->count() > 0)
+                            @if ($verifiedprofile)
                                 <button type="submit" onclick="document.getElementById('allverified').value = 1;"
                                     class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Welcome Player - Generate Image
