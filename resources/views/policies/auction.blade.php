@@ -11,7 +11,7 @@
 
                 {{-- Logo --}}
                 <div class="flex justify-center mb-4">
-                   <img src="{{ asset('images/logo/logo.png') }}" alt="IPL Logo" class="mx-auto my-4 w-[250px] h-auto">
+                   <img src="{{ asset('images/logo/landing.png') }}" alt="IPL Logo" class="mx-auto my-4 w-[250px] h-auto">
                 </div>
 
                 <p>
