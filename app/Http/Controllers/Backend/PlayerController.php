@@ -718,8 +718,9 @@ class PlayerController extends Controller
             );
 
 
+return redirect()->back()->with('success', 'Player updated and intimated.');
 
-            return redirect()->route('admin.players.index')->with('success', 'Player updated and intimated.');
+            // return redirect()->route('admin.players.index')->with('success', 'Player updated and intimated.');
         }
 
         // ✅ Optional: Generate welcome image only if all fields verified
@@ -746,12 +747,12 @@ class PlayerController extends Controller
 
             // Mark email as sent
             $player->update(['welcome_email_sent_at' => now()]);
+return redirect()->back()->with('success', 'Player - Welcome image created and intimated.');
 
-            return redirect()->route('admin.players.index')->with('success', 'Player - Welcome image created and intimated.');
         }
 
 
-        return redirect()->route('admin.players.index')->with('success', 'Player updated successfully.');
+return redirect()->back()->with('success', 'Player updated successfully.');
     }
 
 
