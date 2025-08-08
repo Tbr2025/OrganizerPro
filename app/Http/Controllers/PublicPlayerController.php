@@ -61,7 +61,7 @@ class PublicPlayerController extends Controller
             'mobile_country_code' => 'required|string|max:10',
             'mobile_national_number' => 'required|string|max:20',
             'mobile_number_full' => ['required', 'numeric', 'digits_between:7,15', 'unique:players,mobile_number_full'],
-            'team_id' => 'nullable|exists:teams,id',
+            'team_id' => 'required|exists:teams,id',
             'jersey_name' => 'required|string|max:50',
             'kit_size_id' => 'required|exists:kit_sizes,id',
             'batting_profile_id' => 'required|exists:batting_profiles,id',
@@ -93,6 +93,8 @@ class PublicPlayerController extends Controller
             'wicket_keeper' => 'nullable|boolean',
             'need_transportation' => 'nullable|boolean',
         ], [
+            'mobile_national_number.required' => 'Please enter your phone number',
+
             // 🔁 Custom Error Messages
             'email.unique' => 'The email address has already been used.',
             'mobile_number_full.unique' => 'This mobile number is already registered.',
@@ -104,6 +106,7 @@ class PublicPlayerController extends Controller
 
             // 💡 Custom Dropdown Error Messages
             'kit_size_id.required' => 'Please select your Jersey Size.',
+            'team_id.required' => 'Please choose your team',
             'kit_size_id.exists' => 'The selected Jersey Size is invalid.',
 
             'batting_profile_id.required' => 'Please select your batting profile.',
