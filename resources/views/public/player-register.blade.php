@@ -512,7 +512,7 @@
                             <p class="mb-2">For best results, please upload an image with:</p>
                             <ul class="list-disc list-inside mb-3 space-y-1">
                               
-                                <li><span class="font-semibold">Average Quality</span> (Max 6MB)</li>
+                                <li><span class="font-semibold">Average Quality</span> (Max 2MB)</li>
                                 <li><span class="font-semibold">Only *.jpg/ *.jpeg files</li>
                             </ul>
                             <p class="font-semibold mb-2">Example:</p>
@@ -535,7 +535,8 @@
                             this.previewUrl = URL.createObjectURL(file);
                         } else {
                             this.previewUrl = '';
-                        }if (event.target.files.length > 1) {  alert('Only one image can be uploaded.'');
+                        }
+                            if (event.target.files.length > 1) {  alert('Only one image can be uploaded.');
         this.$refs.fileInput.value = '';
         this.previewUrl = '';
     }
@@ -561,7 +562,7 @@
                     </template>
 
                     <p x-show="!previewUrl" class="text-gray-600 text-sm">
-                        Drag & drop or click to upload image (JPG/JPEG, max 6MB)
+                        Drag & drop or click to upload image (JPG/JPEG, max 2MB)
                     </p>
                 </div>
 
