@@ -536,28 +536,25 @@
                             this.previewUrl = URL.createObjectURL(file);
                         } else {
                             this.previewUrl = '';
+                        }if (event.target.files.length > 1) {  alert('Only one image can be uploaded.'');
+        this.$refs.fileInput.value = '';
+        this.previewUrl = '';
+    }
+                    },
+                    dropHandler(event) {
+                        event.preventDefault();
+                        const file = event.dataTransfer.files[0];
+                        if (file && file.type.startsWith('image/')) {
+                            this.$refs.fileInput.files = event.dataTransfer.files;
+                            this.previewUrl = URL.createObjectURL(file);
                         }
-                        if (event.target.files.length > 1) {
-                            alert('Only one image can be uploaded.'
-                                ');
-                                this.$refs.fileInput.value = ''; this.previewUrl = '';
-                            }
-                
-                        },
-                        dropHandler(event) {
-                            event.preventDefault();
-                            const file = event.dataTransfer.files[0];
-                            if (file && file.type.startsWith('image/')) {
-                                this.$refs.fileInput.files = event.dataTransfer.files;
-                                this.previewUrl = URL.createObjectURL(file);
-                            }
-                        }
-                    }" @drop.prevent="dropHandler($event)" @dragover.prevent
+                    }
+                }" @drop.prevent="dropHandler($event)" @dragover.prevent
                     class="relative w-full border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg cursor-pointer text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                     @click="$refs.fileInput.click()">
 
                     <input type="file" name="image" id="image" accept="image/png,image/jpeg"
-                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange"  required>
+                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange" required>
 
                     <template x-if="previewUrl">
                         <img :src="previewUrl"
