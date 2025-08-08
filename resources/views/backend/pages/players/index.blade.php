@@ -142,7 +142,7 @@
 
                                 <td class="px-5 py-4 sm:px-6">
     @php
-        $isVerified = $player->welcome_email_sent_at !== null;
+        $isVerified = $player->welcome_image_path !== null;
     @endphp
 
     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold

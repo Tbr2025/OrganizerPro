@@ -57,7 +57,8 @@ class Player extends Model implements MustVerifyEmail
         'location_id',
         'total_matches',
         'total_runs',
-        'total_wickets'
+        'total_wickets',
+        'welcome_email_sent_at',
     ];
 
     protected $casts = [
