@@ -308,32 +308,23 @@
                                     {{-- Extra date pickers for "No Travel Plan" --}}
                                     {{-- Extra date pickers for "No Travel Plan" --}}
                                     @if ($field === 'no_travel_plan')
-                                     <div class="mt-4 grid grid-cols-2 gap-2">
-  <div>
-    <label class="text-xs text-gray-500">From Date</label>
-    <input
-      type="date"
-      id="travel_date_from"
-      name="travel_date_from"
-      value="{{ old('travel_date_from', $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('Y-m-d') : '') }}"
-      class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
-      placeholder="YYYY-MM-DD"
-    >
-  </div>
+                                        <div class="mt-4 grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="text-xs text-gray-500">From Date</label>
+                                                <input type="date" id="travel_date_from" name="travel_date_from"
+                                                    value="{{ old('travel_date_from', $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('Y-m-d') : '') }}"
+                                                    class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
+                                                    placeholder="YYYY-MM-DD">
+                                            </div>
 
-  <div>
-    <label class="text-xs text-gray-500">To Date</label>
-    <input
-      type="date"
-      id="travel_date_to"
-      name="travel_date_to"
-      value="{{ old('travel_date_to', $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('Y-m-d') : '') }}"
-      class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
-      placeholder="YYYY-MM-DD"
-    >
-  </div>
-</div>
-
+                                            <div>
+                                                <label class="text-xs text-gray-500">To Date</label>
+                                                <input type="date" id="travel_date_to" name="travel_date_to"
+                                                    value="{{ old('travel_date_to', $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('Y-m-d') : '') }}"
+                                                    class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
+                                                    placeholder="YYYY-MM-DD">
+                                            </div>
+                                        </div>
                                     @endif
 
                                 </div>
@@ -380,7 +371,17 @@
                                     </a>
                                 </p>
                             @endif
+                            @if (!$player->isApproved())
+                                <input type="hidden" name="isapproved" value="1">
 
+                                <button type="submit"
+                                    onclick="document.getElementById('isApproved').value = '{{ $player->isApproved() }}';"
+                                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    Approve
+                                </button>
+                            @else
+                                <span class="text-gray-500">Player already approved</span>
+                            @endif
                         </div>
                         <div
                             class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm space-y-2 col-span-2">
@@ -397,6 +398,13 @@
                                     <strong>Welcome Player - Generate Image:</strong> Creates a welcome image using the
                                     selected template and sends it via email.Need to verify all the details to send
                                     welcome message.
+                                </p>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="material-icons text-blue-400 mr-2">info</span>
+                                <p>
+                                    <strong>Active Player</strong> So that player can etit their information from thier
+                                    profile page.
                                 </p>
                             </div>
                         </div>

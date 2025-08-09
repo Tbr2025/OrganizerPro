@@ -160,6 +160,7 @@ class Player extends Model implements MustVerifyEmail
     {
         return $this->status === 'approved';
     }
+    
 
     public function isRejected(): bool
     {

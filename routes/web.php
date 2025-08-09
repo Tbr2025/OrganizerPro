@@ -82,9 +82,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::delete('/teams/{team}/players/{player}', [TeamPlayerController::class, 'destroy'])->name('teams.removePlayer');
 
     Route::resource('players', PlayerController::class);
+
     Route::post('players/import', [PlayerController::class, 'importCsv'])->name('players.import');
 
     Route::get('players/sample-csv', [PlayerController::class, 'downloadSampleCsv'])->name('players.sample');
+
+
 
 
     Route::resource('matches', MatchesController::class);
@@ -136,8 +139,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
 
 
-Route::post('/image-templates/remove', [ImageTemplateController::class, 'removeTemplate'])
-    ->name('image-templates.remove');
+    Route::post('/image-templates/remove', [ImageTemplateController::class, 'removeTemplate'])
+        ->name('image-templates.remove');
 
 
     Route::get('image-templates/remove-bg', [ImageTemplateController::class, 'removebg'])->name('image-templates.remove-bg');
@@ -243,6 +246,8 @@ Route::post('/email/verification-notification', function (Request $request) {
     $request->user()->sendEmailVerificationNotification();
     return back()->with('message', 'Verification link sent!');
 })->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+
+
 
 Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, $hash) {
     $user = User::findOrFail($id);

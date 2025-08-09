@@ -13,6 +13,7 @@ use App\Models\Matches;
 use App\Models\Player;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
+use App\Models\Role;
 use App\Models\Team;
 use App\Models\Tournament;
 use Illuminate\Support\Facades\Auth;
@@ -721,8 +722,47 @@ class PlayerController extends Controller
 
         $player->save();
 
+
+        if ($request->isapproved == '1') {
+
+
+            // Already approved?
+            if ($player->isApproved()) {
+                return back()->with('error', 'Player is already approved.');
+            }
+
+            // Rejected players cannot be approved
+            if ($player->isRejected()) {
+                return back()->with('error', 'Player has been rejected and cannot be approved.');
+            }
+
+            // Ensure the player has a linked user
+            $user = $player->user;
+            if (!$user) {
+                return back()->with('error', 'This player does not have a linked user account.');
+            }
+
+            // Assign 'player' role if not already assigned
+            if (!$user->hasRole('player')) {
+                $playerRole = Role::firstOrCreate(['name' => 'player']);
+                $user->assignRole($playerRole);
+            }
+
+            // Approve player
+            $player->status = 'approved';
+            $player->approved_by = auth()->id();
+            $player->save();
+
+            return back()->with('success', 'Player approved and activated.');
+        }
+
         // ✅ Optional Intimate after update
         if ($request->boolean('intimate')) {
+
+
+
+
+
             if (!$player->email) {
                 return back()->with('error', 'Player does not have a valid email address.');
             }
@@ -796,6 +836,10 @@ class PlayerController extends Controller
 
         return redirect()->back()->with('success', 'Player updated successfully.');
     }
+
+
+
+
 
 
 
