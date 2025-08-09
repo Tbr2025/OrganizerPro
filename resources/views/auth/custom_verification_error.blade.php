@@ -4,7 +4,7 @@
     <div class="max-w-4xl mx-auto px-4 py-8">
         <div class="bg-white shadow rounded-lg overflow-hidden">
             <div class="bg-red-600 text-white text-center py-4 text-xl font-semibold">
-                Waiting for the approval!
+               Waiting for the Login Approval!
             </div>
 
             <div class="p-6 space-y-4 text-gray-800 text-base leading-relaxed">
@@ -15,7 +15,7 @@
                 </div>
 
                 <p>
-                    Please wait for the approval.
+                   Waiting for the Login Approval! Once it is approve re visit the link for the verification.
                 </p>
 
                 <p>
