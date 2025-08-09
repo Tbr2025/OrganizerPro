@@ -564,6 +564,9 @@ class PlayerController extends Controller
             'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:6144',
             'is_wicket_keeper' => 'sometimes|boolean',
             'is_transportation_required' => 'sometimes|boolean',
+            'no_travel_plan' => 'nullable|boolean',
+            'travel_date_from' => 'nullable|date',
+            'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
         ]);
 
 
@@ -693,6 +696,9 @@ class PlayerController extends Controller
             'player_type_id' => $validated['player_type_id'] ?? null,
             'is_wicket_keeper' => $request->boolean('is_wicket_keeper'),
             'transportation_required' => $request->boolean('transportation_required'),
+            'no_travel_plan' => $request->boolean('no_travel_plan'),
+            'travel_date_from' => $validated['travel_date_from'] ?? null,
+            'travel_date_to' => $validated['travel_date_to'] ?? null,
         ]);
 
         // ✅ Assign verified flags

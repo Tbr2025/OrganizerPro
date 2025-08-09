@@ -21,8 +21,8 @@
                                 $fields = [
                                     'name' => 'Player Name',
                                     'email' => 'Email',
-                                    'mobile_number_full' => 'Full Mobile Number',
-                                    'cricheroes_number_full' => 'Full Cricheroes Number',
+                                    'mobile_number_full' => 'Full Mobile Number (With Country Code without +)',
+                                    'cricheroes_number_full' => 'Full Cricheroes Number ( With Country Code without +)',
                                     'jersey_name' => 'Jersey Name',
                                 ];
                             @endphp

@@ -113,18 +113,7 @@ class PlayerProfileController extends Controller
     {
         $player = Auth::user()->player;
 
-        // Construct full phone numbers
-        $mobileFull = preg_replace('/\D+/', '', (string) $request->input('mobile_country_code') . (string) $request->input('mobile_national_number'));
-        $cricheroesFull = null;
-
-        if ($request->filled(['cricheroes_country_code', 'cricheroes_national_number'])) {
-            $cricheroesFull = preg_replace('/\D+/', '', (string) $request->input('cricheroes_country_code') . (string) $request->input('cricheroes_national_number'));
-        }
-
-        $request->merge([
-            'mobile_number_full' => $mobileFull,
-            'cricheroes_number_full' => $cricheroesFull,
-        ]);
+      
 
         // Map of field => is_verified (e.g. DB: verified_name = true)
         $verifiedFields = [
@@ -143,8 +132,7 @@ class PlayerProfileController extends Controller
         }
 
         if (!($verifiedFields['mobile_number_full'] ?? false)) {
-            $rules['mobile_country_code'] = 'required|string|max:10';
-            $rules['mobile_national_number'] = 'required|string|max:20';
+       
             $rules['mobile_number_full'] = [
                 'required',
                 'numeric',
@@ -158,8 +146,6 @@ class PlayerProfileController extends Controller
         }
 
         if (!($verifiedFields['cricheroes_number_full'] ?? false)) {
-            $rules['cricheroes_country_code'] = 'nullable|string|max:10';
-            $rules['cricheroes_national_number'] = 'nullable|string|max:20';
             $rules['cricheroes_number_full'] = [
                 'nullable',
                 'numeric',

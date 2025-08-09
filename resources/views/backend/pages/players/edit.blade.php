@@ -181,7 +181,7 @@
 
                             {{-- Image Upload --}}
                             {{-- Player Image Upload --}}
-                            
+
                             <div class="sm:col-span-2">
                                 <label for="image_path"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -266,43 +266,7 @@
 
 
 
-                            <div class="md:col-span-2 flex flex-col gap-4 mt-4" x-data="{
-                                noTravel: {{ old('no_travel_plan', $player->no_travel_plan ?? false) ? 'true' : 'false' }},
-                                from: '{{ old('travel_date_from', $player->travel_date_from ?? '') }}',
-                                to: '{{ old('travel_date_to', $player->travel_date_to ?? '') }}',
-                                today: (new Date()).toISOString().split('T')[0]
-                            }">
 
-
-
-                                <!-- Travel Date Pickers -->
-                                <div x-show="!noTravel" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <!-- Travel From -->
-                                    <div>
-                                        <label for="travel_date_from" class="block font-semibold mb-1">Travel Date
-                                            From</label>
-                                        <input type="date" name="travel_date_from" id="travel_date_from"
-                                            x-model="from" :min="today"
-                                            class="w-full px-3 py-2 border rounded text-black"
-                                            placeholder="Select start date">
-                                        @error('travel_date_from')
-                                            <p class="text-sm text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-
-                                    <!-- Travel To -->
-                                    <div>
-                                        <label for="travel_date_to" class="block font-semibold mb-1">Travel Date
-                                            To</label>
-                                        <input type="date" name="travel_date_to" id="travel_date_to" x-model="to"
-                                            :min="from || today" class="w-full px-3 py-2 border rounded text-black"
-                                            placeholder="Select end date">
-                                        @error('travel_date_to')
-                                            <p class="text-sm text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
 
 
 
@@ -322,26 +286,63 @@
                                         <input type="checkbox" name="{{ $field }}" value="1"
                                             {{ old($field, $player->$field) ? 'checked' : '' }} class="mr-2">
                                         {{ $label }}
-                                        <label class="relative inline-flex items-center cursor-pointer">
+
+                                        {{-- Verified toggle --}}
+                                        <label class="relative inline-flex items-center cursor-pointer ml-3">
                                             <input type="checkbox" name="verified_{{ $field }}" value="1"
                                                 class="sr-only peer"
                                                 {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}>
                                             <div
                                                 class="w-11 h-6 bg-gray-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-400
-                dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
+                    dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
                                             </div>
                                             <div
                                                 class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full
-                transition-transform duration-300 peer-checked:translate-x-full">
+                    transition-transform duration-300 peer-checked:translate-x-full">
                                             </div>
                                             <span
                                                 class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
                                         </label>
                                     </label>
+
+                                    {{-- Extra date pickers for "No Travel Plan" --}}
+                                    {{-- Extra date pickers for "No Travel Plan" --}}
+                                    @if ($field === 'no_travel_plan')
+                                     <div class="mt-4 grid grid-cols-2 gap-2">
+  <div>
+    <label class="text-xs text-gray-500">From Date</label>
+    <input
+      type="date"
+      id="travel_date_from"
+      name="travel_date_from"
+      value="{{ old('travel_date_from', $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('Y-m-d') : '') }}"
+      class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
+      placeholder="YYYY-MM-DD"
+    >
+  </div>
+
+  <div>
+    <label class="text-xs text-gray-500">To Date</label>
+    <input
+      type="date"
+      id="travel_date_to"
+      name="travel_date_to"
+      value="{{ old('travel_date_to', $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('Y-m-d') : '') }}"
+      class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
+      placeholder="YYYY-MM-DD"
+    >
+  </div>
+</div>
+
+                                    @endif
+
                                 </div>
                             @endforeach
 
                         </div>
+
+
+
                         <input type="hidden" name="intimate" id="intimate" value="0">
 
 
@@ -350,22 +351,22 @@
                         <div class="mt-6">
                             <x-buttons.submit-buttons cancelUrl="{{ route('admin.players.index') }}" />
                         </div>
-                        <div class="mt-5">
+                        <div class="mt-5 mb-5">
 
                             <button type="submit" onclick="document.getElementById('intimate').value = 1;"
                                 class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Intimate Player
                             </button>
 
-                            @if ($templates->count() > 0)
-                                <input type="hidden" id="allverified" name="allverified"
-                                    value="{{ $verifiedProfile }}">
 
-                                <button type="submit"
-                                    onclick="document.getElementById('allverified').value = '{{ $verifiedProfile }}';"
-                                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                    Welcome Player - Generate Image
-                                </button>
+                            @if ($templates->count() > 0)
+                                @if ($verifiedProfile)
+                                    <button type="submit"
+                                        onclick="document.getElementById('allverified').value = '{{ $verifiedProfile }}';"
+                                        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        Welcome Player - Generate Image
+                                    </button>
+                                @endif
                             @else
                                 <button type="button" disabled
                                     class="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-md shadow-sm cursor-not-allowed">
@@ -380,6 +381,24 @@
                                 </p>
                             @endif
 
+                        </div>
+                        <div
+                            class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm space-y-2 col-span-2">
+                            <div class="flex items-start">
+                                <span class="material-icons text-blue-400 mr-2">info</span>
+                                <p>
+                                    <strong>Intimate Player:</strong> Sends an email to the player listing all missing
+                                    or unverified details.
+                                </p>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="material-icons text-blue-400 mr-2">info</span>
+                                <p>
+                                    <strong>Welcome Player - Generate Image:</strong> Creates a welcome image using the
+                                    selected template and sends it via email.Need to verify all the details to send
+                                    welcome message.
+                                </p>
+                            </div>
                         </div>
 
 
