@@ -35,7 +35,7 @@
             value="{{ request('search') }}"
             type="text"
             placeholder="{{ $placeholder }}"
-            class="form-control !h-11 !py-2.5 !pl-12 !pr-14"
+            class="form-control !h-11 !py-2.5 !pl-12 !pr-14 w-42"
         />
 
         <button
