@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Routing\Exceptions\InvalidSignatureException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -34,8 +35,20 @@ class Handler extends ExceptionHandler
      *
      * @throws \Throwable
      */
+    // public function render($request, Throwable $exception)
+    // {
+    //     return parent::render($request, $exception);
+    // }
+
     public function render($request, Throwable $exception)
-    {
-        return parent::render($request, $exception);
+{
+    if ($exception instanceof InvalidSignatureException) {
+        // Show custom view or message instead of default error
+        return response()->view('auth.custom_verification_error', [], 403);
+        // Or simply return a message:
+        // return response('Please wait for approval', 403);
     }
+
+    return parent::render($request, $exception);
+}
 }
