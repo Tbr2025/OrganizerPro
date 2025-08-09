@@ -90,10 +90,17 @@
                                             value="{{ $player->id }}" x-model="selectedPlayers">
                                     </td>
 <td class="px-5 py-4 sm:px-6">
-    {{ optional($player->user->organization)->name
-        ? strtoupper(substr($player->user->organization->name, 0, 2)) . '-' . $player->id
-        : $player->id }}
+    @php
+        $orgName = optional($player->user->organization)->name;
+        $prefix = '';
+        if ($orgName) {
+            $words = explode(' ', $orgName);
+            $prefix = strtoupper(substr($words[0] ?? '', 0, 1) . substr($words[1] ?? '', 0, 1));
+        }
+    @endphp
+    {{ $prefix ? $prefix . '-' . $player->id : $player->id }}
 </td>
+
 
 
 
