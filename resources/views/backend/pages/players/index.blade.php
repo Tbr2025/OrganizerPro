@@ -21,7 +21,7 @@
         {!! ld_apply_filters('users_after_breadcrumbs', '') !!}
 
         <div class="space-y-6">
-         
+
 
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <form method="GET" action="{{ route('admin.players.index') }}" class="flex gap-1">
@@ -52,8 +52,7 @@
                             <option value="verified" @selected(request('status') == 'verified')>Verified</option>
                             <option value="pending" @selected(request('status') == 'pending')>Pending</option>
                         </select> <button type="submit" class="btn-primary">Apply</button>
-                        <a href="{{ route('admin.players.index') }}"
-                             class="btn-secondary">Reset</a>
+                        <a href="{{ route('admin.players.index') }}" class="btn-secondary">Reset</a>
 
                     </div>
                 </form>
@@ -89,27 +88,32 @@
                                             value="{{ $player->id }}" x-model="selectedPlayers">
                                     </td>
                                     <td class="px-5 py-4 sm:px-6">
-                                      
-                                        <div class="relative inline-block">
-    <!-- Player profile image -->
-<img src="{{ $player->image_path ? Storage::url($player->image_path) : asset('images/icons/default-avatar.png') }}"
-     alt="{{ $player->name }}"
-     class="w-12 h-12 rounded-full border border-gray-300 object-cover">
-       
+                                        <div class="flex items-center space-x-3">
+                                            <div class="relative inline-block">
+                                                <!-- Player profile image -->
+                                                <img src="{{ $player->image_path ? Storage::url($player->image_path) : asset('images/icons/default-avatar.png') }}"
+                                                    alt="{{ $player->name }}"
+                                                    class="w-12 h-12 rounded-full border border-gray-300 object-cover">
 
-    @if($player->welcome_email_sent_at) 
-        <!-- Verified badge -->
-        <span class="absolute bottom-0 right-0 bg-blue-500 rounded-full p-1 border-2 border-white">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-3 h-3">
-                <path fill-rule="evenodd" 
-                      d="M22.5 12a10.5 10.5 0 11-21 0 10.5 10.5 0 0121 0zm-11.707 3.293l5.5-5.5a1 1 0 00-1.414-1.414L10 12.586 8.121 10.707a1 1 0 00-1.414 1.414l2.586 2.586a1 1 0 001.414 0z" 
-                      clip-rule="evenodd"/>
-            </svg>
-        </span>
-    @endif
-</div>
+                                                @if ($player->welcome_email_sent_at)
+                                                    <!-- Verified badge -->
+                                                    <span
+                                                        class="absolute bottom-0 right-0 bg-blue-500 rounded-full p-1 border-2 border-white">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                                                            fill="white" class="w-3 h-3">
+                                                            <path fill-rule="evenodd"
+                                                                d="M22.5 12a10.5 10.5 0 11-21 0 10.5 10.5 0 0121 0zm-11.707 3.293l5.5-5.5a1 1 0 00-1.414-1.414L10 12.586 8.121 10.707a1 1 0 00-1.414 1.414l2.586 2.586a1 1 0 001.414 0z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    </span>
+                                                @endif
+                                            </div>
 
+                                            <!-- Player name -->
+                                            <span class="text-gray-900 font-medium">{{ $player->name }}</span>
+                                        </div>
                                     </td>
+
                                     <td class="px-5 py-4 sm:px-6">
                                         <div class="space-y-1 text-sm text-gray-800">
                                             <div class="flex items-center gap-2">

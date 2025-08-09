@@ -3,27 +3,27 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>You Selects - IPL - Player Registration</title>
-    <meta name="title" content="You Selects - IPL - Player Registration" />
+    <title>You Selects - IPL Exhibition- Player Registration</title>
+    <meta name="title" content="You Selects - IPL Exhibition- Player Registration" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <meta name="description"
-        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
+        content="Register Now for The Auction Style YSIPL - Exhibition Tournament. Show Your Talent and Get Selected" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://sportzley.com/player/register" />
-    <meta property="og:title" content="You Selects - IPL - Player Registration" />
+    <meta property="og:title" content="You Selects - IPL Exhibition- Player Registration" />
     <meta property="og:description"
-        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
+        content="Register Now for The Auction Style YSIPL - Exhibition Tournament. Show Your Talent and Get Selected" />
     <meta property="og:image" content="https://sportzley.com/images/logo/og.jpg" />
 
     <!-- X (Twitter) -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://sportzley.com/player/register" />
-    <meta property="twitter:title" content="You Selects - IPL - Player Registration" />
+    <meta property="twitter:title" content="You Selects - IPL Exhibition- Player Registration" />
     <meta property="twitter:description"
-        content="Register now for the IPL-style cricket tournament. Show your talent and get selected!" />
+        content="Register Now for The Auction Style YSIPL - Exhibition Tournament. Show Your Talent and Get Selected" />
     <meta property="twitter:image" content="https://sportzley.com/images/logo/og.jpg" />
 
 
@@ -643,7 +643,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-1 gap-4">
                     <label for="team_id" class="block font-semibold mb-1">Leather Ball Profile Stats (as of
                         registration date)
-                        <span class="text-red-500">*</span>
+                       
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
