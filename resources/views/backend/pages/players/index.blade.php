@@ -72,6 +72,7 @@
                                 [];
                         ">
                                 </th>
+                                <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">ID</th>
                                 <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">Name</th>
                                 <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">Phone</th>
                                 <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">Team</th>
@@ -82,11 +83,20 @@
                         <tbody>
                             @forelse ($players as $player)
                                 <tr class="border-b border-gray-100 dark:border-gray-800">
+                                    
                                     <td class="px-5 py-4 sm:px-6">
                                         <input type="checkbox"
                                             class="player-checkbox form-checkbox h-4 w-4 text-primary border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
                                             value="{{ $player->id }}" x-model="selectedPlayers">
                                     </td>
+<td class="px-5 py-4 sm:px-6">
+    {{ optional($player->user->organization)->name
+        ? strtoupper(substr($player->user->organization->name, 0, 2)) . '-' . $player->id
+        : $player->id }}
+</td>
+
+
+
                                     <td class="px-5 py-4 sm:px-6">
                                         <div class="flex items-center space-x-3">
                                             <div class="relative inline-block">

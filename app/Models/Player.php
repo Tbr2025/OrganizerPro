@@ -256,6 +256,11 @@ class Player extends Model implements MustVerifyEmail
             $this->verified_is_wicket_keeper &&
             $this->verified_transportation_required;
     }
+    public function organization()
+{
+    return $this->belongsTo(Organization::class);
+}
+
 
     public function match()
     {
