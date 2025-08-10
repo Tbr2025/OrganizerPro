@@ -51,12 +51,12 @@
                             <option value="">All Status</option>
                             <option value="verified" @selected(request('status') == 'verified')>Verified</option>
                             <option value="pending" @selected(request('status') == 'pending')>Pending</option>
-                        </select> 
+                        </select>
                         <select name="updated_sort" class="form-control !h-11">
-    <option value="">Sort by Last Updated</option>
-    <option value="desc" @selected(request('updated_sort') == 'desc')>Newest First</option>
-    <option value="asc" @selected(request('updated_sort') == 'asc')>Oldest First</option>
-</select>
+                            <option value="">Sort by Last Updated</option>
+                            <option value="desc" @selected(request('updated_sort') == 'desc')>Newest First</option>
+                            <option value="asc" @selected(request('updated_sort') == 'asc')>Oldest First</option>
+                        </select>
 
                         <button type="submit" class="btn-primary">Apply</button>
                         <a href="{{ route('admin.players.index') }}" class="btn-secondary">Reset</a>

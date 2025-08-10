@@ -57,58 +57,67 @@ class PlayerController extends Controller
     //         ],
     //     ]);
     // }
- public function index(): View
-{
-    $this->checkAuthorization(Auth::user(), ['player.view']);
+    public function index(): View
+    {
+        $this->checkAuthorization(Auth::user(), ['player.view']);
 
-    $filters = [
-        'search'     => request('search'),
-        'team_name'  => request('team_name'),
-        'role'       => request('role'),
-        'status'     => request('status'),
-    ];
+        $filters = [
+            'search'       => request('search'),
+            'team_name'    => request('team_name'),
+            'role'         => request('role'),
+            'status'       => request('status'),
+            'updated_sort' => request('updated_sort'),  // get the sorting value
+        ];
 
-    $players = Player::query()
-        ->when($filters['search'], function ($q) use ($filters) {
-            $q->where(function ($q) use ($filters) {
-                $q->where('name', 'like', "%{$filters['search']}%")
-                  ->orWhere('email', 'like', "%{$filters['search']}%");
-            });
-        })
-        ->when($filters['team_name'], function ($q) use ($filters) {
-            $q->whereHas('team', function ($teamQuery) use ($filters) {
-                $teamQuery->where('name', $filters['team_name']);
-            });
-        })
-        ->when($filters['role'], function ($q) use ($filters) {
-            $q->whereHas('playerType', function ($teamQuery) use ($filters) {
-                $teamQuery->where('type', $filters['role']);
-            });
-        })
-        ->when($filters['status'], function ($q) use ($filters) {
-            if ($filters['status'] === 'verified') {
-                $q->whereNotNull('welcome_email_sent_at'); // Only players with date
-            } elseif ($filters['status'] === 'pending') {
-                $q->whereNull('welcome_email_sent_at');    // Only players without date
-            }
-        })
-        ->orderBy('updated_at', 'desc')  // Sort by last update time descending
-        ->paginate(20)
-        ->appends($filters);
+        $players = Player::query()
+            ->when($filters['search'], function ($q) use ($filters) {
+                $q->where(function ($q) use ($filters) {
+                    $q->where('name', 'like', "%{$filters['search']}%")
+                        ->orWhere('email', 'like', "%{$filters['search']}%");
+                });
+            })
+            ->when($filters['team_name'], function ($q) use ($filters) {
+                $q->whereHas('team', function ($teamQuery) use ($filters) {
+                    $teamQuery->where('name', $filters['team_name']);
+                });
+            })
+            ->when($filters['role'], function ($q) use ($filters) {
+                $q->whereHas('playerType', function ($teamQuery) use ($filters) {
+                    $teamQuery->where('type', $filters['role']);
+                });
+            })
+            ->when($filters['status'], function ($q) use ($filters) {
+                if ($filters['status'] === 'verified') {
+                    $q->whereNotNull('welcome_email_sent_at');
+                } elseif ($filters['status'] === 'pending') {
+                    $q->whereNull('welcome_email_sent_at');
+                }
+            })
+            ->when($filters['updated_sort'], function ($q) use ($filters) {
+                // Sort by updated_at asc or desc based on dropdown
+                if (in_array($filters['updated_sort'], ['asc', 'desc'])) {
+                    $q->orderBy('updated_at', $filters['updated_sort']);
+                }
+            }, function ($q) {
+                // Default order if no sort chosen
+                $q->orderBy('updated_at', 'desc');
+            })
+            ->paginate(20)
+            ->appends($filters);
 
-    // Fetch teams and roles for dropdowns
-    $teams = Team::orderBy('name')->get();
-    $roles = PlayerType::orderBy('type')->get();
+        $teams = Team::orderBy('name')->get();
+        $roles = PlayerType::orderBy('type')->get();
 
-    return view('backend.pages.players.index', [
-        'players'     => $players,
-        'teams'       => $teams,
-        'roles'       => $roles,
-        'breadcrumbs' => [
-            'title' => __('Players'),
-        ],
-    ]);
-}
+        return view('backend.pages.players.index', [
+            'players'     => $players,
+            'teams'       => $teams,
+            'roles'       => $roles,
+            'breadcrumbs' => [
+                'title' => __('Players'),
+            ],
+        ]);
+    }
+
 
 
     public function create(): View
