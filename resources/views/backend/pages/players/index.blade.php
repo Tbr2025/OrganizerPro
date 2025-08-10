@@ -77,6 +77,7 @@
                                 <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">Phone</th>
                                 <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">Team</th>
                                 <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">Status</th>
+                                <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5"> Update</th>
                                 <th class="p-2 bg-gray-50 dark:bg-gray-800 text-left px-5">Action</th>
                             </tr>
                         </thead>
@@ -176,6 +177,15 @@
                                     </td>
 
 
+                                    <td class="px-5 py-4 sm:px-6">
+
+                                         @if ($player->updated_at)
+        <div class="text-xs text-gray-500 mt-1">
+             {{ $player->updated_at->diffForHumans() }}
+        </div>
+    @endif
+
+                                    </td>
                                     <td class="px-5 py-4 sm:px-6">
                                         <div class="flex flex-wrap items-center gap-2">
 

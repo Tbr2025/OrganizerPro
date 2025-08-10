@@ -10,6 +10,8 @@ use App\Models\KitSize;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
 use App\Models\Team;
+use App\Models\User;
+use App\Notifications\PlayerUpdatedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -113,7 +115,7 @@ class PlayerProfileController extends Controller
     {
         $player = Auth::user()->player;
 
-      
+
 
         // Map of field => is_verified (e.g. DB: verified_name = true)
         $verifiedFields = [
@@ -132,7 +134,7 @@ class PlayerProfileController extends Controller
         }
 
         if (!($verifiedFields['mobile_number_full'] ?? false)) {
-       
+
             $rules['mobile_number_full'] = [
                 'required',
                 'numeric',
@@ -292,7 +294,18 @@ class PlayerProfileController extends Controller
         $validated['transportation_required'] = $request->boolean('need_transportation');
 
         $player->update($validated);
+        // Only notify Superadmin and Admin
+        $notifyUsers = User::role(['Superadmin', 'Admin'])->get();
 
+        foreach ($notifyUsers as $notifyUser) {
+            $notifyUser->notify(
+                new PlayerUpdatedNotification(
+                    $player,
+                    auth()->user(),
+                    route('admin.players.edit', $player->id)
+                )
+            );
+        }
         return redirect()->route('profileplayers.edit')->with('success', 'Profile updated.');
     }
 }

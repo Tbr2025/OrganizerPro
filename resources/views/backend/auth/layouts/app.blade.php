@@ -113,6 +113,9 @@ $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(valu
             {!! config('settings.global_custom_js') !!}
         </script>
     @endif
+
+   
+
 </body>
 
 </html>
