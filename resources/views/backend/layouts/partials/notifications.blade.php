@@ -30,10 +30,42 @@
     .slide-out {
         animation: slideOut 0.4s forwards ease-in-out;
     }
+
+    @keyframes toastIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes toastOut {
+        from {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        to {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+    }
+
+    .toast {
+        animation: toastIn 0.3s ease-out forwards;
+    }
+
+    .toast-hide {
+        animation: toastOut 0.4s ease-in forwards;
+    }
 </style>
 
 <!-- Toast Container -->
-<div id="toast-container" class="fixed top-5 right-5 z-50 space-y-2"></div>
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3"></div>
 
 <div class="relative" x-data="{ open: false }" @click.outside="open = false">
     <!-- Bell Button -->
@@ -130,17 +162,24 @@
             lastNotificationIds = currentIds;
         }
 
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.className = "bg-green-500 text-white px-4 py-2 rounded shadow-lg animate-fade-in";
-            toast.textContent = message;
-            document.getElementById('toast-container').appendChild(toast);
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = "toast bg-green-600 text-white px-5 py-3 rounded-lg shadow-lg flex items-center gap-2 min-w-[250px]";
+    toast.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span class="flex-1">${message}</span>
+    `;
+    document.getElementById('toast-container').appendChild(toast);
 
-            setTimeout(() => {
-                toast.classList.add('animate-fade-out');
-                setTimeout(() => toast.remove(), 500);
-            }, 3000);
-        }
+    // Auto-hide after 3s
+    setTimeout(() => {
+        toast.classList.add('toast-hide');
+        setTimeout(() => toast.remove(), 400);
+    }, 3000);
+}
+
 
         function fetchNotifications() {
             fetch("{{ route('admin.notifications.unread') }}")
