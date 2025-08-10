@@ -76,11 +76,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         ->name('notifications.unread');
     Route::get('/notifications/read', [AdminNotificationController::class, 'read'])
         ->name('notifications.red');
+    Route::get('/notifications', [AdminNotificationController::class, 'index'])->name('notifications.index');
 
-Route::post('/notifications/read/{id}', [AdminNotificationController::class, 'markAsRead'])
-    ->name('notifications.read');
+    Route::post('/notifications/read/{id}', [AdminNotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+    Route::post('notifications/unread/{id}', [AdminNotificationController::class, 'markAsUnread']);
 
-Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllAsRead'])->name('notifications.read.all');
+
+    Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllAsRead'])->name('notifications.read.all');
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('teams', TeamController::class);

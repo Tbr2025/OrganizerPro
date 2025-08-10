@@ -51,7 +51,14 @@
                             <option value="">All Status</option>
                             <option value="verified" @selected(request('status') == 'verified')>Verified</option>
                             <option value="pending" @selected(request('status') == 'pending')>Pending</option>
-                        </select> <button type="submit" class="btn-primary">Apply</button>
+                        </select> 
+                        <select name="updated_sort" class="form-control !h-11">
+    <option value="">Sort by Last Updated</option>
+    <option value="desc" @selected(request('updated_sort') == 'desc')>Newest First</option>
+    <option value="asc" @selected(request('updated_sort') == 'asc')>Oldest First</option>
+</select>
+
+                        <button type="submit" class="btn-primary">Apply</button>
                         <a href="{{ route('admin.players.index') }}" class="btn-secondary">Reset</a>
 
                     </div>
@@ -84,23 +91,25 @@
                         <tbody>
                             @forelse ($players as $player)
                                 <tr class="border-b border-gray-100 dark:border-gray-800">
-                                    
+
                                     <td class="px-5 py-4 sm:px-6">
                                         <input type="checkbox"
                                             class="player-checkbox form-checkbox h-4 w-4 text-primary border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
                                             value="{{ $player->id }}" x-model="selectedPlayers">
                                     </td>
-<td class="px-5 py-4 sm:px-6">
-    @php
-        $orgName = optional($player->user->organization)->name;
-        $prefix = '';
-        if ($orgName) {
-            $words = explode(' ', $orgName);
-            $prefix = strtoupper(substr($words[0] ?? '', 0, 1) . substr($words[1] ?? '', 0, 1));
-        }
-    @endphp
-    {{ $prefix ? $prefix . '-' . $player->id : $player->id }}
-</td>
+                                    <td class="px-5 py-4 sm:px-6">
+                                        @php
+                                            $orgName = optional($player->user->organization)->name;
+                                            $prefix = '';
+                                            if ($orgName) {
+                                                $words = explode(' ', $orgName);
+                                                $prefix = strtoupper(
+                                                    substr($words[0] ?? '', 0, 1) . substr($words[1] ?? '', 0, 1),
+                                                );
+                                            }
+                                        @endphp
+                                        {{ $prefix ? $prefix . '-' . $player->id : $player->id }}
+                                    </td>
 
 
 
@@ -179,11 +188,11 @@
 
                                     <td class="px-5 py-4 sm:px-6">
 
-                                         @if ($player->updated_at)
-        <div class="text-xs text-gray-500 mt-1">
-             {{ $player->updated_at->diffForHumans() }}
-        </div>
-    @endif
+                                        @if ($player->updated_at)
+                                            <div class="text-xs text-gray-500 mt-1">
+                                                {{ $player->updated_at->diffForHumans() }}
+                                            </div>
+                                        @endif
 
                                     </td>
                                     <td class="px-5 py-4 sm:px-6">
