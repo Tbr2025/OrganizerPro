@@ -18,6 +18,16 @@ class PermissionService
     {
         $permissions = [
             [
+                'group_name' => 'organization',
+                'group_label' => 'Organization Management',
+                'permissions' => [
+                    'organization.view',
+                    'organization.create',
+                    'organization.edit',
+                    'organization.delete',
+                ],
+            ],
+            [
                 'group_name' => 'match_appreciation',
                 'permissions' => [
                     'match_appreciation.create',
@@ -95,7 +105,7 @@ class PermissionService
                     'settings.edit',
                 ],
             ],
-              [
+            [
                 'group_name' => 'image-templates',
                 'permissions' => [
                     'image-templates.view',
@@ -146,6 +156,24 @@ class PermissionService
                     'team.view',
                     'team.edit',
                     'team.delete',
+                ],
+            ],
+            [
+                'group_name' => 'actual-team',
+                'permissions' => [
+                    'actual-team.create',
+                    'actual-team.view',
+                    'actual-team.edit',
+                    'actual-team.delete',
+                ],
+            ],
+            [
+                'group_name' => 'auctions',
+                'permissions' => [
+                    'auctions.create',
+                    'auctions.view',
+                    'auctions.edit',
+                    'auctions.delete',
                 ],
             ],
             [

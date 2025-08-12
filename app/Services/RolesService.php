@@ -64,18 +64,36 @@ class RolesService
     /**
      * Create a new role with permissions
      */
-    public function createRole(string $name, array $permissions = []): \Spatie\Permission\Models\Role
-    {
-        /** @var \Spatie\Permission\Models\Role $role */
-        $role = Role::create(['name' => $name, 'guard_name' => 'web']);
+    // public function createRole(string $name, array $permissions = []): \Spatie\Permission\Models\Role
+    // {
+    //     /** @var \Spatie\Permission\Models\Role $role */
+    //     $role = Role::create(['name' => $name, 'guard_name' => 'web']);
 
+    //     if (! empty($permissions)) {
+    //         $role->syncPermissions($permissions);
+    //     }
+
+    //     return $role;
+    // }
+
+
+    public function createOrSyncRole(string $name, array $permissions = []): \Spatie\Permission\Models\Role
+    {
+        // This will FIND an existing role or CREATE a new one if it's missing.
+        $role = \Spatie\Permission\Models\Role::updateOrCreate(
+            ['name' => $name],
+            ['guard_name' => 'web']
+        );
+
+        // This will SYNC the permissions, ensuring they match your code.
         if (! empty($permissions)) {
             $role->syncPermissions($permissions);
         }
 
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
         return $role;
     }
-
     public function findRoleById(int $id): ?Role
     {
         $role = Role::findById($id);
@@ -219,12 +237,45 @@ class RolesService
                 $allPermissionNames[] = $permission;
             }
         }
-        $roles['superadmin'] = $this->createRole('Superadmin', $allPermissionNames);
+        $roles['superadmin'] = $this->createOrSyncRole('Superadmin', $allPermissionNames);
 
         // 2. Admin - all permissions except some critical ones
-        $adminExcludedPermissions = ['user.delete', 'role.delete', 'permission.delete', 'settings.view','settings.edit']; // Added more critical exclusions
+        $adminExcludedPermissions = [
+            'user.delete',
+            'role.create',
+            'role.view',
+            'role.edit',
+            'role.delete',
+            'role.approve',
+            'module.create',
+            'module.view',
+            'module.edit',
+            'module.delete',
+            'match_appreciation.create',
+            'match_appreciation.view',
+            'match_appreciation.edit',
+            'match_appreciation.delete',
+            'post.create',
+            'post.view',
+            'post.edit',
+            'post.delete',
+            'term.create',
+            'term.view',
+            'term.edit',
+            'term.delete',
+            'pulse.view',
+            'actionlog.view',
+            'settings.view',
+            'settings.edit',
+            'translations.view',
+            'translations.edit',
+            'organization.view',
+            'organization.create',
+            'organization.edit',
+            'organization.delete',
+        ]; // Added more critical exclusions
         $adminPermissions = array_diff($allPermissionNames, $adminExcludedPermissions);
-        $roles['admin'] = $this->createRole('Admin', $adminPermissions);
+        $roles['admin'] = $this->createOrSyncRole('Admin', $adminPermissions);
 
         // 3. Organizer - full tournament management, including player status updates
         $organizerPermissions = [
@@ -239,8 +290,7 @@ class RolesService
             'team.delete', // Organizers can delete teams
             'player.create',
             'player.view',
-            'player.edit', // This permission includes updating player status
-            'player.delete', // Organizers can delete players
+
             'match.create',
             'match.view',
             'match.edit',
@@ -252,7 +302,7 @@ class RolesService
             // 'player_type.view', 'player_type.create', 'player_type.edit', 'player_type.delete',
             // 'batting_profile.view', 'bowling_profile.view', etc.
         ];
-        $roles['organizer'] = $this->createRole('Organizer', $organizerPermissions);
+        $roles['organizer'] = $this->createOrSyncRole('Organizer', $organizerPermissions);
 
         // 4. Team Manager (New Role based on user context: "Manager or admin can create team.")
         // This role can manage their specific team, create players for it, and update their status.
@@ -261,15 +311,15 @@ class RolesService
         // The implementation of scope (e.g., "only players of my team") would be in a policy/middleware.
         $teamManagerPermissions = [
             'dashboard.view',
-            'team.view', // Can view teams (at least their own)
-            'team.edit', // Can edit their own team details (if allowed by policy)
+            'actual-team.view', // Can view teams (at least their own)
+            'actual-team.edit', // Can edit their own team details (if allowed by policy)
+            'actual-team.create', // Can edit their own team details (if allowed by policy)
             'player.create', // Can add players to their team
             'player.view', // Can view players (at least their team's)
-            'player.edit', // Can edit players, including status, for their team
-            // If managers can create teams: 'team.create', (based on user's saved info "Manager or admin can create team.")
-            'team.create', // Added based on saved context
+            'match.view',
+            'tournament.view',
         ];
-        $roles['team_manager'] = $this->createRole('Team Manager', $teamManagerPermissions);
+        $roles['team_manager'] = $this->createOrSyncRole('Team Manager', $teamManagerPermissions);
 
 
         // 5. Coach - can view teams & players
@@ -277,8 +327,9 @@ class RolesService
             'dashboard.view',
             'team.view',
             'player.view',
+
         ];
-        $roles['coach'] = $this->createRole('Coach', $coachPermissions);
+        $roles['coach'] = $this->createOrSyncRole('Coach', $coachPermissions);
 
         // 6. Captain - manage own team and players (can edit own team's players only)
         // Note: The actual "own team" scope needs to be enforced via policies.
@@ -286,9 +337,9 @@ class RolesService
             'dashboard.view',
             'team.view',
             'player.view',
-            'player.edit', // Can edit players, implied to be for their own team
+
         ];
-        $roles['captain'] = $this->createRole('Captain', $captainPermissions);
+        $roles['captain'] = $this->createOrSyncRole('Captain', $captainPermissions);
 
         // 7. Player - view only own profile
         $playerPermissions = [
@@ -296,7 +347,7 @@ class RolesService
             'profile.view',
             'profile.edit',
         ];
-        $roles['player'] = $this->createRole('Player', $playerPermissions);
+        $roles['player'] = $this->createOrSyncRole('Player', $playerPermissions);
 
         // 8. Scorer - manage match scores
         $scorerPermissions = [
@@ -304,7 +355,7 @@ class RolesService
             'match.view',
             'match.edit', // Can edit scores
         ];
-        $roles['scorer'] = $this->createRole('Scorer', $scorerPermissions);
+        $roles['scorer'] = $this->createOrSyncRole('Scorer', $scorerPermissions);
 
         // 9. Viewer - public role, can view tournaments
         $viewerPermissions = [
@@ -314,10 +365,10 @@ class RolesService
             'player.view',
             'match.view',
         ];
-        $roles['viewer'] = $this->createRole('Viewer', $viewerPermissions);
+        $roles['viewer'] = $this->createOrSyncRole('Viewer', $viewerPermissions);
 
         // 10. Editor (content management)
-        $roles['editor'] = $this->createRole('Editor', [
+        $roles['editor'] = $this->createOrSyncRole('Editor', [
             'dashboard.view',
             'blog.create',
             'blog.view',
@@ -325,10 +376,7 @@ class RolesService
             'profile.view',
             'profile.edit',
             'profile.update',
-            'translations.view',
-            'post.create',
-            'post.view',
-            'post.edit',
+
             'term.view',
             'term.create',
         ]);
@@ -339,13 +387,13 @@ class RolesService
             'profile.view',
             'profile.edit',
             'profile.update',
-            'post.view', // Can view posts
+
             'term.view', // Can view terms/categories
         ];
-        $roles['subscriber'] = $this->createRole('Subscriber', $basicPermissions);
+        $roles['subscriber'] = $this->createOrSyncRole('Subscriber', $basicPermissions);
 
         // 12. Contact (Fixing the typo 'contact ' to 'contact')
-        $roles['contact'] = $this->createRole('Contact', $basicPermissions);
+        $roles['contact'] = $this->createOrSyncRole('Contact', $basicPermissions);
 
         return $roles;
     }
@@ -395,8 +443,23 @@ class RolesService
             case 'admin':
                 $adminExcludedPermissions = [
                     'user.delete',
+                    'role.create',
+                    'role.view',
+                    'role.edit',
                     'role.delete',
-                    'permission.delete',
+                    'role.approve',
+                    'module.create',
+                    'module.view',
+                    'module.edit',
+                    'module.delete',
+                    'match_appreciation.create',
+                    'match_appreciation.view',
+                    'match_appreciation.edit',
+                    'match_appreciation.delete',
+                    'organization.view',
+                    'organization.create',
+                    'organization.edit',
+                    'organization.delete',
                 ];
                 return array_diff($getAllPermissionNames(), $adminExcludedPermissions);
 
@@ -406,24 +469,21 @@ class RolesService
                     'tournament.create',
                     'tournament.view',
                     'tournament.edit',
-                    'tournament.delete',
                     'team.create',
                     'team.view',
                     'team.edit',
                     'team.delete',
                     'player.create',
                     'player.view',
-                    'player.edit',
-                    'player.delete',
                     'match.create',
                     'match.view',
                     'match.edit',
-                    'match.delete',
                     'match_appreciation.create',
                     'match_appreciation.view',
                     'image-templates.edit',
                     'image-templates.view',
-                    'image-templates.delete'
+                    'match.view',
+                    'tournament.view',
                 ];
             case 'team_manager': // Permissions for the new Team Manager role
                 return [
@@ -433,7 +493,8 @@ class RolesService
                     'team.edit',
                     'player.create',
                     'player.view',
-                    'player.edit', // Can edit players, including status, for their team
+                    'tournament.view',
+
                 ];
 
             case 'coach':
@@ -441,6 +502,8 @@ class RolesService
                     'dashboard.view',
                     'team.view',
                     'player.view',
+                    // ADD THIS LINE
+
                 ];
 
             case 'captain':
@@ -448,7 +511,8 @@ class RolesService
                     'dashboard.view',
                     'team.view',
                     'player.view',
-                    'player.edit', // Can edit players, implied for their own team
+                    // ADD THIS LINE
+
                 ];
 
             case 'player':
@@ -483,10 +547,7 @@ class RolesService
                     'profile.view',
                     'profile.edit',
                     'profile.update',
-                    'translations.view',
-                    'post.create',
-                    'post.view',
-                    'post.edit',
+
                     'term.view',
                     'term.create',
                 ];
@@ -498,7 +559,7 @@ class RolesService
                     'profile.view',
                     'profile.edit',
                     'profile.update',
-                    'post.view',
+
                     'term.view',
                 ];
             default:
@@ -509,7 +570,7 @@ class RolesService
                     'profile.view',
                     'profile.edit',
                     'profile.update',
-                    'post.view',
+
                     'term.view',
                 ];
         }
@@ -520,7 +581,7 @@ class RolesService
      */
     public function create(array $data): Role
     {
-        return $this->createRole($data['name'], $data['permissions'] ?? []);
+        return $this->createOrSyncRole($data['name'], $data['permissions'] ?? []);
     }
 
     /**

@@ -47,7 +47,7 @@
         <div :class="menuToggle ? 'flex' : 'hidden'"
             class="w-full items-center justify-between gap-4 px-5 py-1 shadow-theme-md lg:flex lg:justify-end lg:px-0 lg:shadow-none">
             <div class="flex items-center gap-1">
-                
+
                 @include('backend.layouts.partials.notifications')
                 @php echo ld_apply_filters('dark_mode_toggler_before_button', ''); @endphp
                 <button id="darkModeToggle"
@@ -77,11 +77,15 @@
                     <div class="border-b border-gray-200 pb-2 dark:border-gray-800 mb-2">
                         <span class="block font-medium text-gray-700 dark:text-gray-300">
                             {{ auth()->user()->name }}
+                            @if (auth()->user()->roles->isNotEmpty())
+                                ({{ auth()->user()->roles->pluck('name')->join(', ') }})
+                            @endif
                         </span>
                         <span class="mt-0.5 block text-theme-sm text-gray-700 dark:text-gray-300">
                             {{ auth()->user()->email }}
                         </span>
                     </div>
+
                     <ul class="flex flex-col gap-1 border-b border-gray-200 pb-2 dark:border-gray-800">
                         <li>
                             <a href="{{ route('profile.edit') }}"

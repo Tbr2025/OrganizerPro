@@ -16,11 +16,14 @@ use App\Models\PlayerType;
 use App\Models\Role;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Models\User;
+use App\Notifications\CustomVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
@@ -66,10 +69,21 @@ class PlayerController extends Controller
             'team_name'    => request('team_name'),
             'role'         => request('role'),
             'status'       => request('status'),
-            'updated_sort' => request('updated_sort'),  // get the sorting value
+            'updated_sort' => request('updated_sort'),
         ];
 
-        $players = Player::query()
+        $query = Player::with(['user.organization', 'team', 'playerType']);
+
+        $user = Auth::user();
+
+        // 🔹 Restrict to players where player's user has same organization_id
+        if (!$user->hasRole('Superadmin') && $user->organization_id) {
+            $query->whereHas('user', function ($q) use ($user) {
+                $q->where('organization_id', $user->organization_id);
+            });
+        }
+
+        $players = $query
             ->when($filters['search'], function ($q) use ($filters) {
                 $q->where(function ($q) use ($filters) {
                     $q->where('name', 'like', "%{$filters['search']}%")
@@ -82,8 +96,8 @@ class PlayerController extends Controller
                 });
             })
             ->when($filters['role'], function ($q) use ($filters) {
-                $q->whereHas('playerType', function ($teamQuery) use ($filters) {
-                    $teamQuery->where('type', $filters['role']);
+                $q->whereHas('playerType', function ($typeQuery) use ($filters) {
+                    $typeQuery->where('type', $filters['role']);
                 });
             })
             ->when($filters['status'], function ($q) use ($filters) {
@@ -94,12 +108,10 @@ class PlayerController extends Controller
                 }
             })
             ->when($filters['updated_sort'], function ($q) use ($filters) {
-                // Sort by updated_at asc or desc based on dropdown
                 if (in_array($filters['updated_sort'], ['asc', 'desc'])) {
                     $q->orderBy('updated_at', $filters['updated_sort']);
                 }
             }, function ($q) {
-                // Default order if no sort chosen
                 $q->orderBy('updated_at', 'desc');
             })
             ->paginate(20)
@@ -221,7 +233,39 @@ class PlayerController extends Controller
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
         $validated['created_by'] = Auth::id();
 
-        Player::create($validated);
+
+        // Create user first
+        $username = Str::slug(Str::before($validated['email'], '@'), '_');
+        if (User::where('username', $username)->exists()) {
+            $username .= '_' . Str::random(5);
+        }
+        $password = Str::random(12);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'organization_id' => Auth::user()->organization_id,
+            'username' => $username,
+            'email' => $validated['email'],
+            'password' => Hash::make($password),
+            'email_verified_at' => null,
+        ]);
+
+        // Add user_id to validated data before creating player
+        $validated['user_id'] = $user->id;
+
+        // Now create player
+        $player = Player::create($validated);
+
+        // Assign player role if needed
+        if (!$user->hasRole('player')) {
+            $playerRole = Role::firstOrCreate(['name' => 'player']);
+            $user->assignRole($playerRole);
+        }
+
+        // Send welcome email with credentials
+        $user->notify(new CustomVerifyEmail($password));
+
+
 
         return redirect()->route('admin.players.index')->with('success', __('Player created successfully.'));
     }
@@ -232,14 +276,40 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.view']);
 
+        $verifiedFields = [
+            'name' => (bool) $player->verified_name,
+            'email' => (bool) $player->verified_email,
+            'mobile_number_full' => (bool) $player->verified_mobile_number_full,
+            'cricheroes_number_full' => (bool) $player->verified_cricheroes_number_full,
+            'jersey_name' => (bool) $player->verified_jersey_name,
+            'kit_size_id' => (bool) $player->verified_kit_size_id,
+            'batting_profile_id' => (bool) $player->verified_batting_profile_id,
+            'bowling_profile_id' => (bool) $player->verified_bowling_profile_id,
+            'player_type_id' => (bool) $player->verified_player_type_id,
+            'team_id' => (bool) $player->verified_team_id,
+            'is_wicket_keeper' => (bool) $player->verified_is_wicket_keeper,
+            'transportation_required' => (bool) $player->verified_transportation_required,
+            'no_travel_plan' => (bool) $player->verified_no_travel_plan,
+            'image_path' => (bool) $player->verified_image_path,
+        ];
+
         return view('backend.pages.players.show', [
             'player' => $player,
+            'teams' => Team::all(),
+            'locations' => PlayerLocation::all(),
+            'kitSizes' => KitSize::all(),
+            'battingProfiles' => BattingProfile::all(),
+            'bowlingProfiles' => BowlingProfile::all(),
+            'playerTypes' => PlayerType::all(),
+            'templates' => ImageTemplate::all(),
             'breadcrumbs' => [
-                'title' => __('Player Details'),
+                'title' => __('View Player'),
                 'items' => [
                     ['label' => __('Players'), 'url' => route('admin.players.index')],
                 ],
             ],
+            'verifiedFields' => $verifiedFields,
+            'verifiedProfile' => $player->allFieldsVerified()
         ]);
     }
 
@@ -747,7 +817,31 @@ class PlayerController extends Controller
             // Ensure the player has a linked user
             $user = $player->user;
             if (!$user) {
-                return back()->with('error', 'This player does not have a linked user account.');
+                $username = Str::slug(Str::before($validated['email'], '@'), '_');
+                if (User::where('username', $username)->exists()) {
+                    $username .= '_' . Str::random(5);
+                }
+                $password = Str::random(12);
+                $password = Str::random(12);
+                $user = User::create([
+                    'name' => $validated['name'],
+                    'organization_id' => Auth::user()->organization_id, // from logged-in admin
+
+                    'username' => $username,
+                    'email' => $validated['email'],
+                    'password' => Hash::make($password),
+                    'email_verified_at' => null,
+                ]);
+                // Link player to user
+                $player->user_id = $user->id;
+                $player->save();
+                $user->notify(new CustomVerifyEmail($password));
+
+                // Optionally assign "player" role
+                if (!$user->hasRole('player')) {
+                    $playerRole = Role::firstOrCreate(['name' => 'player']);
+                    $user->assignRole($playerRole);
+                }
             }
 
             // Assign 'player' role if not already assigned
@@ -766,10 +860,6 @@ class PlayerController extends Controller
 
         // ✅ Optional Intimate after update
         if ($request->boolean('intimate')) {
-
-
-
-
 
             if (!$player->email) {
                 return back()->with('error', 'Player does not have a valid email address.');
@@ -840,6 +930,8 @@ class PlayerController extends Controller
             $player->update(['welcome_email_sent_at' => now()]);
             return redirect()->back()->with('success', 'Player - Welcome image created and intimated.');
         }
+
+
 
 
         return redirect()->back()->with('success', 'Player updated successfully.');

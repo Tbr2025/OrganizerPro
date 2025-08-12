@@ -42,12 +42,20 @@
                                         <input type="text" id="{{ $field }}" name="{{ $field }}"
                                             value="{{ old($field, $player->$field) }}"
                                             class="form-control @error($field) border-red-500 @enderror">
-                                        <label class="relative inline-flex items-center cursor-pointer">
+
+                                        @php
+                                            $canVerify = auth()
+                                                ->user()
+                                                ->hasAnyRole(['Superadmin', 'Admin']);
+                                        @endphp
+                                        <label
+                                            class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
                                             <input type="checkbox" name="verified_{{ $field }}" value="1"
                                                 class="sr-only peer"
-                                                {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}>
+                                                {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}
+                                                @unless ($canVerify) disabled @endunless>
                                             <div
-                                                class="w-11 h-6 bg-gray-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-400
+                                                class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
                 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
                                             </div>
                                             <div
@@ -157,12 +165,19 @@
                                                 value="{{ old('team_name_ref', $player->team_name_ref ?? '') }}"
                                                 class="form-control w-48">
                                         @endif
-                                        <label class="relative inline-flex items-center cursor-pointer">
+                                        @php
+                                            $canVerify = auth()
+                                                ->user()
+                                                ->hasAnyRole(['Superadmin', 'Admin']);
+                                        @endphp
+                                        <label
+                                            class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
                                             <input type="checkbox" name="verified_{{ $field }}" value="1"
                                                 class="sr-only peer"
-                                                {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}>
+                                                {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}
+                                                @unless ($canVerify) disabled @endunless>
                                             <div
-                                                class="w-11 h-6 bg-gray-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-400
+                                                class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
                 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
                                             </div>
                                             <div
@@ -246,19 +261,30 @@
 
                                 {{-- Verified Toggle --}}
                                 <div class="mt-4">
-                                    <label class="relative inline-flex items-center cursor-pointer">
+                                    @php
+                                        $canVerify = auth()
+                                            ->user()
+                                            ->hasAnyRole(['Superadmin', 'Admin']);
+                                    @endphp
+
+                                    <label
+                                        class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
                                         <input type="checkbox" name="verified_image_path" value="1"
                                             class="sr-only peer"
-                                            {{ old('verified_image_path', $player->verified_image_path ?? false) ? 'checked' : '' }}>
+                                            {{ old('verified_image_path', $player->verified_image_path ?? false) ? 'checked' : '' }}
+                                            @unless ($canVerify) disabled @endunless>
                                         <div
-                                            class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
+                                            class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
+               dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
                                         </div>
                                         <div
-                                            class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-300 peer-checked:translate-x-full">
+                                            class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full
+               transition-transform duration-300 peer-checked:translate-x-full">
                                         </div>
                                         <span
                                             class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
                                     </label>
+
                                 </div>
                             </div>
 
@@ -288,44 +314,52 @@
                                         {{ $label }}
 
                                         {{-- Verified toggle --}}
-                                        <label class="relative inline-flex items-center cursor-pointer ml-3">
+                                        @php
+                                            $canVerify = auth()
+                                                ->user()
+                                                ->hasAnyRole(['Superadmin', 'Admin']);
+                                        @endphp
+
+                                        <label
+                                            class="relative inline-flex items-center ml-3 {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
                                             <input type="checkbox" name="verified_{{ $field }}" value="1"
                                                 class="sr-only peer"
-                                                {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}>
+                                                {{ old('verified_' . $field, $player['verified_' . $field] ?? false) ? 'checked' : '' }}
+                                                @unless ($canVerify) disabled @endunless>
                                             <div
-                                                class="w-11 h-6 bg-gray-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-400
-                    dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
+                                                class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
+               dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300">
                                             </div>
                                             <div
                                                 class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full
-                    transition-transform duration-300 peer-checked:translate-x-full">
+               transition-transform duration-300 peer-checked:translate-x-full">
                                             </div>
                                             <span
                                                 class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
                                         </label>
-                                    </label>
 
-                                    {{-- Extra date pickers for "No Travel Plan" --}}
-                                    {{-- Extra date pickers for "No Travel Plan" --}}
-                                    @if ($field === 'no_travel_plan')
-                                        <div class="mt-4 grid grid-cols-2 gap-2">
-                                            <div>
-                                                <label class="text-xs text-gray-500">From Date</label>
-                                                <input type="date" id="travel_date_from" name="travel_date_from"
-                                                    value="{{ old('travel_date_from', $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('Y-m-d') : '') }}"
-                                                    class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
-                                                    placeholder="YYYY-MM-DD">
-                                            </div>
 
-                                            <div>
-                                                <label class="text-xs text-gray-500">To Date</label>
-                                                <input type="date" id="travel_date_to" name="travel_date_to"
-                                                    value="{{ old('travel_date_to', $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('Y-m-d') : '') }}"
-                                                    class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
-                                                    placeholder="YYYY-MM-DD">
+                                        {{-- Extra date pickers for "No Travel Plan" --}}
+                                        {{-- Extra date pickers for "No Travel Plan" --}}
+                                        @if ($field === 'no_travel_plan')
+                                            <div class="mt-4 grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label class="text-xs text-gray-500">From Date</label>
+                                                    <input type="date" id="travel_date_from" name="travel_date_from"
+                                                        value="{{ old('travel_date_from', $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('Y-m-d') : '') }}"
+                                                        class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
+                                                        placeholder="YYYY-MM-DD">
+                                                </div>
+
+                                                <div>
+                                                    <label class="text-xs text-gray-500">To Date</label>
+                                                    <input type="date" id="travel_date_to" name="travel_date_to"
+                                                        value="{{ old('travel_date_to', $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('Y-m-d') : '') }}"
+                                                        class="border-gray-300 rounded-md shadow-sm w-full js-single-datepicker"
+                                                        placeholder="YYYY-MM-DD">
+                                                </div>
                                             </div>
-                                        </div>
-                                    @endif
+                                        @endif
 
                                 </div>
                             @endforeach

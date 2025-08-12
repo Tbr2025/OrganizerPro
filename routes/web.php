@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Backend\ActionLogController;
+use App\Http\Controllers\Backend\ActualTeamController;
 use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
+use App\Http\Controllers\Backend\AuctionController;
+use App\Http\Controllers\Backend\AuctionLiveController;
 use App\Http\Controllers\Backend\Auth\ScreenshotGeneratorLoginController;
 use App\Http\Controllers\Backend\BallController;
 use App\Http\Controllers\Backend\DashboardController;
@@ -13,6 +16,7 @@ use App\Http\Controllers\Backend\LocaleController;
 use App\Http\Controllers\Backend\MatchAppreciationController;
 use App\Http\Controllers\Backend\MatchesController;
 use App\Http\Controllers\Backend\ModulesController;
+use App\Http\Controllers\Backend\OrganizationController;
 use App\Http\Controllers\Backend\PermissionsController;
 use App\Http\Controllers\Backend\PlayerController;
 use App\Http\Controllers\Backend\PlayerProfileController;
@@ -30,6 +34,7 @@ use App\Http\Controllers\Backend\UserLoginAsController;
 use App\Http\Controllers\Backend\UsersController;
 use App\Http\Controllers\Backend\PlayerVerificationController;
 use App\Http\Controllers\PublicPlayerController;
+use App\Models\Organization;
 use App\Models\Player;
 use App\Models\User;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
@@ -71,6 +76,38 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
+
+
+    Route::resource('organizations', OrganizationController::class);
+
+    Route::resource('actual-teams', ActualTeamController::class);
+    Route::post('actual-teams/{actualTeam}/remove-member', [ActualTeamController::class, 'removeMember'])
+        ->name('actual-teams.remove-member');
+
+    // Auctions
+    Route::prefix('auctions')->as('auctions.')->group(function () {
+        Route::get('/', [AuctionController::class, 'index'])->name('index');
+        Route::get('/create', [AuctionController::class, 'create'])->name('create');
+        Route::post('/', [AuctionController::class, 'store'])->name('store');
+        Route::get('/{auction}', [AuctionController::class, 'show'])->name('show');
+        Route::get('/{auction}/edit', [AuctionController::class, 'edit'])->name('edit');
+        Route::put('/{auction}', [AuctionController::class, 'update'])->name('update');
+        Route::delete('/{auction}', [AuctionController::class, 'destroy'])->name('destroy');
+
+        // Live bidding
+        Route::get('/{auction}/live', [AuctionLiveController::class, 'index'])->name('live');
+        Route::post('/{auction}/bid', [AuctionLiveController::class, 'placeBid'])->name('bid');
+    });
+
+    // // Auction Settings
+    // Route::prefix('auction-settings')->as('auction-settings.')->group(function () {
+    //     Route::get('/', [AuctionSettingController::class, 'index'])->name('index');
+    //     Route::post('/', [AuctionSettingController::class, 'update'])->name('update');
+    // });
+
+    Route::get('/organizations/{organization}/locations', function (Organization $organization) {
+        return $organization->locations()->select('id', 'name')->get();
+    })->name('organizations.locations');
 
     Route::get('/notifications/unread', [AdminNotificationController::class, 'unread'])
         ->name('notifications.unread');
@@ -279,66 +316,66 @@ Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, 
 })->middleware('signed')->name('public.verification.verify');
 
 
-Route::get('/test-mail', function () {
-    \Illuminate\Support\Facades\Mail::raw('Test mail from Laravel on EC2', function ($message) {
-        $message->to('navasfazil@gmail.com')
-            ->subject('Test Email');
-    });
+// Route::get('/test-mail', function () {
+//     \Illuminate\Support\Facades\Mail::raw('Test mail from Laravel on EC2', function ($message) {
+//         $message->to('navasfazil@gmail.com')
+//             ->subject('Test Email');
+//     });
 
-    return 'Mail Sent!';
-});
-Route::get('/test-shell', function () {
-    // --- Configuration ---
-    $pythonPath = '/var/www/OrganizerPro/rembg-env/bin/python';
-    $scriptPath = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
-    $inputImage = '/var/www/OrganizerPro/storage/app/public/player_images/player.jpeg';
-    $outputImage = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
+//     return 'Mail Sent!';
+// });
+// Route::get('/test-shell', function () {
+//     // --- Configuration ---
+//     $pythonPath = '/var/www/OrganizerPro/rembg-env/bin/python';
+//     $scriptPath = '/var/www/OrganizerPro/resources/scripts/remove_bg.py';
+//     $inputImage = '/var/www/OrganizerPro/storage/app/public/player_images/player.jpeg';
+//     $outputImage = '/var/www/OrganizerPro/storage/app/public/player_images/processed-EKB0GR0w.png';
 
-    // Define the writable cache directory
-    $cachePath = '/var/www/OrganizerPro/storage/app/rembg_cache';
+//     // Define the writable cache directory
+//     $cachePath = '/var/www/OrganizerPro/storage/app/rembg_cache';
 
-    // --- Verification ---
-    if (!is_dir($cachePath) || !is_writable($cachePath)) {
-        return "ERROR: Cache path does not exist or is not writable by the web server: " . htmlspecialchars($cachePath);
-    }
+//     // --- Verification ---
+//     if (!is_dir($cachePath) || !is_writable($cachePath)) {
+//         return "ERROR: Cache path does not exist or is not writable by the web server: " . htmlspecialchars($cachePath);
+//     }
 
-    // --- Command Construction ---
-    // Prepend the U2NET_HOME environment variable to the command
-    $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
-        escapeshellcmd($pythonPath) . ' ' .
-        escapeshellarg($scriptPath) . ' ' .
-        escapeshellarg($inputImage) . ' ' .
-        escapeshellarg($outputImage) . ' 2>&1';
+//     // --- Command Construction ---
+//     // Prepend the U2NET_HOME environment variable to the command
+//     $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+//         escapeshellcmd($pythonPath) . ' ' .
+//         escapeshellarg($scriptPath) . ' ' .
+//         escapeshellarg($inputImage) . ' ' .
+//         escapeshellarg($outputImage) . ' 2>&1';
 
-    // --- Diagnostics ---
-    $currentUser = shell_exec('whoami');
-    echo "<h1>Running Command...</h1>";
-    echo "<strong>As User:</strong> " . htmlspecialchars(trim($currentUser)) . "<br>";
-    echo "<strong>Full Command:</strong><pre>" . htmlspecialchars($command) . "</pre>";
-    echo "<strong>Output:</strong><br>";
+//     // --- Diagnostics ---
+//     $currentUser = shell_exec('whoami');
+//     echo "<h1>Running Command...</h1>";
+//     echo "<strong>As User:</strong> " . htmlspecialchars(trim($currentUser)) . "<br>";
+//     echo "<strong>Full Command:</strong><pre>" . htmlspecialchars($command) . "</pre>";
+//     echo "<strong>Output:</strong><br>";
 
-    // --- Execution ---
-    // Increase the time limit for the first run, as it needs to download the model
-    set_time_limit(300); // 5 minutes
-    $output = shell_exec($command);
+//     // --- Execution ---
+//     // Increase the time limit for the first run, as it needs to download the model
+//     set_time_limit(300); // 5 minutes
+//     $output = shell_exec($command);
 
-    // --- Result ---
-    echo "<pre>";
-    if ($output !== null) {
-        echo htmlspecialchars($output);
-    } else {
-        echo "No output was returned. Check web server logs.";
-    }
-    echo "</pre>";
+//     // --- Result ---
+//     echo "<pre>";
+//     if ($output !== null) {
+//         echo htmlspecialchars($output);
+//     } else {
+//         echo "No output was returned. Check web server logs.";
+//     }
+//     echo "</pre>";
 
-    // --- Final Check ---
-    if (file_exists($outputImage)) {
-        echo "<strong>Success!</strong> The output file was created.";
-        // You can optionally check the cache directory too
-        if (count(scandir($cachePath)) > 2) { // >2 because of '.' and '..'
-            echo "<br>Model appears to be cached successfully in " . htmlspecialchars($cachePath);
-        }
-    } else {
-        echo "<strong>Failure:</strong> The output file was NOT created.";
-    }
-});
+//     // --- Final Check ---
+//     if (file_exists($outputImage)) {
+//         echo "<strong>Success!</strong> The output file was created.";
+//         // You can optionally check the cache directory too
+//         if (count(scandir($cachePath)) > 2) { // >2 because of '.' and '..'
+//             echo "<br>Model appears to be cached successfully in " . htmlspecialchars($cachePath);
+//         }
+//     } else {
+//         echo "<strong>Failure:</strong> The output file was NOT created.";
+//     }
+// });

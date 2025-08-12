@@ -28,13 +28,22 @@ class UsersController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['user.view']);
 
+        // Get the currently logged-in user
+        $user = Auth::user();
+
+        // Prepare the standard filters from the request
         $filters = [
             'search' => request('search'),
             'role' => request('role'),
-            'sort_field' => null,
-            'sort_direction' => null,
         ];
 
+        // THE KEY LOGIC: If the user is NOT a Superadmin, add their organization_id to the filters.
+        // This code correctly prepares the filter for the model to use.
+        if (!$user->hasRole('Superadmin')) {
+            $filters['organization_id'] = $user->organization_id;
+        }
+
+        // Now, pass the filters to the service.
         return view('backend.pages.users.index', [
             'users' => $this->userService->getUsers($filters),
             'roles' => $this->rolesService->getRolesDropdown(),
@@ -43,7 +52,6 @@ class UsersController extends Controller
             ],
         ]);
     }
-
     public function create(): Renderable
     {
         $this->checkAuthorization(Auth::user(), ['user.create']);

@@ -99,7 +99,7 @@
                                     </td>
                                     <td class="px-5 py-4 sm:px-6">
                                         @php
-                                            $orgName = optional($player->user->organization)->name;
+                                            $orgName = $player->user?->organization?->name;
                                             $prefix = '';
                                             if ($orgName) {
                                                 $words = explode(' ', $orgName);
@@ -109,6 +109,7 @@
                                             }
                                         @endphp
                                         {{ $prefix ? $prefix . '-' . $player->id : $player->id }}
+
                                     </td>
 
 
@@ -234,33 +235,56 @@
                                             @else
                                                 <p class="text-gray-500 italic"></p>
                                             @endif
+                                        <!-- This assumes you have Alpine.js included in your project -->
+<div x-data="{ open: false }" class="relative">
+    
+    <!-- Kebab Menu Icon Button -->
+    <button @click="open = !open" @click.away="open = false"
+            class="p-2 text-gray-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01" />
+        </svg>
+    </button>
 
-                                            {{-- Edit Button --}}
-                                            <a href="{{ route('admin.players.edit', $player->id) }}"
-                                                class="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm font-medium">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
-                                                </svg>
-                                                Edit
-                                            </a>
+    <!-- Dropdown Panel -->
+    <div x-show="open"
+         x-transition:enter="transition ease-out duration-100"
+         x-transition:enter-start="transform opacity-0 scale-95"
+         x-transition:enter-end="transform opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-75"
+         x-transition:leave-start="transform opacity-100 scale-100"
+         x-transition:leave-end="transform opacity-0 scale-95"
+         class="absolute z-10 w-48 right-0 mt-2 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+         style="display: none;">
+        <div class="py-1" role="menu" aria-orientation="vertical">
+            
+            @canany(['player.show', 'player.view'])
+                <a href="{{ route('admin.players.show', $player->id) }}" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    View
+                </a>
+            @endcanany
 
-                                            {{-- Delete Button --}}
-                                            <form action="{{ route('admin.players.destroy', $player->id) }}" method="POST"
-                                                onsubmit="return confirm('Are you sure you want to delete this player?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit"
-                                                    class="inline-flex items-center gap-1 text-red-600 hover:underline text-sm font-medium">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        stroke-width="2" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            d="M6 18L18 6M6 6l12 12" />
-                                                    </svg>
-                                                    Delete
-                                                </button>
-                                            </form>
+            @can('player.edit')
+                <a href="{{ route('admin.players.edit', $player->id) }}" class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" /></svg>
+                    Edit
+                </a>
+            @endcan
+
+            @can('player.delete')
+                 <form action="{{ route('admin.players.destroy', $player->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this player? This action cannot be undone.')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" role="menuitem">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Delete
+                    </button>
+                </form>
+            @endcan
+        </div>
+    </div>
+</div>
 
                                         </div>
                                     </td>

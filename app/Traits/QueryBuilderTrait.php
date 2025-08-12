@@ -19,7 +19,7 @@ trait QueryBuilderTrait
             $searchColumns = $this->getSearchableColumns();
             $query->where(column: function ($q) use ($searchColumns, $filters) {
                 foreach ($searchColumns as $column) {
-                    $q->orWhere($column, 'LIKE', '%'.$filters['search'].'%');
+                    $q->orWhere($column, 'LIKE', '%' . $filters['search'] . '%');
                 }
             });
         }
@@ -32,8 +32,14 @@ trait QueryBuilderTrait
         // Apply role filter if provided.
         if (isset($filters['role']) && ! empty($filters['role'])) {
             $query->whereHas('roles', function ($q) use ($filters) {
-                $q->where('name', $filters['role']);
+                $q->where('name', 'like', '%' . $filters['role'] . '%'); // Fixed a potential typo here for consistency
             });
+        }
+
+        // **THIS IS THE REQUIRED FIX**
+        // Apply the organization filter if the controller passed it for a non-Superadmin user.
+        if (isset($filters['organization_id'])) {
+            $query->where('organization_id', $filters['organization_id']);
         }
 
         // Apply date range filter if provided.
@@ -64,7 +70,7 @@ trait QueryBuilderTrait
 
             if (! in_array($field, $excludedSortColumns)) {
                 // Handle special sorting cases.
-                $methodName = 'sortBy'.ucfirst($field);
+                $methodName = 'sortBy' . ucfirst($field);
                 if (method_exists($this, $methodName)) {
                     $this->$methodName($query, $direction);
                 } else {

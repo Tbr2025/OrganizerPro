@@ -267,7 +267,54 @@ class AdminMenuService
                 ],
             ],
         ]);
-
+        $this->addMenuItem([
+            'label' => __('Teams'),
+            'icon' => 'feather:users',
+            'id' => 'actual-teams-submenu',
+            'active' => Route::is('admin.actual-teams.*'),
+            'priority' => 25,
+            'permissions' => ['actual-team.create', 'actual-team.view', 'actual-team.edit', 'actual-team.delete'],
+            'children' => [
+                [
+                    'label' => __('Teams'),
+                    'route' => route('admin.actual-teams.index'),
+                    'active' => Route::is('admin.actual-teams.index') || Route::is('admin.actual-teams.edit'),
+                    'priority' => 20,
+                    'permissions' => 'actual-team.view',
+                ],
+                [
+                    'label' => __('New Team'),
+                    'route' => route('admin.actual-teams.create'),
+                    'active' => Route::is('admin.actual-teams.create'),
+                    'priority' => 10,
+                    'permissions' => 'actual-team.create',
+                ],
+            ],
+        ]);
+        $this->addMenuItem([
+            'label' => __('Organizations'), // Changed label
+            'icon' => 'feather:briefcase', // Changed icon for variety
+            'id' => 'organizations-submenu', // Changed ID
+            'active' => Route::is('admin.organizations.*'), // Changed route check
+            'priority' => 24, // Adjusted priority
+            'permissions' => ['organization.view', 'organization.create', 'organization.edit', 'organization.delete'], // USE NEW PERMISSIONS
+            'children' => [
+                [
+                    'label' => __('All Organizations'), // Changed label
+                    'route' => route('admin.organizations.index'), // Changed route
+                    'active' => Route::is('admin.organizations.index') || Route::is('admin.organizations.edit'), // Changed route check
+                    'priority' => 20,
+                    'permissions' => 'organization.view', // Use new permission
+                ],
+                [
+                    'label' => __('New Organization'), // Changed label
+                    'route' => route('admin.organizations.create'), // Changed route
+                    'active' => Route::is('admin.organizations.create'), // Changed route check
+                    'priority' => 10,
+                    'permissions' => 'organization.create', // Use new permission
+                ],
+            ],
+        ]);
 
         $this->addMenuItem([
             'label' => __('Tournaments'),
@@ -330,37 +377,37 @@ class AdminMenuService
             ],
         ]);
 
-    $this->addMenuItem([
-    'label' => __('Settings'),
-    'icon' => 'lucide:settings',
-    'id' => 'settings-submenu',
-    'active' => Route::is('admin.settings.*') || Route::is('admin.translations.*') || Route::is('admin.image-templates.*'),
-    'priority' => 1,
-    'permissions' => ['settings.edit', 'translations.view', 'image-templates.edit'],
-    'children' => [
-        [
-            'label' => __('General Settings'),
-            'route' => route('admin.settings.index'),
-            'active' => Route::is('admin.settings.index'),
-            'priority' => 20,
-            'permissions' => 'settings.edit',
-        ],
-        [
-            'label' => __('Templates'),
-            'route' => route('admin.image-templates.index'),
-            'active' => Route::is('admin.image-templates.*'),
-            'priority' => 21,
-            'permissions' => 'image-templates.edit',
-        ],
-        [
-            'label' => __('Translations'),
-            'route' => route('admin.translations.index'),
-            'active' => Route::is('admin.translations.*'),
-            'priority' => 10,
-            'permissions' => ['translations.view', 'translations.edit'],
-        ],
-    ],
-], __('More'));
+        $this->addMenuItem([
+            'label' => __('Settings'),
+            'icon' => 'lucide:settings',
+            'id' => 'settings-submenu',
+            'active' => Route::is('admin.settings.*') || Route::is('admin.translations.*') || Route::is('admin.image-templates.*'),
+            'priority' => 1,
+            'permissions' => ['settings.edit', 'translations.view', 'image-templates.edit'],
+            'children' => [
+                [
+                    'label' => __('General Settings'),
+                    'route' => route('admin.settings.index'),
+                    'active' => Route::is('admin.settings.index'),
+                    'priority' => 20,
+                    'permissions' => 'settings.edit',
+                ],
+                [
+                    'label' => __('Templates'),
+                    'route' => route('admin.image-templates.index'),
+                    'active' => Route::is('admin.image-templates.*'),
+                    'priority' => 21,
+                    'permissions' => 'image-templates.edit',
+                ],
+                [
+                    'label' => __('Translations'),
+                    'route' => route('admin.translations.index'),
+                    'active' => Route::is('admin.translations.*'),
+                    'priority' => 10,
+                    'permissions' => ['translations.view', 'translations.edit'],
+                ],
+            ],
+        ], __('More'));
 
 
         $this->addMenuItem([

@@ -9,11 +9,19 @@ class PlayerLocation extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name'];
+    protected $fillable = [
+
+        'name',
+        'organization_id',
+    ];
 
     // Optional: relationship to players
     public function players()
     {
         return $this->hasMany(Player::class, 'location_id');
+    }
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
     }
 }

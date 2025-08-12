@@ -30,36 +30,46 @@ class RolePermissionSeeder extends Seeder
         // Reset cached roles and permissions
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Create all permissions
-        $this->command->info('Creating permissions...');
+        // Step 1: Sync all permission definitions
+        $this->command->info('Syncing permissions...');
         $this->permissionService->createPermissions();
 
-        // Create predefined roles with their permissions
-        $this->command->info('Creating predefined roles...');
-        $roles = $this->rolesService->createPredefinedRoles();
+        // Step 2: Sync all role definitions and their permissions
+        $this->command->info('Syncing predefined roles...');
+        $roles = $this->rolesService->createPredefinedRoles(); // This uses your safe createOrSyncRole method
 
-        // Assign superadmin role to superadmin user if exists
-        $user = User::where('username', 'superadmin')->first();
-        if ($user) {
+        // Step 3: Assign the 'Superadmin' role to the superadmin user, if it doesn't have it.
+        $superadminUser = User::where('username', 'superadmin')->first();
+        if ($superadminUser && ! $superadminUser->hasRole('Superadmin')) {
             $this->command->info('Assigning Superadmin role to superadmin user...');
-            $user->assignRole($roles['superadmin']);
+            $superadminUser->assignRole($roles['superadmin']);
         }
 
-        // Assign random roles to other users
-        $this->command->info('Assigning random roles to other users...');
-        $availableRoles = ['Admin', 'Editor', 'Subscriber', 'Contact', 'Captain', 'Player', 'Scorer', 'Organizer', 'Coach']; // Exclude Superadmin from random assignment
-        $users = User::all();
+        // -------------------------------------------------------------------
+        // THE CORRECTED LOGIC IS HERE
+        // -------------------------------------------------------------------
+        // Step 4: Assign a default role ONLY to users who have NO roles at all.
 
-        foreach ($users as $user) {
-            if (! $user->hasRole('Superadmin')) {
-                // Get a random role from the available roles
+        $this->command->info('Checking for users without any roles...');
+
+        // This is the most important change. We ONLY get users who have zero roles.
+        $usersWithoutRoles = User::whereDoesntHave('roles')->get();
+
+        if ($usersWithoutRoles->isEmpty()) {
+            $this->command->info('No users found without roles. Skipping assignment.');
+        } else {
+            $this->command->info('Assigning a default role to ' . $usersWithoutRoles->count() . ' new user(s)...');
+            $availableRoles = ['Subscriber', 'Player', 'Viewer', 'Contact']; // A safe list of default roles
+
+            foreach ($usersWithoutRoles as $user) {
+                // This loop now ONLY runs for users who have no roles.
+                // It is safe to assign one.
                 $randomRole = $availableRoles[array_rand($availableRoles)];
                 $user->assignRole($randomRole);
-            } else {
-            $this->command->warn("Skipping user {$user->id} - No organization_id");
-        }
+                $this->command->line("-> Assigned '{$randomRole}' to user: {$user->email}");
+            }
         }
 
-        $this->command->info('Roles and Permissions created successfully!');
+        $this->command->info('Roles and Permissions seeding completed successfully!');
     }
 }

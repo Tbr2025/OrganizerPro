@@ -160,7 +160,7 @@ class Player extends Model implements MustVerifyEmail
     {
         return $this->status === 'approved';
     }
-    
+
 
     public function isRejected(): bool
     {
@@ -258,9 +258,9 @@ class Player extends Model implements MustVerifyEmail
             $this->verified_transportation_required;
     }
     public function organization()
-{
-    return $this->belongsTo(Organization::class);
-}
+    {
+        return $this->belongsTo(Organization::class);
+    }
 
 
     public function match()
@@ -271,5 +271,11 @@ class Player extends Model implements MustVerifyEmail
     public function tournament()
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    public function actualTeams()
+    {
+        return $this->belongsToMany(ActualTeam::class, 'player_team_tournament', 'player_id', 'team_id')
+            ->withPivot('role');
     }
 }
