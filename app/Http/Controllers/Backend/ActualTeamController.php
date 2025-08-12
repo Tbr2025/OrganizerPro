@@ -80,32 +80,109 @@ class ActualTeamController extends Controller
         return redirect()->route('admin.actual-teams.index')->with('success', 'Actual Team created successfully.');
     }
 
-   public function show(ActualTeam $actualTeam)
-{
-    $this->authorize('actual-team.view');
+    public function show(ActualTeam $actualTeam)
+    {
+        $this->authorize('actual-team.view');
 
-    // **THIS IS THE FIX**
-    // We tell Eloquent: "When you get the team, also get its organization,
-    // its tournament, all of its users, AND for each of those users,
-    // get their associated player record."
-    // This solves the N+1 query problem.
-    $actualTeam->load(['organization', 'tournament', 'users.player']);
+        // **THIS IS THE FIX**
+        // We tell Eloquent: "When you get the team, also get its organization,
+        // its tournament, all of its users, AND for each of those users,
+        // get their associated player record."
+        // This solves the N+1 query problem.
+        $actualTeam->load(['organization', 'tournament', 'users.player']);
 
-    return view('backend.pages.actual_teams.show', compact('actualTeam'));
-}
+        return view('backend.pages.actual_teams.show', compact('actualTeam'));
+    }
+    // public function edit(ActualTeam $actualTeam)
+    // {
+    //     // Authorization check: Ensure user can edit this team
+    //     if (
+    //         !auth()->user()->hasRole('Superadmin') && // Corrected to 'Superadmin'
+    //         $actualTeam->organization_id !== auth()->user()->organization_id
+    //     ) {
+    //         abort(403, 'You are not authorized to edit this team.');
+    //     }
+
+    //     // --- Data Loading ---
+
+    //     // Get lists for dropdowns (organizations, tournaments, roles)
+    //     $organizations = Organization::all();
+    //     $tournaments = Tournament::all();
+    //     $roles = Role::whereNotIn('name', [
+    //         'SuperAdmin',
+    //         'Admin',
+    //         'Contact',
+    //         'Subscriber',
+    //         'Viewer',
+    //         'Editor'
+    //     ])->get();
+
+    //     // Eager load the users currently on the team for efficiency
+    //     $actualTeam->load('users');
+
+    //     // Get the IDs of users already on THIS team.
+    //     $currentTeamUserIds = $actualTeam->users->pluck('id')->toArray();
+
+    //     // Get the members of the current team to display in the "Current Squad" list
+    //     $currentMembers = $actualTeam->users; // We can just use the loaded relationship
+
+    //     // --- Main Logic: Get AVAILABLE Users ---
+
+    //     // First, find all user IDs that are already assigned to ANY other team in the system.
+    //     $assignedToOtherTeamIds = DB::table('actual_team_users')
+    //         ->where('actual_team_id', '!=', $actualTeam->id)
+    //         ->pluck('user_id')
+    //         ->toArray();
+
+    //     // **THIS IS THE KEY FIX**
+    //     // Now, combine the two exclusion lists:
+    //     // 1. Users on THIS team.
+    //     // 2. Users on ANY OTHER team.
+    //     $allExcludedUserIds = array_unique(array_merge($currentTeamUserIds, $assignedToOtherTeamIds));
+
+    //     // Start building the query for available users
+    //     $usersQuery = User::query();
+
+    //     // Apply role-based scoping
+    //     if (auth()->user()->hasRole('Superadmin')) { // Corrected to 'Superadmin'
+    //         // Superadmin can see all users not already on a team.
+    //         $usersQuery->whereNotIn('id', $allExcludedUserIds);
+    //     } else {
+    //         // Other users see only users from their own organization who are not on a team.
+    //         $authUser = auth()->user();
+    //         $usersQuery->where('organization_id', $authUser->organization_id)
+    //             ->whereNotIn('id', $allExcludedUserIds)
+    //             ->whereDoesntHave('roles', function ($query) {
+    //                 $query->whereIn('name', ['Superadmin', 'Admin']);
+    //             });
+    //     }
+
+    //     // Execute the query to get the final list of available users
+    //     $users = $usersQuery->get();
+
+
+    //     // --- Return the View ---
+
+    //     return view('backend.pages.actual_teams.edit', compact(
+    //         'actualTeam',
+    //         'organizations',
+    //         'tournaments',
+    //         'roles',
+    //         'users',       // This is now the correctly filtered list
+    //         'currentMembers'
+    //     ));
+    // }
     public function edit(ActualTeam $actualTeam)
     {
-        // Authorization check: Ensure user can edit this team
+        // Authorization check
         if (
-            !auth()->user()->hasRole('Superadmin') && // Corrected to 'Superadmin'
+            !auth()->user()->hasRole('Superadmin') &&
             $actualTeam->organization_id !== auth()->user()->organization_id
         ) {
             abort(403, 'You are not authorized to edit this team.');
         }
 
         // --- Data Loading ---
-
-        // Get lists for dropdowns (organizations, tournaments, roles)
         $organizations = Organization::all();
         $tournaments = Tournament::all();
         $roles = Role::whereNotIn('name', [
@@ -117,38 +194,52 @@ class ActualTeamController extends Controller
             'Editor'
         ])->get();
 
-        // Eager load the users currently on the team for efficiency
         $actualTeam->load('users');
-
-        // Get the IDs of users already on THIS team.
-        $currentTeamUserIds = $actualTeam->users->pluck('id')->toArray();
-
-        // Get the members of the current team to display in the "Current Squad" list
-        $currentMembers = $actualTeam->users; // We can just use the loaded relationship
+        $currentMembers = $actualTeam->users;
+        $currentTeamUserIds = $currentMembers->pluck('id')->toArray();
 
         // --- Main Logic: Get AVAILABLE Users ---
 
-        // First, find all user IDs that are already assigned to ANY other team in the system.
+        // Find all user IDs assigned to ANY other team.
         $assignedToOtherTeamIds = DB::table('actual_team_users')
             ->where('actual_team_id', '!=', $actualTeam->id)
             ->pluck('user_id')
             ->toArray();
 
-        // **THIS IS THE KEY FIX**
-        // Now, combine the two exclusion lists:
-        // 1. Users on THIS team.
-        // 2. Users on ANY OTHER team.
+        // Combine all user IDs that should be excluded.
         $allExcludedUserIds = array_unique(array_merge($currentTeamUserIds, $assignedToOtherTeamIds));
 
-        // Start building the query for available users
+        // Start building the query for available users.
         $usersQuery = User::query();
 
-        // Apply role-based scoping
-        if (auth()->user()->hasRole('Superadmin')) { // Corrected to 'Superadmin'
-            // Superadmin can see all users not already on a team.
+        // **THIS IS THE REQUIRED FIX**
+        // The query now has two main parts, grouped together.
+        $usersQuery->where(function ($query) {
+            // Condition 1: Include users who ARE 'Player' role AND have a welcome email sent.
+            $query->whereHas('roles', function ($subQuery) {
+                $subQuery->where('name', 'Player');
+            })
+                ->whereHas('player', function ($subQuery) {
+                    $subQuery->whereNotNull('welcome_email_sent_at');
+                });
+
+            // OR
+
+            // Condition 2: Include users who are NOT 'Player' role.
+            $query->orWhere(function ($subQuery) {
+                $subQuery->whereDoesntHave('roles', function ($roleQuery) {
+                    $roleQuery->where('name', 'Player');
+                });
+            });
+        });
+
+
+        // Apply role-based scoping (Superadmin vs. regular user)
+        if (auth()->user()->hasRole('Superadmin')) {
+            // Superadmin sees all eligible users not on a team.
             $usersQuery->whereNotIn('id', $allExcludedUserIds);
         } else {
-            // Other users see only users from their own organization who are not on a team.
+            // Other users see eligible users from their org who aren't on a team or privileged.
             $authUser = auth()->user();
             $usersQuery->where('organization_id', $authUser->organization_id)
                 ->whereNotIn('id', $allExcludedUserIds)
@@ -157,22 +248,19 @@ class ActualTeamController extends Controller
                 });
         }
 
-        // Execute the query to get the final list of available users
+        // Execute the query to get the final list of available users.
         $users = $usersQuery->get();
 
-
         // --- Return the View ---
-
         return view('backend.pages.actual_teams.edit', compact(
             'actualTeam',
             'organizations',
             'tournaments',
             'roles',
-            'users',       // This is now the correctly filtered list
+            'users',
             'currentMembers'
         ));
     }
-
     public function update(Request $request, ActualTeam $actualTeam)
     {
         // 1. Authorize the action
