@@ -78,6 +78,48 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
 
 
+    Route::get('/backup-db', function () {
+    // Database connection info
+    $dbHost = env('DB_HOST', '127.0.0.1');
+    $dbPort = env('DB_PORT', '3306');
+    $dbName = env('DB_DATABASE');
+    $dbUser = env('DB_USERNAME');
+    $dbPass = env('DB_PASSWORD');
+
+    // Filename with timestamp
+    $fileName = 'backup-' . date('Ymd-His') . '.sql';
+
+    // Full path in storage/app/public/
+    $filePath = storage_path('app/public/' . $fileName);
+
+    // Create the mysqldump command
+    // Adjust --single-transaction for InnoDB, avoid locking tables
+    $command = "mysqldump --user={$dbUser} --password=\"{$dbPass}\" --host={$dbHost} --port={$dbPort} --single-transaction {$dbName} > {$filePath}";
+
+    // Execute the command
+    $returnVar = NULL;
+    $output = NULL;
+    exec($command, $output, $returnVar);
+
+    if ($returnVar !== 0) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Backup failed',
+            'output' => $output,
+        ], 500);
+    }
+
+    // Return the URL to the backup file
+    $url = asset('storage/' . $fileName);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Backup created successfully',
+        'file' => $fileName,
+        'url' => $url,
+    ]);
+});
+
     Route::resource('organizations', OrganizationController::class);
 
     Route::resource('actual-teams', ActualTeamController::class);
@@ -379,3 +421,6 @@ Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, 
 //         echo "<strong>Failure:</strong> The output file was NOT created.";
 //     }
 // });
+
+
+
