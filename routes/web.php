@@ -176,6 +176,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::delete('/teams/{team}/players/{player}', [TeamPlayerController::class, 'destroy'])->name('teams.removePlayer');
 
     Route::resource('players', PlayerController::class);
+Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');
 
     Route::post('players/import', [PlayerController::class, 'importCsv'])->name('players.import');
 

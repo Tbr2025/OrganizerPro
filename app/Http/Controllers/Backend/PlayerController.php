@@ -200,7 +200,9 @@ class PlayerController extends Controller
             $teams = Team::where('organization_id', $user->organization_id)->orderBy('name')->get();
         }
 
-        $roles = PlayerType::orderBy('type')->get();
+        // $roles = PlayerType::orderBy('type')->get();
+        $roles =  PlayerType::whereIn('type', ['Bowler', 'Batsman', 'All-Rounder', 'Wicket Keeper'])->get();
+
 
         return view('backend.pages.players.index', [
             'players'     => $players,
@@ -229,6 +231,71 @@ class PlayerController extends Controller
                 'items' => [['label' => __('Players'), 'url' => route('admin.players.index')]],
             ],
         ]);
+    }
+
+
+    public function export(Request $request)
+    {
+        // 1. Authorize the action
+        $this->authorize('player.view'); // Or a new 'player.export' permission if you want more granular control
+
+        // 2. Validate the incoming request
+        $request->validate([
+            'player_ids' => 'required|array',
+            'player_ids.*' => 'exists:players,id', // Ensure all IDs are valid players
+        ]);
+
+        // 3. Fetch the selected players from the database
+        $playerIds = $request->input('player_ids');
+        $players = Player::with(['team', 'playerType', 'location'])->whereIn('id', $playerIds)->get();
+
+        // 4. Set up the CSV file response
+        $fileName = 'players_export_' . date('Y-m-d_H-i-s') . '.csv';
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        // 5. Create a callback to stream the CSV data
+        // This is memory-efficient for large exports.
+        $callback = function () use ($players) {
+            $file = fopen('php://output', 'w');
+
+            // Add CSV headers
+            $columns = [
+                'ID',
+                'Name',
+                'Email',
+                'Mobile Number',
+                'Team',
+                'Player Role',
+                'Location',
+                'Status'
+            ];
+            fputcsv($file, $columns);
+
+            // Add data for each player
+            foreach ($players as $player) {
+                fputcsv($file, [
+                    $player->id,
+                    $player->name,
+                    $player->email,
+                    $player->mobile_number_full,
+                    $player->team?->name ?? 'N/A',
+                    $player->playerType?->type ?? 'N/A',
+                    $player->location?->name ?? 'N/A',
+                    !is_null($player->welcome_email_sent_at) ? 'Verified' : 'Pending',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        // 6. Return the streamed response to the browser
+        return response()->stream($callback, 200, $headers);
     }
 
     public function store(Request $request): RedirectResponse
