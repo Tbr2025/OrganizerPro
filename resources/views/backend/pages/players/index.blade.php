@@ -48,14 +48,13 @@
 
 
                        @if (auth()->user()->hasRole('Admin') || auth()->user()->hasRole('SuperAdmin') )
-    <div>
-        <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Status</label>
-        <select name="status" id="status" class="form-control mt-1">
+
+        <select name="status" id="status" class="form-control !h-11">
             <option value="">All Status</option>
             <option value="verified" @selected(request('status') == 'verified')>Verified</option>
             <option value="pending" @selected(request('status') == 'pending')>Pending</option>
         </select>
-    </div>
+    
 @endif
                         <select name="updated_sort" class="form-control !h-11">
                             <option value="">Sort by Last Updated</option>
