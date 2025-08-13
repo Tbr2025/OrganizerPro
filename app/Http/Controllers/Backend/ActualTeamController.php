@@ -336,44 +336,39 @@ class ActualTeamController extends Controller
             'currentMembers'
         ));
     }
- public function update(Request $request, ActualTeam $actualTeam)
-{
-    // 1. Authorize the action
-    $this->authorize('actual-team.edit');
+    public function update(Request $request, ActualTeam $actualTeam)
+    {
+        // 1. Authorize the action
+        $this->authorize('actual-team.edit');
 
-    // 2. Validate all incoming data, including the new team_logo
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'organization_id' => 'required|exists:organizations,id',
-        'tournament_id' => 'required|exists:tournaments,id',
-        'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Added logo validation
-        'members' => 'nullable|array',
-        'members.*' => 'exists:users,id',
-        'user_roles' => 'nullable|array',
-        'user_roles.*' => 'nullable|string|exists:roles,name',
-    ]);
+        // 2. Validate all incoming data
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'organization_id' => 'required|exists:organizations,id',
+            'tournament_id' => 'required|exists:tournaments,id',
+            'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'members' => 'nullable|array',
+            'members.*' => 'exists:users,id',
+            'user_roles' => 'nullable|array',
+            'user_roles.*' => 'nullable|string|exists:roles,name',
+        ]);
 
-    // 3. **NEW:** Handle the Team Logo Upload
-    if ($request->hasFile('team_logo')) {
-        // First, delete the old logo if it exists to prevent orphaned files.
-        if ($actualTeam->team_logo) {
-            Storage::disk('public')->delete($actualTeam->team_logo);
+        // 3. Handle the Team Logo Upload
+        if ($request->hasFile('team_logo')) {
+            if ($actualTeam->team_logo) {
+                Storage::disk('public')->delete($actualTeam->team_logo);
+            }
+            $validated['team_logo'] = $request->file('team_logo')->store('team-logos', 'public');
         }
-        
-        // Store the new logo in 'storage/app/public/team-logos' and get its path.
-        $logoPath = $request->file('team_logo')->store('team-logos', 'public');
-        
-        // Add the new path to our data array for saving.
-        $validated['team_logo'] = $logoPath;
-    }
 
-    // 4. Update the main team details (now includes the logo path if uploaded)
-    $actualTeam->update($validated);
+        // 4. Update the main team details
+        $actualTeam->update($validated);
 
-    // 5. Prepare data for syncing the pivot table
-    $syncData = [];
-    if (!empty($validated['members'])) {
-        foreach ($validated['members'] as $memberId) {
+        // 5. Prepare data for syncing and get the list of current and new member IDs
+        $syncData = [];
+        $newMemberIds = !empty($validated['members']) ? $validated['members'] : [];
+
+        foreach ($newMemberIds as $memberId) {
             $role = $request->input("user_roles.{$memberId}", 'Player');
             $syncData[$memberId] = ['role' => $role];
 
@@ -383,14 +378,33 @@ class ActualTeamController extends Controller
                 $user->syncRoles([$role]);
             }
         }
+
+        // =================================================================
+        // 6. **THE FIX**: Perform the sync and manage player statuses
+        // =================================================================
+
+        // First, get the list of member IDs *before* the sync
+        $originalMemberIds = $actualTeam->users()->pluck('users.id')->toArray();
+
+        // Now, synchronize the pivot table. This returns arrays of attached, detached, and updated IDs.
+        $syncResult = $actualTeam->users()->sync($syncData);
+        $detachedIds = $syncResult['detached'];
+
+        // a) Update newly added/retained members to 'Retained'
+        if (!empty($newMemberIds)) {
+            Player::whereIn('user_id', $newMemberIds)
+                ->update(['player_mode' => 'retained']); // Corrected column name to 'player_mode'
+        }
+
+        // b) Update REMOVED members back to 'Normal'
+        if (!empty($detachedIds)) {
+            Player::whereIn('user_id', $detachedIds)
+                ->update(['player_mode' => 'normal']);
+        }
+
+        // 7. Redirect with a success message
+        return redirect()->back()->with('success', 'Team details, roster, and player statuses updated successfully.');
     }
-
-    // 6. Synchronize the `actual_team_users` pivot table
-    $actualTeam->users()->sync($syncData);
-
-    // 7. Redirect with a success message
-    return redirect()->back()->with('success', 'Team details, roster, and permissions updated successfully.');
-}
 
 
     public function destroy(ActualTeam $actualTeam)

@@ -108,109 +108,104 @@ class PlayerController extends Controller
     //         ],
     //     ]);
     // }
-
     public function index(): View
     {
         $this->checkAuthorization(Auth::user(), ['player.view']);
 
+        // 1. Read all potential filters from the request
         $filters = [
-            'search'       => request('search'),
-            'team_name'    => request('team_name'),
-            'role'         => request('role'),
-            'status'       => request('status'),
-            'updated_sort' => request('updated_sort'),
+            'search'           => request('search'),
+            'team_name'        => request('team_name'),
+            'role'             => request('role'),
+            'batting_profile'  => request('batting_profile'),
+            'bowling_profile'  => request('bowling_profile'),
+            'status'           => request('status'),
+            'updated_sort'     => request('updated_sort'),
         ];
 
-        $query = Player::with(['user.organization', 'team', 'playerType']);
+        // 2. Start the base query with all necessary relationships for performance
+        $query = Player::with(['user.organization', 'team', 'playerType', 'location', 'battingProfile', 'bowlingProfile']);
         $user = Auth::user();
 
-        // =================================================================
-        // START: Corrected Role-Based Scoping
-        // =================================================================
+        // 3. Apply role-based data scoping
         if ($user->hasRole('Superadmin')) {
-            // Superadmins see everyone, so no initial filter is applied.
-        } elseif ($user->hasRole('Team Manager')) {
-            // Team Managers see only "onboarded" players from their own organization.
+            // Superadmins see all players. No initial scope is applied.
+        } elseif ($user->hasAnyRole(['Admin'])) {
+            // Admins see all players from their own organization, including retained players.
             if ($user->organization_id) {
-                // 1. Filter by the manager's organization ID.
-                $query->whereHas('user', function ($q) use ($user) {
-                    $q->where('organization_id', $user->organization_id);
-                });
-                // 2. AND filter for players who have a welcome email sent.
-                $query->whereNotNull('welcome_email_sent_at');
+                $query->whereHas('user', fn($q) => $q->where('organization_id', $user->organization_id));
             } else {
-                // If manager has no org, they see no players.
-                $query->whereRaw('1 = 0');
+                $query->whereRaw('1 = 0'); // See no players if not assigned to an org
             }
-        } else { // This handles any other role, like a general 'Admin'
-            // Admins see all players from their own organization.
+        } else { // This handles 'Team Manager' and any other non-privileged roles
+            // These users have the most restricted view.
             if ($user->organization_id) {
-                $query->whereHas('user', function ($q) use ($user) {
-                    $q->where('organization_id', $user->organization_id);
+                // a) Must be in their organization
+                $query->whereHas('user', fn($q) => $q->where('organization_id', $user->organization_id));
+
+                // b) Must be an "onboarded" player
+                $query->whereNotNull('welcome_email_sent_at');
+
+                // c) Must NOT be a "Retained" player
+                $query->where(function ($q) {
+                    $q->where('player_mode', '!=', 'retained')
+                        ->orWhereNull('player_mode');
                 });
             } else {
-                // If admin has no org, they see no players.
-                $query->whereRaw('1 = 0');
+                $query->whereRaw('1 = 0'); // See no players if not assigned to an org
             }
         }
-        // =================================================================
-        // END: Corrected Role-Based Scoping
-        // =================================================================
 
-
+        // 4. Apply all user-selected filters to the query
         $players = $query
             ->when($filters['search'], function ($q) use ($filters) {
-                $q->where(function ($q) use ($filters) {
-                    $q->where('name', 'like', "%{$filters['search']}%")
-                        ->orWhere('email', 'like', "%{$filters['search']}%");
-                });
+                $q->where(fn($q) => $q->where('name', 'like', "%{$filters['search']}%")->orWhere('email', 'like', "%{$filters['search']}%"));
             })
             ->when($filters['team_name'], function ($q) use ($filters) {
-                $q->whereHas('team', function ($teamQuery) use ($filters) {
-                    $teamQuery->where('name', $filters['team_name']);
-                });
+                $q->whereHas('team', fn($teamQuery) => $teamQuery->where('name', $filters['team_name']));
             })
             ->when($filters['role'], function ($q) use ($filters) {
-                $q->whereHas('playerType', function ($typeQuery) use ($filters) {
-                    $typeQuery->where('type', $filters['role']);
-                });
+                if ($filters['role'] === 'Wicket Keeper') {
+                    $q->where('is_wicket_keeper', true);
+                } else {
+                    $q->whereHas('playerType', fn($typeQuery) => $typeQuery->where('type', $filters['role']));
+                }
+            })
+            ->when($filters['batting_profile'], function ($q) use ($filters) {
+                $q->whereHas('battingProfile', fn($profileQuery) => $profileQuery->where('style', $filters['batting_profile']));
+            })
+            ->when($filters['bowling_profile'], function ($q) use ($filters) {
+                $q->whereHas('bowlingProfile', fn($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
             })
             ->when($filters['status'], function ($q) use ($filters) {
-                if ($filters['status'] === 'verified') {
-                    $q->whereNotNull('welcome_email_sent_at');
-                } elseif ($filters['status'] === 'pending') {
-                    $q->whereNull('welcome_email_sent_at');
-                }
+                if ($filters['status'] === 'verified') $q->whereNotNull('welcome_email_sent_at');
+                elseif ($filters['status'] === 'pending') $q->whereNull('welcome_email_sent_at');
             })
             ->when($filters['updated_sort'], function ($q) use ($filters) {
-                if (in_array($filters['updated_sort'], ['asc', 'desc'])) {
-                    $q->orderBy('updated_at', $filters['updated_sort']);
-                }
-            }, function ($q) {
-                $q->orderBy('updated_at', 'desc');
-            })
-            ->paginate(20)
-            ->appends($filters);
+                if (in_array($filters['updated_sort'], ['asc', 'desc'])) $q->orderBy('updated_at', $filters['updated_sort']);
+            }, fn($q) => $q->orderBy('updated_at', 'desc'))
+            ->paginate(100) // Pagination set to 100
+            ->appends($filters); // Ensures filters are remembered on pagination links
 
-        // This logic for populating filters can be improved for non-superadmins
+        // 5. Fetch data needed for the filter dropdowns
         if ($user->hasRole('Superadmin')) {
             $teams = Team::orderBy('name')->get();
         } else {
-            // Show only teams that belong to the user's organization in the filter dropdown
             $teams = Team::where('organization_id', $user->organization_id)->orderBy('name')->get();
         }
 
-        // $roles = PlayerType::orderBy('type')->get();
-        $roles =  PlayerType::whereIn('type', ['Bowler', 'Batsman', 'All-Rounder', 'Wicket Keeper'])->get();
+        $roles = PlayerType::whereIn('type', ['Bowler', 'Batsman', 'All-Rounder'])->get();
+        $battingProfiles = BattingProfile::orderBy('style')->get();
+        $bowlingProfiles = BowlingProfile::orderBy('style')->get();
 
-
+        // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
-            'players'     => $players,
-            'teams'       => $teams,
-            'roles'       => $roles,
-            'breadcrumbs' => [
-                'title' => __('Players'),
-            ],
+            'players'         => $players,
+            'teams'           => $teams,
+            'roles'           => $roles,
+            'battingProfiles' => $battingProfiles,
+            'bowlingProfiles' => $bowlingProfiles,
+            'breadcrumbs'     => ['title' => __('Players')],
         ]);
     }
 
