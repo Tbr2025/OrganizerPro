@@ -60,7 +60,7 @@ class RolesController extends Controller
 
     public function store(StoreRoleRequest $request): RedirectResponse
     {
-        $role = $this->rolesService->createRole($request->name, $request->input('permissions', []));
+        $role = $this->rolesService->createOrSyncRole($request->name, $request->input('permissions', []));
 
         session()->flash('success', __('Role has been created.'));
 
