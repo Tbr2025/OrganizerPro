@@ -38,28 +38,77 @@ use Intervention\Image\ImageManager;
 
 class PlayerController extends Controller
 {
+
     // public function index(): View
     // {
     //     $this->checkAuthorization(Auth::user(), ['player.view']);
 
     //     $filters = [
-    //         'search' => request('search'),
-    //         'team_name' => request('team_name'),
+    //         'search'       => request('search'),
+    //         'team_name'    => request('team_name'),
+    //         'role'         => request('role'),
+    //         'status'       => request('status'),
+    //         'updated_sort' => request('updated_sort'),
     //     ];
 
-    //     $players = Player::query()
-    //         ->when($filters['search'], fn($q) => $q->where('name', 'like', "%{$filters['search']}%"))
-    //         ->when($filters['team_name'], fn($q) => $q->where('team_name', $filters['team_name']))
-    //         ->latest()
-    //         ->paginate(20);
+    //     $query = Player::with(['user.organization', 'team', 'playerType']);
+
+    //     $user = Auth::user();
+
+    //     // 🔹 Restrict to players where player's user has same organization_id
+    //     if (!$user->hasRole('Superadmin') && $user->organization_id) {
+    //         $query->whereHas('user', function ($q) use ($user) {
+    //             $q->where('organization_id', $user->organization_id);
+    //         });
+    //     }
+
+    //     $players = $query
+    //         ->when($filters['search'], function ($q) use ($filters) {
+    //             $q->where(function ($q) use ($filters) {
+    //                 $q->where('name', 'like', "%{$filters['search']}%")
+    //                     ->orWhere('email', 'like', "%{$filters['search']}%");
+    //             });
+    //         })
+    //         ->when($filters['team_name'], function ($q) use ($filters) {
+    //             $q->whereHas('team', function ($teamQuery) use ($filters) {
+    //                 $teamQuery->where('name', $filters['team_name']);
+    //             });
+    //         })
+    //         ->when($filters['role'], function ($q) use ($filters) {
+    //             $q->whereHas('playerType', function ($typeQuery) use ($filters) {
+    //                 $typeQuery->where('type', $filters['role']);
+    //             });
+    //         })
+    //         ->when($filters['status'], function ($q) use ($filters) {
+    //             if ($filters['status'] === 'verified') {
+    //                 $q->whereNotNull('welcome_email_sent_at');
+    //             } elseif ($filters['status'] === 'pending') {
+    //                 $q->whereNull('welcome_email_sent_at');
+    //             }
+    //         })
+    //         ->when($filters['updated_sort'], function ($q) use ($filters) {
+    //             if (in_array($filters['updated_sort'], ['asc', 'desc'])) {
+    //                 $q->orderBy('updated_at', $filters['updated_sort']);
+    //             }
+    //         }, function ($q) {
+    //             $q->orderBy('updated_at', 'desc');
+    //         })
+    //         ->paginate(20)
+    //         ->appends($filters);
+
+    //     $teams = Team::orderBy('name')->get();
+    //     $roles = PlayerType::orderBy('type')->get();
 
     //     return view('backend.pages.players.index', [
-    //         'players' => $players,
+    //         'players'     => $players,
+    //         'teams'       => $teams,
+    //         'roles'       => $roles,
     //         'breadcrumbs' => [
     //             'title' => __('Players'),
     //         ],
     //     ]);
     // }
+
     public function index(): View
     {
         $this->checkAuthorization(Auth::user(), ['player.view']);
@@ -73,15 +122,41 @@ class PlayerController extends Controller
         ];
 
         $query = Player::with(['user.organization', 'team', 'playerType']);
-
         $user = Auth::user();
 
-        // 🔹 Restrict to players where player's user has same organization_id
-        if (!$user->hasRole('Superadmin') && $user->organization_id) {
-            $query->whereHas('user', function ($q) use ($user) {
-                $q->where('organization_id', $user->organization_id);
-            });
+        // =================================================================
+        // START: Corrected Role-Based Scoping
+        // =================================================================
+        if ($user->hasRole('Superadmin')) {
+            // Superadmins see everyone, so no initial filter is applied.
+        } elseif ($user->hasRole('Team Manager')) {
+            // Team Managers see only "onboarded" players from their own organization.
+            if ($user->organization_id) {
+                // 1. Filter by the manager's organization ID.
+                $query->whereHas('user', function ($q) use ($user) {
+                    $q->where('organization_id', $user->organization_id);
+                });
+                // 2. AND filter for players who have a welcome email sent.
+                $query->whereNotNull('welcome_email_sent_at');
+            } else {
+                // If manager has no org, they see no players.
+                $query->whereRaw('1 = 0');
+            }
+        } else { // This handles any other role, like a general 'Admin'
+            // Admins see all players from their own organization.
+            if ($user->organization_id) {
+                $query->whereHas('user', function ($q) use ($user) {
+                    $q->where('organization_id', $user->organization_id);
+                });
+            } else {
+                // If admin has no org, they see no players.
+                $query->whereRaw('1 = 0');
+            }
         }
+        // =================================================================
+        // END: Corrected Role-Based Scoping
+        // =================================================================
+
 
         $players = $query
             ->when($filters['search'], function ($q) use ($filters) {
@@ -117,7 +192,14 @@ class PlayerController extends Controller
             ->paginate(20)
             ->appends($filters);
 
-        $teams = Team::orderBy('name')->get();
+        // This logic for populating filters can be improved for non-superadmins
+        if ($user->hasRole('Superadmin')) {
+            $teams = Team::orderBy('name')->get();
+        } else {
+            // Show only teams that belong to the user's organization in the filter dropdown
+            $teams = Team::where('organization_id', $user->organization_id)->orderBy('name')->get();
+        }
+
         $roles = PlayerType::orderBy('type')->get();
 
         return view('backend.pages.players.index', [
@@ -129,8 +211,6 @@ class PlayerController extends Controller
             ],
         ]);
     }
-
-
 
     public function create(): View
     {
