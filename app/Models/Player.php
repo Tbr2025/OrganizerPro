@@ -278,4 +278,13 @@ class Player extends Model implements MustVerifyEmail
         return $this->belongsToMany(ActualTeam::class, 'player_team_tournament', 'player_id', 'team_id')
             ->withPivot('role');
     }
+
+    public function location()
+    {
+        // This line tells Laravel:
+        // "This Player model belongs to a PlayerLocation model,
+        // and you can find the correct one by matching the 'location_id' on this player
+        // with the 'id' on the player_locations table."
+        return $this->belongsTo(PlayerLocation::class, 'location_id');
+    }
 }
