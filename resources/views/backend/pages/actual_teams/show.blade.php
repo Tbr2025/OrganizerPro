@@ -19,9 +19,9 @@
                 {{-- Team Logo --}}
                 <div class="flex-shrink-0">
                     {{-- TODO: Replace with your actual logo logic --}}
-                    @if ($actualTeam->logo_url)
+                    @if ($actualTeam->team_logo)
                         <img class="h-24 w-24 object-cover rounded-full border-4 border-gray-700"
-                            src="{{ $actualTeam->logo_url }}" alt="{{ $actualTeam->name }} Logo">
+                            src="{{ Storage::url($actualTeam->team_logo) }}" alt="{{ $actualTeam->name }} Logo">
                     @else
                         <div
                             class="h-24 w-24 bg-gray-700 rounded-full flex items-center justify-center border-4 border-gray-600">
@@ -164,7 +164,7 @@
                             <div class="hidden md:flex items-center justify-around flex-grow w-1/3 text-center">
                                 <div>
                                     <div class="text-2xl font-bold text-gray-800 dark:text-white">
-                                        
+
                                         {{ $player->total_matches ?? 0 }}</div>
                                     <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Matches</div>
                                 </div>

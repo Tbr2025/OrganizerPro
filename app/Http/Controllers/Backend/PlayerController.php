@@ -179,6 +179,7 @@ class PlayerController extends Controller
             ],
 
             'team_id' => 'nullable|exists:teams,id',
+            'jersey_number' => 'nullable',
             'team_name_ref' => 'nullable|string|max:100',
             'jersey_name' => 'required|string|max:50',
             'kit_size_id' => 'required|exists:kit_sizes,id',
@@ -629,6 +630,8 @@ class PlayerController extends Controller
             'email' => 'required|email|unique:players,email,' . $player->id,
             'mobile_number_full' => 'required|string|max:20',
             'cricheroes_number_full' => 'required|string|max:20',
+            'jersey_number' => 'nullable',
+
             'team_id' => 'nullable|exists:teams,id',
             'location_id' => 'required|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',
@@ -769,6 +772,7 @@ class PlayerController extends Controller
             'cricheroes_number_full' => $validated['cricheroes_number_full'],
             'team_id' => $validated['team_id'] ?? null,
             'jersey_name' => $validated['jersey_name'] ?? null,
+            'jersey_number' => $validated['jersey_number'] ?? null,
             'kit_size_id' => $validated['kit_size_id'] ?? null,
             'batting_profile_id' => $validated['batting_profile_id'] ?? null,
             'bowling_profile_id' => $validated['bowling_profile_id'] ?? null,
@@ -783,6 +787,8 @@ class PlayerController extends Controller
         // ✅ Assign verified flags
         // ✅ Assign verified flags
         $player->verified_name = $request->boolean('verified_name');
+        $player->verified_jersey_number = $request->boolean('verified_jersey_number');
+
         $player->verified_email = $request->boolean('verified_email');
         $player->verified_mobile_number_full = $request->boolean('verified_mobile_number_full');
         $player->verified_image_path = $request->boolean('verified_image_path');

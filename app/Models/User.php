@@ -123,10 +123,16 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasOne(Player::class);
     }
-    
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);
     }
-    
+
+    // In app/Models/User.php
+
+    public function actualTeams()
+    {
+        return $this->belongsToMany(ActualTeam::class, 'actual_team_users');
+    }
 }

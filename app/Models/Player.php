@@ -24,6 +24,8 @@ class Player extends Model implements MustVerifyEmail
         'verified_cricheroes',
         'verified_jersey_name',
         'verified_kit_size_id',
+        'jersey_number',
+        'verified_jersey_number',
         'verified_batting_profile_id',
         'verified_bowling_profile_id',
         'verified_player_type_id',
@@ -72,6 +74,7 @@ class Player extends Model implements MustVerifyEmail
         'verified_cricheroes_number_full' => 'boolean',
         'verified_team_id' => 'boolean',
         'verified_jersey_name' => 'boolean',
+        'verified_jersey_number' => 'boolean',
         'verified_kit_size_id' => 'boolean',
         'verified_batting_profile_id' => 'boolean',
         'verified_bowling_profile_id' => 'boolean',
@@ -223,6 +226,7 @@ class Player extends Model implements MustVerifyEmail
             'player_type_id',
             'status',
             'email_verified_at',
+            'verified_jersey_number',
             'created_by',
             'approved_by',
             'user_id',
@@ -249,6 +253,7 @@ class Player extends Model implements MustVerifyEmail
             $this->verified_mobile_number_full &&
             $this->verified_cricheroes_number_full &&
             $this->verified_jersey_name &&
+            $this->verified_jersey_number &&
             $this->verified_team_id &&
             $this->verified_kit_size_id &&
             $this->verified_batting_profile_id &&

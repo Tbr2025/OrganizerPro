@@ -13,21 +13,78 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ActualTeamController extends Controller
 {
     public function index()
     {
+        // 1. Get user and prepare filters from request
+        $user = Auth::user();
+        $filters = [
+            'organization_id' => request('organization_id'),
+            'tournament_id' => request('tournament_id'),
+        ];
+
+        // 2. Start the base query for the main team list
         $query = ActualTeam::with(['organization', 'tournament']);
 
-        // If the logged-in user is NOT super-admin, filter by their organization
-        if (!auth()->user()->hasRole('super-admin')) {
-            $query->where('organization_id', auth()->user()->organization_id);
+        // 3. Apply role-based scoping for the main team list
+        if ($user->hasRole('Superadmin')) {
+            // Superadmin sees all teams. No initial scope.
+        } elseif ($user->hasRole('Team Manager')) {
+            // Team Manager sees ONLY the teams they are a member of.
+            $query->whereHas('users', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            });
+        } else {
+            // All other users (e.g., Admin) are scoped by their organization.
+            if ($user->organization_id) {
+                $query->where('organization_id', $user->organization_id);
+            } else {
+                $query->whereRaw('1 = 0'); // See no teams if not configured
+            }
         }
 
-        $actualTeams = $query->paginate(15);
+        // 4. Apply user-selected filters from the dropdowns
+        $query->applyFilters($filters);
 
-        return view('backend.pages.actual_teams.index', compact('actualTeams'));
+        // 5. Execute the main query
+        $actualTeams = $query->latest()->paginate(15);
+
+        // ------------------------------------------------------------------
+        // 6. **REFACTORED LOGIC:** Get data for the filter dropdowns
+        // ------------------------------------------------------------------
+        if ($user->hasRole('Superadmin')) {
+            $organizations = Organization::orderBy('name')->get();
+            $tournaments = Tournament::orderBy('name')->get();
+        } elseif ($user->hasRole('Team Manager')) {
+            // For a Team Manager, the only relevant organizations and tournaments
+            // are the ones associated with the teams they manage.
+
+            // Get the teams the manager belongs to first.
+            $managedTeams = $user->actualTeams; // Use the loaded relationship
+
+            // Get the unique organization and tournament IDs from those teams.
+            $organizationIds = $managedTeams->pluck('organization_id')->unique();
+            $tournamentIds = $managedTeams->pluck('tournament_id')->unique();
+
+            // Fetch the corresponding models.
+            $organizations = Organization::whereIn('id', $organizationIds)->orderBy('name')->get();
+            $tournaments = Tournament::whereIn('id', $tournamentIds)->orderBy('name')->get();
+        } else {
+            // For a regular admin, the dropdowns should only contain their own organization
+            // and the tournaments within that organization.
+            $organizations = Organization::where('id', $user->organization_id)->get();
+            $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
+        }
+
+        // 7. Return the view with all necessary data
+        return view('backend.pages.actual_teams.index', compact(
+            'actualTeams',
+            'organizations',
+            'tournaments'
+        ));
     }
 
 
@@ -69,14 +126,32 @@ class ActualTeamController extends Controller
     }
     public function store(Request $request)
     {
-        $data = $request->validate([
+
+        // 1. Validate the incoming request data
+        // This part is mostly correct, but let's make the logo nullable for flexibility.
+        $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
-            'tournament_id' => 'required|exists:tournaments,id',
-            'name' => 'required|string|max:255',
+            'tournament_id'   => 'required|exists:tournaments,id',
+            'name'            => 'required|string|max:255|unique:actual_teams,name', // Added unique rule
+            'team_logo'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB Max
         ]);
 
-        ActualTeam::create($data);
+        // **THIS IS THE FIX**
+        // 2. Handle the file upload
+        if ($request->hasFile('team_logo')) {
+            // Store the uploaded file in the 'public' disk, inside a 'team-logos' folder.
+            // The `store()` method returns the unique path to the stored file.
+            $logoPath = $request->file('team_logo')->store('team-logos', 'public');
 
+            // Add the file path to the data that will be saved to the database.
+            $validated['team_logo'] = $logoPath;
+        }
+
+        // 3. Create the new team record in the database
+        // The $validated array now contains the correct file path for the team_logo column.
+        ActualTeam::create($validated);
+
+        // 4. Redirect with a success message
         return redirect()->route('admin.actual-teams.index')->with('success', 'Actual Team created successfully.');
     }
 
@@ -261,63 +336,61 @@ class ActualTeamController extends Controller
             'currentMembers'
         ));
     }
-    public function update(Request $request, ActualTeam $actualTeam)
-    {
-        // 1. Authorize the action
-        $this->authorize('actual-team.edit');
+ public function update(Request $request, ActualTeam $actualTeam)
+{
+    // 1. Authorize the action
+    $this->authorize('actual-team.edit');
 
-        // 2. Validate all incoming data
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'organization_id' => 'required|exists:organizations,id',
-            'tournament_id' => 'required|exists:tournaments,id',
-            'members' => 'nullable|array',
-            'members.*' => 'exists:users,id',
-            'user_roles' => 'nullable|array',
-            'user_roles.*' => 'nullable|string|exists:roles,name', // Ensures the role exists in Spatie's roles table
-        ]);
+    // 2. Validate all incoming data, including the new team_logo
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'organization_id' => 'required|exists:organizations,id',
+        'tournament_id' => 'required|exists:tournaments,id',
+        'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Added logo validation
+        'members' => 'nullable|array',
+        'members.*' => 'exists:users,id',
+        'user_roles' => 'nullable|array',
+        'user_roles.*' => 'nullable|string|exists:roles,name',
+    ]);
 
-        // 3. Update the main team details
-        $actualTeam->update([
-            'name' => $validated['name'],
-            'organization_id' => $validated['organization_id'],
-            'tournament_id' => $validated['tournament_id'],
-        ]);
+    // 3. **NEW:** Handle the Team Logo Upload
+    if ($request->hasFile('team_logo')) {
+        // First, delete the old logo if it exists to prevent orphaned files.
+        if ($actualTeam->team_logo) {
+            Storage::disk('public')->delete($actualTeam->team_logo);
+        }
+        
+        // Store the new logo in 'storage/app/public/team-logos' and get its path.
+        $logoPath = $request->file('team_logo')->store('team-logos', 'public');
+        
+        // Add the new path to our data array for saving.
+        $validated['team_logo'] = $logoPath;
+    }
 
-        // 4. Prepare data for syncing the pivot table
-        $syncData = [];
-        if (!empty($validated['members'])) {
-            foreach ($validated['members'] as $memberId) {
-                $role = $request->input("user_roles.{$memberId}", 'Player');
-                $syncData[$memberId] = ['role' => $role];
+    // 4. Update the main team details (now includes the logo path if uploaded)
+    $actualTeam->update($validated);
 
-                // -----------------------------------------------------------------
-                // --- THIS IS THE FIX: Sync the user's system-wide Spatie role ---
-                // -----------------------------------------------------------------
+    // 5. Prepare data for syncing the pivot table
+    $syncData = [];
+    if (!empty($validated['members'])) {
+        foreach ($validated['members'] as $memberId) {
+            $role = $request->input("user_roles.{$memberId}", 'Player');
+            $syncData[$memberId] = ['role' => $role];
 
-                // Find the user model instance
-                $user = User::find($memberId);
-
-                if ($user) {
-                    // **Safety Check:** Prevent accidentally demoting an Admin or Superadmin.
-                    // We should only sync roles for non-privileged users from this interface.
-                    if (!$user->hasAnyRole(['Superadmin', 'Admin'])) {
-
-                        // `syncRoles` is the best method. It removes all other roles the user might have
-                        // and assigns only the one provided. This keeps things clean.
-                        $user->syncRoles([$role]);
-                    }
-                }
+            // Sync the user's system-wide Spatie role
+            $user = User::find($memberId);
+            if ($user && !$user->hasAnyRole(['Superadmin', 'Admin'])) {
+                $user->syncRoles([$role]);
             }
         }
-
-        // 5. Synchronize the `actual_team_users` pivot table
-        // This part remains the same, as it correctly updates the team's roster.
-        $actualTeam->users()->sync($syncData);
-
-        // 6. Redirect with a success message
-        return redirect()->back()->with('success', 'Team roster and user permissions updated successfully.');
     }
+
+    // 6. Synchronize the `actual_team_users` pivot table
+    $actualTeam->users()->sync($syncData);
+
+    // 7. Redirect with a success message
+    return redirect()->back()->with('success', 'Team details, roster, and permissions updated successfully.');
+}
 
 
     public function destroy(ActualTeam $actualTeam)

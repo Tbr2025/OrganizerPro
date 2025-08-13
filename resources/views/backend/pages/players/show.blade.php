@@ -35,6 +35,7 @@
                     @if ($player->jersey_name)
                         <p class="text-lg text-blue-300 font-medium">{{ $player->jersey_name }}</p>
                     @endif
+
                     @if ($verifiedProfile)
                         <div class="absolute top-4 right-4" title="Fully Verified Profile">
                             <div
@@ -89,6 +90,7 @@
                         'team.name' => 'Current Team',
                         'team_name_ref' => 'If Others',
                         'kitSize.size' => 'Jersey Size',
+                        'jersey_number' => 'Jersey Number',
                         'battingProfile.style' => 'Batting Profile',
                         'bowlingProfile.style' => 'Bowling Profile',
                         'playerType.type' => 'Player Type',
@@ -137,7 +139,7 @@
                     </div>
                     <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
                         {{-- CORRECTED: Removed 'team_name_ref' from the array to prevent it from displaying as a separate row --}}
-                        @php $cricketFields = ['team.name', 'kitSize.size', 'battingProfile.style', 'bowlingProfile.style', 'playerType.type']; @endphp
+                        @php $cricketFields = ['team.name', 'kitSize.size','jersey_number', 'battingProfile.style', 'bowlingProfile.style', 'playerType.type']; @endphp
 
                         @foreach ($cricketFields as $field)
                             <div>

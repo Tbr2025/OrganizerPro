@@ -166,6 +166,18 @@
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
                             </div>
+                              <div class="space-y-1">
+                                <label for="jersey_number"
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Jersey Number') }}
+                                </label>
+                                <input type="number" name="jersey_number" id="jersey_number"
+                                    value="{{ old('jersey_number') }}" placeholder="Enter Jersey Number"
+                                    class="form-control @error('jersey_number') border-red-500 @enderror">
+                                @error('jersey_number')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
 
                             {{-- Jersey Size --}}
                             <div class="space-y-1">

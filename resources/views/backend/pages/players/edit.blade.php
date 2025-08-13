@@ -26,6 +26,8 @@
                                     'mobile_number_full' => 'Full Mobile Number',
                                     'cricheroes_number_full' => 'Full Cricheroes Number',
                                     'jersey_name' => 'Jersey Name',
+                                    'jersey_number' => 'Jersey Number'
+                                    
                                 ];
                             @endphp
 

@@ -10,10 +10,44 @@ use Illuminate\Support\Facades\Auth;
 
 class TournamentController extends Controller
 {
-    public function index()
+    public function index(Request $request) // <-- Inject the Request object
     {
-        $tournaments = Tournament::latest()->paginate(10);
+        // 1. Get the currently authenticated user
+        $user = Auth::user();
 
+        // 2. Start building the Tournament query and eager-load relationships
+        $query = Tournament::with('organization');
+
+        // 3. Apply role-based scoping (filter by organization if not Superadmin)
+        if (!$user->hasRole('Superadmin')) {
+            if ($user->organization_id) {
+                $query->where('organization_id', $user->organization_id);
+            } else {
+                $query->whereRaw('1 = 0'); // Return no results if no org assigned
+            }
+        }
+
+        // **THIS IS THE NEW CODE FOR THE SEARCH FEATURE**
+        // 4. Apply search filter if a search term is provided in the request
+        $searchTerm = $request->input('search');
+        if ($searchTerm) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', '%' . $searchTerm . '%')
+                    ->orWhere('location', 'like', '%' . $searchTerm . '%');
+
+                // If the user is a Superadmin, they can also search by organization name
+                if (Auth::user()->hasRole('Superadmin')) {
+                    $q->orWhereHas('organization', function ($orgQuery) use ($searchTerm) {
+                        $orgQuery->where('name', 'like', '%' . $searchTerm . '%');
+                    });
+                }
+            });
+        }
+
+        // 5. Execute the final query and paginate the results
+        $tournaments = $query->latest()->paginate(10);
+
+        // 6. Return the view with the correctly scoped and filtered data
         return view('backend.pages.tournaments.index', [
             'tournaments' => $tournaments,
             'breadcrumbs' => [

@@ -19,4 +19,11 @@ class Organization extends Model
     {
         return $this->hasMany(Tournament::class);
     }
+    public function actualTeams()
+    {
+        // This line tells Laravel:
+        // "An Organization can have many ActualTeam models,
+        // and you can find them by looking for the 'organization_id' on the 'actual_teams' table."
+        return $this->hasMany(ActualTeam::class, 'organization_id');
+    }
 }

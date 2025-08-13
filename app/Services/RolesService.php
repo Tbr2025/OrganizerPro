@@ -313,7 +313,6 @@ class RolesService
             'dashboard.view',
             'actual-team.view', // Can view teams (at least their own)
             'actual-team.edit', // Can edit their own team details (if allowed by policy)
-            'actual-team.create', // Can edit their own team details (if allowed by policy)
             'player.create', // Can add players to their team
             'player.view', // Can view players (at least their team's)
             'match.view',

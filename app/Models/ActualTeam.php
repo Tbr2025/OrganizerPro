@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class ActualTeam extends Model
@@ -10,10 +11,25 @@ class ActualTeam extends Model
         'organization_id',
         'tournament_id',
         'name',
+        'team_logo',
+
         'role'
     ];
 
+    public function scopeApplyFilters(Builder $query, array $filters): Builder
+    {
+        // Apply Organization filter if provided
+        if (!empty($filters['organization_id'])) {
+            $query->where('organization_id', $filters['organization_id']);
+        }
 
+        // Apply Tournament filter if provided
+        if (!empty($filters['tournament_id'])) {
+            $query->where('tournament_id', $filters['tournament_id']);
+        }
+
+        return $query;
+    }
     public function player()
     {
         return $this->belongsTo(Player::class);
