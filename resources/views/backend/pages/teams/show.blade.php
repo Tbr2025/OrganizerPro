@@ -5,7 +5,7 @@
 @endsection
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6">
+    <div class="p-4 mx-auto  md:p-6">
         <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
 
         <div class="space-y-6">
@@ -84,7 +84,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                               
+
                                 @foreach ($team->players as $player)
                                     <tr class="border-t">
                                         <td class="px-4 py-2">

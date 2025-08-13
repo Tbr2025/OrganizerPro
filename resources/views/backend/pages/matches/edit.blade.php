@@ -3,7 +3,7 @@
 @section('title', 'Edit Match | ' . config('app.name'))
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6">
+    <div class="p-4 mx-auto  md:p-6">
         <x-breadcrumbs :breadcrumbs="[['label' => 'Matches', 'url' => route('admin.matches.index')], ['label' => 'Edit']]" />
 
         <div class="space-y-6">
@@ -20,7 +20,8 @@
                                 <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Match Title
                                 </label>
-                                <input type="text" name="name" id="name" value="{{ old('name', $match->name) }}" required
+                                <input type="text" name="name" id="name" value="{{ old('name', $match->name) }}"
+                                    required
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                             </div>
 
@@ -29,7 +30,8 @@
                                 <label for="match_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Match Date
                                 </label>
-                                <input type="text" name="match_date" id="match_date" value="{{ old('match_date', $match->match_date) }}" required
+                                <input type="text" name="match_date" id="match_date"
+                                    value="{{ old('match_date', $match->match_date) }}" required
                                     class="flatpickr-date mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                             </div>
 
@@ -38,7 +40,8 @@
                                 <label for="start_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Start Time
                                 </label>
-                                <input type="text" name="start_time" id="start_time" value="{{ old('start_time', $match->start_time) }}" required
+                                <input type="text" name="start_time" id="start_time"
+                                    value="{{ old('start_time', $match->start_time) }}" required
                                     class="flatpickr-time mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                             </div>
 
@@ -47,7 +50,8 @@
                                 <label for="end_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     End Time
                                 </label>
-                                <input type="text" name="end_time" id="end_time" value="{{ old('end_time', $match->end_time) }}" required
+                                <input type="text" name="end_time" id="end_time"
+                                    value="{{ old('end_time', $match->end_time) }}" required
                                     class="flatpickr-time mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                             </div>
 
@@ -85,7 +89,8 @@
 
                             {{-- Tournament --}}
                             <div class="sm:col-span-2">
-                                <label for="tournament_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label for="tournament_id"
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Tournament
                                 </label>
                                 <select name="tournament_id" id="tournament_id" required
@@ -106,8 +111,8 @@
                                 <label for="location" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Location
                                 </label>
-                                <input type="text" name="location" id="location" value="{{ old('location', $match->location) }}"
-                                    placeholder="Stadium or Ground"
+                                <input type="text" name="location" id="location"
+                                    value="{{ old('location', $match->location) }}" placeholder="Stadium or Ground"
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                             </div>
                         </div>
@@ -138,7 +143,7 @@
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             flatpickr('.flatpickr-date', {
                 dateFormat: 'Y-m-d',
                 minDate: 'today'

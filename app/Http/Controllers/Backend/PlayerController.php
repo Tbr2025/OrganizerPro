@@ -232,20 +232,28 @@ class PlayerController extends Controller
     public function export(Request $request)
     {
         // 1. Authorize the action
-        $this->authorize('player.view'); // Or a new 'player.export' permission if you want more granular control
+        $this->authorize('player.view');
 
         // 2. Validate the incoming request
         $request->validate([
             'player_ids' => 'required|array',
-            'player_ids.*' => 'exists:players,id', // Ensure all IDs are valid players
+            'player_ids.*' => 'exists:players,id',
         ]);
 
-        // 3. Fetch the selected players from the database
+        // 3. **FIXED**: Fetch players with ALL their relationships
         $playerIds = $request->input('player_ids');
-        $players = Player::with(['team', 'playerType', 'location'])->whereIn('id', $playerIds)->get();
+        $players = Player::with([
+            'team',
+            'playerType',
+            'location',
+            'battingProfile',
+            'bowlingProfile',
+            'kitSize',
+            'user.organization' // Also get user and organization info
+        ])->whereIn('id', $playerIds)->get();
 
         // 4. Set up the CSV file response
-        $fileName = 'players_export_' . date('Y-m-d_H-i-s') . '.csv';
+        $fileName = 'full_players_export_' . date('Y-m-d_H-i-s') . '.csv';
         $headers = [
             "Content-type"        => "text/csv",
             "Content-Disposition" => "attachment; filename=$fileName",
@@ -254,42 +262,75 @@ class PlayerController extends Controller
             "Expires"             => "0"
         ];
 
-        // 5. Create a callback to stream the CSV data
-        // This is memory-efficient for large exports.
+        // 5. Create the callback to stream the detailed CSV data
         $callback = function () use ($players) {
             $file = fopen('php://output', 'w');
 
-            // Add CSV headers
+            // **FIXED**: Add all the new columns to the header
             $columns = [
-                'ID',
+                'Player ID',
+                'Organization',
                 'Name',
                 'Email',
                 'Mobile Number',
-                'Team',
+                'Cricheroes Number',
+                'Status',
+                'Player Status', // e.g., Retained
+                'Current Team',
+                'Team Name (if Others)',
                 'Player Role',
+                'Batting Style',
+                'Bowling Style',
+                'Is Wicket Keeper',
+                'Jersey Name',
+                'Jersey Size',
                 'Location',
-                'Status'
+                'Requires Transportation',
+                'No Travel Plan',
+                'Travel From',
+                'Travel To',
+                'Total Matches',
+                'Total Runs',
+                'Total Wickets',
+                'Registered At',
             ];
             fputcsv($file, $columns);
 
-            // Add data for each player
+            // Add the comprehensive data row for each player
             foreach ($players as $player) {
                 fputcsv($file, [
                     $player->id,
+                    $player->user?->organization?->name ?? 'N/A',
                     $player->name,
                     $player->email,
                     $player->mobile_number_full,
-                    $player->team?->name ?? 'N/A',
-                    $player->playerType?->type ?? 'N/A',
-                    $player->location?->name ?? 'N/A',
+                    $player->cricheroes_number_full ?? 'N/A',
                     !is_null($player->welcome_email_sent_at) ? 'Verified' : 'Pending',
+                    $player->player_status ?? 'Normal',
+                    $player->team?->name ?? 'N/A',
+                    $player->team_name_ref ?? '',
+                    $player->playerType?->type ?? 'N/A',
+                    $player->battingProfile?->style ?? 'N/A',
+                    $player->bowlingProfile?->style ?? 'N/A',
+                    $player->is_wicket_keeper ? 'Yes' : 'No',
+                    $player->jersey_name ?? 'N/A',
+                    $player->kitSize?->size ?? 'N/A',
+                    $player->location?->name ?? 'N/A',
+                    $player->transportation_required ? 'Yes' : 'No',
+                    $player->no_travel_plan ? 'Yes' : 'No',
+                    $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('Y-m-d') : '',
+                    $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('Y-m-d') : '',
+                    $player->total_matches ?? 0,
+                    $player->total_runs ?? 0,
+                    $player->total_wickets ?? 0,
+                    $player->created_at->format('Y-m-d H:i:s'),
                 ]);
             }
 
             fclose($file);
         };
 
-        // 6. Return the streamed response to the browser
+        // 6. Return the streamed response
         return response()->stream($callback, 200, $headers);
     }
 

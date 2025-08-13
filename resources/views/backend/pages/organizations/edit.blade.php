@@ -3,7 +3,7 @@
 @section('title', 'Edit Organization')
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6">
+    <div class="p-4 mx-auto  md:p-6">
         <h1 class="text-xl font-semibold mb-4">Edit Organization</h1>
         <form action="{{ route('admin.organizations.update', $organization->id) }}" method="POST">
             @csrf

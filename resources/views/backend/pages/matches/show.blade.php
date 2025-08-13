@@ -3,7 +3,7 @@
 @section('title', 'Match Details | ' . config('app.name'))
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6">
+    <div class="p-4 mx-auto  md:p-6">
         <x-breadcrumbs :breadcrumbs="[['label' => 'Matches', 'url' => route('admin.matches.index')], ['label' => 'Match Details']]" />
 
         <div class="mt-6 rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">

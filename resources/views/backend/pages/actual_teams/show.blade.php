@@ -3,7 +3,7 @@
 @section('title', $actualTeam->name . ' | Team Details')
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6 lg:p-8">
+    <div class="p-4 mx-auto  md:p-6 lg:p-8">
 
         {{-- HEADER / HERO SECTION --}}
         <div class="relative bg-gray-800 dark:bg-gray-900 rounded-lg shadow-lg p-6 mb-8 text-white overflow-hidden">

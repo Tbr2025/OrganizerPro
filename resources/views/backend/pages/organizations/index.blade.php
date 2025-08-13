@@ -3,7 +3,7 @@
 @section('title', 'Organizations')
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6">
+    <div class="p-4 mx-auto  md:p-6">
         <div class="flex justify-between items-center">
             <h1 class="text-xl font-semibold">Organizations</h1>
             @can('organization.create')
@@ -30,13 +30,16 @@
                             <td class="px-6 py-4 text-right">
                                 <div class="flex justify-end items-center space-x-4">
                                     @can('organization.edit')
-                                        <a href="{{ route('admin.organizations.edit', $organization->id) }}" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Edit</a>
+                                        <a href="{{ route('admin.organizations.edit', $organization->id) }}"
+                                            class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Edit</a>
                                     @endcan
                                     @can('organization.delete')
-                                        <form action="{{ route('admin.organizations.destroy', $organization->id) }}" method="POST" onsubmit="return confirm('Are you sure?')">
+                                        <form action="{{ route('admin.organizations.destroy', $organization->id) }}"
+                                            method="POST" onsubmit="return confirm('Are you sure?')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
+                                            <button type="submit"
+                                                class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
                                         </form>
                                     @endcan
                                 </div>

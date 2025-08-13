@@ -3,7 +3,7 @@
 @section('title', 'Players | ' . config('app.name'))
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6 lg:p-8" x-data="{ selectedPlayers: [], selectAll: false }">
+    <div class="p-4 mx-auto  md:p-6 lg:p-8" x-data="{ selectedPlayers: [], selectAll: false }">
 
         {{-- Header --}}
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
@@ -335,46 +335,50 @@
                                             {{ $player->location?->name }}</div>
 
                                     </td>
-                                 <td class="px-6 py-4 whitespace-nowrap">
-    <div class="flex flex-col items-start space-y-2">
-        
-        {{-- Primary Role (e.g., Batsman, Bowler) --}}
-        <div class="flex items-center gap-2" title="Primary Role">
-        
-            <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $player->playerType?->type ?? 'N/A' }}</span>
-        </div>
-        
-        {{-- Secondary Skills (Batting, Bowling, WK) --}}
-        <div class="flex flex-wrap items-center gap-2">
-            {{-- Batting Style Badge --}}
-            @if($player->battingProfile?->style)
-                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200"
-                     title="Batting: {{ $player->battingProfile->style }}">
-                    <img src="{{ asset('images/icons/bat.svg') }}" alt="Batting" class="w-4 h-4 dark:invert">
-                    <span>{{ $player->battingProfile->style }}</span>
-                </div>
-            @endif
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex flex-col items-start space-y-2">
 
-            {{-- Bowling Style Badge --}}
-            @if($player->bowlingProfile?->style)
-                 <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200"
-                      title="Bowling: {{ $player->bowlingProfile->style }}">
-                    <img src="{{ asset('images/icons/ball.svg') }}" alt="Bowling" class="w-4 h-4 dark:invert">
-                    <span>{{ $player->bowlingProfile->style }}</span>
-                </div>
-            @endif
+                                            {{-- Primary Role (e.g., Batsman, Bowler) --}}
+                                            <div class="flex items-center gap-2" title="Primary Role">
 
-            {{-- Wicket Keeper Badge --}}
-            @if($player->is_wicket_keeper)
-                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200"
-                     title="Wicket Keeper">
-                    <img src="{{ asset('images/icons/wicket.svg') }}" alt="Wicket Keeper" class="w-4 h-4 dark:invert">
-                    <span>WK</span>
-                </div>
-            @endif
-        </div>
-    </div>
-</td>
+                                                <span
+                                                    class="text-sm font-semibold text-gray-900 dark:text-white">{{ $player->playerType?->type ?? 'N/A' }}</span>
+                                            </div>
+
+                                            {{-- Secondary Skills (Batting, Bowling, WK) --}}
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                {{-- Batting Style Badge --}}
+                                                @if ($player->battingProfile?->style)
+                                                    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200"
+                                                        title="Batting: {{ $player->battingProfile->style }}">
+                                                        <img src="{{ asset('images/icons/bat.svg') }}" alt="Batting"
+                                                            class="w-4 h-4 dark:invert">
+                                                        <span>{{ $player->battingProfile->style }}</span>
+                                                    </div>
+                                                @endif
+
+                                                {{-- Bowling Style Badge --}}
+                                                @if ($player->bowlingProfile?->style)
+                                                    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200"
+                                                        title="Bowling: {{ $player->bowlingProfile->style }}">
+                                                        <img src="{{ asset('images/icons/ball.svg') }}" alt="Bowling"
+                                                            class="w-4 h-4 dark:invert">
+                                                        <span>{{ $player->bowlingProfile->style }}</span>
+                                                    </div>
+                                                @endif
+
+                                                {{-- Wicket Keeper Badge --}}
+                                                @if ($player->is_wicket_keeper)
+                                                    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200"
+                                                        title="Wicket Keeper">
+                                                        <img src="{{ asset('images/icons/wicket.svg') }}"
+                                                            alt="Wicket Keeper" class="w-4 h-4 dark:invert">
+                                                        <span>WK</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center text-sm text-gray-600 dark:text-gray-300 space-x-4">
                                             {{-- Matches --}}

@@ -5,7 +5,7 @@
 @endsection
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6">
+    <div class="p-4 mx-auto  md:p-6">
         <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
 
         <div class="space-y-6">
@@ -26,8 +26,7 @@
                                     'mobile_number_full' => 'Full Mobile Number',
                                     'cricheroes_number_full' => 'Full Cricheroes Number',
                                     'jersey_name' => 'Jersey Name',
-                                    'jersey_number' => 'Jersey Number'
-                                    
+                                    'jersey_number' => 'Jersey Number',
                                 ];
                             @endphp
 

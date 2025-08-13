@@ -5,7 +5,7 @@
 @endsection
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-screen-xl md:p-6 lg:p-8">
+    <div class="p-4 mx-auto  md:p-6 lg:p-8">
 
         {{-- HEADER: Breadcrumbs & Edit Button --}}
         <div class="flex justify-between items-center mb-6">
