@@ -164,8 +164,13 @@ class ActualTeamController extends Controller
         // its tournament, all of its users, AND for each of those users,
         // get their associated player record."
         // This solves the N+1 query problem.
-        $actualTeam->load(['organization', 'tournament', 'users.player']);
-
+        $actualTeam->load([
+            'organization',
+            'tournament',
+            'users.player.playerType',      // For each user, get their player profile and its type
+            'users.player.battingProfile',  // Also get their batting profile
+            'users.player.bowlingProfile',  // And their bowling profile
+        ]);
         return view('backend.pages.actual_teams.show', compact('actualTeam'));
     }
     // public function edit(ActualTeam $actualTeam)

@@ -56,6 +56,7 @@
                         </select>
                     </div>
 
+
                     {{-- **NEW**: Batting Profile Filter --}}
                     <div>
                         <label for="batting_profile"
@@ -93,6 +94,15 @@
                             </select>
                         </div>
                     @endif
+                    <div>
+                        <label for="player_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player
+                            Mode</label>
+                        <select name="player_mode" id="player_mode" class="form-control mt-1">
+                            <option value="">All</option>
+                            <option value="retained" @selected(request('player_mode') == 'retained')>Retained</option>
+                            <option value="normal" @selected(request('player_mode') == 'normal')>Available</option>
+                        </select>
+                    </div>
                     <div class="flex items-end space-x-2 pt-2">
                         <button type="submit" class="btn btn-primary w-full sm:w-auto">Filter</button>
                         <a href="{{ route('admin.players.index') }}" class="btn btn-secondary w-full sm:w-auto">Reset</a>
@@ -194,16 +204,72 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center">
-                                            <div class="flex-shrink-0 h-11 w-11"><img
-                                                    class="h-11 w-11 rounded-full object-cover"
-                                                    src="{{ $player->image_path ? Storage::url($player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($player->name) }}"
-                                                    alt="{{ $player->name }}"></div>
-                                            <div class="ml-4">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                                    {{ $player->name }}</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $player->email }}
-                                                </div>
+
+                                            {{-- Avatar with Verified Badge --}}
+                                            <div class="flex-shrink-0 h-11 w-11 relative">
+                                                <img class="h-11 w-11 rounded-full object-cover"
+                                                    src="{{ $player->image_path ? Storage::url($player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($player->name) . '&background=EBF4FF&color=7F9CF5' }}"
+                                                    alt="{{ $player->name }}">
+
+                                                @if (!is_null($player->welcome_email_sent_at))
+                                                    <span
+                                                        class="absolute -bottom-0.5 -right-0.5 block rounded-full bg-blue-600 border-2 border-white dark:border-gray-800"
+                                                        title="Verified Player">
+                                                        <svg class="w-4 h-4 text-white" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    </span>
+                                                @endif
                                             </div>
+
+                                            {{-- Name, Badges, and Email --}}
+                                            <div class="ml-4">
+                                                <div class="flex items-center gap-2">
+                                                    {{-- Player name as a link --}}
+                                                    <a href="{{ route('admin.players.show', $player->id) }}"
+                                                        class="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-150">
+                                                        {{ $player->name }}
+                                                    </a>
+
+                                                    {{-- **NEW**: Retained Status Badge --}}
+                                                    @if ($player->player_status == 'Retained')
+                                                        <span
+                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                                 bg-purple-100 text-purple-800
+                                 dark:bg-purple-900/50 dark:text-purple-200">
+                                                            Retained
+                                                        </span>
+                                                    @endif
+                                                </div>
+
+                                                {{-- Email as a clickable mailto link --}}
+                                                <div class="flex items-center gap-1.5 mt-1">
+                                                    <svg class="w-3 h-3 text-gray-400" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                                                        </path>
+                                                    </svg>
+                                                    <a href="mailto:{{ $player->email }}"
+                                                        class="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+                                                        {{ $player->email }}
+                                                    </a>
+                                                </div>
+                                                {{-- **NEW**: Retained Status Badge --}}
+                                                @if ($player->player_mode == 'retained')
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                 bg-purple-100 text-purple-800
+                 dark:bg-purple-900/50 dark:text-purple-200">
+                                                        Retained
+                                                    </span>
+                                                @endif
+                                            </div>
+
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -228,11 +294,8 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                                        @if ($player->team?->name === 'Others')
-                                            {{ $player->team_name_ref ?? 'N/A' }}
-                                        @else
-                                            {{ $player->team?->name ?? 'N/A' }}
-                                        @endif
+
+                                        {{ $player->display_team_name ?? 'N/A' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         @if (!is_null($player->welcome_email_sent_at))
@@ -318,16 +381,88 @@
                                     {{-- OTHER ROLES (e.g., TEAM MANAGER) VIEW CELLS --}}
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center">
-                                            <div class="flex-shrink-0 h-11 w-11"><img
-                                                    class="h-11 w-11 rounded-full object-cover"
-                                                    src="{{ $player->image_path ? Storage::url($player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($player->name) }}"
-                                                    alt="{{ $player->name }}"></div>
-                                            <div class="ml-4">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                                    {{ $player->name }}</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $player->email }}
-                                                </div>
+
+                                            {{-- Avatar with Verified Badge --}}
+                                            <div class="flex-shrink-0 h-11 w-11 relative">
+                                                <img class="h-11 w-11 rounded-full object-cover"
+                                                    src="{{ $player->image_path ? Storage::url($player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($player->name) . '&background=EBF4FF&color=7F9CF5' }}"
+                                                    alt="{{ $player->name }}">
+
+                                                @if (!is_null($player->welcome_email_sent_at))
+                                                    <span
+                                                        class="absolute -bottom-0.5 -right-0.5 block rounded-full bg-blue-600 border-2 border-white dark:border-gray-800"
+                                                        title="Verified Player">
+                                                        <svg class="w-4 h-4 text-white" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    </span>
+                                                @endif
                                             </div>
+
+                                            {{-- Name, Badges, and Email --}}
+                                            <div class="ml-4">
+                                                <div class="flex items-center gap-2">
+                                                    {{-- Player name as a link --}}
+                                                    <a href="{{ route('admin.players.show', $player->id) }}"
+                                                        class="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-150">
+                                                        {{ $player->name }}
+                                                    </a>
+
+                                                    {{-- **NEW**: Retained Status Badge --}}
+                                                    @if ($player->player_status == 'Retained')
+                                                        <span
+                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                                 bg-purple-100 text-purple-800
+                                 dark:bg-purple-900/50 dark:text-purple-200">
+                                                            Retained
+                                                        </span>
+                                                    @endif
+                                                </div>
+
+                                                {{-- Email as a clickable mailto link --}}
+                                                <div class="flex items-center gap-1.5 mt-1">
+                                                    <svg class="w-3 h-3 text-gray-400" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                                                        </path>
+                                                    </svg>
+                                                    <a href="mailto:{{ $player->email }}"
+                                                        class="text-sm text-gray-500 dark:text-gray-400 hover:underline">
+                                                        {{ $player->email }}
+                                                    </a>
+                                                </div>
+                                                {{-- **NEW**: Retained Status Badge --}}
+                                                @if ($player->player_mode == 'retained')
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                 bg-purple-100 text-purple-800
+                 dark:bg-purple-900/50 dark:text-purple-200">
+                                                        Retained
+
+                                                    </span>
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                ">
+                                                        in
+
+                                                    </span>
+
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+                 bg-purple-100 text-gray-800
+                 dark:bg-purple-900/50 dark:text-red-200">
+
+                                                        {{ $player->display_team_name ?? 'N/A' }}
+                                                    </span>
+                                                @endif
+
+                                            </div>
+
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm">

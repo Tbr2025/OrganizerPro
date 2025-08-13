@@ -121,12 +121,21 @@ class PlayerController extends Controller
             'bowling_profile'  => request('bowling_profile'),
             'status'           => request('status'),
             'updated_sort'     => request('updated_sort'),
+            'player_mode'     => request('player_mode'),
         ];
 
         // 2. Start the base query with all necessary relationships for performance
-        $query = Player::with(['user.organization', 'team', 'playerType', 'location', 'battingProfile', 'bowlingProfile']);
         $user = Auth::user();
+        $query = Player::with([
+            'user.organization',
+            'user.actualTeams', // <-- CRITICAL: Load the actual team relationship
+            'team',
+            'playerType',
+            'location',
+            'battingProfile',
+            'bowlingProfile'
 
+        ]);
         // 3. Apply role-based data scoping
         if ($user->hasRole('Superadmin')) {
             // Superadmins see all players. No initial scope is applied.
@@ -147,10 +156,10 @@ class PlayerController extends Controller
                 $query->whereNotNull('welcome_email_sent_at');
 
                 // c) Must NOT be a "Retained" player
-                $query->where(function ($q) {
-                    $q->where('player_mode', '!=', 'retained')
-                        ->orWhereNull('player_mode');
-                });
+                // $query->where(function ($q) {
+                //     $q->where('player_mode', '!=', 'retained')
+                //         ->orWhereNull('player_mode');
+                // });
             } else {
                 $query->whereRaw('1 = 0'); // See no players if not assigned to an org
             }
@@ -173,6 +182,16 @@ class PlayerController extends Controller
             })
             ->when($filters['batting_profile'], function ($q) use ($filters) {
                 $q->whereHas('battingProfile', fn($profileQuery) => $profileQuery->where('style', $filters['batting_profile']));
+            })->when($filters['player_mode'] ?? null, function ($q, $filters) {
+                if ($filters === 'retained') {
+                    // This is correct. It filters a simple column on the main table.
+                    $q->where('player_mode', 'retained');
+                } elseif ($filters === 'normal') {
+                    $q->where(function ($subQ) {
+                        $subQ->where('player_mode', 'normal')
+                            ->orWhereNull('player_mode');
+                    });
+                }
             })
             ->when($filters['bowling_profile'], function ($q) use ($filters) {
                 $q->whereHas('bowlingProfile', fn($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));

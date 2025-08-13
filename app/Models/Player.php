@@ -9,6 +9,8 @@ use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait; // This is the TRAI
 use Illuminate\Notifications\Notifiable; // This trait is for the notify() method
 use Illuminate\Support\Facades\URL; // For URL::temporarySignedRoute
 use Carbon\Carbon; // For Carbon::now()
+use Illuminate\Database\Eloquent\Casts\Attribute;
+
 class Player extends Model implements MustVerifyEmail
 {
     use HasFactory, MustVerifyEmailTrait, Notifiable;
@@ -291,5 +293,26 @@ class Player extends Model implements MustVerifyEmail
         // and you can find the correct one by matching the 'location_id' on this player
         // with the 'id' on the player_locations table."
         return $this->belongsTo(PlayerLocation::class, 'location_id');
+    }
+
+
+    protected function displayTeamName(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value, $attributes) {
+                // Check if the player is retained and if their user has an actual team.
+                if ($attributes['player_mode'] === 'retained' && $this->user?->actualTeams->first()) {
+                    return $this->user->actualTeams->first()->name;
+                }
+
+                // Check if the registration team is 'Others' and show team_name_ref.
+                if ($this->team?->name === 'Others') {
+                    return $this->team_name_ref;
+                }
+
+                // Otherwise, return the normal registration team name.
+                return $this->team?->name;
+            }
+        );
     }
 }
