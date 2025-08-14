@@ -23,11 +23,6 @@ Broadcast::channel('auction.public.{auctionId}', function ($user, $auctionId) {
     return true; // Anyone can view this channel
 });
 
-// Private Channel for authenticated users (Organizer, Team Managers)
 Broadcast::channel('auction.private.{auctionId}', function ($user, $auctionId) {
-    // Add logic to check if user is part of the auction, e.g.,
-    // is organizer, or a member of a team in this auction's tournament.
-    // For now, simple check if authenticated:
-    return true; // allow anyone for now
-
+    return true; // Allow all for now
 });
