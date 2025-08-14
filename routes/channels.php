@@ -30,3 +30,8 @@ Broadcast::channel('auction.private.{auctionId}', function ($user, $auctionId) {
     // For now, simple check if authenticated:
     return $user !== null;
 });
+
+Broadcast::channel('auction.{auctionId}', function ($user, $auctionId) {
+    // Optional: return true if user is allowed
+    return true;
+});
