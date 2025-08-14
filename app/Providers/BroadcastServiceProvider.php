@@ -12,8 +12,7 @@ class BroadcastServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Remove 'auth' so guests can still access broadcasting/auth
-        Broadcast::routes(['middleware' => ['web']]);
+        Broadcast::routes();
 
         require base_path('routes/channels.php');
     }
