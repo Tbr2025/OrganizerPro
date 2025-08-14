@@ -1,11 +1,10 @@
+import axios from 'axios';
+window.axios = axios;
+window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+// This is the part that creates window.Echo
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
-import axios from 'axios';
-
-window.axios = axios;
-axios.defaults.withCredentials = true; // send cookies
-axios.defaults.headers.common['X-CSRF-TOKEN'] =
-  document.querySelector('meta[name="csrf-token"]').content;
 
 window.Pusher = Pusher;
 
@@ -18,9 +17,4 @@ window.Echo = new Echo({
     forceTLS: false,
     disableStats: true,
     enabledTransports: ['ws', 'wss'],
-    auth: {
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-        }
-    }
 });
