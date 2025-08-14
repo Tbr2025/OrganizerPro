@@ -31,3 +31,6 @@ Broadcast::channel('auction.private.{auctionId}', function ($user, $auctionId) {
     return $user !== null;
 });
 
+Broadcast::channel('auction.{auctionId}', function ($user, $auctionId) {
+    return true; // or add auth logic
+});

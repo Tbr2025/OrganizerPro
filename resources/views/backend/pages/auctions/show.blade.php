@@ -47,7 +47,7 @@
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border" x-data="auctionPlayerPool()" x-init="init({{ $auction->id ?? 0 }}, @json($auction->auctionPlayers))">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border" x-data="auctionPlayerPool()" x-init="init({{ $auction->id ?? 0 }}, '{{ $auction->status }}', @json($auction->auctionPlayers))">
             <div class="p-5 border-b flex justify-between items-center">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Auction Player Pool</h2>
                 <span class="text-sm font-medium text-gray-500">Total: <span x-text="players.length"></span></span>
@@ -142,9 +142,15 @@
                 auctionId: null,
                 players: [],
 
-                init(auctionId, initialPlayers) {
+                init(auctionId, initialStatus, initialPlayers) {
                     this.auctionId = auctionId;
+                    this.auctionStatus = initialStatus;
                     this.players = initialPlayers;
+
+                    if (this.auctionStatus === 'running') {
+                        this.statusText = 'Ready to find the first player.';
+                        this.tumblerText = 'Ready';
+                    }
 
                     const connectToEcho = () => {
                         if (window.Echo) {
@@ -152,29 +158,26 @@
 
                             window.Echo.private(`auction.${this.auctionId}`)
                                 .listen('.player.onbid', (e) => this.updatePlayerStatus(e.auctionPlayer.id, 'running'))
-                                .listen('.player.sold', (e) => {
-                                    this.updatePlayerStatus(e.auctionPlayer.id, e.auctionPlayer.status);
-                                    // Optional: Add logic to remove player from pool if you have a separate "available" pool
-                                });
+                                .listen('.player.sold', (e) => this.updatePlayerStatus(e.auctionPlayer.id, e
+                                    .auctionPlayer.status));
 
                         } else {
                             setTimeout(connectToEcho, 100);
                         }
                     };
                     connectToEcho();
-                },
+                }
+
 
                 updatePlayerStatus(auctionPlayerId, newStatus) {
                     let player = this.players.find(p => p.id === auctionPlayerId);
                     if (player) {
                         player.status = newStatus;
                     } else {
-                        // This handles the case where a player is added to the pool by another admin
-                        // and you want this screen to update. This is a more advanced feature.
-                        console.log('Received update for a player not currently in the list.');
-                        // You could make an API call here to fetch the new player and add them.
+                        console.log('Player not in list. Fetching from server is optional.');
                     }
-                },
+                }
+
                 async removePlayer(auctionPlayerId, index) {
                     if (!confirm('Are you sure you want to remove this player from the pool?')) {
                         return;
