@@ -47,7 +47,7 @@
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border" x-data="auctionPlayerPool()" x-init="init({{ $auction->id ?? 0 }}, @json($currentPlayer))">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border" x-data="auctionPlayerPool()" x-init="init({{ $auction->id ?? 0 }}, @json($auction->auctionPlayers))">
             <div class="p-5 border-b flex justify-between items-center">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Auction Player Pool</h2>
                 <span class="text-sm font-medium text-gray-500">Total: <span x-text="players.length"></span></span>
