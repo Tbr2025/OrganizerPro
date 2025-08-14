@@ -111,108 +111,108 @@ class AuctionAdminController extends Controller
 
         return view('backend.pages.auctions.edit', compact('auction', 'organizations', 'tournaments', 'availablePlayers'));
     }
-   
 
 
 
 
 
 
-public function update(Request $request, Auction $auction)
-{
-    // 1. Authorize the action
-    $this->authorize('auction.edit'); // Assuming a permission
 
-    // 2. Validate all the data from your multi-step form
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'organization_id' => 'required|exists:organizations,id',
-        'tournament_id' => 'required|exists:tournaments,id',
-        'status' => 'required|string|in:pending,live,completed',
-        'max_budget_per_team' => 'required|numeric|min:0',
-        'base_price' => 'required|numeric|min:0',
-        'bid_rules' => 'required|array|min:1',
-        'bid_rules.*.from' => 'required|numeric|min:0',
-        'bid_rules.*.to' => 'required|numeric|gt:bid_rules.*.from',
-        'bid_rules.*.increment' => 'required|numeric|min:0',
-        
-        // Player pool data
-        'player_ids' => 'nullable|array',
-        'player_ids.*' => 'exists:players,id', // Ensure all submitted IDs are valid players
-        'player_base_prices' => 'nullable|array',
-        'player_base_prices.*' => 'required|numeric|min:0',
-    ]);
+    public function update(Request $request, Auction $auction)
+    {
+        // 1. Authorize the action
+        $this->authorize('auction.edit'); // Assuming a permission
 
-    // Use a database transaction to ensure data integrity.
-    // If any step fails, all changes will be rolled back.
-    DB::transaction(function () use ($validated, $auction, $request) {
+        // 2. Validate all the data from your multi-step form
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'organization_id' => 'required|exists:organizations,id',
+            'tournament_id' => 'required|exists:tournaments,id',
+            'status' => 'required|string|in:pending,live,completed',
+            'max_budget_per_team' => 'required|numeric|min:0',
+            'base_price' => 'required|numeric|min:0',
+            'bid_rules' => 'required|array|min:1',
+            'bid_rules.*.from' => 'required|numeric|min:0',
+            'bid_rules.*.to' => 'required|numeric|gt:bid_rules.*.from',
+            'bid_rules.*.increment' => 'required|numeric|min:0',
 
-        // 3. Update the main auction details (Steps 1, 2, 3)
-        $auction->update([
-            'name' => $validated['name'],
-            'organization_id' => $validated['organization_id'],
-            'tournament_id' => $validated['tournament_id'],
-            'status' => $validated['status'],
-            'max_budget_per_team' => $validated['max_budget_per_team'],
-            'base_price' => $validated['base_price'],
-            'bid_rules' => $validated['bid_rules'],
+            // Player pool data
+            'player_ids' => 'nullable|array',
+            'player_ids.*' => 'exists:players,id', // Ensure all submitted IDs are valid players
+            'player_base_prices' => 'nullable|array',
+            'player_base_prices.*' => 'required|numeric|min:0',
         ]);
 
-        // 4. Synchronize the Player Pool (Step 4)
-        $playerIdsInPool = $validated['player_ids'] ?? [];
-        $basePrices = $validated['player_base_prices'] ?? [];
+        // Use a database transaction to ensure data integrity.
+        // If any step fails, all changes will be rolled back.
+        DB::transaction(function () use ($validated, $auction, $request) {
 
-        $syncData = [];
-        foreach ($playerIdsInPool as $playerId) {
-            // Prepare the data for the auction_players pivot table
-            $syncData[$playerId] = [
-                'base_price' => $basePrices[$playerId] ?? $auction->base_price, // Use specific price or default
-                'organization_id' => $auction->organization_id, // Carry over the org ID
-                // Other default values when a player is first added
-                'status' => 'pending',
-                'current_price' => $basePrices[$playerId] ?? $auction->base_price,
-            ];
-        }
-
-        // The sync() method is perfect. It adds new players, removes old ones,
-        // and because we are not using it to update, it won't touch existing records that stay.
-        // However, a simple sync won't update base prices. So we do it manually for more control.
-        
-        $existingPlayerIds = $auction->auctionPlayers->pluck('player_id')->toArray();
-        $playersToAdd = array_diff($playerIdsInPool, $existingPlayerIds);
-        $playersToRemove = array_diff($existingPlayerIds, $playerIdsInPool);
-
-        // Remove players who were taken out of the pool
-        if (!empty($playersToRemove)) {
-            AuctionPlayer::where('auction_id', $auction->id)->whereIn('player_id', $playersToRemove)->delete();
-        }
-
-        // Add new players to the pool
-        foreach ($playersToAdd as $playerId) {
-            AuctionPlayer::create([
-                'auction_id' => $auction->id,
-                'player_id' => $playerId,
-                'base_price' => $basePrices[$playerId] ?? $auction->base_price,
-                'current_price' => $basePrices[$playerId] ?? $auction->base_price,
-                'organization_id' => $auction->organization_id,
-                'status' => 'pending',
+            // 3. Update the main auction details (Steps 1, 2, 3)
+            $auction->update([
+                'name' => $validated['name'],
+                'organization_id' => $validated['organization_id'],
+                'tournament_id' => $validated['tournament_id'],
+                'status' => $validated['status'],
+                'max_budget_per_team' => $validated['max_budget_per_team'],
+                'base_price' => $validated['base_price'],
+                'bid_rules' => $validated['bid_rules'],
             ]);
-        }
-        
-        // Update base prices for players who remained in the pool
-        $playersToUpdate = array_intersect($playerIdsInPool, $existingPlayerIds);
-        foreach ($playersToUpdate as $playerId) {
-            if (isset($basePrices[$playerId])) {
-                AuctionPlayer::where('auction_id', $auction->id)
-                    ->where('player_id', $playerId)
-                    ->update(['base_price' => $basePrices[$playerId], 'current_price' => $basePrices[$playerId]]);
-            }
-        }
-    });
 
-    // 5. Redirect with a success message
-    return redirect()->route('admin.auctions.index')->with('success', 'Auction and player pool updated successfully.');
-}
+            // 4. Synchronize the Player Pool (Step 4)
+            $playerIdsInPool = $validated['player_ids'] ?? [];
+            $basePrices = $validated['player_base_prices'] ?? [];
+
+            $syncData = [];
+            foreach ($playerIdsInPool as $playerId) {
+                // Prepare the data for the auction_players pivot table
+                $syncData[$playerId] = [
+                    'base_price' => $basePrices[$playerId] ?? $auction->base_price, // Use specific price or default
+                    'organization_id' => $auction->organization_id, // Carry over the org ID
+                    // Other default values when a player is first added
+                    'status' => 'pending',
+                    'current_price' => $basePrices[$playerId] ?? $auction->base_price,
+                ];
+            }
+
+            // The sync() method is perfect. It adds new players, removes old ones,
+            // and because we are not using it to update, it won't touch existing records that stay.
+            // However, a simple sync won't update base prices. So we do it manually for more control.
+
+            $existingPlayerIds = $auction->auctionPlayers->pluck('player_id')->toArray();
+            $playersToAdd = array_diff($playerIdsInPool, $existingPlayerIds);
+            $playersToRemove = array_diff($existingPlayerIds, $playerIdsInPool);
+
+            // Remove players who were taken out of the pool
+            if (!empty($playersToRemove)) {
+                AuctionPlayer::where('auction_id', $auction->id)->whereIn('player_id', $playersToRemove)->delete();
+            }
+
+            // Add new players to the pool
+            foreach ($playersToAdd as $playerId) {
+                AuctionPlayer::create([
+                    'auction_id' => $auction->id,
+                    'player_id' => $playerId,
+                    'base_price' => $basePrices[$playerId] ?? $auction->base_price,
+                    'current_price' => $basePrices[$playerId] ?? $auction->base_price,
+                    'organization_id' => $auction->organization_id,
+                    'status' => 'pending',
+                ]);
+            }
+
+            // Update base prices for players who remained in the pool
+            $playersToUpdate = array_intersect($playerIdsInPool, $existingPlayerIds);
+            foreach ($playersToUpdate as $playerId) {
+                if (isset($basePrices[$playerId])) {
+                    AuctionPlayer::where('auction_id', $auction->id)
+                        ->where('player_id', $playerId)
+                        ->update(['base_price' => $basePrices[$playerId], 'current_price' => $basePrices[$playerId]]);
+                }
+            }
+        });
+
+        // 5. Redirect with a success message
+        return redirect()->route('admin.auctions.index')->with('success', 'Auction and player pool updated successfully.');
+    }
 
     /**
      * Remove the specified auction from storage.
@@ -221,5 +221,28 @@ public function update(Request $request, Auction $auction)
     {
         $auction->delete();
         return redirect()->route('admin.auctions.index')->with('success', 'Auction deleted successfully.');
+    }
+
+
+    public function clearPool(Auction $auction)
+    {
+        $this->authorize('auctions.edit'); // Protect with the same permission as editing
+
+        // Use the relationship to delete all associated auction players.
+        $auction->auctionPlayers()->delete();
+
+        return back()->with('success', 'The entire player pool has been cleared.');
+    }
+
+    public function removePlayer(AuctionPlayer $auctionPlayer)
+    {
+        $this->authorize('auctions.edit');
+
+        // The route model binding finds the correct AuctionPlayer record for us.
+        // We just need to delete it.
+        $auctionPlayer->delete();
+
+        // Return a JSON response for the frontend.
+        return response()->json(['success' => true, 'message' => 'Player removed from pool.']);
     }
 }

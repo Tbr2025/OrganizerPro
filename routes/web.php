@@ -80,12 +80,14 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
 
 
 // --- Main Admin Route Group for general pages ---
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'role:Admin|Superadmin']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
 
     // Your other admin routes like dashboard, players, teams...
 
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
+    Route::delete('/auctions/{auction}/clear-pool', [AuctionAdminController::class, 'clearPool'])->name('auctions.clear-pool');
+    Route::delete('/auctions/remove-player/{auctionPlayer}', [AuctionAdminController::class, 'removePlayer'])->name('auctions.remove-player');
 });
 
 
@@ -105,14 +107,15 @@ Route::middleware(['auth'])
         Route::get('/panel', [AuctionOrganizerController::class, 'showPanel'])->name('panel');
 
 
-    Route::prefix('api')->name('api.')->group(function () {
+        Route::prefix('api')->name('api.')->group(function () {
             Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('start');
             Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('end');
+            Route::post('/toggle-pause', [AuctionOrganizerController::class, 'togglePause'])->name('toggle-pause');
             Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('player.onbid');
             Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('player.sell');
             Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('player.pass');
         });
-        
+
         // API routes for the panel to call
         // Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('api.start');
         // Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('api.end');
@@ -134,7 +137,7 @@ Route::middleware(['auth'])
         Route::get('/live', [AuctionBiddingController::class, 'showBiddingPage'])->name('show');
 
         // API route for placing a bid
-        Route::post('/place-bid', [AuctionBiddingController::class, 'placeBid'])->name('api.place-bid');
+        Route::post('/api/place-bid', [AuctionBiddingController::class, 'placeBid'])->name('api.place-bid');
     });
 
 

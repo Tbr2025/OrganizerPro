@@ -77,8 +77,8 @@
                          <div>
                             <label for="status" class="form-label">Status</label>
                             <select name="status" id="status" class="form-control">
-                                <option value="pending" @selected(old('status', $auction->status) == 'pending')>Pending</option>
-                                <option value="live" @selected(old('status', $auction->status) == 'live')>Live</option>
+                                <option value="scheduled" @selected(old('status', $auction->status) == 'scheduled')>Pending</option>
+                                <option value="running" @selected(old('status', $auction->status) == 'running')>Live</option>
                                 <option value="completed" @selected(old('status', $auction->status) == 'completed')>Completed</option>
                             </select>
                         </div>

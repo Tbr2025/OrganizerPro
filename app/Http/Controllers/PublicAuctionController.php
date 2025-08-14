@@ -10,14 +10,25 @@ class PublicAuctionController extends Controller
     /**
      * Display the public, real-time auction screen.
      */
-    public function showPublicDisplay(Auction $auction)
+   public function showPublicDisplay(Auction $auction)
     {
-        // Pass any initial state data needed, similar to the bidding page
-        $initialState = [
-            'status' => $auction->status,
-            'currentPlayer' => $auction->auctionPlayers()->where('status', 'live')->with(['player', 'bids.team'])->first(),
-        ];
+        // Eager-load the auction's relationships for efficiency
+        $auction->load(['organization', 'tournament']);
 
-        return view('public.auction.public-display', compact('auction', 'initialState'));
+        // Get the current live player with all their nested details and bids
+        $currentPlayer = $auction->auctionPlayers()
+            ->where('status', 'live')
+            ->with([
+                'player.playerType',
+                'player.battingProfile',
+                'player.bowlingProfile',
+                'bids' => fn($query) => $query->latest(), // Get bids, newest first
+                'bids.team',
+                'currentBidTeam'
+            ])
+            ->first();
+
+        // Pass all necessary data to the view
+        return view('public.auction.public-display', compact('auction', 'currentPlayer'));
     }
 }

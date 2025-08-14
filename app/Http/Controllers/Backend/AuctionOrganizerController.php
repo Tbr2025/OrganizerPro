@@ -22,13 +22,15 @@ class AuctionOrganizerController extends Controller
      */
     public function showPanel(Auction $auction)
     {
-        // Fetch all players for this auction to populate the "next player" selector
-        $auctionPlayers = $auction->auctionPlayers()->where('status', 'pending')->with('player')->get();
+        // **THE FIX**: Fetch the data only ONCE.
+        // An "available player" for the panel is one in this auction with a 'waiting' status.
         $availablePlayers = $auction->auctionPlayers()
-            ->where('status', 'pending')
-            ->with('player')
+            ->where('status', 'waiting')
+            ->with('player') // Eager-load the player details
             ->get();
-        return view('backend.pages.auction.organizer-panel', compact('auction', 'auctionPlayers', 'availablePlayers'));
+
+        // **THE FIX**: Pass ONLY the necessary variables to the view.
+        return view('backend.pages.auction.organizer-panel', compact('auction', 'availablePlayers'));
     }
 
     /**
@@ -56,24 +58,32 @@ class AuctionOrganizerController extends Controller
      */
     public function putPlayerOnBid(Request $request, Auction $auction)
     {
-        $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
+        $validated = $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
 
-        $auctionPlayer = AuctionPlayer::where('auction_id', $auction->id)
-            ->where('id', $request->auction_player_id)
+        $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
+            ->where('auction_id', $auction->id)
             ->firstOrFail();
 
-        // Reset previous player's 'live' status if any
-        $auction->auctionPlayers()->where('status', 'live')->update(['status' => 'pending']);
+        // Reset any other 'on_auction' players
+        $auction->auctionPlayers()->where('status', 'on_auction')->update(['status' => 'waiting']);
 
-        // Set the new player's status and current price
         $auctionPlayer->update([
-            'status' => 'live',
+            'status' => 'on_auction',
             'current_price' => $auctionPlayer->base_price,
             'current_bid_team_id' => null,
         ]);
 
-        // Broadcast the event to all listeners
-        broadcast(new PlayerOnBid($auctionPlayer));
+        // **THE FIX**: Eager-load the relationships the frontend needs BEFORE broadcasting.
+        // We use fresh() to get the latest state after our update.
+        $playerDataForBroadcast = $auctionPlayer->fresh([
+            'player.playerType',
+            'player.battingProfile',
+            'player.bowlingProfile',
+            'bids.team', // Load all bids and their associated team
+            'bids.user' // Also load the user who placed the bid
+        ]);
+
+        broadcast(new PlayerOnBid($playerDataForBroadcast));
 
         return response()->json(['message' => 'Player is now live for bidding.']);
     }
@@ -124,5 +134,30 @@ class AuctionOrganizerController extends Controller
         broadcast(new PlayerSoldEvent($auctionPlayer, null));
 
         return response()->json(['message' => 'Player has been passed.']);
+    }
+
+
+
+    public function togglePause(Auction $auction)
+    {
+        // 1. Determine the new status
+        // If the current status is 'running', the new status will be 'paused'.
+        // Otherwise, the new status will be 'running'.
+        $newStatus = ($auction->status === 'running') ? 'paused' : 'running';
+
+        // 2. Security/Logic Check: Only allow toggling if the auction is currently running or paused.
+        if (!in_array($auction->status, ['running', 'paused'])) {
+            return response()->json(['message' => 'Auction cannot be paused or resumed at this time.'], 422); // Unprocessable Entity
+        }
+
+        // 3. Update the auction's status in the database
+        $auction->update(['status' => $newStatus]);
+
+        // 4. Broadcast the status update to all connected clients
+        // This is the crucial step that makes the UI update in real-time.
+        broadcast(new AuctionStatusUpdate($auction->id, $newStatus));
+
+        // 5. Return a success response to the Organizer's panel
+        return response()->json(['message' => 'Auction status has been updated to ' . $newStatus . '.']);
     }
 }

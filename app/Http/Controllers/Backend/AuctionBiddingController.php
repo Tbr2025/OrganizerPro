@@ -18,41 +18,50 @@ class AuctionBiddingController extends Controller
      */
     public function showBiddingPage(Auction $auction)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Find the user's team that is part of this specific tournament.
-        $userTeam = $user->actualTeams()->where('tournament_id', $auction->tournament_id)->first();
+        // 1. **REFINED**: Find the user's team more efficiently.
+        // We assume a Team Manager is only on one team per tournament.
+        $userTeam = $user->actualTeams()
+            ->where('tournament_id', $auction->tournament_id)
+            ->first();
 
-        // **CRITICAL FIX**: If the user is not on a team for this tournament,
-        // they cannot access the page. Abort with a clear error message.
+        // 2. Security: Abort if the user is not on a participating team.
         if (!$userTeam) {
             abort(403, 'Your team is not a participant in this tournament\'s auction.');
         }
 
-        // Now that we have the team, let's calculate their budget.
-        // The max budget comes from the main auction settings.
-        $maxBudget = $auction->max_budget_per_team;
-
-        // Calculate how much the team has already spent IN THIS AUCTION.
-        $spentSoFar = AuctionPlayer::where('auction_id', $auction->id)
+        // 3. **REFINED**: Calculate the remaining budget.
+        // Use the relationship to make the query more readable.
+        $spentSoFar = $auction->auctionPlayers()
             ->where('sold_to_team_id', $userTeam->id)
             ->sum('final_price');
 
-        // The remaining budget is what's left.
-        $remainingBudget = $maxBudget - $spentSoFar;
+        // Add the calculated remaining budget as a property to the team object.
+        $userTeam->remaining_budget = $auction->max_budget_per_team - $spentSoFar;
 
-        // We will add this calculated value to the team object before sending it to the view.
-        // This keeps the view's logic simple.
-        $userTeam->remaining_budget = $remainingBudget;
-
-        // Get the current live player to show on page load, if any.
+        // 4. **REFINED**: Get the initial state of the auction for the view.
+        // Eager-load all necessary nested relationships in one go.
         $currentPlayer = $auction->auctionPlayers()
-            ->where('status', 'live')
-            ->with(['player', 'bids.team', 'bids.user'])
+            ->where('status', 'on_auction')
+            ->with([
+                'player.playerType',
+                'player.battingProfile',
+                'player.bowlingProfile',
+                'bids' => fn($query) => $query->latest('amount'), // Get bids in order
+                'bids.team',
+                'bids.user',
+                'currentBidTeam'
+            ])
             ->first();
 
-        // Now we pass all the confirmed data to the view.
-        return view('backend.pages.auction.bidding-page', compact('auction', 'userTeam', 'currentPlayer'));
+        // 5. Return the view with all necessary data.
+        return view('backend.pages.auction.bidding-page', compact(
+            'auction',
+            'userTeam',
+            'currentPlayer'
+        ));
     }
 
 
@@ -79,7 +88,7 @@ class AuctionBiddingController extends Controller
                     ->lockForUpdate() // Lock the row to prevent race conditions
                     ->firstOrFail();
 
-                if ($auctionPlayer->status !== 'live') {
+                if ($auctionPlayer->status !== 'on_auction') {
                     throw new \Exception('Bidding is not active for this player.');
                 }
 

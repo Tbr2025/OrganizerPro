@@ -98,8 +98,11 @@ function biddingPanel() {
                     break;
                 }
             }
-            this.nextBidAmount = currentPrice + increment;
-            
+           this.nextBidAmount = parseFloat(currentPrice) + parseFloat(increment);
+
+            console.log(currentPrice);
+            console.log(this.nextBidAmount);
+
             this.canBid = (this.nextBidAmount <= this.teamBudget) && (this.winningTeamName !== this.userTeam?.name);
             this.bidButtonText = this.canBid ? `Bid ${this.formatCurrency(this.nextBidAmount)}` : 'Place Bid';
 
@@ -113,7 +116,7 @@ function biddingPanel() {
             if (!this.canBid) return;
             this.bidError = '';
             try {
-                const response = await fetch(`/team/auction/${this.auctionId}/api/place-bid`, {
+                const response = await fetch(`/admin/team/auction/${this.auctionId}/api/place-bid`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -147,13 +150,25 @@ function biddingPanel() {
                 is_wicket_keeper: auctionPlayer.player.is_wicket_keeper,
             };
         },
-        formatCurrency(amount) {
-            return new Intl.NumberFormat('en-IN', {
-                style: 'currency',
-                currency: 'INR',
-                minimumFractionDigits: 0
-            }).format(amount || 0);
-        }
+formatCurrency(points) {
+               points = Number(points) || 0;
+    const isNegative = points < 0;
+    const absPoints = Math.abs(points);
+    let formattedValue;
+
+    if (absPoints >= 1000000) { // 1 Million or more
+        // Format to 2 decimal places, then remove .00 if it exists
+        formattedValue = (absPoints / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
+    } else if (absPoints >= 1000) { // 1 Thousand or more
+        // Format to 1 decimal place, then remove .0 if it exists
+        formattedValue = (absPoints / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    } else {
+        // For numbers less than 1000, just show the number
+        formattedValue = new Intl.NumberFormat('en-US').format(absPoints);
+    }
+
+    return `${isNegative ? '-' : ''}${formattedValue} Points`;
+}
     }
 }
 

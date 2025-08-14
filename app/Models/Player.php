@@ -315,4 +315,14 @@ class Player extends Model implements MustVerifyEmail
             }
         );
     }
+
+
+    public function auctionPlayers()
+    {
+        // This line tells Laravel:
+        // "This Player model can have many AuctionPlayer records.
+        // You can find them by looking for this player's 'id' in the
+        // 'player_id' column on the 'auction_players' table."
+        return $this->hasMany(AuctionPlayer::class, 'player_id');
+    }
 }
