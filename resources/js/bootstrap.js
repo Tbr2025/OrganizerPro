@@ -17,4 +17,7 @@ window.Echo = new Echo({
     forceTLS: false,
     disableStats: true,
     enabledTransports: ['ws', 'wss'],
+    auth: {
+        withCredentials: true
+    }
 });
