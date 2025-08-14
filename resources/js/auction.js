@@ -1,6 +1,16 @@
 // resources/js/auction.js
 
 function publicAuctionBoard() {
+
+
+    window.Echo.connector.pusher.connection.bind('connected', () => {
+    console.log('✅ Connected to Pusher/Echo');
+});
+
+window.Echo.connector.pusher.connection.bind('error', (err) => {
+    console.error('❌ Pusher error:', err);
+});
+
     return {
         state: 'waiting',
         player: {
