@@ -12,13 +12,9 @@ window.Echo = new Echo({
     broadcaster: 'pusher',
     key: import.meta.env.VITE_PUSHER_APP_KEY,
     cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-    
-    // **THE FIX**
-    wsHost: window.location.hostname, // This will be 'sportzley.com'
-    wsPort: 443,      // Use the standard secure port
-    wssPort: 443,     // Also use the standard secure port
-    forceTLS: true,   // Force a secure (wss://) connection
-    
+    wsHost: window.location.hostname,
+    wsPort: 6001,
+    forceTLS: false,
     disableStats: true,
     enabledTransports: ['ws', 'wss'],
 });
