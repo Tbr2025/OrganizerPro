@@ -1,15 +1,8 @@
 import axios from 'axios';
 window.axios = axios;
-
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-// Get CSRF token from meta tag
-const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-if (token) {
-    window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
-}
-
-// Laravel Echo + Pusher setup
+// This is the part that creates window.Echo
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
@@ -20,5 +13,8 @@ window.Echo = new Echo({
     key: import.meta.env.VITE_PUSHER_APP_KEY,
     cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
     wsHost: window.location.hostname,
-    forceTLS: true,
+    wsPort: 6001,
+    forceTLS: false,
+    disableStats: true,
+    enabledTransports: ['ws', 'wss'],
 });
