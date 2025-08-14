@@ -6,8 +6,11 @@ use App\Http\Controllers\Backend\ActionLogController;
 use App\Http\Controllers\Backend\ActualTeamController;
 use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
+use App\Http\Controllers\Backend\AuctionAdminController;
+use App\Http\Controllers\Backend\AuctionBiddingController;
 use App\Http\Controllers\Backend\AuctionController;
 use App\Http\Controllers\Backend\AuctionLiveController;
+use App\Http\Controllers\Backend\AuctionOrganizerController;
 use App\Http\Controllers\Backend\Auth\ScreenshotGeneratorLoginController;
 use App\Http\Controllers\Backend\BallController;
 use App\Http\Controllers\Backend\DashboardController;
@@ -33,6 +36,7 @@ use App\Http\Controllers\Backend\TranslationController;
 use App\Http\Controllers\Backend\UserLoginAsController;
 use App\Http\Controllers\Backend\UsersController;
 use App\Http\Controllers\Backend\PlayerVerificationController;
+use App\Http\Controllers\PublicAuctionController;
 use App\Http\Controllers\PublicPlayerController;
 use App\Models\Organization;
 use App\Models\Player;
@@ -75,50 +79,119 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
 
 
 
+// --- Main Admin Route Group for general pages ---
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'role:Admin|Superadmin']], function () {
+
+    // Your other admin routes like dashboard, players, teams...
+
+    // Auction Administration (CRUD for auctions)
+    Route::resource('auctions', AuctionAdminController::class);
+});
+
+
+// =====================================================================
+// LIVE AUCTION ROUTES (Kept separate from the main admin group)
+// =====================================================================
+
+// --- Organizer Control Panel Routes ---
+// URL Prefix: /admin/organizer/auction/{auction}
+// Name Prefix: admin.auction.organizer.
+Route::middleware(['auth'])
+    ->prefix('admin/organizer/auction/{auction}')
+    ->name('admin.auction.organizer.')
+    ->group(function () {
+
+        // **FIX**: Added route to SHOW the panel page
+        Route::get('/panel', [AuctionOrganizerController::class, 'showPanel'])->name('panel');
+
+
+    Route::prefix('api')->name('api.')->group(function () {
+            Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('start');
+            Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('end');
+            Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('player.onbid');
+            Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('player.sell');
+            Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('player.pass');
+        });
+        
+        // API routes for the panel to call
+        // Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('api.start');
+        // Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('api.end');
+        // Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('api.player.onbid');
+        // Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('api.player.sell');
+        // Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('api.player.pass');
+    });
+
+
+// --- Team Manager Bidding Routes ---
+// URL Prefix: /team/auction/{auction}
+// Name Prefix: team.auction.bidding.
+Route::middleware(['auth'])
+    ->prefix('admin/team/auction/{auction}')
+    ->name('team.auction.bidding.')
+    ->group(function () {
+
+        // **FIX**: Corrected route to SHOW the bidding page
+        Route::get('/live', [AuctionBiddingController::class, 'showBiddingPage'])->name('show');
+
+        // API route for placing a bid
+        Route::post('/place-bid', [AuctionBiddingController::class, 'placeBid'])->name('api.place-bid');
+    });
+
+
+// --- Public Display Route ---
+// URL: /auction/{auction}/live
+// Name: public.auction.live
+Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPublicDisplay'])
+    ->name('public.auction.live');
+
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
 
 
+
+
+
+
     Route::get('/backup-db', function () {
-    // Database connection info
-    $dbHost = env('DB_HOST', '127.0.0.1');
-    $dbPort = env('DB_PORT', '3306');
-    $dbName = env('DB_DATABASE');
-    $dbUser = env('DB_USERNAME');
-    $dbPass = env('DB_PASSWORD');
+        // Database connection info
+        $dbHost = env('DB_HOST', '127.0.0.1');
+        $dbPort = env('DB_PORT', '3306');
+        $dbName = env('DB_DATABASE');
+        $dbUser = env('DB_USERNAME');
+        $dbPass = env('DB_PASSWORD');
 
-    // Filename with timestamp
-    $fileName = 'backup-' . date('Ymd-His') . '.sql';
+        // Filename with timestamp
+        $fileName = 'backup-' . date('Ymd-His') . '.sql';
 
-    // Full path in storage/app/public/
-    $filePath = storage_path('app/public/' . $fileName);
+        // Full path in storage/app/public/
+        $filePath = storage_path('app/public/' . $fileName);
 
-    // Create the mysqldump command
-    // Adjust --single-transaction for InnoDB, avoid locking tables
-    $command = "mysqldump --user={$dbUser} --password=\"{$dbPass}\" --host={$dbHost} --port={$dbPort} --single-transaction {$dbName} > {$filePath}";
+        // Create the mysqldump command
+        // Adjust --single-transaction for InnoDB, avoid locking tables
+        $command = "mysqldump --user={$dbUser} --password=\"{$dbPass}\" --host={$dbHost} --port={$dbPort} --single-transaction {$dbName} > {$filePath}";
 
-    // Execute the command
-    $returnVar = NULL;
-    $output = NULL;
-    exec($command, $output, $returnVar);
+        // Execute the command
+        $returnVar = NULL;
+        $output = NULL;
+        exec($command, $output, $returnVar);
 
-    if ($returnVar !== 0) {
+        if ($returnVar !== 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Backup failed',
+                'output' => $output,
+            ], 500);
+        }
+
+        // Return the URL to the backup file
+        $url = asset('storage/' . $fileName);
+
         return response()->json([
-            'success' => false,
-            'message' => 'Backup failed',
-            'output' => $output,
-        ], 500);
-    }
-
-    // Return the URL to the backup file
-    $url = asset('storage/' . $fileName);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Backup created successfully',
-        'file' => $fileName,
-        'url' => $url,
-    ]);
-});
+            'success' => true,
+            'message' => 'Backup created successfully',
+            'file' => $fileName,
+            'url' => $url,
+        ]);
+    });
 
     Route::resource('organizations', OrganizationController::class);
 
@@ -176,7 +249,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::delete('/teams/{team}/players/{player}', [TeamPlayerController::class, 'destroy'])->name('teams.removePlayer');
 
     Route::resource('players', PlayerController::class);
-Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');
+    Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');
 
     Route::post('players/import', [PlayerController::class, 'importCsv'])->name('players.import');
 
@@ -422,6 +495,3 @@ Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, 
 //         echo "<strong>Failure:</strong> The output file was NOT created.";
 //     }
 // });
-
-
-

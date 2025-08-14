@@ -177,6 +177,15 @@ class PermissionService
                 ],
             ],
             [
+                'group_name' => 'auction',
+                'permissions' => [
+                    'auction.view',
+                    'auction.create',
+                    'auction.edit',
+                    'auction.delete',
+                ],
+            ],
+            [
                 'group_name' => 'player',
                 'permissions' => [
                     'player.create',

@@ -315,7 +315,30 @@ class AdminMenuService
                 ],
             ],
         ]);
-
+        $this->addMenuItem([
+            'label' => __('Auctions'),
+            'icon' => 'feather:lock', // A gavel icon is perfect for auctions
+            'id' => 'auctions-submenu',
+            'active' => Route::is('admin.auctions.*') || Route::is('admin.auction.organizer.panel'), // <-- Also active on the live panel
+            'priority' => 30, // Set priority to appear next to Tournaments
+            'permissions' => ['auction.create', 'auction.view', 'auction.edit', 'auction.delete'],
+            'children' => [
+                [
+                    'label' => __('All Auctions'),
+                    'route' => route('admin.auctions.index'),
+                    'active' => Route::is('admin.auctions.index') || Route::is('admin.auctions.edit') || Route::is('admin.auctions.show'),
+                    'priority' => 20,
+                    'permissions' => 'auction.view',
+                ],
+                [
+                    'label' => __('New Auction'),
+                    'route' => route('admin.auctions.create'),
+                    'active' => Route::is('admin.auctions.create'),
+                    'priority' => 10,
+                    'permissions' => 'auction.create',
+                ],
+            ],
+        ]);
         $this->addMenuItem([
             'label' => __('Tournaments'),
             'icon' => 'feather:flag',

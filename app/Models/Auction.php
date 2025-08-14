@@ -8,19 +8,21 @@ class Auction extends Model
 {
 
     protected $fillable = [
-        'name',
-        'tournament_id',
+         'name',
         'organization_id',
+        'tournament_id',
         'start_at',
         'end_at',
+        'status',
         'base_price',
         'max_bid_per_player',
         'max_budget_per_team',
-        // add other columns you want to mass assign here
+        'bid_rules', 
     ];
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
+        'bid_rules' => 'array'
     ];
 
     public function players()
@@ -34,5 +36,13 @@ class Auction extends Model
     public function organization()
     {
         return $this->belongsTo(Organization::class);
+    }
+    public function auctionPlayers()
+    {
+        return $this->hasMany(AuctionPlayer::class);
+    }
+    public function bids()
+    {
+        return $this->hasMany(AuctionBid::class);
     }
 }
