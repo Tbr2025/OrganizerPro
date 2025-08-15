@@ -337,6 +337,13 @@ class AdminMenuService
                     'priority' => 10,
                     'permissions' => 'auction.create',
                 ],
+                [
+                    'label' => __('Closed Bids'),
+                    'route' => route('admin.auctions.closed-bids'),
+                    'active' => Route::is('admin.auctions.closed-bids'),
+                    'priority' => 10,
+                    'permissions' => 'auction.closed-bids',
+                ],
             ],
         ]);
         $this->addMenuItem([

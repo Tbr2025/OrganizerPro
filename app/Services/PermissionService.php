@@ -183,6 +183,7 @@ class PermissionService
                     'auction.create',
                     'auction.edit',
                     'auction.delete',
+                    'auction.closed-bids',
                 ],
             ],
             [
