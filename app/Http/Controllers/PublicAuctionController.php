@@ -31,8 +31,8 @@ class PublicAuctionController extends Controller
                 'player.bowlingProfile',
                 'soldToTeam', // This is needed for team logo
                 'bids' => function ($q) {
-                    $q->orderBy('created_at', 'desc') // latest first
-                        ->where('amount', '<=', 6000000); // only up to ₹6M
+                    $q->orderBy('created_at', 'desc');
+                       // only up to ₹6M
                 },
                 'bids.team'
             ])
