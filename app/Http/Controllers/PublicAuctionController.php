@@ -30,10 +30,7 @@ class PublicAuctionController extends Controller
                 'player.battingProfile',
                 'player.bowlingProfile',
                 'soldToTeam', // This is needed for team logo
-                'bids' => function ($q) {
-                    $q->orderBy('created_at', 'desc');
-                       // only up to ₹6M
-                },
+                'bids',
                 'bids.team'
             ])
             ->whereIn('status', ['on_auction', 'sold']) // include sold players
