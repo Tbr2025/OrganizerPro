@@ -247,63 +247,36 @@
             fetch(`/auction/{{ $auction->id }}/active-player`)
                 .then(res => res.json())
                 .then(data => {
+                    const cardContainer = document.querySelector('.card-container');
+                    const soldText = document.getElementById('sold-text');
+
                     if (data.auctionPlayer) {
                         const p = data.auctionPlayer;
+
+                        // Show the card container if hidden
+                        cardContainer.style.display = 'block';
 
                         // Player info
                         document.getElementById('player-image').src =
                             p.player.image_path ? `/storage/${p.player.image_path}` :
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(p.player.name)}`;
 
-
                         document.getElementById('tm').textContent = p.player.total_matches ?? 0;
                         document.getElementById('tw').textContent = p.player.total_wickets ?? 0;
                         document.getElementById('tr').textContent = p.player.total_runs ?? 0;
-                        const soldText = document.getElementById('sold-text');
 
-                        if (p.status === 'sold') {
-                            soldText.textContent = 'SOLD PRICE'; // SOLD PRICE
-                        } else {
-                            soldText.textContent = 'CURRENT VALUE'; // BASE VALUE
-                        }
-
+                        soldText.textContent = p.status === 'sold' ? 'SOLD PRICE' : 'CURRENT VALUE';
 
                         document.getElementById('player-name').textContent = p.player.name;
                         document.getElementById('player-role').textContent = p.player.player_type?.type ?? '';
-                        document.getElementById('player-batting').textContent =
-                            `${p.player.batting_profile?.style ?? 'N/A'}`;
-                        document.getElementById('player-bowling').textContent =
-                            `${p.player.bowling_profile?.style ?? 'N/A'}`;
+                        document.getElementById('player-batting').textContent = p.player.batting_profile?.style ??
+                        'N/A';
+                        document.getElementById('player-bowling').textContent = p.player.bowling_profile?.style ??
+                        'N/A';
                         document.getElementById('current-bid').textContent = formatMillions(p.current_price);
 
-                        // Winning team
-                        // document.getElementById('winning-team').textContent =
-                        //     p.current_bid_team?.name ?? 'No Bids';
-
-                        // Bid list
-                        // const bidList = document.getElementById('bid-list');
-                        // bidList.innerHTML = '';
-                        // if (p.bids?.length) {
-                        //     p.bids.forEach(bid => {
-                        //         const li = document.createElement('li');
-                        //         const amountInMillions = (bid.amount / 1000000).toFixed(
-                        //             1); // convert to millions
-                        //         li.innerHTML =
-                        //             `${amountInMillions}M`;
-                        //         bidList.appendChild(li);
-                        //     });
-
-                        // } else {
-                        //     bidList.innerHTML = '<li>No bids yet.</li>';
-                        // }
-
-                        // --- Sold badge & team logo ---
-                        const soldBadge = document.getElementById('sold-badge');
-                        // const teamLogo = document.getElementById('team-logo');
-
-
+                        // Team logo
                         const teamLogo = document.getElementById('team-logo');
-
                         if (p.status === 'sold' && p.sold_to_team && p.sold_to_team.logo_path) {
                             teamLogo.style.display = 'block';
                             teamLogo.src = p.sold_to_team.logo_path;
@@ -311,21 +284,20 @@
                             teamLogo.style.display = 'none';
                         }
 
-
-                        // if (p.status === 'sold') {
-                        //     soldBadge.classList.remove('hidden');
-                        //     soldBadge.classList.add('hidden'); // hide badge
-                        //     teamLogo.src = p.sold_to_team.logo_path;
-
-
-                        // } else {
-                        //     soldBadge.classList.add('hidden');
-                        //     soldBadge.classList.add('hidden'); // hide badge
-
-                        // }
-
-
-
+                    } else {
+                        // No player yet, show waiting message
+                        cardContainer.style.display = 'flex'; // keep layout visible
+                        document.getElementById('player-image').src = '';
+                        document.getElementById('player-name').textContent = 'Waiting for auction...';
+                        document.getElementById('tm').textContent = 0;
+                        document.getElementById('tw').textContent = 0;
+                        document.getElementById('tr').textContent = 0;
+                        document.getElementById('player-role').textContent = '';
+                        document.getElementById('player-batting').textContent = '';
+                        document.getElementById('player-bowling').textContent = '';
+                        document.getElementById('current-bid').textContent = '';
+                        soldText.textContent = '';
+                        document.getElementById('team-logo').style.display = 'none';
                     }
                 })
                 .catch(console.error);
