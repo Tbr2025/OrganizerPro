@@ -228,11 +228,10 @@
                                         </button>
 
                                         <!-- Toggle Status Button -->
-                                        <template x-if="player.status !== 'sold'">
-                                            <button
-                                                @click="
-                player.status = player.status === 'on_auction' ? 'waiting' : 'on_auction';
 
+                                        <div class="relative inline-block w-40">
+                                            <select x-model="player.status"
+                                                @change="
                 fetch(`/admin/auction/{{ $auction->id }}/player/${player.id}/toggle-status`, {
                     method: 'POST',
                     headers: {
@@ -245,24 +244,26 @@
                 .then(data => {
                     if(!data.success) {
                         alert('Failed to update status.');
-                        player.status = player.status === 'on_auction' ? 'waiting' : 'on_auction'; // revert
+                        player.status = player.prevStatus; // revert
+                    } else {
+                        player.prevStatus = player.status; // store last successful
                     }
                 })
                 .catch(err => {
                     console.error(err);
                     alert('Error updating status.');
-                    player.status = player.status === 'on_auction' ? 'waiting' : 'on_auction'; // revert
+                    player.status = player.prevStatus; // revert
                 });
             "
-                                                class="text-blue-500 hover:text-blue-700 p-1 rounded"
-                                                :title="player.status === 'on_auction' ? 'Set Waiting' : 'Set On Auction'">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                        d="M4 4v6h6M20 20v-6h-6M4 20l16-16"></path>
-                                                </svg>
-                                            </button>
-                                        </template>
+                                                class="form-select block w-full px-2 py-1 border rounded text-black">
+                                                <option value="on_auction">On Auction</option>
+                                                <option value="sold">Sold</option>
+                                                <option value="unsold">UnSold</option>
+                                                <option value="closed">Closed</option>
+                                                <option value="waiting">Waiting</option>
+                                            </select>
+                                        </div>
+
                                     </td>
                                 @endcan
                             </tr>

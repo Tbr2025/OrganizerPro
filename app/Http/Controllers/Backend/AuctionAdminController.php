@@ -671,18 +671,22 @@ class AuctionAdminController extends Controller
 
     // putBackInAuction
 
-    public function toggleStatus(Auction $auction, $player)
+    public function toggleStatus(Request $request, Auction $auction, $playerId)
     {
-        $auctionPlayer = $auction->auctionPlayers()->findOrFail($player);
+        $request->validate([
+            'status' => 'required',
+        ]);
 
-        // Only toggle if not sold
-        if ($auctionPlayer->status === 'sold') {
-            return response()->json(['success' => false, 'message' => 'Cannot toggle a sold player.'], 400);
-        }
+        $auctionPlayer = $auction->auctionPlayers()->findOrFail($playerId);
 
-        $auctionPlayer->status = $auctionPlayer->status === 'on_auction' ? 'waiting' : 'on_auction';
+
+
+        $auctionPlayer->status = $request->status;
         $auctionPlayer->save();
 
-        return response()->json(['success' => true, 'status' => $auctionPlayer->status]);
+        return response()->json([
+            'success' => true,
+            'status' => $auctionPlayer->status
+        ]);
     }
 }
