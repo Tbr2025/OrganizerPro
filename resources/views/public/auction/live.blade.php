@@ -7,6 +7,14 @@
     <title>Live Auction | {{ $auction->name }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+
+        @keyframes bounce-text {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+.animate-bounce-text {
+    animation: bounce-text 1s infinite;
+}
         body {
             background: #000;
             display: flex;
@@ -186,7 +194,9 @@
 </head>
 
 <body class="text-white">
-
+<div id="waiting-screen" class="fixed inset-0 flex items-center justify-center bg-black text-white text-5xl font-bold z-50 animate-pulse hidden">
+    Waiting for Auction...
+</div>
     <div class="card-container">
         <!-- Sold Badge -->
 
@@ -244,67 +254,53 @@
         // Use it here
 
         function fetchActivePlayer() {
-            fetch(`/auction/{{ $auction->id }}/active-player`)
-                .then(res => res.json())
-                .then(data => {
-                    const cardContainer = document.querySelector('.card-container');
-                    const soldText = document.getElementById('sold-text');
+    fetch(`/auction/{{ $auction->id }}/active-player`)
+        .then(res => res.json())
+        .then(data => {
+            const cardContainer = document.querySelector('.card-container');
+            const waitingScreen = document.getElementById('waiting-screen');
 
-                    if (data.auctionPlayer) {
-                        const p = data.auctionPlayer;
+            if (data.auctionPlayer) {
+                waitingScreen.classList.add('hidden'); // hide waiting
+                cardContainer.style.display = 'block'; // show card
 
-                        // Show the card container if hidden
-                        cardContainer.style.display = 'block';
+                const p = data.auctionPlayer;
 
-                        // Player info
-                        document.getElementById('player-image').src =
-                            p.player.image_path ? `/storage/${p.player.image_path}` :
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(p.player.name)}`;
+                // Player info
+                document.getElementById('player-image').src =
+                    p.player.image_path ? `/storage/${p.player.image_path}` :
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(p.player.name)}`;
+                document.getElementById('tm').textContent = p.player.total_matches ?? 0;
+                document.getElementById('tw').textContent = p.player.total_wickets ?? 0;
+                document.getElementById('tr').textContent = p.player.total_runs ?? 0;
+                document.getElementById('player-name').textContent = p.player.name;
+                document.getElementById('player-role').textContent = p.player.player_type?.type ?? '';
+                document.getElementById('player-batting').textContent = p.player.batting_profile?.style ?? 'N/A';
+                document.getElementById('player-bowling').textContent = p.player.bowling_profile?.style ?? 'N/A';
+                document.getElementById('current-bid').textContent = formatMillions(p.current_price);
 
-                        document.getElementById('tm').textContent = p.player.total_matches ?? 0;
-                        document.getElementById('tw').textContent = p.player.total_wickets ?? 0;
-                        document.getElementById('tr').textContent = p.player.total_runs ?? 0;
+                // Sold / team logo
+                const soldText = document.getElementById('sold-text');
+                soldText.textContent = p.status === 'sold' ? 'SOLD PRICE' : 'CURRENT VALUE';
+                const teamLogo = document.getElementById('team-logo');
+                if (p.status === 'sold' && p.sold_to_team && p.sold_to_team.logo_path) {
+                    teamLogo.style.display = 'block';
+                    teamLogo.src = p.sold_to_team.logo_path;
+                } else {
+                    teamLogo.style.display = 'none';
+                }
 
-                        soldText.textContent = p.status === 'sold' ? 'SOLD PRICE' : 'CURRENT VALUE';
+            } else {
+                // No player, show full screen waiting animation
+                cardContainer.style.display = 'none';
+                waitingScreen.classList.remove('hidden');
+            }
+        })
+        .catch(console.error);
+}
 
-                        document.getElementById('player-name').textContent = p.player.name;
-                        document.getElementById('player-role').textContent = p.player.player_type?.type ?? '';
-                        document.getElementById('player-batting').textContent = p.player.batting_profile?.style ??
-                        'N/A';
-                        document.getElementById('player-bowling').textContent = p.player.bowling_profile?.style ??
-                        'N/A';
-                        document.getElementById('current-bid').textContent = formatMillions(p.current_price);
-
-                        // Team logo
-                        const teamLogo = document.getElementById('team-logo');
-                        if (p.status === 'sold' && p.sold_to_team && p.sold_to_team.logo_path) {
-                            teamLogo.style.display = 'block';
-                            teamLogo.src = p.sold_to_team.logo_path;
-                        } else {
-                            teamLogo.style.display = 'none';
-                        }
-
-                    } else {
-                        // No player yet, show waiting message
-                        cardContainer.style.display = 'flex'; // keep layout visible
-                        document.getElementById('player-image').src = '';
-                        document.getElementById('player-name').textContent = 'Waiting for auction...';
-                        document.getElementById('tm').textContent = 0;
-                        document.getElementById('tw').textContent = 0;
-                        document.getElementById('tr').textContent = 0;
-                        document.getElementById('player-role').textContent = '';
-                        document.getElementById('player-batting').textContent = '';
-                        document.getElementById('player-bowling').textContent = '';
-                        document.getElementById('current-bid').textContent = '';
-                        soldText.textContent = '';
-                        document.getElementById('team-logo').style.display = 'none';
-                    }
-                })
-                .catch(console.error);
-        }
-
-        setInterval(fetchActivePlayer, 2000);
-        fetchActivePlayer();
+setInterval(fetchActivePlayer, 2000);
+fetchActivePlayer();
     </script>
 
 </body>
