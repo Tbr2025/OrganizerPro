@@ -98,21 +98,25 @@ class AuctionOrganizerController extends Controller
 
         $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
             ->where('auction_id', $auction->id)
-            ->firstOrFail();
+            ->where('status', 'waiting') // ✅ only select waiting players
+            ->first();
 
-        // 🚨 Check if the player is already live
-        if ($auctionPlayer->status === 'on_auction') {
+        // If no player found (either doesn't exist or not waiting)
+        if (!$auctionPlayer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Player not available to put on bid. Only players with status "waiting" can be selected.'
+            ], 400);
+        }
+
+        // Check if any other player is live
+        $livePlayer = $auction->auctionPlayers()->where('status', 'on_auction')->first();
+        if ($livePlayer) {
             return response()->json([
                 'success' => false,
                 'message' => 'Some player is already live in the auction! Please close that bid before starting with the next player!'
             ], 400);
-            return false;
         }
-
-        // Reset any other 'on_auction' players
-        // $auction->auctionPlayers()
-        //     ->where('status', 'on_auction')
-        //     ->update(['status' => 'waiting']);
 
         // Set this player live
         $auctionPlayer->update([
@@ -137,6 +141,7 @@ class AuctionOrganizerController extends Controller
             'message' => 'Player is now live for bidding.'
         ]);
     }
+
 
     /**
      * Mark the current player as "Sold" to the highest bidder.
