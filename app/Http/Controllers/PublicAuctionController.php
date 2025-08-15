@@ -39,12 +39,12 @@ class PublicAuctionController extends Controller
                 'player.playerType',
                 'player.battingProfile',
                 'player.bowlingProfile',
-                'soldToTeam',
+                'soldToTeam', // This is needed for team logo
                 'bids',
                 'bids.team'
             ])
-            ->where('status', 'sold')          // only sold players
-            ->orderBy('updated_at', 'desc')    // latest updated first
+            ->whereIn('status', ['on_auction']) // include sold players
+            ->orderBy('status', 'desc') // optionally show 'on_auction' first
             ->first();
 
         return response()->json([
@@ -80,20 +80,21 @@ class PublicAuctionController extends Controller
                 'player.playerType',
                 'player.battingProfile',
                 'player.bowlingProfile',
-                'soldToTeam', // This is needed for team logo
+                'soldToTeam',
                 'bids',
                 'bids.team'
             ])
-            ->whereIn('status', ['sold']) // include sold players
-            ->orderBy('status', 'desc') // optionally show 'on_auction' first
+            ->where('status', 'sold')          // only sold players
+            ->orderBy('updated_at', 'desc')    // latest updated first
             ->first();
+
 
         return response()->json([
             'success' => true,
             'auctionPlayer' => $player ? [
                 'id' => $player->id,
                 'player' => $player->player,
-                'current_price' => $player->final_price,
+                'current_price' => $player->current_price,
                 'current_bid_team' => $player->current_bid_team,
                 'bids' => $player->bids,
                 'status' => $player->status,
