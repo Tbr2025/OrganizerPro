@@ -3,7 +3,7 @@
 @section('title', 'View Auction | ' . $auction->name)
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
+    <div class="p-4 mx-auto md:p-6 lg:p-8">
 
         {{-- Header --}}
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
