@@ -162,8 +162,8 @@
             position: absolute;
             bottom: 27px;
             left: 300px;
-            width: 150px;
-            height: 150px;
+            width: 100px;
+            height: 100px;
             object-fit: contain;
         }
 
@@ -177,10 +177,10 @@
 
     <div class="card-container">
         <!-- Sold Badge -->
-        <div id="sold-badge" class="absolute ">
-            <img src="/images/sold.png" alt="Sold Badge" class="sold-badge hidden">
-
+        <div id="sold-badge" class="absolute hidden">
+            <img src="/images/sold.png" alt="Sold Badge" class="sold-badge">
         </div>
+
 
         <!-- Actual Team Logo -->
         <img id="team-logo" src="" alt="Team Logo" class="absolute object-contain ">
@@ -207,18 +207,18 @@
         <p id="player-bowling"> Right-Arm Medium</p>
 
         <!-- Current Bid -->
-        <div id="current-bid" class="text-3xl font-extrabold text-white-900">₹ 1,00,000</div>
+        <div id="current-bid" class="text-3xl font-extrabold text-white-900"> 1,00,000</div>
 
         <!-- Winning Team -->
         {{-- <div id="winning-team" class="text-2xl font-bold text-green-400">Chennai Super Kings</div> --}}
 
         <!-- Bid History -->
-        <div id="bid-list-container">
+        {{-- <div id="bid-list-container">
             <ul id="bid-list" class="space-y-1">
                 <li>Team A — ₹50,000</li>
                 <li>Team B — ₹75,000</li>
             </ul>
-        </div>
+        </div> --}}
     </div>
 
     <script>
@@ -241,7 +241,7 @@
                             p.player.image_path ? `/storage/${p.player.image_path}` :
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(p.player.name)}`;
 
-                            
+
                         document.getElementById('tm').textContent = p.player.total_matches ?? 0;
                         document.getElementById('tw').textContent = p.player.total_wickets ?? 0;
                         document.getElementById('tr').textContent = p.player.total_runs ?? 0;
@@ -258,34 +258,40 @@
                         //     p.current_bid_team?.name ?? 'No Bids';
 
                         // Bid list
-                        const bidList = document.getElementById('bid-list');
-                        bidList.innerHTML = '';
-                        if (p.bids?.length) {
-                            p.bids.forEach(bid => {
-                                const li = document.createElement('li');
-                                const amountInMillions = (bid.amount / 1000000).toFixed(
-                                    1); // convert to millions
-                                li.innerHTML =
-                                    `${amountInMillions}M`;
-                                bidList.appendChild(li);
-                            });
+                        // const bidList = document.getElementById('bid-list');
+                        // bidList.innerHTML = '';
+                        // if (p.bids?.length) {
+                        //     p.bids.forEach(bid => {
+                        //         const li = document.createElement('li');
+                        //         const amountInMillions = (bid.amount / 1000000).toFixed(
+                        //             1); // convert to millions
+                        //         li.innerHTML =
+                        //             `${amountInMillions}M`;
+                        //         bidList.appendChild(li);
+                        //     });
 
-                        } else {
-                            bidList.innerHTML = '<li>No bids yet.</li>';
-                        }
+                        // } else {
+                        //     bidList.innerHTML = '<li>No bids yet.</li>';
+                        // }
 
                         // --- Sold badge & team logo ---
                         const soldBadge = document.getElementById('sold-badge');
                         const teamLogo = document.getElementById('team-logo');
 
-                        if (p.status === 'sold' && p.sold_to_team) {
-                            soldBadge.classList.remove('hidden');
-                            teamLogo.classList.remove('hidden');
-                            teamLogo.src = p.sold_to_team.logo_path ? `${p.sold_to_team.logo_path}` : '';
+                        if (p.status === 'sold') {
+                            soldBadge.classList.remove('hidden'); // show badge
+
+                            if (p.sold_to_team && p.sold_to_team.logo_path) {
+                                teamLogo.classList.remove('hidden');
+                                teamLogo.src = p.sold_to_team.logo_path;
+                            } else {
+                                teamLogo.classList.add('hidden'); // hide logo if not available
+                            }
                         } else {
-                            soldBadge.classList.add('hidden');
-                            teamLogo.classList.add('hidden');
+                            soldBadge.classList.add('hidden'); // hide badge
+                            teamLogo.classList.add('hidden'); // hide logo
                         }
+
                     }
                 })
                 .catch(console.error);
