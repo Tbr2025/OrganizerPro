@@ -575,6 +575,20 @@ class AuctionAdminController extends Controller
         $team = ActualTeam::findOrFail($validated['team_id']);
         $auction = $auctionPlayer->auction;
 
+
+        $bid = AuctionPlayer::with('auction')->findOrFail($auctionPlayer->id);
+        $maxBudget = $bid->auction->max_budget_per_team;
+        $spentBudget = $bid->current_price;
+        $availableBalance = $maxBudget - $spentBudget;
+
+        $newPrice = $request->final_price;
+
+        if ($newPrice > $availableBalance) {
+            return response()->json([
+                'error' => 'Insufficient team balance. Available: ' . number_format($availableBalance / 1000000, 1) . 'M'
+            ], 400);
+        }
+
         DB::transaction(function () use ($auctionPlayer, $team, $auction) {
             $salePrice = $auctionPlayer->current_price ?? $auctionPlayer->base_price;
 
