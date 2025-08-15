@@ -86,6 +86,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
 
+
+
+    Route::post('/auction/{auction}/player/{player}/final-price', [ClosedBidController::class, 'updateFinalPrice'])
+        ->name('auction.player.final-price');
     // Closed bids
     Route::get('/auctions-closed-bids', [ClosedBidController::class, 'index'])
         ->name('auctions.closed-bids');
@@ -93,9 +97,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('/auctions-closed-bids/fetch', [ClosedBidController::class, 'fetchClosedBids'])
         ->name('auctions.closed-bids.fetch');
 
-        Route::post('/auctions-closed-bids/{id}/update-final-price', [ClosedBidController::class, 'updateFinalPrice']);
+    // Route::post('/auctions-closed-bids/{id}/update-final-price', [ClosedBidController::class, 'updateFinalPrice']);
 
-        
+
     Route::delete('/auctions/{auction}/clear-pool', [AuctionAdminController::class, 'clearPool'])->name('auctions.clear-pool');
     Route::delete('/auctions/remove-player/{auctionPlayer}', [AuctionAdminController::class, 'removePlayer'])->name('auctions.remove-player');
     Route::post('/auctions/assign-player', [AuctionAdminController::class, 'assignPlayer'])->name('auctions.assign-player');

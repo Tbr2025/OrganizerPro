@@ -134,28 +134,54 @@
                                 <td class="p-3 font-semibold cursor-pointer" x-data="{ open: false, finalPrice: player.final_price }" @click="open = true"
                                     x-text="formatCurrency(finalPrice)">
                                 </td>
-                                @can('auctions.edit')
-                                    <td class="p-3 font-semibold">
-                                        <template x-if="player.status === 'on_auction' || player.status === 'closed'">
-                                            <div class="flex items-center gap-2">
-                                                <button @click="decreaseBid(player)"
-                                                    class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                                                    :disabled="player.status === 'closed'">-</button>
+@can('auctions.edit')
+<td class="p-3 font-semibold" x-data="{ finalPrice: player.final_price }">
+    <div class="flex items-center gap-2">
+        <!-- Decrease / Increase Bid -->
+        <button @click="decreaseBid(player)"
+                class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">-</button>
 
-                                                <span x-text="formatCurrency(player.current_price)"></span>
+        <span x-text="formatCurrency(player.current_price)"></span>
 
-                                                <button @click="increaseBid(player)"
-                                                    class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                                    :disabled="player.status === 'closed' || player.current_price >= player
-                                                        .max_price">+</button>
+        <button @click="increaseBid(player)"
+                class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                :disabled="player.current_price >= player.max_price">+</button>
 
-                                                <button @click="closeBid(player)"
-                                                    class="px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
-                                                    x-show="player.status !== 'closed'">Close Bid</button>
-                                            </div>
-                                        </template>
-                                    </td>
-                                @endcan
+        <!-- Final Price Input -->
+        <input type="number" x-model.number="finalPrice"
+               class="w-24 px-2 py-1 border rounded text-black"
+               placeholder="Final Price">
+
+        <button
+            @click="
+                fetch(`/admin/auction/{{ $auction->id }}/player/${player.id}/final-price`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ final_price: finalPrice })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        alert('Final price updated successfully!');
+                        player.final_price = finalPrice; // update locally
+                    } else {
+                        alert('Failed to update final price.');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error updating final price.');
+                });
+            "
+            class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600">Save</button>
+    </div>
+</td>
+@endcan
+
+
 
                                 <td class="p-3">
                                     <span class="badge"
