@@ -170,6 +170,14 @@
         ul#bid-list {
             font-size: 25px;
         }
+
+
+        #sold-text {
+    bottom: 243px;
+    left: 186px;
+    position: absolute;
+    font-size: 32px;
+}
     </style>
 </head>
 
@@ -203,6 +211,9 @@
         <p id="player-role" class="text-2xl font-bold font-uppercase">All Rounder</p>
 
         <!-- Batting / Bowling -->
+
+        <h1 id="sold-text" class="text-4xl font-bold">0</h1>
+
         <p id="player-batting">Right-Hand Bat</p>
         <p id="player-bowling"> Right-Arm Medium</p>
 
@@ -245,6 +256,15 @@
                         document.getElementById('tm').textContent = p.player.total_matches ?? 0;
                         document.getElementById('tw').textContent = p.player.total_wickets ?? 0;
                         document.getElementById('tr').textContent = p.player.total_runs ?? 0;
+                        const soldText = document.getElementById('sold-text');
+
+                        if (p.status === 'sold') {
+                            soldText.textContent = 'SOLD PRICE'; // SOLD PRICE
+                        } else {
+                            soldText.textContent = 'BASE VALUE'; // BASE VALUE
+                        }
+
+
                         document.getElementById('player-name').textContent = p.player.name;
                         document.getElementById('player-role').textContent = p.player.player_type?.type ?? '';
                         document.getElementById('player-batting').textContent =
@@ -278,19 +298,20 @@
                         const soldBadge = document.getElementById('sold-badge');
                         const teamLogo = document.getElementById('team-logo');
 
-                        if (p.status === 'sold') {
-                            soldBadge.classList.remove('hidden'); // show badge
 
-                            if (p.sold_to_team && p.sold_to_team.logo_path) {
-                                teamLogo.classList.remove('hidden');
-                                teamLogo.src = p.sold_to_team.logo_path;
-                            } else {
-                                teamLogo.classList.add('hidden'); // hide logo if not available
-                            }
-                        } else {
+                        if (p.status === 'sold') {
+                            soldBadge.classList.remove('hidden');
                             soldBadge.classList.add('hidden'); // hide badge
-                            teamLogo.classList.add('hidden'); // hide logo
+                            teamLogo.src = p.sold_to_team.logo_path;
+
+
+                        } else {
+                            soldBadge.classList.add('hidden');
+                            soldBadge.classList.add('hidden'); // hide badge
+
                         }
+
+
 
                     }
                 })
