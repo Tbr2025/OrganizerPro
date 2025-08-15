@@ -253,12 +253,12 @@ class AuctionAdminController extends Controller
             $rules = [];
         }
 
-        $current = (int) $player->current_price;
+        $current = (float) $player->current_price;
 
-        // Max bid check
+        // Determine max allowed bid
         $maxTo = 0;
         foreach ($rules as $r) {
-            $to = isset($r['to']) ? (int) $r['to'] : 0;
+            $to = isset($r['to']) ? (float) $r['to'] : 0;
             if ($to > $maxTo) {
                 $maxTo = $to;
             }
@@ -272,23 +272,49 @@ class AuctionAdminController extends Controller
             ], 400);
         }
 
-        // Determine increment
+        $current = (float) $player->current_price;
         $increment = 0;
-        foreach ($rules as $r) {
-            $from = isset($r['from']) ? (int) $r['from'] : 0;
-            $to   = isset($r['to']) ? (int) $r['to'] : PHP_INT_MAX;
-            $inc  = isset($r['increment']) ? (int) $r['increment'] : 0;
 
-            if ($current >= $from && $current < $to) {
+        // Try to find a matching rule first
+        foreach ($rules as $r) {
+            $from = isset($r['from']) ? (float) $r['from'] : 0;
+            $to   = isset($r['to']) ? (float) $r['to'] : PHP_FLOAT_MAX;
+            $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
+
+            if ($current >= $from && $current <= $to) { // match current range
                 $increment = $inc;
                 break;
             }
         }
 
-        // New price
+        // If no matching rule (gap), pick the first rule where 'from' > current
+        if ($increment == 0) {
+            foreach ($rules as $r) {
+                $from = isset($r['from']) ? (float) $r['from'] : 0;
+                $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
+
+                if ($current < $from) {
+                    $increment = $inc;
+                    break;
+                }
+            }
+        }
+
+        // If still 0, no increment possible (max bid reached)
+        if ($increment == 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Maximum bid reached.',
+                'current_price' => $current
+            ], 400);
+        }
+
+        // Apply increment
         $newPrice = $current + $increment;
         $player->current_price = $newPrice;
         $player->save();
+
+
 
         // Create auction bid record
         AuctionBid::create([

@@ -75,14 +75,36 @@
 
         #bid-list-container {
             position: absolute;
-            top: 530px;
+            top: 600px;
             left: 570px;
-            width: 500px;
+            width: 250px;
             height: 150px;
             overflow-y: auto;
             background: rgba(0, 0, 0, 0.5);
             padding: 8px;
             border-radius: 6px;
+        }
+
+        #sold-badge {
+            position: absolute;
+            bottom: 200px;
+            left: 400px;
+            bottom: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 150px;
+            height: 150px;
+            z-index: 9;
+        }
+
+        #team-logo {
+            position: absolute;
+            bottom: 30px;
+            left: 150px;
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
         }
     </style>
 </head>
@@ -90,6 +112,15 @@
 <body class="text-white">
 
     <div class="card-container">
+        <!-- Sold Badge -->
+        <div id="sold-badge" class="absolute ">
+            <img src="/images/sold.png" alt="Sold Badge">
+
+        </div>
+
+        <!-- Actual Team Logo -->
+        <img id="team-logo" src="" alt="Team Logo" class="absolute object-contain hidden">
+
         <!-- Player Image -->
         <img id="player-image" src="https://via.placeholder.com/300" alt="Player">
 
@@ -120,11 +151,11 @@
 
     <script>
         // Format bid in millions (M) or lakhs (L) depending on value
-function formatMillions(amount) {
-    if (!amount && amount !== 0) return '0';
-    return `${(amount / 1_000_000).toFixed(0)}M Points`;
-}
-// Use it here
+        function formatMillions(amount) {
+            if (!amount && amount !== 0) return '0';
+            return `${(amount / 1_000_000).toFixed(0)}M Points`;
+        }
+        // Use it here
 
         function fetchActivePlayer() {
             fetch(`/auction/{{ $auction->id }}/active-player`)
@@ -132,6 +163,8 @@ function formatMillions(amount) {
                 .then(data => {
                     if (data.auctionPlayer) {
                         const p = data.auctionPlayer;
+
+                        // Player info
                         document.getElementById('player-image').src =
                             p.player.image_path ? `/storage/${p.player.image_path}` :
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(p.player.name)}`;
@@ -141,11 +174,13 @@ function formatMillions(amount) {
                             `Batting: ${p.player.batting_profile?.style ?? 'N/A'}`;
                         document.getElementById('player-bowling').textContent =
                             `Bowling: ${p.player.bowling_profile?.style ?? 'N/A'}`;
-document.getElementById('current-bid').textContent = formatMillions(p.current_price);
+                        document.getElementById('current-bid').textContent = formatMillions(p.current_price);
 
+                        // Winning team
                         document.getElementById('winning-team').textContent =
                             p.current_bid_team?.name ?? 'No Bids';
 
+                        // Bid list
                         const bidList = document.getElementById('bid-list');
                         bidList.innerHTML = '';
                         if (p.bids?.length) {
@@ -158,10 +193,24 @@ document.getElementById('current-bid').textContent = formatMillions(p.current_pr
                         } else {
                             bidList.innerHTML = '<li>No bids yet.</li>';
                         }
+
+                        // --- Sold badge & team logo ---
+                        const soldBadge = document.getElementById('sold-badge');
+                        const teamLogo = document.getElementById('team-logo');
+
+                        if (p.status === 'sold' && p.sold_to_team) {
+                            soldBadge.classList.remove('hidden');
+                            teamLogo.classList.remove('hidden');
+                            teamLogo.src = p.sold_to_team.logo_path ? `${p.sold_to_team.logo_path}` : '';
+                        } else {
+                            soldBadge.classList.add('hidden');
+                            teamLogo.classList.add('hidden');
+                        }
                     }
                 })
                 .catch(console.error);
         }
+
         setInterval(fetchActivePlayer, 2000);
         fetchActivePlayer();
     </script>
