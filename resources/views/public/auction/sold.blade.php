@@ -162,13 +162,12 @@
         }
 
         #team-logo {
-            position: absolute;
-            position: absolute;
-            bottom: 27px;
-            left: 300px;
-            width: 100px;
-            height: 100px;
-            object-fit: contain;
+        position: absolute;
+    bottom: 56px;
+    left: 316px;
+    width: 170px;
+    height: 100px;
+    object-fit: contain;
         }
 
         ul#bid-list {
