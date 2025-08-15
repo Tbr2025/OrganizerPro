@@ -13,16 +13,16 @@
                         class="font-semibold">{{ $auction->name }}</span></p>
             </div>
             <div class="flex items-center gap-3">
-                  @if (!auth()->user()->hasRole('Team Manager'))
-                <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
-                <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
-                    class="btn btn-success inline-flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                    </svg>
-                    Go to Live Panel
-                </a>
+                @if (!auth()->user()->hasRole('Team Manager'))
+                    <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
+                    <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
+                        class="btn btn-success inline-flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                        </svg>
+                        Go to Live Panel
+                    </a>
                 @endif
             </div>
         </div>
@@ -131,7 +131,9 @@
                                 <td class="p-3" x-text="player.player.player_type || 'N/A'"></td>
                                 <td class="p-3 font-semibold" x-text="formatCurrency(player.base_price)"></td>
                                 <td class="p-3 font-semibold" x-text="formatCurrency(player.current_price)"></td>
-                                <td class="p-3 font-semibold" x-text="formatCurrency(player.final_price)"></td>
+                                <td class="p-3 font-semibold cursor-pointer" x-data="{ open: false, finalPrice: player.final_price }" @click="open = true"
+                                    x-text="formatCurrency(finalPrice)">
+                                </td>
                                 @can('auctions.edit')
                                     <td class="p-3 font-semibold">
                                         <template x-if="player.status === 'on_auction' || player.status === 'closed'">
@@ -182,7 +184,7 @@
                                                 <button type="submit" class="btn btn-success btn-sm">+</button>
                                             </form>
                                         </template>
-                                      
+
 
                                         <template x-if="player.status === 'sold'">
                                             <div class="font-semibold"

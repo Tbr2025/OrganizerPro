@@ -264,7 +264,7 @@
                         if (p.status === 'sold') {
                             soldText.textContent = 'SOLD PRICE'; // SOLD PRICE
                         } else {
-                            soldText.textContent = 'BASE VALUE'; // BASE VALUE
+                            soldText.textContent = 'CURRENT VALUE'; // BASE VALUE
                         }
 
 
