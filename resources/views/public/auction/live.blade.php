@@ -189,11 +189,11 @@
 
     <div class="card-container">
         <!-- Sold Badge -->
-     
+
 
 
         <!-- Actual Team Logo -->
-        <img id="team-logo" src="" alt="Team Logo" class="absolute object-contain ">
+        <img id="team-logo" src="" class="absolute object-contain ">
 
         <!-- Player Image -->
         <img id="player-image" src="https://via.placeholder.com/300" alt="Player">
@@ -298,20 +298,30 @@
 
                         // --- Sold badge & team logo ---
                         const soldBadge = document.getElementById('sold-badge');
+                        // const teamLogo = document.getElementById('team-logo');
+
+
                         const teamLogo = document.getElementById('team-logo');
 
-
-                        if (p.status === 'sold') {
-                            soldBadge.classList.remove('hidden');
-                            soldBadge.classList.add('hidden'); // hide badge
+                        if (p.status === 'sold' && p.sold_to_team && p.sold_to_team.logo_path) {
+                            teamLogo.style.display = 'block';
                             teamLogo.src = p.sold_to_team.logo_path;
-
-
                         } else {
-                            soldBadge.classList.add('hidden');
-                            soldBadge.classList.add('hidden'); // hide badge
-
+                            teamLogo.style.display = 'none';
                         }
+
+
+                        // if (p.status === 'sold') {
+                        //     soldBadge.classList.remove('hidden');
+                        //     soldBadge.classList.add('hidden'); // hide badge
+                        //     teamLogo.src = p.sold_to_team.logo_path;
+
+
+                        // } else {
+                        //     soldBadge.classList.add('hidden');
+                        //     soldBadge.classList.add('hidden'); // hide badge
+
+                        // }
 
 
 
