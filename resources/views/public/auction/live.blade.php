@@ -62,10 +62,6 @@
             text-transform: uppercase;
         }
 
-        .hidden {
-            display: none;
-        }
-
         #twh {
             position: absolute;
             top: 490px;
@@ -174,14 +170,6 @@
         ul#bid-list {
             font-size: 25px;
         }
-
-
-        #sold-text {
-            bottom: 243px;
-            left: 186px;
-            position: absolute;
-            font-size: 32px;
-        }
     </style>
 </head>
 
@@ -189,11 +177,13 @@
 
     <div class="card-container">
         <!-- Sold Badge -->
-
+        <div id="sold-badge" class="absolute hidden">
+            <img src="/images/sold.png" alt="Sold Badge" class="sold-badge">
+        </div>
 
 
         <!-- Actual Team Logo -->
-        <img id="team-logo" src="" class="absolute object-contain ">
+        <img id="team-logo" src="" alt="Team Logo" class="absolute object-contain ">
 
         <!-- Player Image -->
         <img id="player-image" src="https://via.placeholder.com/300" alt="Player">
@@ -258,15 +248,9 @@
                         document.getElementById('tm').textContent = p.player.total_matches ?? 0;
                         document.getElementById('tw').textContent = p.player.total_wickets ?? 0;
                         document.getElementById('tr').textContent = p.player.total_runs ?? 0;
-                        const soldText = document.getElementById('sold-text');
+                        document.getElementById('sold-text').textContent = p.player.total_runs ?? 0;
 
-                        if (p.status === 'sold') {
-                            soldText.textContent = 'SOLD PRICE'; // SOLD PRICE
-                        } else {
-                            soldText.textContent = 'BASE VALUE'; // BASE VALUE
-                        }
-
-
+                        
                         document.getElementById('player-name').textContent = p.player.name;
                         document.getElementById('player-role').textContent = p.player.player_type?.type ?? '';
                         document.getElementById('player-batting').textContent =
@@ -298,32 +282,22 @@
 
                         // --- Sold badge & team logo ---
                         const soldBadge = document.getElementById('sold-badge');
-                        // const teamLogo = document.getElementById('team-logo');
-
-
                         const teamLogo = document.getElementById('team-logo');
 
-                        if (p.status === 'sold' && p.sold_to_team && p.sold_to_team.logo_path) {
-                            teamLogo.style.display = 'block';
-                            teamLogo.src = p.sold_to_team.logo_path;
-                        } else {
-                            teamLogo.style.display = 'none';
-                        }
+
+                        if (p.status === 'sold') {
+    soldBadge.classList.remove('hidden');
+                            soldBadge.classList.add('hidden'); // hide badge
+                                teamLogo.src = p.sold_to_team.logo_path;
 
 
-                        // if (p.status === 'sold') {
-                        //     soldBadge.classList.remove('hidden');
-                        //     soldBadge.classList.add('hidden'); // hide badge
-                        //     teamLogo.src = p.sold_to_team.logo_path;
+} else {
+    soldBadge.classList.add('hidden');
+                            soldBadge.classList.add('hidden'); // hide badge
 
+}
 
-                        // } else {
-                        //     soldBadge.classList.add('hidden');
-                        //     soldBadge.classList.add('hidden'); // hide badge
-
-                        // }
-
-
+                  
 
                     }
                 })
