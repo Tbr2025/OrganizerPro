@@ -22,7 +22,7 @@ class PublicAuctionController extends Controller
 
 
 
-     public function showPublicDisplaySold(Auction $auction)
+    public function showPublicDisplaySold(Auction $auction)
     {
         return view('public.auction.sold', [
             'auction' => $auction
@@ -39,12 +39,12 @@ class PublicAuctionController extends Controller
                 'player.playerType',
                 'player.battingProfile',
                 'player.bowlingProfile',
-                'soldToTeam', // This is needed for team logo
+                'soldToTeam',
                 'bids',
                 'bids.team'
             ])
-            ->whereIn('status', ['on_auction']) // include sold players
-            ->orderBy('status', 'desc') // optionally show 'on_auction' first
+            ->where('status', 'sold')          // only sold players
+            ->orderBy('updated_at', 'desc')    // latest updated first
             ->first();
 
         return response()->json([
