@@ -8,22 +8,13 @@ import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
 
-window.Pusher = Pusher;
-
 window.Echo = new Echo({
     broadcaster: 'pusher',
     key: import.meta.env.VITE_PUSHER_APP_KEY,
     cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-    wsHost: import.meta.env.VITE_PUSHER_HOST,
-    wsPort: import.meta.env.VITE_PUSHER_PORT,
+    wsHost: window.location.hostname,
+    wsPort: 6001,
     forceTLS: false,
-    encrypted: false,
     disableStats: true,
     enabledTransports: ['ws', 'wss'],
-    auth: {
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Authorization': 'Bearer ' + window.Laravel?.apiToken || ''
-        }
-    }
 });
