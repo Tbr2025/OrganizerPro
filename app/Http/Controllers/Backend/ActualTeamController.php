@@ -17,87 +17,100 @@ use Illuminate\Support\Facades\Storage;
 
 class ActualTeamController extends Controller
 {
-   public function index()
-{
-    $user = Auth::user();
-    $filters = [
-        'organization_id' => request('organization_id'),
-        'tournament_id' => request('tournament_id'),
-    ];
+    public function index()
+    {
+        $user = Auth::user();
+        $filters = [
+            'organization_id' => request('organization_id'),
+            'tournament_id' => request('tournament_id'),
+        ];
 
-    // 1. Start base query for all teams
-    $query = ActualTeam::with(['organization', 'tournament', 'auction']); // include auction relation
+        // Base query
+        $query = ActualTeam::with(['organization', 'tournament', 'auction']);
+        $query->applyFilters($filters);
 
-    // 2. Apply filters (organization/tournament)
-    $query->applyFilters($filters);
+        // Fetch all teams for pagination
+        $actualTeams = $query->latest()->paginate(15);
 
-    // 3. Execute query (all teams, paginated)
-    $actualTeams = $query->latest()->paginate(15);
-
-    // 4. Prepare editable IDs for Team Manager
-    $editableTeamIds = [];
-    if ($user->hasRole('Team Manager')) {
-        $editableTeamIds = $user->actualTeams->pluck('id')->toArray();
-    }
-
-    // 5. Prepare filter dropdowns
-    if ($user->hasRole('Superadmin')) {
-        $organizations = Organization::orderBy('name')->get();
-        $tournaments = Tournament::orderBy('name')->get();
-    } elseif ($user->hasRole('Team Manager')) {
-        $managedTeams = $user->actualTeams;
-        $organizationIds = $managedTeams->pluck('organization_id')->unique();
-        $tournamentIds = $managedTeams->pluck('tournament_id')->unique();
-
-        $organizations = Organization::whereIn('id', $organizationIds)->orderBy('name')->get();
-        $tournaments = Tournament::whereIn('id', $tournamentIds)->orderBy('name')->get();
-    } else {
-        $organizations = Organization::where('id', $user->organization_id)->get();
-        $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
-    }
-
-    // 6. Calculate total spent per team
-    $teamBudgets = [];
-
-    foreach ($actualTeams as $team) {
-        $auction = $team->auction; // relationship must exist
-        $totalSpent = 0;
-        $maxBudget = 0;
-
-        if ($auction) {
-            $maxBudget = $auction->max_budget_per_team;
-
-            // Get user IDs in this actual team
-            $teamUserIds = DB::table('actual_team_users')
-                ->where('actual_team_id', $team->id)
-                ->pluck('user_id');
-
-            // Sum all bids from these users for the auction
-            $totalSpent = DB::table('actions_bids')
-                ->whereIn('user_id', $teamUserIds)
-                ->whereIn('auction_player_id', function ($q) use ($auction) {
-                    $q->select('id')
-                      ->from('auction_players')
-                      ->where('auction_id', $auction->id);
-                })
-                ->sum('amount');
+        // Editable teams for Team Manager
+        $editableTeamIds = [];
+        $teamManagerTeamIds = [];
+        if ($user->hasRole('Team Manager')) {
+            $editableTeamIds = $user->actualTeams->pluck('id')->toArray();
+            $teamManagerTeamIds = $editableTeamIds; // used for ordering
         }
 
-        $teamBudgets[$team->id] = [
-            'spent' => $totalSpent,
-            'max_budget' => $maxBudget,
-        ];
-    }
+        // Prepare filter dropdowns
+        if ($user->hasRole('Superadmin')) {
+            $organizations = Organization::orderBy('name')->get();
+            $tournaments = Tournament::orderBy('name')->get();
+        } elseif ($user->hasRole('Team Manager')) {
+            $managedTeams = $user->actualTeams;
+            $organizationIds = $managedTeams->pluck('organization_id')->unique();
+            $tournamentIds = $managedTeams->pluck('tournament_id')->unique();
 
-    // 7. Return view
-    return view('backend.pages.actual_teams.index', compact(
-        'actualTeams',
-        'organizations',
-        'tournaments',
-        'editableTeamIds',
-        'teamBudgets'
-    ));
-}
+            $organizations = Organization::whereIn('id', $organizationIds)->orderBy('name')->get();
+            $tournaments = Tournament::whereIn('id', $tournamentIds)->orderBy('name')->get();
+        } else {
+            $organizations = Organization::where('id', $user->organization_id)->get();
+            $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
+        }
+
+        // Calculate total spent per team
+        $teamBudgets = [];
+        foreach ($actualTeams as $team) {
+            $auction = $team->auction;
+            $totalSpent = 0;
+            $maxBudget = 0;
+
+            if ($auction) {
+                $maxBudget = $auction->max_budget_per_team;
+
+                $teamUserIds = DB::table('actual_team_users')
+                    ->where('actual_team_id', $team->id)
+                    ->pluck('user_id');
+
+                $totalSpent = DB::table('actions_bids')
+                    ->whereIn('user_id', $teamUserIds)
+                    ->whereIn('auction_player_id', function ($q) use ($auction) {
+                        $q->select('id')
+                            ->from('auction_players')
+                            ->where('auction_id', $auction->id);
+                    })
+                    ->sum('amount');
+            }
+
+            $teamBudgets[$team->id] = [
+                'spent' => $totalSpent,
+                'max_budget' => $maxBudget,
+            ];
+        }
+
+        // Reorder: Team Manager's teams first
+        if (!empty($teamManagerTeamIds)) {
+            $sortedTeams = $actualTeams->getCollection()->sortByDesc(function ($team) use ($teamManagerTeamIds) {
+                return in_array($team->id, $teamManagerTeamIds) ? 1 : 0;
+            });
+
+            // Rebuild paginated collection
+            $actualTeams = new \Illuminate\Pagination\LengthAwarePaginator(
+                $sortedTeams->values(),          // the sorted items
+                $actualTeams->total(),           // total items
+                $actualTeams->perPage(),         // items per page
+                $actualTeams->currentPage(),     // current page
+                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+            );
+        }
+
+
+        return view('backend.pages.actual_teams.index', compact(
+            'actualTeams',
+            'organizations',
+            'tournaments',
+            'editableTeamIds',
+            'teamBudgets'
+        ));
+    }
 
 
 
