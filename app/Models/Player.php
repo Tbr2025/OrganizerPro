@@ -63,6 +63,7 @@ class Player extends Model implements MustVerifyEmail
         'total_runs',
         'total_wickets',
         'welcome_email_sent_at',
+        'actual_team_id',
     ];
 
     protected $casts = [
@@ -324,5 +325,10 @@ class Player extends Model implements MustVerifyEmail
         // You can find them by looking for this player's 'id' in the
         // 'player_id' column on the 'auction_players' table."
         return $this->hasMany(AuctionPlayer::class, 'player_id');
+    }
+
+    public function actualTeam()
+    {
+        return $this->belongsTo(ActualTeam::class, 'actual_team_id');
     }
 }

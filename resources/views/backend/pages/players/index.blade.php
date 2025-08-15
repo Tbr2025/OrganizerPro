@@ -268,6 +268,16 @@
                                                         Retained
                                                     </span>
                                                 @endif
+
+                                                {{-- Sold Status Badge --}}
+                                                @if ($player->player_mode === 'sold' && $player->actualTeam)
+                                                    <span
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+        bg-green-100 text-green-800
+        dark:bg-green-900/50 dark:text-green-200">
+                                                        Sold to {{ $player->actualTeam->name }}
+                                                    </span>
+                                                @endif
                                             </div>
 
                                         </div>
@@ -411,15 +421,26 @@
                                                         {{ $player->name }}
                                                     </a>
 
-                                                    {{-- **NEW**: Retained Status Badge --}}
-                                                    @if ($player->player_status == 'Retained')
+                                                    {{-- Retained Status Badge --}}
+                                                    @if ($player->player_mode === 'retained')
                                                         <span
                                                             class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
-                                 bg-purple-100 text-purple-800
-                                 dark:bg-purple-900/50 dark:text-purple-200">
+        bg-purple-100 text-purple-800
+        dark:bg-purple-900/50 dark:text-purple-200">
                                                             Retained
                                                         </span>
                                                     @endif
+
+                                                    {{-- Sold Status Badge --}}
+                                                    @if ($player->player_mode === 'sold' && $player->actualTeam)
+                                                        <span
+                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold
+        bg-green-100 text-green-800
+        dark:bg-green-900/50 dark:text-green-200">
+                                                            Sold to {{ $player->actualTeam->name }}
+                                                        </span>
+                                                    @endif
+
                                                 </div>
 
                                                 {{-- Email as a clickable mailto link --}}

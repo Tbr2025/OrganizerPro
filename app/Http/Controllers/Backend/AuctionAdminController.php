@@ -406,59 +406,63 @@ class AuctionAdminController extends Controller
 
 
     public function assignPlayer(Request $request)
-{
-    $this->authorize('auction.edit');
+    {
+        $this->authorize('auction.edit');
 
-    $validated = $request->validate([
-        'auction_player_id' => 'required|exists:auction_players,id',
-        'team_id' => 'required|exists:actual_teams,id',
-    ]);
-
-    $auctionPlayer = AuctionPlayer::findOrFail($validated['auction_player_id']);
-    $team = ActualTeam::findOrFail($validated['team_id']);
-    $auction = $auctionPlayer->auction;
-
-    DB::transaction(function () use ($auctionPlayer, $team, $auction) {
-        $salePrice = $auctionPlayer->current_price ?? $auctionPlayer->base_price;
-
-        // Log the transaction
-        AuctionBid::create([
-            'auction_id' => $auction->id,
-            'auction_player_id' => $auctionPlayer->id,
-            'player_id' => $auctionPlayer->player_id,
-            'team_id' => $team->id,
-            'user_id' => Auth::id(),
-            'amount' => $salePrice,
+        $validated = $request->validate([
+            'auction_player_id' => 'required|exists:auction_players,id',
+            'team_id' => 'required|exists:actual_teams,id',
         ]);
 
-        // Mark player as sold
-        $auctionPlayer->update([
-            'status' => 'sold',
-            'sold_to_team_id' => $team->id,
-            'final_price' => $salePrice,
-            'current_price' => $salePrice,
-            'current_bid_team_id' => $team->id,
-        ]);
+        $auctionPlayer = AuctionPlayer::findOrFail($validated['auction_player_id']);
+        $team = ActualTeam::findOrFail($validated['team_id']);
+        $auction = $auctionPlayer->auction;
 
-        // Update player status
-        $auctionPlayer->player()->update(['player_mode' => 'retained']);
+        DB::transaction(function () use ($auctionPlayer, $team, $auction) {
+            $salePrice = $auctionPlayer->current_price ?? $auctionPlayer->base_price;
 
-        // Add to team roster
-        $team->users()->syncWithoutDetaching([
-            $auctionPlayer->player->user_id => ['role' => 'Player']
-        ]);
+            // Log the transaction
+            AuctionBid::create([
+                'auction_id' => $auction->id,
+                'auction_player_id' => $auctionPlayer->id,
+                'player_id' => $auctionPlayer->player_id,
+                'team_id' => $team->id,
+                'user_id' => Auth::id(),
+                'amount' => $salePrice,
+            ]);
 
-        // Sync Spatie role
-        $user = $auctionPlayer->player->user;
-        if ($user && !$user->hasAnyRole(['Superadmin', 'Admin'])) {
-            $user->syncRoles(['Player']);
-        }
+            // Mark player as sold
+            $auctionPlayer->update([
+                'status' => 'sold',
+                'sold_to_team_id' => $team->id,
+                'final_price' => $salePrice,
+                'current_price' => $salePrice,
+                'current_bid_team_id' => $team->id,
+            ]);
 
-        // Broadcast
-        broadcast(new PlayerSoldEvent($auctionPlayer, $team));
-    });
+            // Update player status
+            // 3. Update the main player's system status
+            $auctionPlayer->player()->update([
+                'player_mode'     => 'sold',
+                'actual_team_id'  => $team->id
+            ]);
 
-    return back()->with('success', 'Player has been successfully assigned, sold, and added to the team.');
-}
 
+            // Add to team roster
+            $team->users()->syncWithoutDetaching([
+                $auctionPlayer->player->user_id => ['role' => 'Player']
+            ]);
+
+            // Sync Spatie role
+            $user = $auctionPlayer->player->user;
+            if ($user && !$user->hasAnyRole(['Superadmin', 'Admin'])) {
+                $user->syncRoles(['Player']);
+            }
+
+            // Broadcast
+            broadcast(new PlayerSoldEvent($auctionPlayer, $team));
+        });
+
+        return back()->with('success', 'Player has been successfully assigned, sold, and added to the team.');
+    }
 }
