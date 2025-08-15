@@ -89,7 +89,7 @@ class PublicAuctionController extends Controller
             'auctionPlayer' => $player ? [
                 'id' => $player->id,
                 'player' => $player->player,
-                'current_price' => $player->current_price,
+                'current_price' => $player->final_price,
                 'current_bid_team' => $player->current_bid_team,
                 'bids' => $player->bids,
                 'status' => $player->status,
