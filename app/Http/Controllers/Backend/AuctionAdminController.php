@@ -142,6 +142,96 @@ class AuctionAdminController extends Controller
         ]);
     }
 
+
+    public function fetchPlayers(Request $request, Auction $auction)
+    {
+        $this->authorize('auction.view');
+
+        // Load auction relationships for player and team info
+        $auction->load([
+            'organization',
+            'tournament',
+            'auctionPlayers.player.playerType',
+            'auctionPlayers.soldToTeam'
+        ]);
+
+        // Start query on auctionPlayers
+        $query = $auction->auctionPlayers()->with([
+            'player.playerType',
+            'soldToTeam'
+        ]);
+
+        // --- Search & Filters ---
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->whereHas('player', function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                    ->orWhere('email', 'like', "%$search%");
+            });
+        }
+
+        if ($request->filled('player_type')) {
+            $type = $request->input('player_type');
+            $query->whereHas('player.playerType', function ($q) use ($type) {
+                $q->where('type', $type);
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('team_id')) {
+            $teamId = $request->input('team_id');
+            $query->where('sold_to_team_id', $teamId);
+        }
+
+        // --- Ordering ---
+        $query->orderByRaw("CASE WHEN status = 'on_auction' THEN 0 ELSE 1 END") // on_auction first
+            ->orderBy('updated_at', 'desc');
+
+        $players = $query->get()->map(function ($ap) {
+            $player = $ap->player;
+            $playerType = $player->playerType;
+            $soldTeam = $ap->soldToTeam;
+
+            return [
+                'id' => $ap->id,
+                'player' => [
+                    'id' => $player->id,
+                    'name' => $player->name,
+                    'email' => $player->email,
+                    'image_path' => $player->image_path,
+                    'player_type' => $playerType ? $playerType->type : null,
+                ],
+                'status' => $ap->status,
+                'base_price' => $ap->base_price,
+                'current_price' => $ap->current_price,
+                'final_price' => $ap->final_price ?? $ap->current_price,
+                'sold_to_team' => $soldTeam ? [
+                    'id' => $soldTeam->id,
+                    'name' => $soldTeam->name,
+                ] : null,
+                'updated_at' => $ap->updated_at,
+            ];
+        });
+
+        // Teams for filters
+        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+            ->orderBy('name')
+            ->get();
+
+        // Decode bid rules
+        $bidRules = is_string($auction->bid_rules) ? json_decode($auction->bid_rules, true) : $auction->bid_rules;
+
+        return response()->json([
+            'players' => $players,
+            'teams' => $teams,
+            'bidRules' => $bidRules,
+        ]);
+    }
+
+
     public function addBid(Request $request)
     {
         $data = $request->validate([
@@ -242,6 +332,58 @@ class AuctionAdminController extends Controller
     }
 
 
+    public function decreaseBid(Request $request)
+    {
+        $data = $request->validate([
+            'auctionId' => 'required|integer|exists:auctions,id',
+            'playerID'  => 'required|integer|exists:auction_players,id',
+        ]);
+
+        $auction = Auction::findOrFail($data['auctionId']);
+        $player  = AuctionPlayer::where('auction_id', $auction->id)
+            ->findOrFail($data['playerID']);
+
+        // Decode bid rules
+        $rules = $auction->bid_rules;
+        if (is_string($rules)) {
+            $rules = json_decode($rules, true);
+        }
+        if (!is_array($rules)) {
+            $rules = [];
+        }
+
+        $current = (int) $player->current_price;
+
+        // Determine decrement using the same rules
+        $decrement = 0;
+        foreach ($rules as $r) {
+            $from = isset($r['from']) ? (int) $r['from'] : 0;
+            $to   = isset($r['to']) ? (int) $r['to'] : PHP_INT_MAX;
+            $inc  = isset($r['increment']) ? (int) $r['increment'] : 0;
+
+            // For decrement, find the rule where current price falls within
+            if ($current > $from && $current <= $to) {
+                $decrement = $inc;
+                break;
+            }
+        }
+
+        // New price: cannot go below base_price
+        $newPrice = max($player->base_price, $current - $decrement);
+        $player->current_price = $newPrice;
+        $player->save();
+
+        // Optional: record a "negative bid" or decrement action if needed
+        // AuctionBid::create([...]);
+
+        return response()->json([
+            'success'        => true,
+            'current_price'  => $newPrice,
+            'decrement_used' => $decrement
+        ]);
+    }
+
+
 
     public function edit(Auction $auction)
     {
@@ -271,6 +413,21 @@ class AuctionAdminController extends Controller
 
 
 
+    public function closeBid(Request $request)
+    {
+        $this->authorize('auction.edit');
+
+        $auctionPlayer = AuctionPlayer::findOrFail($request->playerID);
+        $auctionPlayer->status = 'closed';
+        $auctionPlayer->save();
+
+        // Optional: broadcast status change
+
+        return response()->json([
+            'success' => true,
+            'status' => 'closed'
+        ]);
+    }
 
 
     public function update(Request $request, Auction $auction)

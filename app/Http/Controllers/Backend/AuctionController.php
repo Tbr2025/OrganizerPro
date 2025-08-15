@@ -7,6 +7,7 @@ use App\Models\Auction;
 use App\Models\AuctionPlayer;
 use App\Models\Organization;
 use App\Models\Player;
+use App\Models\Team;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,13 +15,55 @@ use Illuminate\Support\Facades\DB;
 
 class AuctionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $breadcrumbs = ['title' => __('Auctions')];
-        $auctions = Auction::latest()->paginate(15);
+        if ($request->ajax()) {
+            $auctions = $this->getFilteredAuctions($request)->paginate(100);
 
-        return view('backend.pages.auctions.index', compact('auctions', 'breadcrumbs'));
+            return response()->json([
+                'html' => view('backend.pages.auctions.partials.auction_table', compact('auctions'))->render(),
+            ]);
+        }
+
+        $breadcrumbs = ['title' => __('Auctions')];
+        $teams = Team::all();
+        $auctions = $this->getFilteredAuctions($request)->paginate(100);
+
+        return view('backend.pages.auctions.index', compact('auctions', 'breadcrumbs', 'teams'));
     }
+
+    // Extract filtering logic
+    private function getFilteredAuctions(Request $request)
+    {
+        $query = Auction::with(['soldToTeam', 'player']);
+
+        if ($request->filled('status')) {
+            $query->where('auction_status', $request->status);
+        }
+
+        if ($request->filled('sold_to_team_id')) {
+            $query->where('sold_to_team_id', $request->sold_to_team_id);
+        }
+
+        if ($request->filled('player_search')) {
+            $search = $request->player_search;
+            $query->whereHas('player', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('sort_by')) {
+            $sortOrder = $request->filled('sort_order') && in_array(strtolower($request->sort_order), ['asc', 'desc']) ? $request->sort_order : 'asc';
+            $query->orderBy($request->sort_by, $sortOrder);
+        } else {
+            $query->orderByDesc('updated_at'); // last updated first
+        }
+
+        return $query;
+    }
+
+
 
     public function create()
     {

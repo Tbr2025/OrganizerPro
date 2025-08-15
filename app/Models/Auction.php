@@ -8,7 +8,7 @@ class Auction extends Model
 {
 
     protected $fillable = [
-         'name',
+        'name',
         'organization_id',
         'tournament_id',
         'start_at',
@@ -17,7 +17,7 @@ class Auction extends Model
         'base_price',
         'max_bid_per_player',
         'max_budget_per_team',
-        'bid_rules', 
+        'bid_rules',
     ];
     protected $casts = [
         'start_at' => 'datetime',
@@ -46,5 +46,8 @@ class Auction extends Model
         return $this->hasMany(AuctionBid::class);
     }
 
-        
+    public function player()
+    {
+        return $this->belongsTo(User::class, 'player_id');
+    }
 }

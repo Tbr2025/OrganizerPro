@@ -13,6 +13,7 @@ use App\Http\Controllers\Backend\AuctionLiveController;
 use App\Http\Controllers\Backend\AuctionOrganizerController;
 use App\Http\Controllers\Backend\Auth\ScreenshotGeneratorLoginController;
 use App\Http\Controllers\Backend\BallController;
+use App\Http\Controllers\Backend\ClosedBidController;
 use App\Http\Controllers\Backend\DashboardController;
 use App\Http\Controllers\Backend\ImageTemplateController;
 use App\Http\Controllers\Backend\LocaleController;
@@ -82,16 +83,32 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
 // --- Main Admin Route Group for general pages ---
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
 
-    // Your other admin routes like dashboard, players, teams...
-
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
+
+    // Closed bids
+    Route::get('/auctions-closed-bids', [ClosedBidController::class, 'index'])
+        ->name('auctions.closed-bids');
+
+    Route::get('/auctions-closed-bids/fetch', [ClosedBidController::class, 'fetchClosedBids'])
+        ->name('auctions.closed-bids.fetch');
+
+        Route::post('/auctions-closed-bids/{id}/update-final-price', [ClosedBidController::class, 'updateFinalPrice']);
+
+        
     Route::delete('/auctions/{auction}/clear-pool', [AuctionAdminController::class, 'clearPool'])->name('auctions.clear-pool');
     Route::delete('/auctions/remove-player/{auctionPlayer}', [AuctionAdminController::class, 'removePlayer'])->name('auctions.remove-player');
     Route::post('/auctions/assign-player', [AuctionAdminController::class, 'assignPlayer'])->name('auctions.assign-player');
+    // routes/web.php
+    Route::get('/auctions/{auction}/latest-players', [AuctionAdminController::class, 'fetchPlayers'])
+        ->name('admin.auctions.latest-players');
 
     Route::post('/auctions/add-bid', [AuctionAdminController::class, 'addBid'])
         ->name('auctions.players.addBid');
+    Route::post('/auctions/decrease-bid', [AuctionAdminController::class, 'decreaseBid'])
+        ->name('auctions.players.decreaseBid');
+
+    Route::post('/auctions/close-bid', [AuctionAdminController::class, 'closeBid']);
 });
 
 
