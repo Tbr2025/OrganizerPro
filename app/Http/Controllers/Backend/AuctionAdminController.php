@@ -406,52 +406,59 @@ class AuctionAdminController extends Controller
 
 
     public function assignPlayer(Request $request)
-    {
-        $this->authorize('auction.edit');
+{
+    $this->authorize('auction.edit');
 
-        $validated = $request->validate([
-            'auction_player_id' => 'required|exists:auction_players,id',
-            'team_id' => 'required|exists:actual_teams,id',
+    $validated = $request->validate([
+        'auction_player_id' => 'required|exists:auction_players,id',
+        'team_id' => 'required|exists:actual_teams,id',
+    ]);
+
+    $auctionPlayer = AuctionPlayer::findOrFail($validated['auction_player_id']);
+    $team = ActualTeam::findOrFail($validated['team_id']);
+    $auction = $auctionPlayer->auction;
+
+    DB::transaction(function () use ($auctionPlayer, $team, $auction) {
+        $salePrice = $auctionPlayer->current_price ?? $auctionPlayer->base_price;
+
+        // Log the transaction
+        AuctionBid::create([
+            'auction_id' => $auction->id,
+            'auction_player_id' => $auctionPlayer->id,
+            'player_id' => $auctionPlayer->player_id,
+            'team_id' => $team->id,
+            'user_id' => Auth::id(),
+            'amount' => $salePrice,
         ]);
 
-        $auctionPlayer = AuctionPlayer::find($validated['auction_player_id']);
-        $team = ActualTeam::find($validated['team_id']);
-        $auction = $auctionPlayer->auction;
+        // Mark player as sold
+        $auctionPlayer->update([
+            'status' => 'sold',
+            'sold_to_team_id' => $team->id,
+            'final_price' => $salePrice,
+            'current_price' => $salePrice,
+            'current_bid_team_id' => $team->id,
+        ]);
 
-        // Use a transaction for safety
-        DB::transaction(function () use ($auctionPlayer, $team, $auction) {
-            $salePrice = $auctionPlayer->base_price; // Or a specific retained_price if you have one
+        // Update player status
+        $auctionPlayer->player()->update(['player_mode' => 'retained']);
 
-            // 1. Create a "bid" to log the transaction
-            AuctionBid::create([
-                'auction_id' => $auction->id,
-                'auction_player_id' => $auctionPlayer->id,
-                'player_id' => $auctionPlayer->player_id,
-                'team_id' => $team->id,
-                'user_id' => Auth::id(), // The admin performing the action
-                'amount' => $salePrice,
-            ]);
+        // Add to team roster
+        $team->users()->syncWithoutDetaching([
+            $auctionPlayer->player->user_id => ['role' => 'Player']
+        ]);
 
-            // 2. Update the auction player's status to 'sold'
-            $auctionPlayer->update([
-                'status' => 'sold',
-                'sold_to_team_id' => $team->id,
-                'final_price' => $salePrice,
-                'current_price' => $salePrice,
-                'current_bid_team_id' => $team->id,
-                'sold_to_team_id' => $team->id,
-            ]);
+        // Sync Spatie role
+        $user = $auctionPlayer->player->user;
+        if ($user && !$user->hasAnyRole(['Superadmin', 'Admin'])) {
+            $user->syncRoles(['Player']);
+        }
 
-            // 3. Update the main player's system status
-            $auctionPlayer->player()->update(['player_mode' => 'normal']);
+        // Broadcast
+        broadcast(new PlayerSoldEvent($auctionPlayer, $team));
+    });
 
-            // 4. Update the actual team roster
-            $team->users()->syncWithoutDetaching([$auctionPlayer->player->user_id => ['role' => 'Player']]);
+    return back()->with('success', 'Player has been successfully assigned, sold, and added to the team.');
+}
 
-            // 5. Broadcast the "sold" event so all live screens update
-            broadcast(new PlayerSoldEvent($auctionPlayer, $team));
-        });
-
-        return back()->with('success', 'Player has been successfully assigned and marked as sold.');
-    }
 }

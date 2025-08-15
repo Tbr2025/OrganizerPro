@@ -278,10 +278,10 @@
 
                 // ⬇️ Server is the source of truth now
                 async increaseBid(player) {
-                    if (!player.selectedTeamId) {
-                        alert('Please select a team first.');
-                        return;
-                    }
+                    // if (!player.selectedTeamId) {
+                    //     alert('Please select a team first.');
+                    //     return;
+                    // }
                     try {
                         const res = await fetch(`/admin/auctions/add-bid`, {
                             method: 'POST',
