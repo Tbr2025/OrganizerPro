@@ -13,6 +13,7 @@
                         class="font-semibold">{{ $auction->name }}</span></p>
             </div>
             <div class="flex items-center gap-3">
+                  @if (!auth()->user()->hasRole('Team Manager'))
                 <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
                 <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
                     class="btn btn-success inline-flex items-center gap-2">
@@ -22,6 +23,7 @@
                     </svg>
                     Go to Live Panel
                 </a>
+                @endif
             </div>
         </div>
 
