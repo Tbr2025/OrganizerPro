@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
+use App\Models\Auction;
 use App\Models\AuctionPlayer;
 use App\Models\Organization;
 use App\Models\Player;
@@ -59,26 +60,23 @@ class ActualTeamController extends Controller
         // Calculate total spent per team
         $teamBudgets = [];
         foreach ($actualTeams as $team) {
-            $auction = $team->auction;
+            $auction =  Auction::first();
             $totalSpent = 0;
             $maxBudget = 0;
 
-            if ($auction) {
-                $maxBudget = $auction->max_budget_per_team;
+         
+            $maxBudget = $auction->max_budget_per_team;
 
-                $teamUserIds = DB::table('actual_team_users')
-                    ->where('actual_team_id', $team->id)
-                    ->pluck('user_id');
-
-                $totalSpent = DB::table('actions_bids')
-                    ->whereIn('user_id', $teamUserIds)
-                    ->whereIn('auction_player_id', function ($q) use ($auction) {
-                        $q->select('id')
-                            ->from('auction_players')
-                            ->where('auction_id', $auction->id);
-                    })
-                    ->sum('amount');
-            }
+            $teamUserIds = DB::table('actual_team_users')
+                ->where('actual_team_id', $team->id)
+                ->pluck('user_id');
+            $totalSpent = DB::table('actions_bids')
+                ->whereIn('auction_player_id', function ($q) use ($auction) {
+                    $q->select('id')
+                        ->from('auction_players')
+                        ->where('auction_id', $auction->id);
+                })
+                ->sum('amount');
 
             $teamBudgets[$team->id] = [
                 'spent' => $totalSpent,

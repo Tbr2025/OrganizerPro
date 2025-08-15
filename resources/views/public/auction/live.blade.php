@@ -177,8 +177,8 @@
 
     <div class="card-container">
         <!-- Sold Badge -->
-        <div id="sold-badge" class="absolute hidden">
-            <img src="/images/sold.png" alt="Sold Badge">
+        <div id="sold-badge" class="absolute ">
+            <img src="/images/sold.png" alt="Sold Badge" class="sold-badge hidden">
 
         </div>
 
