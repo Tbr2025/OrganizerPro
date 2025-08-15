@@ -101,6 +101,8 @@
                             <option value="">All</option>
                             <option value="retained" @selected(request('player_mode') == 'retained')>Retained</option>
                             <option value="normal" @selected(request('player_mode') == 'normal')>Available</option>
+                            <option value="sold" @selected(request('player_mode') == 'sold')>Sold</option>
+                            <option value="Unsold" @selected(request('player_mode') == 'sold')>Unsold</option>
                         </select>
                     </div>
                     <div class="flex items-end space-x-2 pt-2">

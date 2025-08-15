@@ -278,6 +278,11 @@ class ActualTeamController extends Controller
         $currentMembers = $actualTeam->users;
         $currentTeamUserIds = $currentMembers->pluck('id')->toArray();
 
+
+        $currentPlayerMembers = $currentMembers->filter(function ($member) {
+            // Check if the user has the 'Player' role in the current team context
+            return $member->pivot->role === 'Player';
+        });
         // --- Main Logic: Get AVAILABLE Users ---
 
         // Find all user IDs assigned to ANY other team.
@@ -338,7 +343,9 @@ class ActualTeamController extends Controller
             'tournaments',
             'roles',
             'users',
-            'currentMembers'
+            'currentMembers',
+                'currentPlayerMembers' // Use this filtered collection
+
         ));
     }
     public function update(Request $request, ActualTeam $actualTeam)
@@ -358,6 +365,7 @@ class ActualTeamController extends Controller
             'user_roles.*' => 'nullable|string|exists:roles,name',
         ]);
 
+        
         // 3. Handle the Team Logo Upload
         if ($request->hasFile('team_logo')) {
             if ($actualTeam->team_logo) {
