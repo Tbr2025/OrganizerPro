@@ -22,6 +22,8 @@ class AuctionAdminController extends Controller
      */
     public function index()
     {
+
+
         $query = Auction::with('tournament', 'organization');
         if (!Auth::user()->hasRole('Superadmin')) {
             $query->where('organization_id', Auth::user()->organization_id);
@@ -117,6 +119,8 @@ class AuctionAdminController extends Controller
     public function show(Auction $auction)
     {
         $this->authorize('auction.view');
+
+
 
         $auction->load([
             'organization',

@@ -123,7 +123,7 @@
                                     <td class="px-4 py-3">
                                         {{ $teamBudgets[$team->id]['max_budget'] - $teamBudgets[$team->id]['spent'] ?? '-' }}
                                     </td>
-                                    <td class="px-4 py-3">{{ $teamBudgets[$team->id]['user_count'] ?? 0 }}</td>
+                                    <td class="px-4 py-3">{{ $teamBudgets[$team->id]['user_count'] ?? 0 }}/16</td>
 
                                     {{-- <td class="px-4 py-3">{{ $team->tournament->name ?? '-' }}</td> --}}
                                     <td class="px-4 py-3">
