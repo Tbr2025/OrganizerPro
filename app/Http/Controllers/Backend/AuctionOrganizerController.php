@@ -56,36 +56,86 @@ class AuctionOrganizerController extends Controller
     /**
      * Select the next player and put them up for bidding.
      */
+    // public function putPlayerOnBid(Request $request, Auction $auction)
+    // {
+    //     $validated = $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
+
+    //     $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
+    //         ->where('auction_id', $auction->id)
+    //         ->firstOrFail();
+
+    //     // Reset any other 'on_auction' players
+    //     $auction->auctionPlayers()->where('status', 'on_auction')->update(['status' => 'waiting']);
+
+    //     $auctionPlayer->update([
+    //         'status' => 'on_auction',
+    //         'current_price' => $auctionPlayer->base_price,
+    //         'current_bid_team_id' => null,
+    //     ]);
+
+    //     // **THE FIX**: Eager-load the relationships the frontend needs BEFORE broadcasting.
+    //     // We use fresh() to get the latest state after our update.
+    //     $playerDataForBroadcast = $auctionPlayer->fresh([
+    //         'player.playerType',
+    //         'player.battingProfile',
+    //         'player.bowlingProfile',
+    //         'bids.team', // Load all bids and their associated team
+    //         'bids.user' // Also load the user who placed the bid
+    //     ]);
+
+    //     broadcast(new PlayerOnBid($playerDataForBroadcast));
+
+    //     return response()->json(['message' => 'Player is now live for bidding.']);
+    // }
+
+
+
     public function putPlayerOnBid(Request $request, Auction $auction)
     {
-        $validated = $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
+        $validated = $request->validate([
+            'auction_player_id' => 'required|exists:auction_players,id'
+        ]);
 
         $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
             ->where('auction_id', $auction->id)
             ->firstOrFail();
 
-        // Reset any other 'on_auction' players
-        $auction->auctionPlayers()->where('status', 'on_auction')->update(['status' => 'waiting']);
+        // 🚨 Check if the player is already live
+        if ($auctionPlayer->status === 'on_auction') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Some player is already live in the auction! Please close that bid before starting with the next player!'
+            ], 400);
+            return false;
+        }
 
+        // Reset any other 'on_auction' players
+        // $auction->auctionPlayers()
+        //     ->where('status', 'on_auction')
+        //     ->update(['status' => 'waiting']);
+
+        // Set this player live
         $auctionPlayer->update([
             'status' => 'on_auction',
             'current_price' => $auctionPlayer->base_price,
             'current_bid_team_id' => null,
         ]);
 
-        // **THE FIX**: Eager-load the relationships the frontend needs BEFORE broadcasting.
-        // We use fresh() to get the latest state after our update.
+        // Eager-load relationships for broadcast
         $playerDataForBroadcast = $auctionPlayer->fresh([
             'player.playerType',
             'player.battingProfile',
             'player.bowlingProfile',
-            'bids.team', // Load all bids and their associated team
-            'bids.user' // Also load the user who placed the bid
+            'bids.team',
+            'bids.user'
         ]);
 
         broadcast(new PlayerOnBid($playerDataForBroadcast));
 
-        return response()->json(['message' => 'Player is now live for bidding.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Player is now live for bidding.'
+        ]);
     }
 
     /**
@@ -93,6 +143,7 @@ class AuctionOrganizerController extends Controller
      */
     public function sellPlayer(Request $request, Auction $auction)
     {
+        // dd($sellPlayer);
         $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
 
         $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)->firstOrFail();

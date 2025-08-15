@@ -45,4 +45,6 @@ class Auction extends Model
     {
         return $this->hasMany(AuctionBid::class);
     }
+
+        
 }

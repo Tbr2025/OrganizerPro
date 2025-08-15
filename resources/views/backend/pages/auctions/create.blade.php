@@ -19,9 +19,9 @@
             x-data="{
                 step: 1,
                 rules: [
-                    { from: 0, to: 2000000, increment: 100000 },
-                    { from: 2000000, to: 3000000, increment: 200000 },
-                    { from: 3000000, to: 6000000, increment: 500000 },
+                    { from: 1000000, to: 2000000, increment: 100000 },
+                    { from: 2200000, to: 3000000, increment: 200000 },
+                    { from: 3500000, to: 6000000, increment: 500000 },
                     { from: 6000000, to: 8000000, increment: 1000000 }
                 ]
             }">
@@ -144,8 +144,8 @@
                             <div>
                                 <label for="status" class="form-label">Initial Status</label>
                                 <select name="status" id="status" class="form-control">
-                                    <option value="pending" @selected(old('status', 'pending') == 'pending')>Pending</option>
-                                    <option value="live" @selected(old('status') == 'live')>Live</option>
+                                    <option value="scheduled" @selected(old('status', 'scheduled') == 'scheduled')>Pending</option>
+                                    <option value="running" @selected(old('status') == 'running')>Live</option>
                                     <option value="completed" @selected(old('status') == 'completed')>Completed</option>
                                 </select>
                             </div>

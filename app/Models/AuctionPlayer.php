@@ -32,6 +32,6 @@ class AuctionPlayer extends Model
     }
     public function bids()
     {
-        return $this->hasMany(AuctionBid::class);
+        return $this->hasMany(AuctionBid::class, 'auction_player_id', 'id');
     }
 }

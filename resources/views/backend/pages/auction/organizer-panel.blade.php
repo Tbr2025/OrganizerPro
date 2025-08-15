@@ -36,7 +36,8 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border">
                 <h2 class="text-xl font-semibold mb-4">Auction Controls</h2>
                 <div class="flex items-center space-x-4">
-                    <button @click="startAuction()" x-show="auctionStatus === 'pending' || auctionStatus === 'scheduled'"
+                    <button @click="startAuction()" class="btn btn-success">Next Player</button>
+                    <button @click="startAuction()" x-show="auctionStatus === 'paused' || auctionStatus === 'scheduled'"
                         class="btn btn-success">Start Auction</button>
                     <button @click="endAuction()" x-show="auctionStatus === 'running'" class="btn btn-danger" x-cloak>End
                         Auction</button>
@@ -45,7 +46,7 @@
                         <span class="font-bold text-lg"
                             :class="{
                                 'text-green-500': auctionStatus === 'running',
-                                'text-yellow-500': auctionStatus === 'pending' ||
+                                'text-yellow-500': auctionStatus === 'scheduled' ||
                                     auctionStatus === 'scheduled',
                                 'text-gray-500': auctionStatus === 'completed'
                             }"
@@ -139,7 +140,7 @@
 
                 // --- State & Data ---
                 auctionId: null,
-                auctionStatus: 'pending',
+                auctionStatus: 'scheduled',
                 availablePlayers: [],
                 tumblerText: 'Auction Pending',
                 statusText: 'Click "Start Auction" to begin.',
@@ -177,7 +178,7 @@
                     this.currentPlayer = event.auctionPlayer;
                     this.currentBid = event.auctionPlayer.base_price;
                     this.winningTeamName = 'No Bids';
-                        this.bidLog = event.auctionPlayer.bids.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    this.bidLog = event.auctionPlayer.bids.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                     this.statusText = `${event.auctionPlayer.player.name} is now live for bidding!`;
                     this.startBiddingTimer();
                 },

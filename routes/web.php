@@ -88,6 +88,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::resource('auctions', AuctionAdminController::class);
     Route::delete('/auctions/{auction}/clear-pool', [AuctionAdminController::class, 'clearPool'])->name('auctions.clear-pool');
     Route::delete('/auctions/remove-player/{auctionPlayer}', [AuctionAdminController::class, 'removePlayer'])->name('auctions.remove-player');
+    Route::post('/auctions/assign-player', [AuctionAdminController::class, 'assignPlayer'])->name('auctions.assign-player');
+
+    Route::post('/auctions/add-bid', [AuctionAdminController::class, 'addBid'])
+        ->name('auctions.players.addBid');
 });
 
 
@@ -142,10 +146,12 @@ Route::middleware(['auth'])
 
 
 // --- Public Display Route ---
-// URL: /auction/{auction}/live
-// Name: public.auction.live
 Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPublicDisplay'])
     ->name('public.auction.live');
+
+// API endpoint for AJAX polling
+Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
+
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
 
@@ -203,19 +209,19 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         ->name('actual-teams.remove-member');
 
     // Auctions
-    Route::prefix('auctions')->as('auctions.')->group(function () {
-        Route::get('/', [AuctionController::class, 'index'])->name('index');
-        Route::get('/create', [AuctionController::class, 'create'])->name('create');
-        Route::post('/', [AuctionController::class, 'store'])->name('store');
-        Route::get('/{auction}', [AuctionController::class, 'show'])->name('show');
-        Route::get('/{auction}/edit', [AuctionController::class, 'edit'])->name('edit');
-        Route::put('/{auction}', [AuctionController::class, 'update'])->name('update');
-        Route::delete('/{auction}', [AuctionController::class, 'destroy'])->name('destroy');
+    // Route::prefix('auctions')->as('auctions.')->group(function () {
+    //     Route::get('/', [AuctionController::class, 'index'])->name('index');
+    //     Route::get('/create', [AuctionController::class, 'create'])->name('create');
+    //     Route::post('/', [AuctionController::class, 'store'])->name('store');
+    //     Route::get('/{auction}', [AuctionController::class, 'show'])->name('show');
+    //     Route::get('/{auction}/edit', [AuctionController::class, 'edit'])->name('edit');
+    //     Route::put('/{auction}', [AuctionController::class, 'update'])->name('update');
+    //     Route::delete('/{auction}', [AuctionController::class, 'destroy'])->name('destroy');
 
-        // Live bidding
-        Route::get('/{auction}/live', [AuctionLiveController::class, 'index'])->name('live');
-        Route::post('/{auction}/bid', [AuctionLiveController::class, 'placeBid'])->name('bid');
-    });
+    //     // Live bidding
+    // Route::get('/{auction}/live', [AuctionLiveController::class, 'index'])->name('live');
+    // Route::post('/{auction}/bid', [AuctionLiveController::class, 'placeBid'])->name('bid');
+    // });
 
     // // Auction Settings
     // Route::prefix('auction-settings')->as('auction-settings.')->group(function () {

@@ -18,10 +18,13 @@ class AuctionBid extends Model
     {
         return $this->belongsTo(AuctionPlayer::class);
     }
+    protected $table = 'auction_bids';
+
     public function team()
     {
-        return $this->belongsTo(ActualTeam::class);
+        return $this->belongsTo(Team::class);
     }
+
     public function user()
     {
         return $this->belongsTo(User::class);
