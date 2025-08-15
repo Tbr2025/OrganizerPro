@@ -88,7 +88,10 @@
                                 @if (auth()->user()->hasRole('Superadmin'))
                                     <th class="px-4 py-3">Organization</th>
                                 @endif
-                                <th class="px-4 py-3">Tournament</th>
+                                <th class="px-4 py-3">Total</th>
+                                <th class="px-4 py-3">Spent</th>
+                                <th class="px-4 py-3">Balance</th>
+                                <th class="px-4 py-3">Squad</th>
                                 <th class="px-4 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -113,7 +116,14 @@
                                     @if (auth()->user()->hasRole('Superadmin'))
                                         <td class="px-4 py-3">{{ $team->organization->name ?? '-' }}</td>
                                     @endif
-                                    <td class="px-4 py-3">{{ $team->tournament->name ?? '-' }}</td>
+                                    <td class="px-4 py-3">
+                                        {{ $teamBudgets[$team->id]['max_budget'] ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">{{ $teamBudgets[$team->id]['spent'] ?? '-' }}</td>
+                                    <td class="px-4 py-3">{{ $team->organization->name ?? '-' }}</td>
+                                    <td class="px-4 py-3">{{ $team->organization->name ?? '-' }}</td>
+
+                                    {{-- <td class="px-4 py-3">{{ $team->tournament->name ?? '-' }}</td> --}}
                                     <td class="px-4 py-3">
                                         <div class="flex items-center justify-end space-x-2">
                                             @can('actual-team.view')
@@ -130,14 +140,19 @@
                                                 </a>
                                             @endcan
                                             @can('actual-team.edit')
-                                                <a href="{{ route('admin.actual-teams.edit', $team) }}" title="Edit"
-                                                    class="p-2 text-blue-500 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                            d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
-                                                    </svg>
-                                                </a>
+                                                @if (in_array($team->id, $editableTeamIds))
+                                                    <a href="{{ route('admin.actual-teams.edit', $team) }}" title="Edit"
+                                                        class="p-2 text-blue-500 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                            viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
+                                                        </svg>
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted">Not Editable</span>
+                                                @endif
                                             @endcan
                                             @can('actual-team.delete')
                                                 <form method="POST" action="{{ route('admin.actual-teams.destroy', $team) }}"

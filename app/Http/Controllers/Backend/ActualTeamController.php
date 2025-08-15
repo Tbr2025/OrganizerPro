@@ -17,75 +17,88 @@ use Illuminate\Support\Facades\Storage;
 
 class ActualTeamController extends Controller
 {
-    public function index()
-    {
-        // 1. Get user and prepare filters from request
-        $user = Auth::user();
-        $filters = [
-            'organization_id' => request('organization_id'),
-            'tournament_id' => request('tournament_id'),
-        ];
+   public function index()
+{
+    $user = Auth::user();
+    $filters = [
+        'organization_id' => request('organization_id'),
+        'tournament_id' => request('tournament_id'),
+    ];
 
-        // 2. Start the base query for the main team list
-        $query = ActualTeam::with(['organization', 'tournament']);
+    // 1. Start base query for all teams
+    $query = ActualTeam::with(['organization', 'tournament', 'auction']); // include auction relation
 
-        // 3. Apply role-based scoping for the main team list
-        if ($user->hasRole('Superadmin')) {
-            // Superadmin sees all teams. No initial scope.
-        } elseif ($user->hasRole('Team Manager')) {
-            // Team Manager sees ONLY the teams they are a member of.
-            $query->whereHas('users', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
-            });
-        } else {
-            // All other users (e.g., Admin) are scoped by their organization.
-            if ($user->organization_id) {
-                $query->where('organization_id', $user->organization_id);
-            } else {
-                $query->whereRaw('1 = 0'); // See no teams if not configured
-            }
-        }
+    // 2. Apply filters (organization/tournament)
+    $query->applyFilters($filters);
 
-        // 4. Apply user-selected filters from the dropdowns
-        $query->applyFilters($filters);
+    // 3. Execute query (all teams, paginated)
+    $actualTeams = $query->latest()->paginate(15);
 
-        // 5. Execute the main query
-        $actualTeams = $query->latest()->paginate(15);
-
-        // ------------------------------------------------------------------
-        // 6. **REFACTORED LOGIC:** Get data for the filter dropdowns
-        // ------------------------------------------------------------------
-        if ($user->hasRole('Superadmin')) {
-            $organizations = Organization::orderBy('name')->get();
-            $tournaments = Tournament::orderBy('name')->get();
-        } elseif ($user->hasRole('Team Manager')) {
-            // For a Team Manager, the only relevant organizations and tournaments
-            // are the ones associated with the teams they manage.
-
-            // Get the teams the manager belongs to first.
-            $managedTeams = $user->actualTeams; // Use the loaded relationship
-
-            // Get the unique organization and tournament IDs from those teams.
-            $organizationIds = $managedTeams->pluck('organization_id')->unique();
-            $tournamentIds = $managedTeams->pluck('tournament_id')->unique();
-
-            // Fetch the corresponding models.
-            $organizations = Organization::whereIn('id', $organizationIds)->orderBy('name')->get();
-            $tournaments = Tournament::whereIn('id', $tournamentIds)->orderBy('name')->get();
-        } else {
-            // For a regular admin, the dropdowns should only contain their own organization
-            // and the tournaments within that organization.
-            $organizations = Organization::where('id', $user->organization_id)->get();
-            $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
-        }
-
-        // 7. Return the view with all necessary data
-        return view('backend.pages.actual_teams.index', compact(
-            'actualTeams',
-            'organizations',
-            'tournaments'
-        ));
+    // 4. Prepare editable IDs for Team Manager
+    $editableTeamIds = [];
+    if ($user->hasRole('Team Manager')) {
+        $editableTeamIds = $user->actualTeams->pluck('id')->toArray();
     }
+
+    // 5. Prepare filter dropdowns
+    if ($user->hasRole('Superadmin')) {
+        $organizations = Organization::orderBy('name')->get();
+        $tournaments = Tournament::orderBy('name')->get();
+    } elseif ($user->hasRole('Team Manager')) {
+        $managedTeams = $user->actualTeams;
+        $organizationIds = $managedTeams->pluck('organization_id')->unique();
+        $tournamentIds = $managedTeams->pluck('tournament_id')->unique();
+
+        $organizations = Organization::whereIn('id', $organizationIds)->orderBy('name')->get();
+        $tournaments = Tournament::whereIn('id', $tournamentIds)->orderBy('name')->get();
+    } else {
+        $organizations = Organization::where('id', $user->organization_id)->get();
+        $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
+    }
+
+    // 6. Calculate total spent per team
+    $teamBudgets = [];
+
+    foreach ($actualTeams as $team) {
+        $auction = $team->auction; // relationship must exist
+        $totalSpent = 0;
+        $maxBudget = 0;
+
+        if ($auction) {
+            $maxBudget = $auction->max_budget_per_team;
+
+            // Get user IDs in this actual team
+            $teamUserIds = DB::table('actual_team_users')
+                ->where('actual_team_id', $team->id)
+                ->pluck('user_id');
+
+            // Sum all bids from these users for the auction
+            $totalSpent = DB::table('actions_bids')
+                ->whereIn('user_id', $teamUserIds)
+                ->whereIn('auction_player_id', function ($q) use ($auction) {
+                    $q->select('id')
+                      ->from('auction_players')
+                      ->where('auction_id', $auction->id);
+                })
+                ->sum('amount');
+        }
+
+        $teamBudgets[$team->id] = [
+            'spent' => $totalSpent,
+            'max_budget' => $maxBudget,
+        ];
+    }
+
+    // 7. Return view
+    return view('backend.pages.actual_teams.index', compact(
+        'actualTeams',
+        'organizations',
+        'tournaments',
+        'editableTeamIds',
+        'teamBudgets'
+    ));
+}
+
 
 
     public function create()
@@ -344,7 +357,7 @@ class ActualTeamController extends Controller
             'roles',
             'users',
             'currentMembers',
-                'currentPlayerMembers' // Use this filtered collection
+            'currentPlayerMembers' // Use this filtered collection
 
         ));
     }
@@ -365,7 +378,7 @@ class ActualTeamController extends Controller
             'user_roles.*' => 'nullable|string|exists:roles,name',
         ]);
 
-        
+
         // 3. Handle the Team Logo Upload
         if ($request->hasFile('team_logo')) {
             if ($actualTeam->team_logo) {

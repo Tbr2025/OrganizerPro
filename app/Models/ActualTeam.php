@@ -64,4 +64,9 @@ class ActualTeam extends Model
         // 3. CRUCIAL: Also load the 'role' column from that pivot table.
         return $this->belongsToMany(User::class, 'actual_team_users')->withPivot('role')->withTimestamps();
     }
+
+    public function auction()
+    {
+        return $this->belongsTo(Auction::class, 'auction_id');
+    }
 }

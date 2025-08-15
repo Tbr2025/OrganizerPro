@@ -39,7 +39,7 @@
             position: absolute;
             top: 210px;
             left: 545px;
-            font-size: 60px;
+            font-size: 46px;
             text-transform: uppercase;
         }
 
@@ -159,10 +159,11 @@
 
         #team-logo {
             position: absolute;
-            bottom: 30px;
-            left: 150px;
-            width: 80px;
-            height: 80px;
+            position: absolute;
+            bottom: 27px;
+            left: 300px;
+            width: 150px;
+            height: 150px;
             object-fit: contain;
         }
 
@@ -206,7 +207,7 @@
         <p id="player-bowling"> Right-Arm Medium</p>
 
         <!-- Current Bid -->
-        <div id="current-bid" class="text-3xl font-extrabold text-gray-900">₹ 1,00,000</div>
+        <div id="current-bid" class="text-3xl font-extrabold text-white-900">₹ 1,00,000</div>
 
         <!-- Winning Team -->
         {{-- <div id="winning-team" class="text-2xl font-bold text-green-400">Chennai Super Kings</div> --}}
@@ -239,6 +240,11 @@
                         document.getElementById('player-image').src =
                             p.player.image_path ? `/storage/${p.player.image_path}` :
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(p.player.name)}`;
+
+                            
+                        document.getElementById('tm').textContent = p.player.total_matches ?? 0;
+                        document.getElementById('tw').textContent = p.player.total_wickets ?? 0;
+                        document.getElementById('tr').textContent = p.player.total_runs ?? 0;
                         document.getElementById('player-name').textContent = p.player.name;
                         document.getElementById('player-role').textContent = p.player.player_type?.type ?? '';
                         document.getElementById('player-batting').textContent =
