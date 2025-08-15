@@ -238,8 +238,9 @@
         // Format bid in millions (M) or lakhs (L) depending on value
         function formatMillions(amount) {
             if (!amount && amount !== 0) return '0';
-            return `${(amount / 1_000_000).toFixed(0)}M Points`;
+            return `${(amount / 1_000_000).toFixed(1)}M Points`;
         }
+
         // Use it here
 
         function fetchActivePlayer() {
@@ -337,4 +338,3 @@
 </body>
 
 </html>
-

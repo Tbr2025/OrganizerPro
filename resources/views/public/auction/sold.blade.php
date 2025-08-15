@@ -190,7 +190,10 @@
     <div class="card-container">
         <!-- Sold Badge -->
 
+     <div id="sold-badge" class="absolute ">
+            <img src="/images/sold.png" alt="Sold Badge" class="sold-badge ">
 
+        </div>
 
         <!-- Actual Team Logo -->
         <img id="team-logo" src="" class="absolute object-contain ">
@@ -236,10 +239,11 @@
 
     <script>
         // Format bid in millions (M) or lakhs (L) depending on value
-        function formatMillions(amount) {
-            if (!amount && amount !== 0) return '0';
-            return `${(amount / 1_000_000).toFixed(0)}M Points`;
-        }
+       function formatMillions(amount) {
+    if (!amount && amount !== 0) return '0';
+    return `${(amount / 1_000_000).toFixed(1)}M Points`;
+}
+
         // Use it here
 
         function fetchActivePlayer() {
