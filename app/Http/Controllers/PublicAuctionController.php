@@ -23,7 +23,7 @@ class PublicAuctionController extends Controller
      */
     public function activePlayer(Auction $auction)
     {
-        // First, get the latest sold player (if any)
+        // Latest sold player
         $soldPlayer = $auction->auctionPlayers()
             ->with([
                 'player',
@@ -38,7 +38,7 @@ class PublicAuctionController extends Controller
             ->orderBy('updated_at', 'desc')
             ->first();
 
-        // Then, get the next on_auction player
+        // Next on_auction player
         $nextPlayer = $auction->auctionPlayers()
             ->with([
                 'player',
@@ -50,28 +50,42 @@ class PublicAuctionController extends Controller
                 'bids.team',
             ])
             ->where('status', 'on_auction')
-            ->orderBy('id') // or your priority
+            ->orderBy('id')
             ->first();
 
-        // Prefer sold player if exists, otherwise next on_auction
-        $playerToReturn = $soldPlayer ?? $nextPlayer;
-
+        // Keep the same return structure, but include both players
         return response()->json([
             'success' => true,
-            'auctionPlayer' => $playerToReturn ? [
-                'id' => $playerToReturn->id,
-                'player' => $playerToReturn->player,
-                'current_price' => $playerToReturn->final_price ?? $playerToReturn->current_price,
-                'current_bid_team' => $playerToReturn->current_bid_team,
-                'bids' => $playerToReturn->bids,
-                'status' => $playerToReturn->status,
-                'sold_to_team' => $playerToReturn->soldToTeam ? [
-                    'name' => $playerToReturn->soldToTeam->name,
-                    'logo_path' => $playerToReturn->soldToTeam->team_logo
-                        ? asset('storage/' . $playerToReturn->soldToTeam->team_logo)
-                        : null,
+            'auctionPlayer' => [
+                'sold' => $soldPlayer ? [
+                    'id' => $soldPlayer->id,
+                    'player' => $soldPlayer->player,
+                    'current_price' => $soldPlayer->final_price ?? $soldPlayer->current_price,
+                    'current_bid_team' => $soldPlayer->current_bid_team,
+                    'bids' => $soldPlayer->bids,
+                    'status' => $soldPlayer->status,
+                    'sold_to_team' => $soldPlayer->soldToTeam ? [
+                        'name' => $soldPlayer->soldToTeam->name,
+                        'logo_path' => $soldPlayer->soldToTeam->team_logo
+                            ? asset('storage/' . $soldPlayer->soldToTeam->team_logo)
+                            : null,
+                    ] : null,
                 ] : null,
-            ] : null,
+                'next' => $nextPlayer ? [
+                    'id' => $nextPlayer->id,
+                    'player' => $nextPlayer->player,
+                    'current_price' => $nextPlayer->final_price ?? $nextPlayer->current_price,
+                    'current_bid_team' => $nextPlayer->current_bid_team,
+                    'bids' => $nextPlayer->bids,
+                    'status' => $nextPlayer->status,
+                    'sold_to_team' => $nextPlayer->soldToTeam ? [
+                        'name' => $nextPlayer->soldToTeam->name,
+                        'logo_path' => $nextPlayer->soldToTeam->team_logo
+                            ? asset('storage/' . $nextPlayer->soldToTeam->team_logo)
+                            : null,
+                    ] : null,
+                ] : null,
+            ]
         ]);
     }
 }
