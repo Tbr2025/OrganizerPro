@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
+use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,13 +15,13 @@ class ClosedBidController extends Controller
     /**
      * Show the Closed Bids page
      */
-   public function index()
-{
-    $auctions = Auction::orderBy('name')->get(['id', 'name']);
-    $teams = ActualTeam::orderBy('name')->get(['id', 'name']);
-    
-    return view('backend.pages.auctions.closed-bids', compact('auctions', 'teams'));
-}
+    public function index()
+    {
+        $auctions = Auction::orderBy('name')->get(['id', 'name']);
+        $teams = ActualTeam::orderBy('name')->get(['id', 'name']);
+
+        return view('backend.pages.auctions.closed-bids', compact('auctions', 'teams'));
+    }
 
 
     /**
@@ -63,24 +64,47 @@ class ClosedBidController extends Controller
 
 
     public function updateFinalPrice(Request $request, $id)
-{
-    $user = Auth::user();
+    {
+        $user = Auth::user();
+        $bid = AuctionPlayer::with('auction')->findOrFail($id);
 
-    $bid = AuctionPlayer::findOrFail($id);
+        // Only allow TeamManager to update their own team's bid
+        if ($user->hasRole('TeamManager') && $bid->sold_to_team_id != $user->team_id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
-    // Only allow TeamManager to update their own team's bid
-    if ($user->hasRole('TeamManager') && $bid->sold_to_team_id != $user->team_id) {
-        return response()->json(['error' => 'Unauthorized'], 403);
+        $request->validate([
+            'final_price' => 'required|numeric|min:0',
+        ]);
+
+        $newPrice = $request->final_price;
+
+        // Step 1: Get auction max budget per team
+        $maxBudget = $bid->auction->max_budget_per_team;
+
+        // Step 2: Sum all previous bids from this team in this auction
+        // Exclude the current bid itself to prevent double-counting
+
+        $spentBudget = AuctionBid::where('auction_id', $bid->auction_id)
+            ->where('team_id', $bid->sold_to_team_id)
+            ->sum('amount');
+
+
+
+        // Step 3: Calculate available balance
+        $availableBalance = $maxBudget - $spentBudget;
+
+        // Step 4: Check if new final price exceeds available balance
+        if ($newPrice > $availableBalance) {
+            return response()->json([
+                'error' => 'Insufficient team balance. Available: ' . number_format($availableBalance / 1000000, 1) . 'M'
+            ], 400);
+        }
+
+        // Step 5: Update final price
+        $bid->final_price = $newPrice;
+        $bid->save();
+
+        return response()->json(['success' => true, 'final_price' => $bid->final_price]);
     }
-
-    $request->validate([
-        'final_price' => 'required|numeric|min:0',
-    ]);
-
-    $bid->final_price = $request->final_price;
-    $bid->save();
-
-    return response()->json(['success' => true, 'final_price' => $bid->final_price]);
-}
-
 }
