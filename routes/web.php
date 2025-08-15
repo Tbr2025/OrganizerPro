@@ -107,6 +107,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('/auctions/{auction}/latest-players', [AuctionAdminController::class, 'fetchPlayers'])
         ->name('admin.auctions.latest-players');
 
+
+  // routes/web.php
+Route::post('/auction/{auction}/player/{player}/toggle-status', [AuctionAdminController::class, 'toggleStatus'])
+    ->name('auction.player.toggle-status');
+
+
     Route::post('/auctions/add-bid', [AuctionAdminController::class, 'addBid'])
         ->name('auctions.players.addBid');
     Route::post('/auctions/decrease-bid', [AuctionAdminController::class, 'decreaseBid'])

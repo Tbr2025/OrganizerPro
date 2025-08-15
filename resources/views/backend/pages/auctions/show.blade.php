@@ -134,26 +134,25 @@
                                 <td class="p-3 font-semibold cursor-pointer" x-data="{ open: false, finalPrice: player.final_price }" @click="open = true"
                                     x-text="formatCurrency(finalPrice)">
                                 </td>
-@can('auctions.edit')
-<td class="p-3 font-semibold" x-data="{ finalPrice: player.final_price }">
-    <div class="flex items-center gap-2">
-        <!-- Decrease / Increase Bid -->
-        <button @click="decreaseBid(player)"
-                class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">-</button>
+                                @can('auctions.edit')
+                                    <td class="p-3 font-semibold" x-data="{ finalPrice: player.final_price }">
+                                        <div class="flex items-center gap-2">
+                                            <!-- Decrease / Increase Bid -->
+                                            <button @click="decreaseBid(player)"
+                                                class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">-</button>
 
-        <span x-text="formatCurrency(player.current_price)"></span>
+                                            <span x-text="formatCurrency(player.current_price)"></span>
 
-        <button @click="increaseBid(player)"
-                class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                :disabled="player.current_price >= player.max_price">+</button>
+                                            <button @click="increaseBid(player)"
+                                                class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                                :disabled="player.current_price >= player.max_price">+</button>
 
-        <!-- Final Price Input -->
-        <input type="number" x-model.number="finalPrice"
-               class="w-24 px-2 py-1 border rounded text-black"
-               placeholder="Final Price">
+                                            <!-- Final Price Input -->
+                                            <input type="number" x-model.number="finalPrice"
+                                                class="w-24 px-2 py-1 border rounded text-black" placeholder="Final Price">
 
-        <button
-            @click="
+                                            <button
+                                                @click="
                 fetch(`/admin/auction/{{ $auction->id }}/player/${player.id}/final-price`, {
                     method: 'POST',
                     headers: {
@@ -176,10 +175,10 @@
                     alert('Error updating final price.');
                 });
             "
-            class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600">Save</button>
-    </div>
-</td>
-@endcan
+                                                class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600">Save</button>
+                                        </div>
+                                    </td>
+                                @endcan
 
 
 
@@ -217,15 +216,53 @@
                                                 x-text="player.sold_to_team ? player.sold_to_team.name : 'N/A'"></div>
                                         </template>
                                     </td>
-                                    <td class="p-3 text-right">
+                                    <td class="p-3 text-right flex items-center justify-end gap-2">
+                                        <!-- Remove Player Button -->
                                         <button @click="removePlayer(player.id, index)"
-                                            class="text-red-500 hover:text-red-700" title="Remove Player">
+                                            class="text-red-500 hover:text-red-700 p-1 rounded" title="Remove Player">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
                                                 </path>
                                             </svg>
                                         </button>
+
+                                        <!-- Toggle Status Button -->
+                                        <template x-if="player.status !== 'sold'">
+                                            <button
+                                                @click="
+                player.status = player.status === 'on_auction' ? 'waiting' : 'on_auction';
+
+                fetch(`/admin/auction/{{ $auction->id }}/player/${player.id}/toggle-status`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ status: player.status })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if(!data.success) {
+                        alert('Failed to update status.');
+                        player.status = player.status === 'on_auction' ? 'waiting' : 'on_auction'; // revert
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error updating status.');
+                    player.status = player.status === 'on_auction' ? 'waiting' : 'on_auction'; // revert
+                });
+            "
+                                                class="text-blue-500 hover:text-blue-700 p-1 rounded"
+                                                :title="player.status === 'on_auction' ? 'Set Waiting' : 'Set On Auction'">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M4 4v6h6M20 20v-6h-6M4 20l16-16"></path>
+                                                </svg>
+                                            </button>
+                                        </template>
                                     </td>
                                 @endcan
                             </tr>
@@ -449,7 +486,33 @@
                         alert('Network error while decreasing bid.');
                     }
                 },
+                async putBackInAuction(playerId) {
+                    if (!confirm('Are you sure you want to put this player back in auction?')) return;
 
+                    fetch(`/admin/auctions/player/${playerId}/put-back`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({})
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Player status updated to "on_auction"!');
+                                // Update local status so UI reflects change immediately
+                                const player = players.find(p => p.id === playerId);
+                                if (player) player.status = 'on_auction';
+                            } else {
+                                alert(data.error || 'Failed to update player status.');
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert('Error updating player status.');
+                        });
+                },
 
                 formatCurrency(points) {
                     points = Number(points) || 0;

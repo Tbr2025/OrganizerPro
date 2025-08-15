@@ -662,4 +662,23 @@ class AuctionAdminController extends Controller
 
         return back()->with('success', 'Player has been successfully assigned, sold, and added to the team.');
     }
+
+
+
+    // putBackInAuction
+
+    public function toggleStatus(Auction $auction, $player)
+    {
+        $auctionPlayer = $auction->auctionPlayers()->findOrFail($player);
+
+        // Only toggle if not sold
+        if ($auctionPlayer->status === 'sold') {
+            return response()->json(['success' => false, 'message' => 'Cannot toggle a sold player.'], 400);
+        }
+
+        $auctionPlayer->status = $auctionPlayer->status === 'on_auction' ? 'waiting' : 'on_auction';
+        $auctionPlayer->save();
+
+        return response()->json(['success' => true, 'status' => $auctionPlayer->status]);
+    }
 }
