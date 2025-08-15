@@ -81,7 +81,7 @@ class PublicAuctionController extends Controller
                 'bids.team'
             ])
             ->whereIn('status', ['sold']) // include sold players
-            ->orderBy('status', 'desc') // optionally show 'on_auction' first
+            ->orderBy('updated_at', 'desc') // optionally show 'on_auction' first
             ->first();
 
         return response()->json([
