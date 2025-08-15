@@ -62,6 +62,10 @@
             text-transform: uppercase;
         }
 
+        .hidden {
+            display: none;
+        }
+
         #twh {
             position: absolute;
             top: 490px;
@@ -173,11 +177,11 @@
 
 
         #sold-text {
-    bottom: 243px;
-    left: 186px;
-    position: absolute;
-    font-size: 32px;
-}
+            bottom: 243px;
+            left: 186px;
+            position: absolute;
+            font-size: 32px;
+        }
     </style>
 </head>
 
@@ -185,9 +189,7 @@
 
     <div class="card-container">
         <!-- Sold Badge -->
-        <div id="sold-badge" class="absolute hidden">
-            <img src="/images/sold.png" alt="Sold Badge" class="sold-badge">
-        </div>
+     
 
 
         <!-- Actual Team Logo -->
