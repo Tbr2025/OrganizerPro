@@ -165,9 +165,11 @@ Route::middleware(['auth'])
 // --- Public Display Route ---
 Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPublicDisplay'])
     ->name('public.auction.live');
-
+Route::get('/auction/{auction}/sold', [PublicAuctionController::class, 'showPublicDisplaySold'])
+    ->name('public.auction.sold');
 // API endpoint for AJAX polling
 Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
+Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {

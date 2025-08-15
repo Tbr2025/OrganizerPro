@@ -243,7 +243,7 @@
         // Use it here
 
         function fetchActivePlayer() {
-            fetch(`/auction/{{ $auction->id }}/active-player`)
+            fetch(`/auction/{{ $auction->id }}/sold-player`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.auctionPlayer) {
