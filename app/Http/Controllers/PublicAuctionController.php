@@ -33,7 +33,7 @@ class PublicAuctionController extends Controller
                 'bids',
                 'bids.team'
             ])
-            ->whereIn('status', ['on_auction', 'sold']) // include sold players
+            ->whereIn('status', ['on_auction']) // include sold players
             ->orderBy('status', 'desc') // optionally show 'on_auction' first
             ->first();
 
