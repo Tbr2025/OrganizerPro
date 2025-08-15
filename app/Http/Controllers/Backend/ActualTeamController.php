@@ -60,27 +60,36 @@ class ActualTeamController extends Controller
         // Calculate total spent per team
         $teamBudgets = [];
         foreach ($actualTeams as $team) {
-            $auction =  Auction::first();
+            $auction = $team->auction; // get the auction related to this team
             $totalSpent = 0;
             $maxBudget = 0;
-
-         
-            $maxBudget = $auction->max_budget_per_team;
-
-            $teamUserIds = DB::table('actual_team_users')
+            $userCount = DB::table('actual_team_users')
                 ->where('actual_team_id', $team->id)
-                ->pluck('user_id');
-            $totalSpent = DB::table('actions_bids')
-                ->whereIn('auction_player_id', function ($q) use ($auction) {
-                    $q->select('id')
-                        ->from('auction_players')
-                        ->where('auction_id', $auction->id);
-                })
-                ->sum('amount');
+                ->count();
+            if ($auction) {
+                $maxBudget = $auction->max_budget_per_team;
+
+                // Get user IDs in this actual team
+                $teamUserIds = DB::table('actual_team_users')
+                    ->where('actual_team_id', $team->id)
+                    ->pluck('user_id');
+
+                // Sum all bids from these users for this auction
+                $totalSpent = DB::table('actions_bids')
+                    ->whereIn('user_id', $teamUserIds)
+                    ->whereIn('auction_player_id', function ($q) use ($auction) {
+                        $q->select('id')
+                            ->from('auction_players')
+                            ->where('auction_id', $auction->id);
+                    })
+                    ->sum('amount');
+            }
 
             $teamBudgets[$team->id] = [
                 'spent' => $totalSpent,
                 'max_budget' => $maxBudget,
+                'user_count' => $userCount, // added this
+
             ];
         }
 
