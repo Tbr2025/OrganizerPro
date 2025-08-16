@@ -311,11 +311,11 @@ class RolesService
         // The implementation of scope (e.g., "only players of my team") would be in a policy/middleware.
         $teamManagerPermissions = [
             'dashboard.view',
-            'actual-team.view', // Can view teams (at least their own)
-            'actual-team.edit', // Can edit their own team details (if allowed by policy)
+            // 'actual-team.view', // Can view teams (at least their own)
+            // 'actual-team.edit', // Can edit their own team details (if allowed by policy)
             'player.view', // Can view players (at least their team's)
-            'match.view',
-            'auction.view',
+            // 'match.view',
+            // 'auction.view',
 
         ];
         $roles['team_manager'] = $this->createOrSyncRole('Team Manager', $teamManagerPermissions);
