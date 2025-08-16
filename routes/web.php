@@ -12,6 +12,7 @@ use App\Http\Controllers\Backend\AuctionController;
 use App\Http\Controllers\Backend\AuctionLiveController;
 use App\Http\Controllers\Backend\AuctionOrganizerController;
 use App\Http\Controllers\Backend\Auth\ScreenshotGeneratorLoginController;
+use App\Http\Controllers\Backend\BackupController;
 use App\Http\Controllers\Backend\BallController;
 use App\Http\Controllers\Backend\ClosedBidController;
 use App\Http\Controllers\Backend\DashboardController;
@@ -108,9 +109,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         ->name('admin.auctions.latest-players');
 
 
-  // routes/web.php
-Route::post('/auction/{auction}/player/{player}/toggle-status', [AuctionAdminController::class, 'toggleStatus'])
-    ->name('auction.player.toggle-status');
+    // routes/web.php
+    Route::post('/auction/{auction}/player/{player}/toggle-status', [AuctionAdminController::class, 'toggleStatus'])
+        ->name('auction.player.toggle-status');
 
 
     Route::post('/auctions/add-bid', [AuctionAdminController::class, 'addBid'])
@@ -186,6 +187,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
 
 
+    Route::get('/backups', [BackupController::class, 'index'])->name('backups.index');
 
 
 

@@ -436,6 +436,13 @@ class AdminMenuService
                     'priority' => 10,
                     'permissions' => ['translations.view', 'translations.edit'],
                 ],
+                  [
+                    'label' => __('Backup / restore'),
+                    'route' => route('admin.backups.index'),
+                    'active' => Route::is('admin.backups.*'),
+                    'priority' => 10,
+                    'permissions' => ['backups.view', 'backups.edit'],
+                ],
             ],
         ], __('More'));
 

@@ -103,6 +103,8 @@ class PermissionService
                 'permissions' => [
                     'settings.view',
                     'settings.edit',
+                    'backups.edit',
+                    'backups.view',
                 ],
             ],
             [
