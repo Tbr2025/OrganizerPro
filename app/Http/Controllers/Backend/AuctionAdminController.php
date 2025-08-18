@@ -14,6 +14,8 @@ use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class AuctionAdminController extends Controller
 {
@@ -460,12 +462,15 @@ class AuctionAdminController extends Controller
     }
 
 
+    /**
+     * Update the main auction configuration.
+     * Player pool additions/removals are handled via AJAX.
+     * Player base price updates can be via AJAX or form submission.
+     */
     public function update(Request $request, Auction $auction)
     {
-        // 1. Authorize the action
-        $this->authorize('auction.edit'); // Assuming a permission
+        $this->authorize('auction.edit');
 
-        // 2. Validate all the data from your multi-step form
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'organization_id' => 'required|exists:organizations,id',
@@ -477,19 +482,15 @@ class AuctionAdminController extends Controller
             'bid_rules.*.from' => 'required|numeric|min:0',
             'bid_rules.*.to' => 'required|numeric|gt:bid_rules.*.from',
             'bid_rules.*.increment' => 'required|numeric|min:0',
-
-            // Player pool data
+            // Player IDs and prices are handled via AJAX, not directly validated here,
+            // but if they are part of the form submission (hidden fields), we need to ensure they are present.
             'player_ids' => 'nullable|array',
-            'player_ids.*' => 'exists:players,id', // Ensure all submitted IDs are valid players
+            'player_ids.*' => 'exists:players,id',
             'player_base_prices' => 'nullable|array',
             'player_base_prices.*' => 'required|numeric|min:0',
         ]);
 
-        // Use a database transaction to ensure data integrity.
-        // If any step fails, all changes will be rolled back.
         DB::transaction(function () use ($validated, $auction, $request) {
-
-            // 3. Update the main auction details (Steps 1, 2, 3)
             $auction->update([
                 'name' => $validated['name'],
                 'organization_id' => $validated['organization_id'],
@@ -500,62 +501,153 @@ class AuctionAdminController extends Controller
                 'bid_rules' => $validated['bid_rules'],
             ]);
 
-            // 4. Synchronize the Player Pool (Step 4)
-            $playerIdsInPool = $validated['player_ids'] ?? [];
-            $basePrices = $validated['player_base_prices'] ?? [];
+            // The player_ids and player_base_prices are now primarily managed by AJAX.
+            // However, if the form is submitted, we still want to capture any manually
+            // updated prices that weren't submitted via AJAX. The AJAX calls handle the
+            // dynamic price updates, so this part might be redundant or need careful review
+            // if the goal is ONLY AJAX for price updates.
+            // For now, we'll assume the form submission might still send some prices.
+            $playerBasePricesFromForm = $request->input('player_base_prices', []);
+            $playersToUpdateFromForm = [];
 
-            $syncData = [];
-            foreach ($playerIdsInPool as $playerId) {
-                // Prepare the data for the auction_players pivot table
-                $syncData[$playerId] = [
-                    'base_price' => $basePrices[$playerId] ?? $auction->base_price, // Use specific price or default
-                    'organization_id' => $auction->organization_id, // Carry over the org ID
-                    // Other default values when a player is first added
-                    'status' => 'scheduled', // Default status when added
-                    'current_price' => $basePrices[$playerId] ?? $auction->base_price,
-                ];
+            foreach ($playerBasePricesFromForm as $playerId => $price) {
+                // Basic validation for price coming from form
+                if (Validator::make(['price' => $price], ['price' => 'required|numeric|min:0'])->fails()) {
+                    // Log or handle invalid price from form submission if necessary
+                    continue;
+                }
+                $playersToUpdateFromForm[$playerId] = ['base_price' => $price];
             }
 
-            // The sync() method is perfect. It adds new players, removes old ones,
-            // and because we are not using it to update, it won't touch existing records that stay.
-            // However, a simple sync won't update base prices. So we do it manually for more control.
-
-            $existingPlayerIds = $auction->auctionPlayers->pluck('player_id')->toArray();
-            $playersToAdd = array_diff($playerIdsInPool, $existingPlayerIds);
-            $playersToRemove = array_diff($existingPlayerIds, $playerIdsInPool);
-
-            // Remove players who were taken out of the pool
-            if (!empty($playersToRemove)) {
-                AuctionPlayer::where('auction_id', $auction->id)->whereIn('player_id', $playersToRemove)->delete();
-            }
-
-            // Add new players to the pool
-            foreach ($playersToAdd as $playerId) {
-                AuctionPlayer::create([
-                    'auction_id' => $auction->id,
-                    'player_id' => $playerId,
-                    'base_price' => $basePrices[$playerId] ?? $auction->base_price,
-                    'current_price' => $basePrices[$playerId] ?? $auction->base_price,
-                    'base_price' => $basePrices[$playerId] ?? $auction->base_price,
-                    'starting_price' => $basePrices[$playerId] ?? $auction->base_price,
-                    'organization_id' => $auction->organization_id,
-                    'status' => 'waiting',
-                ]);
-            }
-
-            // Update base prices for players who remained in the pool
-            $playersToUpdate = array_intersect($playerIdsInPool, $existingPlayerIds);
-            foreach ($playersToUpdate as $playerId) {
-                if (isset($basePrices[$playerId])) {
+            if (!empty($playersToUpdateFromForm)) {
+                foreach ($playersToUpdateFromForm as $playerId => $data) {
                     AuctionPlayer::where('auction_id', $auction->id)
                         ->where('player_id', $playerId)
-                        ->update(['base_price' => $basePrices[$playerId], 'current_price' => $basePrices[$playerId]]);
+                        ->update($data);
                 }
             }
         });
 
-        // 5. Redirect with a success message
-        return redirect()->route('admin.auctions.index')->with('success', 'Auction and player pool updated successfully.');
+        return redirect()->route('admin.auctions.index')->with('success', 'Auction configuration updated successfully.');
+    }
+
+    public function addPlayerToPool(Request $request, Auction $auction, Player $player)
+    {
+        $this->authorize('auction.edit');
+
+        $validated = $request->validate(['base_price' => 'required|numeric|min:0']);
+        $basePrice = $validated['base_price'];
+
+        $response = null; // Variable to hold the response
+
+        try {
+            DB::transaction(function () use ($auction, $player, $basePrice, &$response) { // Pass response by reference
+                $playerExists = $auction->auctionPlayers()->where('player_id', $player->id)->exists();
+
+                if ($playerExists) {
+                    AuctionPlayer::where('auction_id', $auction->id)->where('player_id', $player->id)->update([
+                        'base_price' => $basePrice,
+                        'current_price' => $basePrice,
+                    ]);
+                    // Set the response for existing player case
+                    $response = response()->json([
+                        'message' => 'Player already in pool. Price updated.',
+                        'player' => ['id' => $player->id, 'name' => $player->name, 'base_price' => $basePrice],
+                    ]);
+                } else {
+                    $newAuctionPlayer = AuctionPlayer::create([
+                        'auction_id' => $auction->id,
+                        'player_id' => $player->id,
+                        'organization_id' => $auction->organization_id,
+                        'base_price' => $basePrice,
+                        'current_price' => $basePrice,
+                        'starting_price' => $basePrice,
+                        'status' => 'waiting',
+                    ]);
+                    // Set the response for newly created player
+                    $response = response()->json([
+                        'message' => 'Player added to pool successfully.',
+                        'player' => ['id' => $player->id, 'name' => $player->name, 'base_price' => $basePrice],
+                    ], 201);
+                }
+            });
+
+            // Return the response after the transaction has successfully committed
+            return $response;
+        } catch (\Exception $e) {
+            Log::error("Error adding player {$player->id} to auction {$auction->id}: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to add player. Please try again.'], 500);
+        }
+    }
+    /**
+     * Handles AJAX request to remove a player from the auction pool.
+     */
+    public function removePlayerFromPool(Request $request, Auction $auction, Player $player)
+    {
+        $this->authorize('auction.edit');
+
+        try {
+            // Use lockForUpdate to prevent race conditions during removal
+            $deletedCount = DB::transaction(function () use ($auction, $player) {
+                return AuctionPlayer::where('auction_id', $auction->id)
+                    ->where('player_id', $player->id)
+                    ->delete();
+            });
+
+            if ($deletedCount === 0) {
+                // Player was not found in the pool for this auction, which can happen if already removed or never added.
+                // Return a specific status for this case.
+                return response()->json(['message' => 'Player not found in the pool for this auction.', 'player_id' => $player->id], 404);
+            }
+
+            return response()->json(['message' => 'Player removed from pool successfully.', 'player_id' => $player->id], 200);
+        } catch (\Exception $e) {
+            Log::error("Error removing player {$player->id} from auction {$auction->id}: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to remove player. Please try again.'], 500);
+        }
+    }
+
+    /**
+     * Handles AJAX request to update a player's base price in the pool.
+     */
+    public function updatePlayerPrice(Request $request, Auction $auction, Player $player)
+    {
+        $this->authorize('auction.edit');
+
+        // Validate the incoming base_price
+        $validated = $request->validate([
+            'base_price' => 'required|numeric|min:0',
+        ]);
+
+        $newBasePrice = $validated['base_price'];
+
+        try {
+            // Use lockForUpdate for consistency, especially if price changes affect other logic
+            $updatedCount = DB::transaction(function () use ($auction, $player, $newBasePrice) {
+                return AuctionPlayer::where('auction_id', $auction->id)
+                    ->where('player_id', $player->id)
+                    ->update([
+                        'base_price' => $newBasePrice,
+                        'current_price' => $newBasePrice, // Assuming current_price also updates
+                        // You might also want to update status or other fields if applicable
+                    ]);
+            });
+
+            if ($updatedCount === 0) {
+                return response()->json(['message' => 'Player or auction not found for price update.', 'player_id' => $player->id], 404);
+            }
+
+            return response()->json([
+                'message' => 'Player base price updated successfully.',
+                'player' => [
+                    'id' => $player->id,
+                    'base_price' => $newBasePrice,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error("Error updating price for player {$player->id} in auction {$auction->id}: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to update player price. Please try again.'], 500);
+        }
     }
 
     /**

@@ -89,6 +89,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
 
 
+
+    Route::post('/auctions/{auction}/players/{player}', [AuctionAdminController::class, 'addPlayerToPool'])->name('auctions.players.add');
+
+    // Route for removing a player from the pool via AJAX
+    Route::delete('/auctions/{auction}/players/{player}', [AuctionAdminController::class, 'removePlayerFromPool'])->name('auctions.players.remove');
+
     Route::post('/auction/{auction}/player/{player}/final-price', [ClosedBidController::class, 'updateFinalPrice'])
         ->name('auction.player.final-price');
     // Closed bids
