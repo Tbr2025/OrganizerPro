@@ -191,6 +191,18 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
 
 
+    Route::get('/download-log', function () {
+        $path = storage_path('logs/laravel.log');
+
+        if (!file_exists($path)) {
+            abort(404, "Log file not found!");
+        }
+
+        return response()->download($path, 'laravel-log.txt', [
+            'Content-Type' => 'text/plain',
+        ]);
+    });
+
     Route::get('/backup-db', function () {
         // Database connection info
         $dbHost = env('DB_HOST', '127.0.0.1');
