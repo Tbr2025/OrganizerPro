@@ -14,17 +14,13 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ActualTeamController extends Controller
 {
     public function index()
     {
-
-
-
-
-
 
         $user = Auth::user();
         $filters = [
@@ -208,19 +204,18 @@ class ActualTeamController extends Controller
         ]);
         return view('backend.pages.actual_teams.show', compact('actualTeam'));
     }
+
     // public function edit(ActualTeam $actualTeam)
     // {
-    //     // Authorization check: Ensure user can edit this team
+    //     // Authorization check
     //     if (
-    //         !auth()->user()->hasRole('Superadmin') && // Corrected to 'Superadmin'
+    //         !auth()->user()->hasRole('Superadmin') &&
     //         $actualTeam->organization_id !== auth()->user()->organization_id
     //     ) {
     //         abort(403, 'You are not authorized to edit this team.');
     //     }
 
     //     // --- Data Loading ---
-
-    //     // Get lists for dropdowns (organizations, tournaments, roles)
     //     $organizations = Organization::all();
     //     $tournaments = Tournament::all();
     //     $roles = Role::whereNotIn('name', [
@@ -232,38 +227,57 @@ class ActualTeamController extends Controller
     //         'Editor'
     //     ])->get();
 
-    //     // Eager load the users currently on the team for efficiency
     //     $actualTeam->load('users');
+    //     $currentMembers = $actualTeam->users;
+    //     $currentTeamUserIds = $currentMembers->pluck('id')->toArray();
 
-    //     // Get the IDs of users already on THIS team.
-    //     $currentTeamUserIds = $actualTeam->users->pluck('id')->toArray();
 
-    //     // Get the members of the current team to display in the "Current Squad" list
-    //     $currentMembers = $actualTeam->users; // We can just use the loaded relationship
-
+    //     $currentPlayerMembers = $currentMembers->filter(function ($member) {
+    //         // Check if the user has the 'Player' role in the current team context
+    //         return $member->pivot->role === 'Player';
+    //     });
     //     // --- Main Logic: Get AVAILABLE Users ---
 
-    //     // First, find all user IDs that are already assigned to ANY other team in the system.
+    //     // Find all user IDs assigned to ANY other team.
     //     $assignedToOtherTeamIds = DB::table('actual_team_users')
     //         ->where('actual_team_id', '!=', $actualTeam->id)
     //         ->pluck('user_id')
     //         ->toArray();
 
-    //     // **THIS IS THE KEY FIX**
-    //     // Now, combine the two exclusion lists:
-    //     // 1. Users on THIS team.
-    //     // 2. Users on ANY OTHER team.
+    //     // Combine all user IDs that should be excluded.
     //     $allExcludedUserIds = array_unique(array_merge($currentTeamUserIds, $assignedToOtherTeamIds));
 
-    //     // Start building the query for available users
+    //     // Start building the query for available users.
     //     $usersQuery = User::query();
 
-    //     // Apply role-based scoping
-    //     if (auth()->user()->hasRole('Superadmin')) { // Corrected to 'Superadmin'
-    //         // Superadmin can see all users not already on a team.
+    //     // **THIS IS THE REQUIRED FIX**
+    //     // The query now has two main parts, grouped together.
+    //     $usersQuery->where(function ($query) {
+    //         // Condition 1: Include users who ARE 'Player' role AND have a welcome email sent.
+    //         $query->whereHas('roles', function ($subQuery) {
+    //             $subQuery->where('name', 'Player');
+    //         })
+    //             ->whereHas('player', function ($subQuery) {
+    //                 $subQuery->whereNotNull('welcome_email_sent_at');
+    //             });
+
+    //         // OR
+
+    //         // Condition 2: Include users who are NOT 'Player' role.
+    //         $query->orWhere(function ($subQuery) {
+    //             $subQuery->whereDoesntHave('roles', function ($roleQuery) {
+    //                 $roleQuery->where('name', 'Player');
+    //             });
+    //         });
+    //     });
+
+
+    //     // Apply role-based scoping (Superadmin vs. regular user)
+    //     if (auth()->user()->hasRole('Superadmin')) {
+    //         // Superadmin sees all eligible users not on a team.
     //         $usersQuery->whereNotIn('id', $allExcludedUserIds);
     //     } else {
-    //         // Other users see only users from their own organization who are not on a team.
+    //         // Other users see eligible users from their org who aren't on a team or privileged.
     //         $authUser = auth()->user();
     //         $usersQuery->where('organization_id', $authUser->organization_id)
     //             ->whereNotIn('id', $allExcludedUserIds)
@@ -272,21 +286,23 @@ class ActualTeamController extends Controller
     //             });
     //     }
 
-    //     // Execute the query to get the final list of available users
+    //     // Execute the query to get the final list of available users.
     //     $users = $usersQuery->get();
 
-
     //     // --- Return the View ---
-
     //     return view('backend.pages.actual_teams.edit', compact(
     //         'actualTeam',
     //         'organizations',
     //         'tournaments',
     //         'roles',
-    //         'users',       // This is now the correctly filtered list
-    //         'currentMembers'
+    //         'users',
+    //         'currentMembers',
+    //         'currentPlayerMembers' // Use this filtered collection
+
     //     ));
     // }
+
+
     public function edit(ActualTeam $actualTeam)
     {
         // Authorization check
@@ -300,45 +316,61 @@ class ActualTeamController extends Controller
         // --- Data Loading ---
         $organizations = Organization::all();
         $tournaments = Tournament::all();
-        $roles = Role::whereNotIn('name', [
-            'SuperAdmin',
-            'Admin',
+
+        // Filter roles that should be available for selection in the UI
+        $availableRolesForSelection = Role::whereNotIn('name', [
             'Contact',
             'Subscriber',
             'Viewer',
-            'Editor'
+            'Editor',
+            'Admin',
+            'SuperAdmin'
         ])->get();
 
-        $actualTeam->load('users');
-        $currentMembers = $actualTeam->users;
-        $currentTeamUserIds = $currentMembers->pluck('id')->toArray();
 
+        // --- Get CURRENT Members with their PIVOT data ---
+        // This fetches all users linked to the actualTeam via the pivot table,
+        $currentMembers = $actualTeam->members()->get();
 
+        // --- Filter 1: Current Players (Squad) ---
         $currentPlayerMembers = $currentMembers->filter(function ($member) {
-            // Check if the user has the 'Player' role in the current team context
-            return $member->pivot->role === 'Player';
+            // We rely on the role saved in the pivot table ('actual_team_users')
+            return $member->pivot && $member->pivot->role === 'Player';
         });
-        // --- Main Logic: Get AVAILABLE Users ---
+
+        // --- Filter 2: Current Staff (Non-Players) ---
+        $currentStaffMembers = $currentMembers->filter(function ($member) {
+            // Filter for everyone whose pivot role is NOT 'Player'
+            // We should also check for the existence of the pivot data
+            return $member->pivot && $member->pivot->role !== 'Player';
+        });
+
+
+        // --- Logic to get AVAILABLE Users (as you had it) ---
 
         // Find all user IDs assigned to ANY other team.
+        // Adjust table names if yours are different (e.g., 'team_user' instead of 'actual_team_users')
         $assignedToOtherTeamIds = DB::table('actual_team_users')
             ->where('actual_team_id', '!=', $actualTeam->id)
             ->pluck('user_id')
             ->toArray();
 
-        // Combine all user IDs that should be excluded.
+        // Combine all user IDs that should be excluded from the 'available' list.
+        $currentTeamUserIds = $currentMembers->pluck('id')->toArray(); // Get IDs from already loaded current members
+
+
         $allExcludedUserIds = array_unique(array_merge($currentTeamUserIds, $assignedToOtherTeamIds));
 
         // Start building the query for available users.
         $usersQuery = User::query();
 
-        // **THIS IS THE REQUIRED FIX**
-        // The query now has two main parts, grouped together.
+        // Apply the complex filtering logic for eligibility
         $usersQuery->where(function ($query) {
             // Condition 1: Include users who ARE 'Player' role AND have a welcome email sent.
             $query->whereHas('roles', function ($subQuery) {
                 $subQuery->where('name', 'Player');
             })
+                // Assumes a 'player' relationship to a 'player_profiles' table or similar
                 ->whereHas('player', function ($subQuery) {
                     $subQuery->whereNotNull('welcome_email_sent_at');
                 });
@@ -353,10 +385,9 @@ class ActualTeamController extends Controller
             });
         });
 
-
-        // Apply role-based scoping (Superadmin vs. regular user)
+        // Apply role-based scoping (Superadmin vs. regular user) for the 'available users' list
         if (auth()->user()->hasRole('Superadmin')) {
-            // Superadmin sees all eligible users not on a team.
+            // Superadmin sees all eligible users not on any team.
             $usersQuery->whereNotIn('id', $allExcludedUserIds);
         } else {
             // Other users see eligible users from their org who aren't on a team or privileged.
@@ -364,25 +395,31 @@ class ActualTeamController extends Controller
             $usersQuery->where('organization_id', $authUser->organization_id)
                 ->whereNotIn('id', $allExcludedUserIds)
                 ->whereDoesntHave('roles', function ($query) {
-                    $query->whereIn('name', ['Superadmin', 'Admin']);
+                    $query->whereIn('name', ['Superadmin', 'Admin']); // Exclude admins/superadmins from non-superadmin views
                 });
         }
 
         // Execute the query to get the final list of available users.
-        $users = $usersQuery->get();
-
+        $availableUsers = $usersQuery->get();
+        $allRolesForCombobox = Role::all(); // Fetch all roles for the dropdown
         // --- Return the View ---
+        // Pass the filtered roles for the select dropdowns
+        // Pass the current members with their pivot data
+        // Pass the calculated available users
         return view('backend.pages.actual_teams.edit', compact(
             'actualTeam',
             'organizations',
             'tournaments',
-            'roles',
-            'users',
-            'currentMembers',
-            'currentPlayerMembers' // Use this filtered collection
+            'availableRolesForSelection',
+            'allRolesForCombobox',        // All roles available for existing members' role changes
 
+            'availableUsers',
+            'currentMembers', // This is the array of all current members with pivot data
+            'currentPlayerMembers', // This is the array of current members filtered to be only players
+            'currentStaffMembers'
         ));
     }
+
     public function update(Request $request, ActualTeam $actualTeam)
     {
         // 1. Authorize the action
@@ -462,21 +499,176 @@ class ActualTeamController extends Controller
     }
 
 
-    public function removeMember(Request $request, ActualTeam $actualTeam)
+    public function addMember(Request $request, ActualTeam $actualTeam)
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
+            'roles'   => 'required|array|min:1',
+            'roles.*' => 'string',
+            // Allow "retained" or "normal" string, or boolean
+            'retained' => 'nullable|string|in:retained,normal,true,false,1,0',
         ]);
 
-        $deleted = DB::table('actual_team_users')
-            ->where('actual_team_id', $actualTeam->id)
-            ->where('user_id', $request->user_id)
-            ->delete();
+        $userId = $request->user_id;
+        $inputRoles = $request->roles;
 
-        if ($deleted) {
-            return response()->json(['success' => true]);
+        // Normalize roles
+        $roles = array_map('strtolower', $inputRoles);
+        $isPlayer = in_array('player', $roles);
+
+        // Normalize retained input
+        $retainedInput = $request->input('retained');
+        $isRetained = in_array(strtolower((string) $retainedInput), ['1', 'true', 'retained'], true);
+
+        try {
+            DB::beginTransaction();
+
+            // 🔹 Check retained player limit (only for players)
+            if ($isPlayer && $isRetained) {
+                $retainedCount = DB::table('players')
+                    ->where('actual_team_id', $actualTeam->id)
+                    ->where('player_mode', 'retained')
+                    ->count();
+
+                // Check if this user is already retained (editing case)
+                $alreadyRetained = DB::table('players')
+                    ->where('actual_team_id', $actualTeam->id)
+                    ->where('user_id', $userId)
+                    ->where('player_mode', 'retained')
+                    ->exists();
+
+                if (!$alreadyRetained && $retainedCount >= 4) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Maximum 4 retained players are allowed per team.',
+                    ], 422);
+                }
+            }
+
+            $user = User::findOrFail($userId);
+
+            // Sync roles
+            $user->syncRoles($roles);
+
+            // Attach to team
+            DB::table('actual_team_users')->updateOrInsert(
+                [
+                    'actual_team_id' => $actualTeam->id,
+                    'user_id'        => $userId,
+                ],
+                ['updated_at' => now()]
+            );
+
+            if ($isPlayer) {
+                $player = $user->player;
+
+                if ($player) {
+                    $player->player_mode = $isRetained ? 'retained' : 'normal';
+                    $player->actual_team_id = $actualTeam->id;
+                    $player->save();
+                } else {
+                    Log::warning("User {$userId} added as Player to team {$actualTeam->id}, but no player record found.");
+                    // Optionally create the record if needed
+                }
+            } else {
+                // Non-player: reset player details if previously attached
+                $player = $user->player;
+                if ($player && $player->actual_team_id === $actualTeam->id) {
+                    $player->player_mode = 'normal';
+                    $player->actual_team_id = null;
+                    $player->save();
+                }
+            }
+
+            DB::commit();
+
+            // Reload user with roles
+            $userData = User::with('roles')->findOrFail($userId);
+            $avatarUrl = "https://ui-avatars.com/api/?name=" . urlencode($userData->name) . "&color=7F9CF5&background=EBF4FF";
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Member added successfully.',
+                'user'    => [
+                    'id'       => $userId,
+                    'name'     => $userData->name,
+                    'email'    => $userData->email,
+                    'roles'    => $userData->roles->pluck('name')->toArray(),
+                    'avatar'   => $avatarUrl,
+                    'retained' => $isRetained ? 'retained' : 'normal',
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Error adding member to team {$actualTeam->id}: {$e->getMessage()} \n {$e->getTraceAsString()}");
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add member. Please try again.',
+                'error_details' => $e->getMessage(),
+            ], 500);
         }
+    }
 
-        return response()->json(['success' => false, 'message' => 'Member not found in this team.'], 404);
+
+
+
+    /**
+     * Removes a member from the actual team.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\ActualTeam  $actualTeam
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function removeMember(ActualTeam $actualTeam, User $user)
+    {
+        $userId = $user->id;
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Check if the user is actually a member of this team
+            $isMember = DB::table('actual_team_users')
+                ->where('actual_team_id', $actualTeam->id)
+                ->where('user_id', $userId)
+                ->exists();
+
+            if (!$isMember) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not a member of this team.',
+                ], 400);
+            }
+
+            // Fetch user roles before detaching
+            $userRoles = $user->roles->pluck('name')->map(fn($r) => strtolower($r))->toArray();
+            $isPlayer = in_array('player', $userRoles);
+
+            // 2. Detach from pivot
+            $actualTeam->members()->detach($userId);
+
+            // 3. If user is player, reset player data
+            if ($isPlayer && $user->player) {
+                $user->player->update([
+                    'player_mode'    => 'unassigned', // or default
+                    'actual_team_id' => null,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Member removed successfully.',
+                'user_id' => $userId,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Error removing member {$userId} from team {$actualTeam->id}: {$e->getMessage()}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove member. Please try again.',
+            ], 500);
+        }
     }
 }

@@ -257,6 +257,15 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::post('actual-teams/{actualTeam}/remove-member', [ActualTeamController::class, 'removeMember'])
         ->name('actual-teams.remove-member');
 
+    // Route to add a member to a team
+    Route::post('actual-teams/{actualTeam}/members', [ActualTeamController::class, 'addMember'])->name('actual-teams.add-member');
+
+    Route::delete('actual-teams/{actualTeam}/members/{user}', [ActualTeamController::class, 'removeMember'])
+        ->name('actual-teams.remove-member');
+
+    // Optional: Route to update a member's role
+    Route::put('actual-teams/{actualTeam}/members/{user}/role', [ActualTeamController::class, 'updateMemberRole'])->name('actual-teams.update-member-role');
+
     // Auctions
     // Route::prefix('auctions')->as('auctions.')->group(function () {
     //     Route::get('/', [AuctionController::class, 'index'])->name('index');

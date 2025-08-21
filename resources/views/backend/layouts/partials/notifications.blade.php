@@ -253,6 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Start: initial load (no toasts), then poll and allow toasts later
     fetchNotifications(false);              // first load: do NOT toast
-    setInterval(() => fetchNotifications(true), 10000); // subsequent polls: toast new items
+    // setInterval(() => fetchNotifications(true), 10000); // subsequent polls: toast new items
 });
 </script>

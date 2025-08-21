@@ -69,4 +69,11 @@ class ActualTeam extends Model
     {
         return $this->belongsTo(Auction::class, 'auction_id');
     }
+
+
+    public function members()
+    {
+  
+        return $this->belongsToMany(User::class, 'actual_team_users'); // Change to 'role_id' if that's what you use
+    }
 }

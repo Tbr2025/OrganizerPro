@@ -3,6 +3,26 @@
 @section('title', 'Edit Auction | ' . $auction->name)
 
 @section('admin-content')
+    {{-- Feedback Message Area --}}
+    {{-- Removed x-cloak. Alpine will manage visibility via x-show. --}}
+    {{-- Added x-ref="feedbackMessageElement" to explicitly reference it --}}
+    <div x-show="feedbackMessage"
+        :class="{
+            'bg-green-100 border-green-400 text-green-700': feedbackType === 'success',
+            'bg-red-100 border-red-400 text-red-700': feedbackType === 'error',
+            'bg-blue-100 border-blue-400 text-blue-700': feedbackType === 'info', // Added info type just in case
+        }"
+        class="p-4 mx-4 mb-4 border rounded-md transition-all duration-300 ease-in-out flex items-center justify-between"
+        {{-- Use flex for potential close button --}} style="display: none;" {{-- Fallback for no JS --}} x-ref="feedbackMessageElement"
+        {{-- Reference for potential direct DOM manipulation if needed --}}>
+        <p class="text-sm font-medium" x-text="feedbackMessage"></p>
+        {{-- Optional: Add a close button for manual dismissal --}}
+        <button type="button" @click="feedbackMessage = ''; feedbackType = '';"
+            class="ml-4 text-sm font-semibold hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded">
+            &times;
+        </button>
+    </div>
+    {{-- ... rest of the form content ... --}}
     <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
 
         {{-- Header --}}
@@ -116,18 +136,40 @@
                     <div x-show="step === 2" x-transition:enter.duration.300ms.opacity
                         x-transition:leave.duration.300ms.opacity>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label for="max_budget_per_team" class="form-label">Max Budget Per Team <span
-                                        class="text-red-500">*</span></label>
-                                <input type="number" name="max_budget_per_team" id="max_budget_per_team"
-                                    class="form-control" required x-model.number="auctionData.max_budget_per_team">
-                            </div>
-                            <div>
-                                <label for="base_price" class="form-label">Default Player Base Price <span
-                                        class="text-red-500">*</span></label>
-                                <input type="number" name="base_price" id="base_price" class="form-control" required
-                                    x-model.number="auctionData.base_price">
-                            </div>
+                            <div class="flex flex-col">
+    <label for="max_budget_per_team" class="form-label">
+        Max Budget Per Team <span class="text-red-500">*</span>
+    </label>
+
+    <input type="number" 
+           name="max_budget_per_team" 
+           id="max_budget_per_team"
+           class="form-control"
+           required
+           x-model.number="auctionData.max_budget_per_team">
+
+    <small class="text-gray-500">
+        ≈ <span x-text="(auctionData.max_budget_per_team / 1000000).toFixed(2) + ' M'"></span>
+    </small>
+</div>
+
+                      <div class="flex flex-col">
+    <label for="base_price" class="form-label">
+        Default Player Base Price <span class="text-red-500">*</span>
+    </label>
+
+    <input type="number"
+           name="base_price"
+           id="base_price"
+           class="form-control"
+           required
+           x-model.number="auctionData.base_price">
+
+    <small class="text-gray-500">
+        ≈ <span x-text="(auctionData.base_price / 1000000).toFixed(2) + ' M'"></span>
+    </small>
+</div>
+
                         </div>
                     </div>
 
@@ -141,15 +183,42 @@
                                     <div
                                         class="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 relative">
                                         <span class="text-gray-500">From</span>
-                                        <input type="number" :name="`bid_rules[${index}][from]`" x-model.number="rule.from"
-                                            class="form-control w-24" required min="0">
+                                        <div class="flex flex-col">
+                                            <input type="number" :name="`bid_rules[${index}][from]`"
+                                                x-model.number="rule.from" class="form-control w-42" required
+                                                min="0">
+
+                                            <small class="text-gray-500">
+                                                ≈ <span x-text="(rule.from / 1000000).toFixed(2) + ' M'"></span>
+                                            </small>
+                                        </div>
+
                                         <span class="text-gray-500">To</span>
-                                        <input type="number" :name="`bid_rules[${index}][to]`" x-model.number="rule.to"
-                                            class="form-control w-24" required min="0">
+                                   <div class="flex flex-col">
+    <input type="number" 
+           :name="`bid_rules[${index}][to]`"
+           x-model.number="rule.to"
+           class="form-control w-42"
+           required min="0">
+
+    <small class="text-gray-500">
+        ≈ <span x-text="(rule.to / 1000000).toFixed(2) + ' M'"></span>
+    </small>
+</div>
+
                                         <span class="text-gray-500">Increment</span>
-                                        <input type="number" :name="`bid_rules[${index}][increment]`"
-                                            x-model.number="rule.increment" class="form-control w-24" required
-                                            min="0">
+                                       <div class="flex flex-col">
+    <input type="number"
+           :name="`bid_rules[${index}][increment]`"
+           x-model.number="rule.increment"
+           class="form-control w-42"
+           required min="0">
+
+    <small class="text-gray-500">
+        ≈ <span x-text="(rule.increment / 1000000).toFixed(2) + ' M'"></span>
+    </small>
+</div>
+
                                         <button type="button" @click="removeRule(index)"
                                             class="absolute right-2 top-1/2 -translate-y-1/2 text-red-500 hover:text-red-700 font-bold text-lg px-2 py-1">
                                             &times;
@@ -182,24 +251,32 @@
                                 <div
                                     class="space-y-2 max-h-96 overflow-y-auto border p-3 rounded bg-white dark:bg-gray-800 shadow-sm">
                                     <template x-for="player in inAuctionFiltered" :key="player.id">
-                                        <div
-                                            class="flex justify-between items-center p-2 bg-white dark:bg-gray-800 rounded shadow-sm border border-gray-200 dark:border-gray-700
-                                             transition-shadow duration-150 hover:shadow-md">
-                                            <span x-text="player.name" class="flex-1 mr-2 truncate"></span>
-                                            <div class="flex items-center gap-2">
-                                                {{-- Input for player's base price --}}
-                                                <input type="number" :name="`player_base_prices[${player.id}]`"
-                                                    x-model.number="player.base_price"
-                                                    class="form-control form-control-sm w-28" placeholder="Base Price"
-                                                    min="0" @input.debounce.500ms="updatePlayerPrice(player)">
-                                                {{-- Remove Player Button --}}
-                                                <button type="button" @click="removeFromAuction(player)"
-                                                    class="text-red-500 hover:text-red-700 font-bold text-lg px-2 py-1 transition-colors duration-150">
-                                                    &times;
-                                                </button>
-                                                {{-- Hidden inputs will be dynamically added by prepareFormSubmit() --}}
-                                            </div>
-                                        </div>
+                                   <div
+    class="flex justify-between items-center p-2 bg-white dark:bg-gray-800 rounded shadow-sm border border-gray-200 dark:border-gray-700
+           transition-shadow duration-150 hover:shadow-md">
+    <span x-text="player.name" class="flex-1 mr-2 truncate"></span>
+
+    <div class="flex flex-col items-end gap-1">
+        <input type="number"
+               :name="`player_base_prices[${player.id}]`"
+               x-model.number="player.base_price"
+               class="form-control form-control-sm w-28"
+               placeholder="Base Price"
+               min="0"
+               @input.debounce.500ms="updatePlayerPrice(player)">
+
+        <small class="text-gray-500 text-xs"
+               x-text="(player.base_price / 1000000).toFixed(2) + ' M'">
+        </small>
+    </div>
+
+    <button type="button"
+            @click="removeFromAuction(player)"
+            class="text-red-500 hover:text-red-700 font-bold text-lg px-2 py-1 transition-colors duration-150">
+        &times;
+    </button>
+</div>
+
                                     </template>
                                     {{-- Message if no players in pool or no matches --}}
                                     <div x-show="inAuctionFiltered.length === 0" class="text-center text-gray-500 py-4">
@@ -288,7 +365,10 @@
                 auctionData: {
                     ...auctionData
                 },
-
+                feedbackMessage: '',
+                feedbackType: '',
+                isSubmitting: false,
+                loading: false,
                 // Bid increment rules: array of objects { from, to, increment }
                 rules: [],
 
@@ -385,6 +465,7 @@
                     const defaultBasePrice = this.auctionData.base_price;
 
                     try {
+
                         const response = await fetch(
                             `/admin/auctions/{{ $auction->id }}/players/${player.id}`, {
                                 method: 'POST',
@@ -483,7 +564,7 @@
                     try {
                         const response = await fetch(
                             `/admin/auctions/{{ $auction->id }}/players/${player.id}`, {
-                                method: 'PUT', // Use PUT for update
+                                method: 'POST', // Use PUT for update
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'X-CSRF-TOKEN': document.querySelector(
@@ -521,12 +602,16 @@
                 showFeedback(message, type) {
                     this.feedbackMessage = message;
                     this.feedbackType = type;
-                    // Clear the message after a few seconds
+                    // Alpine handles the visibility via x-show on the div.
+                    // We just need to set the message and type.
+                    // The setTimeout is still important to clear the message after a delay.
                     setTimeout(() => {
+                        // Resetting feedbackMessage and feedbackType will cause x-show to become false
                         this.feedbackMessage = '';
                         this.feedbackType = '';
-                    }, 3000); // Show for 3 seconds
+                    }, 3500); // Show for 3 seconds
                 },
+
 
                 // Prepare the form data for submission when the main form is submitted.
                 // This method adds hidden inputs for player_ids and their base_prices
@@ -558,7 +643,10 @@
 
                 // Handle the main form submission (including preparing hidden fields)
                 submitForm() {
-                    this.prepareFormSubmit(); // Ensure player data is included
+                    this.prepareFormSubmit();
+                    this.feedbackMessage = ''; // Clear feedback before submitting main form
+                    this.feedbackType = '';
+                    this.$refs.auctionFormElement.submit();
 
                     // Access the form element using $refs
                     if (this.$refs.auctionFormElement) {

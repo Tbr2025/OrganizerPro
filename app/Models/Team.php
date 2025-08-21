@@ -43,4 +43,5 @@ class Team extends Model
             ->withPivot(['tournament_id', 'role', 'image_path'])
             ->withTimestamps();
     }
+
 }
