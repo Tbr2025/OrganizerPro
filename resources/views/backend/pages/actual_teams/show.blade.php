@@ -52,16 +52,60 @@
         </div>
 
         {{-- TEAM INFO BAR --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-center">
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Organization</div>
-                <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
-                    {{ $actualTeam->organization->name ?? 'N/A' }}</div>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 text-center">
+            @role('superadmin')
+                <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Organization</div>
+                    <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
+                        {{ $actualTeam->organization->name ?? 'N/A' }}
+                    </div>
+                </div>
+            @endrole
+
             <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
                 <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Squad Size</div>
-                <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ count($actualTeam->users) }}
-                    Players</div>
+                @php
+                    $totalPlayers = $actualTeam->users->count();
+
+                    // Count Captains
+                    $captainsCount = $actualTeam->users
+                        ->filter(function ($user) {
+                            return $user->roles->contains('name', 'Captain');
+                        })
+                        ->count();
+
+                    // Count for all roles
+                    $roleCounts = [];
+                    foreach ($actualTeam->users as $user) {
+                        foreach ($user->roles as $role) {
+                            $roleName = $role->name;
+                            if (!isset($roleCounts[$roleName])) {
+                                $roleCounts[$roleName] = 0;
+                            }
+                            $roleCounts[$roleName]++;
+                        }
+                    }
+                @endphp
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow text-center">
+                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Players</div>
+                        <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ $totalPlayers }}</div>
+                    </div>
+
+                    <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow text-center">
+                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Captains</div>
+                        <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ $captainsCount }}</div>
+                    </div>
+
+                    @foreach ($roleCounts as $roleName => $count)
+                        <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow text-center">
+                            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $roleName }}</div>
+                            <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ $count }}</div>
+                        </div>
+                    @endforeach
+                </div>
+
             </div>
             <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
                 <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Tournament</div>
@@ -92,12 +136,25 @@
                                     <div>
                                         <h3 class="font-bold text-lg text-gray-900 dark:text-white truncate">
                                             {{ $user->name }}</h3>
-                                        @if ($user->pivot->role)
-                                            <span
-                                                class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $user->pivot->role === 'Captain' ? 'bg-yellow-400 text-yellow-900' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200' }}">
-                                                {{ $user->pivot->role }}
-                                            </span>
+                                              @if ($user->player && $user->player->player_mode === 'retained')
+                <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                    Retained
+                </span>
+            @endif
+                                        @if ($user->roles->count())
+                                            <div class="flex flex-wrap gap-1 mt-1">
+                                                @foreach ($user->roles as $role)
+                                                    <span
+                                                        class="text-xs font-semibold px-2 py-0.5 rounded-full
+                @if (strtolower($role->name) === 'captain') bg-yellow-400 text-yellow-900
+                @else
+                    bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 @endif">
+                                                        {{ $role->name }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
                                         @endif
+
                                     </div>
                                 </div>
 

@@ -1,5 +1,5 @@
 @php
-    $playerImage = $member->player?->image_path && Storage::exists($member->player->image_path)
+    $playerImage = $member->player?->image_path 
         ? Storage::url($member->player->image_path)
         : null;
 @endphp

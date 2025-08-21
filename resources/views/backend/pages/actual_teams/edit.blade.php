@@ -294,9 +294,10 @@
                 /** Search users in the "Available" list */
                 els.search.addEventListener('input', (e) => {
                     const q = e.target.value.toLowerCase();
-                    els.available.querySelectorAll('[data-user-id]').forEach(card => {
+                                  els.available.querySelectorAll('.parent').forEach(card => { // Ensure '.parent' is the correct selector for your available user cards
                         const name = (card.dataset.userName || '').toLowerCase();
                         const email = (card.dataset.userEmail || '').toLowerCase();
+                        // Show the card if it matches the search query, otherwise hide it
                         card.style.display = (name.includes(q) || email.includes(q)) ? 'flex' : 'none';
                     });
                 });

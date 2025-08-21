@@ -34,7 +34,7 @@
     x-init="initSync()" @selection-updated.window="handleComboboxSelection($event)" {{-- Listen for the custom event --}}>
 
 @php
-    $playerImage = $user->player?->image_path && Storage::exists($user->player->image_path)
+    $playerImage = $user->player?->image_path 
         ? Storage::url($user->player->image_path)
         : null;
 @endphp
