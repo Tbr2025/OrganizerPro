@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Events\PlayerOnBidEvent;
 use App\Events\PlayerSoldEvent;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
@@ -243,7 +244,7 @@ class AuctionAdminController extends Controller
         $data = $request->validate([
             'auctionId' => 'required|integer|exists:auctions,id',
             'playerID'  => 'required|integer|exists:auction_players,id',
-            'teamId'   => 'nullable|integer|exists:actual_teams,id' // optional team to log
+            'teamId'    => 'nullable|integer|exists:actual_teams,id'
         ]);
 
         $auction = Auction::findOrFail($data['auctionId']);
@@ -252,53 +253,27 @@ class AuctionAdminController extends Controller
 
         // Decode bid rules
         $rules = $auction->bid_rules;
-        if (is_string($rules)) {
-            $rules = json_decode($rules, true);
-        }
-        if (!is_array($rules)) {
-            $rules = [];
-        }
-
-        $current = (float) $player->current_price;
-
-        // Determine max allowed bid
-        $maxTo = 0;
-        foreach ($rules as $r) {
-            $to = isset($r['to']) ? (float) $r['to'] : 0;
-            if ($to > $maxTo) {
-                $maxTo = $to;
-            }
-        }
-
-        if ($maxTo > 0 && $current >= $maxTo) {
-            return response()->json([
-                'success'        => false,
-                'message'        => 'Maximum bid reached.',
-                'current_price'  => $current
-            ], 400);
-        }
+        if (is_string($rules)) $rules = json_decode($rules, true);
+        if (!is_array($rules)) $rules = [];
 
         $current = (float) $player->current_price;
         $increment = 0;
 
-        // Try to find a matching rule first
         foreach ($rules as $r) {
             $from = isset($r['from']) ? (float) $r['from'] : 0;
             $to   = isset($r['to']) ? (float) $r['to'] : PHP_FLOAT_MAX;
             $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
 
-            if ($current >= $from && $current <= $to) { // match current range
+            if ($current >= $from && $current <= $to) {
                 $increment = $inc;
                 break;
             }
         }
 
-        // If no matching rule (gap), pick the first rule where 'from' > current
         if ($increment == 0) {
             foreach ($rules as $r) {
                 $from = isset($r['from']) ? (float) $r['from'] : 0;
                 $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
-
                 if ($current < $from) {
                     $increment = $inc;
                     break;
@@ -306,7 +281,6 @@ class AuctionAdminController extends Controller
             }
         }
 
-        // If still 0, no increment possible (max bid reached)
         if ($increment == 0) {
             return response()->json([
                 'success' => false,
@@ -315,22 +289,31 @@ class AuctionAdminController extends Controller
             ], 400);
         }
 
-        // Apply increment
         $newPrice = $current + $increment;
         $player->current_price = $newPrice;
+        $player->final_price = $newPrice;
         $player->save();
-
-
 
         // Create auction bid record
         AuctionBid::create([
             'auction_id'        => $auction->id,
             'auction_player_id' => $player->id,
             'player_id'         => $player->player_id,
-            'team_id'           => $data['teamId'] ?? null, // set from request or null
-            'user_id'           => auth()->id(), // admin or user placing the bid
+            'team_id'           => $data['teamId'] ?? null,
+            'user_id'           => auth()->id(),
             'amount'            => $newPrice
         ]);
+
+        // Load relationships for frontend
+        $player->load([
+            'player.player_type',
+            'player.batting_profile',
+            'player.bowling_profile',
+        ]);
+
+        $team = ActualTeam::find($data['teamId'] ?? null);
+
+        broadcast(new PlayerOnBidEvent($player, $team))->toOthers();
 
         return response()->json([
             'success'        => true,
@@ -338,6 +321,7 @@ class AuctionAdminController extends Controller
             'increment_used' => $increment
         ]);
     }
+
 
 
 
@@ -364,11 +348,65 @@ class AuctionAdminController extends Controller
     }
 
 
+    // public function decreaseBid(Request $request)
+    // {
+    //     $data = $request->validate([
+    //         'auctionId' => 'required|integer|exists:auctions,id',
+    //         'playerID'  => 'required|integer|exists:auction_players,id',
+    //     ]);
+
+    //     $auction = Auction::findOrFail($data['auctionId']);
+    //     $player  = AuctionPlayer::where('auction_id', $auction->id)
+    //         ->findOrFail($data['playerID']);
+
+    //     // Decode bid rules
+    //     $rules = $auction->bid_rules;
+    //     if (is_string($rules)) {
+    //         $rules = json_decode($rules, true);
+    //     }
+    //     if (!is_array($rules)) {
+    //         $rules = [];
+    //     }
+
+    //     $current = (int) $player->current_price;
+
+    //     // Determine decrement using the same rules
+    //     $decrement = 0;
+    //     foreach ($rules as $r) {
+    //         $from = isset($r['from']) ? (int) $r['from'] : 0;
+    //         $to   = isset($r['to']) ? (int) $r['to'] : PHP_INT_MAX;
+    //         $inc  = isset($r['increment']) ? (int) $r['increment'] : 0;
+
+    //         // For decrement, find the rule where current price falls within
+    //         if ($current > $from && $current <= $to) {
+    //             $decrement = $inc;
+    //             break;
+    //         }
+    //     }
+
+    //     // New price: cannot go below base_price
+    //     $newPrice = max($player->base_price, $current - $decrement);
+    //     $player->current_price = $newPrice;
+    //     $player->final_price = $newPrice;
+
+    //     $player->save();
+
+    //     // Optional: record a "negative bid" or decrement action if needed
+    //     // AuctionBid::create([...]);
+
+    //     return response()->json([
+    //         'success'        => true,
+    //         'current_price'  => $newPrice,
+    //         'decrement_used' => $decrement
+    //     ]);
+    // }
+
     public function decreaseBid(Request $request)
     {
         $data = $request->validate([
             'auctionId' => 'required|integer|exists:auctions,id',
             'playerID'  => 'required|integer|exists:auction_players,id',
+            'teamId'    => 'nullable|integer|exists:actual_teams,id'
         ]);
 
         $auction = Auction::findOrFail($data['auctionId']);
@@ -377,36 +415,71 @@ class AuctionAdminController extends Controller
 
         // Decode bid rules
         $rules = $auction->bid_rules;
-        if (is_string($rules)) {
-            $rules = json_decode($rules, true);
-        }
-        if (!is_array($rules)) {
-            $rules = [];
-        }
+        if (is_string($rules)) $rules = json_decode($rules, true);
+        if (!is_array($rules)) $rules = [];
 
-        $current = (int) $player->current_price;
-
-        // Determine decrement using the same rules
+        $current = (float) $player->current_price;
         $decrement = 0;
-        foreach ($rules as $r) {
-            $from = isset($r['from']) ? (int) $r['from'] : 0;
-            $to   = isset($r['to']) ? (int) $r['to'] : PHP_INT_MAX;
-            $inc  = isset($r['increment']) ? (int) $r['increment'] : 0;
 
-            // For decrement, find the rule where current price falls within
-            if ($current > $from && $current <= $to) {
+        // Determine decrement amount from rules
+        foreach ($rules as $r) {
+            $from = isset($r['from']) ? (float) $r['from'] : 0;
+            $to   = isset($r['to']) ? (float) $r['to'] : PHP_FLOAT_MAX;
+            $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
+
+            if ($current >= $from && $current <= $to) {
                 $decrement = $inc;
                 break;
             }
         }
 
-        // New price: cannot go below base_price
-        $newPrice = max($player->base_price, $current - $decrement);
+        // If no matching rule, pick first rule where 'from' > current
+        if ($decrement == 0) {
+            foreach ($rules as $r) {
+                $from = isset($r['from']) ? (float) $r['from'] : 0;
+                $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
+                if ($current > $from) {
+                    $decrement = $inc;
+                    break;
+                }
+            }
+        }
+
+        if ($decrement == 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot decrease further. Minimum reached.',
+                'current_price' => $current
+            ], 400);
+        }
+
+        // Apply decrement, never go below base price
+        $newPrice = max($player->base_price ?? 0, $current - $decrement);
         $player->current_price = $newPrice;
+        $player->final_price = $newPrice;
         $player->save();
 
-        // Optional: record a "negative bid" or decrement action if needed
-        // AuctionBid::create([...]);
+        // Create bid record for history (optional)
+        AuctionBid::create([
+            'auction_id'        => $auction->id,
+            'auction_player_id' => $player->id,
+            'player_id'         => $player->player_id,
+            'team_id'           => $data['teamId'] ?? null,
+            'user_id'           => auth()->id(),
+            'amount'            => $newPrice
+        ]);
+
+        // Load relationships for frontend
+        $player->load([
+            'player.player_type',
+            'player.batting_profile',
+            'player.bowling_profile',
+        ]);
+
+        $team = ActualTeam::find($data['teamId'] ?? null);
+
+        // Broadcast live update
+        broadcast(new PlayerOnBidEvent($player, $team))->toOthers();
 
         return response()->json([
             'success'        => true,
@@ -414,7 +487,6 @@ class AuctionAdminController extends Controller
             'decrement_used' => $decrement
         ]);
     }
-
 
 
     public function edit(Auction $auction)
@@ -691,19 +763,22 @@ class AuctionAdminController extends Controller
         $validated = $request->validate([
             'auction_player_id' => 'required|exists:auction_players,id',
             'team_id' => 'required|exists:actual_teams,id',
+            'final_price' => 'nullable|numeric|min:0',
         ]);
 
         $auctionPlayer = AuctionPlayer::findOrFail($validated['auction_player_id']);
         $team = ActualTeam::findOrFail($validated['team_id']);
         $auction = $auctionPlayer->auction;
 
+        // Calculate total spent budget for the team
+        $spentBudget = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('sold_to_team_id', $team->id)
+            ->sum('final_price');
 
-        $bid = AuctionPlayer::with('auction')->findOrFail($auctionPlayer->id);
-        $maxBudget = $bid->auction->max_budget_per_team;
-        $spentBudget = $bid->current_price;
-        $availableBalance = $maxBudget - $spentBudget;
+        $availableBalance = $auction->max_budget_per_team - $spentBudget;
 
-        $newPrice = $request->final_price;
+        // Use final_price from request, or fallback to current/base price
+        $newPrice = $request->final_price ?? ($auctionPlayer->current_price ?? $auctionPlayer->base_price);
 
         if ($newPrice > $availableBalance) {
             return response()->json([
@@ -711,35 +786,32 @@ class AuctionAdminController extends Controller
             ], 400);
         }
 
-        DB::transaction(function () use ($auctionPlayer, $team, $auction) {
-            $salePrice = $auctionPlayer->current_price ?? $auctionPlayer->base_price;
+        DB::transaction(function () use ($auctionPlayer, $team, $newPrice, $auction) {
 
-            // Log the transaction
+            // Log the bid transaction
             AuctionBid::create([
                 'auction_id' => $auction->id,
                 'auction_player_id' => $auctionPlayer->id,
                 'player_id' => $auctionPlayer->player_id,
                 'team_id' => $team->id,
                 'user_id' => Auth::id(),
-                'amount' => $salePrice,
+                'amount' => $newPrice,
             ]);
 
             // Mark player as sold
             $auctionPlayer->update([
                 'status' => 'sold',
                 'sold_to_team_id' => $team->id,
-                'final_price' => $salePrice,
-                'current_price' => $salePrice,
+                'final_price' => $newPrice,
+                'current_price' => $newPrice,
                 'current_bid_team_id' => $team->id,
             ]);
 
-            // Update player status
-            // 3. Update the main player's system status
+            // Update main player status
             $auctionPlayer->player()->update([
-                'player_mode'     => 'sold',
-                'actual_team_id'  => $team->id
+                'player_mode' => 'sold',
+                'actual_team_id' => $team->id,
             ]);
-
 
             // Add to team roster
             $team->users()->syncWithoutDetaching([
@@ -752,9 +824,9 @@ class AuctionAdminController extends Controller
                 $user->syncRoles(['Player']);
             }
 
-            // Broadcast
-            broadcast(new PlayerSoldEvent($auctionPlayer, $team));
+            // Broadcast player sold event with team info
         });
+        broadcast(new PlayerSoldEvent($auctionPlayer, $team));
 
         return back()->with('success', 'Player has been successfully assigned, sold, and added to the team.');
     }

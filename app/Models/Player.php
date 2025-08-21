@@ -331,4 +331,22 @@ class Player extends Model implements MustVerifyEmail
     {
         return $this->belongsTo(ActualTeam::class, 'actual_team_id');
     }
+
+    // Player type
+    public function player_type()
+    {
+        return $this->belongsTo(PlayerType::class, 'player_type_id');
+    }
+
+    // Batting profile
+    public function batting_profile()
+    {
+        return $this->belongsTo(BattingProfile::class, 'batting_profile_id');
+    }
+
+    // Bowling profile
+    public function bowling_profile()
+    {
+        return $this->belongsTo(BowlingProfile::class, 'bowling_profile_id');
+    }
 }

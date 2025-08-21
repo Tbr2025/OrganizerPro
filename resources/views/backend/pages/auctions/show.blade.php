@@ -131,10 +131,9 @@
                                 <th class="p-3 text-left">Player</th>
                                 <th class="p-3 text-left">Role</th>
                                 <th class="p-3 text-left">Base </th>
-                                <th class="p-3 text-left">Current </th>
-                                <th class="p-3 text-left">Final </th>
+                                <th class="p-3 text-left">Current / Final</th>
                                 @can('auctions.edit')
-                                    <th class="p-3 text-left">Bid Increment</th>
+                                    <th class="p-3 text-left">Bid Action</th>
                                 @endcan
                                 <th class="p-3 text-left">Status</th>
                                 @can('auctions.edit')
@@ -167,9 +166,7 @@
                                     <td class="p-3" x-text="player.player.player_type || 'N/A'"></td>
                                     <td class="p-3 font-semibold" x-text="formatCurrency(player.base_price)"></td>
                                     <td class="p-3 font-semibold" x-text="formatCurrency(player.current_price)"></td>
-                                    <td class="p-3 font-semibold cursor-pointer" x-data="{ open: false, finalPrice: player.final_price }"
-                                        @click="open = true" x-text="formatCurrency(finalPrice)">
-                                    </td>
+                                   
                                     @can('auctions.edit')
                                         <td class="p-3 font-semibold" x-data="{ finalPrice: player.final_price }">
                                             <div class="flex items-center gap-2">
@@ -342,7 +339,7 @@
                         this.bidRules = initialBidRules;
 
                         this.sortPlayers();
-                        this.fetchPlayersInterval();
+                        // this.fetchPlayersInterval();
                         this.connectToEcho();
                     },
                     get filteredPlayers() {
@@ -360,10 +357,49 @@
                         });
                     },
 
-                    fetchPlayersInterval() {
-                        this.fetchPlayers();
-                        setInterval(() => this.fetchPlayers(), 5000);
+                    connectToEcho() {
+                        const connect = () => {
+                            if (window.Echo) {
+                                window.Echo.private(`auction.${this.auctionId}`)
+                                    // When a new bid is placed
+                                    .listen('.player.onbid', e => {
+                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
+                                        if (player) player.current_price = e.auctionPlayer.current_price;
+                                    })
+                                    // When a player is sold
+                                    .listen('.player.sold', e => {
+                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
+                                        if (player) {
+                                            player.status = 'sold';
+                                            player.sold_to_team = e.auctionPlayer.sold_to_team;
+                                            this.sortPlayers();
+                                        }
+                                    })
+                                    // When a player is added to the auction pool
+                                    .listen('.player.added', e => {
+                                        const exists = this.players.find(p => p.id === e.auctionPlayer.id);
+                                        if (!exists) this.players.push({
+                                            ...e.auctionPlayer,
+                                            selectedTeamId: null
+                                        });
+                                        this.sortPlayers();
+                                    })
+                                    // When a player is removed from the pool
+                                    .listen('.player.removed', e => {
+                                        this.players = this.players.filter(p => p.id !== e.auctionPlayer.id);
+                                    })
+                                    // When player status changes (e.g., put back in auction)
+                                    .listen('.player.statusUpdated', e => {
+                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
+                                        if (player) player.status = e.auctionPlayer.status;
+                                    });
+                            } else {
+                                setTimeout(connect, 100); // wait for Echo to be ready
+                            }
+                        };
+                        connect();
                     },
+
 
                     async fetchPlayers() {
                         try {

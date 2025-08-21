@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Events\PlayerOnBidEvent;
+use App\Events\PlayerSoldEvent;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
@@ -139,7 +141,11 @@ class ClosedBidController extends Controller
         }
 
         $bid->final_price = $newPrice;
+        $bid->current_price = $newPrice;
         $bid->save();
+
+        $team = ActualTeam::find($bid->sold_to_team_id);
+        broadcast(new PlayerOnBidEvent($bid, $team))->toOthers();
 
         return response()->json(['success' => true, 'final_price' => $bid->final_price]);
     }

@@ -2,37 +2,38 @@
 
 namespace App\Events;
 
+use App\Models\ActualTeam;
+use App\Models\AuctionPlayer;
 use Illuminate\Broadcasting\Channel;
-use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use App\Models\AuctionPlayer;
-use App\Models\ActualTeam;
 
-class PlayerSoldEvent implements ShouldBroadcast
+class PlayerOnBidEvent implements ShouldBroadcast
 {
     use Dispatchable, SerializesModels;
 
     public $auctionPlayer;
     public $team;
 
-    public function __construct(AuctionPlayer $auctionPlayer, ActualTeam $team)
+    public function __construct(AuctionPlayer $auctionPlayer, ?ActualTeam $team = null)
     {
+        // Ensure relationships are loaded
         $this->auctionPlayer = $auctionPlayer->load([
-            'player.player_type',
+            'player.player_type',       // Ensure Player model has belongsTo relation
             'player.batting_profile',
             'player.bowling_profile',
-            'soldToTeam'
         ]);
+
         $this->team = $team;
     }
 
+    // Use PrivateChannel if you need authentication
     public function broadcastOn()
     {
         return new Channel('auction.' . $this->auctionPlayer->auction_id);
     }
-
     public function broadcastWith()
     {
         return [
@@ -40,15 +41,11 @@ class PlayerSoldEvent implements ShouldBroadcast
             'player' => $this->auctionPlayer->player,
             'current_price' => $this->auctionPlayer->final_price,
             'status' => $this->auctionPlayer->status,
-            'sold_to_team' => [
-                'id' => $this->team->id,
-                'name' => $this->team->name,
-            ],
+
         ];
     }
-
     public function broadcastAs()
     {
-        return 'player-on-sold';
+        return 'player-on-bid';
     }
 }
