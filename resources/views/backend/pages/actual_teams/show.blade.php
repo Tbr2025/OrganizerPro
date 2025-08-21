@@ -89,7 +89,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow text-center">
-                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Players</div>
+                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Numbers</div>
                         <div class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">{{ $totalPlayers }}</div>
                     </div>
 

@@ -60,24 +60,20 @@ class ActualTeamController extends Controller
         }
 
         // Calculate total spent per team
+        // Calculate total spent per team and auctioned players count
         $teamBudgets = [];
         foreach ($actualTeams as $team) {
             $auction = Auction::first(); // get the auction related to this team
-            $totalSpent = 0;
-            $maxBudget = 0;
-            $userCount = DB::table('actual_team_users')
-                ->where('actual_team_id', $team->id)
-                ->count();
-            $maxBudget = $auction->max_budget_per_team;
+            $maxBudget = $auction->max_budget_per_team ?? 0;
 
-            // Get user IDs in this actual team
-            $teamUserIds = DB::table('actual_team_users')
-                ->where('actual_team_id', $team->id)
-                ->pluck('user_id');
+            // Count only users in this team who were actually bought in the auction
+            $auctionedUserCount = DB::table('auction_bids')
+                ->where('auction_id', $auction->id)
+                ->where('team_id', $team->id)
+                ->distinct('user_id')
+                ->count('user_id');
 
-
-
-
+            // Total spent by the team
             $totalSpent = DB::table('auction_bids')
                 ->where('auction_id', $auction->id)
                 ->where('team_id', $team->id)
@@ -86,10 +82,10 @@ class ActualTeamController extends Controller
             $teamBudgets[$team->id] = [
                 'spent' => number_format($totalSpent / 1000000, 2),
                 'max_budget' => number_format($maxBudget / 1000000, 2),
-                'user_count' => $userCount, // added this
-
+                'user_count' => $auctionedUserCount, // only auctioned players
             ];
         }
+
 
         // Reorder: Team Manager's teams first
         if (!empty($teamManagerTeamIds)) {
