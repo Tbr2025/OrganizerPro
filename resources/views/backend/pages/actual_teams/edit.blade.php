@@ -127,7 +127,7 @@
                     <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                             Current Squad (<span id="squad-count">
-                                {{ $currentMembers->count() }}
+                                {{ count($currentMembers) }}
                             </span>)
                         </h2>
                     </div>
@@ -149,10 +149,14 @@
 
             {{-- RIGHT COLUMN (Available Users) --}}
             <div>
+             
+                
                 <div
                     class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 sticky top-8">
                     <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Available Users</h2>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Available Users (<span id="squad-count">
+                                {{ $availableUsers->count() }}
+                            </span>)</h2>
                     </div>
                     <div class="p-5">
                         <input type="text" id="userSearch" placeholder="Search available users..."

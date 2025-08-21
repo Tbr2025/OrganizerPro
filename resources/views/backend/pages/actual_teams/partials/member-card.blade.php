@@ -1,10 +1,16 @@
+@php
+    $playerImage = $member->player?->image_path && Storage::exists($member->player->image_path)
+        ? Storage::url($member->player->image_path)
+        : null;
+@endphp
+
 <div id="member-card-{{ $member->id }}"
     class="flex items-center p-2 bg-white dark:bg-gray-800 rounded shadow-sm border mb-2"
     data-user-id="{{ $member->id }}">
 
-    <img class="h-10 w-10 rounded-full object-cover mr-3"
-        src="https://ui-avatars.com/api/?name={{ urlencode($member->name) }}&color=7F9CF5&background=EBF4FF"
-        alt="{{ $member->name }}">
+ <img class="h-10 w-10 rounded-full object-cover mr-3"
+     src="{{ $playerImage ?? 'https://ui-avatars.com/api/?name=' . urlencode($member->name) . '&color=7F9CF5&background=EBF4FF' }}"
+     alt="{{ $member->name }}">
 
     <div class="flex-1">
         <div class="flex items-center gap-2">
@@ -14,8 +20,6 @@
                     Retained
                 </span>
             @endif
-
-         
         </div>
 
         <div class="text-xs text-gray-500 dark:text-gray-400">{{ $member->email }}</div>

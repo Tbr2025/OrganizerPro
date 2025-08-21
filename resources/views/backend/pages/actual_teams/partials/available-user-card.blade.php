@@ -33,9 +33,14 @@
     }"
     x-init="initSync()" @selection-updated.window="handleComboboxSelection($event)" {{-- Listen for the custom event --}}>
 
-    <img class="h-10 w-10 rounded-full object-cover mr-3"
-        src="https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&color=7F9CF5&background=EBF4FF"
-        alt="{{ $user->name }}">
+@php
+    $playerImage = $user->player?->image_path && Storage::exists($user->player->image_path)
+        ? Storage::url($user->player->image_path)
+        : null;
+@endphp
+<img class="h-10 w-10 rounded-full object-cover mr-3"
+     src="{{ $playerImage ?? 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&color=7F9CF5&background=EBF4FF' }}"
+     alt="{{ $user->name }}">
 
    <div class="flex-1">
         <div class="font-semibold text-gray-800 dark:text-gray-200">{{ $user->name }}</div>
