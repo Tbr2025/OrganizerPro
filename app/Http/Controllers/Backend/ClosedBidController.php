@@ -144,6 +144,21 @@ class ClosedBidController extends Controller
         $bid->current_price = $newPrice;
         $bid->save();
 
+
+        // Create bid record for history (optional)
+        AuctionBid::updateOrCreate(
+            [
+                'auction_id'        => $auction->id,
+                'auction_player_id' => $playerId,
+                'team_id'           =>  $bid->sold_to_team_id ?? null,
+                'user_id'           => auth()->id(),
+            ],
+            [
+                'player_id'         => $playerId,
+                'amount'            => $newPrice,
+            ]
+        );
+
         $team = ActualTeam::find($bid->sold_to_team_id);
         broadcast(new PlayerOnBidEvent($bid, $team))->toOthers();
 

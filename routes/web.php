@@ -252,6 +252,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     });
 
     Route::resource('organizations', OrganizationController::class);
+Route::delete('/auctions/{team}/clear', [AuctionController::class, 'clearTeamData'])
+    ->name('auctions.clear');
 
     Route::resource('actual-teams', ActualTeamController::class);
     Route::post('actual-teams/{actualTeam}/remove-member', [ActualTeamController::class, 'removeMember'])

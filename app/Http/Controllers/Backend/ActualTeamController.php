@@ -427,10 +427,6 @@ class ActualTeamController extends Controller
             'organization_id' => 'required|exists:organizations,id',
             'tournament_id' => 'required|exists:tournaments,id',
             'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'members' => 'nullable|array',
-            'members.*' => 'exists:users,id',
-            'user_roles' => 'nullable|array',
-            'user_roles.*' => 'nullable|string|exists:roles,name',
         ]);
 
 
@@ -445,44 +441,11 @@ class ActualTeamController extends Controller
         // 4. Update the main team details
         $actualTeam->update($validated);
 
-        // 5. Prepare data for syncing and get the list of current and new member IDs
-        $syncData = [];
-        $newMemberIds = !empty($validated['members']) ? $validated['members'] : [];
 
-        foreach ($newMemberIds as $memberId) {
-            $role = $request->input("user_roles.{$memberId}", 'Player');
-            $syncData[$memberId] = ['role' => $role];
+     
 
-            // Sync the user's system-wide Spatie role
-            $user = User::find($memberId);
-            if ($user && !$user->hasAnyRole(['Superadmin', 'Admin'])) {
-                $user->syncRoles([$role]);
-            }
-        }
 
-        // =================================================================
-        // 6. **THE FIX**: Perform the sync and manage player statuses
-        // =================================================================
-
-        // First, get the list of member IDs *before* the sync
-        $originalMemberIds = $actualTeam->users()->pluck('users.id')->toArray();
-
-        // Now, synchronize the pivot table. This returns arrays of attached, detached, and updated IDs.
-        $syncResult = $actualTeam->users()->sync($syncData);
-        $detachedIds = $syncResult['detached'];
-
-        // a) Update newly added/retained members to 'Retained'
-        if (!empty($newMemberIds)) {
-            Player::whereIn('user_id', $newMemberIds)
-                ->update(['player_mode' => 'retained']); // Corrected column name to 'player_mode'
-        }
-
-        // b) Update REMOVED members back to 'Normal'
-        if (!empty($detachedIds)) {
-            Player::whereIn('user_id', $detachedIds)
-                ->update(['player_mode' => 'normal']);
-        }
-
+      
         // 7. Redirect with a success message
         return redirect()->back()->with('success', 'Team details, roster, and player statuses updated successfully.');
     }

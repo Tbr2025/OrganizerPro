@@ -295,14 +295,19 @@ class AuctionAdminController extends Controller
         $player->save();
 
         // Create auction bid record
-        AuctionBid::create([
-            'auction_id'        => $auction->id,
-            'auction_player_id' => $player->id,
-            'player_id'         => $player->player_id,
-            'team_id'           => $data['teamId'] ?? null,
-            'user_id'           => auth()->id(),
-            'amount'            => $newPrice
-        ]);
+        AuctionBid::updateOrCreate(
+            [
+                'auction_id'        => $auction->id,
+                'auction_player_id' => $player->id,
+                'team_id'           => $data['teamId'] ?? null,
+                'user_id'           => auth()->id(),
+            ],
+            [
+                'player_id'         => $player->player_id,
+                'amount'            => $newPrice,
+            ]
+        );
+
 
         // Load relationships for frontend
         $player->load([
@@ -460,14 +465,19 @@ class AuctionAdminController extends Controller
         $player->save();
 
         // Create bid record for history (optional)
-        AuctionBid::create([
-            'auction_id'        => $auction->id,
-            'auction_player_id' => $player->id,
-            'player_id'         => $player->player_id,
-            'team_id'           => $data['teamId'] ?? null,
-            'user_id'           => auth()->id(),
-            'amount'            => $newPrice
-        ]);
+    AuctionBid::updateOrCreate(
+    [
+        'auction_id'        => $auction->id,
+        'auction_player_id' => $player->id,
+        'team_id'           => $data['teamId'] ?? null,
+        'user_id'           => auth()->id(),
+    ],
+    [
+        'player_id'         => $player->player_id,
+        'amount'            => $newPrice,
+    ]
+);
+
 
         // Load relationships for frontend
         $player->load([

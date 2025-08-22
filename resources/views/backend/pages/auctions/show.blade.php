@@ -129,7 +129,6 @@
                             <tr>
                                 <th class="p-3 text-left">Select</th>
                                 <th class="p-3 text-left">Player</th>
-                                <th class="p-3 text-left">Role</th>
                                 <th class="p-3 text-left">Base </th>
                                 <th class="p-3 text-left">Current / Final</th>
                                 @can('auctions.edit')
@@ -163,7 +162,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="p-3" x-text="player.player.player_type || 'N/A'"></td>
+                                    
                                     <td class="p-3 font-semibold" x-text="formatCurrency(player.base_price)"></td>
                                     <td class="p-3 font-semibold" x-text="formatCurrency(player.current_price)"></td>
                                    

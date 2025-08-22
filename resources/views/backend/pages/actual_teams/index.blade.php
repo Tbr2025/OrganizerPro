@@ -152,12 +152,30 @@
                                                                 d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
                                                         </svg>
                                                     </a>
-                                                @else
-                                                    <span class="text-muted">Not Editable</span>
+                                            
+                                                  
                                                 @endif
                                             @endcan
                                             @can('actual-team.delete')
-                                                <form method="POST" action="{{ route('admin.actual-teams.destroy', $team) }}"
+                                                <form method="POST" action="{{ route('admin.auctions.clear', $team) }}"
+                                                    onsubmit="return confirm('Are you sure you want to clear all auction data for this team? This cannot be undone.')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" title="Clear Auction Data"
+                                                        class="p-2 text-orange-500 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/50">
+                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                            viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </form>
+                                            @endcan
+
+                                            @can('actual-team.delete')
+                                                <form method="POST"
+                                                    action="{{ route('admin.actual-teams.destroy', $team) }}"
                                                     onsubmit="return confirm('Are you sure you want to delete this team?')">
                                                     @csrf
                                                     @method('DELETE')

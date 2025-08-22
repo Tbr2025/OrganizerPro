@@ -123,11 +123,12 @@
             {{-- LEFT COLUMN (Members) --}}
             <div class="space-y-8">
                 {{-- Current Squad --}}
+              
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
                     <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                             Current Squad (<span id="squad-count">
-                                {{ count($currentMembers) }}
+                               {{$currentMembers->count();}}
                             </span>)
                         </h2>
                     </div>
@@ -218,7 +219,7 @@
                 };
 
                 const updateCounts = () => {
-                    els.squadCount.textContent = els.squad.querySelectorAll('[data-user-id]').length;
+                    els.squadCount.textContent = els.squad.querySelectorAll('#current-squad-container > [data-user-id]').length;
                 };
 
                 const togglePlaceholders = () => {

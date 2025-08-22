@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActualTeam;
 use App\Models\Auction;
+use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
 use App\Models\Organization;
 use App\Models\Player;
@@ -31,6 +33,26 @@ class AuctionController extends Controller
 
         return view('backend.pages.auctions.index', compact('auctions', 'breadcrumbs', 'teams'));
     }
+
+    public function clearTeamData(ActualTeam $team)
+    {
+       
+        // Example: remove all bids and reset players sold to this team
+        DB::transaction(function () use ($team) {
+            // Delete all bids for this team
+            AuctionBid::where('team_id', $team->id)->delete();
+
+            // Reset players assigned to this team
+            AuctionPlayer::where('sold_to_team_id', $team->id)
+                ->update([
+                    'sold_to_team_id' => null,
+                    'final_price' => null,
+                ]);
+        });
+
+        return redirect()->back()->with('success', 'Auction data cleared for team: ' . $team->name);
+    }
+
 
     // Extract filtering logic
     private function getFilteredAuctions(Request $request)
