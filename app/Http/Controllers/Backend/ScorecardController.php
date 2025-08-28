@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActualTeamUser;
 use App\Models\Ball;
 use App\Models\Matches;
 use App\Models\Player;
@@ -38,44 +39,79 @@ class ScorecardController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Matches $match)
+public function show(Matches $match)
+{
+    // Eager-load relationships
+    $match->load([
+        'tournament',
+        'teamA.players.player',   // ActualTeam -> ActualTeamUser -> Player (user table)
+        'teamB.players.player',
+        'winner',
+        'appreciations.player'
+    ]);
 
+    // Split players team-wise
+    $teamAPlayers = $match->teamA->players;
+    $teamBPlayers = $match->teamB->players;
 
-    {
-        $teamAPlayers = Player::where('team_id', $match->team_a_id)->get();
-        $teamBPlayers = Player::where('team_id', $match->team_b_id)->get();
+    // Appreciations grouped by type
+    $appreciations = PlayerAppreciation::with('player.team')
+        ->where('match_id', $match->id)
+        ->get()
+        ->groupBy('type');
 
-        $appreciations = PlayerAppreciation::where('match_id', $match->id)->get();
+    // Get all balls for this match
+    $balls = Ball::where('match_id', $match->id)->get();
 
-        $overs = Ball::where('match_id', $match->id)
-            ->orderBy('over')
-            ->orderBy('ball_in_over')
-            ->get()
-            ->groupBy('over');
+    // Group by batsman_id and bowler_id for quick lookups
+    $battingStats = $balls->groupBy('batsman_id'); // keys = actual_team_user.id
+    $bowlingStats = $balls->groupBy('bowler_id');
 
-        $summary = [];
+    // Build over-wise summary (ball-by-ball)
+    $oversGrouped = $balls->sortBy(function ($b) {
+        return ($b->over * 100) + $b->ball_in_over;
+    })->groupBy('over');
 
-        foreach ($overs as $overNum => $balls) {
-            $overRuns = $balls->sum('runs') + $balls->sum('extra_runs');
-            $wickets = $balls->where('is_wicket', true)->count();
+    $summary = [];
+    foreach ($oversGrouped as $overNum => $ballsInOver) {
+        $overRuns = $ballsInOver->sum('runs') + $ballsInOver->sum('extra_run');
+        $wickets  = $ballsInOver->where('is_wicket', 1)->count();
 
-            $ballSummary = $balls->map(function ($ball) {
-                if ($ball->is_wicket) return 'W';
-                if ($ball->extra_type === 'wide') return ($ball->runs + $ball->extra_runs) . 'wd';
-                if ($ball->extra_type === 'no_ball') return ($ball->runs + $ball->extra_runs) . 'nb';
-                return $ball->runs;
-            });
+        $ballSummary = $ballsInOver->map(function ($ball) {
+            if ($ball->is_wicket == 1) return 'W';
+            if ($ball->extra_type === 'wide') return ($ball->runs + $ball->extra_run) . 'wd';
+            if ($ball->extra_type === 'no_ball') return ($ball->runs + $ball->extra_run) . 'nb';
+            return $ball->runs;
+        })->values();
 
-            $summary[] = [
-                'over' => $overNum,
-                'balls' => $ballSummary,
-                'runs' => $overRuns,
-                'wickets' => $wickets,
-            ];
-        }
-
-        return view('backend.pages.matches.scorecard', compact('match', 'teamAPlayers', 'teamBPlayers', 'appreciations', 'summary'));
+        $summary[] = [
+            'over'    => $overNum,
+            'balls'   => $ballSummary,
+            'runs'    => $overRuns,
+            'wickets' => $wickets,
+        ];
     }
+
+    // === Match Totals ===
+    $totalRuns    = $balls->sum('runs') + $balls->sum('extra_run');
+    $totalWickets = $balls->where('is_wicket', 1)->count();
+    $legalBalls   = $balls->whereNotIn('extra_type', ['wide', 'no_ball'])->count(); // only legal deliveries
+    $totalOvers   = floor($legalBalls / 6) . '.' . ($legalBalls % 6);
+
+    return view('backend.pages.matches.scorecard', compact(
+        'match',
+        'teamAPlayers',
+        'teamBPlayers',
+        'appreciations',
+        'battingStats',
+        'bowlingStats',
+        'summary',
+        'totalRuns',
+        'totalWickets',
+        'totalOvers'
+    ));
+}
+
 
 
     /**

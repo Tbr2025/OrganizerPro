@@ -349,4 +349,6 @@ class Player extends Model implements MustVerifyEmail
     {
         return $this->belongsTo(BowlingProfile::class, 'bowling_profile_id');
     }
+
+    
 }

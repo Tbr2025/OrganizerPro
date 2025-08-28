@@ -27,12 +27,12 @@ class Matches extends Model
 
     public function teamA()
     {
-        return $this->belongsTo(Team::class, 'team_a_id');
+        return $this->belongsTo(ActualTeam::class, 'team_a_id');
     }
 
     public function teamB()
     {
-        return $this->belongsTo(Team::class, 'team_b_id');
+        return $this->belongsTo(ActualTeam::class, 'team_b_id');
     }
 
     public function winner()

@@ -291,7 +291,7 @@
             "
                                                     class="form-select block w-full px-2 py-1 border rounded text-black">
                                                     <option value="on_auction">On Auction</option>
-                                                    <option value="sold">Sold</option>
+                                                    {{-- <option value="sold">Sold</option> --}}
                                                     <option value="unsold">UnSold</option>
                                                     <option value="closed">Closed</option>
                                                     <option value="waiting">Waiting</option>

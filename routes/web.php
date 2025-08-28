@@ -252,8 +252,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     });
 
     Route::resource('organizations', OrganizationController::class);
-Route::delete('/auctions/{team}/clear', [AuctionController::class, 'clearTeamData'])
-    ->name('auctions.clear');
+    Route::delete('/auctions/{team}/clear', [AuctionController::class, 'clearTeamData'])
+        ->name('auctions.clear');
 
     Route::resource('actual-teams', ActualTeamController::class);
     Route::post('actual-teams/{actualTeam}/remove-member', [ActualTeamController::class, 'removeMember'])
@@ -332,9 +332,14 @@ Route::delete('/auctions/{team}/clear', [AuctionController::class, 'clearTeamDat
     Route::post('/matches/{match}/overs', [MatchesController::class, 'updateOvers'])->name('overs.update');
     Route::get('/matches/{match}/balls/create', [BallController::class, 'create'])->name('balls.create');
     Route::post('/matches/{match}/balls', [BallController::class, 'store'])->name('balls.store');
+    Route::delete('/matches/{match}/balls/{ball}', [BallController::class, 'destroy'])->name('balls.destroy');
 
 
-    Route::post('/matches/{match}/balls/ajax-store', [BallController::class, 'ajaxStore'])->name('balls.ajaxStore');
+
+
+    // Option A: Add /admin prefix to match your JS
+    Route::post('/matches/{match}/balls/ajax-store', [BallController::class, 'ajaxStore'])
+        ->name('balls.ajaxStore');
     Route::get('/matches/{match}/balls/summary', [BallController::class, 'summary'])->name('balls.summary');
 
 

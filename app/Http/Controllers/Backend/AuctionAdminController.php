@@ -6,6 +6,7 @@ use App\Events\PlayerOnBidEvent;
 use App\Events\PlayerSoldEvent;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
+use App\Models\ActualTeamUser;
 use App\Models\Auction;
 use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
@@ -465,18 +466,18 @@ class AuctionAdminController extends Controller
         $player->save();
 
         // Create bid record for history (optional)
-    AuctionBid::updateOrCreate(
-    [
-        'auction_id'        => $auction->id,
-        'auction_player_id' => $player->id,
-        'team_id'           => $data['teamId'] ?? null,
-        'user_id'           => auth()->id(),
-    ],
-    [
-        'player_id'         => $player->player_id,
-        'amount'            => $newPrice,
-    ]
-);
+        AuctionBid::updateOrCreate(
+            [
+                'auction_id'        => $auction->id,
+                'auction_player_id' => $player->id,
+                'team_id'           => $data['teamId'] ?? null,
+                'user_id'           => auth()->id(),
+            ],
+            [
+                'player_id'         => $player->player_id,
+                'amount'            => $newPrice,
+            ]
+        );
 
 
         // Load relationships for frontend
@@ -756,13 +757,26 @@ class AuctionAdminController extends Controller
     {
         $this->authorize('auctions.edit');
 
-        // The route model binding finds the correct AuctionPlayer record for us.
-        // We just need to delete it.
+        // Find the player's current team (if any)
+        $teamId = $auctionPlayer->sold_to_team_id; // or actual_team_id if applicable
+
+        // Delete the auction player from the auction pool
         $auctionPlayer->delete();
 
-        // Return a JSON response for the frontend.
-        return response()->json(['success' => true, 'message' => 'Player removed from pool.']);
+        // If you still want to add them to actual_team_users (only if a team exists)
+        if ($teamId) {
+            ActualTeamUser::where('actual_team_id', $teamId)
+                ->where('user_id', $auctionPlayer->player->user_id)
+                ->delete();
+        }
+
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Player removed from pool.'
+        ]);
     }
+
 
 
 
@@ -857,6 +871,31 @@ class AuctionAdminController extends Controller
 
         $auctionPlayer->status = $request->status;
         $auctionPlayer->save();
+
+
+        $teamId = $auctionPlayer->sold_to_team_id; // or actual_team_id if applicable
+
+
+
+        if ($teamId && $request->status != 'sold') {
+            // Remove from team if not sold
+            ActualTeamUser::where('actual_team_id', $teamId)
+                ->where('user_id', $auctionPlayer->player->user_id)
+                ->delete();
+        } else if ($request->status == 'sold') {
+            // Add to team if sold
+            ActualTeamUser::updateOrCreate(
+                [
+                    'actual_team_id' => $teamId,
+                    'user_id' => $auctionPlayer->player->user_id,
+                ],
+                [
+                    'role' => 'Player',
+                ]
+            );
+        }
+
+
 
         return response()->json([
             'success' => true,

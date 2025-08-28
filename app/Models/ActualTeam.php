@@ -13,7 +13,6 @@ class ActualTeam extends Model
         'name',
         'team_logo',
 
-        'role'
     ];
 
     public function scopeApplyFilters(Builder $query, array $filters): Builder
@@ -35,6 +34,7 @@ class ActualTeam extends Model
         return $this->belongsTo(Player::class);
     }
 
+
     public function team()
     {
         return $this->belongsTo(Team::class);
@@ -52,9 +52,10 @@ class ActualTeam extends Model
 
     public function players()
     {
-        return $this->belongsToMany(Player::class, 'player_team_tournament', 'team_id', 'player_id')
-            ->withPivot('role');
+        return $this->hasMany(ActualTeamUser::class, 'actual_team_id')
+            ->with('player'); // eager load Player details
     }
+
 
     public function users()
     {
@@ -73,7 +74,7 @@ class ActualTeam extends Model
 
     public function members()
     {
-  
+
         return $this->belongsToMany(User::class, 'actual_team_users'); // Change to 'role_id' if that's what you use
     }
 }
