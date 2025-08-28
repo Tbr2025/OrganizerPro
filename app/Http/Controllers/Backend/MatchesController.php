@@ -58,68 +58,68 @@ class MatchesController extends Controller
         return redirect()->route('admin.matches.index')->with('success', 'Match created successfully.');
     }
 
-   public function show(Matches $match): View
-{
-    $match->load([
-        'tournament',
-        'teamA.players.player',
-        'teamB.players.player',
-        'winner',
-        'appreciations.player'
-    ]);
+    public function show(Matches $match): View
+    {
+        $match->load([
+            'tournament',
+            'teamA.players.player',
+            'teamB.players.player',
+            'winner',
+            'appreciations.player'
+        ]);
 
-    // Get all balls
-    $balls = Ball::where('match_id', $match->id)
-        ->orderBy('over')
-        ->orderBy('ball_in_over')
-        ->get();
+        // Get all balls
+        $balls = Ball::where('match_id', $match->id)
+            ->orderBy('over')
+            ->orderBy('ball_in_over')
+            ->get();
 
-    // Group by over for breakdown
-    $overs = $balls->groupBy('over');
+        // Group by over for breakdown
+        $overs = $balls->groupBy('over');
 
-    $summary = [];
-    foreach ($overs as $overNum => $ballsInOver) {
-        // Runs + extras in this over
-        $overRuns = $ballsInOver->sum('runs') + $ballsInOver->sum('extra_run');
+        $summary = [];
+        foreach ($overs as $overNum => $ballsInOver) {
+            // Runs + extras in this over
+            $overRuns = $ballsInOver->sum('runs') + $ballsInOver->sum('extra_run');
 
-        // Wickets in this over
-        $wickets = $ballsInOver->where('is_wicket', 1)->count();
+            // Wickets in this over
+            $wickets = $ballsInOver->where('is_wicket', 1)->count();
 
-        // Ball-by-ball display
-        $ballSummary = $ballsInOver->map(function ($ball) {
-            if ($ball->is_wicket) return 'W';
-            if ($ball->extra_type === 'wide') return ($ball->runs + $ball->extra_run) . 'wd';
-            if ($ball->extra_type === 'no_ball') return ($ball->runs + $ball->extra_run) . 'nb';
-            return (string) $ball->runs;
-        })->values();
+            // Ball-by-ball display
+            $ballSummary = $ballsInOver->map(function ($ball) {
+                if ($ball->is_wicket) return 'W';
+                if ($ball->extra_type === 'wide') return ($ball->runs + $ball->extra_run) . 'wd';
+                if ($ball->extra_type === 'no_ball') return ($ball->runs + $ball->extra_run) . 'nb';
+                return (string) $ball->runs;
+            })->values();
 
-        $summary[] = [
-            'over'    => $overNum,
-            'balls'   => $ballSummary,
-            'runs'    => $overRuns,
-            'wickets' => $wickets,
-        ];
+            $summary[] = [
+                'over'    => $overNum,
+                'balls'   => $ballSummary,
+                'runs'    => $overRuns,
+                'wickets' => $wickets,
+            ];
+        }
+
+        // ✅ Match totals
+        $totalRuns    = $balls->sum('runs') + $balls->sum('extra_run');
+        $totalWickets = $balls->where('is_wicket', 1)->count();
+        $totalOvers   = $overs->count(); // or floor($balls->count() / 6)
+
+        // Players split team-wise
+        $teamAPlayers = $match->teamA->players;
+        $teamBPlayers = $match->teamB->players;
+
+        return view('backend.pages.matches.show', compact(
+            'match',
+            'summary',
+            'teamAPlayers',
+            'teamBPlayers',
+            'totalRuns',
+            'totalWickets',
+            'totalOvers'
+        ));
     }
-
-    // ✅ Match totals
-    $totalRuns    = $balls->sum('runs') + $balls->sum('extra_run');
-    $totalWickets = $balls->where('is_wicket', 1)->count();
-    $totalOvers   = $overs->count(); // or floor($balls->count() / 6)
-
-    // Players split team-wise
-    $teamAPlayers = $match->teamA->players;
-    $teamBPlayers = $match->teamB->players;
-
-    return view('backend.pages.matches.show', compact(
-        'match',
-        'summary',
-        'teamAPlayers',
-        'teamBPlayers',
-        'totalRuns',
-        'totalWickets',
-        'totalOvers'
-    ));
-}
 
 
 
@@ -178,5 +178,14 @@ class MatchesController extends Controller
         $match->save();
 
         return redirect()->route('admin.matches.scorecard', $match)->with('success', 'Overs updated successfully!');
+    }
+
+    public function destroy(Matches $match): RedirectResponse
+    {
+        $match->delete();
+
+        return redirect()
+            ->route('admin.matches.index')
+            ->with('success', 'Match deleted successfully.');
     }
 }
