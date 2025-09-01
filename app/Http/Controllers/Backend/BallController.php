@@ -89,6 +89,8 @@ class BallController extends Controller
             'extra_type' => 'nullable|string|in:wide,no_ball,bye,leg_bye',
             'extra_runs' => 'nullable|integer|min:0|max:6',
             'is_wicket'  => 'nullable|boolean',
+            'dismissal_type' => 'nullable',
+            'fielder_id' => 'nullable|exists:actual_team_users,user_id|numeric',
         ]);
 
         if ($validator->fails()) {
@@ -104,14 +106,28 @@ class BallController extends Controller
         try {
             $match = Matches::findOrFail($validated['match_id']);
 
-            // --- ADJUSTMENT 2: Retrieval ---
-            // Find the ActualTeamUser records using the validated user_ids.
-            // This part is correct from the previous step.
-            $batsman = ActualTeamUser::where('user_id', $validated['batsman_id'])->firstOrFail();
-            $bowler  = ActualTeamUser::where('user_id', $validated['bowler_id'])->firstOrFail();
+            // --- ADJUSTMENT 2: Ensure players exist in the match context ---
+            // It's better to check if the batsman and bowler are part of the teams in the match.
+            // You might need to adjust this logic based on your schema for team membership.
+            // For example, assuming a `match_teams` or similar pivot table, or by checking `teamA` and `teamB` relations.
 
-            // Ensure batsman and bowler are from different actual teams
-            if ($batsman->actual_team_id === $bowler->actual_team_id) {
+            // Find the ActualTeamUser records using the validated user_ids.
+            // This is crucial for team checks.
+            $batsmanTeamUser = ActualTeamUser::where('user_id', $validated['batsman_id'])->first();
+            $bowlerTeamUser  = ActualTeamUser::where('user_id', $validated['bowler_id'])->first();
+            $currentStrikerUserId = $request->input('current_striker_user_id');
+            $currentNonStrikerUserId = $request->input('current_non_striker_user_id');
+            if (!$batsmanTeamUser || !$bowlerTeamUser) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => ['player_team' => 'Batsman or Bowler not found in team data.'],
+                ], 422);
+            }
+
+            // Ensure batsman and bowler are from different actual teams for this match context.
+            // You might need to check against the correct teams for the current innings.
+            if ($batsmanTeamUser->actual_team_id === $bowlerTeamUser->actual_team_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed.',
@@ -122,30 +138,55 @@ class BallController extends Controller
             // Prepare the data array for Ball creation
             $ballData = [
                 'match_id' => $match->id,
-                // --- ADJUSTMENT 3: Insert the USER_ID, not the ActualTeamUser's primary key ID ---
-                // We are inserting the user_id because the foreign key constraint (if it were correct)
-                // would be on users(id), and that's what you're validating against and sending from the view.
-                'batsman_id' => $validated['batsman_id'], // Use the user_id sent from the form
-                'bowler_id' => $validated['bowler_id'],   // Use the user_id sent from the form
+                'batsman_id' => $validated['batsman_id'],
+                'bowler_id' => $validated['bowler_id'],
                 'runs' => $validated['runs'],
                 'extra_type' => $validated['extra_type'],
                 'extra_runs' => $validated['extra_runs'] ?? 0,
                 'is_wicket' => $request->has('is_wicket') ? 1 : 0,
+                'dismissal_type' => $validated['dismissal_type'] ?? null,
+                'fielder_id' => $request->input('fielder_id') ? $request->input('fielder_id') : null,
+                'over' => $validated['over'] ?? 1, // Default over to 1 if not provided
+                'ball_in_over' => $validated['ball_in_over'] ?? 1, // Default ball to 1 if not provided
             ];
 
-            // If it's a wicket, zero out runs
+            // --- ADJUSTMENT FOR WICKET: Nullify extras ---
             if ($ballData['is_wicket']) {
-                $ballData['runs'] = 0;
-                $ballData['extra_runs'] = 0;
+                session()->forget('current_striker_id_' . $match->id);
+                session()->forget('current_non_striker_id_' . $match->id);
+                $ballData['runs'] = 0; // Runs are not added on a wicket ball (unless it's a run out on a wicket)
+                $ballData['extra_type'] = null; // Extra type should be null if it's a wicket
+                $ballData['extra_runs'] = 0;   // Extra runs should be zero
+
+            } else {
+                // --- NON-WICKET HANDLING: Update session for next striker ---
+                $totalRunsOnBall = $ballData['runs'] + $ballData['extra_runs'];
+
+                if ($totalRunsOnBall > 0 && $totalRunsOnBall % 2 !== 0) {
+                    // Odd runs scored, swap striker and non-striker
+                    $nextStrikerUserId = $currentNonStrikerUserId;
+                    $nextNonStrikerUserId = $currentStrikerUserId;
+                } else {
+                    // Even runs or no runs, striker stays the same (unless they got out, which is handled by the wicket logic)
+                    $nextStrikerUserId = $currentStrikerUserId;
+                    $nextNonStrikerUserId = $currentNonStrikerUserId;
+                }
+
+                // Update session
+                session(['current_striker_id_' . $match->id => $nextStrikerUserId]);
+                session(['current_non_striker_id_' . $match->id => $nextNonStrikerUserId]);
             }
 
-            // Determine next ball automatically
+            // Determine next ball automatically (assuming you have a getNextBall helper method)
+            // Ensure this method correctly increments over and ball_in_over
+            // and handles end of over logic.
             [$over, $ballInOver] = $this->getNextBall($match->id, $ballData['extra_type']);
             $ballData['over'] = $over;
             $ballData['ball_in_over'] = $ballInOver;
 
             // Create the ball
-            Ball::create($ballData);
+            $ball = Ball::create($ballData);
+            Log::info('New striker ID set: ' . session('current_striker_id_' . $ball->match_id));
 
             return response()->json(['success' => true, 'message' => 'Ball saved successfully.']);
         } catch (ModelNotFoundException $e) {
@@ -161,7 +202,7 @@ class BallController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An unexpected error occurred.',
-                'errors' => ['general' => $e->getMessage()], // Return the actual SQL error
+                'errors' => ['general' => $e->getMessage()], // Return the actual SQL error for debugging
             ], 500);
         }
     }
