@@ -140,15 +140,42 @@ class PermissionService
             ],
             [
                 'group_name' => 'tournament',
+                'group_label' => 'Tournament Management',
                 'permissions' => [
                     'tournament.create',
                     'tournament.view',
                     'tournament.edit',
                     'tournament.delete',
+                    'tournament.settings',
+                    'tournament.registrations',
+                    'tournament.groups',
+                    'tournament.fixtures',
+                    'tournament.point-table',
+                    'tournament.statistics',
+                    'tournament.awards',
+                ],
+            ],
+            [
+                'group_name' => 'match',
+                'group_label' => 'Match Management',
+                'permissions' => [
                     'match.create',
                     'match.view',
                     'match.edit',
                     'match.delete',
+                    'match.result',
+                    'match.awards',
+                    'match.scorecard',
+                ],
+            ],
+            [
+                'group_name' => 'ground',
+                'group_label' => 'Ground Management',
+                'permissions' => [
+                    'ground.create',
+                    'ground.view',
+                    'ground.edit',
+                    'ground.delete',
                 ],
             ],
             [

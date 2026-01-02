@@ -40,6 +40,17 @@ use App\Http\Controllers\Backend\UsersController;
 use App\Http\Controllers\Backend\PlayerVerificationController;
 use App\Http\Controllers\PublicAuctionController;
 use App\Http\Controllers\PublicPlayerController;
+use App\Http\Controllers\Backend\Tournament\TournamentSettingsController;
+use App\Http\Controllers\Backend\Tournament\TournamentRegistrationController;
+use App\Http\Controllers\Backend\Tournament\TournamentGroupController;
+use App\Http\Controllers\Backend\Tournament\TournamentFixtureController;
+use App\Http\Controllers\Backend\GroundController;
+use App\Http\Controllers\Backend\MatchResultController;
+use App\Http\Controllers\Backend\PointTableController;
+use App\Http\Controllers\Public\TournamentPublicController;
+use App\Http\Controllers\Public\RegistrationController as PublicRegistrationController;
+use App\Http\Controllers\Public\MatchPublicController;
+use App\Http\Controllers\Public\PlayerDashboardController;
 use App\Models\Organization;
 use App\Models\Player;
 use App\Models\User;
@@ -184,6 +195,8 @@ Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPubl
     ->name('public.auction.live');
 Route::get('/auction/{auction}/sold', [PublicAuctionController::class, 'showPublicDisplaySold'])
     ->name('public.auction.sold');
+Route::get('/auction/{auction}/results', [PublicAuctionController::class, 'showResults'])
+    ->name('public.auction.results');
 // API endpoint for AJAX polling
 Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
@@ -569,3 +582,91 @@ Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, 
 //         echo "<strong>Failure:</strong> The output file was NOT created.";
 //     }
 // });
+
+/*
+|--------------------------------------------------------------------------
+| Tournament Organization Routes
+|--------------------------------------------------------------------------
+*/
+
+// Public Tournament Routes (No Auth Required)
+Route::prefix('t/{tournament:slug}')->name('public.tournament.')->group(function () {
+    Route::get('/', [TournamentPublicController::class, 'show'])->name('show');
+    Route::get('/fixtures', [TournamentPublicController::class, 'fixtures'])->name('fixtures');
+    Route::get('/point-table', [TournamentPublicController::class, 'pointTable'])->name('point-table');
+    Route::get('/statistics', [TournamentPublicController::class, 'statistics'])->name('statistics');
+    Route::get('/teams', [TournamentPublicController::class, 'teams'])->name('teams');
+
+    // Registration
+    Route::get('/register/player', [PublicRegistrationController::class, 'playerForm'])->name('register.player');
+    Route::post('/register/player', [PublicRegistrationController::class, 'storePlayer'])->name('register.player.store');
+    Route::get('/register/player/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'player')->name('register.player.success');
+    Route::get('/register/team', [PublicRegistrationController::class, 'teamForm'])->name('register.team');
+    Route::post('/register/team', [PublicRegistrationController::class, 'storeTeam'])->name('register.team.store');
+    Route::get('/register/team/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'team')->name('register.team.success');
+});
+
+// Public Match Routes (No Auth Required)
+Route::prefix('m/{match:slug}')->name('public.match.')->group(function () {
+    Route::get('/', [MatchPublicController::class, 'show'])->name('show');
+    Route::get('/poster', [MatchPublicController::class, 'poster'])->name('poster');
+    Route::get('/summary', [MatchPublicController::class, 'summary'])->name('summary');
+    Route::get('/scorecard', [MatchPublicController::class, 'scorecard'])->name('scorecard');
+});
+
+// Public Player Dashboard
+Route::get('/player/{player}/dashboard', [PlayerDashboardController::class, 'show'])->name('public.player.dashboard');
+
+// Admin Tournament Management Routes
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
+    // Grounds
+    Route::resource('grounds', GroundController::class);
+
+    // Tournament Settings
+    Route::prefix('tournaments/{tournament}')->name('tournaments.')->group(function () {
+        // Settings
+        Route::get('/settings', [TournamentSettingsController::class, 'edit'])->name('settings.edit');
+        Route::put('/settings', [TournamentSettingsController::class, 'update'])->name('settings.update');
+        Route::post('/settings/generate-flyer', [TournamentSettingsController::class, 'generateFlyer'])->name('settings.generate-flyer');
+        Route::put('/settings/status', [TournamentSettingsController::class, 'updateStatus'])->name('settings.status');
+
+        // Registrations
+        Route::get('/registrations', [TournamentRegistrationController::class, 'index'])->name('registrations.index');
+        Route::get('/registrations/{registration}', [TournamentRegistrationController::class, 'show'])->name('registrations.show');
+        Route::post('/registrations/{registration}/approve', [TournamentRegistrationController::class, 'approve'])->name('registrations.approve');
+        Route::post('/registrations/{registration}/reject', [TournamentRegistrationController::class, 'reject'])->name('registrations.reject');
+        Route::post('/registrations/bulk-approve', [TournamentRegistrationController::class, 'bulkApprove'])->name('registrations.bulk-approve');
+
+        // Groups
+        Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');
+        Route::post('/groups', [TournamentGroupController::class, 'store'])->name('groups.store');
+        Route::put('/groups/{group}', [TournamentGroupController::class, 'update'])->name('groups.update');
+        Route::delete('/groups/{group}', [TournamentGroupController::class, 'destroy'])->name('groups.destroy');
+        Route::post('/groups/{group}/add-team', [TournamentGroupController::class, 'addTeam'])->name('groups.add-team');
+        Route::delete('/groups/{group}/remove-team/{team}', [TournamentGroupController::class, 'removeTeam'])->name('groups.remove-team');
+        Route::post('/groups/auto-create', [TournamentGroupController::class, 'autoCreate'])->name('groups.auto-create');
+        Route::post('/groups/{group}/reorder-teams', [TournamentGroupController::class, 'reorderTeams'])->name('groups.reorder-teams');
+
+        // Fixtures
+        Route::get('/fixtures', [TournamentFixtureController::class, 'index'])->name('fixtures.index');
+        Route::post('/fixtures/generate-group-stage', [TournamentFixtureController::class, 'generateGroupStage'])->name('fixtures.generate-group');
+        Route::post('/fixtures/generate-knockouts', [TournamentFixtureController::class, 'generateKnockouts'])->name('fixtures.generate-knockouts');
+        Route::post('/fixtures/{match}/reschedule', [TournamentFixtureController::class, 'reschedule'])->name('fixtures.reschedule');
+        Route::post('/fixtures/{match}/cancel', [TournamentFixtureController::class, 'cancel'])->name('fixtures.cancel');
+        Route::post('/fixtures/{match}/generate-poster', [TournamentFixtureController::class, 'generatePoster'])->name('fixtures.generate-poster');
+        Route::delete('/fixtures/group-stage', [TournamentFixtureController::class, 'deleteGroupStage'])->name('fixtures.delete-group');
+        Route::post('/fixtures/bulk-generate-posters', [TournamentFixtureController::class, 'bulkGeneratePosters'])->name('fixtures.bulk-posters');
+
+        // Point Table
+        Route::get('/point-table', [PointTableController::class, 'index'])->name('point-table.index');
+        Route::post('/point-table/recalculate', [PointTableController::class, 'recalculate'])->name('point-table.recalculate');
+        Route::post('/point-table/generate-poster', [PointTableController::class, 'generatePoster'])->name('point-table.generate-poster');
+        Route::post('/point-table/initialize', [PointTableController::class, 'initialize'])->name('point-table.initialize');
+        Route::post('/point-table/qualified', [PointTableController::class, 'updateQualified'])->name('point-table.qualified');
+    });
+
+    // Match Result
+    Route::get('/matches/{match}/result', [MatchResultController::class, 'edit'])->name('matches.result.edit');
+    Route::put('/matches/{match}/result', [MatchResultController::class, 'update'])->name('matches.result.update');
+    Route::post('/matches/{match}/result/quick', [MatchResultController::class, 'quickUpdate'])->name('matches.result.quick');
+});

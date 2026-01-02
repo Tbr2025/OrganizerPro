@@ -178,20 +178,20 @@ class AdminMenuService
             'id' => 'players-submenu',
             'active' => Route::is('admin.players.*'),
             'priority' => 20,
-            'permissions' => ['player.create', 'player.view', 'player.edit', 'player.delete', 'player.import', 'player.sample'],
+            'permissions' => ['player.create', 'player.view', 'player.edit', 'player.delete'],
             'children' => [
                 [
-                    'label' => __('Players'),
+                    'label' => __('All Players'),
                     'route' => route('admin.players.index'),
-                    'active' => Route::is('admin.players.index') || Route::is('admin.players.edit'),
-                    'priority' => 20,
+                    'active' => Route::is('admin.players.index') || Route::is('admin.players.edit') || Route::is('admin.players.show'),
+                    'priority' => 10,
                     'permissions' => 'player.view',
                 ],
                 [
                     'label' => __('New Player'),
                     'route' => route('admin.players.create'),
                     'active' => Route::is('admin.players.create'),
-                    'priority' => 10,
+                    'priority' => 20,
                     'permissions' => 'player.create',
                 ],
             ],
@@ -206,20 +206,20 @@ class AdminMenuService
             'id' => 'matches-submenu',
             'active' => Route::is('admin.matches.*'),
             'priority' => 25,
-            'permissions' => ['match.create', 'match.view'],
+            'permissions' => ['match.create', 'match.view', 'match.edit', 'match.delete', 'match.result', 'match.awards', 'match.scorecard'],
             'children' => [
                 [
-                    'label' => __('Matches'),
+                    'label' => __('All Matches'),
                     'route' => route('admin.matches.index'),
                     'active' => Route::is('admin.matches.index') || Route::is('admin.matches.edit') || Route::is('admin.matches.show'),
-                    'priority' => 20,
+                    'priority' => 10,
                     'permissions' => 'match.view',
                 ],
                 [
                     'label' => __('New Match'),
                     'route' => route('admin.matches.create'),
                     'active' => Route::is('admin.matches.create'),
-                    'priority' => 10,
+                    'priority' => 20,
                     'permissions' => 'match.create',
                 ],
             ],
@@ -231,20 +231,20 @@ class AdminMenuService
             'id' => 'appreciations-submenu',
             'active' => Route::is('admin.appreciations.*') || Route::is('admin.matches.appreciations.*'),
             'priority' => 26,
-            'permissions' => ['match_appreciation.create', 'match_appreciation.view'],
+            'permissions' => ['match_appreciation.create', 'match_appreciation.view', 'match_appreciation.edit', 'match_appreciation.delete'],
             'children' => [
                 [
                     'label' => __('All Appreciations'),
                     'route' => route('admin.appreciations.index'),
                     'active' => Route::is('admin.appreciations.index') || Route::is('admin.appreciations.edit'),
-                    'priority' => 20,
+                    'priority' => 10,
                     'permissions' => 'match_appreciation.view',
                 ],
             ],
         ]);
 
         $this->addMenuItem([
-            'label' => __('Teams'),
+            'label' => __('Auction Teams'),
             'icon' => 'feather:users',
             'id' => 'teams-submenu',
             'active' => Route::is('admin.teams.*'),
@@ -252,96 +252,96 @@ class AdminMenuService
             'permissions' => ['team.create', 'team.view', 'team.edit', 'team.delete'],
             'children' => [
                 [
-                    'label' => __('Teams'),
+                    'label' => __('All Teams'),
                     'route' => route('admin.teams.index'),
-                    'active' => Route::is('admin.teams.index') || Route::is('admin.teams.edit'),
-                    'priority' => 20,
+                    'active' => Route::is('admin.teams.index') || Route::is('admin.teams.edit') || Route::is('admin.teams.show'),
+                    'priority' => 10,
                     'permissions' => 'team.view',
                 ],
                 [
                     'label' => __('New Team'),
                     'route' => route('admin.teams.create'),
                     'active' => Route::is('admin.teams.create'),
-                    'priority' => 10,
+                    'priority' => 20,
                     'permissions' => 'team.create',
                 ],
             ],
         ]);
         $this->addMenuItem([
-            'label' => __('Teams'),
-            'icon' => 'feather:users',
+            'label' => __('Actual Teams'),
+            'icon' => 'feather:shield',
             'id' => 'actual-teams-submenu',
             'active' => Route::is('admin.actual-teams.*'),
             'priority' => 25,
             'permissions' => ['actual-team.create', 'actual-team.view', 'actual-team.edit', 'actual-team.delete'],
             'children' => [
                 [
-                    'label' => __('Teams'),
+                    'label' => __('All Teams'),
                     'route' => route('admin.actual-teams.index'),
-                    'active' => Route::is('admin.actual-teams.index') || Route::is('admin.actual-teams.edit'),
-                    'priority' => 20,
+                    'active' => Route::is('admin.actual-teams.index') || Route::is('admin.actual-teams.edit') || Route::is('admin.actual-teams.show'),
+                    'priority' => 10,
                     'permissions' => 'actual-team.view',
                 ],
                 [
                     'label' => __('New Team'),
                     'route' => route('admin.actual-teams.create'),
                     'active' => Route::is('admin.actual-teams.create'),
-                    'priority' => 10,
+                    'priority' => 20,
                     'permissions' => 'actual-team.create',
                 ],
             ],
         ]);
         $this->addMenuItem([
-            'label' => __('Organizations'), // Changed label
-            'icon' => 'feather:briefcase', // Changed icon for variety
-            'id' => 'organizations-submenu', // Changed ID
-            'active' => Route::is('admin.organizations.*'), // Changed route check
-            'priority' => 24, // Adjusted priority
-            'permissions' => ['organization.view', 'organization.create', 'organization.edit', 'organization.delete'], // USE NEW PERMISSIONS
+            'label' => __('Organizations'),
+            'icon' => 'feather:briefcase',
+            'id' => 'organizations-submenu',
+            'active' => Route::is('admin.organizations.*'),
+            'priority' => 24,
+            'permissions' => ['organization.view', 'organization.create', 'organization.edit', 'organization.delete'],
             'children' => [
                 [
-                    'label' => __('All Organizations'), // Changed label
-                    'route' => route('admin.organizations.index'), // Changed route
-                    'active' => Route::is('admin.organizations.index') || Route::is('admin.organizations.edit'), // Changed route check
-                    'priority' => 20,
-                    'permissions' => 'organization.view', // Use new permission
+                    'label' => __('All Organizations'),
+                    'route' => route('admin.organizations.index'),
+                    'active' => Route::is('admin.organizations.index') || Route::is('admin.organizations.edit') || Route::is('admin.organizations.show'),
+                    'priority' => 10,
+                    'permissions' => 'organization.view',
                 ],
                 [
-                    'label' => __('New Organization'), // Changed label
-                    'route' => route('admin.organizations.create'), // Changed route
-                    'active' => Route::is('admin.organizations.create'), // Changed route check
-                    'priority' => 10,
-                    'permissions' => 'organization.create', // Use new permission
+                    'label' => __('New Organization'),
+                    'route' => route('admin.organizations.create'),
+                    'active' => Route::is('admin.organizations.create'),
+                    'priority' => 20,
+                    'permissions' => 'organization.create',
                 ],
             ],
         ]);
         $this->addMenuItem([
             'label' => __('Auctions'),
-            'icon' => 'feather:lock', // A gavel icon is perfect for auctions
+            'icon' => 'feather:lock',
             'id' => 'auctions-submenu',
-            'active' => Route::is('admin.auctions.*') || Route::is('admin.auction.organizer.panel'), // <-- Also active on the live panel
-            'priority' => 30, // Set priority to appear next to Tournaments
-            'permissions' => ['auction.create', 'auction.view', 'auction.edit', 'auction.delete'],
+            'active' => Route::is('admin.auctions.*') || Route::is('admin.auction.organizer.*') || Route::is('team.auction.bidding.*'),
+            'priority' => 30,
+            'permissions' => ['auction.create', 'auction.view', 'auction.edit', 'auction.delete', 'auction.closed-bids'],
             'children' => [
                 [
                     'label' => __('All Auctions'),
                     'route' => route('admin.auctions.index'),
-                    'active' => Route::is('admin.auctions.index') || Route::is('admin.auctions.edit') || Route::is('admin.auctions.show'),
-                    'priority' => 20,
+                    'active' => Route::is('admin.auctions.index') || Route::is('admin.auctions.edit') || Route::is('admin.auctions.show') || Route::is('team.auction.bidding.*'),
+                    'priority' => 10,
                     'permissions' => 'auction.view',
                 ],
                 [
                     'label' => __('New Auction'),
                     'route' => route('admin.auctions.create'),
                     'active' => Route::is('admin.auctions.create'),
-                    'priority' => 10,
+                    'priority' => 20,
                     'permissions' => 'auction.create',
                 ],
                 [
                     'label' => __('Closed Bids'),
                     'route' => route('admin.auctions.closed-bids'),
                     'active' => Route::is('admin.auctions.closed-bids'),
-                    'priority' => 10,
+                    'priority' => 30,
                     'permissions' => 'auction.closed-bids',
                 ],
             ],
@@ -352,21 +352,58 @@ class AdminMenuService
             'id' => 'tournaments-submenu',
             'active' => Route::is('admin.tournaments.*'),
             'priority' => 24,
-            'permissions' => ['tournament.create', 'tournament.view', 'tournament.edit', 'tournament.delete'],
+            'permissions' => [
+                'tournament.create',
+                'tournament.view',
+                'tournament.edit',
+                'tournament.delete',
+                'tournament.settings',
+                'tournament.registrations',
+                'tournament.groups',
+                'tournament.fixtures',
+                'tournament.point-table',
+                'tournament.statistics',
+                'tournament.awards',
+            ],
             'children' => [
                 [
-                    'label' => __('Tournaments'),
+                    'label' => __('All Tournaments'),
                     'route' => route('admin.tournaments.index'),
-                    'active' => Route::is('admin.tournaments.index') || Route::is('admin.tournaments.edit'),
-                    'priority' => 20,
+                    'active' => Route::is('admin.tournaments.index') || Route::is('admin.tournaments.edit') || Route::is('admin.tournaments.show'),
+                    'priority' => 10,
                     'permissions' => 'tournament.view',
                 ],
                 [
                     'label' => __('New Tournament'),
                     'route' => route('admin.tournaments.create'),
                     'active' => Route::is('admin.tournaments.create'),
-                    'priority' => 10,
+                    'priority' => 20,
                     'permissions' => 'tournament.create',
+                ],
+            ],
+        ]);
+
+        $this->addMenuItem([
+            'label' => __('Grounds'),
+            'icon' => 'feather:map-pin',
+            'id' => 'grounds-submenu',
+            'active' => Route::is('admin.grounds.*'),
+            'priority' => 26,
+            'permissions' => ['ground.view', 'ground.create', 'ground.edit', 'ground.delete'],
+            'children' => [
+                [
+                    'label' => __('All Grounds'),
+                    'route' => route('admin.grounds.index'),
+                    'active' => Route::is('admin.grounds.index') || Route::is('admin.grounds.edit') || Route::is('admin.grounds.show'),
+                    'priority' => 10,
+                    'permissions' => 'ground.view',
+                ],
+                [
+                    'label' => __('New Ground'),
+                    'route' => route('admin.grounds.create'),
+                    'active' => Route::is('admin.grounds.create'),
+                    'priority' => 20,
+                    'permissions' => 'ground.create',
                 ],
             ],
         ]);

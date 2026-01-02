@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(ls -la \"D:\\\\Navas\\\\Client\\\\Salih Muahammad\\\\OrganizerPro\\\\resources\\\\views\\\\backend\\\\pages\"\" 2>/dev/null || dir /B \"D:NavasClientSalih MuahammadOrganizerProresourcesviewsbackendpages \")",
+      "Bash(dir /B \"D:\\\\Navas\\\\Client\\\\Salih Muahammad\\\\OrganizerPro\\\\resources\\\\views\\\\emails\")",
+      "Bash(php artisan migrate:*)",
+      "Bash(php artisan migrate:status:*)",
+      "Bash(php artisan:*)",
+      "WebFetch(domain:superplayerauction.com)",
+      "Bash(ls -la \"D:\\\\Navas\\\\Client\\\\Salih Muahammad\\\\OrganizerPro\\\\resources\\\\views\\\\public\\\\auction\"\" 2>/dev/null || echo \"Directory may not exist or is empty \")",
+      "Bash(git add:*)"
+    ]
+  }
+}

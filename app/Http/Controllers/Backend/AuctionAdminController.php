@@ -130,6 +130,8 @@ class AuctionAdminController extends Controller
             'organization',
             'tournament',
             'auctionPlayers.player.playerType',
+            'auctionPlayers.player.battingProfile',
+            'auctionPlayers.player.bowlingProfile',
             'auctionPlayers.soldToTeam'
         ]);
 
@@ -160,12 +162,16 @@ class AuctionAdminController extends Controller
             'organization',
             'tournament',
             'auctionPlayers.player.playerType',
+            'auctionPlayers.player.battingProfile',
+            'auctionPlayers.player.bowlingProfile',
             'auctionPlayers.soldToTeam'
         ]);
 
         // Start query on auctionPlayers
         $query = $auction->auctionPlayers()->with([
             'player.playerType',
+            'player.battingProfile',
+            'player.bowlingProfile',
             'soldToTeam'
         ]);
 

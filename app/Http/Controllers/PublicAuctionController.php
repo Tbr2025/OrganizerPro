@@ -3,11 +3,34 @@
 namespace App\Http\Controllers;
 
 use App\Models\Auction;
+use App\Models\ActualTeam;
 use Illuminate\Http\Request;
 
 class PublicAuctionController extends Controller
 {
+    /**
+     * Display the public auction results page with all players.
+     */
+    public function showResults(Auction $auction)
+    {
+        $auction->load([
+            'organization',
+            'tournament',
+            'auctionPlayers.player.playerType',
+            'auctionPlayers.player.battingProfile',
+            'auctionPlayers.player.bowlingProfile',
+            'auctionPlayers.soldToTeam'
+        ]);
 
+        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+            ->orderBy('name')
+            ->get();
+
+        return view('public.auction.results', [
+            'auction' => $auction,
+            'teams' => $teams
+        ]);
+    }
 
     /**
      * Display the public live auction wall.

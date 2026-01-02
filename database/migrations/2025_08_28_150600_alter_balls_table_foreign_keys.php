@@ -12,34 +12,18 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop foreign keys separately with proper error handling
+        $this->dropForeignKeyIfExists('balls', 'balls_batsman_id_foreign');
+        $this->dropForeignKeyIfExists('balls', 'balls_bowler_id_foreign');
+
+        // Clear orphan references before adding foreign keys
+        if (Schema::hasTable('actual_team_users')) {
+            \DB::statement('UPDATE balls SET batsman_id = NULL WHERE batsman_id IS NOT NULL AND batsman_id NOT IN (SELECT id FROM actual_team_users)');
+            \DB::statement('UPDATE balls SET bowler_id = NULL WHERE bowler_id IS NOT NULL AND bowler_id NOT IN (SELECT id FROM actual_team_users)');
+        }
+
+        // Add new foreign keys
         Schema::table('balls', function (Blueprint $table) {
-            // --- Drop the INCORRECT Foreign Keys using the CORRECT names ---
-            // !!! IMPORTANT: REPLACE THESE WITH THE EXACT NAMES FOUND IN YOUR DATABASE !!!
-            $actualBatsmanFkName = 'balls_batsman_id_foreign'; // <-- REPLACE THIS WITH THE EXACT NAME FOUND IN YOUR DB (e.g., 'fk_balls_batsman_id_constraint')
-            $actualBowlerFkName = 'balls_bowler_id_foreign';   // <-- REPLACE THIS WITH THE EXACT NAME FOUND IN YOUR DB (e.g., 'fk_balls_bowler_id_constraint')
-
-            // Attempt to drop the FOREIGN KEY for batsman_id
-            if (Schema::hasColumn('balls', 'batsman_id')) {
-                try {
-                    $table->dropForeign($actualBatsmanFkName);
-                } catch (\Exception $e) {
-                    // Log if the constraint doesn't exist or the name is wrong
-                    Log::warning("Could not drop foreign key '{$actualBatsmanFkName}': " . $e->getMessage());
-                }
-            }
-
-            // Attempt to drop the FOREIGN KEY for bowler_id
-            if (Schema::hasColumn('balls', 'bowler_id')) {
-                try {
-                    $table->dropForeign($actualBowlerFkName);
-                } catch (\Exception $e) {
-                    Log::warning("Could not drop foreign key '{$actualBowlerFkName}': " . $e->getMessage());
-                }
-            }
-
-            // --- Add the CORRECT Foreign Keys to Existing Columns ---
-            // These lines add the *new* foreign keys pointing to actual_team_users(id).
-            // Laravel will likely generate default names for these new keys (e.g., 'balls_batsman_id_foreign').
             if (Schema::hasColumn('balls', 'batsman_id')) {
                 $table->foreign('batsman_id')->references('id')->on('actual_team_users')->onDelete('set null');
             }
@@ -48,6 +32,34 @@ return new class extends Migration
                 $table->foreign('bowler_id')->references('id')->on('actual_team_users')->onDelete('set null');
             }
         });
+    }
+
+    /**
+     * Safely drop a foreign key if it exists
+     */
+    private function dropForeignKeyIfExists(string $table, string $foreignKey): void
+    {
+        try {
+            $fkExists = \DB::select("
+                SELECT CONSTRAINT_NAME
+                FROM information_schema.TABLE_CONSTRAINTS
+                WHERE CONSTRAINT_TYPE = 'FOREIGN KEY'
+                AND TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = ?
+                AND CONSTRAINT_NAME = ?
+            ", [$table, $foreignKey]);
+
+            if (!empty($fkExists)) {
+                Schema::table($table, function (Blueprint $blueprint) use ($foreignKey) {
+                    $blueprint->dropForeign($foreignKey);
+                });
+                Log::info("Dropped foreign key '{$foreignKey}' from table '{$table}'");
+            } else {
+                Log::info("Foreign key '{$foreignKey}' does not exist on table '{$table}', skipping drop");
+            }
+        } catch (\Exception $e) {
+            Log::warning("Could not check/drop foreign key '{$foreignKey}': " . $e->getMessage());
+        }
     }
 
     /**

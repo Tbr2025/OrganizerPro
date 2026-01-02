@@ -15,6 +15,9 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         Commands\SetupStorage::class,
         Commands\CreatePlaceholderImages::class,
+        Commands\SendMatchPostersCommand::class,
+        Commands\UpdatePointTablesCommand::class,
+        Commands\CleanupRegistrationsCommand::class,
     ];
 
     /**
@@ -26,6 +29,24 @@ class Kernel extends ConsoleKernel
     {
         // Schedule the demo database refresh command every 15 minutes in demo mode.
         $schedule->command('demo:refresh-database')->everyFifteenMinutes();
+
+        // Tournament scheduled tasks
+        // Send match posters daily at 9 AM
+        $schedule->command('tournament:send-match-posters')
+            ->dailyAt('09:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Update point tables daily at 12:30 AM
+        $schedule->command('tournament:update-point-tables')
+            ->dailyAt('00:30')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Cleanup old pending registrations every Sunday at 2 AM
+        $schedule->command('tournament:cleanup-registrations --days=30')
+            ->weeklyOn(0, '02:00')
+            ->withoutOverlapping();
     }
 
     /**

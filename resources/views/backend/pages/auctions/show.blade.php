@@ -3,14 +3,18 @@
 @section('title', 'View Auction | ' . $auction->name)
 
 @section('admin-content')
-    <div class="p-4 mx-auto md:p-6 lg:p-8">
+    <div class="p-4 mx-auto md:p-6 lg:p-8" x-data="auctionPlayerPool()" x-init="init(
+        {{ $auction->id }},
+        {{ json_encode($auction->auctionPlayers) }},
+        {{ json_encode($teams) }},
+        {{ json_encode($bidRules) }}
+    )">
 
         {{-- Header --}}
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Auction Dashboard</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Overview for: <span
-                        class="font-semibold">{{ $auction->name }}</span></p>
+                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">{{ $auction->name }}</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $auction->tournament->name ?? 'N/A' }}</p>
             </div>
             <div class="flex items-center gap-3">
                 @if (!auth()->user()->hasRole('Team Manager'))
@@ -27,578 +31,488 @@
             </div>
         </div>
 
-        {{-- Info Bar --}}
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 text-center">
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div class="text-sm font-medium text-gray-500">Status</div>
-                <div class="mt-1 text-xl font-semibold">
-                    <span
-                        class="badge-{{ $auction->status === 'running' ? 'success' : 'secondary' }}">{{ ucfirst($auction->status) }}</span>
-                </div>
+        {{-- Statistics Bar --}}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-green-500 text-white p-4 rounded-lg text-center shadow-lg">
+                <div class="text-3xl font-bold" x-text="soldCount">0</div>
+                <div class="text-sm uppercase tracking-wide">Sold</div>
             </div>
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div class="text-sm font-medium text-gray-500">Tournament</div>
-                <div class="mt-1 text-xl font-semibold">{{ $auction->tournament->name ?? 'N/A' }}</div>
+            <div class="bg-red-500 text-white p-4 rounded-lg text-center shadow-lg">
+                <div class="text-3xl font-bold" x-text="unsoldCount">0</div>
+                <div class="text-sm uppercase tracking-wide">Unsold</div>
             </div>
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div class="text-sm font-medium text-gray-500">Player Pool</div>
-                <div class="mt-1 text-xl font-semibold" x-text="players.length">{{ $auction->auctionPlayers->count() }}
-                    Players</div>
+            <div class="bg-blue-500 text-white p-4 rounded-lg text-center shadow-lg">
+                <div class="text-3xl font-bold" x-text="availableCount">0</div>
+                <div class="text-sm uppercase tracking-wide">Available</div>
             </div>
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div class="text-sm font-medium text-gray-500">Team Budget</div>
-                <div class="mt-1 text-xl font-semibold">{{ number_format($auction->max_budget_per_team) }}</div>
+            <div class="bg-purple-500 text-white p-4 rounded-lg text-center shadow-lg">
+                <div class="text-3xl font-bold" x-text="players.length">0</div>
+                <div class="text-sm uppercase tracking-wide">Total Pool</div>
             </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border" x-data="auctionPlayerPool()" x-init="init(
-            {{ $auction->id }},
-            {{ json_encode($auction->auctionPlayers) }},
-            {{ json_encode($teams) }},
-            {{ json_encode($bidRules) }}
-        )">
-            <div class="p-5 border-b flex justify-between items-center">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Auction Player Pool</h2>
-                <span class="text-sm font-medium text-gray-500">Total: <span x-text="players.length"></span></span>
-                @can('auctions.edit')
+        {{-- Filters --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                {{-- Search --}}
+                <div class="w-full md:w-1/3">
+                    <input type="text" x-model="searchQuery" placeholder="Search player name..."
+                        class="form-control w-full">
+                </div>
+
+                {{-- Status Filter --}}
+                <div class="flex gap-2 flex-wrap">
+                    <button @click="statusFilter = ''"
+                        :class="statusFilter === '' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                        class="px-4 py-2 rounded-full text-sm font-medium transition">
+                        All
+                    </button>
+                    <button @click="statusFilter = 'sold'"
+                        :class="statusFilter === 'sold' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                        class="px-4 py-2 rounded-full text-sm font-medium transition">
+                        Sold
+                    </button>
+                    <button @click="statusFilter = 'unsold'"
+                        :class="statusFilter === 'unsold' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                        class="px-4 py-2 rounded-full text-sm font-medium transition">
+                        Unsold
+                    </button>
+                    <button @click="statusFilter = 'on_auction'"
+                        :class="statusFilter === 'on_auction' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                        class="px-4 py-2 rounded-full text-sm font-medium transition">
+                        On Auction
+                    </button>
+                    <button @click="statusFilter = 'waiting'"
+                        :class="statusFilter === 'waiting' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                        class="px-4 py-2 rounded-full text-sm font-medium transition">
+                        Waiting
+                    </button>
+                </div>
+
+                {{-- Team Filter --}}
+                <div class="w-full md:w-1/4">
+                    <select x-model="teamFilter" class="form-control w-full">
+                        <option value="">All Teams</option>
+                        <template x-for="team in teams" :key="team.id">
+                            <option :value="team.id" x-text="team.name"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+
+            @can('auctions.edit')
+                <div class="mt-4 flex justify-end">
                     <form action="{{ route('admin.auctions.clear-pool', $auction) }}" method="POST"
                         onsubmit="return confirm('Are you sure you want to remove ALL players from this auction? This cannot be undone.');">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="btn btn-danger btn-sm">Clear Entire Pool</button>
                     </form>
-                @endcan
-            </div>
-            <div class="p-3 flex flex-col sm:flex-row gap-3 items-center justify-between border-b">
-                <!-- Search -->
-                <input type="text" x-model="searchQuery" placeholder="Search by name or email..."
-                    class="form-control form-control-sm w-full sm:w-1/3">
-
-                <!-- Status Filter -->
-                <select x-model="statusFilter" class="form-control form-control-sm w-full sm:w-1/4">
-                    <option value="">All Statuses</option>
-                    <option value="on_auction">On Auction</option>
-                    <option value="sold">Sold</option>
-                    <option value="waiting">Waiting</option>
-                    <option value="unsold">Unsold</option>
-                </select>
-
-                <!-- Team Filter -->
-                <select x-model="teamFilter" class="form-control form-control-sm w-full sm:w-1/4">
-                    <option value="">All Teams</option>
-                    <template x-for="team in teams" :key="team.id">
-                        <option :value="team.id" x-text="team.name"></option>
-                    </template>
-                </select>
-            </div>
-
-
-            <div class="overflow-x-auto">
-                <div x-data="{
-                    selected: [],
-                    selectAll: false,
-                    toggleAll() {
-                        if (this.selectAll) {
-                            this.selected = filteredPlayers.map(p => p.id);
-                        } else {
-                            this.selected = [];
-                        }
-                    },
-                    toggleSingle(id) {
-                        if (this.selected.includes(id)) {
-                            this.selected = this.selected.filter(i => i !== id);
-                        } else {
-                            this.selected.push(id);
-                        }
-                        this.selectAll = this.selected.length === filteredPlayers.length;
-                    },
-                    get selectedCount() {
-                        return this.selected.length;
-                    }
-                }">
-                    <div class="mb-3 flex items-center p-3">
-                        <label class="font-semibold">
-                            <input type="checkbox" x-model="selectAll" @change="toggleAll">
-                            Select All
-                        </label>
-                        <span class="ml-4" x-text="`Selected: ${selectedCount}`"></span>
-                    </div>
-
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 dark:bg-gray-900/50">
-                            <tr>
-                                <th class="p-3 text-left">Select</th>
-                                <th class="p-3 text-left">Player</th>
-                                <th class="p-3 text-left">Base </th>
-                                <th class="p-3 text-left">Current / Final</th>
-                                @can('auctions.edit')
-                                    <th class="p-3 text-left">Bid Action</th>
-                                @endcan
-                                <th class="p-3 text-left">Status</th>
-                                @can('auctions.edit')
-                                    <th class="p-3 text-left">Assign to Team </th>
-                                    <th class="p-3 text-right">Action</th>
-                                @endcan
-                            </tr>
-                        </thead>
-
-                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                            <template x-for="(player, index) in filteredPlayers" :key="player.id">
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                                    <!-- Checkbox -->
-                                    <td class="p-3">
-                                        <input type="checkbox" :value="player.id"
-                                            :checked="selected.includes(player.id)" @change="toggleSingle(player.id)">
-                                    </td>
-                                    <td class="p-3">
-                                        <div class="flex items-center gap-3">
-                                            <img :src="player.player.image_path ? `/storage/${player.player.image_path}` :
-                                                `https://ui-avatars.com/api/?name=${encodeURIComponent(player.player.name)}`"
-                                                class="w-10 h-10 rounded-full object-cover">
-                                            <div>
-                                                <div class="font-semibold text-gray-900 dark:text-white"
-                                                    x-text="player.player.name"></div>
-                                                <div class="text-xs text-gray-500" x-text="player.player.email"></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    
-                                    <td class="p-3 font-semibold" x-text="formatCurrency(player.base_price)"></td>
-                                    <td class="p-3 font-semibold" x-text="formatCurrency(player.current_price)"></td>
-                                   
-                                    @can('auctions.edit')
-                                        <td class="p-3 font-semibold" x-data="{ finalPrice: player.final_price }">
-                                            <div class="flex items-center gap-2">
-                                                <!-- Decrease / Increase Bid -->
-                                                <button @click="decreaseBid(player)"
-                                                    class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">-</button>
-
-                                                <span x-text="formatCurrency(player.current_price)"></span>
-
-                                                <button @click="increaseBid(player)"
-                                                    class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                                    :disabled="player.current_price >= player.max_price">+</button>
-
-                                                <!-- Final Price Input -->
-                                                <input type="number" x-model.number="finalPrice"
-                                                    class="w-24 px-2 py-1 border rounded text-black"
-                                                    placeholder="Final Price">
-
-                                                <button
-                                                    @click="
-                fetch(`/admin/auction/{{ $auction->id }}/player/${player.id}/final-price`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ final_price: finalPrice })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.success) {
-                        alert('Final price updated successfully!');
-                        player.final_price = finalPrice; // update locally
-                    } else {
-                        alert('Failed to update final price.');
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error updating final price.');
-                });
-            "
-                                                    class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600">Save</button>
-                                            </div>
-                                        </td>
-                                    @endcan
-
-
-
-                                    <td class="p-3">
-                                        <span class="badge"
-                                            :class="{
-                                                'badge-success': player.status === 'sold',
-                                                'badge-info': player.status === 'on_auction',
-                                                'badge-secondary': player.status === 'waiting' || player
-                                                    .status === 'unsold'
-                                            }"
-                                            x-text="player.status.charAt(0).toUpperCase() + player.status.slice(1)"></span>
-                                    </td>
-                                    @can('auctions.edit')
-                                        <td class="p-3">
-                                            <template x-if="player.status !== 'sold'">
-                                                <form action="{{ route('admin.auctions.assign-player') }}" method="POST"
-                                                    class="flex items-center gap-2">
-                                                    @csrf
-                                                    <input type="hidden" name="auction_player_id" :value="player.id">
-                                                    <select x-model="player.selectedTeamId" name="team_id"
-                                                        class="form-control form-control-sm" required>
-                                                        <option value="">Select Team...</option>
-                                                        <template x-for="team in teams" :key="team.id">
-                                                            <option :value="team.id" x-text="team.name"></option>
-                                                        </template>
-                                                    </select>
-                                                    <button type="submit" class="btn btn-success btn-sm">+</button>
-                                                </form>
-                                            </template>
-
-
-                                            <template x-if="player.status === 'sold'">
-                                                <div class="font-semibold"
-                                                    x-text="player.sold_to_team ? player.sold_to_team.name : 'N/A'"></div>
-                                            </template>
-                                        </td>
-                                        <td class="p-3 text-right flex items-center justify-end gap-2">
-                                            <!-- Remove Player Button -->
-                                            <button @click="removePlayer(player.id, index)"
-                                                class="text-red-500 hover:text-red-700 p-1 rounded" title="Remove Player">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                                                    </path>
-                                                </svg>
-                                            </button>
-
-                                            <!-- Toggle Status Button -->
-
-                                            <div class="relative inline-block w-40">
-                                                <select x-model="player.status"
-                                                    @change="
-                fetch(`/admin/auction/{{ $auction->id }}/player/${player.id}/toggle-status`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({ status: player.status })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if(!data.success) {
-                        alert('Failed to update status.');
-                        player.status = player.prevStatus; // revert
-                    } else {
-                        player.prevStatus = player.status; // store last successful
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error updating status.');
-                    player.status = player.prevStatus; // revert
-                });
-            "
-                                                    class="form-select block w-full px-2 py-1 border rounded text-black">
-                                                    <option value="on_auction">On Auction</option>
-                                                    {{-- <option value="sold">Sold</option> --}}
-                                                    <option value="unsold">UnSold</option>
-                                                    <option value="closed">Closed</option>
-                                                    <option value="waiting">Waiting</option>
-                                                </select>
-                                            </div>
-
-                                        </td>
-                                    @endcan
-                                </tr>
-                            </template>
-                            <tr x-show="filteredPlayers.length === 0" x-cloak>
-                                <td colspan="8" class="text-center py-10 text-gray-500">
-                                    No players have been added to this auction pool yet.
-                                    @can('auctions.edit')
-                                        <a href="{{ route('admin.auctions.edit', $auction) }}"
-                                            class="text-blue-500 underline">Add players now</a>.
-                                    @endcan
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
-            </div>
+            @endcan
         </div>
 
-        <script>
-            function auctionPlayerPool() {
-                return {
-                    auctionId: null,
-                    players: [],
-                    teams: [],
-                    bidRules: [],
-                    searchQuery: '',
-                    statusFilter: '',
-                    teamFilter: '', // NEW: team filter
+        {{-- Player Cards Grid --}}
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <template x-for="player in filteredPlayers" :key="player.id">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border-2 transition-all duration-300"
+                    :class="{
+                        'border-green-500 bg-green-50 dark:bg-green-900/20': player.status === 'sold',
+                        'border-red-500 bg-red-50 dark:bg-red-900/20': player.status === 'unsold',
+                        'border-blue-500 bg-blue-50 dark:bg-blue-900/20 animate-pulse': player.status === 'on_auction',
+                        'border-gray-300 dark:border-gray-600': player.status === 'waiting'
+                    }">
 
-                    init(auctionId, initialPlayers, initialTeams, initialBidRules) {
-                        this.auctionId = auctionId;
-                        this.players = initialPlayers.map(p => ({
-                            ...p,
-                            selectedTeamId: p.selectedTeamId || null
-                        }));
-                        this.teams = initialTeams;
-                        this.bidRules = initialBidRules;
+                    {{-- Player Image --}}
+                    <div class="relative">
+                        <img :src="player.player.image_path ? `/storage/${player.player.image_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(player.player.name)}&size=200&background=random`"
+                            class="w-full h-40 object-cover object-top"
+                            :alt="player.player.name">
 
-                        this.sortPlayers();
-                        // this.fetchPlayersInterval();
-                        this.connectToEcho();
-                    },
-                    get filteredPlayers() {
-                        return this.players.filter(p => {
-                            const matchesSearch = this.searchQuery === '' ||
-                                p.player.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                                p.player.email.toLowerCase().includes(this.searchQuery.toLowerCase());
+                        {{-- Status Badge --}}
+                        <div class="absolute top-2 right-2">
+                            <span class="px-2 py-1 text-xs font-bold rounded-full uppercase"
+                                :class="{
+                                    'bg-green-500 text-white': player.status === 'sold',
+                                    'bg-red-500 text-white': player.status === 'unsold',
+                                    'bg-blue-500 text-white': player.status === 'on_auction',
+                                    'bg-gray-500 text-white': player.status === 'waiting'
+                                }"
+                                x-text="player.status === 'on_auction' ? 'LIVE' : player.status.toUpperCase()">
+                            </span>
+                        </div>
 
-                            const matchesStatus = this.statusFilter === '' || p.status === this.statusFilter;
+                        {{-- Base Price Badge --}}
+                        <div class="absolute bottom-2 left-2">
+                            <span class="px-2 py-1 text-xs font-bold rounded bg-black/70 text-white">
+                                Base: <span x-text="formatCurrency(player.base_price)"></span>
+                            </span>
+                        </div>
+                    </div>
 
-                            const matchesTeam = this.teamFilter === '' ||
-                                (p.sold_to_team && p.sold_to_team.id == this.teamFilter);
+                    {{-- Player Info --}}
+                    <div class="p-3">
+                        <h3 class="font-bold text-gray-900 dark:text-white text-sm truncate" x-text="player.player.name"></h3>
 
-                            return matchesSearch && matchesStatus && matchesTeam;
-                        });
-                    },
+                        {{-- Player Type / Role --}}
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1"
+                           x-text="player.player.player_type?.name || 'Player'"></p>
 
-                    connectToEcho() {
-                        const connect = () => {
-                            if (window.Echo) {
-                                window.Echo.private(`auction.${this.auctionId}`)
-                                    // When a new bid is placed
-                                    .listen('.player.onbid', e => {
-                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                        if (player) player.current_price = e.auctionPlayer.current_price;
-                                    })
-                                    // When a player is sold
-                                    .listen('.player.sold', e => {
-                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                        if (player) {
-                                            player.status = 'sold';
-                                            player.sold_to_team = e.auctionPlayer.sold_to_team;
-                                            this.sortPlayers();
-                                        }
-                                    })
-                                    // When a player is added to the auction pool
-                                    .listen('.player.added', e => {
-                                        const exists = this.players.find(p => p.id === e.auctionPlayer.id);
-                                        if (!exists) this.players.push({
-                                            ...e.auctionPlayer,
-                                            selectedTeamId: null
-                                        });
+                        {{-- Batting & Bowling Style --}}
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 space-y-0.5">
+                            <p x-show="player.player.batting_profile?.name">
+                                <span class="font-medium">Bat:</span> <span x-text="player.player.batting_profile?.name"></span>
+                            </p>
+                            <p x-show="player.player.bowling_profile?.name">
+                                <span class="font-medium">Bowl:</span> <span x-text="player.player.bowling_profile?.name"></span>
+                            </p>
+                        </div>
+
+                        {{-- Divider --}}
+                        <hr class="my-2 border-gray-200 dark:border-gray-700">
+
+                        {{-- Sold Info or Current Price --}}
+                        <template x-if="player.status === 'sold'">
+                            <div class="flex items-center gap-2">
+                                <template x-if="player.sold_to_team?.logo_path">
+                                    <img :src="`/storage/${player.sold_to_team.logo_path}`"
+                                         class="w-8 h-8 rounded-full object-cover border-2 border-green-500"
+                                         :alt="player.sold_to_team?.name">
+                                </template>
+                                <template x-if="!player.sold_to_team?.logo_path">
+                                    <div class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold"
+                                         x-text="player.sold_to_team?.name?.charAt(0) || 'T'"></div>
+                                </template>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 truncate" x-text="player.sold_to_team?.name || 'Team'"></p>
+                                    <p class="text-sm font-bold text-green-600" x-text="formatCurrency(player.final_price || player.current_price)"></p>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="player.status === 'unsold'">
+                            <div class="flex items-center gap-2 text-red-500">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                </svg>
+                                <span class="text-sm font-bold">UNSOLD</span>
+                            </div>
+                        </template>
+
+                        <template x-if="player.status === 'on_auction' || player.status === 'waiting'">
+                            <div>
+                                <p class="text-xs text-gray-500">Current Bid</p>
+                                <p class="text-lg font-bold text-blue-600" x-text="formatCurrency(player.current_price)"></p>
+                            </div>
+                        </template>
+
+                        {{-- Admin Actions --}}
+                        @can('auctions.edit')
+                            <template x-if="player.status !== 'sold'">
+                                <div class="mt-3 space-y-2">
+                                    {{-- Bid Controls --}}
+                                    <div class="flex items-center justify-between gap-1">
+                                        <button @click="decreaseBid(player)"
+                                            class="flex-1 px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition">
+                                            -
+                                        </button>
+                                        <span class="flex-1 text-center text-xs font-medium" x-text="formatCurrency(player.current_price)"></span>
+                                        <button @click="increaseBid(player)"
+                                            class="flex-1 px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition"
+                                            :disabled="player.current_price >= player.max_price">
+                                            +
+                                        </button>
+                                    </div>
+
+                                    {{-- Team Assignment --}}
+                                    <div class="flex gap-1">
+                                        <select x-model="player.selectedTeamId" class="form-control form-control-sm flex-1 text-xs">
+                                            <option value="">Select Team</option>
+                                            <template x-for="team in teams" :key="team.id">
+                                                <option :value="team.id" x-text="team.name"></option>
+                                            </template>
+                                        </select>
+                                        <button @click="assignToTeam(player)"
+                                            class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition"
+                                            :disabled="!player.selectedTeamId">
+                                            Sell
+                                        </button>
+                                    </div>
+
+                                    {{-- Status Change --}}
+                                    <select x-model="player.status" @change="toggleStatus(player)"
+                                        class="form-control form-control-sm w-full text-xs">
+                                        <option value="on_auction">On Auction</option>
+                                        <option value="unsold">Unsold</option>
+                                        <option value="waiting">Waiting</option>
+                                    </select>
+                                </div>
+                            </template>
+
+                            {{-- Remove Button --}}
+                            <div class="mt-2">
+                                <button @click="removePlayer(player.id, filteredPlayers.indexOf(player))"
+                                    class="w-full px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs hover:bg-red-100 hover:text-red-500 transition">
+                                    Remove
+                                </button>
+                            </div>
+                        @endcan
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        {{-- Empty State --}}
+        <div x-show="filteredPlayers.length === 0" x-cloak
+            class="text-center py-20 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+            <p class="text-gray-500 dark:text-gray-400 text-lg">No players found</p>
+            @can('auctions.edit')
+                <a href="{{ route('admin.auctions.edit', $auction) }}" class="text-blue-500 underline mt-2 inline-block">Add players to auction</a>
+            @endcan
+        </div>
+    </div>
+
+    <script>
+        function auctionPlayerPool() {
+            return {
+                auctionId: null,
+                players: [],
+                teams: [],
+                bidRules: [],
+                searchQuery: '',
+                statusFilter: '',
+                teamFilter: '',
+
+                init(auctionId, initialPlayers, initialTeams, initialBidRules) {
+                    this.auctionId = auctionId;
+                    this.players = initialPlayers.map(p => ({
+                        ...p,
+                        selectedTeamId: p.selectedTeamId || null
+                    }));
+                    this.teams = initialTeams;
+                    this.bidRules = initialBidRules;
+
+                    this.sortPlayers();
+                    this.connectToEcho();
+                },
+
+                // Statistics computed properties
+                get soldCount() {
+                    return this.players.filter(p => p.status === 'sold').length;
+                },
+                get unsoldCount() {
+                    return this.players.filter(p => p.status === 'unsold').length;
+                },
+                get availableCount() {
+                    return this.players.filter(p => ['waiting', 'on_auction'].includes(p.status)).length;
+                },
+
+                get filteredPlayers() {
+                    return this.players.filter(p => {
+                        const matchesSearch = this.searchQuery === '' ||
+                            p.player.name.toLowerCase().includes(this.searchQuery.toLowerCase());
+
+                        const matchesStatus = this.statusFilter === '' || p.status === this.statusFilter;
+
+                        const matchesTeam = this.teamFilter === '' ||
+                            (p.sold_to_team && p.sold_to_team.id == this.teamFilter);
+
+                        return matchesSearch && matchesStatus && matchesTeam;
+                    });
+                },
+
+                connectToEcho() {
+                    const connect = () => {
+                        if (window.Echo) {
+                            window.Echo.private(`auction.${this.auctionId}`)
+                                .listen('.player.onbid', e => {
+                                    const player = this.players.find(p => p.id === e.auctionPlayer.id);
+                                    if (player) player.current_price = e.auctionPlayer.current_price;
+                                })
+                                .listen('.player.sold', e => {
+                                    const player = this.players.find(p => p.id === e.auctionPlayer.id);
+                                    if (player) {
+                                        player.status = 'sold';
+                                        player.sold_to_team = e.auctionPlayer.sold_to_team;
+                                        player.final_price = e.auctionPlayer.final_price;
                                         this.sortPlayers();
-                                    })
-                                    // When a player is removed from the pool
-                                    .listen('.player.removed', e => {
-                                        this.players = this.players.filter(p => p.id !== e.auctionPlayer.id);
-                                    })
-                                    // When player status changes (e.g., put back in auction)
-                                    .listen('.player.statusUpdated', e => {
-                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                        if (player) player.status = e.auctionPlayer.status;
+                                    }
+                                })
+                                .listen('.player.added', e => {
+                                    const exists = this.players.find(p => p.id === e.auctionPlayer.id);
+                                    if (!exists) this.players.push({
+                                        ...e.auctionPlayer,
+                                        selectedTeamId: null
                                     });
-                            } else {
-                                setTimeout(connect, 100); // wait for Echo to be ready
-                            }
-                        };
-                        connect();
-                    },
-
-
-                    async fetchPlayers() {
-                        try {
-                            const res = await fetch(`/admin/auctions/${this.auctionId}/latest-players`, {
-                                headers: {
-                                    'X-Requested-With': 'XMLHttpRequest'
-                                }
-                            });
-                            const data = await res.json();
-                            if (data.players) {
-                                this.players = data.players.map(p => ({
-                                    ...p,
-                                    selectedTeamId: p.selectedTeamId || null
-                                }));
-                                this.sortPlayers();
-                            }
-                            if (data.teams) this.teams = data.teams;
-                        } catch (e) {
-                            console.error('Failed to fetch players', e);
+                                    this.sortPlayers();
+                                })
+                                .listen('.player.removed', e => {
+                                    this.players = this.players.filter(p => p.id !== e.auctionPlayer.id);
+                                })
+                                .listen('.player.statusUpdated', e => {
+                                    const player = this.players.find(p => p.id === e.auctionPlayer.id);
+                                    if (player) player.status = e.auctionPlayer.status;
+                                });
+                        } else {
+                            setTimeout(connect, 100);
                         }
-                    },
+                    };
+                    connect();
+                },
 
-                    sortPlayers() {
-                        this.players.sort((a, b) => {
-                            if (a.status === 'on_auction' && b.status !== 'on_auction') return -1;
-                            if (a.status !== 'on_auction' && b.status === 'on_auction') return 1;
-                            return new Date(b.updated_at) - new Date(a.updated_at);
+                sortPlayers() {
+                    this.players.sort((a, b) => {
+                        if (a.status === 'on_auction' && b.status !== 'on_auction') return -1;
+                        if (a.status !== 'on_auction' && b.status === 'on_auction') return 1;
+                        return new Date(b.updated_at) - new Date(a.updated_at);
+                    });
+                },
+
+                async removePlayer(auctionPlayerId, index) {
+                    if (!confirm('Are you sure you want to remove this player from the pool?')) return;
+                    try {
+                        const response = await fetch(`/admin/auctions/remove-player/${auctionPlayerId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Accept': 'application/json'
+                            }
                         });
-                    },
-
-                    connectToEcho() {
-                        const connect = () => {
-                            if (window.Echo) {
-                                window.Echo.private(`auction.${this.auctionId}`)
-                                    .listen('.player.onbid', e => {
-                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                        if (player) player.current_price = e.auctionPlayer.current_price;
-                                    })
-                                    .listen('.player.sold', e => {
-                                        const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                        if (player) {
-                                            player.status = 'sold';
-                                            player.sold_to_team = e.auctionPlayer.sold_to_team;
-                                            this.sortPlayers();
-                                        }
-                                    });
-                            } else {
-                                setTimeout(connect, 100);
-                            }
-                        };
-                        connect();
-                    },
-
-                    async removePlayer(auctionPlayerId, index) {
-                        if (!confirm('Are you sure you want to remove this player from the pool?')) return;
-                        try {
-                            const response = await fetch(`/admin/auctions/remove-player/${auctionPlayerId}`, {
-                                method: 'DELETE',
-                                headers: {
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                    'Accept': 'application/json'
-                                }
-                            });
-                            const data = await response.json();
-                            if (data.success) this.players.splice(index, 1);
-                            else alert(data.message || 'Failed to remove player.');
-                        } catch (error) {
-                            alert('An error occurred while trying to remove the player.');
+                        const data = await response.json();
+                        if (data.success) {
+                            this.players = this.players.filter(p => p.id !== auctionPlayerId);
+                        } else {
+                            alert(data.message || 'Failed to remove player.');
                         }
-                    },
-
-                    getBidIncrement(price) {
-                        const current = Number(price) || 0;
-                        if (!Array.isArray(this.bidRules) || this.bidRules.length === 0) return 0;
-                        const rule = this.bidRules.find(r => current >= Number(r.from) && current < Number(r.to));
-                        return rule ? Number(rule.increment) || 0 : 0;
-                    },
-
-                    async increaseBid(player) {
-                        try {
-                            const res = await fetch(`/admin/auctions/add-bid`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                                },
-                                body: JSON.stringify({
-                                    auctionId: this.auctionId,
-                                    playerID: player.id,
-                                    teamId: player.selectedTeamId
-                                })
-                            });
-
-                            const data = await res.json();
-                            if (data.success) {
-                                player.current_price = data.current_price;
-
-                                // If current price >= max allowed, mark as closed
-                                if (player.current_price >= player.max_price) {
-                                    player.status = 'closed';
-                                }
-                            } else {
-                                alert(data.message || 'Failed to add bid.');
-                            }
-                        } catch (e) {
-                            console.error(e);
-                            alert('Network error while adding bid.');
-                        }
-                    },
-
-                    async closeBid(player) {
-                        if (!confirm('Are you sure you want to close this bid?')) return;
-
-                        try {
-                            const res = await fetch(`/admin/auctions/close-bid`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                                },
-                                body: JSON.stringify({
-                                    auctionId: this.auctionId,
-                                    playerID: player.id
-                                })
-                            });
-
-                            const data = await res.json();
-                            if (data.success) {
-                                player.status = 'closed';
-                            } else {
-                                alert(data.message || 'Failed to close bid.');
-                            }
-                        } catch (e) {
-                            console.error(e);
-                            alert('Network error while closing bid.');
-                        }
-                    },
-
-
-                    async decreaseBid(player) {
-                        try {
-                            const res = await fetch(`/admin/auctions/decrease-bid`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                                },
-                                body: JSON.stringify({
-                                    auctionId: this.auctionId,
-                                    playerID: player.id,
-                                    teamId: player.selectedTeamId
-                                })
-                            });
-                            const data = await res.json();
-                            if (data.success) player.current_price = data.current_price;
-                            else alert(data.message || 'Failed to decrease bid.');
-                        } catch (e) {
-                            console.error(e);
-                            alert('Network error while decreasing bid.');
-                        }
-                    },
-                    async putBackInAuction(playerId) {
-                        if (!confirm('Are you sure you want to put this player back in auction?')) return;
-
-                        fetch(`/admin/auctions/player/${playerId}/put-back`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                                },
-                                body: JSON.stringify({})
-                            })
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.success) {
-                                    alert('Player status updated to "on_auction"!');
-                                    // Update local status so UI reflects change immediately
-                                    const player = players.find(p => p.id === playerId);
-                                    if (player) player.status = 'on_auction';
-                                } else {
-                                    alert(data.error || 'Failed to update player status.');
-                                }
-                            })
-                            .catch(err => {
-                                console.error(err);
-                                alert('Error updating player status.');
-                            });
-                    },
-
-                    formatCurrency(points) {
-                        points = Number(points) || 0;
-                        const isNegative = points < 0;
-                        const absPoints = Math.abs(points);
-                        let formattedValue;
-                        if (absPoints >= 1000000) formattedValue = (absPoints / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
-                        else if (absPoints >= 1000) formattedValue = (absPoints / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-                        else formattedValue = new Intl.NumberFormat('en-US').format(absPoints);
-                        return `${isNegative ? '-' : ''}${formattedValue} Points`;
+                    } catch (error) {
+                        alert('An error occurred while trying to remove the player.');
                     }
+                },
+
+                getBidIncrement(price) {
+                    const current = Number(price) || 0;
+                    if (!Array.isArray(this.bidRules) || this.bidRules.length === 0) return 0;
+                    const rule = this.bidRules.find(r => current >= Number(r.from) && current < Number(r.to));
+                    return rule ? Number(rule.increment) || 0 : 0;
+                },
+
+                async increaseBid(player) {
+                    try {
+                        const res = await fetch(`/admin/auctions/add-bid`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                auctionId: this.auctionId,
+                                playerID: player.id,
+                                teamId: player.selectedTeamId
+                            })
+                        });
+
+                        const data = await res.json();
+                        if (data.success) {
+                            player.current_price = data.current_price;
+                        } else {
+                            alert(data.message || 'Failed to add bid.');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Network error while adding bid.');
+                    }
+                },
+
+                async decreaseBid(player) {
+                    try {
+                        const res = await fetch(`/admin/auctions/decrease-bid`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                auctionId: this.auctionId,
+                                playerID: player.id,
+                                teamId: player.selectedTeamId
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.success) player.current_price = data.current_price;
+                        else alert(data.message || 'Failed to decrease bid.');
+                    } catch (e) {
+                        console.error(e);
+                        alert('Network error while decreasing bid.');
+                    }
+                },
+
+                async assignToTeam(player) {
+                    if (!player.selectedTeamId) {
+                        alert('Please select a team first.');
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch(`/admin/auctions/assign-player`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                auction_player_id: player.id,
+                                team_id: player.selectedTeamId
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            player.status = 'sold';
+                            player.sold_to_team = this.teams.find(t => t.id == player.selectedTeamId);
+                            player.final_price = player.current_price;
+                            this.sortPlayers();
+                        } else {
+                            alert(data.message || 'Failed to assign player.');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Network error while assigning player.');
+                    }
+                },
+
+                async toggleStatus(player) {
+                    try {
+                        const res = await fetch(`/admin/auction/{{ $auction->id }}/player/${player.id}/toggle-status`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({ status: player.status })
+                        });
+                        const data = await res.json();
+                        if (!data.success) {
+                            alert('Failed to update status.');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert('Error updating status.');
+                    }
+                },
+
+                formatCurrency(points) {
+                    points = Number(points) || 0;
+                    const isNegative = points < 0;
+                    const absPoints = Math.abs(points);
+                    let formattedValue;
+                    if (absPoints >= 1000000) formattedValue = (absPoints / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
+                    else if (absPoints >= 1000) formattedValue = (absPoints / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+                    else formattedValue = new Intl.NumberFormat('en-US').format(absPoints);
+                    return `${isNegative ? '-' : ''}${formattedValue}`;
                 }
             }
-        </script>
-    @endsection
+        }
+    </script>
+@endsection

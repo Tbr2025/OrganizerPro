@@ -280,27 +280,44 @@ class RolesService
         // 3. Organizer - full tournament management, including player status updates
         $organizerPermissions = [
             'dashboard.view',
+            // Tournament permissions
             'tournament.create',
             'tournament.view',
             'tournament.edit',
-            'tournament.delete', // Organizers can delete tournaments
+            'tournament.delete',
+            'tournament.settings',
+            'tournament.registrations',
+            'tournament.groups',
+            'tournament.fixtures',
+            'tournament.point-table',
+            'tournament.statistics',
+            'tournament.awards',
+            // Team permissions
             'team.create',
             'team.view',
             'team.edit',
-            'team.delete', // Organizers can delete teams
+            'team.delete',
+            // Player permissions
             'player.create',
             'player.view',
-
+            // Match permissions
             'match.create',
             'match.view',
             'match.edit',
             'match.delete',
+            'match.result',
+            'match.awards',
+            'match.scorecard',
             'match_appreciation.create',
             'match_appreciation.view',
-            // Potentially add permissions for managing categories, kits, etc. if they are part of tournament setup
-            // 'kit_size.view', 'kit_size.create', 'kit_size.edit', 'kit_size.delete',
-            // 'player_type.view', 'player_type.create', 'player_type.edit', 'player_type.delete',
-            // 'batting_profile.view', 'bowling_profile.view', etc.
+            // Ground permissions
+            'ground.create',
+            'ground.view',
+            'ground.edit',
+            'ground.delete',
+            // Image templates
+            'image-templates.view',
+            'image-templates.edit',
         ];
         $roles['organizer'] = $this->createOrSyncRole('Organizer', $organizerPermissions);
 
@@ -311,12 +328,10 @@ class RolesService
         // The implementation of scope (e.g., "only players of my team") would be in a policy/middleware.
         $teamManagerPermissions = [
             'dashboard.view',
-            // 'actual-team.view', // Can view teams (at least their own)
-            // 'actual-team.edit', // Can edit their own team details (if allowed by policy)
+            'actual-team.view', // Can view their own team
             'player.view', // Can view players (at least their team's)
-            // 'match.view',
-            // 'auction.view',
-
+            'match.view', // Can view matches
+            'auction.view', // Can view auctions and participate in live bidding
         ];
         $roles['team_manager'] = $this->createOrSyncRole('Team Manager', $teamManagerPermissions);
 
@@ -465,35 +480,52 @@ class RolesService
             case 'organizer':
                 return [
                     'dashboard.view',
+                    // Tournament permissions
                     'tournament.create',
                     'tournament.view',
                     'tournament.edit',
+                    'tournament.delete',
+                    'tournament.settings',
+                    'tournament.registrations',
+                    'tournament.groups',
+                    'tournament.fixtures',
+                    'tournament.point-table',
+                    'tournament.statistics',
+                    'tournament.awards',
+                    // Team permissions
                     'team.create',
                     'team.view',
                     'team.edit',
                     'team.delete',
+                    // Player permissions
                     'player.create',
                     'player.view',
+                    // Match permissions
                     'match.create',
                     'match.view',
                     'match.edit',
+                    'match.delete',
+                    'match.result',
+                    'match.awards',
+                    'match.scorecard',
                     'match_appreciation.create',
                     'match_appreciation.view',
-                    'image-templates.edit',
+                    // Ground permissions
+                    'ground.create',
+                    'ground.view',
+                    'ground.edit',
+                    'ground.delete',
+                    // Image templates
                     'image-templates.view',
-                    'match.view',
-                    'tournament.view',
+                    'image-templates.edit',
                 ];
             case 'team_manager': // Permissions for the new Team Manager role
                 return [
                     'dashboard.view',
-                    'team.create', // Based on saved context: "Manager or admin can create team."
-                    'team.view',
-                    'team.edit',
-                    'player.create',
-                    'player.view',
-                    'tournament.view',
-
+                    'actual-team.view', // Can view their own team
+                    'player.view', // Can view players
+                    'match.view', // Can view matches
+                    'auction.view', // Can view auctions and participate in live bidding
                 ];
 
             case 'coach':
