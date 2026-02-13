@@ -243,34 +243,13 @@ class AdminMenuService
             ],
         ]);
 
+        // NOTE: Legacy "Team" model removed - use ActualTeam for all team functionality
+        // The old Team model (/admin/teams) is not connected to matches, auctions, or tournaments
+
         $this->addMenuItem([
-            'label' => __('Auction Teams'),
-            'icon' => 'feather:users',
-            'id' => 'teams-submenu',
-            'active' => Route::is('admin.teams.*'),
-            'priority' => 25,
-            'permissions' => ['team.create', 'team.view', 'team.edit', 'team.delete'],
-            'children' => [
-                [
-                    'label' => __('All Teams'),
-                    'route' => route('admin.teams.index'),
-                    'active' => Route::is('admin.teams.index') || Route::is('admin.teams.edit') || Route::is('admin.teams.show'),
-                    'priority' => 10,
-                    'permissions' => 'team.view',
-                ],
-                [
-                    'label' => __('New Team'),
-                    'route' => route('admin.teams.create'),
-                    'active' => Route::is('admin.teams.create'),
-                    'priority' => 20,
-                    'permissions' => 'team.create',
-                ],
-            ],
-        ]);
-        $this->addMenuItem([
-            'label' => __('Actual Teams'),
+            'label' => __('Teams'),
             'icon' => 'feather:shield',
-            'id' => 'actual-teams-submenu',
+            'id' => 'teams-submenu',
             'active' => Route::is('admin.actual-teams.*'),
             'priority' => 25,
             'permissions' => ['actual-team.create', 'actual-team.view', 'actual-team.edit', 'actual-team.delete'],
@@ -319,7 +298,7 @@ class AdminMenuService
             'label' => __('Auctions'),
             'icon' => 'feather:lock',
             'id' => 'auctions-submenu',
-            'active' => Route::is('admin.auctions.*') || Route::is('admin.auction.organizer.*') || Route::is('team.auction.bidding.*'),
+            'active' => Route::is('admin.auctions.*') || Route::is('admin.auction.organizer.*') || Route::is('team.auction.bidding.*') || Route::is('admin.auction-templates.*'),
             'priority' => 30,
             'permissions' => ['auction.create', 'auction.view', 'auction.edit', 'auction.delete', 'auction.closed-bids'],
             'children' => [
@@ -343,6 +322,13 @@ class AdminMenuService
                     'active' => Route::is('admin.auctions.closed-bids'),
                     'priority' => 30,
                     'permissions' => 'auction.closed-bids',
+                ],
+                [
+                    'label' => __('LED Templates'),
+                    'route' => route('admin.auction-templates.index'),
+                    'active' => Route::is('admin.auction-templates.*'),
+                    'priority' => 40,
+                    'permissions' => 'auction.view',
                 ],
             ],
         ]);

@@ -55,6 +55,11 @@
                                     icon="pencil"
                                     :label="__('Edit')"
                                 />
+                                <x-buttons.action-item
+                                    :href="route('admin.matches.summary.edit', $match)"
+                                    icon="file-text"
+                                    :label="__('Summary')"
+                                />
                                 @if (auth()->user()->can('match.delete'))
                                     <div x-data="{ deleteModalOpen: false }">
                                         <x-buttons.action-item

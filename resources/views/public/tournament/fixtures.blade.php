@@ -4,7 +4,22 @@
 
 @section('content')
     <div class="max-w-6xl mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-6 text-center">Fixtures & Results</h1>
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+            <h1 class="text-3xl font-bold text-center md:text-left">Fixtures & Results</h1>
+            <div class="mt-4 md:mt-0">
+                @php
+                    $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
+                    $shareMessage = "Fixtures & Results - {$tournament->name}\n\n" . request()->url();
+                @endphp
+                <x-share-buttons
+                    :title="'Fixtures - ' . $tournament->name"
+                    :description="$tournament->name . ' match schedule'"
+                    :whatsappMessage="$shareMessage"
+                    variant="compact"
+                    :showLabel="false"
+                />
+            </div>
+        </div>
 
         {{-- Filters --}}
         <div class="bg-gray-800 rounded-xl p-4 mb-8">

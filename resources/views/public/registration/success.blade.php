@@ -43,6 +43,28 @@
                 </ul>
             </div>
 
+            {{-- Share Tournament --}}
+            <div class="bg-gray-700 rounded-lg p-4 mb-6">
+                <h2 class="font-semibold mb-3 text-yellow-400">Spread the word!</h2>
+                <p class="text-sm text-gray-300 mb-4">Invite your friends to register for this tournament.</p>
+                @php
+                    $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
+                    $registrationUrl = $type === 'player'
+                        ? route('public.tournament.register.player', $tournament->slug)
+                        : route('public.tournament.register.team', $tournament->slug);
+                    $shareMessage = $whatsappService->getRegistrationShareMessage($tournament, $type);
+                @endphp
+                <x-share-buttons
+                    :url="$registrationUrl"
+                    :title="$tournament->name . ' - Registration Open'"
+                    :description="'Register for ' . $tournament->name"
+                    :whatsappMessage="$shareMessage"
+                    variant="compact"
+                    :showLabel="false"
+                    class="justify-center"
+                />
+            </div>
+
             {{-- Actions --}}
             <div class="space-y-3">
                 <a href="{{ route('public.tournament.show', $tournament->slug) }}"

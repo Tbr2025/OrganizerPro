@@ -8,6 +8,7 @@ use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
 use App\Http\Controllers\Backend\AuctionAdminController;
 use App\Http\Controllers\Backend\AuctionBiddingController;
+use App\Http\Controllers\Backend\AuctionTemplateController;
 use App\Http\Controllers\Backend\AuctionController;
 use App\Http\Controllers\Backend\AuctionLiveController;
 use App\Http\Controllers\Backend\AuctionOrganizerController;
@@ -44,6 +45,9 @@ use App\Http\Controllers\Backend\Tournament\TournamentSettingsController;
 use App\Http\Controllers\Backend\Tournament\TournamentRegistrationController;
 use App\Http\Controllers\Backend\Tournament\TournamentGroupController;
 use App\Http\Controllers\Backend\Tournament\TournamentFixtureController;
+use App\Http\Controllers\Backend\Tournament\TournamentTemplateController;
+use App\Http\Controllers\Backend\Tournament\TournamentCalendarController;
+use App\Http\Controllers\Backend\Tournament\MatchSummaryController;
 use App\Http\Controllers\Backend\GroundController;
 use App\Http\Controllers\Backend\MatchResultController;
 use App\Http\Controllers\Backend\PointTableController;
@@ -137,6 +141,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         ->name('auctions.players.decreaseBid');
 
     Route::post('/auctions/close-bid', [AuctionAdminController::class, 'closeBid']);
+
+    // Auction Templates (LED wall display configuration)
+    Route::resource('auction-templates', AuctionTemplateController::class);
+    Route::get('auction-templates/{auctionTemplate}/preview', [AuctionTemplateController::class, 'preview'])->name('auction-templates.preview');
+    Route::post('auction-templates/{auctionTemplate}/set-default', [AuctionTemplateController::class, 'setDefault'])->name('auction-templates.set-default');
 });
 
 
@@ -320,15 +329,19 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllAsRead'])->name('notifications.read.all');
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::resource('teams', TeamController::class);
+
+    // NOTE: Legacy Team routes commented out - use ActualTeam (/admin/actual-teams) instead
+    // The old Team model is not connected to matches, auctions, or tournaments
+    // Route::resource('teams', TeamController::class);
+    // Route::post('/teams/{team}/players', [TeamPlayerController::class, 'store'])->name('teams.addPlayer');
+    // Route::delete('/teams/{team}/players/{player}', [TeamPlayerController::class, 'destroy'])->name('teams.removePlayer');
+
     Route::resource('tournaments', TournamentController::class);
     Route::post('/players/{player}/intimate', [PlayerController::class, 'intimate'])->name('players.intimate');
     Route::post('/players/save-image', [PlayerController::class, 'saveImage'])->name('players.saveImage');
     Route::get('/players/{player}/image-editor', [PlayerController::class, 'editor'])
         ->name('players.image-editor');
     Route::post('/players/remove-background', [PlayerController::class, 'removeBackground'])->name('players.removeBackground');
-    Route::post('/teams/{team}/players', [TeamPlayerController::class, 'store'])->name('teams.addPlayer');
-    Route::delete('/teams/{team}/players/{player}', [TeamPlayerController::class, 'destroy'])->name('teams.removePlayer');
 
     Route::resource('players', PlayerController::class);
     Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');
@@ -663,6 +676,39 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         Route::post('/point-table/generate-poster', [PointTableController::class, 'generatePoster'])->name('point-table.generate-poster');
         Route::post('/point-table/initialize', [PointTableController::class, 'initialize'])->name('point-table.initialize');
         Route::post('/point-table/qualified', [PointTableController::class, 'updateQualified'])->name('point-table.qualified');
+
+        // Tournament Templates
+        Route::get('/templates', [TournamentTemplateController::class, 'index'])->name('templates.index');
+        Route::get('/templates/create', [TournamentTemplateController::class, 'create'])->name('templates.create');
+        Route::post('/templates', [TournamentTemplateController::class, 'store'])->name('templates.store');
+        Route::get('/templates/{template}/edit', [TournamentTemplateController::class, 'edit'])->name('templates.edit');
+        Route::put('/templates/{template}', [TournamentTemplateController::class, 'update'])->name('templates.update');
+        Route::delete('/templates/{template}', [TournamentTemplateController::class, 'destroy'])->name('templates.destroy');
+        Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');
+        Route::get('/templates/{template}/preview', [TournamentTemplateController::class, 'preview'])->name('templates.preview');
+        Route::post('/templates/{template}/duplicate', [TournamentTemplateController::class, 'duplicate'])->name('templates.duplicate');
+
+        // Tournament Calendar (Calendar-based fixture scheduling)
+        Route::get('/calendar', [TournamentCalendarController::class, 'index'])->name('calendar.index');
+        Route::post('/calendar/generate-slots', [TournamentCalendarController::class, 'generateSlots'])->name('calendar.generate-slots');
+        Route::post('/calendar/auto-fill', [TournamentCalendarController::class, 'autoFill'])->name('calendar.auto-fill');
+        Route::post('/calendar/clear-slots', [TournamentCalendarController::class, 'clearSlots'])->name('calendar.clear-slots');
+        Route::get('/calendar/json', [TournamentCalendarController::class, 'getCalendarJson'])->name('calendar.json');
+        Route::get('/calendar/unscheduled', [TournamentCalendarController::class, 'getUnscheduledJson'])->name('calendar.unscheduled');
+    });
+
+    // Match Summary Editor
+    Route::prefix('matches/{match}')->name('matches.')->group(function () {
+        Route::get('/summary', [MatchSummaryController::class, 'edit'])->name('summary.edit');
+        Route::put('/summary', [MatchSummaryController::class, 'update'])->name('summary.update');
+        Route::post('/summary/highlight', [MatchSummaryController::class, 'addHighlight'])->name('summary.add-highlight');
+        Route::delete('/summary/highlight', [MatchSummaryController::class, 'removeHighlight'])->name('summary.remove-highlight');
+        Route::post('/summary/award', [MatchSummaryController::class, 'assignAward'])->name('summary.assign-award');
+        Route::delete('/summary/award/{award}', [MatchSummaryController::class, 'removeAward'])->name('summary.remove-award');
+        Route::post('/summary/generate-poster', [MatchSummaryController::class, 'generatePoster'])->name('summary.generate-poster');
+        Route::post('/summary/send', [MatchSummaryController::class, 'send'])->name('summary.send');
+        Route::get('/summary/download-poster', [MatchSummaryController::class, 'downloadPoster'])->name('summary.download-poster');
+        Route::get('/summary/preview-poster', [MatchSummaryController::class, 'previewPoster'])->name('summary.preview-poster');
     });
 
     // Match Result

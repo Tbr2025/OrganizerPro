@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\TermController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\TimeSlotController;
 use App\Http\Controllers\Backend\Api\TermsController;
 use Illuminate\Support\Facades\Route;
 
@@ -105,4 +106,18 @@ Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.api.')->group(f
     Route::post('/terms/{taxonomy}', [TermsController::class, 'store'])->name('terms.store');
     Route::put('/terms/{taxonomy}/{id}', [TermsController::class, 'update'])->name('terms.update');
     Route::delete('/terms/{taxonomy}/{id}', [TermsController::class, 'destroy'])->name('terms.destroy');
+});
+
+// Tournament Time Slot API Routes
+Route::middleware(['auth:sanctum'])->prefix('v1/tournaments/{tournament}')->name('api.tournaments.')->group(function () {
+    Route::prefix('time-slots')->name('time-slots.')->group(function () {
+        Route::get('/', [TimeSlotController::class, 'index'])->name('index');
+        Route::post('/', [TimeSlotController::class, 'store'])->name('store');
+        Route::get('/{slot}', [TimeSlotController::class, 'show'])->name('show');
+        Route::put('/{slot}', [TimeSlotController::class, 'update'])->name('update');
+        Route::delete('/{slot}', [TimeSlotController::class, 'destroy'])->name('destroy');
+        Route::post('/{slot}/assign-match', [TimeSlotController::class, 'assignMatch'])->name('assign-match');
+        Route::post('/{slot}/release-match', [TimeSlotController::class, 'releaseMatch'])->name('release-match');
+        Route::post('/bulk', [TimeSlotController::class, 'bulkCreate'])->name('bulk-create');
+    });
 });

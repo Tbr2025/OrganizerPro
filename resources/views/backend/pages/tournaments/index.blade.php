@@ -61,11 +61,28 @@
                     </div>
                 </div>
                 
+                {{-- Quick Actions --}}
+                <div class="px-5 pb-4 flex flex-wrap gap-2">
+                    <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
+                       class="text-xs px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-800">
+                        Templates
+                    </a>
+                    <a href="{{ route('admin.tournaments.calendar.index', $tournament) }}"
+                       class="text-xs px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800">
+                        Calendar
+                    </a>
+                    <a href="{{ route('admin.tournaments.settings.edit', $tournament) }}"
+                       class="text-xs px-2 py-1 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600">
+                        Settings
+                    </a>
+                    <a href="{{ route('admin.tournaments.registrations.index', $tournament) }}"
+                       class="text-xs px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800">
+                        Registrations
+                    </a>
+                </div>
+
                 {{-- Card Footer with Actions --}}
                 <div class="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end space-x-3">
-                    {{-- All users can view --}}
-                    {{-- <a href="{{ route('admin.tournaments.show', $tournament) }}" class="btn btn-secondary btn-sm">View</a> --}}
-                    
                     {{-- Admins and Superadmins see Edit and Delete buttons --}}
                     @if(auth()->user()->hasAnyRole(['Superadmin', 'Admin']))
                         <a href="{{ route('admin.tournaments.edit', $tournament) }}" class="btn btn-secondary btn-sm">

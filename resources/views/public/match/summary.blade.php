@@ -143,26 +143,23 @@
                class="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold rounded-lg transition">
                 View Scorecard
             </a>
-            <button onclick="shareResult()" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition">
-                <i class="fas fa-share mr-2"></i> Share Result
-            </button>
+        </div>
+
+        {{-- Share Section --}}
+        <div class="mt-8 text-center">
+            <h3 class="text-sm text-gray-400 mb-4">Share this result</h3>
+            @php
+                $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
+                $shareMessage = $whatsappService->getResultShareLink($match);
+            @endphp
+            <x-share-buttons
+                :title="$result->result_summary ?? 'Match Result'"
+                :description="($match->teamA?->name ?? 'TBA') . ' vs ' . ($match->teamB?->name ?? 'TBA') . ' - ' . $tournament->name"
+                :whatsappMessage="$whatsappService->getResultShareMessage($match)"
+                variant="compact"
+                :showLabel="false"
+                class="justify-center"
+            />
         </div>
     </div>
-
-    @push('scripts')
-    <script>
-        function shareResult() {
-            if (navigator.share) {
-                navigator.share({
-                    title: '{{ $result->result_summary ?? "Match Result" }}',
-                    text: '{{ $match->teamA?->name ?? "TBA" }} vs {{ $match->teamB?->name ?? "TBA" }} - {{ $tournament->name }}',
-                    url: window.location.href
-                });
-            } else {
-                navigator.clipboard.writeText(window.location.href);
-                alert('Link copied to clipboard!');
-            }
-        }
-    </script>
-    @endpush
 @endsection

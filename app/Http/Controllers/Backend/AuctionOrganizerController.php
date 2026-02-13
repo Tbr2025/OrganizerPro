@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Auction;
 use App\Models\AuctionPlayer;
+use App\Models\ActualTeam;
 use App\Models\Player;
 use App\Events\AuctionStatusUpdate;
 use App\Events\PlayerOnBid;
@@ -22,15 +23,61 @@ class AuctionOrganizerController extends Controller
      */
     public function showPanel(Auction $auction)
     {
-        // **THE FIX**: Fetch the data only ONCE.
-        // An "available player" for the panel is one in this auction with a 'waiting' status.
+        // Fetch available players (waiting status)
         $availablePlayers = $auction->auctionPlayers()
             ->where('status', 'waiting')
-            ->with('player') // Eager-load the player details
+            ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
 
-        // **THE FIX**: Pass ONLY the necessary variables to the view.
-        return view('backend.pages.auction.organizer-panel', compact('auction', 'availablePlayers'));
+        // Fetch current player on auction (if any)
+        $currentPlayer = $auction->auctionPlayers()
+            ->where('status', 'on_auction')
+            ->with([
+                'player.playerType',
+                'player.battingProfile',
+                'player.bowlingProfile',
+                'bids.team',
+                'bids.user',
+                'soldToTeam'
+            ])
+            ->first();
+
+        // Fetch sold players
+        $soldPlayers = $auction->auctionPlayers()
+            ->where('status', 'sold')
+            ->with(['player', 'soldToTeam'])
+            ->get();
+
+        // Fetch teams with their budget calculations
+        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+            ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
+                $query->where('auction_id', $auction->id)->where('status', 'sold');
+            }])
+            ->withSum(['auctionPlayers as total_spent' => function ($query) use ($auction) {
+                $query->where('auction_id', $auction->id)->where('status', 'sold');
+            }], 'final_price')
+            ->get()
+            ->map(function ($team) use ($auction) {
+                $team->remaining_budget = $auction->max_budget_per_team - ($team->total_spent ?? 0);
+                return $team;
+            });
+
+        // Stats
+        $stats = [
+            'total_players' => $auction->auctionPlayers()->count(),
+            'sold_count' => $auction->auctionPlayers()->where('status', 'sold')->count(),
+            'unsold_count' => $auction->auctionPlayers()->where('status', 'unsold')->count(),
+            'waiting_count' => $availablePlayers->count(),
+        ];
+
+        return view('backend.pages.auction.organizer-panel', compact(
+            'auction',
+            'availablePlayers',
+            'currentPlayer',
+            'soldPlayers',
+            'teams',
+            'stats'
+        ));
     }
 
     /**

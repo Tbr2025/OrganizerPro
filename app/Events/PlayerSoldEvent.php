@@ -15,17 +15,17 @@ class PlayerSoldEvent implements ShouldBroadcast
     use Dispatchable, SerializesModels;
 
     public $auctionPlayer;
-    public $team;
+    public $winningTeam;
 
-    public function __construct(AuctionPlayer $auctionPlayer, ActualTeam $team)
+    public function __construct(AuctionPlayer $auctionPlayer, ?ActualTeam $team = null)
     {
         $this->auctionPlayer = $auctionPlayer->load([
-            'player.player_type',
-            'player.batting_profile',
-            'player.bowling_profile',
+            'player.playerType',
+            'player.battingProfile',
+            'player.bowlingProfile',
             'soldToTeam'
         ]);
-        $this->team = $team;
+        $this->winningTeam = $team;
     }
 
     public function broadcastOn()
@@ -36,14 +36,12 @@ class PlayerSoldEvent implements ShouldBroadcast
     public function broadcastWith()
     {
         return [
-            'id' => $this->auctionPlayer->id,
-            'player' => $this->auctionPlayer->player,
-            'current_price' => $this->auctionPlayer->final_price,
-            'status' => $this->auctionPlayer->status,
-            'sold_to_team' => [
-                'id' => $this->team->id,
-                'name' => $this->team->name,
-            ],
+            'auctionPlayer' => $this->auctionPlayer,
+            'winningTeam' => $this->winningTeam ? [
+                'id' => $this->winningTeam->id,
+                'name' => $this->winningTeam->name,
+                'logo_path' => $this->winningTeam->logo_path,
+            ] : null,
         ];
     }
 

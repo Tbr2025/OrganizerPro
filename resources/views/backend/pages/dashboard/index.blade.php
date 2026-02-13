@@ -55,7 +55,7 @@
 
             {!! ld_apply_filters('dashboard_cards_after_player', '') !!}
         @endrole
-        @role('Admin')
+        @hasanyrole('Admin|Superadmin')
             <div class="grid grid-cols-12 gap-4 md:gap-6">
                 <div class="col-span-12 space-y-6">
                     <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-4 md:gap-6">
@@ -133,7 +133,7 @@
 
             {!! ld_apply_filters('dashboard_after', '') !!}
         </div>
-    @endrole
+        @endhasanyrole
 @endsection
 
 @push('scripts')

@@ -68,6 +68,22 @@
                     @endif
                 </div>
             @endif
+
+            {{-- Share Buttons --}}
+            <div class="mt-6">
+                @php
+                    $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
+                    $shareMessage = $whatsappService->getTournamentShareMessage($tournament);
+                @endphp
+                <x-share-buttons
+                    :title="$tournament->name"
+                    :description="$tournament->description ?? 'Cricket Tournament'"
+                    :whatsappMessage="$shareMessage"
+                    variant="compact"
+                    :showLabel="false"
+                    class="justify-center"
+                />
+            </div>
         </div>
     </section>
 

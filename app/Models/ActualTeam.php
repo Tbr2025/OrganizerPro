@@ -71,6 +71,14 @@ class ActualTeam extends Model
         return $this->belongsTo(Auction::class, 'auction_id');
     }
 
+    /**
+     * Get auction players won by this team (sold_to_team_id)
+     */
+    public function auctionPlayers()
+    {
+        return $this->hasMany(AuctionPlayer::class, 'sold_to_team_id');
+    }
+
 
     public function members()
     {

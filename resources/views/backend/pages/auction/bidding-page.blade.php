@@ -103,3 +103,237 @@
 
 
 @endsection
+
+@push('scripts')
+<script src="https://js.pusher.com/7.2/pusher.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"></script>
+<script>
+    // Initialize Echo
+    window.Echo = new Echo({
+        broadcaster: 'pusher',
+        key: '{{ env('PUSHER_APP_KEY') }}',
+        cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
+        forceTLS: true
+    });
+
+    function biddingPanel() {
+        return {
+            auctionId: null,
+            userTeam: null,
+            player: null,
+            bidRules: [],
+
+            state: 'waiting', // 'waiting', 'bidding', 'sold'
+            currentBid: 0,
+            teamBudget: 0,
+            winningTeamName: 'No bids yet',
+            winningTeamId: null,
+            finalPrice: 0,
+            bidError: '',
+            isSubmitting: false,
+
+            init(auctionId, userTeamJson, currentPlayerJson, bidRulesJson) {
+                this.auctionId = auctionId;
+
+                try {
+                    this.userTeam = JSON.parse(userTeamJson);
+                    this.teamBudget = this.userTeam?.remaining_budget || 0;
+                } catch (e) {
+                    console.error('Error parsing userTeam:', e);
+                }
+
+                try {
+                    this.bidRules = JSON.parse(bidRulesJson) || [];
+                } catch (e) {
+                    this.bidRules = [];
+                }
+
+                try {
+                    const currentPlayer = JSON.parse(currentPlayerJson);
+                    if (currentPlayer) {
+                        this.setPlayerOnBid(currentPlayer);
+                    }
+                } catch (e) {
+                    console.log('No current player');
+                }
+
+                this.setupEchoListeners();
+            },
+
+            setupEchoListeners() {
+                // Listen for new player on bid
+                window.Echo.private(`auction.private.${this.auctionId}`)
+                    .listen('.player.onbid', (e) => {
+                        console.log('Player on bid:', e);
+                        this.setPlayerOnBid(e.auctionPlayer);
+                    })
+                    .listen('.bid.new', (e) => {
+                        console.log('New bid:', e);
+                        this.handleNewBid(e.bid);
+                    });
+
+                // Listen for player sold
+                window.Echo.channel(`auction.${this.auctionId}`)
+                    .listen('.player-on-sold', (e) => {
+                        console.log('Player sold:', e);
+                        this.handlePlayerSold(e);
+                    });
+            },
+
+            setPlayerOnBid(auctionPlayer) {
+                const p = auctionPlayer.player;
+                this.player = {
+                    id: auctionPlayer.id,
+                    name: p?.name || 'Unknown',
+                    image_url: p?.image_path ? `/storage/${p.image_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(p?.name || 'P')}&size=200`,
+                    base_price: auctionPlayer.base_price || 0,
+                    role: this.getNestedValue(p, 'player_type', 'playerType', 'name', 'type') || 'Player',
+                    batting_style: this.getNestedValue(p, 'batting_profile', 'battingProfile', 'name', 'style') || 'N/A',
+                    bowling_style: this.getNestedValue(p, 'bowling_profile', 'bowlingProfile', 'name', 'style') || 'N/A',
+                    is_wicket_keeper: p?.is_wicket_keeper || false
+                };
+
+                this.currentBid = auctionPlayer.current_price || auctionPlayer.base_price || 0;
+
+                // Get winning team from bids
+                const bids = auctionPlayer.bids || [];
+                if (bids.length > 0) {
+                    const highestBid = bids.sort((a, b) => b.amount - a.amount)[0];
+                    this.winningTeamName = highestBid.team?.name || 'Unknown';
+                    this.winningTeamId = highestBid.team?.id;
+                } else {
+                    this.winningTeamName = 'No bids yet';
+                    this.winningTeamId = null;
+                }
+
+                this.state = 'bidding';
+                this.bidError = '';
+            },
+
+            getNestedValue(obj, key1, key2, prop1, prop2) {
+                const val = obj?.[key1] || obj?.[key2];
+                if (!val) return null;
+                if (typeof val === 'string') return val;
+                return val?.[prop1] || val?.[prop2] || null;
+            },
+
+            handleNewBid(bid) {
+                if (!this.player || bid.auction_player_id !== this.player.id) return;
+
+                this.currentBid = bid.amount;
+                this.winningTeamName = bid.team?.name || 'Unknown';
+                this.winningTeamId = bid.team?.id;
+            },
+
+            handlePlayerSold(event) {
+                const auctionPlayer = event.auctionPlayer;
+                const winningTeam = event.winningTeam;
+
+                if (winningTeam) {
+                    this.winningTeamName = winningTeam.name;
+                    this.finalPrice = auctionPlayer.final_price || this.currentBid;
+
+                    // Update budget if our team won
+                    if (winningTeam.id === this.userTeam?.id) {
+                        this.teamBudget -= this.finalPrice;
+                    }
+
+                    this.state = 'sold';
+                } else {
+                    // Player passed/unsold
+                    this.state = 'waiting';
+                }
+
+                // Reset after delay
+                setTimeout(() => {
+                    this.state = 'waiting';
+                    this.player = null;
+                    this.currentBid = 0;
+                    this.winningTeamName = 'No bids yet';
+                    this.winningTeamId = null;
+                }, 5000);
+            },
+
+            get canBid() {
+                if (this.state !== 'bidding' || this.isSubmitting) return false;
+                if (this.winningTeamId === this.userTeam?.id) return false; // Already winning
+                if (this.nextBidAmount > this.teamBudget) return false; // Can't afford
+                return true;
+            },
+
+            get nextBidAmount() {
+                const increment = this.getIncrement(this.currentBid);
+                return this.currentBid + increment;
+            },
+
+            get bidButtonText() {
+                if (this.isSubmitting) return 'Placing Bid...';
+                if (this.winningTeamId === this.userTeam?.id) return 'You are winning!';
+                if (this.nextBidAmount > this.teamBudget) return 'Insufficient Budget';
+                return `BID ${this.formatCurrency(this.nextBidAmount)}`;
+            },
+
+            getIncrement(currentPrice) {
+                // Use bid rules if available
+                if (this.bidRules && this.bidRules.length > 0) {
+                    for (const rule of this.bidRules) {
+                        if (currentPrice >= rule.from && currentPrice < rule.to) {
+                            return rule.increment;
+                        }
+                    }
+                }
+                // Default increments
+                if (currentPrice < 5000000) return 500000;   // 5L increment up to 50L
+                if (currentPrice < 10000000) return 1000000;  // 10L increment up to 1Cr
+                return 2500000; // 25L increment above 1Cr
+            },
+
+            async placeBid() {
+                if (!this.canBid || !this.player) return;
+
+                this.isSubmitting = true;
+                this.bidError = '';
+
+                try {
+                    const response = await fetch(`/admin/team/auction/${this.auctionId}/api/place-bid`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            auction_player_id: this.player.id,
+                            amount: this.nextBidAmount
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to place bid');
+                    }
+
+                    // Bid successful - update will come via WebSocket
+                    this.currentBid = this.nextBidAmount;
+                    this.winningTeamName = this.userTeam.name;
+                    this.winningTeamId = this.userTeam.id;
+
+                } catch (error) {
+                    this.bidError = error.message;
+                } finally {
+                    this.isSubmitting = false;
+                }
+            },
+
+            formatCurrency(amount) {
+                const num = Number(amount) || 0;
+                if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr';
+                if (num >= 100000) return (num / 100000).toFixed(2) + ' L';
+                if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
+                return num.toLocaleString();
+            }
+        }
+    }
+</script>
+@endpush

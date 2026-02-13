@@ -4,7 +4,22 @@
 
 @section('content')
     <div class="max-w-6xl mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-8 text-center">Point Table</h1>
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+            <h1 class="text-3xl font-bold text-center md:text-left">Point Table</h1>
+            <div class="mt-4 md:mt-0">
+                @php
+                    $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
+                    $shareMessage = "Point Table - {$tournament->name}\n\n" . request()->url();
+                @endphp
+                <x-share-buttons
+                    :title="'Point Table - ' . $tournament->name"
+                    :description="$tournament->name . ' standings'"
+                    :whatsappMessage="$shareMessage"
+                    variant="compact"
+                    :showLabel="false"
+                />
+            </div>
+        </div>
 
         @forelse($pointTableByGroups as $groupName => $entries)
             <div class="mb-8">

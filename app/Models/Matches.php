@@ -87,6 +87,16 @@ class Matches extends Model
         return $this->hasOne(MatchResult::class, 'match_id');
     }
 
+    public function summary(): HasOne
+    {
+        return $this->hasOne(MatchSummary::class, 'match_id');
+    }
+
+    public function timeSlot(): HasOne
+    {
+        return $this->hasOne(MatchTimeSlot::class, 'match_id');
+    }
+
     public function matchAwards(): HasMany
     {
         return $this->hasMany(MatchAward::class, 'match_id');
@@ -226,11 +236,70 @@ class Matches extends Model
         ]);
     }
 
-    public function cancel(string $reason = null): void
+    public function cancel(?string $reason = null): void
     {
         $this->update([
             'is_cancelled' => true,
             'cancellation_reason' => $reason,
         ]);
+
+        // Release time slot if assigned
+        if ($this->timeSlot) {
+            $this->timeSlot->releaseMatch();
+        }
+    }
+
+    /**
+     * Get or create summary for this match
+     */
+    public function getOrCreateSummary(): MatchSummary
+    {
+        return MatchSummary::getOrCreate($this);
+    }
+
+    /**
+     * Check if this is a knockout stage match (semi-final or final)
+     */
+    public function isHighStakes(): bool
+    {
+        return in_array($this->stage, ['semi_final', 'final', 'third_place']);
+    }
+
+    /**
+     * Get all players from both teams
+     */
+    public function getAllPlayers()
+    {
+        $players = collect();
+
+        if ($this->teamA) {
+            $players = $players->merge($this->teamA->players);
+        }
+
+        if ($this->teamB) {
+            $players = $players->merge($this->teamB->players);
+        }
+
+        return $players;
+    }
+
+    /**
+     * Get all emails from both teams
+     */
+    public function getAllTeamEmails(): array
+    {
+        $emails = [];
+
+        foreach ([$this->teamA, $this->teamB] as $team) {
+            if (!$team) continue;
+
+            foreach ($team->users as $user) {
+                if ($user->email) {
+                    $emails[] = $user->email;
+                }
+            }
+        }
+
+        return array_unique($emails);
     }
 }

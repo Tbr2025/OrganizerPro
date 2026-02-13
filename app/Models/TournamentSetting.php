@@ -43,12 +43,25 @@ class TournamentSetting extends Model
         'match_poster_days_before',
         'send_match_reminders',
         'send_result_notifications',
+        'auto_send_welcome_cards',
+        'auto_send_flyer_on_registration',
+        'auto_send_match_summary',
+        // Template references
+        'default_welcome_template_id',
+        'default_match_template_id',
+        'default_summary_template_id',
+        'semi_final_template_id',
+        'final_template_id',
         // Social
         'description',
         'rules',
         'social_links',
         'contact_email',
         'contact_phone',
+        'whatsapp_contact',
+        // Calendar scheduling
+        'available_days',
+        'default_time_slots',
     ];
 
     protected $casts = [
@@ -60,7 +73,12 @@ class TournamentSetting extends Model
         'has_third_place' => 'boolean',
         'send_match_reminders' => 'boolean',
         'send_result_notifications' => 'boolean',
+        'auto_send_welcome_cards' => 'boolean',
+        'auto_send_flyer_on_registration' => 'boolean',
+        'auto_send_match_summary' => 'boolean',
         'social_links' => 'array',
+        'available_days' => 'array',
+        'default_time_slots' => 'array',
     ];
 
     public function tournament(): BelongsTo
@@ -91,5 +109,29 @@ class TournamentSetting extends Model
     public function getFlyerImageUrlAttribute(): ?string
     {
         return $this->flyer_image ? asset('storage/' . $this->flyer_image) : null;
+    }
+
+    public function getWhatsAppShareLinkAttribute(): ?string
+    {
+        if (!$this->whatsapp_contact) {
+            return null;
+        }
+        $phone = preg_replace('/[^0-9]/', '', $this->whatsapp_contact);
+        return "https://wa.me/{$phone}";
+    }
+
+    public function shouldAutoSendWelcomeCards(): bool
+    {
+        return $this->auto_send_welcome_cards ?? true;
+    }
+
+    public function shouldAutoSendFlyer(): bool
+    {
+        return $this->auto_send_flyer_on_registration ?? true;
+    }
+
+    public function shouldAutoSendMatchSummary(): bool
+    {
+        return $this->auto_send_match_summary ?? true;
     }
 }

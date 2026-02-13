@@ -18,6 +18,8 @@ class Kernel extends ConsoleKernel
         Commands\SendMatchPostersCommand::class,
         Commands\UpdatePointTablesCommand::class,
         Commands\CleanupRegistrationsCommand::class,
+        Commands\SendWelcomeCardsCommand::class,
+        Commands\SendMatchSummariesCommand::class,
     ];
 
     /**
@@ -47,6 +49,18 @@ class Kernel extends ConsoleKernel
         $schedule->command('tournament:cleanup-registrations --days=30')
             ->weeklyOn(0, '02:00')
             ->withoutOverlapping();
+
+        // Send welcome cards daily at 10 AM
+        $schedule->command('tournament:send-welcome-cards')
+            ->dailyAt('10:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Send match summaries hourly (for recently completed matches)
+        $schedule->command('tournament:send-match-summaries')
+            ->hourly()
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     /**

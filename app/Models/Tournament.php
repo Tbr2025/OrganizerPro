@@ -83,6 +83,21 @@ class Tournament extends Model
         return $this->hasMany(ActualTeam::class);
     }
 
+    public function templates(): HasMany
+    {
+        return $this->hasMany(TournamentTemplate::class);
+    }
+
+    public function timeSlots(): HasMany
+    {
+        return $this->hasMany(MatchTimeSlot::class);
+    }
+
+    public function notificationLogs(): HasMany
+    {
+        return $this->hasMany(NotificationLog::class);
+    }
+
     public function champion(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class, 'champion_team_id');
@@ -173,5 +188,41 @@ class Tournament extends Model
     public function getApprovedPlayersCountAttribute(): int
     {
         return $this->registrations()->players()->approved()->count();
+    }
+
+    /**
+     * Get template of a specific type (default or first active)
+     */
+    public function getTemplate(string $type): ?TournamentTemplate
+    {
+        return $this->templates()
+            ->where('type', $type)
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->first();
+    }
+
+    /**
+     * Get available time slots for scheduling
+     */
+    public function getAvailableTimeSlots()
+    {
+        return $this->timeSlots()
+            ->available()
+            ->upcoming()
+            ->orderByDateTime()
+            ->get();
+    }
+
+    /**
+     * Get unscheduled matches (no date assigned)
+     */
+    public function getUnscheduledMatches()
+    {
+        return $this->matches()
+            ->whereNull('match_date')
+            ->where('is_cancelled', false)
+            ->orderBy('match_number')
+            ->get();
     }
 }

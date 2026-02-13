@@ -199,6 +199,23 @@
             @endif
         </div>
 
+        {{-- Share Section --}}
+        <div class="mt-6 text-center">
+            <h3 class="text-sm text-gray-400 mb-4">Share this match</h3>
+            @php
+                $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
+                $matchDescription = ($match->teamA?->name ?? 'TBA') . ' vs ' . ($match->teamB?->name ?? 'TBA');
+            @endphp
+            <x-share-buttons
+                :title="$matchDescription . ' - ' . $tournament->name"
+                :description="'Match #' . $match->match_number . ' - ' . $tournament->name"
+                :whatsappMessage="$whatsappService->getMatchShareMessage($match)"
+                variant="compact"
+                :showLabel="false"
+                class="justify-center"
+            />
+        </div>
+
         {{-- Other Matches --}}
         @if($otherMatches->count() > 0)
             <div class="mt-12">
