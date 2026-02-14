@@ -23,7 +23,6 @@ class PlayerLocationSeeder extends Seeder
         foreach ($locations as $location) {
             DB::table('player_locations')->updateOrInsert(
                 ['name' => $location],
-                ['organization_id' => 1],
                 ['created_at' => now(), 'updated_at' => now()]
             );
         }
