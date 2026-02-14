@@ -24,22 +24,21 @@
             '{{ config('settings.navbar_text_lite') }}';
     }
 }" x-init="init()"
-    class="sticky top-0 flex w-full border-gray-200 lg:border-b dark:border-gray-800 transition-all duration-300 z-9">
+    class="sticky top-0 flex w-full bg-white/80 dark:bg-dark-surface/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800/50 transition-all duration-300 z-9">
     <div class="flex grow flex-col items-center justify-between lg:flex-row lg:px-6">
         <div
-            class="flex w-full items-center justify-between gap-2 border-b border-gray-200 px-3 py-2 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 dark:border-gray-800">
+            class="flex w-full items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 dark:border-gray-800">
             <button
-                :class="sidebarToggle ? 'lg:bg-transparent dark:lg:bg-transparent bg-gray-100 dark:bg-gray-800' : ''"
-                class="z-99999 flex h-10 w-10 items-center justify-center rounded-md border-gray-200 text-gray-700 lg:h-11 lg:w-11 dark:border-gray-800 dark:text-gray-300 transition-all duration-300"
+                :class="sidebarToggle ? 'bg-cyan-50 text-cyan-500 dark:bg-cyan-500/10 dark:text-cyan-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'"
+                class="z-99999 flex h-10 w-10 items-center justify-center rounded-xl text-gray-600 dark:text-gray-400 transition-all duration-200"
                 id="sidebar-toggle-button"
                 @click.stop="sidebarToggle = !sidebarToggle; localStorage.setItem('sidebarToggle', sidebarToggle);">
-                <iconify-icon :icon="sidebarToggle ? 'mdi:menu-close' : 'mdi:menu-open'" width="26" height="26"
-                    class=""></iconify-icon>
+                <iconify-icon :icon="sidebarToggle ? 'lucide:panel-left-close' : 'lucide:panel-left-open'" width="22" height="22"></iconify-icon>
             </button>
 
             <a href="{{ route('admin.dashboard') }}" class="lg:hidden">
-                <img class="dark:hidden w-32" src="/images/logo/lara-dashboard.png" alt="Logo" />
-                <img class="hidden dark:block w-32" src="/images/logo/lara-dashboard-dark.png" alt="Logo" />
+                <img class="dark:hidden w-28" src="/images/logo/lara-dashboard.png" alt="Logo" />
+                <img class="hidden dark:block w-28" src="/images/logo/lara-dashboard-dark.png" alt="Logo" />
             </a>
         </div>
 
@@ -51,10 +50,10 @@
                 @include('backend.layouts.partials.notifications')
                 @php echo ld_apply_filters('dark_mode_toggler_before_button', ''); @endphp
                 <button id="darkModeToggle"
-                    class="hover:text-dark-900 relative flex items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white p-2 dark-mode-toggle"
+                    class="hover:text-dark-900 relative flex items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-400 p-2 dark-mode-toggle"
                     @click.prevent="darkMode = !darkMode" @click="menuToggle = true">
                     <iconify-icon icon="lucide:moon" width="24" height="24"
-                        class="hidden dark:block"></iconify-icon>
+                        class="hidden dark:block text-cyan-400"></iconify-icon>
                     <iconify-icon icon="lucide:sun" width="24" height="24" class="dark:hidden"></iconify-icon>
                 </button>
                 @php ld_apply_filters('dark_mode_toggler_after_button', '') @endphp
@@ -72,7 +71,7 @@
 
                 <!-- Dropdown Start -->
                 <div x-show="dropdownOpen"
-                    class="absolute right-0 mt-[17px] flex w-[220px] flex-col rounded-md border bg-white dark:bg-gray-700 border-gray-200  p-3 shadow-theme-lg dark:border-gray-800 z-100"
+                    class="absolute right-0 mt-[17px] flex w-[220px] flex-col rounded-md border bg-white dark:bg-dark-card border-gray-200 p-3 shadow-theme-lg dark:border-gray-700 z-100"
                     style="display: none">
                     <div class="border-b border-gray-200 pb-2 dark:border-gray-800 mb-2">
                         <span class="block font-medium text-gray-700 dark:text-gray-300">
@@ -89,7 +88,7 @@
                     <ul class="flex flex-col gap-1 border-b border-gray-200 pb-2 dark:border-gray-800">
                         <li>
                             <a href="{{ route('profile.edit') }}"
-                                class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300">
+                                class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-400">
                                 <iconify-icon icon="lucide:user" width="20" height="20"
                                     class="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"></iconify-icon>
                                 {{ __('Edit profile') }}
@@ -99,7 +98,7 @@
                         @role('Player')
                             <li>
                                 <a href="{{ route('profileplayers.edit') }}"
-                                    class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300">
+                                    class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-400">
                                     <iconify-icon icon="lucide:user" width="20" height="20"
                                         class="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"></iconify-icon>
                                     {{ __('Edit Player Profile') }}
@@ -111,7 +110,7 @@
                     <form method="POST" action="{{ route('logout') }}" class="inline">
                         @csrf
                         <button type="submit"
-                            class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300 mt-2 w-full">
+                            class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-400 mt-2 w-full">
                             <iconify-icon icon="lucide:log-out" width="20" height="20"
                                 class="fill-gray-500 group-hover:fill-gray-700 dark:group-hover:fill-gray-300"></iconify-icon>
                             {{ __('Logout') }}
@@ -126,7 +125,7 @@
                             <form method="POST" action="{{ route('admin.users.switch-back') }}" class="inline">
                                 @csrf
                                 <button type="submit"
-                                    class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-300 mt-1 w-full">
+                                    class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-400 mt-1 w-full">
                                     <iconify-icon icon="lucide:arrow-left" width="16" height="16"></iconify-icon>
                                     {{ __('Switch back to') }} {{ $originalUser->name }}
                                 </button>

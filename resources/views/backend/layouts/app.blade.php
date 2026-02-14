@@ -29,34 +29,36 @@
     @php echo ld_apply_filters('admin_head', ''); @endphp
 </head>
 
-<body x-data="{ 
-    page: 'ecommerce', 
-    loaded: true, 
-    darkMode: false, 
-    stickyMenu: false, 
-    sidebarToggle: $persist(false), 
-    scrollTop: false 
-}" 
+<body x-data="{
+    page: 'ecommerce',
+    loaded: true,
+    darkMode: true,
+    stickyMenu: false,
+    sidebarToggle: $persist(false),
+    scrollTop: false
+}"
 x-init="
-    darkMode = JSON.parse(localStorage.getItem('darkMode')) ?? false;
+    darkMode = JSON.parse(localStorage.getItem('darkMode')) ?? true;
     $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)));
     $watch('sidebarToggle', value => localStorage.setItem('sidebarToggle', JSON.stringify(value)))
-" 
-:class="{ 'dark bg-gray-900': darkMode === true }">
-    <!-- Preloader -->
-<!-- Preloader -->
-<div x-show="loaded" x-init="setTimeout(() => loaded = false, 500)"
-    class="fixed left-0 top-0 z-999999 flex h-screen w-screen items-center justify-center bg-white dark:bg-black">
-    <div class="h-16 w-16 animate-spin rounded-full border-4 border-solid border-brand-500 border-t-transparent">
+"
+:class="{ 'dark bg-dark-bg': darkMode === true }">
+    <!-- Page Transition Overlay -->
+    <div
+        x-show="loaded"
+        x-transition:leave="transition-opacity ease-out duration-300"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        x-init="setTimeout(() => loaded = false, 100)"
+        class="fixed inset-0 z-999999 bg-white dark:bg-dark-bg pointer-events-none">
     </div>
-</div>
-    <!-- End Preloader -->
+    <!-- End Page Transition -->
     <!-- Page Wrapper -->
     <div class="flex h-screen overflow-hidden">
         @include('backend.layouts.partials.sidebar-logo')
 
         <!-- Content Area -->
-        <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white dark:bg-gray-900">
+        <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white dark:bg-dark-surface">
             <!-- Small Device Overlay -->
             <div @click="sidebarToggle = false" :class="sidebarToggle ? 'block lg:hidden' : 'hidden'"
                 class="fixed w-full h-screen z-9 bg-gray-900/50"></div>
@@ -65,7 +67,14 @@ x-init="
             @include('backend.layouts.partials.header')
 
             <!-- Main Content -->
-            <main>
+            <main
+                x-data="{ show: false }"
+                x-init="setTimeout(() => show = true, 50)"
+                x-show="show"
+                x-transition:enter="transition-all ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-2"
+                x-transition:enter-end="opacity-100 translate-y-0"
+                class="min-h-[calc(100vh-80px)]">
                 @yield('admin-content')
             </main>
             <!-- End Main Content -->
@@ -88,11 +97,11 @@ x-init="
                 const isDark = html.classList.contains('dark');
             }
 
-            // Initialize dark mode
+            // Initialize dark mode - default to true (dark mode)
             const savedDarkMode = localStorage.getItem('darkMode');
-            if (savedDarkMode === 'true') {
+            if (savedDarkMode === null || savedDarkMode === 'true') {
                 html.classList.add('dark');
-            } else if (savedDarkMode === 'false') {
+            } else {
                 html.classList.remove('dark');
             }
 

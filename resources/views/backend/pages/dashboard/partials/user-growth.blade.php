@@ -1,6 +1,6 @@
 @php $currentFilter = request()->get('chart_filter_period', 'last_12_months'); @endphp
 
-<div class="rounded-md shadow-sm border border-gray-200 dark:border-gray-700 p-4 py-6 z-1 dark:bg-gray-800">
+<div class="rounded-2xl shadow-lg dark:shadow-black/10 border border-gray-200 dark:border-gray-700/50 p-4 py-6 z-1 bg-white dark:bg-dark-card">
     <!-- Header Section -->
     <div class="flex justify-between items-center">
         <h3 class="text-lg font-semibold text-gray-700 dark:text-white">

@@ -1,8 +1,6 @@
 @php
     $menuService = app(\App\Services\MenuService\AdminMenuService::class);
     $menuGroups = $menuService->getMenu();
-    // $sidebarTextDark = config('settings.sidebar_text_dark', '#ffffff');
-    // $sidebarTextLite = config('settings.sidebar_text_lite', '#090909');
 @endphp
 
 <nav
@@ -24,17 +22,17 @@
         }
     }"
     x-init="init()"
-    class="transition-all duration-300 ease-in-out px-4"
+    class="transition-all duration-300 ease-in-out px-3"
 >
     @foreach($menuGroups as $groupName => $groupItems)
         {!! ld_apply_filters('sidebar_menu_group_before_' . Str::slug($groupName), '') !!}
-        <div>
+        <div class="mb-2">
             {!! ld_apply_filters('sidebar_menu_group_heading_before_' . Str::slug($groupName), '') !!}
-            <h3 class="menu-group-heading mb-4 text-xs uppercase leading-[20px] text-gray-500 font-medium dark:text-gray-300 px-5">
+            <h3 class="menu-group-heading mb-3 text-[11px] uppercase tracking-wider leading-[18px] text-gray-400 font-semibold dark:text-magenta-400 px-3">
                 {{ __($groupName) }}
             </h3>
             {!! ld_apply_filters('sidebar_menu_group_heading_after_' . Str::slug($groupName), '') !!}
-            <ul class="flex flex-col mb-6 space-y-1">
+            <ul class="flex flex-col mb-4 space-y-0.5">
                 {!! ld_apply_filters('sidebar_menu_before_all_' . Str::slug($groupName), '') !!}
                 {!! $menuService->render($groupItems) !!}
                 {!! ld_apply_filters('sidebar_menu_after_all_' . Str::slug($groupName), '') !!}
