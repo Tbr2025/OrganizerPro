@@ -100,7 +100,7 @@
                                 <span class="inline-flex items-center px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded cursor-pointer hover:bg-gray-300"
                                       onclick="copyPlaceholder('{{ $placeholder }}')"
                                       title="Click to copy">
-                                    {{ '{{' . $placeholder . '}}' }}
+                                    {!! '&#123;&#123;' . e($placeholder) . '&#125;&#125;' !!}
                                 </span>
                             @endforeach
                         </div>
