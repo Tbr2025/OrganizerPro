@@ -200,6 +200,50 @@ x-init="
     
     <x-toast-notifications />
 
+    {{-- Flash Message to Toast Notifications --}}
+    @if(session('success') || session('error') || session('warning') || session('info'))
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            @if(session('success'))
+                window.dispatchEvent(new CustomEvent('notify', {
+                    detail: {
+                        variant: 'success',
+                        title: 'Success',
+                        message: @json(session('success'))
+                    }
+                }));
+            @endif
+            @if(session('error'))
+                window.dispatchEvent(new CustomEvent('notify', {
+                    detail: {
+                        variant: 'error',
+                        title: 'Error',
+                        message: @json(session('error'))
+                    }
+                }));
+            @endif
+            @if(session('warning'))
+                window.dispatchEvent(new CustomEvent('notify', {
+                    detail: {
+                        variant: 'warning',
+                        title: 'Warning',
+                        message: @json(session('warning'))
+                    }
+                }));
+            @endif
+            @if(session('info'))
+                window.dispatchEvent(new CustomEvent('notify', {
+                    detail: {
+                        variant: 'info',
+                        title: 'Info',
+                        message: @json(session('info'))
+                    }
+                }));
+            @endif
+        });
+    </script>
+    @endif
+
     {!! ld_apply_filters('admin_footer_after', '') !!}
 </body>
 </html>
