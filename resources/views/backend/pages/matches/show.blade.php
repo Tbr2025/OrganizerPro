@@ -68,15 +68,83 @@
             <div class="text-center mb-4">
                 <p class="text-gray-400 text-sm">{{ $match->tournament->name ?? 'Tournament' }}</p>
                 <h2 class="text-xl font-bold mt-1">{{ $match->name ?? 'Match' }}</h2>
-                @if($match->toss_winner_team_id)
-                    <p class="text-yellow-400 text-sm mt-2">
-                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 110-12 6 6 0 010 12z"/>
-                            <path d="M10 6a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V7a1 1 0 011-1z"/>
-                        </svg>
-                        <strong>{{ $match->tossWinner?->name }}</strong> won the toss and elected to <strong>{{ $match->toss_decision === 'bat' ? 'BAT' : 'BOWL' }}</strong>
-                    </p>
-                @endif
+
+                <!-- Toss Section -->
+                <div id="toss-section" class="mt-3">
+                    @if($match->toss_winner_team_id)
+                        <!-- Toss Result Display -->
+                        <div id="toss-result" class="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 rounded-full">
+                            <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 110-12 6 6 0 010 12z"/>
+                            </svg>
+                            <span class="text-yellow-400 text-sm">
+                                <strong>{{ $match->tossWinner?->name }}</strong> won toss, elected to <strong>{{ $match->toss_decision === 'bat' ? 'BAT' : 'BOWL' }}</strong>
+                            </span>
+                            <button onclick="showTossSelector()" class="ml-2 text-yellow-400/70 hover:text-yellow-400 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    @else
+                        <!-- Toss Not Set - Show Button -->
+                        <button id="toss-btn" onclick="showTossSelector()"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-full transition">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 110-12 6 6 0 010 12z"/>
+                            </svg>
+                            Set Toss
+                        </button>
+                    @endif
+
+                    <!-- Toss Selector (Hidden by default) -->
+                    <div id="toss-selector" class="hidden mt-4 p-4 bg-gray-800/80 rounded-xl backdrop-blur max-w-md mx-auto">
+                        <h4 class="text-white font-semibold mb-3">Who won the toss?</h4>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <button type="button" onclick="selectTossWinner({{ $match->team_a_id }}, '{{ $match->teamA?->name }}')"
+                                    class="toss-team-btn p-3 rounded-lg border-2 border-transparent bg-gray-700 hover:border-blue-500 transition text-center"
+                                    data-team="{{ $match->team_a_id }}">
+                                @if($match->teamA?->logo)
+                                    <img src="{{ asset('storage/' . $match->teamA->logo) }}" class="w-10 h-10 mx-auto rounded-full mb-1">
+                                @endif
+                                <span class="text-white text-sm font-medium">{{ $match->teamA?->name }}</span>
+                            </button>
+                            <button type="button" onclick="selectTossWinner({{ $match->team_b_id }}, '{{ $match->teamB?->name }}')"
+                                    class="toss-team-btn p-3 rounded-lg border-2 border-transparent bg-gray-700 hover:border-green-500 transition text-center"
+                                    data-team="{{ $match->team_b_id }}">
+                                @if($match->teamB?->logo)
+                                    <img src="{{ asset('storage/' . $match->teamB->logo) }}" class="w-10 h-10 mx-auto rounded-full mb-1">
+                                @endif
+                                <span class="text-white text-sm font-medium">{{ $match->teamB?->name }}</span>
+                            </button>
+                        </div>
+
+                        <div id="toss-decision-section" class="hidden">
+                            <h4 class="text-white font-semibold mb-3"><span id="toss-winner-name"></span> elected to:</h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" onclick="saveToss('bat')"
+                                        class="p-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition text-white font-bold flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                    </svg>
+                                    BAT
+                                </button>
+                                <button type="button" onclick="saveToss('bowl')"
+                                        class="p-3 rounded-lg bg-green-600 hover:bg-green-700 transition text-white font-bold flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    BOWL
+                                </button>
+                            </div>
+                        </div>
+
+                        <button onclick="hideTossSelector()" class="mt-4 text-gray-400 hover:text-white text-sm transition">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Teams & Score -->
@@ -668,6 +736,101 @@ const csrfToken = '{{ csrf_token() }}';
 const matchOversLimit = {{ $match->overs ?? 20 }};
 let currentCompletedOvers = {{ $totalOvers ?? 0 }};
 let isInningsComplete = false;
+
+// ============ TOSS FUNCTIONS ============
+let selectedTossWinner = null;
+let selectedTossWinnerName = '';
+
+function showTossSelector() {
+    document.getElementById('toss-selector').classList.remove('hidden');
+    document.getElementById('toss-result')?.classList.add('hidden');
+    document.getElementById('toss-btn')?.classList.add('hidden');
+}
+
+function hideTossSelector() {
+    document.getElementById('toss-selector').classList.add('hidden');
+    document.getElementById('toss-decision-section').classList.add('hidden');
+    document.getElementById('toss-result')?.classList.remove('hidden');
+    document.getElementById('toss-btn')?.classList.remove('hidden');
+    selectedTossWinner = null;
+    // Reset team button styles
+    document.querySelectorAll('.toss-team-btn').forEach(btn => {
+        btn.classList.remove('border-yellow-500', 'bg-yellow-500/20');
+        btn.classList.add('border-transparent');
+    });
+}
+
+function selectTossWinner(teamId, teamName) {
+    selectedTossWinner = teamId;
+    selectedTossWinnerName = teamName;
+
+    // Highlight selected team
+    document.querySelectorAll('.toss-team-btn').forEach(btn => {
+        if (btn.dataset.team == teamId) {
+            btn.classList.add('border-yellow-500', 'bg-yellow-500/20');
+            btn.classList.remove('border-transparent');
+        } else {
+            btn.classList.remove('border-yellow-500', 'bg-yellow-500/20');
+            btn.classList.add('border-transparent');
+        }
+    });
+
+    // Show decision section
+    document.getElementById('toss-winner-name').textContent = teamName;
+    document.getElementById('toss-decision-section').classList.remove('hidden');
+}
+
+async function saveToss(decision) {
+    if (!selectedTossWinner) {
+        alert('Please select the team that won the toss');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/admin/matches/${matchId}/toss`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                toss_winner_team_id: selectedTossWinner,
+                toss_decision: decision
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update the UI
+            const tossSection = document.getElementById('toss-section');
+            const decisionText = decision === 'bat' ? 'BAT' : 'BOWL';
+
+            tossSection.innerHTML = `
+                <div id="toss-result" class="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 rounded-full">
+                    <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 110-12 6 6 0 010 12z"/>
+                    </svg>
+                    <span class="text-yellow-400 text-sm">
+                        <strong>${selectedTossWinnerName}</strong> won toss, elected to <strong>${decisionText}</strong>
+                    </span>
+                    <button onclick="location.reload()" class="ml-2 text-yellow-400/70 hover:text-yellow-400 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+        } else {
+            alert(data.message || 'Failed to save toss');
+        }
+    } catch (error) {
+        console.error('Error saving toss:', error);
+        alert('Failed to save toss. Please try again.');
+    }
+}
+// ============ END TOSS FUNCTIONS ============
 
 // Check if innings is complete
 function checkInningsComplete(totalOvers, summary) {

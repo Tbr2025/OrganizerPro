@@ -502,4 +502,39 @@ class MatchesController extends Controller
 
         return view('backend.pages.matches.live-ticker-index', compact('matches'));
     }
+
+    /**
+     * Save toss details via AJAX
+     */
+    public function saveToss(Request $request, Matches $match)
+    {
+        $validated = $request->validate([
+            'toss_winner_team_id' => 'required|exists:actual_teams,id',
+            'toss_decision' => 'required|in:bat,bowl',
+        ]);
+
+        // Verify the team is part of this match
+        if (!in_array($validated['toss_winner_team_id'], [$match->team_a_id, $match->team_b_id])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid team selected'
+            ], 422);
+        }
+
+        $match->update([
+            'toss_winner_team_id' => $validated['toss_winner_team_id'],
+            'toss_decision' => $validated['toss_decision'],
+        ]);
+
+        $match->load('tossWinner');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Toss saved successfully',
+            'data' => [
+                'toss_winner' => $match->tossWinner?->name,
+                'toss_decision' => $match->toss_decision,
+            ]
+        ]);
+    }
 }
