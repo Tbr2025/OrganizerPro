@@ -118,7 +118,7 @@
                             {{-- Dropdowns --}}
                             @php
                                 $dropdowns = [
-                                    'team_id' => ['label' => 'Team', 'options' => $teams, 'optionField' => 'name'],
+                                    'team_id' => ['label' => 'Registration Team', 'options' => $teams, 'optionField' => 'name'],
                                     'kit_size_id' => [
                                         'label' => 'Jersey Size',
                                         'options' => $kitSizes,
@@ -148,6 +148,9 @@
                                     <label for="{{ $field }}"
                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         {{ $config['label'] }}
+                                        @if ($field === 'team_id')
+                                            <span class="text-xs text-gray-500">(Original team)</span>
+                                        @endif
                                     </label>
                                     <div class="flex items-center space-x-2">
                                         <select name="{{ $field }}" id="{{ $field }}" class="form-control">
@@ -162,7 +165,7 @@
 
                                         @if ($field === 'team_id')
                                             <input type="text" name="team_name_ref" id="team_name_ref"
-                                                placeholder="Enter Team Name"
+                                                placeholder="Enter Team Name (if Others)"
                                                 value="{{ old('team_name_ref', $player->team_name_ref ?? '') }}"
                                                 class="form-control w-48">
                                         @endif
@@ -194,6 +197,27 @@
                                     @enderror
                                 </div>
                             @endforeach
+
+                            {{-- Playing Team (Actual Team) --}}
+                            <div class="space-y-1">
+                                <label for="actual_team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Playing Team') }}
+                                    <span class="text-xs text-gray-500">(Current team)</span>
+                                </label>
+                                <select name="actual_team_id" id="actual_team_id"
+                                    class="form-control @error('actual_team_id') border-red-500 @enderror">
+                                    <option value="">-- Select Playing Team --</option>
+                                    @foreach ($actualTeams as $team)
+                                        <option value="{{ $team->id }}"
+                                            {{ old('actual_team_id', $player->actual_team_id) == $team->id ? 'selected' : '' }}>
+                                            {{ $team->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('actual_team_id')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
 
                             {{-- Image Upload --}}
                             {{-- Player Image Upload --}}

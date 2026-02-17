@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\Tournament;
+use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,7 +17,7 @@ class TournamentController extends Controller
         $user = Auth::user();
 
         // 2. Start building the Tournament query and eager-load relationships
-        $query = Tournament::with('organization');
+        $query = Tournament::with(['organization', 'zone']);
 
         // 3. Apply role-based scoping (filter by organization if not Superadmin)
         if (!$user->hasRole('Superadmin')) {
@@ -87,10 +88,23 @@ class TournamentController extends Controller
         // Initially, no organization is selected, so locations are empty. This is correct.
         $locations = collect();
 
-        // 4. Return the view with the correctly scoped data.
+        // 4. Load zones for the user's organization (for non-Superadmin)
+        // For Superadmin, zones will be loaded via AJAX when organization is selected
+        if ($user->hasRole('Superadmin')) {
+            $zones = collect(); // Will be populated via AJAX
+        } else {
+            $zones = Zone::where('organization_id', $user->organization_id)
+                ->active()
+                ->orderBy('order')
+                ->orderBy('name')
+                ->get();
+        }
+
+        // 5. Return the view with the correctly scoped data.
         return view('backend.pages.tournaments.create', [
             'organizations' => $organizations,
             'locations' => $locations,
+            'zones' => $zones,
             'breadcrumbs' => [
                 ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
                 ['label' => 'Create Tournament'],
@@ -101,11 +115,17 @@ class TournamentController extends Controller
     {
         $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
+            'zone_id'        => 'nullable|exists:zones,id',
             'name'           => 'required|string|max:255',
             'start_date'     => 'required|date|after_or_equal:today',
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
         ]);
+
+        // Handle empty zone_id
+        if (empty($validated['zone_id'])) {
+            $validated['zone_id'] = null;
+        }
 
         Tournament::create($validated);
 
@@ -116,11 +136,25 @@ class TournamentController extends Controller
 
     public function edit(Tournament $tournament)
     {
-        $organizations = Organization::all();
+        $user = Auth::user();
+
+        if ($user->hasRole('Superadmin')) {
+            $organizations = Organization::all();
+        } else {
+            $organizations = Organization::where('id', $user->organization_id)->get();
+        }
+
+        // Load zones for the tournament's organization
+        $zones = Zone::where('organization_id', $tournament->organization_id)
+            ->active()
+            ->orderBy('order')
+            ->orderBy('name')
+            ->get();
 
         return view('backend.pages.tournaments.edit', [
             'tournament'    => $tournament,
             'organizations' => $organizations,
+            'zones'         => $zones,
             'breadcrumbs'   => [
                 ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
                 ['label' => 'Edit Tournament'],
@@ -132,11 +166,17 @@ class TournamentController extends Controller
     {
         $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
+            'zone_id'        => 'nullable|exists:zones,id',
             'name'           => 'required|string|max:255',
             'start_date'     => 'required|date|after_or_equal:today',
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
         ]);
+
+        // Handle empty zone_id
+        if (empty($validated['zone_id'])) {
+            $validated['zone_id'] = null;
+        }
 
         $tournament->update($validated);
 

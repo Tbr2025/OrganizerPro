@@ -16,16 +16,34 @@
 
                 {{-- Organization --}}
                 <div>
-                    <label for="organization_id" class="block text-sm font-medium">Organization</label>
-                    <select id="organization_id" name="organization_id" required class="mt-1 block w-full border rounded">
+                    <label for="organization_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization <span class="text-red-500">*</span></label>
+                    <select id="organization_id" name="organization_id" required class="mt-1 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                         <option value="">Select Organization</option>
                         @foreach ($organizations as $organization)
-                            <option value="{{ $organization->id }}" 
-                                {{ $tournament->organization_id == $organization->id ? 'selected' : '' }}>
+                            <option value="{{ $organization->id }}"
+                                {{ old('organization_id', $tournament->organization_id) == $organization->id ? 'selected' : '' }}>
                                 {{ $organization->name }}
                             </option>
                         @endforeach
                     </select>
+                    @error('organization_id')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Zone --}}
+                <div>
+                    <label for="zone_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Zone</label>
+                    <select id="zone_id" name="zone_id" class="mt-1 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <option value="">No Zone (General)</option>
+                        @foreach ($zones as $zone)
+                            <option value="{{ $zone->id }}" {{ old('zone_id', $tournament->zone_id) == $zone->id ? 'selected' : '' }}>{{ $zone->name }}</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Optional: Assign this tournament to a zone</p>
+                    @error('zone_id')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 {{-- Location --}}
@@ -116,6 +134,40 @@
                 minDate: "today",
                 dateFormat: "Y-m-d",
                 defaultDate: "{{ old('end_date', $tournament->end_date->format('Y-m-d')) }}",
+            });
+
+            // Fetch zones when organization changes
+            const organizationSelect = document.getElementById('organization_id');
+            const zoneSelect = document.getElementById('zone_id');
+            const currentZoneId = "{{ old('zone_id', $tournament->zone_id) }}";
+
+            organizationSelect.addEventListener('change', function() {
+                const organizationId = this.value;
+                zoneSelect.innerHTML = '<option value="">Loading...</option>';
+
+                if (!organizationId) {
+                    zoneSelect.innerHTML = '<option value="">No Zone (General)</option>';
+                    return;
+                }
+
+                fetch(`{{ url('admin/zones/by-organization') }}?organization_id=${organizationId}`)
+                    .then(response => response.json())
+                    .then(zones => {
+                        zoneSelect.innerHTML = '<option value="">No Zone (General)</option>';
+                        zones.forEach(zone => {
+                            const option = document.createElement('option');
+                            option.value = zone.id;
+                            option.textContent = zone.name;
+                            if (zone.id == currentZoneId) {
+                                option.selected = true;
+                            }
+                            zoneSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching zones:', error);
+                        zoneSelect.innerHTML = '<option value="">No Zone (General)</option>';
+                    });
             });
         });
     </script>

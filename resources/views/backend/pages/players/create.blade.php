@@ -133,22 +133,50 @@
                                 </div>
                             </div>
 
-                            {{-- Team --}}
+                            {{-- Registration Team (Old Teams) --}}
                             <div class="space-y-1">
                                 <label for="team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Select Team') }}
+                                    {{ __('Registration Team') }}
+                                    <span class="text-xs text-gray-500">(Original team)</span>
                                 </label>
-                                <select name="team_id" id="team_id"
-                                    class="form-control @error('team_id') border-red-500 @enderror">
-                                    <option value="">-- Select Team --</option>
-                                    @foreach ($teams as $team)
+                                <div class="flex items-center space-x-2">
+                                    <select name="team_id" id="team_id"
+                                        class="form-control @error('team_id') border-red-500 @enderror">
+                                        <option value="">-- Select Registration Team --</option>
+                                        @foreach ($teams as $team)
+                                            <option value="{{ $team->id }}"
+                                                {{ old('team_id') == $team->id ? 'selected' : '' }}>
+                                                {{ $team->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <input type="text" name="team_name_ref" id="team_name_ref"
+                                        placeholder="Enter Team Name (if Others)"
+                                        value="{{ old('team_name_ref') }}"
+                                        class="form-control w-48">
+                                </div>
+                                @error('team_id')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Actual Team (Current Playing Team) --}}
+                            <div class="space-y-1">
+                                <label for="actual_team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Playing Team') }}
+                                    <span class="text-xs text-gray-500">(Current team)</span>
+                                </label>
+                                <select name="actual_team_id" id="actual_team_id"
+                                    class="form-control @error('actual_team_id') border-red-500 @enderror">
+                                    <option value="">-- Select Playing Team --</option>
+                                    @foreach ($actualTeams as $team)
                                         <option value="{{ $team->id }}"
-                                            {{ old('team_id') == $team->id ? 'selected' : '' }}>
+                                            {{ old('actual_team_id') == $team->id ? 'selected' : '' }}>
                                             {{ $team->name }}
                                         </option>
                                     @endforeach
                                 </select>
-                                @error('team_id')
+                                @error('actual_team_id')
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
                             </div>

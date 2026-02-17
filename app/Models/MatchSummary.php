@@ -15,6 +15,7 @@ class MatchSummary extends Model
         'highlights',
         'commentary',
         'summary_poster',
+        'poster_template',
         'poster_sent',
         'poster_sent_at',
     ];

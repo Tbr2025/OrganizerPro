@@ -23,6 +23,7 @@ use App\Http\Controllers\Backend\MatchAppreciationController;
 use App\Http\Controllers\Backend\MatchesController;
 use App\Http\Controllers\Backend\ModulesController;
 use App\Http\Controllers\Backend\OrganizationController;
+use App\Http\Controllers\Backend\ZoneController;
 use App\Http\Controllers\Backend\PermissionsController;
 use App\Http\Controllers\Backend\PlayerController;
 use App\Http\Controllers\Backend\PlayerProfileController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\Backend\TranslationController;
 use App\Http\Controllers\Backend\UserLoginAsController;
 use App\Http\Controllers\Backend\UsersController;
 use App\Http\Controllers\Backend\PlayerVerificationController;
+use App\Http\Controllers\Backend\TeamManagerController;
 use App\Http\Controllers\PublicAuctionController;
 use App\Http\Controllers\PublicPlayerController;
 use App\Http\Controllers\Backend\Tournament\TournamentSettingsController;
@@ -48,6 +50,7 @@ use App\Http\Controllers\Backend\Tournament\TournamentFixtureController;
 use App\Http\Controllers\Backend\Tournament\TournamentTemplateController;
 use App\Http\Controllers\Backend\Tournament\TournamentCalendarController;
 use App\Http\Controllers\Backend\Tournament\MatchSummaryController;
+use App\Http\Controllers\Backend\Tournament\AwardTemplateController;
 use App\Http\Controllers\Backend\GroundController;
 use App\Http\Controllers\Backend\MatchResultController;
 use App\Http\Controllers\Backend\PointTableController;
@@ -199,6 +202,25 @@ Route::middleware(['auth'])
     });
 
 
+// --- Team Manager Dashboard Routes ---
+// URL Prefix: /admin/team-manager
+// Name Prefix: team-manager.
+Route::middleware(['auth'])
+    ->prefix('admin/team-manager')
+    ->name('team-manager.')
+    ->group(function () {
+        Route::get('/dashboard', [TeamManagerController::class, 'dashboard'])->name('dashboard');
+        Route::get('/team', [TeamManagerController::class, 'viewTeam'])->name('team');
+        Route::get('/auctions', [TeamManagerController::class, 'auctions'])->name('auctions');
+
+        // Player management
+        Route::get('/players/create', [TeamManagerController::class, 'createPlayer'])->name('players.create');
+        Route::post('/players', [TeamManagerController::class, 'storePlayer'])->name('players.store');
+        Route::post('/players/add', [TeamManagerController::class, 'addPlayerToRoster'])->name('players.add');
+        Route::delete('/players/{player}', [TeamManagerController::class, 'removePlayerFromRoster'])->name('players.remove');
+    });
+
+
 // --- Public Display Route ---
 Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPublicDisplay'])
     ->name('public.auction.live');
@@ -209,6 +231,7 @@ Route::get('/auction/{auction}/results', [PublicAuctionController::class, 'showR
 // API endpoint for AJAX polling
 Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
+Route::get('/auction/{auction}/sold-players', [PublicAuctionController::class, 'soldPlayers']);
 
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
@@ -274,6 +297,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     });
 
     Route::resource('organizations', OrganizationController::class);
+
+    // Zones
+    Route::resource('zones', ZoneController::class);
+    Route::get('/zones/by-organization', [ZoneController::class, 'getByOrganization'])->name('zones.by-organization');
+
     Route::delete('/auctions/{team}/clear', [AuctionController::class, 'clearTeamData'])
         ->name('auctions.clear');
 
@@ -289,6 +317,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
     // Optional: Route to update a member's role
     Route::put('actual-teams/{actualTeam}/members/{user}/role', [ActualTeamController::class, 'updateMemberRole'])->name('actual-teams.update-member-role');
+
+    // Team Manager Management
+    Route::post('actual-teams/{actualTeam}/team-manager', [ActualTeamController::class, 'createTeamManager'])->name('actual-teams.create-team-manager');
+    Route::get('actual-teams/{actualTeam}/team-managers', [ActualTeamController::class, 'getTeamManagers'])->name('actual-teams.get-team-managers');
+    Route::post('actual-teams/{actualTeam}/team-manager/{user}/reset-password', [ActualTeamController::class, 'resetTeamManagerPassword'])->name('actual-teams.reset-team-manager-password');
 
     // Auctions
     // Route::prefix('auctions')->as('auctions.')->group(function () {
@@ -354,6 +387,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
 
     Route::resource('matches', MatchesController::class);
+    Route::get('/matches/{match}/state', [MatchesController::class, 'getState'])->name('matches.state');
+    Route::post('/matches/{match}/switch-innings', [MatchesController::class, 'switchInnings'])->name('matches.switchInnings');
     Route::get('/matches/{match}/overs', [MatchesController::class, 'editOvers'])->name('overs.edit');
     Route::post('/matches/{match}/overs', [MatchesController::class, 'updateOvers'])->name('overs.update');
     Route::get('/matches/{match}/balls/create', [BallController::class, 'create'])->name('balls.create');
@@ -367,19 +402,18 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::post('/matches/{match}/balls/ajax-store', [BallController::class, 'ajaxStore'])
         ->name('balls.ajaxStore');
     Route::get('/matches/{match}/balls/summary', [BallController::class, 'summary'])->name('balls.summary');
+    Route::get('/matches/{match}/balls/last', [BallController::class, 'lastBall'])->name('balls.last');
 
 
     Route::get('/matches/{match}/scorecard', [ScorecardController::class, 'show'])->name('matches.scorecard');
 
-    Route::resource('appreciations', MatchAppreciationController::class);
-    Route::get('/matches/{match}/appreciations/create', [MatchAppreciationController::class, 'create'])
-        ->name('matches.appreciations.create');
+    Route::resource('appreciations', MatchAppreciationController::class)->only(['index']);
 
     Route::post('/appreciations/save/{tournament}/{match}/{player}', [AppreciationController::class, 'store'])->name('appreciations.save');
 
-    Route::get('matches/{match}/appreciations/create', [MatchAppreciationController::class, 'create'])->name('admin.matches.appreciations.create');
-    Route::post('matches/{match}/appreciations', [MatchAppreciationController::class, 'store'])->name('admin.matches.appreciations.store');
-    Route::delete('match-appreciations/{appreciation}', [MatchAppreciationController::class, 'destroy'])->name('admin.matches.appreciations.destroy');
+    Route::get('matches/{match}/appreciations/create', [MatchAppreciationController::class, 'create'])->name('matches.appreciations.create');
+    Route::post('matches/{match}/appreciations', [MatchAppreciationController::class, 'store'])->name('matches.appreciations.store');
+    Route::delete('match-appreciations/{appreciation}', [MatchAppreciationController::class, 'destroy'])->name('matches.appreciations.destroy');
 
     Route::post('/players/{player}/approve', [PlayerVerificationController::class, 'approve'])->name('players.approve');
     // Route to reject a player
@@ -709,6 +743,25 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         Route::post('/summary/send', [MatchSummaryController::class, 'send'])->name('summary.send');
         Route::get('/summary/download-poster', [MatchSummaryController::class, 'downloadPoster'])->name('summary.download-poster');
         Route::get('/summary/preview-poster', [MatchSummaryController::class, 'previewPoster'])->name('summary.preview-poster');
+        Route::post('/summary/create-default-awards', [MatchSummaryController::class, 'createDefaultAwards'])->name('summary.create-default-awards');
+        Route::post('/summary/recalculate-statistics', [MatchSummaryController::class, 'recalculateStatistics'])->name('summary.recalculate-statistics');
+    });
+
+    // Award Template Editor
+    Route::prefix('awards')->name('awards.')->group(function () {
+        Route::get('/{award}/template', [AwardTemplateController::class, 'edit'])->name('template.edit');
+        Route::put('/{award}/template', [AwardTemplateController::class, 'update'])->name('template.update');
+        Route::post('/{award}/template/ajax', [AwardTemplateController::class, 'updateAjax'])->name('template.update-ajax');
+        Route::post('/{award}/template/background', [AwardTemplateController::class, 'uploadBackground'])->name('template.upload-background');
+        Route::post('/{award}/template/icon', [AwardTemplateController::class, 'uploadIcon'])->name('template.upload-icon');
+        Route::post('/{award}/template/reset', [AwardTemplateController::class, 'resetToDefaults'])->name('template.reset');
+    });
+
+    // Tournament Awards Management
+    Route::prefix('tournaments/{tournament}/awards')->name('tournaments.awards.')->group(function () {
+        Route::get('/', [AwardTemplateController::class, 'index'])->name('index');
+        Route::post('/', [AwardTemplateController::class, 'store'])->name('store');
+        Route::delete('/{award}', [AwardTemplateController::class, 'destroy'])->name('destroy');
     });
 
     // Match Result

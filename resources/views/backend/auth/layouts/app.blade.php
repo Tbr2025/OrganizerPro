@@ -49,30 +49,67 @@ $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(valu
             <!-- Main Content -->
             <main>
                 <div class="relative flex flex-col justify-center w-full h-screen dark:bg-gray-900 sm:p-0 lg:flex-row">
-                    <div class="flex flex-col flex-1 w-full lg:w-1/2">
-                        <div class="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-10">
+                    <div class="flex flex-col flex-1 w-full lg:w-1/2 bg-white dark:bg-gray-900">
+                        <div class="flex flex-col justify-center flex-1 w-full max-w-md mx-auto px-6 sm:px-10 py-8">
                             @yield('admin-content')
                         </div>
                     </div>
 
-                    <div class="relative items-center hidden w-full h-full lg:grid lg:w-1/2"
-                        style="background: linear-gradient(to bottom, rgb(0, 86, 37) 33%,  rgb(8, 3, 94) 67%);">
+                    <div class="relative items-center hidden w-full h-full lg:grid lg:w-1/2 overflow-hidden"
+                        style="background: linear-gradient(135deg, rgb(0, 86, 37) 0%, rgb(0, 120, 60) 30%, rgb(8, 3, 94) 70%, rgb(30, 20, 120) 100%);">
 
-                        <div class="flex items-center justify-center z-1">
-                            <!-- ===== Common Grid Shape Start ===== -->
-                            <div class="absolute right-0 top-0 -z-1 w-full max-w-[250px] xl:max-w-[450px]">
+                        <div class="flex items-center justify-center z-1 relative">
+                            <!-- Grid Pattern Overlays -->
+                            <div class="absolute right-0 top-0 -z-1 w-full max-w-[250px] xl:max-w-[450px] opacity-30">
                                 <img src="/images/shape/grid-01.svg" alt="grid">
                             </div>
-                            <div class="absolute bottom-0 left-0 -z-1 w-full max-w-[250px] rotate-180 xl:max-w-[450px]">
+                            <div class="absolute bottom-0 left-0 -z-1 w-full max-w-[250px] rotate-180 xl:max-w-[450px] opacity-30">
                                 <img src="/images/shape/grid-01.svg" alt="grid">
                             </div>
 
-                            <div class="flex flex-col items-center max-w-xs">
-                                <a href="#" class="block mb-4">
+                            <!-- Animated Background Circles -->
+                            <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                                <div class="absolute -top-20 -right-20 w-80 h-80 bg-white/5 rounded-full animate-pulse"></div>
+                                <div class="absolute -bottom-32 -left-32 w-96 h-96 bg-white/5 rounded-full animate-pulse" style="animation-delay: 1s;"></div>
+                                <div class="absolute top-1/2 left-1/4 w-40 h-40 bg-white/3 rounded-full animate-bounce" style="animation-duration: 3s;"></div>
+                            </div>
+
+                            <div class="flex flex-col items-center max-w-md text-center px-8">
+                                <!-- Logo -->
+                                <a href="#" class="block mb-8">
                                     <img src="{{ config('settings.site_logo_lite') ?? asset('images/logo/lara-dashboard.png') }}"
-                                        alt="{{ config('app.name') }}">
+                                        alt="{{ config('app.name') }}" class="max-h-20 w-auto drop-shadow-lg">
                                 </a>
 
+                                <!-- Tagline -->
+                                <h2 class="text-2xl xl:text-3xl font-bold text-white mb-4 drop-shadow-lg">
+                                    {{ config('app.name', 'OrganizerPro') }}
+                                </h2>
+                                <p class="text-white/80 text-base xl:text-lg mb-8 leading-relaxed">
+                                    Manage tournaments, teams, auctions & matches with ease
+                                </p>
+
+                                <!-- Feature Icons -->
+                                <div class="grid grid-cols-3 gap-6 mt-4">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center mb-2 border border-white/20">
+                                            <iconify-icon icon="lucide:trophy" class="text-2xl text-white"></iconify-icon>
+                                        </div>
+                                        <span class="text-white/70 text-xs">Tournaments</span>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center mb-2 border border-white/20">
+                                            <iconify-icon icon="lucide:users" class="text-2xl text-white"></iconify-icon>
+                                        </div>
+                                        <span class="text-white/70 text-xs">Teams</span>
+                                    </div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center mb-2 border border-white/20">
+                                            <iconify-icon icon="lucide:gavel" class="text-2xl text-white"></iconify-icon>
+                                        </div>
+                                        <span class="text-white/70 text-xs">Auctions</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

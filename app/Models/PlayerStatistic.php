@@ -113,6 +113,22 @@ class PlayerStatistic extends Model
         return round($balls / $this->wickets, 2);
     }
 
+    /**
+     * Alias for economy_rate for view compatibility
+     */
+    public function getEconomyAttribute(): ?float
+    {
+        return $this->economy_rate;
+    }
+
+    /**
+     * Three wicket hauls - not tracked in database yet, return 0
+     */
+    public function getThreeWicketsAttribute(): int
+    {
+        return 0;
+    }
+
     // Scopes
     public function scopeTopRunScorers($query, $limit = 10)
     {

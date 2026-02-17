@@ -44,8 +44,16 @@
                     <h2 class="text-xl font-bold text-white truncate" title="{{ $tournament->name }}">
                         {{ $tournament->name }}
                     </h2>
-                     @if(auth()->user()->hasRole('Superadmin'))
+                    @if(auth()->user()->hasRole('Superadmin'))
                         <p class="text-sm text-blue-200 mt-1">{{ $tournament->organization->name ?? 'No Organization' }}</p>
+                    @endif
+                    @if($tournament->zone)
+                        <span class="inline-flex items-center px-2 py-0.5 mt-2 rounded text-xs font-medium bg-blue-900/50 text-blue-200">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            </svg>
+                            {{ $tournament->zone->name }}
+                        </span>
                     @endif
                 </div>
 

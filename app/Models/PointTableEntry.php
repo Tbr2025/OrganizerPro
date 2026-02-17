@@ -72,6 +72,22 @@ class PointTableEntry extends Model
         return $sign . number_format($nrr, 3);
     }
 
+    /**
+     * Alias for matches_played
+     */
+    public function getPlayedAttribute(): int
+    {
+        return $this->matches_played ?? 0;
+    }
+
+    /**
+     * Alias for net_run_rate
+     */
+    public function getNrrAttribute(): float
+    {
+        return $this->net_run_rate ?? 0;
+    }
+
     public function scopeForGroup($query, $groupId)
     {
         return $query->where('tournament_group_id', $groupId);

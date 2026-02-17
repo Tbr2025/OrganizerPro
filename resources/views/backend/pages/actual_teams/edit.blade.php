@@ -118,6 +118,205 @@
             </div>
         </form>
 
+        {{-- Team Managers Section --}}
+        <div x-data="teamManagerHandler()" class="mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+                <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Team Managers</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Users who can participate in auctions and manage this team</p>
+                    </div>
+                    <button type="button" @click="showCreateModal = true" class="btn btn-primary">
+                        <i class="fas fa-plus mr-2"></i>Add Team Manager
+                    </button>
+                </div>
+                <div class="p-5">
+                    {{-- Auction Link --}}
+                    @if(isset($teamAuction) && $teamAuction)
+                        <div class="mb-4 p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                                        <i class="fas fa-gavel text-green-500"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-800 dark:text-white">{{ $teamAuction->name ?? 'Auction' }}</p>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                                            Status: <span class="capitalize {{ $teamAuction->status === 'live' ? 'text-green-500' : 'text-yellow-500' }}">{{ $teamAuction->status }}</span>
+                                            &bull; Tournament: {{ $actualTeam->tournament->name ?? 'N/A' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('team.auction.bidding.show', $teamAuction->id) }}" target="_blank" class="btn btn-success">
+                                        <i class="fas fa-external-link-alt mr-2"></i>Open Bidding Page
+                                    </a>
+                                    <button type="button" onclick="copyToClipboard('{{ route('team.auction.bidding.show', $teamAuction->id) }}')" class="btn btn-secondary" title="Copy Link">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Share this link with team managers: <code class="bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{{ route('team.auction.bidding.show', $teamAuction->id) }}</code>
+                            </p>
+                        </div>
+                    @else
+                        <div class="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                    <i class="fas fa-exclamation-triangle text-yellow-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-gray-800 dark:text-white">No Active Auction for Current Tournament</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        Current tournament: <strong>{{ $actualTeam->tournament->name ?? 'N/A' }}</strong>
+                                    </p>
+                                </div>
+                            </div>
+
+                            @if(isset($availableAuctions) && $availableAuctions->count() > 0)
+                                <div class="mt-4 pt-4 border-t border-yellow-500/30">
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                        <i class="fas fa-link mr-1"></i> Link team to an auction by changing tournament:
+                                    </p>
+                                    <div class="space-y-2">
+                                        @foreach($availableAuctions as $auction)
+                                            <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                                                <div>
+                                                    <p class="font-medium text-gray-800 dark:text-white">{{ $auction->name }}</p>
+                                                    <p class="text-xs text-gray-500">
+                                                        Tournament: {{ $auction->tournament->name ?? 'N/A' }}
+                                                        &bull; Status: <span class="capitalize">{{ $auction->status }}</span>
+                                                    </p>
+                                                </div>
+                                                <button type="button"
+                                                    onclick="changeTournament({{ $auction->tournament_id }})"
+                                                    class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-exchange-alt mr-1"></i> Use This
+                                                </button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @else
+                                <p class="mt-3 text-sm text-gray-500">No active auctions available. Create an auction first.</p>
+                            @endif
+                        </div>
+                    @endif
+
+                    {{-- Existing Team Managers --}}
+                    <div id="team-managers-list" class="space-y-3">
+                        <template x-if="managers.length === 0 && !loading">
+                            <p class="text-center text-gray-500 py-4">No team managers assigned yet. Add a team manager to allow them to participate in auctions.</p>
+                        </template>
+                        <template x-if="loading">
+                            <p class="text-center text-gray-500 py-4">Loading...</p>
+                        </template>
+                        <template x-for="manager in managers" :key="manager.id">
+                            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                                        <span x-text="manager.name.charAt(0).toUpperCase()"></span>
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-800 dark:text-white" x-text="manager.name"></p>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400" x-text="manager.email"></p>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                            <i class="fas fa-user-shield mr-1"></i> <span x-text="manager.role"></span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" @click="resetPassword(manager)" class="btn btn-sm btn-secondary" title="Reset Password">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Create Team Manager Modal --}}
+            <div x-show="showCreateModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+                <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                    <div x-show="showCreateModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showCreateModal = false"></div>
+                    <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+                    <div x-show="showCreateModal" @click.stop x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                        <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <h3 class="text-lg leading-6 font-semibold text-gray-900 dark:text-white mb-4">Add Team Manager</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                                    <input type="text" x-model="newManager.name" class="form-control mt-1" placeholder="Enter name">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                                    <input type="email" x-model="newManager.email" class="form-control mt-1" placeholder="Enter email">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password (leave blank to auto-generate)</label>
+                                    <input type="text" x-model="newManager.password" class="form-control mt-1" placeholder="Enter password or leave blank">
+                                </div>
+                            </div>
+                            <div x-show="createError" class="mt-4 p-3 bg-red-100 text-red-700 rounded">
+                                <span x-text="createError"></span>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                            <button type="button" @click="createManager()" :disabled="creating" class="btn btn-primary">
+                                <span x-show="creating"><i class="fas fa-spinner fa-spin mr-2"></i></span>
+                                Create Manager
+                            </button>
+                            <button type="button" @click="showCreateModal = false" class="btn btn-secondary">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Credentials Modal --}}
+            <div x-show="showCredentialsModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
+                <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showCredentialsModal = false"></div>
+                    <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+                    <div @click.stop class="relative inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                        <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                            <div class="text-center mb-4">
+                                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900">
+                                    <i class="fas fa-check text-green-600 dark:text-green-400 text-xl"></i>
+                                </div>
+                                <h3 class="text-lg leading-6 font-semibold text-gray-900 dark:text-white mt-4">Login Credentials</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Save these credentials. The password cannot be retrieved later.</p>
+                            </div>
+                            <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">Email:</span>
+                                    <span class="font-mono text-sm text-gray-900 dark:text-white" x-text="credentials.email"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">Password:</span>
+                                    <span class="font-mono text-sm text-gray-900 dark:text-white font-bold" x-text="credentials.password"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400">Login URL:</span>
+                                    <span class="font-mono text-xs text-blue-600 dark:text-blue-400">{{ url('/login') }}</span>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <button type="button" @click="copyCredentials()" class="w-full btn btn-secondary">
+                                    <i class="fas fa-copy mr-2"></i>Copy to Clipboard
+                                </button>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6">
+                            <button type="button" @click="showCredentialsModal = false" class="w-full btn btn-primary">Done</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Member Management Sections --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {{-- LEFT COLUMN (Members) --}}
@@ -180,6 +379,148 @@
 
     @push('scripts')
         <script>
+            // Copy to clipboard helper
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Link copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert('Link copied to clipboard!');
+                });
+            }
+
+            // Change tournament and save
+            function changeTournament(tournamentId) {
+                if (!confirm('Change team tournament to match this auction? The page will reload after saving.')) {
+                    return;
+                }
+
+                const tournamentSelect = document.getElementById('tournament_id');
+                if (tournamentSelect) {
+                    tournamentSelect.value = tournamentId;
+                    // Submit the form
+                    document.getElementById('team-form').submit();
+                }
+            }
+
+            // Team Manager Handler
+            function teamManagerHandler() {
+                return {
+                    managers: [],
+                    loading: true,
+                    showCreateModal: false,
+                    showCredentialsModal: false,
+                    creating: false,
+                    createError: '',
+                    newManager: {
+                        name: '',
+                        email: '',
+                        password: ''
+                    },
+                    credentials: {
+                        email: '',
+                        password: ''
+                    },
+
+                    init() {
+                        this.loadManagers();
+                    },
+
+                    async loadManagers() {
+                        this.loading = true;
+                        try {
+                            const res = await fetch('{{ route("admin.actual-teams.get-team-managers", $actualTeam->id) }}');
+                            const data = await res.json();
+                            if (data.success) {
+                                this.managers = data.managers;
+                            }
+                        } catch (e) {
+                            console.error('Failed to load managers:', e);
+                        }
+                        this.loading = false;
+                    },
+
+                    async createManager() {
+                        if (!this.newManager.name || !this.newManager.email) {
+                            this.createError = 'Please enter name and email.';
+                            return;
+                        }
+
+                        this.creating = true;
+                        this.createError = '';
+
+                        try {
+                            const res = await fetch('{{ route("admin.actual-teams.create-team-manager", $actualTeam->id) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                },
+                                body: JSON.stringify(this.newManager)
+                            });
+
+                            const data = await res.json();
+
+                            if (data.success) {
+                                this.credentials = data.credentials;
+                                this.showCreateModal = false;
+                                this.showCredentialsModal = true;
+                                this.newManager = { name: '', email: '', password: '' };
+                                this.loadManagers();
+                            } else {
+                                this.createError = data.message || 'Failed to create manager.';
+                            }
+                        } catch (e) {
+                            this.createError = 'An error occurred. Please try again.';
+                            console.error(e);
+                        }
+
+                        this.creating = false;
+                    },
+
+                    async resetPassword(manager) {
+                        if (!confirm(`Reset password for ${manager.name}?`)) return;
+
+                        try {
+                            const res = await fetch(`/admin/actual-teams/{{ $actualTeam->id }}/team-manager/${manager.id}/reset-password`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                },
+                                body: JSON.stringify({})
+                            });
+
+                            const data = await res.json();
+
+                            if (data.success) {
+                                this.credentials = data.credentials;
+                                this.showCredentialsModal = true;
+                            } else {
+                                alert(data.message || 'Failed to reset password.');
+                            }
+                        } catch (e) {
+                            alert('An error occurred. Please try again.');
+                            console.error(e);
+                        }
+                    },
+
+                    copyCredentials() {
+                        const text = `Login URL: {{ url('/login') }}\nEmail: ${this.credentials.email}\nPassword: ${this.credentials.password}`;
+                        navigator.clipboard.writeText(text).then(() => {
+                            alert('Credentials copied to clipboard!');
+                        });
+                    }
+                }
+            }
+
             document.addEventListener('DOMContentLoaded', () => {
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
@@ -325,7 +666,7 @@
                                     const data = await request(
                                         `{{ route('admin.actual-teams.update-member-role', [$actualTeam->id, 'USER_ID']) }}`
                                         .replace('USER_ID', userId),
-                                        'POST', {
+                                        'PUT', {
                                             role: newRole
                                         } // Send the new role
                                     );

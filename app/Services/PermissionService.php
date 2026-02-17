@@ -28,6 +28,16 @@ class PermissionService
                 ],
             ],
             [
+                'group_name' => 'zone',
+                'group_label' => 'Zone Management',
+                'permissions' => [
+                    'zone.view',
+                    'zone.create',
+                    'zone.edit',
+                    'zone.delete',
+                ],
+            ],
+            [
                 'group_name' => 'match_appreciation',
                 'permissions' => [
                     'match_appreciation.create',

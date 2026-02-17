@@ -19,6 +19,12 @@ class Organization extends Model
     {
         return $this->hasMany(Tournament::class);
     }
+
+    public function zones()
+    {
+        return $this->hasMany(Zone::class);
+    }
+
     public function actualTeams()
     {
         // This line tells Laravel:

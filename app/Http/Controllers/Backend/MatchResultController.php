@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Ball;
 use App\Models\Matches;
 use App\Models\MatchResult;
 use App\Services\Tournament\PointTableService;
@@ -25,9 +26,46 @@ class MatchResultController extends Controller
 
         $result = $match->result ?? new MatchResult();
 
+        // Auto-calculate scores from ball data
+        $ballStats = $this->calculateBallStats($match);
+
+        // If we have ball data from BOTH innings and result is empty, pre-fill from ball stats
+        if ($ballStats['hasBallData'] && $ballStats['bothInningsComplete'] && !$match->result) {
+            $result->team_a_score = $ballStats['teamA']['runs'];
+            $result->team_a_wickets = $ballStats['teamA']['wickets'];
+            $result->team_a_overs = $ballStats['teamA']['overs'];
+            $result->team_a_extras = $ballStats['teamA']['extras'];
+
+            $result->team_b_score = $ballStats['teamB']['runs'];
+            $result->team_b_wickets = $ballStats['teamB']['wickets'];
+            $result->team_b_overs = $ballStats['teamB']['overs'];
+            $result->team_b_extras = $ballStats['teamB']['extras'];
+
+            // Auto-determine winner
+            if ($ballStats['teamA']['runs'] > $ballStats['teamB']['runs']) {
+                $result->winner_team_id = $match->team_a_id;
+                $result->result_type = 'runs';
+                $result->margin = $ballStats['teamA']['runs'] - $ballStats['teamB']['runs'];
+            } elseif ($ballStats['teamB']['runs'] > $ballStats['teamA']['runs']) {
+                $result->winner_team_id = $match->team_b_id;
+                $result->result_type = 'wickets';
+                $result->margin = 10 - $ballStats['teamB']['wickets'];
+            } else {
+                $result->result_type = 'tie';
+            }
+        }
+        // If only first innings is complete, pre-fill Team A data only
+        elseif ($ballStats['hasBallData'] && $ballStats['firstInningsComplete'] && !$ballStats['secondInningsStarted'] && !$match->result) {
+            $result->team_a_score = $ballStats['teamA']['runs'];
+            $result->team_a_wickets = $ballStats['teamA']['wickets'];
+            $result->team_a_overs = $ballStats['teamA']['overs'];
+            $result->team_a_extras = $ballStats['teamA']['extras'];
+        }
+
         return view('backend.pages.matches.result.edit', [
             'match' => $match,
             'result' => $result,
+            'ballStats' => $ballStats,
             'breadcrumbs' => [
                 'title' => __('Match Result'),
                 'items' => [
@@ -36,6 +74,84 @@ class MatchResultController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Calculate match statistics from ball-by-ball data
+     */
+    private function calculateBallStats(Matches $match): array
+    {
+        $balls = Ball::where('match_id', $match->id)
+            ->orderBy('over')
+            ->orderBy('ball_in_over')
+            ->get();
+
+        if ($balls->isEmpty()) {
+            return [
+                'hasBallData' => false,
+                'bothInningsComplete' => false,
+                'firstInningsComplete' => false,
+                'teamA' => ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'extras' => 0],
+                'teamB' => ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'extras' => 0],
+            ];
+        }
+
+        // Get team A player IDs (batting team for first innings)
+        $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
+        $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
+
+        // Calculate Team A stats (first innings - Team A batting)
+        $teamABalls = $balls->filter(fn($b) => in_array($b->batsman_id, $teamAPlayerIds));
+        $teamAStats = $this->calculateInningsStats($teamABalls);
+
+        // Calculate Team B stats (second innings - Team B batting)
+        $teamBBalls = $balls->filter(fn($b) => in_array($b->batsman_id, $teamBPlayerIds));
+        $teamBStats = $this->calculateInningsStats($teamBBalls);
+
+        // Check if first innings is complete (Team A batted)
+        $firstInningsComplete = $teamABalls->isNotEmpty();
+
+        // Check if second innings has started (Team B batted)
+        $secondInningsStarted = $teamBBalls->isNotEmpty();
+
+        // Both innings complete if both teams have batted
+        $bothInningsComplete = $firstInningsComplete && $secondInningsStarted;
+
+        return [
+            'hasBallData' => true,
+            'bothInningsComplete' => $bothInningsComplete,
+            'firstInningsComplete' => $firstInningsComplete,
+            'secondInningsStarted' => $secondInningsStarted,
+            'teamA' => $teamAStats,
+            'teamB' => $teamBStats,
+        ];
+    }
+
+    /**
+     * Calculate innings statistics from balls collection
+     */
+    private function calculateInningsStats($balls): array
+    {
+        if ($balls->isEmpty()) {
+            return ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'extras' => 0];
+        }
+
+        $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
+        $totalWickets = $balls->where('is_wicket', 1)->count();
+        $totalExtras = $balls->sum('extra_runs');
+
+        // Calculate overs (legal deliveries only)
+        $legalBalls = $balls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+        $completedOvers = floor($legalBalls / 6);
+        $ballsInOver = $legalBalls % 6;
+        $overs = $completedOvers + ($ballsInOver / 10); // Format: 10.3 means 10 overs 3 balls
+
+        return [
+            'runs' => $totalRuns,
+            'wickets' => $totalWickets,
+            'overs' => round($overs, 1),
+            'extras' => $totalExtras,
+        ];
     }
 
     public function update(Request $request, Matches $match): RedirectResponse

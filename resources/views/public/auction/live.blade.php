@@ -32,7 +32,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: #000;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
             z-index: 100;
         }
 
@@ -40,11 +40,77 @@
             font-size: 72px;
             color: #00bcd4;
             animation: pulse 2s ease-in-out infinite;
+            text-shadow: 0 0 30px rgba(0, 188, 212, 0.5);
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 1; }
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+
+        /* Loading spinner for LED wall */
+        .led-loader {
+            width: 80px;
+            height: 80px;
+            border: 6px solid rgba(0, 188, 212, 0.2);
+            border-top-color: #00bcd4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 40px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Glow dots animation */
+        .glow-dots {
+            display: flex;
+            gap: 12px;
+            margin-top: 30px;
+        }
+
+        .glow-dot {
+            width: 12px;
+            height: 12px;
+            background: #00bcd4;
+            border-radius: 50%;
+            animation: dot-pulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 10px #00bcd4;
+        }
+
+        .glow-dot:nth-child(2) { animation-delay: 0.2s; }
+        .glow-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dot-pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* Live indicator */
+        .live-indicator {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            color: #fff;
+        }
+
+        .live-dot {
+            width: 16px;
+            height: 16px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: live-blink 1s ease-in-out infinite;
+            box-shadow: 0 0 10px #22c55e;
+        }
+
+        @keyframes live-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
         }
 
         /* Position elements inside */
@@ -214,10 +280,23 @@
 
 <body class="text-white">
 
-    <!-- Waiting Screen -->
-    <div id="waiting-screen" class="hidden">
+    <!-- Live Indicator -->
+    <div class="live-indicator">
+        <span class="live-dot"></span>
+        <span>LIVE</span>
+    </div>
+
+    <!-- Waiting Screen (visible by default) -->
+    <div id="waiting-screen">
+        <div class="led-loader"></div>
         <h1>WAITING FOR AUCTION</h1>
-        <p class="text-2xl text-gray-400 mt-4">{{ $auction->name }}</p>
+        <p class="text-3xl text-gray-400 mt-4">{{ $auction->name }}</p>
+        <div class="glow-dots">
+            <div class="glow-dot"></div>
+            <div class="glow-dot"></div>
+            <div class="glow-dot"></div>
+        </div>
+        <p class="text-xl text-gray-500 mt-8">Next player coming up...</p>
     </div>
 
     <div id="card-container" class="card-container hidden">
@@ -281,22 +360,27 @@
         }
 
         function showWaiting() {
+            console.log('[Live] showWaiting()');
             document.getElementById('waiting-screen').classList.remove('hidden');
             document.getElementById('card-container').classList.add('hidden');
             currentStatus = 'waiting';
         }
 
         function showCard() {
+            console.log('[Live] showCard()');
             document.getElementById('waiting-screen').classList.add('hidden');
             document.getElementById('card-container').classList.remove('hidden');
         }
 
         function updatePlayerCard(p) {
+            console.log('[Live] updatePlayerCard() called with:', p);
             if (!p || !p.player) {
+                console.log('[Live] No player data, showing waiting');
                 showWaiting();
                 return;
             }
 
+            console.log('[Live] Showing card for:', p.player.name);
             showCard();
 
             // Player image
@@ -386,16 +470,21 @@
         }
 
         function fetchActivePlayer() {
+            console.log('[Live] fetchActivePlayer() called');
             fetch(`/auction/${auctionId}/active-player`)
                 .then(res => res.json())
                 .then(data => {
+                    console.log('[Live] API response:', data);
                     if (data?.auctionPlayer) {
+                        console.log('[Live] Got active player:', data.auctionPlayer.player?.name);
                         updatePlayerCard(data.auctionPlayer);
                     } else {
+                        console.log('[Live] No active player, checking sold-player');
                         // No active player, check for recently sold
                         fetch(`/auction/${auctionId}/sold-player`)
                             .then(res => res.json())
                             .then(soldData => {
+                                console.log('[Live] Sold player response:', soldData);
                                 if (soldData?.auctionPlayer) {
                                     updatePlayerCard(soldData.auctionPlayer);
                                 } else {
@@ -405,7 +494,7 @@
                     }
                 })
                 .catch(err => {
-                    console.error('Fetch error:', err);
+                    console.error('[Live] Fetch error:', err);
                 });
         }
 

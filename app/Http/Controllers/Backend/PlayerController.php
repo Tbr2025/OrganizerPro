@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Mail\PlayerVerificationStatusMail;
 use App\Mail\PlayerWelcomeMail;
+use App\Models\ActualTeam;
 use App\Models\BattingProfile;
 use App\Models\BowlingProfile;
 use App\Models\ImageTemplate;
@@ -234,9 +235,9 @@ class PlayerController extends Controller
 
         return view('backend.pages.players.create', [
             'teams' => Team::all(),
+            'actualTeams' => ActualTeam::all(),
             'kitSizes' => KitSize::all(),
             'locations' => PlayerLocation::all(),
-
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
@@ -381,6 +382,7 @@ class PlayerController extends Controller
             ],
 
             'team_id' => 'nullable|exists:teams,id',
+            'actual_team_id' => 'nullable|exists:actual_teams,id',
             'jersey_number' => 'nullable',
             'team_name_ref' => 'nullable|string|max:100',
             'jersey_name' => 'required|string|max:50',
@@ -540,6 +542,7 @@ class PlayerController extends Controller
         return view('backend.pages.players.edit', [
             'player' => $player,
             'teams' => Team::all(),
+            'actualTeams' => ActualTeam::all(),
             'locations' => PlayerLocation::all(),
             'kitSizes' => KitSize::all(),
             'battingProfiles' => BattingProfile::all(),
@@ -835,6 +838,7 @@ class PlayerController extends Controller
             'jersey_number' => 'nullable',
 
             'team_id' => 'nullable|exists:teams,id',
+            'actual_team_id' => 'nullable|exists:actual_teams,id',
             'location_id' => 'required|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',
             'total_runs' => 'nullable|integer|min:0',
@@ -973,6 +977,7 @@ class PlayerController extends Controller
             'mobile_number_full' => $validated['mobile_number_full'],
             'cricheroes_number_full' => $validated['cricheroes_number_full'],
             'team_id' => $validated['team_id'] ?? null,
+            'actual_team_id' => $validated['actual_team_id'] ?? null,
             'jersey_name' => $validated['jersey_name'] ?? null,
             'jersey_number' => $validated['jersey_number'] ?? null,
             'kit_size_id' => $validated['kit_size_id'] ?? null,

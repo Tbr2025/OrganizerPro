@@ -82,7 +82,8 @@ class ActualTeam extends Model
 
     public function members()
     {
-
-        return $this->belongsToMany(User::class, 'actual_team_users'); // Change to 'role_id' if that's what you use
+        return $this->belongsToMany(User::class, 'actual_team_users')
+            ->withPivot('role')
+            ->withTimestamps();
     }
 }

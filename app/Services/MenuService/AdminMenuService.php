@@ -94,6 +94,100 @@ class AdminMenuService
 
     public function getMenu()
     {
+        // Check if the current user has the Team Manager role
+        $user = auth()->user();
+        $isTeamManager = $user && $user->hasRole('Team Manager') && !$user->hasRole('Superadmin') && !$user->hasRole('Admin');
+
+        // For Team Managers, show simplified menu
+        if ($isTeamManager) {
+            // Team Manager specific menu
+            $this->addMenuItem([
+                'label' => __('My Team'),
+                'icon' => 'feather:users',
+                'id' => 'team-manager-submenu',
+                'active' => Route::is('team-manager.*') || Route::is('admin.actual-teams.*'),
+                'priority' => 1,
+                'permissions' => 'actual-team.view',
+                'children' => [
+                    [
+                        'label' => __('Team Dashboard'),
+                        'route' => route('team-manager.dashboard'),
+                        'active' => Route::is('team-manager.dashboard'),
+                        'priority' => 10,
+                        'permissions' => 'actual-team.view',
+                    ],
+                    [
+                        'label' => __('My Players'),
+                        'route' => route('admin.actual-teams.index'),
+                        'active' => Route::is('admin.actual-teams.*'),
+                        'priority' => 15,
+                        'permissions' => 'actual-team.view',
+                    ],
+                    [
+                        'label' => __('Add Player'),
+                        'route' => route('team-manager.players.create'),
+                        'active' => Route::is('team-manager.players.create'),
+                        'priority' => 20,
+                        'permissions' => 'player.create',
+                    ],
+                ],
+            ]);
+
+            $this->addMenuItem([
+                'label' => __('Auctions'),
+                'icon' => 'feather:zap',
+                'id' => 'team-auctions',
+                'active' => Route::is('team-manager.auctions') || Route::is('team.auction.bidding.*'),
+                'priority' => 2,
+                'permissions' => 'auction.view',
+                'children' => [
+                    [
+                        'label' => __('My Auctions'),
+                        'route' => route('team-manager.auctions'),
+                        'active' => Route::is('team-manager.auctions'),
+                        'priority' => 10,
+                        'permissions' => 'auction.view',
+                    ],
+                ],
+            ]);
+
+            $this->addMenuItem([
+                'label' => __('Matches'),
+                'icon' => 'feather:calendar',
+                'route' => route('admin.matches.index'),
+                'active' => Route::is('admin.matches.*'),
+                'id' => 'team-matches',
+                'priority' => 3,
+                'permissions' => 'match.view',
+            ]);
+
+            // Skip the rest of the menu for Team Managers - return early after adding logout
+            $this->addMenuItem([
+                'label' => __('Logout'),
+                'icon' => 'lucide:log-out',
+                'route' => route('admin.dashboard'),
+                'active' => false,
+                'id' => 'logout',
+                'priority' => 100,
+                'html' => '
+                    <li>
+                        <form method="POST" action="' . route('logout') . '">
+                            ' . csrf_field() . '
+                            <button type="submit" class="menu-item group w-full text-left menu-item-inactive text-gray-700 dark:text-white hover:text-gray-700">
+                                <iconify-icon icon="lucide:log-out" class="menu-item-icon " width="16" height="16"></iconify-icon>
+                                <span class="menu-item-text">' . __('Logout') . '</span>
+                            </button>
+                        </form>
+                    </li>
+                ',
+            ], __('More'));
+
+            $this->groups = ld_apply_filters('admin_menu_groups_before_sorting', $this->groups);
+            $this->sortMenuItemsByPriority();
+            return $this->applyFiltersToMenuItems();
+        }
+
+        // Regular Dashboard for non-Team Managers
         $this->addMenuItem([
             'label' => __('Dashboard'),
             'icon' => 'lucide:layout-dashboard',
@@ -291,6 +385,31 @@ class AdminMenuService
                     'active' => Route::is('admin.organizations.create'),
                     'priority' => 20,
                     'permissions' => 'organization.create',
+                ],
+            ],
+        ]);
+
+        $this->addMenuItem([
+            'label' => __('Zones'),
+            'icon' => 'feather:map',
+            'id' => 'zones-submenu',
+            'active' => Route::is('admin.zones.*'),
+            'priority' => 23,
+            'permissions' => ['zone.view', 'zone.create', 'zone.edit', 'zone.delete'],
+            'children' => [
+                [
+                    'label' => __('All Zones'),
+                    'route' => route('admin.zones.index'),
+                    'active' => Route::is('admin.zones.index') || Route::is('admin.zones.edit') || Route::is('admin.zones.show'),
+                    'priority' => 10,
+                    'permissions' => 'zone.view',
+                ],
+                [
+                    'label' => __('New Zone'),
+                    'route' => route('admin.zones.create'),
+                    'active' => Route::is('admin.zones.create'),
+                    'priority' => 20,
+                    'permissions' => 'zone.create',
                 ],
             ],
         ]);

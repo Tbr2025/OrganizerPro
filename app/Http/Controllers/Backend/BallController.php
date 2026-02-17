@@ -63,7 +63,7 @@ class BallController extends Controller
 
         $data['match_id'] = $match->id;
         $data['extra_runs'] = $data['extra_runs'] ?? 0;
-        $data['is_wicket'] = $request->has('is_wicket');
+        $data['is_wicket'] = $request->input('is_wicket') ? 1 : 0;
 
         // find next over + ball
         [$over, $ballInOver] = $this->getNextBall($match->id, $data['extra_type']);
@@ -82,15 +82,15 @@ class BallController extends Controller
         // are valid user_ids that exist in the actual_team_users table.
         $validator = Validator::make($request->all(), [
             'match_id' => 'required|exists:matches,id',
-            // Validate that the provided ID (which we expect to be a user_id) exists in the user_id column of actual_team_users
-            'batsman_id' => 'required|exists:actual_team_users,user_id|numeric',
-            'bowler_id'  => 'required|exists:actual_team_users,user_id|numeric|different:batsman_id',
+            // Validate that the provided ID exists as actual_team_users.id (primary key)
+            'batsman_id' => 'required|exists:actual_team_users,id|numeric',
+            'bowler_id'  => 'required|exists:actual_team_users,id|numeric|different:batsman_id',
             'runs'       => 'required|integer|min:0|max:6',
             'extra_type' => 'nullable|string|in:wide,no_ball,bye,leg_bye',
             'extra_runs' => 'nullable|integer|min:0|max:6',
             'is_wicket'  => 'nullable|boolean',
             'dismissal_type' => 'nullable',
-            'fielder_id' => 'nullable|exists:actual_team_users,user_id|numeric',
+            'fielder_id' => 'nullable|exists:actual_team_users,id|numeric',
         ]);
 
         if ($validator->fails()) {
@@ -104,17 +104,57 @@ class BallController extends Controller
         $validated = $validator->validated();
 
         try {
-            $match = Matches::findOrFail($validated['match_id']);
+            $match = Matches::with(['teamA.players', 'teamB.players'])->findOrFail($validated['match_id']);
+
+            // Get current innings from session
+            $currentInnings = session('match_innings_' . $match->id, 1);
+
+            // Get team player IDs for filtering
+            $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
+            $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
+            $battingTeamPlayerIds = $currentInnings === 1 ? $teamAPlayerIds : $teamBPlayerIds;
+
+            // Check if innings is complete - CURRENT INNINGS ONLY
+            $matchOversLimit = $match->overs ?? 20;
+
+            // Get current innings balls
+            $inningsBalls = Ball::where('match_id', $match->id)
+                ->whereIn('batsman_id', $battingTeamPlayerIds)
+                ->get();
+
+            // Check if all out (10 wickets)
+            $totalWickets = $inningsBalls->where('is_wicket', 1)->count();
+            if ($totalWickets >= 10) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Innings complete! Team is all out.",
+                    'errors' => ['innings_complete' => 'Cannot record more balls - team is all out.'],
+                ], 422);
+            }
+
+            // Get the last ball from CURRENT INNINGS only
+            $lastBall = $inningsBalls->sortByDesc('id')->first();
+
+            if ($lastBall && $lastBall->over >= $matchOversLimit && $lastBall->ball_in_over >= 6) {
+                // Check if last ball was legal (not wide/no_ball)
+                if (!in_array($lastBall->extra_type, ['wide', 'no_ball'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Innings complete! All {$matchOversLimit} overs have been bowled.",
+                        'errors' => ['innings_complete' => 'Cannot record more balls - innings is complete.'],
+                    ], 422);
+                }
+            }
 
             // --- ADJUSTMENT 2: Ensure players exist in the match context ---
             // It's better to check if the batsman and bowler are part of the teams in the match.
             // You might need to adjust this logic based on your schema for team membership.
             // For example, assuming a `match_teams` or similar pivot table, or by checking `teamA` and `teamB` relations.
 
-            // Find the ActualTeamUser records using the validated user_ids.
+            // Find the ActualTeamUser records using the validated ids (primary key).
             // This is crucial for team checks.
-            $batsmanTeamUser = ActualTeamUser::where('user_id', $validated['batsman_id'])->first();
-            $bowlerTeamUser  = ActualTeamUser::where('user_id', $validated['bowler_id'])->first();
+            $batsmanTeamUser = ActualTeamUser::find($validated['batsman_id']);
+            $bowlerTeamUser  = ActualTeamUser::find($validated['bowler_id']);
             $currentStrikerUserId = $request->input('current_striker_user_id');
             $currentNonStrikerUserId = $request->input('current_non_striker_user_id');
             if (!$batsmanTeamUser || !$bowlerTeamUser) {
@@ -143,7 +183,7 @@ class BallController extends Controller
                 'runs' => $validated['runs'],
                 'extra_type' => $validated['extra_type'],
                 'extra_runs' => $validated['extra_runs'] ?? 0,
-                'is_wicket' => $request->has('is_wicket') ? 1 : 0,
+                'is_wicket' => $request->input('is_wicket') ? 1 : 0,
                 'dismissal_type' => $validated['dismissal_type'] ?? null,
                 'fielder_id' => $request->input('fielder_id') ? $request->input('fielder_id') : null,
                 'over' => $validated['over'] ?? 1, // Default over to 1 if not provided
@@ -207,17 +247,30 @@ class BallController extends Controller
         }
     }
 
-    // Assuming getNextBall method exists and is functional
-    private function getNextBall(int $matchId, ?string $extraType): array
+    // Get next ball number - innings aware
+    private function getNextBall(int $matchId, ?string $extraType, ?int $batsmanId = null): array
     {
-        // Get the last legal ball in this match
+        $match = Matches::with(['teamA.players', 'teamB.players'])->find($matchId);
+
+        // Get current innings from session
+        $currentInnings = session('match_innings_' . $matchId, 1);
+
+        // Get team player IDs
+        $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
+        $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
+
+        // Determine which team's player IDs to use for the current innings
+        $battingTeamPlayerIds = $currentInnings === 1 ? $teamAPlayerIds : $teamBPlayerIds;
+
+        // Get the last ball from CURRENT INNINGS only (filter by batting team)
         $lastBall = Ball::where('match_id', $matchId)
+            ->whereIn('batsman_id', $battingTeamPlayerIds)
             ->orderByDesc('over')
             ->orderByDesc('ball_in_over')
             ->first();
 
         if (!$lastBall) {
-            // First ball of the match → start with Over 1, Ball 1
+            // First ball of the innings → start with Over 1, Ball 1
             return [1, 1];
         }
 
@@ -266,5 +319,45 @@ class BallController extends Controller
         $ball->delete();
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Get the last ball recorded for current innings (for undo functionality)
+     */
+    public function lastBall(Matches $match)
+    {
+        $match->load(['teamA.players', 'teamB.players']);
+
+        // Get current innings from session
+        $currentInnings = session('match_innings_' . $match->id, 1);
+
+        // Get team player IDs for filtering
+        $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
+        $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
+        $battingTeamPlayerIds = $currentInnings === 1 ? $teamAPlayerIds : $teamBPlayerIds;
+
+        // Get the last ball from CURRENT INNINGS only
+        $lastBall = Ball::where('match_id', $match->id)
+            ->whereIn('batsman_id', $battingTeamPlayerIds)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$lastBall) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No balls recorded in this innings yet.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'ball' => [
+                'id' => $lastBall->id,
+                'over' => $lastBall->over,
+                'ball_in_over' => $lastBall->ball_in_over,
+                'runs' => $lastBall->runs,
+                'is_wicket' => $lastBall->is_wicket,
+            ]
+        ]);
     }
 }

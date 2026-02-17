@@ -210,8 +210,8 @@ class AuctionOrganizerController extends Controller
                 'final_price' => $winningBid->amount,
             ]);
 
-            // Update the main player's system status to 'Retained'
-            Player::where('id', $auctionPlayer->player_id)->update(['player_status' => 'Retained']);
+            // Update the main player's mode to 'retained'
+            Player::where('id', $auctionPlayer->player_id)->update(['player_mode' => 'retained']);
 
             broadcast(new PlayerSoldEvent($auctionPlayer, $winningBid->team));
         } else {

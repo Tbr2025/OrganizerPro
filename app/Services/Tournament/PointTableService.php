@@ -220,14 +220,17 @@ class PointTableService
 
     /**
      * Get point table grouped by groups
+     * Returns a collection keyed by group name with entries as values
      */
     public function getPointTableByGroups(Tournament $tournament): Collection
     {
-        return $tournament->groups->map(function ($group) use ($tournament) {
-            return [
-                'group' => $group,
-                'entries' => $this->getPointTable($tournament, $group->id),
-            ];
+        // If no groups, return single "default" entry
+        if ($tournament->groups->isEmpty()) {
+            return collect(['default' => $this->getPointTable($tournament)]);
+        }
+
+        return $tournament->groups->mapWithKeys(function ($group) use ($tournament) {
+            return [$group->name => $this->getPointTable($tournament, $group->id)];
         });
     }
 }

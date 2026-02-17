@@ -14,14 +14,15 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ActualTeamController extends Controller
 {
     public function index()
     {
-
         $user = Auth::user();
         $filters = [
             'organization_id' => request('organization_id'),
@@ -30,17 +31,37 @@ class ActualTeamController extends Controller
 
         // Base query
         $query = ActualTeam::with(['organization', 'tournament', 'auction']);
-        $query->applyFilters($filters);
 
-        // Fetch all teams for pagination
+        // Filter teams based on user role
+        if ($user->hasRole('Superadmin')) {
+            // Superadmin sees all teams
+            $query->applyFilters($filters);
+        } elseif ($user->hasRole('Team Manager')) {
+            // Team Manager sees only their assigned teams
+            $teamIds = $user->actualTeams->pluck('id')->toArray();
+            $query->whereIn('id', $teamIds);
+            $query->applyFilters($filters);
+        } else {
+            // Admin/Organizer sees teams in their organization
+            $query->where('organization_id', $user->organization_id);
+            $query->applyFilters($filters);
+        }
+
+        // Fetch teams for pagination
         $actualTeams = $query->latest()->paginate(15);
 
-        // Editable teams for Team Manager
+        // Editable teams based on role
         $editableTeamIds = [];
         $teamManagerTeamIds = [];
-        if ($user->hasRole('Team Manager')) {
+        if ($user->hasRole('Superadmin')) {
+            // Superadmin can edit all teams
+            $editableTeamIds = $actualTeams->pluck('id')->toArray();
+        } elseif ($user->hasRole('Team Manager')) {
             $editableTeamIds = $user->actualTeams->pluck('id')->toArray();
-            $teamManagerTeamIds = $editableTeamIds; // used for ordering
+            $teamManagerTeamIds = $editableTeamIds;
+        } else {
+            // Regular admins can edit teams in their organization
+            $editableTeamIds = $actualTeams->pluck('id')->toArray();
         }
 
         // Prepare filter dropdowns
@@ -59,31 +80,39 @@ class ActualTeamController extends Controller
             $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
         }
 
-        // Calculate total spent per team
         // Calculate total spent per team and auctioned players count
         $teamBudgets = [];
+        $auction = Auction::first();
+
         foreach ($actualTeams as $team) {
-            $auction = Auction::first(); // get the auction related to this team
-            $maxBudget = $auction->max_budget_per_team ?? 0;
+            if ($auction) {
+                $maxBudget = $auction->max_budget_per_team ?? 0;
 
-            // Count only users in this team who were actually bought in the auction
-            $auctionedUserCount = DB::table('auction_bids')
-                ->where('auction_id', $auction->id)
-                ->where('team_id', $team->id)
-                ->distinct('user_id')
-                ->count('user_id');
+                // Count only users in this team who were actually bought in the auction
+                $auctionedUserCount = DB::table('auction_bids')
+                    ->where('auction_id', $auction->id)
+                    ->where('team_id', $team->id)
+                    ->distinct('user_id')
+                    ->count('user_id');
 
-            // Total spent by the team
-            $totalSpent = DB::table('auction_bids')
-                ->where('auction_id', $auction->id)
-                ->where('team_id', $team->id)
-                ->sum('amount');
+                // Total spent by the team
+                $totalSpent = DB::table('auction_bids')
+                    ->where('auction_id', $auction->id)
+                    ->where('team_id', $team->id)
+                    ->sum('amount');
 
-            $teamBudgets[$team->id] = [
-                'spent' => number_format($totalSpent / 1000000, 2),
-                'max_budget' => number_format($maxBudget / 1000000, 2),
-                'user_count' => $auctionedUserCount, // only auctioned players
-            ];
+                $teamBudgets[$team->id] = [
+                    'spent' => number_format($totalSpent / 1000000, 2),
+                    'max_budget' => number_format($maxBudget / 1000000, 2),
+                    'user_count' => $auctionedUserCount,
+                ];
+            } else {
+                $teamBudgets[$team->id] = [
+                    'spent' => '0.00',
+                    'max_budget' => '0.00',
+                    'user_count' => 0,
+                ];
+            }
         }
 
 
@@ -398,6 +427,17 @@ class ActualTeamController extends Controller
         // Execute the query to get the final list of available users.
         $availableUsers = $usersQuery->get();
         $allRolesForCombobox = Role::all(); // Fetch all roles for the dropdown
+
+        // Get auction for this team's tournament (if exists)
+        $teamAuction = Auction::where('tournament_id', $actualTeam->tournament_id)
+            ->where('status', '!=', 'completed')
+            ->first();
+
+        // Get all available auctions (for linking team to correct tournament)
+        $availableAuctions = Auction::with('tournament')
+            ->where('status', '!=', 'completed')
+            ->get();
+
         // --- Return the View ---
         // Pass the filtered roles for the select dropdowns
         // Pass the current members with their pivot data
@@ -408,11 +448,12 @@ class ActualTeamController extends Controller
             'tournaments',
             'availableRolesForSelection',
             'allRolesForCombobox',        // All roles available for existing members' role changes
-
             'availableUsers',
             'currentMembers', // This is the array of all current members with pivot data
             'currentPlayerMembers', // This is the array of current members filtered to be only players
-            'currentStaffMembers'
+            'currentStaffMembers',
+            'teamAuction', // Auction for this team's tournament
+            'availableAuctions' // All available auctions for linking
         ));
     }
 
@@ -629,5 +670,127 @@ class ActualTeamController extends Controller
                 'message' => 'Failed to remove member. Please try again.',
             ], 500);
         }
+    }
+
+    /**
+     * Create a team manager user for the team
+     */
+    public function createTeamManager(Request $request, ActualTeam $actualTeam)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'nullable|string|min:6',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Generate password if not provided
+            $plainPassword = $request->password ?: Str::random(10);
+
+            // Generate unique username from email
+            $baseUsername = Str::slug(explode('@', $request->email)[0], '_');
+            $username = $baseUsername;
+            $counter = 1;
+            while (User::where('username', $username)->exists()) {
+                $username = $baseUsername . '_' . $counter++;
+            }
+
+            // Create the user
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'username' => $username,
+                'password' => Hash::make($plainPassword),
+                'organization_id' => $actualTeam->organization_id,
+                'email_verified_at' => now(),
+            ]);
+
+            // Assign Team Manager role
+            $user->assignRole('Team Manager');
+
+            // Add to the team
+            DB::table('actual_team_users')->insert([
+                'actual_team_id' => $actualTeam->id,
+                'user_id' => $user->id,
+                'role' => 'Team Manager',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Team manager created successfully!',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'credentials' => [
+                    'email' => $user->email,
+                    'password' => $plainPassword,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Error creating team manager for team {$actualTeam->id}: {$e->getMessage()}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create team manager: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get team managers for a team
+     */
+    public function getTeamManagers(ActualTeam $actualTeam)
+    {
+        $managers = DB::table('actual_team_users')
+            ->join('users', 'actual_team_users.user_id', '=', 'users.id')
+            ->where('actual_team_users.actual_team_id', $actualTeam->id)
+            ->where('actual_team_users.role', 'Team Manager')
+            ->select('users.id', 'users.name', 'users.email', 'actual_team_users.role')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'managers' => $managers,
+        ]);
+    }
+
+    /**
+     * Reset password for a team manager
+     */
+    public function resetTeamManagerPassword(Request $request, ActualTeam $actualTeam, User $user)
+    {
+        // Verify user belongs to this team
+        $isMember = DB::table('actual_team_users')
+            ->where('actual_team_id', $actualTeam->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (!$isMember) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User is not a member of this team.',
+            ], 400);
+        }
+
+        $newPassword = $request->password ?: Str::random(10);
+        $user->update(['password' => Hash::make($newPassword)]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password reset successfully!',
+            'credentials' => [
+                'email' => $user->email,
+                'password' => $newPassword,
+            ],
+        ]);
     }
 }

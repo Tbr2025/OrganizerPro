@@ -15,20 +15,25 @@ class MatchSummaryPosterService extends PosterGeneratorService
     /**
      * Generate match summary poster
      */
-    public function generate($match): string
+    public function generate($match, string $templateType = 'classic'): string
     {
         $tournament = $match->tournament;
         $result = $match->result;
-        $settings = $tournament->settings;
+        $settings = $tournament?->settings;
 
         // Get appropriate template based on match stage
         $template = $this->getTemplateForMatch($match);
 
-        // Create canvas
-        $bgColor = $settings->primary_color ?? '#1a1a2e';
-        $image = $this->createCanvas($this->defaultWidth, $this->defaultHeight, $bgColor);
+        // Get colors based on template type
+        $colors = $this->getTemplateColors($templateType, $settings);
+        $primaryColor = $colors['primary'];
+        $secondaryColor = $colors['secondary'];
+        $bgColor = $colors['background'];
 
-        // Load background
+        // Create canvas with gradient background based on template
+        $image = $this->createGradientCanvas($this->defaultWidth, $this->defaultHeight, $bgColor);
+
+        // Load background if available
         if ($template && $template->background_image) {
             $bgImage = $this->loadBackground($template->background_image);
             if ($bgImage) {
@@ -42,169 +47,128 @@ class MatchSummaryPosterService extends PosterGeneratorService
             }
         }
 
-        // Semi-transparent overlay
-        $overlay = imagecreatetruecolor($this->defaultWidth, $this->defaultHeight);
-        $overlayColor = imagecolorallocatealpha($overlay, 0, 0, 0, 70);
-        imagefill($overlay, 0, 0, $overlayColor);
-        imagecopy($image, $overlay, 0, 0, 0, 0, $this->defaultWidth, $this->defaultHeight);
-        imagedestroy($overlay);
+        // Add semi-transparent overlay for better text readability
+        $this->addOverlay($image, 0, 0, $this->defaultWidth, $this->defaultHeight, 0, 0, 0, 60);
 
-        // Tournament logo
-        if ($settings->logo) {
-            $this->addCircularImage($image, $settings->logo, 540, 80, 100);
+        // Add decorative elements
+        $this->addDecorativeElements($image, $settings);
+
+        // Tournament logo at top
+        if ($settings?->logo) {
+            $this->addCircularImage($image, $settings->logo, 540, 100, 120);
+            // Add glow effect around logo
+            $this->addCircleBorder($image, 540, 100, 62, '#FFD700', 3);
         }
 
         // Tournament name
         $this->addText(
             $image,
-            $tournament->name,
-            540, 160,
-            24,
+            strtoupper($tournament->name),
+            540, 190,
+            22,
             '#FFFFFF',
             'Montserrat-Bold.ttf',
             'center'
         );
 
-        // Match stage badge
+        // Match stage badge with background
         $stageColor = $this->getStageColor($match->stage);
+        $this->addRoundedRect($image, 440, 210, 200, 36, 18, $stageColor, 0.8);
         $this->addText(
             $image,
             strtoupper($match->stage_display),
-            540, 210,
-            18,
-            $stageColor,
+            540, 235,
+            14,
+            '#000000',
             'Montserrat-Bold.ttf',
             'center'
         );
 
-        // "MATCH RESULT" header
+        // "MATCH RESULT" header with decorative line
         $this->addText(
             $image,
             'MATCH RESULT',
-            540, 280,
-            32,
-            $settings->secondary_color ?? '#FFD700',
+            540, 310,
+            36,
+            $settings?->secondary_color ?? '#FFD700',
             'Montserrat-Bold.ttf',
             'center'
         );
 
-        // Team A section (left)
+        // Decorative lines under header
+        $lineColor = $this->hexToRgb($settings?->secondary_color ?? '#FFD700');
+        $lineColorAllocated = imagecolorallocate($image, $lineColor['r'], $lineColor['g'], $lineColor['b']);
+        imagesetthickness($image, 2);
+        imageline($image, 340, 330, 480, 330, $lineColorAllocated);
+        imageline($image, 600, 330, 740, 330, $lineColorAllocated);
+
+        // Team A section (left side)
         $teamA = $match->teamA;
-        if ($teamA) {
-            // Logo
-            if ($teamA->team_logo) {
-                $this->addCircularImage($image, $teamA->team_logo, 200, 420, 140);
-            } else {
-                $this->drawPlaceholderCircle($image, 200, 420, 70, '#333333');
-            }
+        $teamAWinner = $match->winner_team_id === $match->team_a_id;
+        $this->renderTeamSection($image, $teamA, $result, 'A', 270, 500, $teamAWinner, $settings);
 
-            // Name
-            $this->addText(
-                $image,
-                $teamA->short_name ?? $teamA->name,
-                200, 530,
-                22,
-                '#FFFFFF',
-                'Montserrat-Bold.ttf',
-                'center'
-            );
+        // VS badge in center
+        $this->addVSBadge($image, 540, 500);
 
-            // Score
-            $scoreA = $result ? $this->formatScore($result->team_a_score, $result->team_a_wickets, $result->team_a_overs) : '-';
-            $this->addText(
-                $image,
-                $scoreA,
-                200, 590,
-                36,
-                $match->winner_team_id === $teamA->id ? '#00FF00' : '#FFFFFF',
-                'Montserrat-Bold.ttf',
-                'center'
-            );
-        }
-
-        // VS text
-        $this->addText($image, 'VS', 540, 450, 24, '#666666', 'Montserrat-Bold.ttf', 'center');
-
-        // Team B section (right)
+        // Team B section (right side)
         $teamB = $match->teamB;
-        if ($teamB) {
-            // Logo
-            if ($teamB->team_logo) {
-                $this->addCircularImage($image, $teamB->team_logo, 880, 420, 140);
-            } else {
-                $this->drawPlaceholderCircle($image, 880, 420, 70, '#333333');
-            }
+        $teamBWinner = $match->winner_team_id === $match->team_b_id;
+        $this->renderTeamSection($image, $teamB, $result, 'B', 810, 500, $teamBWinner, $settings);
 
-            // Name
-            $this->addText(
-                $image,
-                $teamB->short_name ?? $teamB->name,
-                880, 530,
-                22,
-                '#FFFFFF',
-                'Montserrat-Bold.ttf',
-                'center'
-            );
-
-            // Score
-            $scoreB = $result ? $this->formatScore($result->team_b_score, $result->team_b_wickets, $result->team_b_overs) : '-';
-            $this->addText(
-                $image,
-                $scoreB,
-                880, 590,
-                36,
-                $match->winner_team_id === $teamB->id ? '#00FF00' : '#FFFFFF',
-                'Montserrat-Bold.ttf',
-                'center'
-            );
-        }
-
-        // Result summary
+        // Result summary with background
         if ($result && $result->result_summary) {
+            $this->addRoundedRect($image, 90, 700, 900, 50, 25, '#FFD700', 0.15);
             $this->addText(
                 $image,
                 $result->result_summary,
-                540, 680,
-                20,
-                $settings->secondary_color ?? '#FFD700',
-                'Montserrat-Medium.ttf',
+                540, 733,
+                18,
+                $settings?->secondary_color ?? '#FFD700',
+                'Montserrat-Bold.ttf',
                 'center'
             );
         }
 
         // Divider line
-        $lineColor = imagecolorallocate($image, 100, 100, 100);
-        imageline($image, 100, 740, 980, 740, $lineColor);
+        $this->addGradientLine($image, 100, 780, 980, 780, '#333333', '#666666');
 
         // Awards section
-        $yPos = 800;
+        $yPos = 850;
         $awards = $match->matchAwards()->with('player', 'tournamentAward')->get();
 
         if ($awards->count() > 0) {
-            $this->addText($image, 'AWARDS', 540, $yPos - 30, 18, '#666666', 'Montserrat-Bold.ttf', 'center');
+            // Awards header
+            $this->addText($image, 'MATCH AWARDS', 540, $yPos - 30, 16, '#888888', 'Montserrat-Bold.ttf', 'center');
+
+            // Calculate positions for awards (centered)
+            $awardCount = min($awards->count(), 3);
+            $startX = 540 - (($awardCount - 1) * 170);
 
             foreach ($awards->take(3) as $index => $award) {
-                $xPos = 200 + ($index * 340);
+                $xPos = $startX + ($index * 340);
 
-                // Award icon/emoji
-                if ($award->tournamentAward && $award->tournamentAward->icon) {
-                    $this->addText($image, $award->tournamentAward->icon, $xPos, $yPos, 32, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
-                }
-
-                // Award name
-                $awardName = $award->tournamentAward ? $award->tournamentAward->name : 'Award';
-                $this->addText($image, $awardName, $xPos, $yPos + 50, 14, '#CCCCCC', 'Montserrat-Medium.ttf', 'center');
+                // Award background circle
+                $this->addFilledCircle($image, $xPos, $yPos + 80, 70, '#1a1a2e', 0.5);
 
                 // Player image
-                if ($award->player && $award->player->profile_image) {
-                    $this->addCircularImage($image, $award->player->profile_image, $xPos, $yPos + 130, 80);
+                if ($award->player && $award->player->image_path) {
+                    $this->addCircularImage($image, $award->player->image_path, $xPos, $yPos + 80, 120);
                 } else {
-                    $this->drawPlaceholderCircle($image, $xPos, $yPos + 130, 40, '#333333');
+                    $this->drawPlaceholderCircle($image, $xPos, $yPos + 80, 60, '#333333');
                 }
+
+                // Award icon (emoji as text)
+                if ($award->tournamentAward && $award->tournamentAward->icon) {
+                    $this->addText($image, $award->tournamentAward->icon, $xPos, $yPos + 10, 28, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+                }
+
+                // Award name badge
+                $awardName = $award->tournamentAward ? $award->tournamentAward->name : 'Award';
+                $this->addText($image, $awardName, $xPos, $yPos + 170, 12, '#FFD700', 'Montserrat-Bold.ttf', 'center');
 
                 // Player name
                 if ($award->player) {
-                    $this->addText($image, $award->player->name, $xPos, $yPos + 200, 14, '#FFFFFF', 'Montserrat-Medium.ttf', 'center');
+                    $this->addText($image, $award->player->name, $xPos, $yPos + 195, 14, '#FFFFFF', 'Montserrat-Medium.ttf', 'center');
                 }
             }
         }
@@ -212,14 +176,14 @@ class MatchSummaryPosterService extends PosterGeneratorService
         // Match details at bottom
         $yBottom = 1250;
 
-        // Date
+        // Date icon and text
         if ($match->match_date) {
             $this->addText(
                 $image,
                 $match->match_date->format('D, M d, Y'),
                 540, $yBottom,
                 14,
-                '#999999',
+                '#AAAAAA',
                 'Montserrat-Medium.ttf',
                 'center'
             );
@@ -233,11 +197,27 @@ class MatchSummaryPosterService extends PosterGeneratorService
                 $venue,
                 540, $yBottom + 25,
                 12,
-                '#666666',
+                '#777777',
                 'Montserrat-Medium.ttf',
                 'center'
             );
         }
+
+        // Match number / ID
+        if ($match->match_number) {
+            $this->addText(
+                $image,
+                'Match #' . $match->match_number,
+                540, $yBottom + 50,
+                10,
+                '#555555',
+                'Montserrat-Medium.ttf',
+                'center'
+            );
+        }
+
+        // Bottom branding line
+        $this->addGradientLine($image, 0, $this->defaultHeight - 5, $this->defaultWidth, $this->defaultHeight - 5, $settings?->primary_color ?? '#1a1a2e', $settings?->secondary_color ?? '#FFD700');
 
         // Save and return path
         $filename = $this->generateFilename('summary-' . $match->id);
@@ -245,11 +225,215 @@ class MatchSummaryPosterService extends PosterGeneratorService
     }
 
     /**
+     * Create canvas with gradient background
+     */
+    protected function createGradientCanvas(int $width, int $height, string $baseColor): \GdImage
+    {
+        $image = imagecreatetruecolor($width, $height);
+        imagesavealpha($image, true);
+
+        $rgb1 = $this->hexToRgb($baseColor);
+        $rgb2 = $this->hexToRgb($this->darkenColor($baseColor, 30));
+
+        // Create vertical gradient
+        for ($y = 0; $y < $height; $y++) {
+            $ratio = $y / $height;
+            $r = (int) ($rgb1['r'] + ($rgb2['r'] - $rgb1['r']) * $ratio);
+            $g = (int) ($rgb1['g'] + ($rgb2['g'] - $rgb1['g']) * $ratio);
+            $b = (int) ($rgb1['b'] + ($rgb2['b'] - $rgb1['b']) * $ratio);
+            $color = imagecolorallocate($image, $r, $g, $b);
+            imageline($image, 0, $y, $width, $y, $color);
+        }
+
+        return $image;
+    }
+
+    /**
+     * Add semi-transparent overlay
+     */
+    protected function addOverlay(\GdImage $image, int $x, int $y, int $width, int $height, int $r, int $g, int $b, int $alpha): void
+    {
+        $overlay = imagecreatetruecolor($width, $height);
+        $color = imagecolorallocatealpha($overlay, $r, $g, $b, $alpha);
+        imagefill($overlay, 0, 0, $color);
+        imagecopymerge($image, $overlay, $x, $y, 0, 0, $width, $height, 100 - ($alpha * 100 / 127));
+        imagedestroy($overlay);
+    }
+
+    /**
+     * Add decorative elements to poster
+     */
+    protected function addDecorativeElements(\GdImage $image, $settings): void
+    {
+        $accentColor = $this->hexToRgb($settings?->secondary_color ?? '#FFD700');
+        $color = imagecolorallocatealpha($image, $accentColor['r'], $accentColor['g'], $accentColor['b'], 110);
+
+        // Corner decorations
+        imagefilledellipse($image, 0, 0, 300, 300, $color);
+        imagefilledellipse($image, $this->defaultWidth, 0, 300, 300, $color);
+        imagefilledellipse($image, 0, $this->defaultHeight, 200, 200, $color);
+        imagefilledellipse($image, $this->defaultWidth, $this->defaultHeight, 200, 200, $color);
+    }
+
+    /**
+     * Render team section with logo, name, and score
+     */
+    protected function renderTeamSection(\GdImage $image, $team, $result, string $teamKey, int $centerX, int $centerY, bool $isWinner, $settings): void
+    {
+        if (!$team) return;
+
+        // Winner glow effect
+        if ($isWinner) {
+            $this->addFilledCircle($image, $centerX, $centerY, 90, '#00FF00', 0.15);
+        }
+
+        // Team logo with border
+        if ($team->team_logo) {
+            $this->addCircularImage($image, $team->team_logo, $centerX, $centerY, 140);
+            $borderColor = $isWinner ? '#00FF00' : '#FFFFFF';
+            $this->addCircleBorder($image, $centerX, $centerY, 72, $borderColor, 3);
+        } else {
+            $this->drawPlaceholderCircle($image, $centerX, $centerY, 70, '#333333');
+            // Add team initials
+            $initials = substr($team->name ?? 'T', 0, 2);
+            $this->addText($image, strtoupper($initials), $centerX, $centerY + 10, 32, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+        }
+
+        // Team name
+        $teamName = $team->short_name ?? $team->name;
+        if (strlen($teamName) > 12) {
+            $teamName = substr($teamName, 0, 12) . '...';
+        }
+        $this->addText(
+            $image,
+            strtoupper($teamName),
+            $centerX, $centerY + 100,
+            18,
+            '#FFFFFF',
+            'Montserrat-Bold.ttf',
+            'center'
+        );
+
+        // Score
+        $scoreField = $teamKey === 'A' ? 'team_a_score' : 'team_b_score';
+        $wicketsField = $teamKey === 'A' ? 'team_a_wickets' : 'team_b_wickets';
+        $oversField = $teamKey === 'A' ? 'team_a_overs' : 'team_b_overs';
+
+        $score = $result ? $this->formatScore($result->$scoreField, $result->$wicketsField, $result->$oversField) : '-';
+        $scoreColor = $isWinner ? '#00FF00' : '#FFFFFF';
+
+        $this->addText(
+            $image,
+            $score,
+            $centerX, $centerY + 150,
+            36,
+            $scoreColor,
+            'Montserrat-Bold.ttf',
+            'center'
+        );
+
+        // Winner badge
+        if ($isWinner) {
+            $this->addRoundedRect($image, $centerX - 40, $centerY + 165, 80, 24, 12, '#00FF00', 1);
+            $this->addText($image, 'WINNER', $centerX, $centerY + 182, 10, '#000000', 'Montserrat-Bold.ttf', 'center');
+        }
+    }
+
+    /**
+     * Add VS badge in center
+     */
+    protected function addVSBadge(\GdImage $image, int $x, int $y): void
+    {
+        // Outer circle
+        $this->addFilledCircle($image, $x, $y, 45, '#FFD700', 1);
+        // Inner circle
+        $this->addFilledCircle($image, $x, $y, 38, '#FF8C00', 1);
+        // VS text
+        $this->addText($image, 'VS', $x, $y + 8, 20, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+    }
+
+    /**
+     * Add a filled circle with transparency
+     */
+    protected function addFilledCircle(\GdImage $image, int $centerX, int $centerY, int $radius, string $color, float $opacity = 1): void
+    {
+        $rgb = $this->hexToRgb($color);
+        $alpha = (int) (127 * (1 - $opacity));
+        $fillColor = imagecolorallocatealpha($image, $rgb['r'], $rgb['g'], $rgb['b'], $alpha);
+        imagefilledellipse($image, $centerX, $centerY, $radius * 2, $radius * 2, $fillColor);
+    }
+
+    /**
+     * Add circle border
+     */
+    protected function addCircleBorder(\GdImage $image, int $centerX, int $centerY, int $radius, string $color, int $thickness = 2): void
+    {
+        $rgb = $this->hexToRgb($color);
+        $borderColor = imagecolorallocate($image, $rgb['r'], $rgb['g'], $rgb['b']);
+        imagesetthickness($image, $thickness);
+        imagearc($image, $centerX, $centerY, $radius * 2, $radius * 2, 0, 360, $borderColor);
+    }
+
+    /**
+     * Add rounded rectangle with transparency
+     */
+    protected function addRoundedRect(\GdImage $image, int $x, int $y, int $width, int $height, int $radius, string $color, float $opacity = 1): void
+    {
+        $rgb = $this->hexToRgb($color);
+        $alpha = (int) (127 * (1 - $opacity));
+        $fillColor = imagecolorallocatealpha($image, $rgb['r'], $rgb['g'], $rgb['b'], $alpha);
+
+        // Draw rounded rectangle
+        imagefilledrectangle($image, $x + $radius, $y, $x + $width - $radius, $y + $height, $fillColor);
+        imagefilledrectangle($image, $x, $y + $radius, $x + $width, $y + $height - $radius, $fillColor);
+        imagefilledellipse($image, $x + $radius, $y + $radius, $radius * 2, $radius * 2, $fillColor);
+        imagefilledellipse($image, $x + $width - $radius, $y + $radius, $radius * 2, $radius * 2, $fillColor);
+        imagefilledellipse($image, $x + $radius, $y + $height - $radius, $radius * 2, $radius * 2, $fillColor);
+        imagefilledellipse($image, $x + $width - $radius, $y + $height - $radius, $radius * 2, $radius * 2, $fillColor);
+    }
+
+    /**
+     * Add gradient line
+     */
+    protected function addGradientLine(\GdImage $image, int $x1, int $y1, int $x2, int $y2, string $color1, string $color2): void
+    {
+        $rgb1 = $this->hexToRgb($color1);
+        $rgb2 = $this->hexToRgb($color2);
+        $steps = abs($x2 - $x1);
+
+        for ($i = 0; $i <= $steps; $i++) {
+            $ratio = $steps > 0 ? $i / $steps : 0;
+            $r = (int) ($rgb1['r'] + ($rgb2['r'] - $rgb1['r']) * $ratio);
+            $g = (int) ($rgb1['g'] + ($rgb2['g'] - $rgb1['g']) * $ratio);
+            $b = (int) ($rgb1['b'] + ($rgb2['b'] - $rgb1['b']) * $ratio);
+            $color = imagecolorallocate($image, $r, $g, $b);
+            imagesetpixel($image, $x1 + $i, $y1, $color);
+        }
+    }
+
+    /**
+     * Darken a color by a percentage
+     */
+    protected function darkenColor(string $hex, int $percent): string
+    {
+        $rgb = $this->hexToRgb($hex);
+        $factor = 1 - ($percent / 100);
+        $r = max(0, (int) ($rgb['r'] * $factor));
+        $g = max(0, (int) ($rgb['g'] * $factor));
+        $b = max(0, (int) ($rgb['b'] * $factor));
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    }
+
+    /**
      * Get appropriate template for match stage
      */
     protected function getTemplateForMatch(Matches $match): ?TournamentTemplate
     {
-        $settings = $match->tournament->settings;
+        $settings = $match->tournament?->settings;
+
+        if (!$settings) {
+            return null;
+        }
 
         // Use special template for finals
         if ($match->isFinal() && $settings->final_template_id) {
@@ -266,7 +450,7 @@ class MatchSummaryPosterService extends PosterGeneratorService
             return TournamentTemplate::find($settings->default_summary_template_id);
         }
 
-        return $match->tournament->getTemplate(TournamentTemplate::TYPE_MATCH_SUMMARY);
+        return $match->tournament?->getTemplate(TournamentTemplate::TYPE_MATCH_SUMMARY);
     }
 
     /**
@@ -285,7 +469,7 @@ class MatchSummaryPosterService extends PosterGeneratorService
         }
 
         if ($overs !== null) {
-            $score .= ' (' . number_format((float) $overs, 1) . ')';
+            $score .= "\n(" . number_format((float) $overs, 1) . ' ov)';
         }
 
         return $score;
@@ -301,7 +485,7 @@ class MatchSummaryPosterService extends PosterGeneratorService
             'semi_final' => '#C0C0C0',
             'quarter_final' => '#CD7F32',
             'third_place' => '#CD7F32',
-            default => '#FFFFFF',
+            default => '#4A90D9',
         };
     }
 
@@ -313,5 +497,42 @@ class MatchSummaryPosterService extends PosterGeneratorService
         $rgb = $this->hexToRgb($color);
         $fillColor = imagecolorallocate($image, $rgb['r'], $rgb['g'], $rgb['b']);
         imagefilledellipse($image, $centerX, $centerY, $radius * 2, $radius * 2, $fillColor);
+    }
+
+    /**
+     * Get colors based on template type
+     */
+    protected function getTemplateColors(string $templateType, $settings): array
+    {
+        $defaultPrimary = $settings?->primary_color ?? '#1a1a2e';
+        $defaultSecondary = $settings?->secondary_color ?? '#fbbf24';
+
+        return match ($templateType) {
+            'modern' => [
+                'primary' => '#1e293b',
+                'secondary' => $defaultSecondary,
+                'background' => '#0f172a',
+            ],
+            'minimal' => [
+                'primary' => '#ffffff',
+                'secondary' => $defaultSecondary,
+                'background' => '#ffffff',
+            ],
+            'gradient' => [
+                'primary' => '#667eea',
+                'secondary' => '#f093fb',
+                'background' => '#667eea',
+            ],
+            'dark' => [
+                'primary' => '#000000',
+                'secondary' => $defaultSecondary,
+                'background' => '#000000',
+            ],
+            default => [ // classic
+                'primary' => $defaultPrimary,
+                'secondary' => $defaultSecondary,
+                'background' => $defaultPrimary,
+            ],
+        };
     }
 }

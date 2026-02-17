@@ -56,6 +56,11 @@
                                     :label="__('Edit')"
                                 />
                                 <x-buttons.action-item
+                                    :href="route('admin.matches.appreciations.create', $match)"
+                                    icon="star"
+                                    :label="__('Add Appreciation')"
+                                />
+                                <x-buttons.action-item
                                     :href="route('admin.matches.summary.edit', $match)"
                                     icon="file-text"
                                     :label="__('Summary')"

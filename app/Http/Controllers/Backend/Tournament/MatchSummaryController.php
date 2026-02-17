@@ -3,25 +3,36 @@
 namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Http\Controllers\Controller;
+use App\Models\Ball;
 use App\Models\Matches;
 use App\Models\MatchSummary;
+use App\Models\MatchResult;
 use App\Models\MatchAward;
 use App\Models\Player;
+use App\Models\TournamentAward;
 use App\Services\Poster\MatchSummaryPosterService;
 use App\Services\Notification\TournamentNotificationService;
+use App\Services\Tournament\PlayerStatisticService;
+use App\Services\Tournament\PointTableService;
 use Illuminate\Http\Request;
 
 class MatchSummaryController extends Controller
 {
     protected MatchSummaryPosterService $posterService;
     protected TournamentNotificationService $notificationService;
+    protected PlayerStatisticService $playerStatisticService;
+    protected PointTableService $pointTableService;
 
     public function __construct(
         MatchSummaryPosterService $posterService,
-        TournamentNotificationService $notificationService
+        TournamentNotificationService $notificationService,
+        PlayerStatisticService $playerStatisticService,
+        PointTableService $pointTableService
     ) {
         $this->posterService = $posterService;
         $this->notificationService = $notificationService;
+        $this->playerStatisticService = $playerStatisticService;
+        $this->pointTableService = $pointTableService;
     }
 
     /**
@@ -29,18 +40,42 @@ class MatchSummaryController extends Controller
      */
     public function edit(Matches $match)
     {
+        $match->load(['teamA.players', 'teamB.players', 'result', 'matchAwards.player', 'matchAwards.tournamentAward']);
+
+        // Auto-create result from ball data if both innings are complete
+        if (!$match->result) {
+            $this->autoCreateResultFromBalls($match);
+            $match->refresh();
+        }
+
         $summary = $match->getOrCreateSummary();
         $tournament = $match->tournament;
         $awards = $match->matchAwards()->with('player', 'tournamentAward')->get();
         $tournamentAwards = $tournament->awards()->matchLevel()->active()->get();
 
-        // Get players from both teams for award assignment
+        // Get players from winning team only for award assignment
         $players = collect();
-        if ($match->teamA) {
-            $players = $players->merge($match->teamA->users->pluck('player')->filter());
-        }
-        if ($match->teamB) {
-            $players = $players->merge($match->teamB->users->pluck('player')->filter());
+        $winnerTeam = null;
+
+        if ($match->winner_team_id) {
+            // Only show winning team players
+            if ($match->winner_team_id === $match->team_a_id && $match->teamA) {
+                $winnerTeam = $match->teamA;
+            } elseif ($match->winner_team_id === $match->team_b_id && $match->teamB) {
+                $winnerTeam = $match->teamB;
+            }
+
+            if ($winnerTeam) {
+                $players = $winnerTeam->users->pluck('player')->filter();
+            }
+        } else {
+            // If no winner yet (tie or incomplete), show all players
+            if ($match->teamA) {
+                $players = $players->merge($match->teamA->users->pluck('player')->filter());
+            }
+            if ($match->teamB) {
+                $players = $players->merge($match->teamB->users->pluck('player')->filter());
+            }
         }
 
         return view('backend.pages.matches.summary-editor', compact(
@@ -49,8 +84,114 @@ class MatchSummaryController extends Controller
             'tournament',
             'awards',
             'tournamentAwards',
-            'players'
+            'players',
+            'winnerTeam'
         ));
+    }
+
+    /**
+     * Auto-create match result from ball-by-ball data
+     */
+    private function autoCreateResultFromBalls(Matches $match): void
+    {
+        // Get team player IDs
+        $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
+        $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
+
+        // Get all balls
+        $allBalls = Ball::where('match_id', $match->id)->get();
+
+        if ($allBalls->isEmpty()) {
+            return;
+        }
+
+        // Separate balls by innings
+        $innings1Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamAPlayerIds));
+        $innings2Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamBPlayerIds));
+
+        // Need both innings to have been played
+        if ($innings1Balls->isEmpty() || $innings2Balls->isEmpty()) {
+            return;
+        }
+
+        // Calculate stats for both innings
+        $teamAStats = $this->calculateInningsStats($innings1Balls);
+        $teamBStats = $this->calculateInningsStats($innings2Balls);
+
+        // Determine winner
+        $winnerId = null;
+        $resultType = 'runs';
+        $margin = 0;
+
+        if ($teamAStats['runs'] > $teamBStats['runs']) {
+            $winnerId = $match->team_a_id;
+            $resultType = 'runs';
+            $margin = $teamAStats['runs'] - $teamBStats['runs'];
+        } elseif ($teamBStats['runs'] > $teamAStats['runs']) {
+            $winnerId = $match->team_b_id;
+            $resultType = 'wickets';
+            $margin = 10 - $teamBStats['wickets'];
+        } else {
+            $resultType = 'tie';
+        }
+
+        // Create match result
+        $result = MatchResult::create([
+            'match_id' => $match->id,
+            'team_a_score' => $teamAStats['runs'],
+            'team_a_wickets' => $teamAStats['wickets'],
+            'team_a_overs' => $teamAStats['overs'],
+            'team_a_extras' => $teamAStats['extras'],
+            'team_b_score' => $teamBStats['runs'],
+            'team_b_wickets' => $teamBStats['wickets'],
+            'team_b_overs' => $teamBStats['overs'],
+            'team_b_extras' => $teamBStats['extras'],
+            'result_type' => $resultType,
+            'winner_team_id' => $winnerId,
+            'margin' => $margin,
+        ]);
+
+        // Generate result summary
+        $result->update(['result_summary' => $result->generateResultSummary()]);
+
+        // Update match status
+        $match->update([
+            'status' => 'completed',
+            'winner_team_id' => $winnerId,
+        ]);
+
+        // Update player statistics
+        $this->playerStatisticService->updateFromMatch($match);
+
+        // Update point table
+        $this->pointTableService->updateFromMatchResult($match);
+    }
+
+    /**
+     * Calculate innings statistics from balls collection
+     */
+    private function calculateInningsStats($balls): array
+    {
+        if ($balls->isEmpty()) {
+            return ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'extras' => 0];
+        }
+
+        $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
+        $totalWickets = $balls->where('is_wicket', 1)->count();
+        $totalExtras = $balls->sum('extra_runs');
+
+        // Calculate overs (legal deliveries only)
+        $legalBalls = $balls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+        $completedOvers = floor($legalBalls / 6);
+        $ballsInOver = $legalBalls % 6;
+        $overs = $completedOvers + ($ballsInOver / 10);
+
+        return [
+            'runs' => $totalRuns,
+            'wickets' => $totalWickets,
+            'overs' => round($overs, 1),
+            'extras' => $totalExtras,
+        ];
     }
 
     /**
@@ -155,13 +296,18 @@ class MatchSummaryController extends Controller
     /**
      * Generate summary poster
      */
-    public function generatePoster(Matches $match)
+    public function generatePoster(Matches $match, Request $request)
     {
         try {
-            $posterPath = $this->posterService->generate($match);
+            $template = $request->input('template', 'classic');
+
+            $posterPath = $this->posterService->generate($match, $template);
 
             $summary = $match->getOrCreateSummary();
-            $summary->update(['summary_poster' => $posterPath]);
+            $summary->update([
+                'summary_poster' => $posterPath,
+                'poster_template' => $template,
+            ]);
 
             return redirect()
                 ->back()
@@ -239,5 +385,64 @@ class MatchSummaryController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Recalculate all statistics for the tournament
+     */
+    public function recalculateStatistics(Matches $match)
+    {
+        $tournament = $match->tournament;
+
+        // Recalculate player statistics
+        $this->playerStatisticService->recalculateForTournament($tournament);
+
+        // Recalculate point table
+        $this->pointTableService->recalculatePointTable($tournament);
+
+        return redirect()
+            ->back()
+            ->with('success', 'Statistics and point table recalculated successfully.');
+    }
+
+    /**
+     * Create default awards for tournament
+     */
+    public function createDefaultAwards(Matches $match)
+    {
+        $tournament = $match->tournament;
+
+        // Check if awards already exist
+        $existingCount = $tournament->awards()->matchLevel()->count();
+        if ($existingCount > 0) {
+            return redirect()
+                ->back()
+                ->with('info', 'Awards already exist for this tournament.');
+        }
+
+        // Default cricket awards
+        $defaultAwards = [
+            ['name' => 'Man of the Match', 'icon' => '🏆', 'order' => 1],
+            ['name' => 'Best Batsman', 'icon' => '🏏', 'order' => 2],
+            ['name' => 'Best Bowler', 'icon' => '🎯', 'order' => 3],
+            ['name' => 'Best Fielder', 'icon' => '🧤', 'order' => 4],
+            ['name' => 'Best Catch', 'icon' => '👐', 'order' => 5],
+        ];
+
+        foreach ($defaultAwards as $award) {
+            TournamentAward::create([
+                'tournament_id' => $tournament->id,
+                'name' => $award['name'],
+                'icon' => $award['icon'],
+                'is_match_level' => true,
+                'is_active' => true,
+                'order' => $award['order'],
+                'template_settings' => TournamentAward::getDefaultTemplateSettings($award['name']),
+            ]);
+        }
+
+        return redirect()
+            ->back()
+            ->with('success', 'Default awards created successfully. You can now assign awards to players.');
     }
 }

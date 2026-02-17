@@ -124,7 +124,8 @@ class AuctionAdminController extends Controller
     {
         $this->authorize('auction.view');
 
-
+        $user = auth()->user();
+        $isAdmin = $user->hasRole(['Superadmin', 'Admin']);
 
         $auction->load([
             'organization',
@@ -134,6 +135,28 @@ class AuctionAdminController extends Controller
             'auctionPlayers.player.bowlingProfile',
             'auctionPlayers.soldToTeam'
         ]);
+
+        // For non-admin users, filter to only show players sold to their team
+        $userTeam = null;
+        if (!$isAdmin) {
+            // Get user's team for this tournament
+            $userTeam = $user->actualTeams()
+                ->where('tournament_id', $auction->tournament_id)
+                ->first();
+
+            if ($userTeam) {
+                // Filter auction players to only those sold to user's team
+                $auction->setRelation(
+                    'auctionPlayers',
+                    $auction->auctionPlayers->filter(function ($player) use ($userTeam) {
+                        return $player->sold_to_team_id === $userTeam->id;
+                    })->values()
+                );
+            } else {
+                // User has no team in this tournament - show empty
+                $auction->setRelation('auctionPlayers', collect());
+            }
+        }
 
         $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
             ->orderBy('name')
@@ -148,7 +171,9 @@ class AuctionAdminController extends Controller
         return view('backend.pages.auctions.show', [
             'auction'   => $auction,
             'teams'     => $teams,
-            'bidRules'  => $bidRules
+            'bidRules'  => $bidRules,
+            'isAdmin'   => $isAdmin,
+            'userTeam'  => $userTeam
         ]);
     }
 

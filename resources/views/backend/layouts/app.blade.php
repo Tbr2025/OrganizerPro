@@ -12,6 +12,10 @@
 
     @include('backend.layouts.partials.theme-colors')
     @yield('before_vite_build')
+    @stack('before-alpine')
+
+    {{-- Alpine.js x-cloak support - must be before Alpine loads --}}
+    <style>[x-cloak] { display: none !important; }</style>
 
     @viteReactRefresh
     @vite(['resources/js/app.js', 'resources/css/app.css'], 'build')

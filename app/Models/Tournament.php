@@ -15,6 +15,7 @@ class Tournament extends Model
         'slug',
         'start_date',
         'organization_id',
+        'zone_id',
         'end_date',
         'location',
         'status',
@@ -41,6 +42,11 @@ class Tournament extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class, 'organization_id');
+    }
+
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class);
     }
 
     public function settings(): HasOne

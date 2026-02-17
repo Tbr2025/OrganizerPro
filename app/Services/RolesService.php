@@ -280,6 +280,8 @@ class RolesService
         // 3. Organizer - full tournament management, including player status updates
         $organizerPermissions = [
             'dashboard.view',
+            // Zone permissions
+            'zone.view',
             // Tournament permissions
             'tournament.create',
             'tournament.view',
@@ -321,15 +323,14 @@ class RolesService
         ];
         $roles['organizer'] = $this->createOrSyncRole('Organizer', $organizerPermissions);
 
-        // 4. Team Manager (New Role based on user context: "Manager or admin can create team.")
-        // This role can manage their specific team, create players for it, and update their status.
-        // This is distinct from a "Captain" who might just manage players *within* their existing team.
-        // This role assumes the manager is "assigned" to a team and can only manage players of that team.
-        // The implementation of scope (e.g., "only players of my team") would be in a policy/middleware.
+        // 4. Team Manager - Can manage their team, create/add players, participate in auctions
+        // Assigned to a specific team and can only manage players of that team.
+        // Scoping (e.g., "only players of my team") is enforced via TeamManagerController.
         $teamManagerPermissions = [
             'dashboard.view',
             'actual-team.view', // Can view their own team
-            'player.view', // Can view players (at least their team's)
+            'player.view', // Can view players
+            'player.create', // Can create new players for their team
             'match.view', // Can view matches
             'auction.view', // Can view auctions and participate in live bidding
         ];
@@ -480,6 +481,8 @@ class RolesService
             case 'organizer':
                 return [
                     'dashboard.view',
+                    // Zone permissions
+                    'zone.view',
                     // Tournament permissions
                     'tournament.create',
                     'tournament.view',
@@ -519,11 +522,12 @@ class RolesService
                     'image-templates.view',
                     'image-templates.edit',
                 ];
-            case 'team_manager': // Permissions for the new Team Manager role
+            case 'team_manager': // Permissions for the Team Manager role
                 return [
                     'dashboard.view',
                     'actual-team.view', // Can view their own team
                     'player.view', // Can view players
+                    'player.create', // Can create new players for their team
                     'match.view', // Can view matches
                     'auction.view', // Can view auctions and participate in live bidding
                 ];

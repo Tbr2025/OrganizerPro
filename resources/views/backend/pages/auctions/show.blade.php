@@ -13,11 +13,29 @@
         {{-- Header --}}
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800 dark:text-white">{{ $auction->name }}</h1>
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $auction->tournament->name ?? 'N/A' }}</p>
+                @if(isset($isAdmin) && !$isAdmin && isset($userTeam))
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">{{ $userTeam->name }} - Acquired Players</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $auction->name }} &bull; {{ $auction->tournament->name ?? 'N/A' }}</p>
+                @else
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">{{ $auction->name }}</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $auction->tournament->name ?? 'N/A' }}</p>
+                @endif
             </div>
             <div class="flex items-center gap-3">
-                @if (!auth()->user()->hasRole('Team Manager'))
+                {{-- Team Manager: Show bidding page link --}}
+                @if (!isset($isAdmin) || !$isAdmin)
+                    <a href="{{ route('team.auction.bidding.show', $auction) }}"
+                        class="btn btn-primary inline-flex items-center gap-2">
+                        <i class="fas fa-gavel"></i>
+                        Join Live Bidding
+                    </a>
+                @else
+                    {{-- Admin: Show all options --}}
+                    <a href="{{ route('team.auction.bidding.show', $auction) }}"
+                        class="btn btn-info inline-flex items-center gap-2">
+                        <i class="fas fa-eye"></i>
+                        Preview Bidding Page
+                    </a>
                     <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
                     <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
                         class="btn btn-success inline-flex items-center gap-2">
@@ -32,85 +50,114 @@
         </div>
 
         {{-- Statistics Bar --}}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-green-500 text-white p-4 rounded-lg text-center shadow-lg">
-                <div class="text-3xl font-bold" x-text="soldCount">0</div>
-                <div class="text-sm uppercase tracking-wide">Sold</div>
+        @if(isset($isAdmin) && $isAdmin)
+            {{-- Admin view: Full statistics --}}
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-green-500 text-white p-4 rounded-lg text-center shadow-lg">
+                    <div class="text-3xl font-bold" x-text="soldCount">0</div>
+                    <div class="text-sm uppercase tracking-wide">Sold</div>
+                </div>
+                <div class="bg-red-500 text-white p-4 rounded-lg text-center shadow-lg">
+                    <div class="text-3xl font-bold" x-text="unsoldCount">0</div>
+                    <div class="text-sm uppercase tracking-wide">Unsold</div>
+                </div>
+                <div class="bg-blue-500 text-white p-4 rounded-lg text-center shadow-lg">
+                    <div class="text-3xl font-bold" x-text="availableCount">0</div>
+                    <div class="text-sm uppercase tracking-wide">Available</div>
+                </div>
+                <div class="bg-purple-500 text-white p-4 rounded-lg text-center shadow-lg">
+                    <div class="text-3xl font-bold" x-text="players.length">0</div>
+                    <div class="text-sm uppercase tracking-wide">Total Pool</div>
+                </div>
             </div>
-            <div class="bg-red-500 text-white p-4 rounded-lg text-center shadow-lg">
-                <div class="text-3xl font-bold" x-text="unsoldCount">0</div>
-                <div class="text-sm uppercase tracking-wide">Unsold</div>
+        @else
+            {{-- Team Manager view: Team summary --}}
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-green-500 text-white p-4 rounded-lg text-center shadow-lg">
+                    <div class="text-3xl font-bold" x-text="players.length">0</div>
+                    <div class="text-sm uppercase tracking-wide">Players Acquired</div>
+                </div>
+                <div class="bg-blue-500 text-white p-4 rounded-lg text-center shadow-lg">
+                    <div class="text-3xl font-bold" x-text="formatCurrency(totalSpent)">0</div>
+                    <div class="text-sm uppercase tracking-wide">Total Spent</div>
+                </div>
+                <div class="bg-purple-500 text-white p-4 rounded-lg text-center shadow-lg">
+                    <div class="text-3xl font-bold" x-text="formatCurrency({{ $auction->max_budget_per_team ?? 0 }} - totalSpent)">0</div>
+                    <div class="text-sm uppercase tracking-wide">Remaining Budget</div>
+                </div>
             </div>
-            <div class="bg-blue-500 text-white p-4 rounded-lg text-center shadow-lg">
-                <div class="text-3xl font-bold" x-text="availableCount">0</div>
-                <div class="text-sm uppercase tracking-wide">Available</div>
-            </div>
-            <div class="bg-purple-500 text-white p-4 rounded-lg text-center shadow-lg">
-                <div class="text-3xl font-bold" x-text="players.length">0</div>
-                <div class="text-sm uppercase tracking-wide">Total Pool</div>
-            </div>
-        </div>
+        @endif
 
         {{-- Filters --}}
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
-            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
-                {{-- Search --}}
-                <div class="w-full md:w-1/3">
-                    <input type="text" x-model="searchQuery" placeholder="Search player name..."
+        @if(isset($isAdmin) && $isAdmin)
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    {{-- Search --}}
+                    <div class="w-full md:w-1/3">
+                        <input type="text" x-model="searchQuery" placeholder="Search player name..."
+                            class="form-control w-full">
+                    </div>
+
+                    {{-- Status Filter --}}
+                    <div class="flex gap-2 flex-wrap">
+                        <button @click="statusFilter = ''"
+                            :class="statusFilter === '' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                            class="px-4 py-2 rounded-full text-sm font-medium transition">
+                            All
+                        </button>
+                        <button @click="statusFilter = 'sold'"
+                            :class="statusFilter === 'sold' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                            class="px-4 py-2 rounded-full text-sm font-medium transition">
+                            Sold
+                        </button>
+                        <button @click="statusFilter = 'unsold'"
+                            :class="statusFilter === 'unsold' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                            class="px-4 py-2 rounded-full text-sm font-medium transition">
+                            Unsold
+                        </button>
+                        <button @click="statusFilter = 'on_auction'"
+                            :class="statusFilter === 'on_auction' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                            class="px-4 py-2 rounded-full text-sm font-medium transition">
+                            On Auction
+                        </button>
+                        <button @click="statusFilter = 'waiting'"
+                            :class="statusFilter === 'waiting' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
+                            class="px-4 py-2 rounded-full text-sm font-medium transition">
+                            Waiting
+                        </button>
+                    </div>
+
+                    {{-- Team Filter --}}
+                    <div class="w-full md:w-1/4">
+                        <select x-model="teamFilter" class="form-control w-full">
+                            <option value="">All Teams</option>
+                            <template x-for="team in teams" :key="team.id">
+                                <option :value="team.id" x-text="team.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                @can('auctions.edit')
+                    <div class="mt-4 flex justify-end">
+                        <form action="{{ route('admin.auctions.clear-pool', $auction) }}" method="POST"
+                            onsubmit="return confirm('Are you sure you want to remove ALL players from this auction? This cannot be undone.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-danger btn-sm">Clear Entire Pool</button>
+                        </form>
+                    </div>
+                @endcan
+            </div>
+        @else
+            {{-- Simple search for team managers --}}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+                <div class="w-full md:w-1/2">
+                    <input type="text" x-model="searchQuery" placeholder="Search your players..."
                         class="form-control w-full">
                 </div>
-
-                {{-- Status Filter --}}
-                <div class="flex gap-2 flex-wrap">
-                    <button @click="statusFilter = ''"
-                        :class="statusFilter === '' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition">
-                        All
-                    </button>
-                    <button @click="statusFilter = 'sold'"
-                        :class="statusFilter === 'sold' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition">
-                        Sold
-                    </button>
-                    <button @click="statusFilter = 'unsold'"
-                        :class="statusFilter === 'unsold' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition">
-                        Unsold
-                    </button>
-                    <button @click="statusFilter = 'on_auction'"
-                        :class="statusFilter === 'on_auction' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition">
-                        On Auction
-                    </button>
-                    <button @click="statusFilter = 'waiting'"
-                        :class="statusFilter === 'waiting' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'"
-                        class="px-4 py-2 rounded-full text-sm font-medium transition">
-                        Waiting
-                    </button>
-                </div>
-
-                {{-- Team Filter --}}
-                <div class="w-full md:w-1/4">
-                    <select x-model="teamFilter" class="form-control w-full">
-                        <option value="">All Teams</option>
-                        <template x-for="team in teams" :key="team.id">
-                            <option :value="team.id" x-text="team.name"></option>
-                        </template>
-                    </select>
-                </div>
             </div>
-
-            @can('auctions.edit')
-                <div class="mt-4 flex justify-end">
-                    <form action="{{ route('admin.auctions.clear-pool', $auction) }}" method="POST"
-                        onsubmit="return confirm('Are you sure you want to remove ALL players from this auction? This cannot be undone.');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="btn btn-danger btn-sm">Clear Entire Pool</button>
-                    </form>
-                </div>
-            @endcan
-        </div>
+        @endif
 
         {{-- Player Cards Grid --}}
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -268,10 +315,18 @@
             <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
             </svg>
-            <p class="text-gray-500 dark:text-gray-400 text-lg">No players found</p>
-            @can('auctions.edit')
-                <a href="{{ route('admin.auctions.edit', $auction) }}" class="text-blue-500 underline mt-2 inline-block">Add players to auction</a>
-            @endcan
+            @if(isset($isAdmin) && $isAdmin)
+                <p class="text-gray-500 dark:text-gray-400 text-lg">No players found</p>
+                @can('auctions.edit')
+                    <a href="{{ route('admin.auctions.edit', $auction) }}" class="text-blue-500 underline mt-2 inline-block">Add players to auction</a>
+                @endcan
+            @else
+                <p class="text-gray-500 dark:text-gray-400 text-lg">No players acquired yet</p>
+                <p class="text-gray-400 dark:text-gray-500 text-sm mt-2">Players you win in the auction will appear here</p>
+                <a href="{{ route('team.auction.bidding.show', $auction) }}" class="btn btn-primary mt-4">
+                    <i class="fas fa-gavel mr-2"></i>Join Live Bidding
+                </a>
+            @endif
         </div>
     </div>
 
@@ -308,6 +363,9 @@
                 },
                 get availableCount() {
                     return this.players.filter(p => ['waiting', 'on_auction'].includes(p.status)).length;
+                },
+                get totalSpent() {
+                    return this.players.reduce((sum, p) => sum + (Number(p.final_price) || Number(p.current_price) || 0), 0);
                 },
 
                 get filteredPlayers() {
