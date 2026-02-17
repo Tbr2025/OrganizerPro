@@ -261,7 +261,7 @@ class MatchesController extends Controller
      */
     public function getState(Matches $match)
     {
-        $match->load(['teamA.players', 'teamB.players']);
+        $match->load(['teamA.players.player', 'teamB.players.player']);
 
         // Get current innings from session
         $currentInnings = session('match_innings_' . $match->id, 1);
@@ -373,6 +373,103 @@ class MatchesController extends Controller
         $isAllOut = $totalWickets >= 10;
         $matchOversLimit = $match->overs ?? 20;
 
+        // Get detailed batsman stats
+        $batsmanStats = [];
+        $batsmanIds = $balls->pluck('batsman_id')->unique();
+        foreach ($batsmanIds as $batsmanId) {
+            $playerBalls = $balls->where('batsman_id', $batsmanId);
+            $runs = $playerBalls->sum('runs');
+            $ballsFaced = $playerBalls->filter(fn($b) => !in_array($b->extra_type, ['wide']))->count();
+            $fours = $playerBalls->where('runs', 4)->count();
+            $sixes = $playerBalls->where('runs', 6)->count();
+            $strikeRate = $ballsFaced > 0 ? round(($runs / $ballsFaced) * 100, 2) : 0;
+            $isOut = in_array($batsmanId, $outBatsmenIds);
+
+            // Get player name
+            $player = $match->teamA?->players->where('id', $batsmanId)->first()
+                ?? $match->teamB?->players->where('id', $batsmanId)->first();
+
+            $batsmanStats[$batsmanId] = [
+                'id' => $batsmanId,
+                'name' => $player?->player?->name ?? 'Unknown',
+                'runs' => $runs,
+                'balls' => $ballsFaced,
+                'fours' => $fours,
+                'sixes' => $sixes,
+                'strikeRate' => $strikeRate,
+                'isOut' => $isOut,
+            ];
+        }
+
+        // Get detailed bowler stats
+        $bowlerStats = [];
+        $bowlerIds = $balls->pluck('bowler_id')->unique();
+        foreach ($bowlerIds as $bowlerId) {
+            $bowlerBalls = $balls->where('bowler_id', $bowlerId);
+            $runsConceded = $bowlerBalls->sum('runs') + $bowlerBalls->sum('extra_runs');
+            $wickets = $bowlerBalls->where('is_wicket', 1)->count();
+            $legalBalls = $bowlerBalls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+            $oversDecimal = floor($legalBalls / 6) + (($legalBalls % 6) / 10);
+            $overs = floor($legalBalls / 6) . '.' . ($legalBalls % 6);
+            $economy = $oversDecimal > 0 ? round($runsConceded / $oversDecimal, 2) : 0;
+
+            // Count maidens (overs with 0 runs - only count complete overs)
+            $maidens = 0;
+            $bowlerOvers = $bowlerBalls->groupBy('over');
+            foreach ($bowlerOvers as $overBalls) {
+                $legalInOver = $overBalls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+                $runsInOver = $overBalls->sum('runs') + $overBalls->sum('extra_runs');
+                if ($legalInOver >= 6 && $runsInOver === 0) {
+                    $maidens++;
+                }
+            }
+
+            // Get player name
+            $player = $match->teamA?->players->where('id', $bowlerId)->first()
+                ?? $match->teamB?->players->where('id', $bowlerId)->first();
+
+            $bowlerStats[$bowlerId] = [
+                'id' => $bowlerId,
+                'name' => $player?->player?->name ?? 'Unknown',
+                'overs' => $overs,
+                'maidens' => $maidens,
+                'runs' => $runsConceded,
+                'wickets' => $wickets,
+                'economy' => $economy,
+            ];
+        }
+
+        // Get striker and non-striker details
+        $strikerDetails = $currentStriker ? ($batsmanStats[$currentStriker] ?? null) : null;
+        $nonStrikerDetails = $currentNonStriker ? ($batsmanStats[$currentNonStriker] ?? null) : null;
+        $bowlerDetails = $currentBowler ? ($bowlerStats[$currentBowler] ?? null) : null;
+
+        // Calculate partnership
+        $partnership = ['runs' => 0, 'balls' => 0];
+        if ($currentStriker || $currentNonStriker) {
+            // Get last wicket index
+            $lastWicketIndex = $balls->search(fn($b) => $b->is_wicket);
+            $partnershipBalls = $lastWicketIndex !== false
+                ? $balls->slice($lastWicketIndex + 1)
+                : $balls;
+
+            $partnership['runs'] = $partnershipBalls->sum('runs');
+            $partnership['balls'] = $partnershipBalls->filter(fn($b) => !in_array($b->extra_type, ['wide']))->count();
+        }
+
+        // Last wicket info
+        $lastWicket = null;
+        $lastWicketBall = $balls->where('is_wicket', 1)->last();
+        if ($lastWicketBall) {
+            $outBatsman = $batsmanStats[$lastWicketBall->batsman_id] ?? null;
+            $lastWicket = [
+                'name' => $outBatsman['name'] ?? 'Unknown',
+                'runs' => $outBatsman['runs'] ?? 0,
+                'balls' => $outBatsman['balls'] ?? 0,
+                'score' => $totalRuns,
+            ];
+        }
+
         return response()->json([
             'totalRuns' => $totalRuns,
             'totalWickets' => $totalWickets,
@@ -391,6 +488,14 @@ class MatchesController extends Controller
             // Both innings stats for header display
             'innings1Stats' => $innings1Stats,
             'innings2Stats' => $innings2Stats,
+            // Detailed player stats
+            'strikerDetails' => $strikerDetails,
+            'nonStrikerDetails' => $nonStrikerDetails,
+            'bowlerDetails' => $bowlerDetails,
+            'partnership' => $partnership,
+            'lastWicket' => $lastWicket,
+            'batsmanStats' => array_values($batsmanStats),
+            'bowlerStats' => array_values($bowlerStats),
         ]);
     }
 
@@ -490,14 +595,19 @@ class MatchesController extends Controller
     }
 
     /**
-     * Get list of live/ongoing matches for ticker selection
+     * Get list of matches for ticker selection (recent + upcoming)
      */
     public function liveTickerIndex(): View
     {
         $matches = Matches::with(['tournament', 'teamA', 'teamB'])
-            ->whereIn('status', ['live', 'scheduled', 'in_progress'])
-            ->orWhere('match_date', '>=', now()->subDay())
-            ->latest('match_date')
+            ->where('is_cancelled', false)
+            ->where(function ($query) {
+                // Show live/upcoming matches, or any match from last 30 days
+                $query->whereIn('status', ['live', 'upcoming'])
+                      ->orWhere('match_date', '>=', now()->subDays(30));
+            })
+            ->orderByRaw("CASE WHEN status = 'live' THEN 0 WHEN status = 'upcoming' THEN 1 ELSE 2 END")
+            ->orderBy('match_date', 'desc')
             ->paginate(20);
 
         return view('backend.pages.matches.live-ticker-index', compact('matches'));
@@ -524,6 +634,7 @@ class MatchesController extends Controller
         $match->update([
             'toss_winner_team_id' => $validated['toss_winner_team_id'],
             'toss_decision' => $validated['toss_decision'],
+            'status' => 'live', // Match goes live when toss is done
         ]);
 
         $match->load('tossWinner');
@@ -534,7 +645,35 @@ class MatchesController extends Controller
             'data' => [
                 'toss_winner' => $match->tossWinner?->name,
                 'toss_decision' => $match->toss_decision,
+                'status' => 'live',
             ]
         ]);
+    }
+
+    /**
+     * Set match status to live
+     */
+    public function goLive(Matches $match): RedirectResponse
+    {
+        $match->update([
+            'status' => 'live',
+            'is_cancelled' => false,
+        ]);
+
+        return redirect()->route('admin.matches.index')->with('success', 'Match is now LIVE!');
+    }
+
+    /**
+     * Cancel a match with reason
+     */
+    public function cancelMatch(Request $request, Matches $match): RedirectResponse
+    {
+        $request->validate([
+            'cancellation_reason' => 'nullable|string|max:500',
+        ]);
+
+        $match->cancel($request->cancellation_reason);
+
+        return redirect()->route('admin.matches.index')->with('success', 'Match has been cancelled.');
     }
 }

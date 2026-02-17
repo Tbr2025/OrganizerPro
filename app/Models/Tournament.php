@@ -13,6 +13,7 @@ class Tournament extends Model
     protected $fillable = [
         'name',
         'slug',
+        'logo',
         'start_date',
         'organization_id',
         'zone_id',
@@ -164,6 +165,11 @@ class Tournament extends Model
     public function getPublicUrlAttribute(): string
     {
         return route('public.tournament.show', $this->slug);
+    }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        return $this->logo ? asset('storage/' . $this->logo) : null;
     }
 
     public function getPlayerRegistrationUrlAttribute(): string

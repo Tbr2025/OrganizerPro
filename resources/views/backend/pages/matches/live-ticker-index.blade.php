@@ -65,15 +65,15 @@
                         <td class="px-5 py-4 sm:px-6">
                             <div class="flex items-center gap-3">
                                 <div class="flex -space-x-2">
-                                    @if($match->teamA?->logo)
-                                        <img src="{{ asset('storage/' . $match->teamA->logo) }}" alt="{{ $match->teamA->name }}" class="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover">
+                                    @if($match->teamA?->team_logo)
+                                        <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}" class="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover">
                                     @else
                                         <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center border-2 border-white dark:border-gray-800">
                                             <span class="text-xs font-bold text-brand-600 dark:text-brand-400">{{ substr($match->teamA->name ?? 'A', 0, 1) }}</span>
                                         </div>
                                     @endif
-                                    @if($match->teamB?->logo)
-                                        <img src="{{ asset('storage/' . $match->teamB->logo) }}" alt="{{ $match->teamB->name }}" class="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover">
+                                    @if($match->teamB?->team_logo)
+                                        <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}" class="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 object-cover">
                                     @else
                                         <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center border-2 border-white dark:border-gray-800">
                                             <span class="text-xs font-bold text-green-600 dark:text-green-400">{{ substr($match->teamB->name ?? 'B', 0, 1) }}</span>

@@ -116,7 +116,7 @@ class MatchPublicController extends Controller
     public function liveTicker(Matches $match): View
     {
         $match->load([
-            'tournament',
+            'tournament.organization',
             'teamA.players.player',
             'teamB.players.player',
         ]);

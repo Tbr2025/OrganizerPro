@@ -393,6 +393,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('/matches/{match}/state', [MatchesController::class, 'getState'])->name('matches.state');
     Route::post('/matches/{match}/switch-innings', [MatchesController::class, 'switchInnings'])->name('matches.switchInnings');
     Route::post('/matches/{match}/toss', [MatchesController::class, 'saveToss'])->name('matches.saveToss');
+    Route::post('/matches/{match}/go-live', [MatchesController::class, 'goLive'])->name('matches.goLive');
+    Route::post('/matches/{match}/cancel', [MatchesController::class, 'cancelMatch'])->name('matches.cancel');
     Route::get('/matches/{match}/overs', [MatchesController::class, 'editOvers'])->name('overs.edit');
     Route::post('/matches/{match}/overs', [MatchesController::class, 'updateOvers'])->name('overs.update');
     Route::get('/matches/{match}/balls/create', [BallController::class, 'create'])->name('balls.create');

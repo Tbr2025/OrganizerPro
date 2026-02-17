@@ -10,9 +10,36 @@
         ]" />
 
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl p-6">
-            <form method="POST" action="{{ route('admin.tournaments.update', $tournament->id) }}" class="space-y-6">
+            <form method="POST" action="{{ route('admin.tournaments.update', $tournament->id) }}" class="space-y-6" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
+
+                {{-- Logo --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament Logo</label>
+                    <div class="flex items-start gap-4">
+                        @if($tournament->logo)
+                            <div class="flex-shrink-0">
+                                <img src="{{ Storage::url($tournament->logo) }}" alt="{{ $tournament->name }}" class="w-24 h-24 object-cover rounded-xl border border-gray-200 dark:border-gray-700">
+                                <p class="text-xs text-gray-500 mt-1">Current logo</p>
+                            </div>
+                        @endif
+                        <div class="flex-1">
+                            <input type="file" name="logo" id="logo" accept="image/*"
+                                class="block w-full text-sm text-gray-500 dark:text-gray-400
+                                    file:mr-4 file:py-2 file:px-4
+                                    file:rounded-lg file:border-0
+                                    file:text-sm file:font-semibold
+                                    file:bg-indigo-50 file:text-indigo-700
+                                    hover:file:bg-indigo-100
+                                    dark:file:bg-indigo-900 dark:file:text-indigo-300">
+                            <p class="text-xs text-gray-500 mt-1">Recommended: Square image, 512x512px, PNG or JPG</p>
+                            @error('logo')
+                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+                </div>
 
                 {{-- Organization --}}
                 <div>

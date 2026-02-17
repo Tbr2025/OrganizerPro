@@ -168,6 +168,7 @@ class TournamentController extends Controller
             'organization_id' => 'required|exists:organizations,id',
             'zone_id'        => 'nullable|exists:zones,id',
             'name'           => 'required|string|max:255',
+            'logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'start_date'     => 'required|date|after_or_equal:today',
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
@@ -176,6 +177,15 @@ class TournamentController extends Controller
         // Handle empty zone_id
         if (empty($validated['zone_id'])) {
             $validated['zone_id'] = null;
+        }
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            // Delete old logo if exists
+            if ($tournament->logo && \Storage::disk('public')->exists($tournament->logo)) {
+                \Storage::disk('public')->delete($tournament->logo);
+            }
+            $validated['logo'] = $request->file('logo')->store('tournaments/logos', 'public');
         }
 
         $tournament->update($validated);

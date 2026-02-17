@@ -34,12 +34,31 @@
                         <td class="px-5 py-4 sm:px-6">{{ $match->teamA->name ?? '-' }}</td>
                         <td class="px-5 py-4 sm:px-6">{{ $match->teamB->name ?? '-' }}</td>
                         <td class="px-5 py-4 sm:px-6">
-                            <span class="badge inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full
-                                {{ $match->status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-white' :
-                                   ($match->status === 'live' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-700 dark:text-white' :
-                                   'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-white') }}">
-                                {{ ucfirst($match->status) }}
-                            </span>
+                            @if($match->is_cancelled)
+                                <div>
+                                    <span class="badge inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                                        Cancelled
+                                    </span>
+                                    @if($match->cancellation_reason)
+                                        <p class="text-xs text-red-500 mt-1 max-w-[150px] truncate" title="{{ $match->cancellation_reason }}">{{ $match->cancellation_reason }}</p>
+                                    @endif
+                                </div>
+                            @elseif($match->status === 'live')
+                                <span class="badge inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-red-500 text-white">
+                                    <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                                    LIVE
+                                </span>
+                            @elseif($match->status === 'completed')
+                                <span class="badge inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-white">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                    Completed
+                                </span>
+                            @else
+                                <span class="badge inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-white">
+                                    Upcoming
+                                </span>
+                            @endif
                         </td>
                         <td class="px-5 py-4 sm:px-6">{{ $match->winner->name ?? '-' }}</td>
                         <td class="px-5 py-4 sm:px-6">{{ $match->venue ?? '-' }}</td>
@@ -65,6 +84,45 @@
                                     icon="file-text"
                                     :label="__('Summary')"
                                 />
+                                @if(!$match->is_cancelled && $match->status !== 'live')
+                                    <form action="{{ route('admin.matches.goLive', $match) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-green-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+                                            {{ __('Go Live') }}
+                                        </button>
+                                    </form>
+                                @endif
+                                @if(!$match->is_cancelled && $match->status !== 'completed')
+                                    <div x-data="{ cancelModalOpen: false }">
+                                        <button @click="cancelModalOpen = true" type="button" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-orange-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                            {{ __('Cancel Match') }}
+                                        </button>
+
+                                        <!-- Cancel Match Modal -->
+                                        <div x-show="cancelModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                                            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
+                                                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Cancel Match</h3>
+                                                <form action="{{ route('admin.matches.cancel', $match) }}" method="POST">
+                                                    @csrf
+                                                    <div class="mb-4">
+                                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason for cancellation</label>
+                                                        <textarea name="cancellation_reason" rows="3" class="form-control w-full" placeholder="e.g., Rain, Ground not available, etc."></textarea>
+                                                    </div>
+                                                    <div class="flex gap-3">
+                                                        <button type="button" @click="cancelModalOpen = false" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                            No, Keep Match
+                                                        </button>
+                                                        <button type="submit" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                                                            Yes, Cancel Match
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
                                 @if (auth()->user()->can('match.delete'))
                                     <div x-data="{ deleteModalOpen: false }">
                                         <x-buttons.action-item
