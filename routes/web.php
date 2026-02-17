@@ -218,6 +218,7 @@ Route::middleware(['auth'])
         Route::post('/players', [TeamManagerController::class, 'storePlayer'])->name('players.store');
         Route::post('/players/add', [TeamManagerController::class, 'addPlayerToRoster'])->name('players.add');
         Route::delete('/players/{player}', [TeamManagerController::class, 'removePlayerFromRoster'])->name('players.remove');
+        Route::post('/players/{player}/verify', [TeamManagerController::class, 'verifyPlayer'])->name('players.verify');
     });
 
 

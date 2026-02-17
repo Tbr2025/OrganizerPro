@@ -120,7 +120,7 @@
                             <th class="px-6 py-3">Role</th>
                             <th class="px-6 py-3">Batting</th>
                             <th class="px-6 py-3">Bowling</th>
-                            <th class="px-6 py-3">Mode</th>
+                            <th class="px-6 py-3">Status</th>
                             <th class="px-6 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -148,33 +148,49 @@
                                 <td class="px-6 py-4">{{ $player->batting_style ?? '-' }}</td>
                                 <td class="px-6 py-4">{{ $player->bowling_style ?? '-' }}</td>
                                 <td class="px-6 py-4">
-                                    @if($player->player_mode === 'retained')
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                            Retained
-                                        </span>
-                                    @elseif($player->player_mode === 'auctioned')
+                                    @if($player->status === 'approved')
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                            Auctioned
+                                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            Verified
+                                        </span>
+                                    @elseif($player->status === 'rejected')
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                            Rejected
                                         </span>
                                     @else
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                            Normal
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            Pending
                                         </span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    @if($player->player_mode !== 'auctioned' && $player->player_mode !== 'retained')
-                                        <form action="{{ route('team-manager.players.remove', $player) }}" method="POST" class="inline"
-                                              onsubmit="return confirm('Are you sure you want to remove this player from your team?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm">
-                                                Remove
+                                    <div class="flex items-center justify-end gap-2">
+                                        @if($player->status === 'pending')
+                                            <button type="button"
+                                                onclick="openVerifyModal({{ $player->id }}, '{{ addslashes($player->name) }}')"
+                                                class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                                Verify
                                             </button>
-                                        </form>
-                                    @else
-                                        <span class="text-gray-400 text-sm">-</span>
-                                    @endif
+                                        @endif
+                                        @if($player->player_mode !== 'auctioned' && $player->player_mode !== 'retained')
+                                            <form action="{{ route('team-manager.players.remove', $player) }}" method="POST" class="inline"
+                                                  onsubmit="return confirm('Are you sure you want to remove this player from your team?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm">
+                                                    Remove
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -307,4 +323,62 @@
         @endif
     </div>
 </div>
+
+{{-- Verify Player Modal --}}
+<div id="verify-player-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Verify Player</h3>
+            <button type="button" onclick="closeVerifyModal()"
+                class="text-gray-400 hover:text-gray-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <form id="verify-player-form" method="POST">
+            @csrf
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    You are about to verify player: <strong id="verify-player-name" class="text-gray-900 dark:text-white"></strong>
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Please enter your password to confirm this action.
+                </p>
+                <label for="verify-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Your Password
+                </label>
+                <input type="password" name="password" id="verify-password" required
+                    class="form-control w-full"
+                    placeholder="Enter your password">
+            </div>
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeVerifyModal()"
+                    class="btn btn-secondary">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Verify Player
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openVerifyModal(playerId, playerName) {
+        document.getElementById('verify-player-name').textContent = playerName;
+        document.getElementById('verify-player-form').action = '{{ url("admin/team-manager/players") }}/' + playerId + '/verify';
+        document.getElementById('verify-password').value = '';
+        document.getElementById('verify-player-modal').classList.remove('hidden');
+    }
+
+    function closeVerifyModal() {
+        document.getElementById('verify-player-modal').classList.add('hidden');
+    }
+</script>
 @endsection

@@ -131,7 +131,7 @@ class TeamManagerController extends Controller
             'jersey_number' => $validated['jersey_number'] ?? null,
             'actual_team_id' => $team->id,
             'player_mode' => 'normal',
-            'status' => 'approved',
+            'status' => 'pending',
             'created_by' => $user->id,
         ];
 
@@ -275,5 +275,45 @@ class TeamManagerController extends Controller
         }
 
         return view('backend.pages.team-manager.auctions', compact('team', 'auctions'));
+    }
+
+    /**
+     * Verify a player with password confirmation
+     */
+    public function verifyPlayer(Request $request, Player $player)
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        // Verify player belongs to this team
+        if ($player->actual_team_id !== $team->id) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'This player is not on your team.');
+        }
+
+        // Validate password
+        $request->validate([
+            'password' => 'required|string',
+        ]);
+
+        // Check if password matches the team manager's password
+        if (!Hash::check($request->password, $user->password)) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'Invalid password. Player verification failed.');
+        }
+
+        // Update player status to approved
+        $player->update([
+            'status' => 'approved',
+            'approved_by' => $user->id,
+        ]);
+
+        return redirect()->route('team-manager.dashboard')
+            ->with('success', 'Player "' . $player->name . '" has been verified successfully.');
     }
 }
