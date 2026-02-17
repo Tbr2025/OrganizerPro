@@ -2,7 +2,9 @@
 
 namespace App\Services\Tournament;
 
+use App\Mail\NewRegistrationAdminMail;
 use App\Mail\PlayerWelcomeMail;
+use App\Mail\RegistrationApprovedMail;
 use App\Models\ActualTeam;
 use App\Models\Player;
 use App\Models\Tournament;
@@ -10,6 +12,7 @@ use App\Models\TournamentRegistration;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -53,12 +56,17 @@ class RegistrationService
             }
 
             // Create registration
-            return TournamentRegistration::create([
+            $registration = TournamentRegistration::create([
                 'tournament_id' => $tournament->id,
                 'type' => 'player',
                 'player_id' => $player->id,
                 'status' => 'pending',
             ]);
+
+            // Send admin notification
+            $this->notifyAdminOfNewRegistration($tournament, $registration, 'player');
+
+            return $registration;
         });
     }
 
@@ -72,7 +80,7 @@ class RegistrationService
             $logoPath = $data['team_logo']->store('team_logos', 'public');
         }
 
-        return TournamentRegistration::create([
+        $registration = TournamentRegistration::create([
             'tournament_id' => $tournament->id,
             'type' => 'team',
             'team_name' => $data['team_name'],
@@ -86,6 +94,11 @@ class RegistrationService
             'team_description' => $data['team_description'] ?? null,
             'status' => 'pending',
         ]);
+
+        // Send admin notification
+        $this->notifyAdminOfNewRegistration($tournament, $registration, 'team');
+
+        return $registration;
     }
 
     /**
@@ -104,8 +117,8 @@ class RegistrationService
                 'processed_by' => $approvedBy,
             ]);
 
-            // TODO: Send welcome email with image
-            // $this->sendWelcomeEmail($registration->player);
+            // Send approval email to player
+            $this->sendApprovalEmail($registration);
 
             return true;
         });
@@ -154,6 +167,9 @@ class RegistrationService
 
             // Associate captain with team
             $actualTeam->users()->attach($captainUser->id, ['role' => 'captain']);
+
+            // Send approval email to captain
+            $this->sendApprovalEmail($registration);
 
             return $actualTeam;
         });
@@ -238,5 +254,47 @@ class RegistrationService
         }
 
         return $settings->team_registration_open;
+    }
+
+    /**
+     * Send admin notification for new registration
+     */
+    protected function notifyAdminOfNewRegistration(Tournament $tournament, TournamentRegistration $registration, string $type): void
+    {
+        // Get admin email from tournament settings or organization
+        $adminEmail = $tournament->settings?->contact_email
+            ?? $tournament->organization?->email
+            ?? config('mail.admin_email');
+
+        if ($adminEmail) {
+            try {
+                Mail::to($adminEmail)->send(new NewRegistrationAdminMail($tournament, $registration, $type));
+            } catch (\Exception $e) {
+                Log::error('Failed to send admin notification for new registration: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Send approval email to registrant
+     */
+    protected function sendApprovalEmail(TournamentRegistration $registration): void
+    {
+        $tournament = $registration->tournament;
+        $email = null;
+
+        if ($registration->type === 'player' && $registration->player) {
+            $email = $registration->player->email;
+        } elseif ($registration->type === 'team') {
+            $email = $registration->captain_email;
+        }
+
+        if ($email) {
+            try {
+                Mail::to($email)->send(new RegistrationApprovedMail($tournament, $registration));
+            } catch (\Exception $e) {
+                Log::error('Failed to send approval email: ' . $e->getMessage());
+            }
+        }
     }
 }

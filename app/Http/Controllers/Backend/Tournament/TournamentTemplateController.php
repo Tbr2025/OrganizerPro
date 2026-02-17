@@ -81,7 +81,7 @@ class TournamentTemplateController extends Controller
         }
 
         return redirect()
-            ->route('admin.tournament.templates.index', $tournament)
+            ->route('admin.tournaments.templates.index', $tournament)
             ->with('success', 'Template created successfully.');
     }
 
@@ -140,7 +140,7 @@ class TournamentTemplateController extends Controller
         }
 
         return redirect()
-            ->route('admin.tournament.templates.index', $tournament)
+            ->route('admin.tournaments.templates.index', $tournament)
             ->with('success', 'Template updated successfully.');
     }
 
@@ -159,7 +159,7 @@ class TournamentTemplateController extends Controller
         $template->delete();
 
         return redirect()
-            ->route('admin.tournament.templates.index', $tournament)
+            ->route('admin.tournaments.templates.index', $tournament)
             ->with('success', 'Template deleted successfully.');
     }
 
@@ -267,7 +267,7 @@ class TournamentTemplateController extends Controller
         $newTemplate->save();
 
         return redirect()
-            ->route('admin.tournament.templates.edit', [$tournament, $newTemplate])
+            ->route('admin.tournaments.templates.edit', [$tournament, $newTemplate])
             ->with('success', 'Template duplicated successfully.');
     }
 }

@@ -64,26 +64,91 @@
                 {{-- Registration Section --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Registration Settings</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="flex items-center">
-                            <input type="checkbox" name="player_registration_open" id="player_registration_open" value="1"
-                                {{ old('player_registration_open', $settings->player_registration_open) ? 'checked' : '' }}
-                                class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
-                            <label for="player_registration_open" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Player Registration Open</label>
+
+                    {{-- Current Status Banner --}}
+                    <div class="mb-4 p-3 rounded-lg {{ ($settings->player_registration_open || $settings->team_registration_open) ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' }}">
+                        <div class="flex items-center gap-2">
+                            @if($settings->player_registration_open || $settings->team_registration_open)
+                                <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span class="text-sm font-medium text-green-700 dark:text-green-300">Registration is OPEN</span>
+                            @else
+                                <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span class="text-sm font-medium text-red-700 dark:text-red-300">Registration is CLOSED</span>
+                            @endif
+                        </div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            Player: {{ $settings->player_registration_open ? 'Open' : 'Closed' }} |
+                            Team: {{ $settings->team_registration_open ? 'Open' : 'Closed' }}
+                            @if($settings->registration_deadline)
+                                | Deadline: {{ $settings->registration_deadline->format('d M Y') }}
+                            @endif
+                        </p>
+                    </div>
+
+                    {{-- Registration Toggles --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="p-4 rounded-lg border {{ old('player_registration_open', $settings->player_registration_open) ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800' }}">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label for="player_registration_open" class="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">Player Registration</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Allow individual players to register</p>
+                                </div>
+                                <input type="checkbox" name="player_registration_open" id="player_registration_open" value="1"
+                                    {{ old('player_registration_open', $settings->player_registration_open) ? 'checked' : '' }}
+                                    class="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            </div>
                         </div>
 
-                        <div class="flex items-center">
-                            <input type="checkbox" name="team_registration_open" id="team_registration_open" value="1"
-                                {{ old('team_registration_open', $settings->team_registration_open) ? 'checked' : '' }}
-                                class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
-                            <label for="team_registration_open" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Team Registration Open</label>
+                        <div class="p-4 rounded-lg border {{ old('team_registration_open', $settings->team_registration_open) ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800' }}">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label for="team_registration_open" class="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">Team Registration</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Allow teams to register for tournament</p>
+                                </div>
+                                <input type="checkbox" name="team_registration_open" id="team_registration_open" value="1"
+                                    {{ old('team_registration_open', $settings->team_registration_open) ? 'checked' : '' }}
+                                    class="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                            </div>
                         </div>
+                    </div>
 
+                    {{-- Public Registration Links --}}
+                    @if($settings->player_registration_open || $settings->team_registration_open)
+                    <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <h4 class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Public Registration Links</h4>
+                        <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Share these links with players and teams</p>
+                        <div class="space-y-2">
+                            @if($settings->player_registration_open)
+                            <div class="flex items-center gap-2">
+                                <input type="text" readonly value="{{ route('public.tournament.register.player', $tournament->slug) }}"
+                                    class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5"
+                                    id="player-link">
+                                <button type="button" onclick="copyLink('player-link')" class="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded">Copy</button>
+                            </div>
+                            @endif
+                            @if($settings->team_registration_open)
+                            <div class="flex items-center gap-2">
+                                <input type="text" readonly value="{{ route('public.tournament.register.team', $tournament->slug) }}"
+                                    class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5"
+                                    id="team-link">
+                                <button type="button" onclick="copyLink('team-link')" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded">Copy</button>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label for="registration_deadline" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Registration Deadline</label>
                             <input type="date" name="registration_deadline" id="registration_deadline"
                                 value="{{ old('registration_deadline', $settings->registration_deadline?->format('Y-m-d')) }}"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            <p class="text-xs text-gray-500 mt-1">Registration auto-closes after this date</p>
                         </div>
 
                         <div>
@@ -229,4 +294,18 @@
             </form>
         </div>
     </div>
+
+@push('scripts')
+<script>
+function copyLink(inputId) {
+    const input = document.getElementById(inputId);
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        window.dispatchEvent(new CustomEvent('notify', {
+            detail: { variant: 'success', title: 'Copied!', message: 'Link copied to clipboard' }
+        }));
+    });
+}
+</script>
+@endpush
 @endsection
