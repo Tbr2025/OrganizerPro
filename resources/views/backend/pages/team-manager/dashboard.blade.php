@@ -372,7 +372,7 @@
 <script>
     function openVerifyModal(playerId, playerName) {
         document.getElementById('verify-player-name').textContent = playerName;
-        document.getElementById('verify-player-form').action = '{{ url("admin/team-manager/players") }}/' + playerId + '/verify';
+        document.getElementById('verify-player-form').action = '{{ url("/") }}/admin/team-manager/players/' + playerId + '/verify';
         document.getElementById('verify-password').value = '';
         document.getElementById('verify-player-modal').classList.remove('hidden');
     }
