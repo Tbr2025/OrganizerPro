@@ -573,14 +573,14 @@ Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, 
 })->middleware('signed')->name('public.verification.verify');
 
 
-// Route::get('/test-mail', function () {
-//     \Illuminate\Support\Facades\Mail::raw('Test mail from Laravel on EC2', function ($message) {
-//         $message->to('navasfazil@gmail.com')
-//             ->subject('Test Email');
-//     });
+Route::get('/test-mail', function () {
+    \Illuminate\Support\Facades\Mail::raw('Test email from Sportzley via Mailgun! Time: ' . now(), function ($message) {
+        $message->to('booklyman2025@gmail.com')
+            ->subject('Sportzley Test Email - Mailgun');
+    });
 
-//     return 'Mail Sent!';
-// });
+    return 'Mail Sent Successfully via Mailgun!';
+});
 // Route::get('/test-shell', function () {
 //     // --- Configuration ---
 //     $pythonPath = '/var/www/OrganizerPro/rembg-env/bin/python';
