@@ -313,7 +313,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::post('actual-teams/{actualTeam}/members', [ActualTeamController::class, 'addMember'])->name('actual-teams.add-member');
 
     Route::delete('actual-teams/{actualTeam}/members/{user}', [ActualTeamController::class, 'removeMember'])
-        ->name('actual-teams.remove-member');
+        ->name('actual-teams.delete-member');
 
     // Optional: Route to update a member's role
     Route::put('actual-teams/{actualTeam}/members/{user}/role', [ActualTeamController::class, 'updateMemberRole'])->name('actual-teams.update-member-role');
