@@ -131,7 +131,7 @@ class TeamManagerController extends Controller
             'jersey_number' => $validated['jersey_number'] ?? null,
             'actual_team_id' => $team->id,
             'player_mode' => 'normal',
-            'status' => 'active',
+            'status' => 'approved',
             'created_by' => $user->id,
         ];
 
