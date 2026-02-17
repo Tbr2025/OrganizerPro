@@ -425,13 +425,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::prefix('admin/templates')->name('admin.templates.')->group(function () {});
 
 
-    Route::resource('image-templates', ImageTemplateController::class);
+    Route::resource('image-templates', ImageTemplateController::class)->except(['create', 'edit', 'destroy']);
     Route::get('/image-templates/create', [ImageTemplateController::class, 'create'])->name('image-templates.create');
-
     Route::get('/image-templates/edit', [ImageTemplateController::class, 'edit'])->name('image-templates.edit');
     Route::post('/image-templates/save', [ImageTemplateController::class, 'store'])->name('image-templates.save');
-    Route::get('/image-templates/generate/{player}', [ImageTemplateController::class, 'generateImage'])->name('image-templates.generate');
-
+    Route::get('/image-templates/generate/{player}', [ImageTemplateController::class, 'generateImage'])->name('image-templates.generate-player');
     Route::delete('/image-templates/{image_template}', [ImageTemplateController::class, 'destroy'])->name('image-templates.destroy');
 
 
@@ -448,7 +446,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('image-templates/remove-bg', [ImageTemplateController::class, 'removebg'])->name('image-templates.remove-bg');
     // Optional route to generate output image from a saved template
     Route::post('image-templates/{image_template}/generate', [ImageTemplateController::class, 'generate'])
-        ->name('image-templates.generate');
+        ->name('image-templates.generate-template');
 
 
     Route::resource('roles', RolesController::class);
