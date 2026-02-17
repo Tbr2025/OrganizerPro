@@ -474,4 +474,33 @@ class MatchesController extends Controller
             ->route('admin.matches.index')
             ->with('success', 'Match deleted successfully.');
     }
+
+    /**
+     * Live Match Ticker Display for Broadcasting (1920x1080)
+     */
+    public function liveTicker(Matches $match): View
+    {
+        $match->load([
+            'tournament',
+            'teamA.players.player',
+            'teamB.players.player',
+            'winner',
+        ]);
+
+        return view('backend.pages.matches.live-ticker', compact('match'));
+    }
+
+    /**
+     * Get list of live/ongoing matches for ticker selection
+     */
+    public function liveTickerIndex(): View
+    {
+        $matches = Matches::with(['tournament', 'teamA', 'teamB'])
+            ->whereIn('status', ['live', 'scheduled', 'in_progress'])
+            ->orWhere('match_date', '>=', now()->subDay())
+            ->latest('match_date')
+            ->paginate(20);
+
+        return view('backend.pages.matches.live-ticker-index', compact('matches'));
+    }
 }

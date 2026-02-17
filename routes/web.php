@@ -407,6 +407,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
     Route::get('/matches/{match}/scorecard', [ScorecardController::class, 'show'])->name('matches.scorecard');
 
+    // Live Match Ticker (1920x1080 Broadcast Display)
+    Route::get('/matches/live-ticker', [MatchesController::class, 'liveTickerIndex'])->name('matches.live-ticker-index');
+    Route::get('/matches/{match}/live-ticker', [MatchesController::class, 'liveTicker'])->name('matches.live-ticker');
+
     Route::resource('appreciations', MatchAppreciationController::class)->only(['index']);
 
     Route::post('/appreciations/save/{tournament}/{match}/{player}', [AppreciationController::class, 'store'])->name('appreciations.save');

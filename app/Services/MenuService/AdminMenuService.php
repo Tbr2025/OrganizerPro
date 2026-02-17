@@ -316,6 +316,13 @@ class AdminMenuService
                     'priority' => 20,
                     'permissions' => 'match.create',
                 ],
+                [
+                    'label' => __('Live Ticker (1920x1080)'),
+                    'route' => route('admin.matches.live-ticker-index'),
+                    'active' => Route::is('admin.matches.live-ticker-index') || Route::is('admin.matches.live-ticker'),
+                    'priority' => 30,
+                    'permissions' => 'match.view',
+                ],
             ],
         ]);
 
