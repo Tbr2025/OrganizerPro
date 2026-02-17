@@ -68,6 +68,15 @@
             <div class="text-center mb-4">
                 <p class="text-gray-400 text-sm">{{ $match->tournament->name ?? 'Tournament' }}</p>
                 <h2 class="text-xl font-bold mt-1">{{ $match->name ?? 'Match' }}</h2>
+                @if($match->toss_winner_team_id)
+                    <p class="text-yellow-400 text-sm mt-2">
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 110-12 6 6 0 010 12z"/>
+                            <path d="M10 6a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V7a1 1 0 011-1z"/>
+                        </svg>
+                        <strong>{{ $match->tossWinner?->name }}</strong> won the toss and elected to <strong>{{ $match->toss_decision === 'bat' ? 'BAT' : 'BOWL' }}</strong>
+                    </p>
+                @endif
             </div>
 
             <!-- Teams & Score -->

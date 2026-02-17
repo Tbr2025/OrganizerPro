@@ -27,6 +27,8 @@ class Matches extends Model
         'start_time',
         'end_time',
         'winner_team_id',
+        'toss_winner_team_id',
+        'toss_decision',
         'poster_image',
         'poster_sent',
         'poster_sent_at',
@@ -80,6 +82,11 @@ class Matches extends Model
     public function winner(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class, 'winner_team_id');
+    }
+
+    public function tossWinner(): BelongsTo
+    {
+        return $this->belongsTo(ActualTeam::class, 'toss_winner_team_id');
     }
 
     public function result(): HasOne

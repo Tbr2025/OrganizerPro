@@ -67,6 +67,7 @@ class MatchesController extends Controller
             'teamA.players.player',
             'teamB.players.player',
             'winner',
+            'tossWinner',
             'appreciations.player'
         ]);
 
@@ -415,6 +416,8 @@ class MatchesController extends Controller
             'venue' => 'nullable|string|max:255',
             'status' => 'nullable|in:upcoming,live,completed',
             'winner_team_id' => 'nullable|exists:actual_teams,id',
+            'toss_winner_team_id' => 'nullable|exists:actual_teams,id',
+            'toss_decision' => 'nullable|in:bat,bowl',
         ]);
 
         $match->update($request->only([
@@ -428,7 +431,9 @@ class MatchesController extends Controller
             'overs',
             'venue',
             'status',
-            'winner_team_id'
+            'winner_team_id',
+            'toss_winner_team_id',
+            'toss_decision'
         ]));
 
         return redirect()->route('admin.matches.index')->with('success', 'Match updated successfully.');

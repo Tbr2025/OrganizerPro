@@ -98,6 +98,57 @@
                             </div>
                         </div>
 
+                        {{-- Toss Section --}}
+                        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                            <h3 class="text-sm font-semibold text-yellow-800 dark:text-yellow-300 mb-4">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Toss Details
+                            </h3>
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                {{-- Toss Winner --}}
+                                <div>
+                                    <label for="toss_winner_team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Toss Won By
+                                    </label>
+                                    <select name="toss_winner_team_id" id="toss_winner_team_id"
+                                        class="block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        <option value="">Not decided yet</option>
+                                        @if($match->teamA)
+                                            <option value="{{ $match->team_a_id }}" @selected(old('toss_winner_team_id', $match->toss_winner_team_id) == $match->team_a_id)>
+                                                {{ $match->teamA->name }}
+                                            </option>
+                                        @endif
+                                        @if($match->teamB)
+                                            <option value="{{ $match->team_b_id }}" @selected(old('toss_winner_team_id', $match->toss_winner_team_id) == $match->team_b_id)>
+                                                {{ $match->teamB->name }}
+                                            </option>
+                                        @endif
+                                    </select>
+                                    @error('toss_winner_team_id')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                {{-- Toss Decision --}}
+                                <div>
+                                    <label for="toss_decision" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Elected To
+                                    </label>
+                                    <select name="toss_decision" id="toss_decision"
+                                        class="block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        <option value="">Select decision</option>
+                                        <option value="bat" @selected(old('toss_decision', $match->toss_decision) == 'bat')>Bat First</option>
+                                        <option value="bowl" @selected(old('toss_decision', $match->toss_decision) == 'bowl')>Bowl First</option>
+                                    </select>
+                                    @error('toss_decision')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- Date & Time Section --}}
                         <div class="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
                             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
