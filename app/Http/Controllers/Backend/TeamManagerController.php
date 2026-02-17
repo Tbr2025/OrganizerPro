@@ -11,7 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Mail\NewPlayerAddedMail;
 
 class TeamManagerController extends Controller
 {
@@ -140,10 +142,20 @@ class TeamManagerController extends Controller
             $data['image_path'] = $request->file('photo')->store('player_images', 'public');
         }
 
-        Player::create($data);
+        $player = Player::create($data);
+
+        // Send welcome email to player if they have an email address
+        if ($player->email) {
+            try {
+                Mail::to($player->email)->send(new NewPlayerAddedMail($player, $team));
+            } catch (\Exception $e) {
+                // Log the error but don't fail the player creation
+                \Log::error('Failed to send new player email: ' . $e->getMessage());
+            }
+        }
 
         return redirect()->route('team-manager.dashboard')
-            ->with('success', 'Player created and added to your team successfully.');
+            ->with('success', 'Player created and added to your team successfully.' . ($player->email ? ' Welcome email sent.' : ''));
     }
 
     /**
