@@ -109,4 +109,18 @@ class MatchPublicController extends Controller
             'balls' => $balls,
         ]);
     }
+
+    /**
+     * Live Match Ticker Display (1920x1080 Broadcast Overlay)
+     */
+    public function liveTicker(Matches $match): View
+    {
+        $match->load([
+            'tournament',
+            'teamA.players.player',
+            'teamB.players.player',
+        ]);
+
+        return view('public.match.live-ticker', compact('match'));
+    }
 }

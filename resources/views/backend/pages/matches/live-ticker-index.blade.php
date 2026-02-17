@@ -115,12 +115,19 @@
                             </span>
                         </td>
                         <td class="px-5 py-4 text-center sm:px-6">
-                            <a href="{{ route('admin.matches.live-ticker', $match) }}"
-                               target="_blank"
-                               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors">
-                                <iconify-icon icon="lucide:tv-2" class="text-lg"></iconify-icon>
-                                {{ __('Open Ticker') }}
-                            </a>
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="{{ route('public.live-ticker', $match) }}"
+                                   target="_blank"
+                                   class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors">
+                                    <iconify-icon icon="lucide:tv-2" class="text-lg"></iconify-icon>
+                                    {{ __('Open Ticker') }}
+                                </a>
+                                <button onclick="copyPublicUrl('{{ url('/live/' . $match->id) }}')"
+                                        class="inline-flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                        title="Copy public URL">
+                                    <iconify-icon icon="lucide:copy" class="text-lg"></iconify-icon>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     @empty
@@ -142,4 +149,22 @@
         @endif
     </div>
 </div>
+
+@push('scripts')
+<script>
+function copyPublicUrl(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        // Show toast notification
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300';
+        toast.textContent = 'Public URL copied!';
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('opacity-0');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    });
+}
+</script>
+@endpush
 @endsection

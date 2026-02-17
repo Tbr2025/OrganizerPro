@@ -386,6 +386,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
 
 
+    // Live Ticker Index (must be before resource route)
+    Route::get('/matches/live-ticker', [MatchesController::class, 'liveTickerIndex'])->name('matches.live-ticker-index');
+
     Route::resource('matches', MatchesController::class);
     Route::get('/matches/{match}/state', [MatchesController::class, 'getState'])->name('matches.state');
     Route::post('/matches/{match}/switch-innings', [MatchesController::class, 'switchInnings'])->name('matches.switchInnings');
@@ -408,7 +411,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::get('/matches/{match}/scorecard', [ScorecardController::class, 'show'])->name('matches.scorecard');
 
     // Live Match Ticker (1920x1080 Broadcast Display)
-    Route::get('/matches/live-ticker', [MatchesController::class, 'liveTickerIndex'])->name('matches.live-ticker-index');
     Route::get('/matches/{match}/live-ticker', [MatchesController::class, 'liveTicker'])->name('matches.live-ticker');
 
     Route::resource('appreciations', MatchAppreciationController::class)->only(['index']);
@@ -661,7 +663,11 @@ Route::prefix('m/{match:slug}')->name('public.match.')->group(function () {
     Route::get('/poster', [MatchPublicController::class, 'poster'])->name('poster');
     Route::get('/summary', [MatchPublicController::class, 'summary'])->name('summary');
     Route::get('/scorecard', [MatchPublicController::class, 'scorecard'])->name('scorecard');
+    Route::get('/ticker', [MatchPublicController::class, 'liveTicker'])->name('ticker');
 });
+
+// Public Live Ticker by Match ID (for easy sharing)
+Route::get('/live/{match}', [MatchPublicController::class, 'liveTicker'])->name('public.live-ticker');
 
 // Public Player Dashboard
 Route::get('/player/{player}/dashboard', [PlayerDashboardController::class, 'show'])->name('public.player.dashboard');

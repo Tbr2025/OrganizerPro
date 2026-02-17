@@ -477,17 +477,11 @@ class MatchesController extends Controller
 
     /**
      * Live Match Ticker Display for Broadcasting (1920x1080)
+     * Redirects to public ticker for consistency
      */
-    public function liveTicker(Matches $match): View
+    public function liveTicker(Matches $match)
     {
-        $match->load([
-            'tournament',
-            'teamA.players.player',
-            'teamB.players.player',
-            'winner',
-        ]);
-
-        return view('backend.pages.matches.live-ticker', compact('match'));
+        return redirect()->route('public.live-ticker', $match);
     }
 
     /**
