@@ -664,13 +664,13 @@ Route::prefix('t/{tournament:slug}')->name('public.tournament.')->group(function
     Route::get('/statistics', [TournamentPublicController::class, 'statistics'])->name('statistics');
     Route::get('/teams', [TournamentPublicController::class, 'teams'])->name('teams');
 
-    // Registration
-    Route::get('/register/player', [PublicRegistrationController::class, 'playerForm'])->name('register.player');
-    Route::post('/register/player', [PublicRegistrationController::class, 'storePlayer'])->name('register.player.store');
-    Route::get('/register/player/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'player')->name('register.player.success');
-    Route::get('/register/team', [PublicRegistrationController::class, 'teamForm'])->name('register.team');
-    Route::post('/register/team', [PublicRegistrationController::class, 'storeTeam'])->name('register.team.store');
-    Route::get('/register/team/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'team')->name('register.team.success');
+    // Registration (slug-based routes)
+    Route::get('/register/player', [PublicRegistrationController::class, 'playerForm'])->name('registration.player');
+    Route::post('/register/player', [PublicRegistrationController::class, 'storePlayer'])->name('registration.player.store');
+    Route::get('/register/player/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'player')->name('registration.player.success');
+    Route::get('/register/team', [PublicRegistrationController::class, 'teamForm'])->name('registration.team');
+    Route::post('/register/team', [PublicRegistrationController::class, 'storeTeam'])->name('registration.team.store');
+    Route::get('/register/team/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'team')->name('registration.team.success');
 });
 
 // Public Match Routes (No Auth Required)
