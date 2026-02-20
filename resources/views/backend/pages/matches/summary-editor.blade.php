@@ -469,21 +469,19 @@
                             </button>
                         </form>
 
-                        <!-- Award Templates Management -->
+                        <!-- Tournament Templates Link -->
                         <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <h5 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Customize Award Templates</h5>
-                            <div class="flex flex-wrap gap-2">
-                                @foreach($tournamentAwards as $award)
-                                    <a href="{{ route('admin.awards.template.edit', $award) }}"
-                                       class="inline-flex items-center px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition">
-                                        <span class="mr-1">{{ $award->icon ?? '🏆' }}</span>
-                                        {{ $award->name }}
-                                        <svg class="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                        </svg>
-                                    </a>
-                                @endforeach
-                            </div>
+                            <h5 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Customize Poster Templates</h5>
+                            <p class="text-xs text-gray-500 dark:text-gray-500 mb-3">
+                                Design custom templates for award posters, match summaries, and more.
+                            </p>
+                            <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
+                               class="inline-flex items-center px-4 py-2 text-sm bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-medium rounded-lg transition shadow">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                                </svg>
+                                Manage Tournament Templates
+                            </a>
                         </div>
                     @endif
                 </div>

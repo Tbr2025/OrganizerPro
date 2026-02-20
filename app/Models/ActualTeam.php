@@ -11,9 +11,54 @@ class ActualTeam extends Model
         'organization_id',
         'tournament_id',
         'name',
+        'short_name',
+        'location',
         'team_logo',
-
+        'primary_color',
+        'secondary_color',
+        'sponsor_logo',
+        'captain_image',
     ];
+
+    /**
+     * Get team logo URL
+     */
+    public function getTeamLogoUrlAttribute(): ?string
+    {
+        return $this->team_logo ? asset('storage/' . $this->team_logo) : null;
+    }
+
+    /**
+     * Get sponsor logo URL
+     */
+    public function getSponsorLogoUrlAttribute(): ?string
+    {
+        return $this->sponsor_logo ? asset('storage/' . $this->sponsor_logo) : null;
+    }
+
+    /**
+     * Get captain image URL
+     */
+    public function getCaptainImageUrlAttribute(): ?string
+    {
+        return $this->captain_image ? asset('storage/' . $this->captain_image) : null;
+    }
+
+    /**
+     * Get display name (short_name or first word of name)
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->short_name ?? $this->name;
+    }
+
+    /**
+     * Get team captain (first user with captain role)
+     */
+    public function getCaptainAttribute()
+    {
+        return $this->users()->wherePivot('role', 'captain')->first();
+    }
 
     public function scopeApplyFilters(Builder $query, array $filters): Builder
     {

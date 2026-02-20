@@ -669,6 +669,37 @@
                     </svg>
                     Edit Match
                 </a>
+                {{-- Poster Template Selector --}}
+                <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-3 space-y-2">
+                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Generate Poster</label>
+                    <select id="posterTemplateSelect" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                        <option value="">Select Template</option>
+                        @php
+                            $matchTemplates = $match->tournament->templates()
+                                ->where('type', 'match_poster')
+                                ->where('is_active', true)
+                                ->orderByDesc('is_default')
+                                ->get();
+                        @endphp
+                        @forelse($matchTemplates as $template)
+                            <option value="{{ $template->id }}" {{ $template->is_default ? 'selected' : '' }}>
+                                {{ $template->name }} {{ $template->is_default ? '(Default)' : '' }}
+                            </option>
+                        @empty
+                            <option value="enhanced" selected>Enhanced Poster (Built-in)</option>
+                        @endforelse
+                        @if($matchTemplates->count() > 0)
+                            <option value="enhanced">Enhanced Poster (Built-in)</option>
+                        @endif
+                    </select>
+                    <button type="button" onclick="generatePoster()" id="generatePosterBtn"
+                       class="w-full flex items-center justify-center px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg transition text-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        Generate & Download
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1332,6 +1363,63 @@ document.getElementById('dismissalType')?.addEventListener('change', function() 
     const needsFielder = ['caught', 'run_out', 'stumped'].includes(this.value);
     document.getElementById('fielderSection').style.display = needsFielder ? 'block' : 'none';
 });
+
+// Generate poster with selected template
+function generatePoster() {
+    const templateSelect = document.getElementById('posterTemplateSelect');
+    const templateId = templateSelect.value;
+    const btn = document.getElementById('generatePosterBtn');
+
+    if (!templateId) {
+        alert('Please select a template');
+        return;
+    }
+
+    // Show loading state
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Generating...';
+    btn.disabled = true;
+
+    // Redirect to download with template parameter
+    const url = `/admin/matches/${matchId}/generate-poster?template=${templateId}`;
+
+    // Create a temporary link to trigger download
+    fetch(url, {
+        headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        return response.json().then(data => {
+            throw new Error(data.message || 'Failed to generate poster');
+        });
+    })
+    .then(blob => {
+        // Create download link
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `match-poster-${matchId}.png`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+
+        // Reset button
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(error.message || 'Failed to generate poster');
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+    });
+}
 </script>
 @endpush
 @endsection

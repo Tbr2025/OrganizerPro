@@ -35,6 +35,34 @@
         </div>
     </div>
 
+    {{-- T20 Cricket Poster Workflow Guide --}}
+    <div class="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800 p-4">
+        <h3 class="font-semibold text-emerald-800 dark:text-emerald-300 mb-3 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            T20 Cricket Poster Types
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                <span class="font-medium text-gray-900 dark:text-white">Match Poster</span>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Before match: Team vs Team announcement</p>
+            </div>
+            <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                <span class="font-medium text-gray-900 dark:text-white">Match Summary</span>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">After match: Scores and results</p>
+            </div>
+            <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                <span class="font-medium text-gray-900 dark:text-white">Award Poster</span>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Man of the Match, Best Batsman, etc.</p>
+            </div>
+            <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
+                <span class="font-medium text-gray-900 dark:text-white">Point Table</span>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Group standings and rankings</p>
+            </div>
+        </div>
+    </div>
+
     {{-- Template Type Cards --}}
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         @php

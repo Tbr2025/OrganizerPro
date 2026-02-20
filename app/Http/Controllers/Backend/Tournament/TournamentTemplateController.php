@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Backend\Tournament;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
-use App\Services\Poster\WelcomeCardPosterService;
+use App\Services\Poster\TemplateRenderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -56,6 +56,8 @@ class TournamentTemplateController extends Controller
             'type' => 'required|in:' . implode(',', TournamentTemplate::TYPES),
             'background_image' => 'nullable|image|max:5120',
             'layout_json' => 'nullable|json',
+            'canvas_width' => 'nullable|integer|min:540|max:2160',
+            'canvas_height' => 'nullable|integer|min:540|max:3840',
             'is_default' => 'boolean',
         ]);
 
@@ -112,6 +114,9 @@ class TournamentTemplateController extends Controller
             'name' => 'required|string|max:255',
             'background_image' => 'nullable|image|max:5120',
             'layout_json' => 'nullable|json',
+            'overlay_images' => 'nullable|json',
+            'canvas_width' => 'nullable|integer|min:540|max:2160',
+            'canvas_height' => 'nullable|integer|min:540|max:3840',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
         ]);
@@ -130,6 +135,11 @@ class TournamentTemplateController extends Controller
         // Parse layout JSON
         if (isset($validated['layout_json'])) {
             $validated['layout_json'] = json_decode($validated['layout_json'], true);
+        }
+
+        // Parse overlay images JSON
+        if (isset($validated['overlay_images'])) {
+            $validated['overlay_images'] = json_decode($validated['overlay_images'], true);
         }
 
         $template->update($validated);
@@ -180,20 +190,41 @@ class TournamentTemplateController extends Controller
     /**
      * Preview a template with sample data
      */
-    public function preview(Tournament $tournament, TournamentTemplate $template)
+    public function preview(Tournament $tournament, TournamentTemplate $template, Request $request)
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
 
         $previewUrl = null;
-        $sampleData = TournamentTemplate::getDefaultPlaceholders($template->type);
+        $previewError = null;
 
-        // Convert placeholders to sample data
-        $sampleData = collect($sampleData)->mapWithKeys(function ($placeholder) use ($tournament) {
-            return [$placeholder => $this->getSampleValue($placeholder, $tournament)];
-        })->toArray();
+        // Get custom data from request or use defaults
+        $renderService = new TemplateRenderService();
+        $customData = $request->only([
+            'player_name', 'jersey_name', 'jersey_number', 'team_name',
+            'team_a_name', 'team_b_name', 'team_a_score', 'team_b_score',
+            'match_date', 'match_time', 'venue', 'match_stage', 'result_summary',
+            'winner_name', 'man_of_the_match_name'
+        ]);
 
-        // Generate preview if template has background
-        if ($template->background_image) {
+        $sampleData = $renderService->getSampleData($template->type, array_filter($customData));
+
+        // Add tournament-specific data
+        $sampleData['tournament_name'] = $tournament->name;
+        if ($tournament->settings?->logo) {
+            $sampleData['tournament_logo'] = $tournament->settings->logo;
+        }
+
+        // Generate rendered preview if template has layout
+        if ($template->background_image && !empty($template->layout_json)) {
+            try {
+                $previewUrl = $renderService->renderToBase64($template, $sampleData);
+            } catch (\Exception $e) {
+                $previewError = 'Failed to render preview: ' . $e->getMessage();
+                // Fallback to just background image
+                $previewUrl = $template->background_image_url;
+            }
+        } elseif ($template->background_image) {
+            // No layout, just show background
             $previewUrl = $template->background_image_url;
         }
 
@@ -201,7 +232,8 @@ class TournamentTemplateController extends Controller
             'tournament',
             'template',
             'previewUrl',
-            'sampleData'
+            'sampleData',
+            'previewError'
         ));
     }
 
@@ -269,5 +301,124 @@ class TournamentTemplateController extends Controller
         return redirect()
             ->route('admin.tournaments.templates.edit', [$tournament, $newTemplate])
             ->with('success', 'Template duplicated successfully.');
+    }
+
+    /**
+     * Render template preview with sample data (AJAX)
+     */
+    public function renderPreview(Tournament $tournament, TournamentTemplate $template, Request $request)
+    {
+        abort_if($template->tournament_id !== $tournament->id, 404);
+
+        try {
+            $renderService = new TemplateRenderService();
+
+            // Get custom data from request or use defaults
+            $customData = $request->input('data', []);
+            $sampleData = $renderService->getSampleData($template->type, $customData);
+
+            // Add tournament-specific data
+            $sampleData['tournament_name'] = $tournament->name;
+            if ($tournament->settings?->logo) {
+                $sampleData['tournament_logo'] = $tournament->settings->logo;
+            }
+
+            // Render to base64
+            $base64Image = $renderService->renderToBase64($template, $sampleData);
+
+            return response()->json([
+                'success' => true,
+                'image' => $base64Image,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to render template: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Download rendered template
+     */
+    public function download(Tournament $tournament, TournamentTemplate $template, Request $request)
+    {
+        abort_if($template->tournament_id !== $tournament->id, 404);
+
+        try {
+            $renderService = new TemplateRenderService();
+
+            // Get custom data from request (supports both query params and nested 'data' array)
+            $customData = $request->input('data', []);
+            if (empty($customData)) {
+                $customData = $request->only([
+                    'player_name', 'jersey_name', 'jersey_number', 'team_name',
+                    'team_a_name', 'team_b_name', 'team_a_score', 'team_b_score',
+                    'match_date', 'match_time', 'venue', 'match_stage', 'result_summary',
+                    'winner_name', 'man_of_the_match_name'
+                ]);
+            }
+            $sampleData = $renderService->getSampleData($template->type, array_filter($customData));
+
+            // Add tournament-specific data
+            $sampleData['tournament_name'] = $tournament->name;
+            if ($tournament->settings?->logo) {
+                $sampleData['tournament_logo'] = $tournament->settings->logo;
+            }
+
+            // Render and save
+            $filename = 'template-' . $template->id . '-' . now()->format('Y-m-d-His') . '.png';
+            $path = $renderService->renderAndSave($template, $sampleData, $filename);
+
+            $fullPath = Storage::disk('public')->path($path);
+
+            return response()->download($fullPath, $filename, [
+                'Content-Type' => 'image/png',
+            ])->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to generate template: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Upload an overlay image for template
+     */
+    public function uploadOverlay(Tournament $tournament, Request $request)
+    {
+        $request->validate([
+            'overlay_image' => 'required|image|max:5120',
+        ]);
+
+        $path = $request->file('overlay_image')
+            ->store('tournament_templates/' . $tournament->id . '/overlays', 'public');
+
+        return response()->json([
+            'success' => true,
+            'path' => $path,
+            'url' => asset('storage/' . $path),
+        ]);
+    }
+
+    /**
+     * Delete an overlay image
+     */
+    public function deleteOverlay(Tournament $tournament, Request $request)
+    {
+        $request->validate([
+            'path' => 'required|string',
+        ]);
+
+        $path = $request->input('path');
+
+        // Security check: ensure the path belongs to this tournament
+        if (!str_contains($path, 'tournament_templates/' . $tournament->id)) {
+            return response()->json(['success' => false, 'error' => 'Invalid path'], 403);
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+
+        return response()->json(['success' => true]);
     }
 }

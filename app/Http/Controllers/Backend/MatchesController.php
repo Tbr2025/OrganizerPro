@@ -676,4 +676,352 @@ class MatchesController extends Controller
 
         return redirect()->route('admin.matches.index')->with('success', 'Match has been cancelled.');
     }
+
+    /**
+     * Download all available posters for a match as ZIP
+     * Uses tournament's custom templates if available
+     */
+    public function downloadAllPosters(Matches $match)
+    {
+        $posters = [];
+        $teamAName = \Str::slug($match->teamA?->short_name ?? $match->teamA?->name ?? 'team-a');
+        $teamBName = \Str::slug($match->teamB?->short_name ?? $match->teamB?->name ?? 'team-b');
+        $matchName = $teamAName . '-vs-' . $teamBName;
+
+        $tournament = $match->tournament;
+        $renderService = new \App\Services\Poster\TemplateRenderService();
+
+        // Prepare match data for templates
+        $matchData = $this->prepareMatchDataForTemplate($match);
+
+        // Get match poster template (default or active)
+        $matchPosterTemplate = $tournament->templates()
+            ->where('type', 'match_poster')
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->first();
+
+        // Generate match poster from template
+        if ($matchPosterTemplate && $matchPosterTemplate->background_image) {
+            try {
+                $posterPath = $renderService->renderAndSave($matchPosterTemplate, $matchData, 'match-poster-' . $match->id . '-' . time() . '.png');
+                if ($posterPath && \Storage::disk('public')->exists($posterPath)) {
+                    $posters[] = [
+                        'path' => \Storage::disk('public')->path($posterPath),
+                        'name' => $matchName . '-match-poster.png',
+                        'temp' => true,
+                        'storage_path' => $posterPath,
+                    ];
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to generate match poster from template: ' . $e->getMessage());
+            }
+        }
+
+        // Get match summary template (only if match is completed)
+        if ($match->status === 'completed') {
+            $summaryTemplate = $tournament->templates()
+                ->where('type', 'match_summary')
+                ->where('is_active', true)
+                ->orderByDesc('is_default')
+                ->first();
+
+            if ($summaryTemplate && $summaryTemplate->background_image) {
+                try {
+                    $summaryPath = $renderService->renderAndSave($summaryTemplate, $matchData, 'match-summary-' . $match->id . '-' . time() . '.png');
+                    if ($summaryPath && \Storage::disk('public')->exists($summaryPath)) {
+                        $posters[] = [
+                            'path' => \Storage::disk('public')->path($summaryPath),
+                            'name' => $matchName . '-match-summary.png',
+                            'temp' => true,
+                            'storage_path' => $summaryPath,
+                        ];
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Failed to generate summary poster from template: ' . $e->getMessage());
+                }
+            }
+        }
+
+        // Fallback to legacy poster services if no templates found
+        if (empty($posters)) {
+            // Try enhanced match poster (Kerala League style)
+            if (!$match->poster_image || !\Storage::disk('public')->exists($match->poster_image)) {
+                try {
+                    $posterService = new \App\Services\Poster\EnhancedMatchPosterService();
+                    $posterService->generate($match);
+                    $match->refresh();
+                } catch (\Exception $e) {
+                    \Log::error('Failed to generate enhanced fixture poster: ' . $e->getMessage());
+                    // Fallback to legacy poster service
+                    try {
+                        $legacyService = new \App\Services\Poster\MatchPosterService();
+                        $legacyService->generate($match);
+                        $match->refresh();
+                    } catch (\Exception $e2) {
+                        \Log::error('Failed to generate legacy fixture poster: ' . $e2->getMessage());
+                    }
+                }
+            }
+
+            if ($match->poster_image && \Storage::disk('public')->exists($match->poster_image)) {
+                $posters[] = [
+                    'path' => \Storage::disk('public')->path($match->poster_image),
+                    'name' => $matchName . '-fixture-poster.png',
+                    'temp' => false,
+                ];
+            }
+
+            // Try legacy summary poster
+            if ($match->status === 'completed') {
+                $summary = $match->summary;
+                if (!$summary) {
+                    $summary = $match->summary()->create(['highlights' => [], 'commentary' => null]);
+                }
+                if (!$summary->summary_poster || !\Storage::disk('public')->exists($summary->summary_poster)) {
+                    try {
+                        $summaryPosterService = new \App\Services\Poster\MatchSummaryPosterService();
+                        $posterPath = $summaryPosterService->generate($match);
+                        $summary->update(['summary_poster' => $posterPath]);
+                    } catch (\Exception $e) {
+                        \Log::error('Failed to generate legacy summary poster: ' . $e->getMessage());
+                    }
+                }
+                $summary->refresh();
+                if ($summary->summary_poster && \Storage::disk('public')->exists($summary->summary_poster)) {
+                    $posters[] = [
+                        'path' => \Storage::disk('public')->path($summary->summary_poster),
+                        'name' => $matchName . '-summary-poster.png',
+                        'temp' => false,
+                    ];
+                }
+            }
+        }
+
+        if (empty($posters)) {
+            return back()->with('error', 'No templates found for this tournament. Please create match_poster and match_summary templates first.');
+        }
+
+        // If only one poster, download directly
+        if (count($posters) === 1) {
+            $poster = $posters[0];
+            $response = response()->download($poster['path'], $poster['name']);
+
+            // Clean up temp file after download
+            if ($poster['temp'] ?? false) {
+                $response->deleteFileAfterSend(true);
+            }
+
+            return $response;
+        }
+
+        // Create ZIP file with all posters
+        $zipFileName = $matchName . '-posters-' . now()->format('Ymd-His') . '.zip';
+        $zipPath = storage_path('app/temp/' . $zipFileName);
+
+        // Ensure temp directory exists
+        if (!is_dir(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return back()->with('error', 'Failed to create ZIP file.');
+        }
+
+        foreach ($posters as $poster) {
+            $zip->addFile($poster['path'], $poster['name']);
+        }
+
+        $zip->close();
+
+        // Clean up temp poster files
+        foreach ($posters as $poster) {
+            if (($poster['temp'] ?? false) && isset($poster['storage_path'])) {
+                \Storage::disk('public')->delete($poster['storage_path']);
+            }
+        }
+
+        return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Generate a single poster for a match using selected template
+     */
+    public function generatePoster(Request $request, Matches $match)
+    {
+        $templateId = $request->query('template');
+        $tournament = $match->tournament;
+
+        if (!$tournament) {
+            return response()->json(['message' => 'Match has no tournament assigned'], 400);
+        }
+
+        $renderService = new \App\Services\Poster\TemplateRenderService();
+        $matchData = $this->prepareMatchDataForTemplate($match);
+
+        $teamAName = \Str::slug($match->teamA?->short_name ?? $match->teamA?->name ?? 'team-a');
+        $teamBName = \Str::slug($match->teamB?->short_name ?? $match->teamB?->name ?? 'team-b');
+        $matchName = $teamAName . '-vs-' . $teamBName;
+
+        // Handle built-in enhanced poster
+        if ($templateId === 'enhanced') {
+            try {
+                $posterService = new \App\Services\Poster\EnhancedMatchPosterService();
+                $posterPath = $posterService->generate($match);
+                $match->refresh();
+
+                if ($match->poster_image && \Storage::disk('public')->exists($match->poster_image)) {
+                    return response()->download(
+                        \Storage::disk('public')->path($match->poster_image),
+                        $matchName . '-match-poster.png'
+                    );
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to generate enhanced poster: ' . $e->getMessage());
+                return response()->json(['message' => 'Failed to generate enhanced poster: ' . $e->getMessage()], 500);
+            }
+        }
+
+        // Get template from database
+        $template = $tournament->templates()->find($templateId);
+
+        if (!$template) {
+            return response()->json(['message' => 'Template not found'], 404);
+        }
+
+        if (!$template->background_image) {
+            return response()->json(['message' => 'Template has no background image'], 400);
+        }
+
+        try {
+            $posterPath = $renderService->renderAndSave($template, $matchData, 'match-poster-' . $match->id . '-' . time() . '.png');
+
+            if ($posterPath && \Storage::disk('public')->exists($posterPath)) {
+                $response = response()->download(
+                    \Storage::disk('public')->path($posterPath),
+                    $matchName . '-match-poster.png'
+                );
+
+                // Clean up temp file after download
+                $response->deleteFileAfterSend(true);
+
+                return $response;
+            }
+
+            return response()->json(['message' => 'Failed to generate poster'], 500);
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate poster from template: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to generate poster: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Prepare match data for template rendering
+     */
+    protected function prepareMatchDataForTemplate(Matches $match): array
+    {
+        $tournament = $match->tournament;
+        $settings = $tournament?->settings;
+
+        // Get captain info for teams
+        $teamACaptain = $this->getTeamCaptain($match->teamA);
+        $teamBCaptain = $this->getTeamCaptain($match->teamB);
+
+        $data = [
+            // Tournament info
+            'tournament_name' => $tournament?->name ?? 'Tournament',
+            'tournament_logo' => $settings?->logo ?? null,
+
+            // Team A info
+            'team_a_name' => $match->teamA?->name ?? 'Team A',
+            'team_a_short_name' => $match->teamA?->short_name ?? strtoupper(substr($match->teamA?->name ?? 'TMA', 0, 3)),
+            'team_a_logo' => $match->teamA?->team_logo ?? null,
+            'team_a_location' => $match->teamA?->location ?? '',
+            'team_a_captain_name' => $teamACaptain['name'] ?? '',
+            'team_a_captain_image' => $match->teamA?->captain_image ?? $teamACaptain['image'] ?? null,
+            'team_a_sponsor_logo' => $match->teamA?->sponsor_logo ?? null,
+
+            // Team B info
+            'team_b_name' => $match->teamB?->name ?? 'Team B',
+            'team_b_short_name' => $match->teamB?->short_name ?? strtoupper(substr($match->teamB?->name ?? 'TMB', 0, 3)),
+            'team_b_logo' => $match->teamB?->team_logo ?? null,
+            'team_b_location' => $match->teamB?->location ?? '',
+            'team_b_captain_name' => $teamBCaptain['name'] ?? '',
+            'team_b_captain_image' => $match->teamB?->captain_image ?? $teamBCaptain['image'] ?? null,
+            'team_b_sponsor_logo' => $match->teamB?->sponsor_logo ?? null,
+
+            // Match info
+            'match_date' => $match->match_date ? $match->match_date->format('M d, Y') : 'TBA',
+            'match_date_day' => $match->match_date ? $match->match_date->format('d') : '',
+            'match_date_month' => $match->match_date ? strtoupper($match->match_date->format('M')) : '',
+            'match_date_weekday' => $match->match_date ? strtoupper($match->match_date->format('D')) : '',
+            'match_time' => $match->start_time ?? 'TBA',
+            'match_day' => $match->match_date ? $match->match_date->format('l') : '',
+            'venue' => $match->venue ?? $match->location ?? 'TBA',
+            'ground_name' => $match->ground?->name ?? $match->venue ?? $match->location ?? 'TBA',
+            'match_stage' => $match->stage ?? $match->round ?? 'Group Stage',
+            'match_number' => $match->match_number ?? '',
+        ];
+
+        // Add result data if match is completed
+        if ($match->status === 'completed') {
+            $result = $match->result;
+
+            $data['team_a_score'] = $result?->team_a_score ?? ($match->team_a_runs . '/' . $match->team_a_wickets);
+            $data['team_b_score'] = $result?->team_b_score ?? ($match->team_b_runs . '/' . $match->team_b_wickets);
+            $data['result_summary'] = $result?->result_text ?? $match->result_text ?? '';
+            $data['winner_name'] = $match->winner?->name ?? '';
+
+            // Man of the match
+            $summary = $match->summary;
+            if ($summary && $summary->highlights) {
+                $mom = collect($summary->highlights)->firstWhere('type', 'man_of_the_match');
+                if ($mom) {
+                    $data['man_of_the_match_name'] = $mom['player_name'] ?? '';
+                    $data['man_of_the_match_image'] = $mom['player_image'] ?? null;
+                }
+            }
+        }
+
+        // Debug: Log the data being passed
+        \Log::info('Template data for match ' . $match->id, $data);
+
+        return $data;
+    }
+
+    /**
+     * Get captain info from a team
+     */
+    protected function getTeamCaptain($team): array
+    {
+        if (!$team) {
+            return ['name' => '', 'image' => null];
+        }
+
+        // Try to find captain from team members (pivot role = captain or team_manager)
+        $captain = $team->members()
+            ->wherePivotIn('role', ['captain', 'team_manager', 'Captain', 'Team Manager'])
+            ->first();
+
+        if ($captain) {
+            // Check if user has a player profile with image
+            $player = \App\Models\Player::where('user_id', $captain->id)->first();
+            return [
+                'name' => $captain->name ?? '',
+                'image' => $player?->profile_image ?? $captain->profile_photo_path ?? null,
+            ];
+        }
+
+        // Fallback: try to get first player from team
+        $firstPlayer = $team->players()->with('player')->first();
+        if ($firstPlayer && $firstPlayer->player) {
+            return [
+                'name' => $firstPlayer->player->name ?? '',
+                'image' => $firstPlayer->player->profile_image ?? null,
+            ];
+        }
+
+        return ['name' => '', 'image' => null];
+    }
 }

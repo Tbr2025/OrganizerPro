@@ -72,12 +72,123 @@
                         </div>
 
                         {{-- Other Details --}}
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Name</label>
+                                <input type="text" id="name" name="name" value="{{ old('name', $actualTeam->name) }}"
+                                    required class="form-control mt-1">
+                                @error('name')
+                                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label for="short_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Short Name</label>
+                                <input type="text" id="short_name" name="short_name" value="{{ old('short_name', $actualTeam->short_name) }}"
+                                    class="form-control mt-1" placeholder="e.g., MCC">
+                                @error('short_name')
+                                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+
                         <div>
-                            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team
-                                Name</label>
-                            <input type="text" id="name" name="name" value="{{ old('name', $actualTeam->name) }}"
-                                required class="form-control mt-1">
-                            @error('name')
+                            <label for="location" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Location / District</label>
+                            <input type="text" id="location" name="location" value="{{ old('location', $actualTeam->location) }}"
+                                class="form-control mt-1" placeholder="e.g., Ernakulam">
+                            <p class="text-xs text-gray-500 mt-1">Displayed on match posters</p>
+                            @error('location')
+                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="primary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Primary Color</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <input type="color" id="primary_color" name="primary_color"
+                                        value="{{ old('primary_color', $actualTeam->primary_color ?? '#00BCD4') }}"
+                                        class="w-12 h-10 rounded cursor-pointer border-0">
+                                    <input type="text" id="primary_color_text"
+                                        value="{{ old('primary_color', $actualTeam->primary_color ?? '#00BCD4') }}"
+                                        class="form-control flex-1" readonly>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Used for poster background accent</p>
+                            </div>
+
+                            <div>
+                                <label for="secondary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Secondary Color</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <input type="color" id="secondary_color" name="secondary_color"
+                                        value="{{ old('secondary_color', $actualTeam->secondary_color ?? '#ffffff') }}"
+                                        class="w-12 h-10 rounded cursor-pointer border-0">
+                                    <input type="text" id="secondary_color_text"
+                                        value="{{ old('secondary_color', $actualTeam->secondary_color ?? '#ffffff') }}"
+                                        class="form-control flex-1" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Sponsor Logo Upload --}}
+                        <div x-data="{
+                            sponsorPreviewUrl: '{{ $actualTeam->sponsor_logo ? Storage::url($actualTeam->sponsor_logo) : '' }}',
+                            handleSponsorFileChange(event) {
+                                const file = event.target.files[0];
+                                if (file && file.type.startsWith('image/')) {
+                                    this.sponsorPreviewUrl = URL.createObjectURL(file);
+                                }
+                            }
+                        }">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Sponsor Logo</label>
+                            <div class="mt-2 flex items-center gap-4">
+                                <span class="inline-block h-16 w-32 rounded overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                    <template x-if="!sponsorPreviewUrl">
+                                        <span class="text-xs text-gray-400">No Logo</span>
+                                    </template>
+                                    <template x-if="sponsorPreviewUrl">
+                                        <img :src="sponsorPreviewUrl" alt="Sponsor Logo Preview" class="h-full w-full object-contain">
+                                    </template>
+                                </span>
+                                <label for="sponsor_logo" class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                    <span>Upload Sponsor Logo</span>
+                                    <input id="sponsor_logo" name="sponsor_logo" type="file" class="sr-only" @change="handleSponsorFileChange" accept="image/*">
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Displayed on match posters below team name</p>
+                            @error('sponsor_logo')
+                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Captain Image Upload --}}
+                        <div x-data="{
+                            captainPreviewUrl: '{{ $actualTeam->captain_image ? Storage::url($actualTeam->captain_image) : '' }}',
+                            handleCaptainFileChange(event) {
+                                const file = event.target.files[0];
+                                if (file && file.type.startsWith('image/')) {
+                                    this.captainPreviewUrl = URL.createObjectURL(file);
+                                }
+                            }
+                        }">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Captain / Featured Player Image</label>
+                            <div class="mt-2 flex items-center gap-4">
+                                <span class="inline-block h-24 w-20 rounded overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                    <template x-if="!captainPreviewUrl">
+                                        <svg class="h-12 w-12 text-gray-300 dark:text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                    </template>
+                                    <template x-if="captainPreviewUrl">
+                                        <img :src="captainPreviewUrl" alt="Captain Image Preview" class="h-full w-full object-cover">
+                                    </template>
+                                </span>
+                                <label for="captain_image" class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                    <span>Upload Captain Image</span>
+                                    <input id="captain_image" name="captain_image" type="file" class="sr-only" @change="handleCaptainFileChange" accept="image/*">
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Featured on match posters. Recommended: Portrait orientation, 400x500px</p>
+                            @error('captain_image')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
                         </div>
@@ -379,6 +490,26 @@
 
     @push('scripts')
         <script>
+            // Color picker sync
+            document.addEventListener('DOMContentLoaded', function() {
+                const primaryColor = document.getElementById('primary_color');
+                const primaryColorText = document.getElementById('primary_color_text');
+                const secondaryColor = document.getElementById('secondary_color');
+                const secondaryColorText = document.getElementById('secondary_color_text');
+
+                if (primaryColor && primaryColorText) {
+                    primaryColor.addEventListener('input', function() {
+                        primaryColorText.value = this.value;
+                    });
+                }
+
+                if (secondaryColor && secondaryColorText) {
+                    secondaryColor.addEventListener('input', function() {
+                        secondaryColorText.value = this.value;
+                    });
+                }
+            });
+
             // Copy to clipboard helper
             function copyToClipboard(text) {
                 navigator.clipboard.writeText(text).then(() => {

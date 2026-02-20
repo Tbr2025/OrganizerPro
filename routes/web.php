@@ -43,6 +43,7 @@ use App\Http\Controllers\Backend\PlayerVerificationController;
 use App\Http\Controllers\Backend\TeamManagerController;
 use App\Http\Controllers\PublicAuctionController;
 use App\Http\Controllers\PublicPlayerController;
+use App\Http\Controllers\PublicTournamentRegistrationController;
 use App\Http\Controllers\Backend\Tournament\TournamentSettingsController;
 use App\Http\Controllers\Backend\Tournament\TournamentRegistrationController;
 use App\Http\Controllers\Backend\Tournament\TournamentGroupController;
@@ -234,6 +235,15 @@ Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
 Route::get('/auction/{auction}/sold-players', [PublicAuctionController::class, 'soldPlayers']);
 
+// --- Public Tournament Registration Routes ---
+Route::get('/tournament/{tournament}/register', [PublicTournamentRegistrationController::class, 'showForm'])
+    ->name('public.tournament.register');
+Route::post('/tournament/{tournament}/register/player', [PublicTournamentRegistrationController::class, 'registerPlayer'])
+    ->name('public.tournament.register.player');
+Route::post('/tournament/{tournament}/register/team', [PublicTournamentRegistrationController::class, 'registerTeam'])
+    ->name('public.tournament.register.team');
+Route::get('/tournament/{tournament}/register/success', [PublicTournamentRegistrationController::class, 'success'])
+    ->name('public.tournament.registration.success');
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
 
@@ -396,6 +406,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::post('/matches/{match}/toss', [MatchesController::class, 'saveToss'])->name('matches.saveToss');
     Route::post('/matches/{match}/go-live', [MatchesController::class, 'goLive'])->name('matches.goLive');
     Route::post('/matches/{match}/cancel', [MatchesController::class, 'cancelMatch'])->name('matches.cancel');
+    Route::get('/matches/{match}/download-posters', [MatchesController::class, 'downloadAllPosters'])->name('matches.download-posters');
+    Route::get('/matches/{match}/generate-poster', [MatchesController::class, 'generatePoster'])->name('matches.generate-poster');
     Route::get('/matches/{match}/overs', [MatchesController::class, 'editOvers'])->name('overs.edit');
     Route::post('/matches/{match}/overs', [MatchesController::class, 'updateOvers'])->name('overs.update');
     Route::get('/matches/{match}/balls/create', [BallController::class, 'create'])->name('balls.create');
@@ -733,6 +745,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');
         Route::get('/templates/{template}/preview', [TournamentTemplateController::class, 'preview'])->name('templates.preview');
         Route::post('/templates/{template}/duplicate', [TournamentTemplateController::class, 'duplicate'])->name('templates.duplicate');
+        Route::post('/templates/{template}/render-preview', [TournamentTemplateController::class, 'renderPreview'])->name('templates.render-preview');
+        Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download');
+        Route::post('/templates/upload-overlay', [TournamentTemplateController::class, 'uploadOverlay'])->name('templates.upload-overlay');
+        Route::post('/templates/delete-overlay', [TournamentTemplateController::class, 'deleteOverlay'])->name('templates.delete-overlay');
 
         // Tournament Calendar (Calendar-based fixture scheduling)
         Route::get('/calendar', [TournamentCalendarController::class, 'index'])->name('calendar.index');
@@ -759,17 +775,18 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         Route::post('/summary/recalculate-statistics', [MatchSummaryController::class, 'recalculateStatistics'])->name('summary.recalculate-statistics');
     });
 
-    // Award Template Editor
-    Route::prefix('awards')->name('awards.')->group(function () {
-        Route::get('/{award}/template', [AwardTemplateController::class, 'edit'])->name('template.edit');
-        Route::put('/{award}/template', [AwardTemplateController::class, 'update'])->name('template.update');
-        Route::post('/{award}/template/ajax', [AwardTemplateController::class, 'updateAjax'])->name('template.update-ajax');
-        Route::post('/{award}/template/background', [AwardTemplateController::class, 'uploadBackground'])->name('template.upload-background');
-        Route::post('/{award}/template/icon', [AwardTemplateController::class, 'uploadIcon'])->name('template.upload-icon');
-        Route::post('/{award}/template/reset', [AwardTemplateController::class, 'resetToDefaults'])->name('template.reset');
-    });
+    // DEPRECATED: Award Template Editor - Use Tournament Templates instead
+    // All poster templates are now managed under /admin/tournaments/{tournament}/templates
+    // Route::prefix('awards')->name('awards.')->group(function () {
+    //     Route::get('/{award}/template', [AwardTemplateController::class, 'edit'])->name('template.edit');
+    //     Route::put('/{award}/template', [AwardTemplateController::class, 'update'])->name('template.update');
+    //     Route::post('/{award}/template/ajax', [AwardTemplateController::class, 'updateAjax'])->name('template.update-ajax');
+    //     Route::post('/{award}/template/background', [AwardTemplateController::class, 'uploadBackground'])->name('template.upload-background');
+    //     Route::post('/{award}/template/icon', [AwardTemplateController::class, 'uploadIcon'])->name('template.upload-icon');
+    //     Route::post('/{award}/template/reset', [AwardTemplateController::class, 'resetToDefaults'])->name('template.reset');
+    // });
 
-    // Tournament Awards Management
+    // Tournament Awards Management (Award types, not templates)
     Route::prefix('tournaments/{tournament}/awards')->name('tournaments.awards.')->group(function () {
         Route::get('/', [AwardTemplateController::class, 'index'])->name('index');
         Route::post('/', [AwardTemplateController::class, 'store'])->name('store');

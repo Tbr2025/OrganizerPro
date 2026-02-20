@@ -16,6 +16,9 @@ class TournamentTemplate extends Model
         'name',
         'background_image',
         'layout_json',
+        'overlay_images',
+        'canvas_width',
+        'canvas_height',
         'placeholders',
         'is_default',
         'is_active',
@@ -23,6 +26,7 @@ class TournamentTemplate extends Model
 
     protected $casts = [
         'layout_json' => 'array',
+        'overlay_images' => 'array',
         'placeholders' => 'array',
         'is_default' => 'boolean',
         'is_active' => 'boolean',
@@ -66,15 +70,30 @@ class TournamentTemplate extends Model
                 'bowling_style',
             ],
             self::TYPE_MATCH_POSTER => [
+                // Tournament
                 'tournament_name',
                 'tournament_logo',
+                // Team A
                 'team_a_name',
                 'team_a_short_name',
                 'team_a_logo',
+                'team_a_location',
+                'team_a_captain_name',
+                'team_a_captain_image',
+                'team_a_sponsor_logo',
+                // Team B
                 'team_b_name',
                 'team_b_short_name',
                 'team_b_logo',
+                'team_b_location',
+                'team_b_captain_name',
+                'team_b_captain_image',
+                'team_b_sponsor_logo',
+                // Match Info
                 'match_date',
+                'match_date_day',
+                'match_date_month',
+                'match_date_weekday',
                 'match_time',
                 'match_day',
                 'venue',

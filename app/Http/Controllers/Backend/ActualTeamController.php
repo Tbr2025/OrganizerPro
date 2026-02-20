@@ -11,6 +11,7 @@ use App\Models\Player;
 use App\Models\Role;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\ImageBackgroundRemovalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -465,9 +466,15 @@ class ActualTeamController extends Controller
         // 2. Validate all incoming data
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'short_name' => 'nullable|string|max:50',
+            'location' => 'nullable|string|max:100',
             'organization_id' => 'required|exists:organizations,id',
             'tournament_id' => 'required|exists:tournaments,id',
-            'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'sponsor_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'captain_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'primary_color' => 'nullable|string|max:7',
+            'secondary_color' => 'nullable|string|max:7',
         ]);
 
 
@@ -479,14 +486,31 @@ class ActualTeamController extends Controller
             $validated['team_logo'] = $request->file('team_logo')->store('team-logos', 'public');
         }
 
+        // Handle Sponsor Logo Upload
+        if ($request->hasFile('sponsor_logo')) {
+            if ($actualTeam->sponsor_logo) {
+                Storage::disk('public')->delete($actualTeam->sponsor_logo);
+            }
+            $validated['sponsor_logo'] = $request->file('sponsor_logo')->store('team-sponsors', 'public');
+        }
+
+        // Handle Captain Image Upload with background removal
+        if ($request->hasFile('captain_image')) {
+            if ($actualTeam->captain_image) {
+                Storage::disk('public')->delete($actualTeam->captain_image);
+            }
+            $captainImagePath = $request->file('captain_image')->store('team-captains', 'public');
+
+            // Try to remove background
+            $bgRemovalService = new ImageBackgroundRemovalService();
+            $processedPath = $bgRemovalService->removeBackground($captainImagePath);
+
+            $validated['captain_image'] = $processedPath ?? $captainImagePath;
+        }
+
         // 4. Update the main team details
         $actualTeam->update($validated);
 
-
-     
-
-
-      
         // 7. Redirect with a success message
         return redirect()->back()->with('success', 'Team details, roster, and player statuses updated successfully.');
     }

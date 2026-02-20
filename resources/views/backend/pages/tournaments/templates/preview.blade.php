@@ -25,21 +25,45 @@
                         Edit Template
                     </a>
                     @if($previewUrl)
-                        <a href="{{ $previewUrl }}"
-                           download="preview-{{ $template->type }}.png"
+                        <a href="{{ route('admin.tournaments.templates.download', [$tournament, $template]) }}?{{ http_build_query(request()->only(['player_name', 'jersey_name', 'jersey_number', 'team_name', 'team_a_name', 'team_b_name', 'team_a_score', 'team_b_score', 'match_date', 'match_time', 'venue'])) }}"
                            class="btn-primary">
-                            Download Preview
+                            Download HD
                         </a>
                     @endif
                 </div>
             </div>
+
+            <!-- Error Message -->
+            @if(isset($previewError) && $previewError)
+                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                        </svg>
+                        {{ $previewError }}
+                    </div>
+                </div>
+            @endif
+
+            <!-- Layout Info -->
+            @if(empty($template->layout_json))
+                <div class="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mb-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                        No layout elements configured. <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}" class="underline font-medium">Add elements to the template</a> to see a rendered preview.
+                    </div>
+                </div>
+            @endif
 
             <!-- Preview Image -->
             <div class="bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden flex items-center justify-center p-4">
                 @if($previewUrl)
                     <img src="{{ $previewUrl }}"
                          alt="Template Preview"
-                         class="max-w-full h-auto shadow-lg rounded">
+                         class="max-w-full h-auto shadow-lg rounded"
+                         id="previewImage">
                 @else
                     <div class="text-center text-gray-400 py-16">
                         <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,6 +74,13 @@
                     </div>
                 @endif
             </div>
+
+            <!-- Layout Elements Debug -->
+            @if(!empty($template->layout_json))
+                <div class="mt-4 text-xs text-gray-500">
+                    <span class="font-medium">{{ count($template->layout_json) }} elements</span> in layout
+                </div>
+            @endif
         </div>
     </div>
 
@@ -62,7 +93,7 @@
                 @foreach($sampleData as $key => $value)
                     <div class="bg-gray-50 dark:bg-gray-800 rounded p-3">
                         <div class="font-medium text-gray-600 dark:text-gray-400 text-xs uppercase mb-1">
-                            {{ '{{' . $key . '}}' }}
+                            &#123;&#123;{{ $key }}&#125;&#125;
                         </div>
                         <div class="text-gray-900 dark:text-white">
                             @if(is_array($value))

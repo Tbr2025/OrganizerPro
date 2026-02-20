@@ -5,23 +5,105 @@ namespace App\Services\Poster;
 use App\Models\Matches;
 use App\Models\MatchResult;
 use App\Models\TournamentTemplate;
+use Carbon\Carbon;
 
 class MatchSummaryPosterService extends PosterGeneratorService
 {
     protected string $outputDirectory = 'match_summaries';
     protected int $defaultWidth = 1080;
     protected int $defaultHeight = 1350;
+    protected ?TemplateRenderService $templateRenderService = null;
 
     /**
-     * Generate match summary poster
+     * Generate match summary poster - uses Tournament Template if available
      */
     public function generate($match, string $templateType = 'classic'): string
+    {
+        $tournament = $match->tournament;
+
+        // Try to use Tournament Template (match_summary type)
+        $template = $tournament?->templates()
+            ->where('type', TournamentTemplate::TYPE_MATCH_SUMMARY)
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->first();
+
+        if ($template && $template->background_image) {
+            return $this->generateFromTemplate($match, $template);
+        }
+
+        // Fallback to hardcoded rendering
+        return $this->generateLegacy($match, $templateType);
+    }
+
+    /**
+     * Generate summary poster using Tournament Template
+     */
+    protected function generateFromTemplate(Matches $match, TournamentTemplate $template): string
+    {
+        if (!$this->templateRenderService) {
+            $this->templateRenderService = new TemplateRenderService();
+        }
+
+        $result = $match->result;
+        $tournament = $match->tournament;
+        $settings = $tournament?->settings;
+
+        // Prepare data for template placeholders
+        $data = [
+            // Tournament info
+            'tournament_name' => $tournament->name ?? 'Tournament',
+            'tournament_logo' => $settings?->logo ?? null,
+
+            // Team A info
+            'team_a_name' => $match->teamA?->name ?? 'Team A',
+            'team_a_short_name' => $match->teamA?->short_name ?? strtoupper(substr($match->teamA?->name ?? 'TMA', 0, 3)),
+            'team_a_logo' => $match->teamA?->team_logo ?? null,
+            'team_a_score' => $this->formatScore($result?->team_a_score, $result?->team_a_wickets, null),
+
+            // Team B info
+            'team_b_name' => $match->teamB?->name ?? 'Team B',
+            'team_b_short_name' => $match->teamB?->short_name ?? strtoupper(substr($match->teamB?->name ?? 'TMB', 0, 3)),
+            'team_b_logo' => $match->teamB?->team_logo ?? null,
+            'team_b_score' => $this->formatScore($result?->team_b_score, $result?->team_b_wickets, null),
+
+            // Result info
+            'result_summary' => $result?->result_summary ?? '',
+            'winner_name' => $match->winner?->name ?? '',
+
+            // Match info
+            'match_date' => $match->match_date ? Carbon::parse($match->match_date)->format('d M Y') : '',
+            'match_stage' => $match->stage_display ?? $match->stage ?? 'Group Stage',
+            'venue' => $match->venue ?? $match->ground?->name ?? '',
+            'match_number' => $match->match_number ?? '',
+        ];
+
+        // Add Man of the Match if available
+        $momAward = $match->matchAwards()->whereHas('tournamentAward', function($q) {
+            $q->where('name', 'like', '%Man of the Match%')
+              ->orWhere('name', 'like', '%Player of the Match%');
+        })->with('player')->first();
+
+        if ($momAward && $momAward->player) {
+            $data['man_of_the_match_name'] = $momAward->player->name ?? '';
+            $data['man_of_the_match_image'] = $momAward->player->image_path ?? null;
+        }
+
+        // Render using template
+        $filename = 'summary-' . $match->id . '-' . time() . '.png';
+        return $this->templateRenderService->renderAndSave($template, $data, $filename);
+    }
+
+    /**
+     * Legacy hardcoded summary poster generation (fallback)
+     */
+    protected function generateLegacy(Matches $match, string $templateType = 'classic'): string
     {
         $tournament = $match->tournament;
         $result = $match->result;
         $settings = $tournament?->settings;
 
-        // Get appropriate template based on match stage
+        // Get appropriate template based on match stage (for background only)
         $template = $this->getTemplateForMatch($match);
 
         // Get colors based on template type

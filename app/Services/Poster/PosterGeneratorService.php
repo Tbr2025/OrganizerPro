@@ -64,7 +64,11 @@ abstract class PosterGeneratorService
         $fontPath = public_path('fonts/' . $fontFile);
 
         if (!file_exists($fontPath)) {
-            $fontPath = public_path('fonts/Montserrat-Medium.ttf');
+            // Fallback to Oswald-Bold or Montserrat-Medium
+            $fontPath = public_path('fonts/Oswald-Bold.ttf');
+            if (!file_exists($fontPath)) {
+                $fontPath = public_path('fonts/Montserrat-Medium.ttf');
+            }
         }
 
         $rgb = $this->hexToRgb($color);
