@@ -89,35 +89,49 @@ class ImageBackgroundRemovalService
 
     /**
      * Remove background using Python rembg library
-     * Install: pip install rembg
+     * Install: pip install rembg[cpu]
      */
     protected function removeBackgroundWithRembg(string $inputPath, string $outputPath): bool
     {
         try {
-            // Check if rembg is available
-            $checkResult = Process::run('rembg --version');
+            // Set environment variables for www-data user
+            $env = [
+                'HOME' => '/var/www',
+                'NUMBA_CACHE_DIR' => '/var/www/.cache/numba',
+                'PATH' => '/usr/local/bin:/usr/bin:/bin',
+            ];
 
-            if (!$checkResult->successful()) {
-                // Try with python -m
-                $checkResult = Process::run('python -m rembg.cli --version');
+            // Check if rembg is available
+            $checkResult = Process::env($env)->run('rembg --version 2>&1');
+
+            if (!$checkResult->successful() || !str_contains($checkResult->output(), 'rembg')) {
+                // Try with python3 -m
+                $checkResult = Process::env($env)->run('python3 -m rembg.cli --version 2>&1');
 
                 if (!$checkResult->successful()) {
-                    \Log::info('rembg not installed. Install with: pip install rembg[cli]');
+                    \Log::info('rembg not installed. Install with: pip3 install rembg[cpu]');
                     return false;
                 }
 
-                // Use python -m format
-                $result = Process::timeout(120)->run([
-                    'python', '-m', 'rembg.cli', 'i', $inputPath, $outputPath
+                // Use python3 -m format
+                $result = Process::env($env)->timeout(180)->run([
+                    'python3', '-m', 'rembg.cli', 'i', $inputPath, $outputPath
                 ]);
             } else {
                 // Use rembg directly
-                $result = Process::timeout(120)->run([
+                \Log::info('Running rembg background removal...');
+                $result = Process::env($env)->timeout(180)->run([
                     'rembg', 'i', $inputPath, $outputPath
                 ]);
             }
 
-            return $result->successful() && file_exists($outputPath);
+            if ($result->successful() && file_exists($outputPath)) {
+                \Log::info('rembg completed successfully');
+                return true;
+            }
+
+            \Log::warning('rembg failed: ' . $result->errorOutput());
+            return false;
         } catch (\Exception $e) {
             \Log::error('rembg error: ' . $e->getMessage());
             return false;
