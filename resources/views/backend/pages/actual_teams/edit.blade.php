@@ -160,6 +160,26 @@
                             @enderror
                         </div>
 
+                        {{-- Captain Selection --}}
+                        <div>
+                            <label for="captain_user_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Team Captain
+                            </label>
+                            <select id="captain_user_id" name="captain_user_id" class="form-control mt-1">
+                                <option value="">-- Select Captain --</option>
+                                @foreach($currentMembers as $member)
+                                    <option value="{{ $member->id }}"
+                                        {{ ($actualTeam->captain && $actualTeam->captain->id == $member->id) ? 'selected' : '' }}>
+                                        {{ $member->name }} ({{ $member->email }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Select the team captain from current squad members</p>
+                            @error('captain_user_id')
+                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         {{-- Captain Image Upload --}}
                         <div x-data="{
                             captainPreviewUrl: '{{ $actualTeam->captain_image ? Storage::url($actualTeam->captain_image) : '' }}',
@@ -187,7 +207,7 @@
                                     <input id="captain_image" name="captain_image" type="file" class="sr-only" @change="handleCaptainFileChange" accept="image/*">
                                 </label>
                             </div>
-                            <p class="text-xs text-gray-500 mt-1">Featured on match posters. Recommended: Portrait orientation, 400x500px</p>
+                            <p class="text-xs text-gray-500 mt-1">Featured on match posters. Recommended: Portrait orientation, 400x500px. Background will be auto-removed.</p>
                             @error('captain_image')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror

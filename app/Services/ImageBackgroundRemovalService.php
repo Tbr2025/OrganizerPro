@@ -4,12 +4,16 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Http;
 
 class ImageBackgroundRemovalService
 {
     /**
      * Remove background from an image
-     * Tries Python rembg first, falls back to GD-based removal
+     * Tries multiple methods in order:
+     * 1. Python rembg (if installed)
+     * 2. remove.bg API (if API key configured)
+     * 3. GD-based removal (fallback for simple backgrounds)
      */
     public function removeBackground(string $imagePath): ?string
     {
@@ -25,27 +29,62 @@ class ImageBackgroundRemovalService
         $outputPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '-nobg.png';
         $outputFullPath = Storage::disk('public')->path($outputPath);
 
-        // Try Python rembg first (best quality)
+        // Try Python rembg first (best quality, free)
         $result = $this->removeBackgroundWithRembg($fullPath, $outputFullPath);
-
         if ($result) {
-            // Delete original file
             Storage::disk('public')->delete($imagePath);
             \Log::info("Background removed with rembg: {$outputPath}");
             return $outputPath;
         }
 
-        // Fallback to GD-based removal
-        $result = $this->removeBackgroundWithGD($fullPath, $outputFullPath);
+        // Try remove.bg API (if configured)
+        $apiKey = config('services.removebg.api_key');
+        if ($apiKey) {
+            $result = $this->removeBackgroundWithAPI($fullPath, $outputFullPath, $apiKey);
+            if ($result) {
+                Storage::disk('public')->delete($imagePath);
+                \Log::info("Background removed with remove.bg API: {$outputPath}");
+                return $outputPath;
+            }
+        }
 
+        // Fallback to GD-based removal (works for solid color backgrounds)
+        $result = $this->removeBackgroundWithGD($fullPath, $outputFullPath);
         if ($result) {
             Storage::disk('public')->delete($imagePath);
             \Log::info("Background removed with GD: {$outputPath}");
             return $outputPath;
         }
 
-        \Log::warning("Background removal failed, keeping original image");
+        \Log::warning("Background removal failed, keeping original image: {$imagePath}");
         return null;
+    }
+
+    /**
+     * Remove background using remove.bg API
+     */
+    protected function removeBackgroundWithAPI(string $inputPath, string $outputPath, string $apiKey): bool
+    {
+        try {
+            $response = Http::timeout(60)
+                ->withHeaders(['X-Api-Key' => $apiKey])
+                ->attach('image_file', file_get_contents($inputPath), basename($inputPath))
+                ->post('https://api.remove.bg/v1.0/removebg', [
+                    'size' => 'auto',
+                    'format' => 'png',
+                ]);
+
+            if ($response->successful()) {
+                file_put_contents($outputPath, $response->body());
+                return file_exists($outputPath) && filesize($outputPath) > 0;
+            }
+
+            \Log::warning('remove.bg API error: ' . $response->body());
+            return false;
+        } catch (\Exception $e) {
+            \Log::error('remove.bg API error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -94,12 +133,19 @@ class ImageBackgroundRemovalService
         try {
             $imageInfo = @getimagesize($inputPath);
             if (!$imageInfo) {
+                \Log::warning('GD: Could not get image info');
                 return false;
             }
 
             $mime = $imageInfo['mime'];
             $width = $imageInfo[0];
             $height = $imageInfo[1];
+
+            // Skip very large images to avoid memory issues
+            if ($width * $height > 4000000) { // ~4MP limit
+                \Log::warning('GD: Image too large for background removal');
+                return false;
+            }
 
             // Load source image
             $srcImage = match ($mime) {
@@ -111,6 +157,7 @@ class ImageBackgroundRemovalService
             };
 
             if (!$srcImage) {
+                \Log::warning('GD: Could not load image');
                 return false;
             }
 
@@ -124,8 +171,21 @@ class ImageBackgroundRemovalService
             // Sample corners to detect background color
             $bgColor = $this->detectBackgroundColor($srcImage, $width, $height);
 
-            // Flood fill from corners to remove background
-            $this->floodFillRemove($srcImage, $newImage, $width, $height, $bgColor);
+            // Check if background is likely solid (white, grey, or near-white)
+            $isLikelyBackground = (
+                ($bgColor['r'] > 200 && $bgColor['g'] > 200 && $bgColor['b'] > 200) || // White/light grey
+                (abs($bgColor['r'] - $bgColor['g']) < 20 && abs($bgColor['g'] - $bgColor['b']) < 20) // Grey tones
+            );
+
+            if (!$isLikelyBackground) {
+                \Log::info('GD: Background color not suitable for removal (not white/grey)');
+                imagedestroy($srcImage);
+                imagedestroy($newImage);
+                return false;
+            }
+
+            // Use simple threshold-based removal instead of flood fill (faster)
+            $this->thresholdRemove($srcImage, $newImage, $width, $height, $bgColor);
 
             // Save as PNG
             $result = imagepng($newImage, $outputPath, 9);
@@ -139,6 +199,56 @@ class ImageBackgroundRemovalService
             \Log::error('GD background removal error: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Simple threshold-based background removal (faster than flood fill)
+     */
+    protected function thresholdRemove(\GdImage $src, \GdImage $dest, int $width, int $height, array $bgColor): void
+    {
+        $tolerance = 40;
+        $transparent = imagecolorallocatealpha($dest, 0, 0, 0, 127);
+
+        imagealphablending($dest, false);
+
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
+                $rgb = imagecolorat($src, $x, $y);
+                $r = ($rgb >> 16) & 0xFF;
+                $g = ($rgb >> 8) & 0xFF;
+                $b = $rgb & 0xFF;
+
+                // Calculate color difference from background
+                $diff = abs($r - $bgColor['r']) + abs($g - $bgColor['g']) + abs($b - $bgColor['b']);
+
+                // Check if pixel is on edge (likely background)
+                $isEdge = ($x < 5 || $x >= $width - 5 || $y < 5 || $y >= $height - 5);
+
+                // More aggressive removal on edges, less aggressive in center
+                $threshold = $isEdge ? $tolerance * 3 : $tolerance * 2;
+
+                if ($diff <= $threshold && $this->isNearWhiteOrGrey($r, $g, $b)) {
+                    imagesetpixel($dest, $x, $y, $transparent);
+                } else {
+                    $color = imagecolorallocate($dest, $r, $g, $b);
+                    imagesetpixel($dest, $x, $y, $color);
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if color is white, near-white, or grey
+     */
+    protected function isNearWhiteOrGrey(int $r, int $g, int $b): bool
+    {
+        // Check if it's a grey tone (R, G, B are similar)
+        $isGrey = abs($r - $g) < 30 && abs($g - $b) < 30 && abs($r - $b) < 30;
+
+        // Check if it's light colored
+        $isLight = ($r + $g + $b) / 3 > 180;
+
+        return $isGrey && $isLight;
     }
 
     /**

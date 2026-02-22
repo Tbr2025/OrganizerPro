@@ -475,6 +475,7 @@ class ActualTeamController extends Controller
             'captain_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
             'primary_color' => 'nullable|string|max:7',
             'secondary_color' => 'nullable|string|max:7',
+            'captain_user_id' => 'nullable|exists:users,id',
         ]);
 
 
@@ -508,10 +509,45 @@ class ActualTeamController extends Controller
             $validated['captain_image'] = $processedPath ?? $captainImagePath;
         }
 
-        // 4. Update the main team details
-        $actualTeam->update($validated);
+        // 4. Update the main team details (exclude captain_user_id as it's not a column)
+        $teamData = collect($validated)->except('captain_user_id')->toArray();
+        $actualTeam->update($teamData);
 
-        // 7. Redirect with a success message
+        // 5. Handle Captain Assignment
+        if ($request->filled('captain_user_id')) {
+            $captainUserId = $request->captain_user_id;
+
+            // Remove captain role from all current members
+            DB::table('actual_team_users')
+                ->where('actual_team_id', $actualTeam->id)
+                ->where('role', 'captain')
+                ->update(['role' => 'Player']);
+
+            // Set the selected user as captain
+            $existingMember = DB::table('actual_team_users')
+                ->where('actual_team_id', $actualTeam->id)
+                ->where('user_id', $captainUserId)
+                ->first();
+
+            if ($existingMember) {
+                // Update existing member to captain
+                DB::table('actual_team_users')
+                    ->where('actual_team_id', $actualTeam->id)
+                    ->where('user_id', $captainUserId)
+                    ->update(['role' => 'captain', 'updated_at' => now()]);
+            } else {
+                // Add user as captain if not already a member
+                DB::table('actual_team_users')->insert([
+                    'actual_team_id' => $actualTeam->id,
+                    'user_id' => $captainUserId,
+                    'role' => 'captain',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        // 6. Redirect with a success message
         return redirect()->back()->with('success', 'Team details, roster, and player statuses updated successfully.');
     }
 
