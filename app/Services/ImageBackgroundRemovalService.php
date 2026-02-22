@@ -98,6 +98,7 @@ class ImageBackgroundRemovalService
             $env = [
                 'HOME' => '/var/www',
                 'NUMBA_CACHE_DIR' => '/var/www/.cache/numba',
+                'U2NET_HOME' => '/var/www/.u2net',
                 'PATH' => '/usr/local/bin:/usr/bin:/bin',
             ];
 
