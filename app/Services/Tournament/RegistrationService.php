@@ -211,6 +211,11 @@ class RegistrationService
      */
     public function isRegistrationOpen(Tournament $tournament): bool
     {
+        // If tournament status is 'registration', allow registration
+        if ($tournament->status === 'registration') {
+            return true;
+        }
+
         $settings = $tournament->settings;
 
         if (!$settings) {
@@ -225,6 +230,19 @@ class RegistrationService
      */
     public function isPlayerRegistrationOpen(Tournament $tournament): bool
     {
+        // If tournament status is 'registration', allow registration
+        if ($tournament->status === 'registration') {
+            $settings = $tournament->settings;
+
+            // Only check deadline if settings exist
+            if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // Otherwise check settings
         $settings = $tournament->settings;
 
         if (!$settings) {
@@ -243,6 +261,19 @@ class RegistrationService
      */
     public function isTeamRegistrationOpen(Tournament $tournament): bool
     {
+        // If tournament status is 'registration', allow registration
+        if ($tournament->status === 'registration') {
+            $settings = $tournament->settings;
+
+            // Only check deadline if settings exist
+            if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // Otherwise check settings
         $settings = $tournament->settings;
 
         if (!$settings) {
