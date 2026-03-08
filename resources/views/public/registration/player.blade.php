@@ -64,10 +64,11 @@
                     <div>
                         <label for="player_type_id" class="block text-sm font-medium mb-2">Player Type</label>
                         <select name="player_type_id" id="player_type_id"
-                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                            <option value="">Select player type</option>
+                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                                style="color: white;">
+                            <option value="" style="background-color: #374151; color: white;">Select player type</option>
                             @foreach($playerTypes as $type)
-                                <option value="{{ $type->id }}" {{ old('player_type_id') == $type->id ? 'selected' : '' }}>
+                                <option value="{{ $type->id }}" style="background-color: #374151; color: white;" {{ old('player_type_id') == $type->id ? 'selected' : '' }}>
                                     {{ $type->name }}
                                 </option>
                             @endforeach
@@ -83,10 +84,11 @@
                     <div>
                         <label for="batting_profile_id" class="block text-sm font-medium mb-2">Batting Style</label>
                         <select name="batting_profile_id" id="batting_profile_id"
-                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                            <option value="">Select batting style</option>
+                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                                style="color: white;">
+                            <option value="" style="background-color: #374151; color: white;">Select batting style</option>
                             @foreach($battingProfiles as $profile)
-                                <option value="{{ $profile->id }}" {{ old('batting_profile_id') == $profile->id ? 'selected' : '' }}>
+                                <option value="{{ $profile->id }}" style="background-color: #374151; color: white;" {{ old('batting_profile_id') == $profile->id ? 'selected' : '' }}>
                                     {{ $profile->name }}
                                 </option>
                             @endforeach
@@ -102,10 +104,11 @@
                     <div>
                         <label for="bowling_profile_id" class="block text-sm font-medium mb-2">Bowling Style</label>
                         <select name="bowling_profile_id" id="bowling_profile_id"
-                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                            <option value="">Select bowling style</option>
+                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                                style="color: white;">
+                            <option value="" style="background-color: #374151; color: white;">Select bowling style</option>
                             @foreach($bowlingProfiles as $profile)
-                                <option value="{{ $profile->id }}" {{ old('bowling_profile_id') == $profile->id ? 'selected' : '' }}>
+                                <option value="{{ $profile->id }}" style="background-color: #374151; color: white;" {{ old('bowling_profile_id') == $profile->id ? 'selected' : '' }}>
                                     {{ $profile->name }}
                                 </option>
                             @endforeach
