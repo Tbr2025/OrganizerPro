@@ -112,11 +112,26 @@
                 {{-- End Date --}}
                 <div>
                     <label for="end_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
-                    <input type="text" name="end_date" id="end_date" 
+                    <input type="text" name="end_date" id="end_date"
                         value="{{ old('end_date', $tournament->end_date->format('Y-m-d')) }}" required
                         placeholder="Select end date"
                         class="flatpickr-input mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     @error('end_date')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Status --}}
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                    <select id="status" name="status" class="mt-1 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <option value="draft" {{ old('status', $tournament->status) == 'draft' ? 'selected' : '' }}>Draft</option>
+                        <option value="registration" {{ old('status', $tournament->status) == 'registration' ? 'selected' : '' }}>Registration Open</option>
+                        <option value="active" {{ old('status', $tournament->status) == 'active' ? 'selected' : '' }}>Active/Ongoing</option>
+                        <option value="completed" {{ old('status', $tournament->status) == 'completed' ? 'selected' : '' }}>Completed</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Current status: <span class="font-medium">{{ ucfirst($tournament->status) }}</span></p>
+                    @error('status')
                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                     @enderror
                 </div>

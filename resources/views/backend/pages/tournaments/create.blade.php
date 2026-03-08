@@ -86,7 +86,20 @@
                     @enderror
                 </div>
 
-
+                {{-- Status --}}
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                    <select id="status" name="status" class="mt-1 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <option value="draft" {{ old('status', 'draft') == 'draft' ? 'selected' : '' }}>Draft</option>
+                        <option value="registration" {{ old('status') == 'registration' ? 'selected' : '' }}>Registration Open</option>
+                        <option value="active" {{ old('status') == 'active' ? 'selected' : '' }}>Active/Ongoing</option>
+                        <option value="completed" {{ old('status') == 'completed' ? 'selected' : '' }}>Completed</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Set the current status of the tournament</p>
+                    @error('status')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
 
                 {{-- Actions --}}
                 <div class="flex items-center justify-end space-x-3 pt-4">

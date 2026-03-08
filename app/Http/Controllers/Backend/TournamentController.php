@@ -251,11 +251,17 @@ class TournamentController extends Controller
             'start_date'     => 'required|date|after_or_equal:today',
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
+            'status'         => 'nullable|in:draft,registration,active,completed',
         ]);
 
         // Handle empty zone_id
         if (empty($validated['zone_id'])) {
             $validated['zone_id'] = null;
+        }
+
+        // Default status to draft if not provided
+        if (empty($validated['status'])) {
+            $validated['status'] = 'draft';
         }
 
         Tournament::create($validated);
@@ -300,9 +306,10 @@ class TournamentController extends Controller
             'zone_id'        => 'nullable|exists:zones,id',
             'name'           => 'required|string|max:255',
             'logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'start_date'     => 'required|date|after_or_equal:today',
+            'start_date'     => 'required|date',
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
+            'status'         => 'nullable|in:draft,registration,active,completed',
         ]);
 
         // Handle empty zone_id
