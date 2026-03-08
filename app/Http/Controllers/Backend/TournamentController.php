@@ -114,6 +114,14 @@ class TournamentController extends Controller
     }
 
     /**
+     * Show tournament - redirects to dashboard
+     */
+    public function show(Tournament $tournament)
+    {
+        return redirect()->route('admin.tournaments.dashboard', $tournament);
+    }
+
+    /**
      * Show tournament dashboard - central hub for managing a tournament
      */
     public function dashboard(Tournament $tournament)

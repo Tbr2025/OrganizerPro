@@ -43,7 +43,7 @@
 @section('admin-content')
 <x-breadcrumbs :breadcrumbs="[
     ['name' => 'Tournaments', 'route' => route('admin.tournaments.index')],
-    ['name' => $tournament->name, 'route' => route('admin.tournaments.show', $tournament)],
+    ['name' => $tournament->name, 'route' => route('admin.tournaments.dashboard', $tournament)],
     ['name' => 'Templates', 'route' => route('admin.tournaments.templates.index', $tournament)],
     ['name' => 'Edit: ' . $template->name]
 ]" />
