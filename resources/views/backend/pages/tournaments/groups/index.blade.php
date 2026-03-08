@@ -55,8 +55,8 @@
                                 @foreach($group->teams as $team)
                                     <li class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                         <div class="flex items-center">
-                                            @if($team->logo)
-                                                <img src="{{ Storage::url($team->logo) }}" alt="{{ $team->name }}" class="w-8 h-8 rounded-full mr-2 object-cover">
+                                            @if($team->team_logo)
+                                                <img src="{{ Storage::url($team->team_logo) }}" alt="{{ $team->name }}" class="w-8 h-8 rounded-full mr-2 object-cover">
                                             @else
                                                 <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 mr-2 flex items-center justify-center text-xs font-bold">
                                                     {{ strtoupper(substr($team->name, 0, 2)) }}

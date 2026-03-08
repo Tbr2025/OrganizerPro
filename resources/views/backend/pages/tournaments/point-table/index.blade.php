@@ -86,8 +86,8 @@
                                         <td class="px-4 py-3 text-sm text-gray-500">{{ $index + 1 }}</td>
                                         <td class="px-4 py-3">
                                             <div class="flex items-center">
-                                                @if($entry->team?->logo)
-                                                    <img src="{{ Storage::url($entry->team->logo) }}" alt="{{ $entry->team->name }}" class="w-8 h-8 rounded-full mr-2 object-cover">
+                                                @if($entry->team?->team_logo)
+                                                    <img src="{{ Storage::url($entry->team->team_logo) }}" alt="{{ $entry->team->name }}" class="w-8 h-8 rounded-full mr-2 object-cover">
                                                 @else
                                                     <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 mr-2 flex items-center justify-center text-xs font-bold">
                                                         {{ strtoupper(substr($entry->team?->name ?? 'T', 0, 2)) }}

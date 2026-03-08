@@ -131,4 +131,14 @@ class ActualTeam extends Model
             ->withPivot('role')
             ->withTimestamps();
     }
+
+    /**
+     * Get the tournament groups this team belongs to
+     */
+    public function groups()
+    {
+        return $this->belongsToMany(TournamentGroup::class, 'tournament_group_teams')
+            ->withPivot('order')
+            ->withTimestamps();
+    }
 }
