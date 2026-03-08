@@ -38,10 +38,13 @@ class TournamentTemplateController extends Controller
     {
         $type = $request->get('type', TournamentTemplate::TYPE_WELCOME_CARD);
         $placeholders = TournamentTemplate::getDefaultPlaceholders($type);
+        $template = null; // No existing template for create
 
-        return view('backend.pages.tournaments.templates.create', compact(
+        // Use the new Fabric.js editor
+        return view('backend.pages.tournaments.templates.editor', compact(
             'tournament',
             'type',
+            'template',
             'placeholders'
         ));
     }
@@ -94,11 +97,14 @@ class TournamentTemplateController extends Controller
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
 
+        $type = $template->type;
         $placeholders = TournamentTemplate::getDefaultPlaceholders($template->type);
 
-        return view('backend.pages.tournaments.templates.edit', compact(
+        // Use the new Fabric.js editor
+        return view('backend.pages.tournaments.templates.editor', compact(
             'tournament',
             'template',
+            'type',
             'placeholders'
         ));
     }

@@ -34,3 +34,5 @@ venv/
 *.zip
 # Exclude release builds
 /releases
+database_backup.sql
+nul

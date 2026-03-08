@@ -9,7 +9,17 @@
       "Bash(php artisan:*)",
       "WebFetch(domain:superplayerauction.com)",
       "Bash(ls -la \"D:\\\\Navas\\\\Client\\\\Salih Muahammad\\\\OrganizerPro\\\\resources\\\\views\\\\public\\\\auction\"\" 2>/dev/null || echo \"Directory may not exist or is empty \")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(dir:*)",
+      "Bash(ssh:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(powershell -command \"\\(Get-Item database_backup.sql\\).Length / 1MB\")",
+      "Bash(scp:*)",
+      "Bash(php:*)",
+      "Bash(icacls:*)",
+      "Bash(cd /d D:NavasClientSalih MuahammadOrganizerPro)",
+      "Bash(cd:*)"
     ]
   }
 }
