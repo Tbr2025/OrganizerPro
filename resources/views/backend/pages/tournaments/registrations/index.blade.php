@@ -23,7 +23,7 @@
                             <p class="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Player Registration</p>
                             <input type="text"
                                    readonly
-                                   value="{{ route('public.tournament.register.player', $tournament->slug) }}"
+                                   value="{{ route('public.tournament.registration.player', $tournament->slug) }}"
                                    class="w-full text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1 text-gray-600 dark:text-gray-400"
                                    id="player-reg-link">
                         </div>
@@ -40,7 +40,7 @@
                             <p class="text-xs font-medium text-purple-700 dark:text-purple-300 mb-1">Team Registration</p>
                             <input type="text"
                                    readonly
-                                   value="{{ route('public.tournament.register.team', $tournament->slug) }}"
+                                   value="{{ route('public.tournament.registration.team', $tournament->slug) }}"
                                    class="w-full text-xs bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded px-2 py-1 text-gray-600 dark:text-gray-400"
                                    id="team-reg-link">
                         </div>

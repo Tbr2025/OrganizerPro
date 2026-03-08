@@ -12,7 +12,7 @@
             </div>
 
             {{-- Form --}}
-            <form method="POST" action="{{ route('public.tournament.register.player.store', $tournament->slug) }}" class="p-6 space-y-6">
+            <form method="POST" action="{{ route('public.tournament.registration.player.store', $tournament->slug) }}" class="p-6 space-y-6">
                 @csrf
 
                 {{-- Name --}}

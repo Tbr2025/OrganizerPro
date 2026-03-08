@@ -5,39 +5,67 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\Tournament;
+use App\Models\TournamentRegistration;
 use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TournamentController extends Controller
 {
-    public function index(Request $request) // <-- Inject the Request object
+    public function index(Request $request)
     {
-        // 1. Get the currently authenticated user
         $user = Auth::user();
 
-        // 2. Start building the Tournament query and eager-load relationships
-        $query = Tournament::with(['organization', 'zone']);
+        // Base query with eager loading for stats
+        $baseQuery = Tournament::with(['organization', 'zone', 'settings']);
 
-        // 3. Apply role-based scoping (filter by organization if not Superadmin)
+        // Apply role-based scoping
         if (!$user->hasRole('Superadmin')) {
             if ($user->organization_id) {
-                $query->where('organization_id', $user->organization_id);
+                $baseQuery->where('organization_id', $user->organization_id);
             } else {
-                $query->whereRaw('1 = 0'); // Return no results if no org assigned
+                $baseQuery->whereRaw('1 = 0');
             }
         }
 
-        // **THIS IS THE NEW CODE FOR THE SEARCH FEATURE**
-        // 4. Apply search filter if a search term is provided in the request
+        // Get stats counts for dashboard (before filtering)
+        $statsQuery = clone $baseQuery;
+        $stats = [
+            'total' => (clone $statsQuery)->count(),
+            'draft' => (clone $statsQuery)->where('status', 'draft')->count(),
+            'registration' => (clone $statsQuery)->where('status', 'registration')->count(),
+            'ongoing' => (clone $statsQuery)->whereIn('status', ['ongoing', 'active'])->count(),
+            'completed' => (clone $statsQuery)->where('status', 'completed')->count(),
+        ];
+
+        // Get total pending registrations across all tournaments
+        $tournamentIds = (clone $statsQuery)->pluck('id');
+        $stats['pending_registrations'] = TournamentRegistration::whereIn('tournament_id', $tournamentIds)
+            ->where('status', 'pending')
+            ->count();
+
+        // Clone for main query
+        $query = clone $baseQuery;
+
+        // Apply status filter
+        $statusFilter = $request->input('status');
+        if ($statusFilter && $statusFilter !== 'all') {
+            if ($statusFilter === 'ongoing') {
+                $query->whereIn('status', ['ongoing', 'active']);
+            } else {
+                $query->where('status', $statusFilter);
+            }
+        }
+
+        // Apply search filter
         $searchTerm = $request->input('search');
         if ($searchTerm) {
-            $query->where(function ($q) use ($searchTerm) {
+            $query->where(function ($q) use ($searchTerm, $user) {
                 $q->where('name', 'like', '%' . $searchTerm . '%')
                     ->orWhere('location', 'like', '%' . $searchTerm . '%');
 
-                // If the user is a Superadmin, they can also search by organization name
-                if (Auth::user()->hasRole('Superadmin')) {
+                if ($user->hasRole('Superadmin')) {
                     $q->orWhereHas('organization', function ($orgQuery) use ($searchTerm) {
                         $orgQuery->where('name', 'like', '%' . $searchTerm . '%');
                     });
@@ -45,14 +73,109 @@ class TournamentController extends Controller
             });
         }
 
-        // 5. Execute the final query and paginate the results
-        $tournaments = $query->latest()->paginate(10);
+        // Load additional relationships for enhanced cards
+        $query->with([
+            'settings',
+            'champion',
+            'runnerUp',
+            'registrations' => function ($q) {
+                $q->where('status', 'pending');
+            },
+        ])
+        ->withCount([
+            'matches',
+            'matches as completed_matches_count' => function ($q) {
+                $q->where('status', 'completed');
+            },
+            'registrations as pending_registrations_count' => function ($q) {
+                $q->where('status', 'pending');
+            },
+        ]);
 
-        // 6. Return the view with the correctly scoped and filtered data
+        // Get teams count via groups
+        $tournaments = $query->latest()->paginate(12);
+
+        // Append teams count for each tournament
+        foreach ($tournaments as $tournament) {
+            $tournament->teams_count = DB::table('tournament_group_teams')
+                ->join('tournament_groups', 'tournament_group_teams.tournament_group_id', '=', 'tournament_groups.id')
+                ->where('tournament_groups.tournament_id', $tournament->id)
+                ->count();
+        }
+
         return view('backend.pages.tournaments.index', [
             'tournaments' => $tournaments,
+            'stats' => $stats,
+            'currentStatus' => $statusFilter ?? 'all',
             'breadcrumbs' => [
                 'title' => __('Tournaments'),
+            ],
+        ]);
+    }
+
+    /**
+     * Show tournament dashboard - central hub for managing a tournament
+     */
+    public function dashboard(Tournament $tournament)
+    {
+        $tournament->load([
+            'settings',
+            'organization',
+            'zone',
+            'champion',
+            'runnerUp',
+            'groups.teams',
+        ]);
+
+        // Get various counts and stats
+        $stats = [
+            'teams_count' => DB::table('tournament_group_teams')
+                ->join('tournament_groups', 'tournament_group_teams.tournament_group_id', '=', 'tournament_groups.id')
+                ->where('tournament_groups.tournament_id', $tournament->id)
+                ->count(),
+            'groups_count' => $tournament->groups()->count(),
+            'total_matches' => $tournament->matches()->count(),
+            'completed_matches' => $tournament->matches()->where('status', 'completed')->count(),
+            'upcoming_matches' => $tournament->matches()->where('status', 'upcoming')->count(),
+            'live_matches' => $tournament->matches()->where('status', 'live')->count(),
+            'pending_registrations' => $tournament->registrations()->where('status', 'pending')->count(),
+            'approved_registrations' => $tournament->registrations()->where('status', 'approved')->count(),
+            'unscheduled_matches' => $tournament->matches()->whereNull('match_date')->count(),
+        ];
+
+        // Get recent activity (last 5 matches with results)
+        $recentMatches = $tournament->matches()
+            ->with(['teamA', 'teamB', 'winner'])
+            ->where('status', 'completed')
+            ->orderByDesc('match_date')
+            ->limit(5)
+            ->get();
+
+        // Get upcoming matches (next 5)
+        $upcomingMatches = $tournament->matches()
+            ->with(['teamA', 'teamB', 'ground'])
+            ->where('status', 'upcoming')
+            ->whereNotNull('match_date')
+            ->orderBy('match_date')
+            ->limit(5)
+            ->get();
+
+        // Get pending registrations
+        $pendingRegistrations = $tournament->registrations()
+            ->where('status', 'pending')
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        return view('backend.pages.tournaments.dashboard', [
+            'tournament' => $tournament,
+            'stats' => $stats,
+            'recentMatches' => $recentMatches,
+            'upcomingMatches' => $upcomingMatches,
+            'pendingRegistrations' => $pendingRegistrations,
+            'breadcrumbs' => [
+                ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
+                ['label' => $tournament->name],
             ],
         ]);
     }

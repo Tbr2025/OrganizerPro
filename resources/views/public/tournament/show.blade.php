@@ -167,14 +167,14 @@
                 @if($tournament->status === 'registration')
                     <div class="flex flex-wrap gap-4 justify-center mb-10">
                         @if($settings?->player_registration_enabled)
-                            <a href="{{ route('public.tournament.register.player', $tournament->slug) }}"
+                            <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
                                class="group px-8 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-bold text-lg rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center">
                                 <i class="fas fa-user-plus mr-3 group-hover:animate-bounce"></i>
                                 Register as Player
                             </a>
                         @endif
                         @if($settings?->team_registration_enabled)
-                            <a href="{{ route('public.tournament.register.team', $tournament->slug) }}"
+                            <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
                                class="group px-8 py-4 bg-white/10 backdrop-blur border-2 border-white/30 text-white font-bold text-lg rounded-xl transition-all transform hover:scale-105 hover:bg-white/20 hover:shadow-2xl flex items-center">
                                 <i class="fas fa-users mr-3 group-hover:animate-bounce"></i>
                                 Register Team

@@ -12,7 +12,7 @@
             </div>
 
             {{-- Form --}}
-            <form method="POST" action="{{ route('public.tournament.register.team.store', $tournament->slug) }}"
+            <form method="POST" action="{{ route('public.tournament.registration.team.store', $tournament->slug) }}"
                   enctype="multipart/form-data" class="p-6 space-y-6">
                 @csrf
 

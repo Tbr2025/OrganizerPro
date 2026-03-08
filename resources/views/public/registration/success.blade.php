@@ -50,8 +50,8 @@
                 @php
                     $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
                     $registrationUrl = $type === 'player'
-                        ? route('public.tournament.register.player', $tournament->slug)
-                        : route('public.tournament.register.team', $tournament->slug);
+                        ? route('public.tournament.registration.player', $tournament->slug)
+                        : route('public.tournament.registration.team', $tournament->slug);
                     $shareMessage = $whatsappService->getRegistrationShareMessage($tournament, $type);
                 @endphp
                 <x-share-buttons

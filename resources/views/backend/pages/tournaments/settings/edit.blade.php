@@ -124,7 +124,7 @@
                         <div class="space-y-2">
                             @if($settings->player_registration_open)
                             <div class="flex items-center gap-2">
-                                <input type="text" readonly value="{{ route('public.tournament.register.player', $tournament->slug) }}"
+                                <input type="text" readonly value="{{ route('public.tournament.registration.player', $tournament->slug) }}"
                                     class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5"
                                     id="player-link">
                                 <button type="button" onclick="copyLink('player-link')" class="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded">Copy</button>
@@ -132,7 +132,7 @@
                             @endif
                             @if($settings->team_registration_open)
                             <div class="flex items-center gap-2">
-                                <input type="text" readonly value="{{ route('public.tournament.register.team', $tournament->slug) }}"
+                                <input type="text" readonly value="{{ route('public.tournament.registration.team', $tournament->slug) }}"
                                     class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5"
                                     id="team-link">
                                 <button type="button" onclick="copyLink('team-link')" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded">Copy</button>

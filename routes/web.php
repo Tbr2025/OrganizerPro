@@ -58,6 +58,7 @@ use App\Http\Controllers\Backend\PointTableController;
 use App\Http\Controllers\Public\TournamentPublicController;
 use App\Http\Controllers\Public\RegistrationController as PublicRegistrationController;
 use App\Http\Controllers\Public\MatchPublicController;
+use App\Http\Controllers\Public\TournamentsListController;
 use App\Http\Controllers\Public\PlayerDashboardController;
 use App\Models\Organization;
 use App\Models\Player;
@@ -223,6 +224,10 @@ Route::middleware(['auth'])
     });
 
 
+// --- Public Tournaments List ---
+Route::get('/tournaments', [TournamentsListController::class, 'index'])
+    ->name('public.tournaments.index');
+
 // --- Public Display Route ---
 Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPublicDisplay'])
     ->name('public.auction.live');
@@ -381,6 +386,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     // Route::delete('/teams/{team}/players/{player}', [TeamPlayerController::class, 'destroy'])->name('teams.removePlayer');
 
     Route::resource('tournaments', TournamentController::class);
+    Route::get('/tournaments/{tournament}/dashboard', [TournamentController::class, 'dashboard'])->name('tournaments.dashboard');
     Route::post('/players/{player}/intimate', [PlayerController::class, 'intimate'])->name('players.intimate');
     Route::post('/players/save-image', [PlayerController::class, 'saveImage'])->name('players.saveImage');
     Route::get('/players/{player}/image-editor', [PlayerController::class, 'editor'])
