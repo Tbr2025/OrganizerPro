@@ -14,8 +14,26 @@ class TournamentTemplateController extends Controller
     /**
      * Display list of templates for a tournament
      */
-    public function index(Tournament $tournament)
+    public function index(Tournament $tournament, Request $request)
     {
+        // Handle AJAX request for templates by type
+        if ($request->ajax() || $request->has('ajax')) {
+            $type = $request->get('type');
+            $templates = $tournament->templates()
+                ->when($type, fn($q) => $q->where('type', $type))
+                ->orderByDesc('is_default')
+                ->get()
+                ->map(fn($t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'type' => $t->type,
+                    'is_default' => $t->is_default,
+                    'background_image_url' => $t->background_image_url,
+                ]);
+
+            return response()->json(['templates' => $templates]);
+        }
+
         $templates = $tournament->templates()
             ->orderBy('type')
             ->orderByDesc('is_default')
@@ -29,6 +47,90 @@ class TournamentTemplateController extends Controller
             'templates',
             'templateTypes'
         ));
+    }
+
+    /**
+     * Show generate poster page with data selection
+     */
+    public function generate(Tournament $tournament, Request $request)
+    {
+        $type = $request->get('type', TournamentTemplate::TYPE_MATCH_POSTER);
+
+        // Load templates for selected type
+        $templates = $tournament->templates()
+            ->where('type', $type)
+            ->orderByDesc('is_default')
+            ->get();
+
+        // Load matches
+        $matches = $tournament->matches()
+            ->with(['teamA', 'teamB', 'ground', 'winner'])
+            ->orderBy('match_date')
+            ->get();
+
+        $completedMatches = $matches->where('status', 'completed');
+
+        // Load registered players
+        $players = $tournament->registrations()
+            ->where('status', 'approved')
+            ->with(['team', 'playerType', 'battingProfile', 'bowlingProfile'])
+            ->get();
+
+        return view('backend.pages.tournaments.templates.generate', compact(
+            'tournament',
+            'type',
+            'templates',
+            'matches',
+            'completedMatches',
+            'players'
+        ));
+    }
+
+    /**
+     * Generate poster preview with actual data (AJAX)
+     */
+    public function generatePreview(Tournament $tournament, Request $request)
+    {
+        try {
+            $templateId = $request->input('template_id');
+            $template = TournamentTemplate::findOrFail($templateId);
+
+            abort_if($template->tournament_id !== $tournament->id, 404);
+
+            $renderService = new TemplateRenderService();
+
+            // Build data from request
+            $data = $request->only([
+                'player_name', 'jersey_number', 'team_name', 'player_image', 'player_type',
+                'batting_style', 'bowling_style', 'team_logo',
+                'team_a_name', 'team_b_name', 'team_a_logo', 'team_b_logo',
+                'team_a_score', 'team_b_score', 'winner_name',
+                'match_date', 'match_time', 'venue', 'match_stage',
+                'award_name', 'man_of_the_match_name', 'man_of_the_match_image'
+            ]);
+
+            // Add tournament info
+            $data['tournament_name'] = $tournament->name;
+            if ($tournament->settings?->logo) {
+                $data['tournament_logo'] = $tournament->settings->logo;
+            }
+
+            // Filter empty values
+            $data = array_filter($data);
+
+            // Render to base64
+            $base64Image = $renderService->renderToBase64($template, $data);
+
+            return response()->json([
+                'success' => true,
+                'image' => $base64Image,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
