@@ -58,7 +58,7 @@ class TournamentFixtureController extends Controller
                 'title' => __('Fixtures'),
                 'items' => [
                     ['label' => __('Tournaments'), 'url' => route('admin.tournaments.index')],
-                    ['label' => $tournament->name, 'url' => route('admin.tournaments.show', $tournament)],
+                    ['label' => $tournament->name, 'url' => route('admin.tournaments.dashboard', $tournament)],
                 ],
             ],
         ]);

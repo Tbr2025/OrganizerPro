@@ -31,7 +31,7 @@ class TournamentSettingsController extends Controller
                 'title' => __('Tournament Settings'),
                 'items' => [
                     ['label' => __('Tournaments'), 'url' => route('admin.tournaments.index')],
-                    ['label' => $tournament->name, 'url' => route('admin.tournaments.show', $tournament)],
+                    ['label' => $tournament->name, 'url' => route('admin.tournaments.dashboard', $tournament)],
                 ],
             ],
         ]);

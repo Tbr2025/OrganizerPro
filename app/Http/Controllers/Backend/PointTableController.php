@@ -44,7 +44,7 @@ class PointTableController extends Controller
                 'title' => __('Point Table'),
                 'items' => [
                     ['label' => __('Tournaments'), 'url' => route('admin.tournaments.index')],
-                    ['label' => $tournament->name, 'url' => route('admin.tournaments.show', $tournament)],
+                    ['label' => $tournament->name, 'url' => route('admin.tournaments.dashboard', $tournament)],
                 ],
             ],
         ]);

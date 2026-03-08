@@ -48,7 +48,7 @@ class TournamentRegistrationController extends Controller
                 'title' => __('Registrations'),
                 'items' => [
                     ['label' => __('Tournaments'), 'url' => route('admin.tournaments.index')],
-                    ['label' => $tournament->name, 'url' => route('admin.tournaments.show', $tournament)],
+                    ['label' => $tournament->name, 'url' => route('admin.tournaments.dashboard', $tournament)],
                 ],
             ],
         ]);
@@ -65,7 +65,7 @@ class TournamentRegistrationController extends Controller
                 'title' => __('Registration Details'),
                 'items' => [
                     ['label' => __('Tournaments'), 'url' => route('admin.tournaments.index')],
-                    ['label' => $tournament->name, 'url' => route('admin.tournaments.show', $tournament)],
+                    ['label' => $tournament->name, 'url' => route('admin.tournaments.dashboard', $tournament)],
                     ['label' => __('Registrations'), 'url' => route('admin.tournaments.registrations.index', $tournament)],
                 ],
             ],

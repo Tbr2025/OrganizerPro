@@ -481,7 +481,7 @@ class AdminMenuService
                 [
                     'label' => __('All Tournaments'),
                     'route' => route('admin.tournaments.index'),
-                    'active' => Route::is('admin.tournaments.index') || Route::is('admin.tournaments.edit') || Route::is('admin.tournaments.show'),
+                    'active' => Route::is('admin.tournaments.index') || Route::is('admin.tournaments.edit') || Route::is('admin.tournaments.dashboard'),
                     'priority' => 10,
                     'permissions' => 'tournament.view',
                 ],
