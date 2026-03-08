@@ -1061,21 +1061,86 @@ function updatePlaceholders() {
     }
 }
 
+// Sample images for preview - using placeholder services
+const sampleImages = {
+    'player_image': 'https://ui-avatars.com/api/?name=John+Doe&size=200&background=random&color=fff',
+    'team_logo': 'https://ui-avatars.com/api/?name=Team+FC&size=200&background=4F46E5&color=fff&rounded=true',
+    'tournament_logo': '{{ $tournament->settings?->logo ? Storage::url($tournament->settings->logo) : "https://ui-avatars.com/api/?name=" . urlencode($tournament->name) . "&size=200&background=F59E0B&color=fff" }}',
+    'team_a_logo': 'https://ui-avatars.com/api/?name=Team+A&size=200&background=EF4444&color=fff&rounded=true',
+    'team_b_logo': 'https://ui-avatars.com/api/?name=Team+B&size=200&background=3B82F6&color=fff&rounded=true',
+    'team_a_captain_image': 'https://ui-avatars.com/api/?name=Captain+A&size=200&background=DC2626&color=fff',
+    'team_b_captain_image': 'https://ui-avatars.com/api/?name=Captain+B&size=200&background=2563EB&color=fff',
+    'team_a_sponsor_logo': 'https://ui-avatars.com/api/?name=Sponsor&size=200&background=6B7280&color=fff',
+    'team_b_sponsor_logo': 'https://ui-avatars.com/api/?name=Sponsor&size=200&background=6B7280&color=fff',
+    'man_of_the_match_image': 'https://ui-avatars.com/api/?name=MOM&size=200&background=F59E0B&color=fff',
+    'qr_code': 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ urlencode(route("public.tournament.show", $tournament->slug)) }}',
+};
+
+// Preload images cache
+const imageCache = {};
+
+function preloadImage(url) {
+    return new Promise((resolve, reject) => {
+        if (imageCache[url]) {
+            resolve(imageCache[url]);
+            return;
+        }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            imageCache[url] = img;
+            resolve(img);
+        };
+        img.onerror = () => {
+            // Return a fallback colored rectangle
+            resolve(null);
+        };
+        img.src = url;
+    });
+}
+
 // Client-side Preview Functions
-function showClientPreview() {
+async function showClientPreview() {
     const modal = document.getElementById('previewModal');
     const previewCanvas = document.getElementById('previewCanvas');
     const ctx = previewCanvas.getContext('2d');
 
-    // Use saved canvas dimensions (2x editor size for HD)
+    // Show loading state
+    modal.classList.remove('hidden');
+    ctx.fillStyle = '#1a1a2e';
     previewCanvas.width = canvas.width * 2;
     previewCanvas.height = canvas.height * 2;
+    ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Loading preview...', previewCanvas.width / 2, previewCanvas.height / 2);
+
     const scale = 2; // Always 2x scale from editor to output
 
-    // Draw background
+    // Preload all images
+    const imageElements = elements.filter(el => el.type === 'image');
+    const imagePromises = imageElements.map(el => {
+        const url = sampleImages[el.placeholder] || `https://ui-avatars.com/api/?name=${el.placeholder.replace(/_/g, '+')}&size=200&background=6366F1&color=fff`;
+        return preloadImage(url);
+    });
+
+    // Also preload background
     const bgImg = document.getElementById('canvasBackground');
+    let bgLoaded = null;
     if (bgImg.src && !bgImg.classList.contains('hidden')) {
-        ctx.drawImage(bgImg, 0, 0, previewCanvas.width, previewCanvas.height);
+        bgLoaded = bgImg;
+    }
+
+    // Wait for all images to load
+    const loadedImages = await Promise.all(imagePromises);
+
+    // Clear and redraw
+    ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+    // Draw background
+    if (bgLoaded) {
+        ctx.drawImage(bgLoaded, 0, 0, previewCanvas.width, previewCanvas.height);
     } else {
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
@@ -1085,6 +1150,7 @@ function showClientPreview() {
     const sortedElements = [...elements].sort((a, b) => (a.zIndex || 1) - (b.zIndex || 1));
 
     // Draw each element
+    let imageIndex = 0;
     sortedElements.forEach(element => {
         const x = element.x * scale;
         const y = element.y * scale;
@@ -1095,24 +1161,56 @@ function showClientPreview() {
         ctx.globalAlpha = (element.opacity || 100) / 100;
 
         if (element.type === 'image') {
-            // Draw placeholder box for images
             const w = (element.width || 100) * scale;
             const h = (element.height || 100) * scale;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.fillRect(-w/2, -h/2, w, h);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.setLineDash([5, 5]);
-            ctx.strokeRect(-w/2, -h/2, w, h);
-            ctx.setLineDash([]);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('[' + element.placeholder.replace(/_/g, ' ') + ']', 0, 5);
+            const borderRadius = (element.borderRadius || 0) * Math.min(w, h) / 100;
+
+            // Find the corresponding loaded image
+            const imgElementIndex = imageElements.findIndex(ie => ie.id === element.id);
+            const loadedImg = imgElementIndex >= 0 ? loadedImages[imgElementIndex] : null;
+
+            if (loadedImg) {
+                // Draw image with border radius
+                ctx.save();
+
+                // Create clipping path for border radius
+                if (borderRadius > 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(-w/2 + borderRadius, -h/2);
+                    ctx.lineTo(w/2 - borderRadius, -h/2);
+                    ctx.quadraticCurveTo(w/2, -h/2, w/2, -h/2 + borderRadius);
+                    ctx.lineTo(w/2, h/2 - borderRadius);
+                    ctx.quadraticCurveTo(w/2, h/2, w/2 - borderRadius, h/2);
+                    ctx.lineTo(-w/2 + borderRadius, h/2);
+                    ctx.quadraticCurveTo(-w/2, h/2, -w/2, h/2 - borderRadius);
+                    ctx.lineTo(-w/2, -h/2 + borderRadius);
+                    ctx.quadraticCurveTo(-w/2, -h/2, -w/2 + borderRadius, -h/2);
+                    ctx.closePath();
+                    ctx.clip();
+                }
+
+                ctx.drawImage(loadedImg, -w/2, -h/2, w, h);
+                ctx.restore();
+            } else {
+                // Fallback: Draw placeholder box
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.3)';
+                ctx.fillRect(-w/2, -h/2, w, h);
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(-w/2, -h/2, w, h);
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `${12 * scale}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(element.placeholder.replace(/_/g, ' '), 0, 0);
+            }
         } else {
             // Draw text
             const fontSize = (element.fontSize || 24) * scale;
             const fontWeight = element.fontWeight || '700';
-            ctx.font = fontWeight + ' ' + fontSize + 'px Arial, sans-serif';
+            const fontFamily = element.fontFamily || 'Arial, sans-serif';
+            ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
             ctx.textAlign = element.textAlign || 'center';
             ctx.textBaseline = 'middle';
 
@@ -1123,21 +1221,32 @@ function showClientPreview() {
             if (element.textTransform === 'lowercase') displayText = sampleText.toLowerCase();
             if (element.textTransform === 'capitalize') displayText = sampleText.replace(/\b\w/g, l => l.toUpperCase());
 
+            // Apply letter spacing (approximation for canvas)
+            if (element.letterSpacing && element.letterSpacing !== 0) {
+                ctx.letterSpacing = (element.letterSpacing * scale) + 'px';
+            }
+
             // Draw shadow
             if (element.shadow) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.fillText(displayText, (element.shadowX || 2) * scale, (element.shadowY || 2) * scale);
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                ctx.shadowBlur = (element.shadowBlur || 4) * scale;
+                ctx.shadowOffsetX = (element.shadowX || 2) * scale;
+                ctx.shadowOffsetY = (element.shadowY || 2) * scale;
             }
 
             // Draw text
             ctx.fillStyle = element.color || '#ffffff';
             ctx.fillText(displayText, 0, 0);
+
+            // Reset shadow
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
         }
 
         ctx.restore();
     });
-
-    modal.classList.remove('hidden');
 }
 
 function getSampleText(placeholder) {
