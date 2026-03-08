@@ -288,6 +288,57 @@
         </a>
     </div>
 
+    {{-- Registration Links --}}
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+                Share Registration Links
+            </h3>
+            <span class="text-xs px-2 py-1 rounded-full {{ $tournament->status === 'registration' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }}">
+                {{ $tournament->status === 'registration' ? 'Registration Open' : 'Registration Closed' }}
+            </span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {{-- Player Registration Link --}}
+            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <label class="block text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">Player Registration</label>
+                <div class="flex gap-2">
+                    <input type="text" readonly
+                           value="{{ route('public.tournament.registration.player', $tournament->slug) }}"
+                           class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5"
+                           id="playerRegLink">
+                    <button type="button" onclick="copyToClipboard('playerRegLink', this)"
+                            class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition">
+                        Copy
+                    </button>
+                </div>
+            </div>
+            {{-- Team Registration Link --}}
+            <div class="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <label class="block text-xs font-medium text-purple-700 dark:text-purple-300 mb-2">Team Registration</label>
+                <div class="flex gap-2">
+                    <input type="text" readonly
+                           value="{{ route('public.tournament.registration.team', $tournament->slug) }}"
+                           class="flex-1 text-xs bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 rounded px-2 py-1.5"
+                           id="teamRegLink">
+                    <button type="button" onclick="copyToClipboard('teamRegLink', this)"
+                            class="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded transition">
+                        Copy
+                    </button>
+                </div>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+            Share these links with players and teams to register for this tournament.
+            @if($tournament->status !== 'registration')
+                <span class="text-yellow-600 dark:text-yellow-400 font-medium">Note: Change status to "Registration Open" to accept registrations.</span>
+            @endif
+        </p>
+    </div>
+
     {{-- Content Grid --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {{-- Upcoming Matches --}}
@@ -407,4 +458,30 @@
         @endif
     </div>
 </div>
+
+@push('scripts')
+<script>
+function copyToClipboard(inputId, button) {
+    const input = document.getElementById(inputId);
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value);
+
+    const originalText = button.textContent;
+    button.textContent = 'Copied!';
+    button.classList.remove('bg-blue-500', 'bg-purple-500', 'hover:bg-blue-600', 'hover:bg-purple-600');
+    button.classList.add('bg-green-500');
+
+    setTimeout(() => {
+        button.textContent = originalText;
+        button.classList.remove('bg-green-500');
+        if (inputId === 'playerRegLink') {
+            button.classList.add('bg-blue-500', 'hover:bg-blue-600');
+        } else {
+            button.classList.add('bg-purple-500', 'hover:bg-purple-600');
+        }
+    }, 2000);
+}
+</script>
+@endpush
 @endsection
