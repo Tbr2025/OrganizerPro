@@ -17,13 +17,22 @@
             </svg>
             Tournament Awards
         </h3>
-        <button type="button" onclick="document.getElementById('newAwardModal').classList.remove('hidden')"
-                class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-medium rounded-lg transition flex items-center">
-            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-            Add Award
-        </button>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('admin.tournaments.templates.create', ['tournament' => $tournament, 'type' => 'award_poster']) }}"
+               class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-medium rounded-lg transition flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                Award Template
+            </a>
+            <button type="button" onclick="document.getElementById('newAwardModal').classList.remove('hidden')"
+                    class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-medium rounded-lg transition flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Add Award
+            </button>
+        </div>
     </div>
 
     <div class="p-6">
@@ -63,13 +72,9 @@
                             </form>
                         </div>
 
-                        <a href="{{ route('admin.awards.template.edit', $award) }}"
-                           class="w-full inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-medium rounded-lg transition">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                            </svg>
-                            Edit Template
-                        </a>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            Used in match summary to assign awards to players
+                        </div>
                     </div>
                 @endforeach
             </div>
