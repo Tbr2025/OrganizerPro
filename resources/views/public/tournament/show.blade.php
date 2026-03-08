@@ -166,7 +166,7 @@
                 {{-- Register Now Button with Dropdown --}}
                 @if($tournament->status !== 'completed')
                     <div class="mb-10" x-data="{ open: false }">
-                        @if($tournament->status === 'registration' && ($settings?->player_registration_open || $settings?->team_registration_open))
+                        @if($tournament->status === 'registration')
                             {{-- Registration Open - Show Register Now Button --}}
                             <div class="relative inline-block">
                                 <button @click="open = !open"
@@ -186,30 +186,26 @@
                                      x-transition:leave-end="opacity-0 transform scale-95"
                                      @click.away="open = false"
                                      class="absolute left-1/2 transform -translate-x-1/2 mt-4 w-72 bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden z-50">
-                                    @if($settings?->player_registration_open)
-                                        <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
-                                           class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors border-b border-gray-700">
-                                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                                <i class="fas fa-user text-xl text-white"></i>
-                                            </div>
-                                            <div class="text-left">
-                                                <p class="font-bold text-white">Register as Player</p>
-                                                <p class="text-sm text-gray-400">Join a team as individual</p>
-                                            </div>
-                                        </a>
-                                    @endif
-                                    @if($settings?->team_registration_open)
-                                        <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
-                                           class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors">
-                                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                                                <i class="fas fa-users text-xl text-white"></i>
-                                            </div>
-                                            <div class="text-left">
-                                                <p class="font-bold text-white">Register as Team</p>
-                                                <p class="text-sm text-gray-400">Register your entire team</p>
-                                            </div>
-                                        </a>
-                                    @endif
+                                    <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
+                                       class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors border-b border-gray-700">
+                                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                            <i class="fas fa-user text-xl text-white"></i>
+                                        </div>
+                                        <div class="text-left">
+                                            <p class="font-bold text-white">Register as Player</p>
+                                            <p class="text-sm text-gray-400">Join a team as individual</p>
+                                        </div>
+                                    </a>
+                                    <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
+                                       class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors">
+                                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                            <i class="fas fa-users text-xl text-white"></i>
+                                        </div>
+                                        <div class="text-left">
+                                            <p class="font-bold text-white">Register as Team</p>
+                                            <p class="text-sm text-gray-400">Register your entire team</p>
+                                        </div>
+                                    </a>
                                 </div>
                             </div>
                         @else
