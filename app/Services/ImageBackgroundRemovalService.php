@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Http;
 
 class ImageBackgroundRemovalService
 {
@@ -12,8 +11,7 @@ class ImageBackgroundRemovalService
      * Remove background from an image
      * Tries multiple methods in order:
      * 1. Python rembg (if installed)
-     * 2. remove.bg API (if API key configured)
-     * 3. GD-based removal (fallback for simple backgrounds)
+     * 2. GD-based removal (fallback for simple backgrounds)
      */
     public function removeBackground(string $imagePath): ?string
     {
@@ -37,17 +35,6 @@ class ImageBackgroundRemovalService
             return $outputPath;
         }
 
-        // Try remove.bg API (if configured)
-        $apiKey = config('services.removebg.api_key');
-        if ($apiKey) {
-            $result = $this->removeBackgroundWithAPI($fullPath, $outputFullPath, $apiKey);
-            if ($result) {
-                Storage::disk('public')->delete($imagePath);
-                \Log::info("Background removed with remove.bg API: {$outputPath}");
-                return $outputPath;
-            }
-        }
-
         // Fallback to GD-based removal (works for solid color backgrounds)
         $result = $this->removeBackgroundWithGD($fullPath, $outputFullPath);
         if ($result) {
@@ -61,40 +48,42 @@ class ImageBackgroundRemovalService
     }
 
     /**
-     * Remove background using remove.bg API
-     */
-    protected function removeBackgroundWithAPI(string $inputPath, string $outputPath, string $apiKey): bool
-    {
-        try {
-            $response = Http::timeout(60)
-                ->withHeaders(['X-Api-Key' => $apiKey])
-                ->attach('image_file', file_get_contents($inputPath), basename($inputPath))
-                ->post('https://api.remove.bg/v1.0/removebg', [
-                    'size' => 'auto',
-                    'format' => 'png',
-                ]);
-
-            if ($response->successful()) {
-                file_put_contents($outputPath, $response->body());
-                return file_exists($outputPath) && filesize($outputPath) > 0;
-            }
-
-            \Log::warning('remove.bg API error: ' . $response->body());
-            return false;
-        } catch (\Exception $e) {
-            \Log::error('remove.bg API error: ' . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
      * Remove background using Python rembg library
      * Install: pip install rembg[cpu]
      */
     protected function removeBackgroundWithRembg(string $inputPath, string $outputPath): bool
     {
         try {
-            // Set environment variables for www-data user
+            $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+
+            if ($isWindows) {
+                // Windows: Try rembg directly or via python -m
+                $pythonPaths = ['python', 'python3', 'py'];
+
+                foreach ($pythonPaths as $python) {
+                    // Try python -m rembg.cli
+                    $result = Process::timeout(180)->run([
+                        $python, '-m', 'rembg.cli', 'i', $inputPath, $outputPath
+                    ]);
+
+                    if ($result->successful() && file_exists($outputPath)) {
+                        \Log::info('rembg completed successfully (Windows)');
+                        return true;
+                    }
+                }
+
+                // Try rembg command directly
+                $result = Process::timeout(180)->run(['rembg', 'i', $inputPath, $outputPath]);
+                if ($result->successful() && file_exists($outputPath)) {
+                    \Log::info('rembg completed successfully (Windows direct)');
+                    return true;
+                }
+
+                \Log::warning('rembg failed on Windows: ' . ($result->errorOutput() ?? 'unknown error'));
+                return false;
+            }
+
+            // Linux/Mac: Set environment variables for www-data user
             $env = [
                 'HOME' => '/var/www',
                 'NUMBA_CACHE_DIR' => '/var/www/.cache/numba',

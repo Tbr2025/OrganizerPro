@@ -37,12 +37,18 @@ abstract class PosterGeneratorService
             return null;
         }
 
-        $info = getimagesize($fullPath);
+        $info = @getimagesize($fullPath);
+        if (!$info) {
+            return null;
+        }
         $mime = $info['mime'] ?? '';
 
+        // Suppress warnings for malformed PNG profiles (common issue)
         return match ($mime) {
-            'image/png' => imagecreatefrompng($fullPath),
-            'image/jpeg', 'image/jpg' => imagecreatefromjpeg($fullPath),
+            'image/png' => @imagecreatefrompng($fullPath),
+            'image/jpeg', 'image/jpg' => @imagecreatefromjpeg($fullPath),
+            'image/gif' => @imagecreatefromgif($fullPath),
+            'image/webp' => @imagecreatefromwebp($fullPath),
             default => null,
         };
     }

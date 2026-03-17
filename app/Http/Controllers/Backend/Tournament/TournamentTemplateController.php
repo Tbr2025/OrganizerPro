@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend\Tournament;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
+use App\Services\ImageBackgroundRemovalService;
 use App\Services\Poster\TemplateRenderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -173,6 +174,7 @@ class TournamentTemplateController extends Controller
             'name' => 'required|string|max:255',
             'type' => 'required|in:' . implode(',', TournamentTemplate::TYPES),
             'background_image' => 'nullable|image|max:5120',
+            'background_image_base64' => 'nullable|string',
             'layout_json' => 'nullable|json',
             'canvas_width' => 'nullable|integer|min:540|max:2160',
             'canvas_height' => 'nullable|integer|min:540|max:3840',
@@ -184,6 +186,14 @@ class TournamentTemplateController extends Controller
             $validated['background_image'] = $request->file('background_image')
                 ->store('tournament_templates/' . $tournament->id, 'public');
         }
+        // Handle base64 background image from editor
+        elseif ($request->filled('background_image_base64')) {
+            $validated['background_image'] = $this->saveBase64Image(
+                $request->input('background_image_base64'),
+                $tournament->id
+            );
+        }
+        unset($validated['background_image_base64']);
 
         // Parse layout JSON
         if (isset($validated['layout_json'])) {
@@ -234,6 +244,7 @@ class TournamentTemplateController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'background_image' => 'nullable|image|max:5120',
+            'background_image_base64' => 'nullable|string',
             'layout_json' => 'nullable|json',
             'overlay_images' => 'nullable|json',
             'canvas_width' => 'nullable|integer|min:540|max:2160',
@@ -252,6 +263,19 @@ class TournamentTemplateController extends Controller
             $validated['background_image'] = $request->file('background_image')
                 ->store('tournament_templates/' . $tournament->id, 'public');
         }
+        // Handle base64 background image from editor
+        elseif ($request->filled('background_image_base64')) {
+            // Delete old file
+            if ($template->background_image) {
+                Storage::disk('public')->delete($template->background_image);
+            }
+
+            $validated['background_image'] = $this->saveBase64Image(
+                $request->input('background_image_base64'),
+                $tournament->id
+            );
+        }
+        unset($validated['background_image_base64']);
 
         // Parse layout JSON
         if (isset($validated['layout_json'])) {
@@ -318,14 +342,40 @@ class TournamentTemplateController extends Controller
         $previewUrl = null;
         $previewError = null;
 
-        // Get custom data from request or use defaults
+        // Get all placeholders for this template type
+        $placeholders = TournamentTemplate::getDefaultPlaceholders($template->type);
+        $imagePlaceholders = ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo',
+                              'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image',
+                              'team_a_sponsor_logo', 'team_b_sponsor_logo', 'qr_code'];
+
+        // Get custom data from request (text fields)
         $renderService = new TemplateRenderService();
-        $customData = $request->only([
-            'player_name', 'jersey_name', 'jersey_number', 'team_name',
-            'team_a_name', 'team_b_name', 'team_a_score', 'team_b_score',
-            'match_date', 'match_time', 'venue', 'match_stage', 'result_summary',
-            'winner_name', 'man_of_the_match_name'
-        ]);
+        $textPlaceholders = array_diff($placeholders, $imagePlaceholders);
+        $customData = $request->only($textPlaceholders);
+
+        // Handle uploaded images
+        $uploadedImages = [];
+        $bgRemovalService = new ImageBackgroundRemovalService();
+
+        foreach ($imagePlaceholders as $imageField) {
+            if ($request->hasFile($imageField)) {
+                $file = $request->file($imageField);
+                // Store temporarily for preview
+                $path = $file->store('temp_previews', 'public');
+                $uploadedImages[] = $path;
+
+                // Remove background for player images
+                if (in_array($imageField, ['player_image', 'man_of_the_match_image', 'team_a_captain_image', 'team_b_captain_image'])) {
+                    $noBgPath = $bgRemovalService->removeBackground($path);
+                    if ($noBgPath) {
+                        $uploadedImages[] = $noBgPath;
+                        $path = $noBgPath;
+                    }
+                }
+
+                $customData[$imageField] = $path;
+            }
+        }
 
         $sampleData = $renderService->getSampleData($template->type, array_filter($customData));
 
@@ -347,6 +397,11 @@ class TournamentTemplateController extends Controller
         } elseif ($template->background_image) {
             // No layout, just show background
             $previewUrl = $template->background_image_url;
+        }
+
+        // Clean up temporary uploaded images
+        foreach ($uploadedImages as $path) {
+            Storage::disk('public')->delete($path);
         }
 
         return view('backend.pages.tournaments.templates.preview', compact(
@@ -541,5 +596,31 @@ class TournamentTemplateController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Save a base64 encoded image to storage
+     */
+    private function saveBase64Image(string $base64Data, int $tournamentId): string
+    {
+        // Remove data URI prefix if present
+        if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $matches)) {
+            $extension = $matches[1];
+            $base64Data = substr($base64Data, strpos($base64Data, ',') + 1);
+        } else {
+            $extension = 'png';
+        }
+
+        // Decode the base64 data
+        $imageData = base64_decode($base64Data);
+
+        // Generate unique filename
+        $filename = 'bg_' . time() . '_' . uniqid() . '.' . $extension;
+        $path = 'tournament_templates/' . $tournamentId . '/' . $filename;
+
+        // Save to storage
+        Storage::disk('public')->put($path, $imageData);
+
+        return $path;
     }
 }

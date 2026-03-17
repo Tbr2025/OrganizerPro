@@ -749,7 +749,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         Route::put('/templates/{template}', [TournamentTemplateController::class, 'update'])->name('templates.update');
         Route::delete('/templates/{template}', [TournamentTemplateController::class, 'destroy'])->name('templates.destroy');
         Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');
-        Route::get('/templates/{template}/preview', [TournamentTemplateController::class, 'preview'])->name('templates.preview');
+        Route::match(['get', 'post'], '/templates/{template}/preview', [TournamentTemplateController::class, 'preview'])->name('templates.preview');
         Route::post('/templates/{template}/duplicate', [TournamentTemplateController::class, 'duplicate'])->name('templates.duplicate');
         Route::post('/templates/{template}/render-preview', [TournamentTemplateController::class, 'renderPreview'])->name('templates.render-preview');
         Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download');
