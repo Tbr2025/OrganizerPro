@@ -454,12 +454,3 @@ https://sportzley.com/t/{tournament-slug}/register/team
 | Live Ticker | https://sportzley.com/live/{match-id} |
 | Match Details | https://sportzley.com/m/{match-id} |
 
----
-
-## Support
-
-For technical support or feature requests, please contact your development team.
-
----
-
-*Document generated for Sportzley.com - Cricket Tournament Management Platform*
