@@ -589,19 +589,29 @@ const editor = {
     history: [],
     historyIndex: -1,
     zoom: 1,
+    displayScale: 0.5,
     canvasWidth: 1080,
     canvasHeight: 1080,
     backgroundImage: null,
 
     init() {
-        // Initialize Fabric.js canvas
+        // Calculate display scale based on available space
+        const wrapper = document.getElementById('canvasWrapper');
+        const availableWidth = wrapper.clientWidth - 80;
+        const availableHeight = wrapper.clientHeight - 80;
+        this.displayScale = Math.min(availableWidth / this.canvasWidth, availableHeight / this.canvasHeight, 0.6);
+
+        // Initialize Fabric.js canvas at display scale
         this.canvas = new fabric.Canvas('fabricCanvas', {
-            width: this.canvasWidth / 2,
-            height: this.canvasHeight / 2,
+            width: this.canvasWidth * this.displayScale,
+            height: this.canvasHeight * this.displayScale,
             backgroundColor: '#1a1a2e',
             preserveObjectStacking: true,
             selection: true,
         });
+
+        // Set canvas zoom to match display scale
+        this.canvas.setZoom(this.displayScale);
 
         // Set up event listeners
         this.setupEventListeners();
@@ -655,8 +665,10 @@ const editor = {
             const shape = e.dataTransfer.getData('shape');
 
             const rect = this.canvas.getElement().getBoundingClientRect();
-            const x = (e.clientX - rect.left) / this.zoom;
-            const y = (e.clientY - rect.top) / this.zoom;
+            const currentZoom = this.canvas.getZoom();
+            // Convert screen coordinates to canvas coordinates
+            const x = (e.clientX - rect.left) / currentZoom;
+            const y = (e.clientY - rect.top) / currentZoom;
 
             if (type === 'text') {
                 this.addTextElement(placeholder, x, y);
@@ -798,8 +810,8 @@ const editor = {
                 const scale = Math.min(maxSize / img.width, maxSize / img.height);
                 img.scale(scale);
                 img.set({
-                    left: this.canvas.width / 2,
-                    top: this.canvas.height / 2,
+                    left: this.canvasWidth / 2,
+                    top: this.canvasHeight / 2,
                     originX: 'center',
                     originY: 'center',
                 });
@@ -815,8 +827,9 @@ const editor = {
 
     loadBackgroundImage(url) {
         fabric.Image.fromURL(url, (img) => {
-            const scaleX = this.canvas.width / img.width;
-            const scaleY = this.canvas.height / img.height;
+            // Scale to fit the full canvas dimensions
+            const scaleX = this.canvasWidth / img.width;
+            const scaleY = this.canvasHeight / img.height;
             img.set({
                 scaleX: scaleX,
                 scaleY: scaleY,
@@ -1086,9 +1099,10 @@ const editor = {
 
     setZoom(level) {
         this.zoom = level;
-        this.canvas.setZoom(level);
-        this.canvas.setWidth(this.canvasWidth / 2 * level);
-        this.canvas.setHeight(this.canvasHeight / 2 * level);
+        const effectiveZoom = this.displayScale * level;
+        this.canvas.setZoom(effectiveZoom);
+        this.canvas.setWidth(this.canvasWidth * effectiveZoom);
+        this.canvas.setHeight(this.canvasHeight * effectiveZoom);
         document.getElementById('zoomValue').textContent = Math.round(level * 100) + '%';
     },
 
@@ -1096,15 +1110,16 @@ const editor = {
         const [width, height] = size.split('x').map(Number);
         this.canvasWidth = width;
         this.canvasHeight = height;
-        this.canvas.setWidth(width / 2 * this.zoom);
-        this.canvas.setHeight(height / 2 * this.zoom);
+        const effectiveZoom = this.displayScale * this.zoom;
+        this.canvas.setWidth(width * effectiveZoom);
+        this.canvas.setHeight(height * effectiveZoom);
         document.getElementById('canvasSizeDisplay').textContent = `${width} x ${height}`;
 
         // Rescale background if exists
         if (this.canvas.backgroundImage) {
             const img = this.canvas.backgroundImage;
-            img.scaleX = (width / 2) / img.width;
-            img.scaleY = (height / 2) / img.height;
+            img.scaleX = this.canvasWidth / img.width;
+            img.scaleY = this.canvasHeight / img.height;
         }
         this.canvas.renderAll();
     },
@@ -1142,10 +1157,14 @@ const editor = {
 
     // Preview
     preview() {
+        // Export at full resolution by calculating proper multiplier
+        const currentZoom = this.canvas.getZoom();
+        const multiplier = 1 / currentZoom; // This gives us 1:1 pixel ratio
+
         const dataUrl = this.canvas.toDataURL({
             format: 'png',
             quality: 1,
-            multiplier: 2,
+            multiplier: multiplier,
         });
         document.getElementById('previewImage').src = dataUrl;
         document.getElementById('downloadPreviewBtn').href = dataUrl;
@@ -1158,14 +1177,14 @@ const editor = {
 
     // Save
     save() {
-        // Prepare layout JSON
+        // Prepare layout JSON - save as percentage of full canvas size for portability
         const objects = this.canvas.getObjects();
         const layoutJson = objects.map(obj => {
             const base = {
                 type: obj.elementType || obj.type,
                 placeholder: obj.placeholder || null,
-                x: (obj.left / (this.canvasWidth / 2)) * 100,
-                y: (obj.top / (this.canvasHeight / 2)) * 100,
+                x: (obj.left / this.canvasWidth) * 100,
+                y: (obj.top / this.canvasHeight) * 100,
                 rotation: obj.angle || 0,
                 opacity: (obj.opacity || 1) * 100,
                 zIndex: objects.indexOf(obj),
@@ -1189,8 +1208,8 @@ const editor = {
             } else if (obj.elementType === 'image') {
                 return {
                     ...base,
-                    width: obj.placeholderWidth * (obj.scaleX || 1),
-                    height: obj.placeholderHeight * (obj.scaleY || 1),
+                    width: (obj.placeholderWidth || obj.width) * (obj.scaleX || 1),
+                    height: (obj.placeholderHeight || obj.height) * (obj.scaleY || 1),
                 };
             } else if (obj.elementType === 'shape') {
                 return {
@@ -1219,8 +1238,9 @@ const editor = {
         if (!layoutJson || !Array.isArray(layoutJson)) return;
 
         layoutJson.forEach(item => {
-            const x = (item.x / 100) * (this.canvasWidth / 2);
-            const y = (item.y / 100) * (this.canvasHeight / 2);
+            // Convert percentage back to canvas coordinates
+            const x = (item.x / 100) * this.canvasWidth;
+            const y = (item.y / 100) * this.canvasHeight;
 
             if (item.type === 'text' || item.type === 'i-text') {
                 const text = new fabric.IText('{{' + item.placeholder + '}}', {
@@ -1250,10 +1270,41 @@ const editor = {
                 this.canvas.add(text);
             } else if (item.type === 'image') {
                 this.addImagePlaceholder(item.placeholder, x, y);
+            } else if (item.type === 'shape') {
+                this.addShapeFromData(item, x, y);
             }
         });
 
         this.canvas.renderAll();
+    },
+
+    addShapeFromData(item, x, y) {
+        let obj;
+        const commonProps = {
+            left: x,
+            top: y,
+            fill: item.fill || 'rgba(99, 102, 241, 0.5)',
+            stroke: item.stroke || '#6366f1',
+            strokeWidth: item.strokeWidth || 2,
+            angle: item.rotation || 0,
+            opacity: (item.opacity || 100) / 100,
+            originX: 'center',
+            originY: 'center',
+        };
+
+        if (item.shapeType === 'rect') {
+            obj = new fabric.Rect({ ...commonProps, width: item.width || 150, height: item.height || 100, rx: 8, ry: 8 });
+        } else if (item.shapeType === 'circle') {
+            obj = new fabric.Circle({ ...commonProps, radius: (item.width || 120) / 2 });
+        } else if (item.shapeType === 'line') {
+            obj = new fabric.Line([0, 0, item.width || 150, 0], { ...commonProps, strokeWidth: item.strokeWidth || 4 });
+        }
+
+        if (obj) {
+            obj.elementType = 'shape';
+            obj.shapeType = item.shapeType;
+            this.canvas.add(obj);
+        }
     },
 };
 
