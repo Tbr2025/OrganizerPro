@@ -157,6 +157,24 @@
     @apply shadow-lg shadow-gray-200/50 dark:shadow-black/20 dark:shadow-xl;
 }
 
+/* Sidebar Header Logo */
+.sidebar-header {
+    @apply overflow-hidden;
+}
+
+.sidebar-header .logo {
+    @apply overflow-hidden;
+    max-width: 180px;
+}
+
+.sidebar-header .logo img {
+    @apply h-9 w-auto max-w-full object-contain;
+}
+
+.sidebar-header .logo-icon {
+    @apply w-10 h-10 object-contain;
+}
+
 /* Light mode specific improvements */
 @media (prefers-color-scheme: light) {
     .sidebar {

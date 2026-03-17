@@ -37,19 +37,19 @@
         :class="isMinified ? 'justify-center px-2' : 'justify-between px-5'"
         class="flex items-center gap-2 sidebar-header py-4 h-[72px] border-b border-gray-200 dark:border-gray-800/50"
         style="transition: padding 200ms ease-out;">
-        <a href="{{ route('admin.dashboard') }}" class="flex items-center min-w-0">
+        <a href="{{ route('admin.dashboard') }}" class="flex items-center min-w-0 overflow-hidden max-w-full">
             <!-- Full Logo (shown when expanded) -->
             <span
-                class="logo flex-shrink-0"
+                class="logo flex-shrink-0 overflow-hidden"
                 :class="isMinified ? 'hidden' : 'block'"
-                style="height: 36px;">
+                style="height: 36px; max-width: 180px;">
                 <img
-                    class="dark:hidden h-[36px] w-auto object-contain"
+                    class="dark:hidden h-[36px] max-w-[180px] object-contain"
                     src="{{ config('settings.site_logo_lite') ?? asset('images/logo/lara-dashboard.png') }}"
                     alt="{{ config('app.name') }}"
                     loading="eager" />
                 <img
-                    class="hidden dark:block h-[36px] w-auto object-contain"
+                    class="hidden dark:block h-[36px] max-w-[180px] object-contain"
                     src="{{ config('settings.site_logo_dark') ?? asset('images/logo/lara-dashboard-dark.png') }}"
                     alt="{{ config('app.name') }}"
                     loading="eager" />
