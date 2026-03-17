@@ -24,6 +24,7 @@ class UserTest extends TestCase
             'email',
             'password',
             'username',
+            'organization_id',
         ], $user->getFillable());
     }
 

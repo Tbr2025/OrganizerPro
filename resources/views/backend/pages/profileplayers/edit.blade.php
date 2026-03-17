@@ -22,7 +22,8 @@
                                     'name' => 'Player Name',
                                     'email' => 'Email',
                                     'mobile_number_full' => 'Full Mobile Number (With Country Code without +)',
-                                    'cricheroes_number_full' => 'Full Cricheroes Number ( With Country Code without +)',
+                                    'cricheroes_number_full' => 'Full Cricheroes Number (With Country Code without +)',
+                                    'cricheroes_profile_url' => 'CricHeroes Profile URL',
                                     'jersey_name' => 'Jersey Name',
                                 ];
                             @endphp

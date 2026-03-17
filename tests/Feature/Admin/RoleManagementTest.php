@@ -80,7 +80,7 @@ class RoleManagementTest extends TestCase
             $view->with([
                 'roleService' => app(\App\Services\RolesService::class),
                 'all_permissions' => Permission::all(),
-                'permission_groups' => Permission::groupBy('group_name')->get(),
+                'permission_groups' => Permission::select('group_name as name')->distinct()->get(),
                 'breadcrumbs' => [
                     'title' => 'Create Role',
                     'items' => [],
@@ -95,7 +95,7 @@ class RoleManagementTest extends TestCase
             $view->with([
                 'roleService' => app(\App\Services\RolesService::class),
                 'all_permissions' => Permission::all(),
-                'permission_groups' => Permission::groupBy('group_name')->get(),
+                'permission_groups' => Permission::select('group_name as name')->distinct()->get(),
                 'breadcrumbs' => [
                     'title' => 'Edit Role',
                     'items' => [],

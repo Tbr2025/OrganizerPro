@@ -57,22 +57,19 @@ class AuctionController extends Controller
     // Extract filtering logic
     private function getFilteredAuctions(Request $request)
     {
-        $query = Auction::with(['soldToTeam', 'player']);
+        $query = Auction::with(['tournament', 'organization', 'auctionPlayers']);
 
         if ($request->filled('status')) {
-            $query->where('auction_status', $request->status);
+            $query->where('status', $request->status);
         }
 
-        if ($request->filled('sold_to_team_id')) {
-            $query->where('sold_to_team_id', $request->sold_to_team_id);
+        if ($request->filled('tournament_id')) {
+            $query->where('tournament_id', $request->tournament_id);
         }
 
-        if ($request->filled('player_search')) {
-            $search = $request->player_search;
-            $query->whereHas('player', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            });
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where('name', 'like', "%{$search}%");
         }
 
         if ($request->filled('sort_by')) {

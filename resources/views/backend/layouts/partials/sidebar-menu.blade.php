@@ -5,24 +5,13 @@
 
 <nav
     x-data="{
-        isDark: document.documentElement.classList.contains('dark'),
-        textColor: '',
-        init() {
-            this.updateColor();
-            const observer = new MutationObserver(() => this.updateColor());
-            observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-        },
-        updateColor() {
-            this.isDark = document.documentElement.classList.contains('dark');
-        },
         openDrawer(drawerId) {
             if (typeof window.openDrawer === 'function') {
                 window.openDrawer(drawerId);
             }
         }
     }"
-    x-init="init()"
-    class="transition-all duration-300 ease-in-out px-3"
+    class="px-3"
 >
     @foreach($menuGroups as $groupName => $groupItems)
         {!! ld_apply_filters('sidebar_menu_group_before_' . Str::slug($groupName), '') !!}

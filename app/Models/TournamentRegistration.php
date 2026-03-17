@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class TournamentRegistration extends Model
 {
@@ -64,6 +65,22 @@ class TournamentRegistration extends Model
     public function actualTeam(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class);
+    }
+
+    /**
+     * Get the team through the player relationship
+     * Used for player registrations where the player belongs to a registration team
+     */
+    public function team(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            Team::class,
+            Player::class,
+            'id',           // Foreign key on players table (players.id)
+            'id',           // Foreign key on teams table (teams.id)
+            'player_id',    // Local key on tournament_registrations (tournament_registrations.player_id)
+            'team_id'       // Local key on players table (players.team_id)
+        );
     }
 
     public function scopePending($query)

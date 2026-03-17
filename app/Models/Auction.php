@@ -46,8 +46,18 @@ class Auction extends Model
         return $this->hasMany(AuctionBid::class);
     }
 
-    public function player()
+    /**
+     * Get all players in this auction through AuctionPlayer
+     */
+    public function allPlayers()
     {
-        return $this->belongsTo(User::class, 'player_id');
+        return $this->hasManyThrough(
+            Player::class,
+            AuctionPlayer::class,
+            'auction_id',
+            'id',
+            'id',
+            'player_id'
+        );
     }
 }

@@ -62,9 +62,19 @@ class TournamentTemplateController extends Controller
             ->orderByDesc('is_default')
             ->get();
 
-        // Load matches
+        // Load matches with team captain information
         $matches = $tournament->matches()
-            ->with(['teamA', 'teamB', 'ground', 'winner'])
+            ->with([
+                'teamA.users' => function ($query) {
+                    $query->wherePivot('role', 'captain');
+                },
+                'teamB.users' => function ($query) {
+                    $query->wherePivot('role', 'captain');
+                },
+                'ground',
+                'winner',
+                'result'
+            ])
             ->orderBy('match_date')
             ->get();
 
@@ -103,9 +113,12 @@ class TournamentTemplateController extends Controller
             $data = $request->only([
                 'player_name', 'jersey_number', 'team_name', 'player_image', 'player_type',
                 'batting_style', 'bowling_style', 'team_logo',
-                'team_a_name', 'team_b_name', 'team_a_logo', 'team_b_logo',
+                'team_a_name', 'team_b_name', 'team_a_short_name', 'team_b_short_name',
+                'team_a_logo', 'team_b_logo',
+                'team_a_captain_image', 'team_b_captain_image',
+                'team_a_captain_name', 'team_b_captain_name',
                 'team_a_score', 'team_b_score', 'winner_name',
-                'match_date', 'match_time', 'venue', 'match_stage',
+                'match_date', 'match_time', 'venue', 'ground_name', 'match_stage', 'match_number',
                 'award_name', 'man_of_the_match_name', 'man_of_the_match_image'
             ]);
 

@@ -15,7 +15,7 @@
     @endphp
 
     <li class="menu-item-{{ $item->id }}" style="{!! $item->itemStyles !!}">
-        <button :style="`color: ${textColor}`" class="menu-item group w-full text-left {{ $isActive }}" type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.menu-item-arrow').classList.toggle('rotate-180')">
+        <button  class="menu-item group w-full text-left {{ $isActive }}" type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.menu-item-arrow').classList.toggle('rotate-180')">
             @if (!empty($item->icon))
                 <span class="menu-item-icon-wrapper flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 dark:bg-gray-800/50 group-hover:bg-cyan-50 dark:group-hover:bg-cyan-500/10 transition-colors duration-200">
                     <iconify-icon icon="{{ $item->icon }}" class="menu-item-icon text-gray-500 dark:text-cyan-400 group-hover:text-cyan-500 transition-colors duration-200" width="18" height="18"></iconify-icon>
@@ -41,7 +41,7 @@
     @endphp
 
     <li class="menu-item-{{ $item->id }}" style="{!! $item->itemStyles !!}">
-        <a :style="`color: ${textColor}`" href="{{ $item->route ?? '#' }}" class="menu-item group {{ $isActive }}" {!! $target !!}>
+        <a  href="{{ $item->route ?? '#' }}" class="menu-item group {{ $isActive }}" {!! $target !!}>
             @if (!empty($item->icon))
                 <span class="menu-item-icon-wrapper flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 dark:bg-gray-800/50 group-hover:bg-cyan-50 dark:group-hover:bg-cyan-500/10 transition-colors duration-200 {{ $item->active ? '!bg-cyan-50 dark:!bg-cyan-500/15' : '' }}">
                     <iconify-icon icon="{{ $item->icon }}" class="menu-item-icon text-gray-500 dark:text-cyan-400 group-hover:text-cyan-500 transition-colors duration-200 {{ $item->active ? '!text-cyan-500 dark:!text-cyan-400' : '' }}" width="18" height="18"></iconify-icon>

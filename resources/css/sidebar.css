@@ -152,48 +152,40 @@
     }
 }
 
-/* Sidebar Hover Expansion */
+/* Sidebar Base Styles */
 .sidebar {
     @apply shadow-lg shadow-gray-200/50 dark:shadow-black/20 dark:shadow-xl;
 }
 
-.sidebar:hover {
-    width: 280px;
+/* Light mode specific improvements */
+@media (prefers-color-scheme: light) {
+    .sidebar {
+        @apply border-gray-200;
+    }
 }
 
-.sidebar:hover .logo {
+/* When sidebar is expanded (not minified), show full content */
+.sidebar:not(.app-sidebar-minified) .logo {
     display: block;
 }
 
-.sidebar:hover .logo-icon {
+.sidebar:not(.app-sidebar-minified) .logo-icon {
     display: none;
 }
 
-.sidebar:hover .sidebar-header {
-    justify-content: space-between;
-}
-
-.sidebar:hover .menu-group-heading {
+.sidebar:not(.app-sidebar-minified) .menu-group-heading {
     display: block;
 }
 
-.sidebar:hover .menu-group-icon {
-    display: none;
-}
-
-.sidebar:hover .menu-item-text {
+.sidebar:not(.app-sidebar-minified) .menu-item-text {
     display: inline;
 }
 
-.sidebar:hover .menu-item-arrow {
+.sidebar:not(.app-sidebar-minified) .menu-item-arrow {
     display: block;
 }
 
-.sidebar:hover .menu-dropdown {
-    display: flex;
-}
-
-.sidebar:hover .menu-item {
+.sidebar:not(.app-sidebar-minified) .menu-item {
     @apply justify-start px-3;
 }
 

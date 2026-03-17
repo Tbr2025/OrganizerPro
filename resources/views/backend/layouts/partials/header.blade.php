@@ -1,30 +1,22 @@
 <header id="appHeader" x-data="{
     menuToggle: false,
-    textColor: '',
+    headerBg: '',
     isDark: document.documentElement.classList.contains('dark'),
     init() {
-        this.updateBg();
-        this.updateColor();
-        const observer = new MutationObserver(() => {
-            this.updateBg();
-            this.updateColor();
-        });
+        this.updateStyles();
+        const observer = new MutationObserver(() => this.updateStyles());
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     },
-    updateBg() {
+    updateStyles() {
         this.isDark = document.documentElement.classList.contains('dark');
-        const liteBg = '{{ config('settings.navbar_bg_lite') }}';
-        const darkBg = '{{ config('settings.navbar_bg_dark') }}';
-        this.$el.style.backgroundColor = this.isDark ? darkBg : liteBg;
-    },
-    updateColor() {
-        this.isDark = document.documentElement.classList.contains('dark');
-        this.textColor = this.isDark ?
-            '{{ config('settings.navbar_text_dark') }}' :
-            '{{ config('settings.navbar_text_lite') }}';
+        const liteBg = '{{ config('settings.navbar_bg_lite', 'rgba(255,255,255,0.9)') }}';
+        const darkBg = '{{ config('settings.navbar_bg_dark', 'rgba(30,30,45,0.9)') }}';
+        this.headerBg = this.isDark ? darkBg : liteBg;
     }
 }" x-init="init()"
-    class="sticky top-0 flex w-full bg-white/80 dark:bg-dark-surface/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800/50 transition-all duration-300 z-9">
+    :style="{ backgroundColor: headerBg }"
+    class="sticky top-0 flex w-full backdrop-blur-md border-b border-gray-200 dark:border-gray-800/50 z-9"
+    style="transition: background-color 200ms ease-out;">
     <div class="flex grow flex-col items-center justify-between lg:flex-row lg:px-6">
         <div
             class="flex w-full items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 dark:border-gray-800">
@@ -36,9 +28,9 @@
                 <iconify-icon :icon="sidebarToggle ? 'lucide:panel-left-close' : 'lucide:panel-left-open'" width="22" height="22"></iconify-icon>
             </button>
 
-            <a href="{{ route('admin.dashboard') }}" class="lg:hidden">
-                <img class="dark:hidden w-28" src="/images/logo/lara-dashboard.png" alt="Logo" />
-                <img class="hidden dark:block w-28" src="/images/logo/lara-dashboard-dark.png" alt="Logo" />
+            <a href="{{ route('admin.dashboard') }}" class="lg:hidden flex-shrink-0" style="height: 32px;">
+                <img class="dark:hidden h-8 w-auto object-contain" src="{{ config('settings.site_logo_lite') ?? asset('images/logo/lara-dashboard.png') }}" alt="Logo" loading="eager" />
+                <img class="hidden dark:block h-8 w-auto object-contain" src="{{ config('settings.site_logo_dark') ?? asset('images/logo/lara-dashboard-dark.png') }}" alt="Logo" loading="eager" />
             </a>
         </div>
 

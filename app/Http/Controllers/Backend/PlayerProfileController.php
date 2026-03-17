@@ -79,15 +79,24 @@ class PlayerProfileController extends Controller
             'email' => (bool) $player->verified_email,
             'mobile_number_full' => (bool) $player->verified_mobile_number_full,
             'cricheroes_number_full' => (bool) $player->verified_cricheroes_number_full,
+            'cricheroes_profile_url' => (bool) $player->verified_cricheroes_profile_url,
             'jersey_name' => (bool) $player->verified_jersey_name,
+            'jersey_number' => (bool) $player->verified_jersey_number,
             'kit_size_id' => (bool) $player->verified_kit_size_id,
             'batting_profile_id' => (bool) $player->verified_batting_profile_id,
             'bowling_profile_id' => (bool) $player->verified_bowling_profile_id,
             'player_type_id' => (bool) $player->verified_player_type_id,
             'team_id' => (bool) $player->verified_team_id,
+            'team_name_ref' => (bool) $player->verified_team_name_ref,
             'is_wicket_keeper' => (bool) $player->verified_is_wicket_keeper,
             'transportation_required' => (bool) $player->verified_transportation_required,
             'no_travel_plan' => (bool) $player->verified_no_travel_plan,
+            'travel_date_from' => (bool) $player->verified_travel_date_from,
+            'travel_date_to' => (bool) $player->verified_travel_date_to,
+            'location_id' => (bool) $player->verified_location_id,
+            'total_matches' => (bool) $player->verified_total_matches,
+            'total_runs' => (bool) $player->verified_total_runs,
+            'total_wickets' => (bool) $player->verified_total_wickets,
             'image_path' => (bool) $player->verified_image_path,
         ];
         // --- MODIFICATION END ---
@@ -122,9 +131,18 @@ class PlayerProfileController extends Controller
             'name' => $player->verified_name,
             'mobile_number_full' => $player->verified_mobile_number_full,
             'jersey_name' => $player->verified_jersey_name,
+            'jersey_number' => $player->verified_jersey_number,
             'cricheroes_number_full' => $player->verified_cricheroes_number_full,
+            'cricheroes_profile_url' => $player->verified_cricheroes_profile_url,
             'kit_size_id' => $player->verified_kit_size_id,
-            // Extend for more fields if needed
+            'team_name_ref' => $player->verified_team_name_ref,
+            'location_id' => $player->verified_location_id,
+            'total_matches' => $player->verified_total_matches,
+            'total_runs' => $player->verified_total_runs,
+            'total_wickets' => $player->verified_total_wickets,
+            'travel_date_from' => $player->verified_travel_date_from,
+            'travel_date_to' => $player->verified_travel_date_to,
+            'no_travel_plan' => $player->verified_no_travel_plan,
         ];
 
         $rules = [];
@@ -158,8 +176,46 @@ class PlayerProfileController extends Controller
             ];
         }
 
-        // Always-validated fields
-        $rules['team_name_ref'] = 'nullable|string|max:100';
+        if (!($verifiedFields['cricheroes_profile_url'] ?? false)) {
+            $rules['cricheroes_profile_url'] = 'nullable|url|max:500';
+        }
+
+        if (!($verifiedFields['jersey_number'] ?? false)) {
+            $rules['jersey_number'] = 'nullable|integer|min:0|max:999';
+        }
+
+        // Always-validated fields (unless verified)
+        if (!($verifiedFields['team_name_ref'] ?? false)) {
+            $rules['team_name_ref'] = 'nullable|string|max:100';
+        }
+
+        if (!($verifiedFields['location_id'] ?? false)) {
+            $rules['location_id'] = 'nullable|exists:player_locations,id';
+        }
+
+        if (!($verifiedFields['total_matches'] ?? false)) {
+            $rules['total_matches'] = 'nullable|integer|min:0';
+        }
+
+        if (!($verifiedFields['total_runs'] ?? false)) {
+            $rules['total_runs'] = 'nullable|integer|min:0';
+        }
+
+        if (!($verifiedFields['total_wickets'] ?? false)) {
+            $rules['total_wickets'] = 'nullable|integer|min:0';
+        }
+
+        if (!($verifiedFields['travel_date_from'] ?? false)) {
+            $rules['travel_date_from'] = 'nullable|date';
+        }
+
+        if (!($verifiedFields['travel_date_to'] ?? false)) {
+            $rules['travel_date_to'] = 'nullable|date|after_or_equal:travel_date_from';
+        }
+
+        if (!($verifiedFields['no_travel_plan'] ?? false)) {
+            $rules['no_travel_plan'] = 'nullable';
+        }
         if (!($verifiedFields['kit_size_id'] ?? false)) {
             $rules['kit_size_id'] = 'required|exists:kit_sizes,id';
         }
@@ -292,6 +348,7 @@ class PlayerProfileController extends Controller
 
         $validated['is_wicket_keeper'] = $request->boolean('wicket_keeper');
         $validated['transportation_required'] = $request->boolean('need_transportation');
+        $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
 
         $player->update($validated);
         // Only notify Superadmin and Admin

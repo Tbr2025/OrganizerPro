@@ -1,47 +1,71 @@
-<aside :class="sidebarToggle ? 'translate-x-0 lg:w-[80px] app-sidebar-minified' : '-translate-x-full'"
-    class="sidebar fixed left-0 top-0 z-10 flex h-screen w-[280px] flex-col overflow-y-hidden border-r border-gray-100 shadow-sm transition-all duration-300 ease-in-out {{ config('settings.sidebar_bg_lite') ? '' : 'bg-white' }} dark:border-gray-800/50 dark:bg-dark-sidebar lg:static lg:translate-x-0"
-    id="appSidebar" x-data="{
+<aside
+    x-data="{
         isHovered: false,
+        sidebarBg: '',
         init() {
             this.updateBg();
             const observer = new MutationObserver(() => this.updateBg());
             observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-            // Check if sidebarToggle value is present in localStorage and use it
-            if (localStorage.getItem('sidebarToggle')) {
-                sidebarToggle = JSON.parse(localStorage.getItem('sidebarToggle'));
-            }
         },
         updateBg() {
             const htmlHasDark = document.documentElement.classList.contains('dark');
-            const liteBg = '{{ config('settings.sidebar_bg_lite') }}';
-            const darkBg = '{{ config('settings.sidebar_bg_dark') }}';
-            this.$el.style.backgroundColor = htmlHasDark ? darkBg : liteBg;
+            const liteBg = '{{ config('settings.sidebar_bg_lite', '#ffffff') }}';
+            const darkBg = '{{ config('settings.sidebar_bg_dark', '#1e1e2d') }}';
+            this.sidebarBg = htmlHasDark ? darkBg : liteBg;
+        },
+        get isMinified() {
+            return sidebarToggle && !this.isHovered;
         }
-    }" x-init="init()"
-    @mouseenter="if(sidebarToggle) { isHovered = true; $el.classList.add('lg:w-[280px]'); $el.classList.remove('lg:w-[80px]', 'app-sidebar-minified'); }"
-    @mouseleave="if(sidebarToggle) { isHovered = false; $el.classList.add('lg:w-[80px]', 'app-sidebar-minified'); $el.classList.remove('lg:w-[280px]'); }">
+    }"
+    x-init="init()"
+    :style="{ backgroundColor: sidebarBg }"
+    :class="{
+        'translate-x-0': sidebarToggle,
+        '-translate-x-full lg:translate-x-0': !sidebarToggle,
+        'lg:w-[80px]': sidebarToggle && !isHovered,
+        'lg:w-[280px]': !sidebarToggle || isHovered,
+        'app-sidebar-minified': sidebarToggle && !isHovered
+    }"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
+    class="sidebar fixed left-0 top-0 z-10 flex h-screen w-[280px] flex-col overflow-y-hidden border-r border-gray-200 dark:border-gray-800/50 shadow-sm bg-white dark:bg-dark-sidebar lg:static"
+    style="transition: width 200ms ease-out, transform 200ms ease-out;"
+    id="appSidebar">
+
     <!-- Sidebar Header -->
-    <div :class="sidebarToggle && !isHovered ? 'justify-center' : 'justify-between'"
-        class="justify-center flex items-center gap-2 sidebar-header py-4 px-5 h-[72px] border-b border-gray-100 dark:border-gray-800/50 transition-all duration-300">
-        <a href="{{ route('admin.dashboard') }}" class="flex items-center">
-            <span class="logo transition-all duration-300"
-                :class="sidebarToggle && !isHovered ? 'hidden opacity-0 scale-95' : 'opacity-100 scale-100'">
-                <img class="dark:hidden max-h-[36px]"
+    <div
+        :class="isMinified ? 'justify-center px-2' : 'justify-between px-5'"
+        class="flex items-center gap-2 sidebar-header py-4 h-[72px] border-b border-gray-200 dark:border-gray-800/50"
+        style="transition: padding 200ms ease-out;">
+        <a href="{{ route('admin.dashboard') }}" class="flex items-center min-w-0">
+            <!-- Full Logo (shown when expanded) -->
+            <span
+                class="logo flex-shrink-0"
+                :class="isMinified ? 'hidden' : 'block'"
+                style="height: 36px;">
+                <img
+                    class="dark:hidden h-[36px] w-auto object-contain"
                     src="{{ config('settings.site_logo_lite') ?? asset('images/logo/lara-dashboard.png') }}"
-                    alt="{{ config('app.name') }}" />
-                <img class="hidden dark:block max-h-[36px]"
-                    src="{{ config('settings.site_logo_dark') ?? '/images/logo/lara-dashboard-dark.png' }}"
-                    alt="{{ config('app.name') }}" />
+                    alt="{{ config('app.name') }}"
+                    loading="eager" />
+                <img
+                    class="hidden dark:block h-[36px] w-auto object-contain"
+                    src="{{ config('settings.site_logo_dark') ?? asset('images/logo/lara-dashboard-dark.png') }}"
+                    alt="{{ config('app.name') }}"
+                    loading="eager" />
             </span>
-            <img class="logo-icon w-10 transition-all duration-300"
-                :class="sidebarToggle && !isHovered ? 'lg:block opacity-100 scale-100' : 'hidden opacity-0 scale-95'"
-                src="{{ config('settings.site_icon') ?? '/images/logo/icon.png' }}" alt="{{ config('app.name') }}" />
+            <!-- Icon Logo (shown when minified) -->
+            <img
+                class="logo-icon w-10 h-10 object-contain flex-shrink-0"
+                :class="isMinified ? 'block' : 'hidden'"
+                src="{{ config('settings.site_icon') ?? asset('images/logo/icon.png') }}"
+                alt="{{ config('app.name') }}"
+                loading="eager" />
         </a>
     </div>
     <!-- End Sidebar Header -->
 
-    <div class="flex flex-col overflow-y-auto duration-300 ease-linear custom-scrollbar py-4">
+    <div class="flex flex-col overflow-y-auto custom-scrollbar py-4 flex-1">
         @include('backend.layouts.partials.sidebar-menu')
     </div>
 </aside>

@@ -19,7 +19,8 @@
       "Bash(php:*)",
       "Bash(icacls:*)",
       "Bash(cd /d D:NavasClientSalih MuahammadOrganizerPro)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(ls:*)"
     ]
   }
 }

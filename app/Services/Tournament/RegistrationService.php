@@ -46,13 +46,58 @@ class RegistrationService
                     'user_id' => $user->id,
                     'name' => $data['name'],
                     'email' => $data['email'],
-                    'mobile_number_full' => $data['mobile_number'] ?? null,
+                    'mobile_number_full' => $data['mobile_number_full'] ?? null,
+                    'cricheroes_number_full' => $data['cricheroes_number_full'] ?? null,
+                    'cricheroes_profile_url' => $data['cricheroes_profile_url'] ?? null,
                     'jersey_name' => $data['jersey_name'] ?? $data['name'],
+                    'jersey_number' => $data['jersey_number'] ?? null,
                     'batting_profile_id' => $data['batting_profile_id'] ?? null,
                     'bowling_profile_id' => $data['bowling_profile_id'] ?? null,
                     'player_type_id' => $data['player_type_id'] ?? null,
+                    'kit_size_id' => $data['kit_size_id'] ?? null,
+                    'location_id' => $data['location_id'] ?? null,
+                    'team_id' => $data['team_id'] ?? null,
+                    'team_name_ref' => $data['team_name_ref'] ?? null,
                     'is_wicket_keeper' => $data['is_wicket_keeper'] ?? false,
+                    'transportation_required' => $data['transportation_required'] ?? false,
+                    'no_travel_plan' => $data['no_travel_plan'] ?? false,
+                    'travel_date_from' => $data['travel_date_from'] ?? null,
+                    'travel_date_to' => $data['travel_date_to'] ?? null,
+                    'image_path' => $data['image_path'] ?? null,
+                    'total_matches' => $data['total_matches'] ?? 0,
+                    'total_runs' => $data['total_runs'] ?? 0,
+                    'total_wickets' => $data['total_wickets'] ?? 0,
+                    'status' => 'pending',
                 ]);
+            } else {
+                // Update existing player with new data if provided
+                $updateData = array_filter([
+                    'mobile_number_full' => $data['mobile_number_full'] ?? null,
+                    'cricheroes_number_full' => $data['cricheroes_number_full'] ?? null,
+                    'cricheroes_profile_url' => $data['cricheroes_profile_url'] ?? null,
+                    'jersey_name' => $data['jersey_name'] ?? null,
+                    'jersey_number' => $data['jersey_number'] ?? null,
+                    'batting_profile_id' => $data['batting_profile_id'] ?? null,
+                    'bowling_profile_id' => $data['bowling_profile_id'] ?? null,
+                    'player_type_id' => $data['player_type_id'] ?? null,
+                    'kit_size_id' => $data['kit_size_id'] ?? null,
+                    'location_id' => $data['location_id'] ?? null,
+                    'team_id' => $data['team_id'] ?? null,
+                    'team_name_ref' => $data['team_name_ref'] ?? null,
+                    'is_wicket_keeper' => $data['is_wicket_keeper'] ?? null,
+                    'transportation_required' => $data['transportation_required'] ?? null,
+                    'no_travel_plan' => $data['no_travel_plan'] ?? null,
+                    'travel_date_from' => $data['travel_date_from'] ?? null,
+                    'travel_date_to' => $data['travel_date_to'] ?? null,
+                    'image_path' => $data['image_path'] ?? null,
+                    'total_matches' => $data['total_matches'] ?? null,
+                    'total_runs' => $data['total_runs'] ?? null,
+                    'total_wickets' => $data['total_wickets'] ?? null,
+                ], fn($value) => $value !== null);
+
+                if (!empty($updateData)) {
+                    $player->update($updateData);
+                }
             }
 
             // Create registration

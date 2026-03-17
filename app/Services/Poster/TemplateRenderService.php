@@ -183,8 +183,11 @@ class TemplateRenderService extends PosterGeneratorService
         $width = (int) ($width * $scale);
         $height = (int) ($height * $scale);
 
+        // Convert URL to storage path if needed
+        $storagePath = $this->extractStoragePath($imagePath);
+
         // Check if it's a path or placeholder
-        if (str_starts_with($imagePath, '[') || empty($imagePath) || !Storage::disk('public')->exists($imagePath)) {
+        if (str_starts_with($imagePath, '[') || empty($storagePath) || !Storage::disk('public')->exists($storagePath)) {
             // Draw placeholder box
             $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, $element['placeholder'] ?? 'Image');
             return;
@@ -197,11 +200,33 @@ class TemplateRenderService extends PosterGeneratorService
         if ($borderRadius >= 50) {
             // Circular image
             $diameter = min($width, $height);
-            $this->addCircularImage($canvas, $imagePath, $x, $y, $diameter);
+            $this->addCircularImage($canvas, $storagePath, $x, $y, $diameter);
         } else {
             // Regular image
-            $this->addImage($canvas, $imagePath, (int) $drawX, (int) $drawY, $width, $height);
+            $this->addImage($canvas, $storagePath, (int) $drawX, (int) $drawY, $width, $height);
         }
+    }
+
+    /**
+     * Extract storage path from full URL or return as-is if already a path
+     */
+    protected function extractStoragePath(string $path): string
+    {
+        if (empty($path)) {
+            return '';
+        }
+
+        // If it's already a storage path (no http), return as-is
+        if (!str_starts_with($path, 'http://') && !str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        // Extract path after /storage/
+        if (preg_match('#/storage/(.+)$#', $path, $matches)) {
+            return $matches[1];
+        }
+
+        return '';
     }
 
     /**

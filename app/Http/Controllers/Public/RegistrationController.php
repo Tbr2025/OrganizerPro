@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Public;
 use App\Http\Controllers\Controller;
 use App\Models\BattingProfile;
 use App\Models\BowlingProfile;
+use App\Models\KitSize;
+use App\Models\PlayerLocation;
 use App\Models\PlayerType;
+use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
@@ -39,6 +42,12 @@ class RegistrationController extends Controller
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
+            'kitSizes' => KitSize::all(),
+            'locations' => PlayerLocation::where(function($query) use ($tournament) {
+                $query->whereNull('organization_id')
+                      ->orWhere('organization_id', $tournament->organization_id);
+            })->get(),
+            'teams' => Team::where('tournament_id', $tournament->id)->get(),
         ]);
     }
 
@@ -55,15 +64,37 @@ class RegistrationController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'email' => 'required|email|max:255',
-            'mobile_number' => 'required|string|max:20',
+            'mobile_number_full' => 'required|string|max:20',
+            'cricheroes_number_full' => 'nullable|string|max:20',
+            'cricheroes_profile_url' => 'nullable|url|max:500',
             'jersey_name' => 'nullable|string|max:50',
+            'jersey_number' => 'nullable|integer|min:0|max:999',
             'batting_profile_id' => 'nullable|exists:batting_profiles,id',
             'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
             'player_type_id' => 'nullable|exists:player_types,id',
+            'kit_size_id' => 'nullable|exists:kit_sizes,id',
+            'location_id' => 'nullable|exists:player_locations,id',
+            'team_id' => 'nullable|exists:teams,id',
+            'team_name_ref' => 'nullable|string|max:100',
             'is_wicket_keeper' => 'boolean',
+            'transportation_required' => 'boolean',
+            'no_travel_plan' => 'boolean',
+            'travel_date_from' => 'nullable|date',
+            'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
+            'image' => 'nullable|image|mimes:png,jpg,jpeg|max:6144',
+            'total_matches' => 'nullable|integer|min:0',
+            'total_runs' => 'nullable|integer|min:0',
+            'total_wickets' => 'nullable|integer|min:0',
         ]);
 
         $validated['is_wicket_keeper'] = $request->boolean('is_wicket_keeper');
+        $validated['transportation_required'] = $request->boolean('transportation_required');
+        $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $validated['image_path'] = $request->file('image')->store('player_images', 'public');
+        }
 
         try {
             $registration = $this->registrationService->registerPlayer($tournament, $validated);

@@ -36,25 +36,25 @@
 <body x-data="{
     page: 'ecommerce',
     loaded: true,
-    darkMode: true,
+    darkMode: JSON.parse(localStorage.getItem('darkMode') ?? 'true'),
     stickyMenu: false,
-    sidebarToggle: $persist(false),
+    sidebarToggle: JSON.parse(localStorage.getItem('sidebarToggle') ?? 'false'),
     scrollTop: false
 }"
 x-init="
-    darkMode = JSON.parse(localStorage.getItem('darkMode')) ?? true;
     $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)));
     $watch('sidebarToggle', value => localStorage.setItem('sidebarToggle', JSON.stringify(value)))
 "
-:class="{ 'dark bg-dark-bg': darkMode === true }">
+:class="{ 'dark': darkMode }"
+class="bg-gray-50 dark:bg-dark-bg">
     <!-- Page Transition Overlay -->
     <div
         x-show="loaded"
-        x-transition:leave="transition-opacity ease-out duration-300"
+        x-transition:leave="transition-opacity ease-out duration-150"
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
-        x-init="setTimeout(() => loaded = false, 100)"
-        class="fixed inset-0 z-999999 bg-white dark:bg-dark-bg pointer-events-none">
+        x-init="$nextTick(() => loaded = false)"
+        class="fixed inset-0 z-999999 bg-gray-50 dark:bg-dark-bg pointer-events-none">
     </div>
     <!-- End Page Transition -->
     <!-- Page Wrapper -->
@@ -62,23 +62,25 @@ x-init="
         @include('backend.layouts.partials.sidebar-logo')
 
         <!-- Content Area -->
-        <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-white dark:bg-dark-surface">
+        <div class="relative flex flex-col flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-dark-surface">
             <!-- Small Device Overlay -->
-            <div @click="sidebarToggle = false" :class="sidebarToggle ? 'block lg:hidden' : 'hidden'"
-                class="fixed w-full h-screen z-9 bg-gray-900/50"></div>
+            <div
+                @click="sidebarToggle = false"
+                x-show="sidebarToggle"
+                x-transition:enter="transition-opacity ease-out duration-200"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="transition-opacity ease-in duration-150"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="fixed inset-0 z-9 bg-gray-900/50 lg:hidden">
+            </div>
             <!-- End Small Device Overlay -->
 
             @include('backend.layouts.partials.header')
 
             <!-- Main Content -->
-            <main
-                x-data="{ show: false }"
-                x-init="setTimeout(() => show = true, 50)"
-                x-show="show"
-                x-transition:enter="transition-all ease-out duration-300"
-                x-transition:enter-start="opacity-0 translate-y-2"
-                x-transition:enter-end="opacity-100 translate-y-0"
-                class="min-h-[calc(100vh-80px)]">
+            <main class="min-h-[calc(100vh-80px)] p-4 lg:p-6">
                 @yield('admin-content')
             </main>
             <!-- End Main Content -->

@@ -82,16 +82,24 @@
                             <option value="{{ $match->id }}"
                                     data-team-a="{{ $match->teamA?->name }}"
                                     data-team-b="{{ $match->teamB?->name }}"
-                                    data-team-a-logo="{{ $match->teamA?->team_logo ? asset('storage/' . $match->teamA->team_logo) : '' }}"
-                                    data-team-b-logo="{{ $match->teamB?->team_logo ? asset('storage/' . $match->teamB->team_logo) : '' }}"
+                                    data-team-a-short="{{ $match->teamA?->short_name ?? $match->teamA?->name }}"
+                                    data-team-b-short="{{ $match->teamB?->short_name ?? $match->teamB?->name }}"
+                                    data-team-a-logo="{{ $match->teamA?->team_logo_url ?? '' }}"
+                                    data-team-b-logo="{{ $match->teamB?->team_logo_url ?? '' }}"
+                                    data-team-a-captain-image="{{ $match->teamA?->captain_image_url ?? '' }}"
+                                    data-team-b-captain-image="{{ $match->teamB?->captain_image_url ?? '' }}"
+                                    data-team-a-captain-name="{{ $match->teamA?->captain?->name ?? '' }}"
+                                    data-team-b-captain-name="{{ $match->teamB?->captain?->name ?? '' }}"
                                     data-date="{{ $match->match_date?->format('M d, Y') }}"
-                                    data-time="{{ $match->match_time }}"
+                                    data-time="{{ $match->start_time ?? '' }}"
                                     data-venue="{{ $match->ground?->name ?? $match->venue }}"
                                     data-stage="{{ $match->stage }}"
+                                    data-stage-display="{{ $match->stage_display }}"
                                     data-status="{{ $match->status }}"
-                                    data-team-a-score="{{ $match->team_a_score }}"
-                                    data-team-b-score="{{ $match->team_b_score }}"
-                                    data-winner="{{ $match->winner?->name }}">
+                                    data-team-a-score="{{ $match->result?->team_a_score ?? '' }}"
+                                    data-team-b-score="{{ $match->result?->team_b_score ?? '' }}"
+                                    data-winner="{{ $match->winner?->name }}"
+                                    data-match-number="{{ $match->match_number ?? $match->id }}">
                                 Match #{{ $match->match_number ?? $match->id }}: {{ $match->teamA?->name ?? 'TBD' }} vs {{ $match->teamB?->name ?? 'TBD' }}
                                 @if($match->match_date) - {{ $match->match_date->format('M d') }} @endif
                                 @if($match->status === 'completed') (Completed) @endif
@@ -317,12 +325,20 @@ function getSelectedData() {
             data.match_id = selected.value;
             data.team_a_name = selected.dataset.teamA;
             data.team_b_name = selected.dataset.teamB;
+            data.team_a_short_name = selected.dataset.teamAShort;
+            data.team_b_short_name = selected.dataset.teamBShort;
             data.team_a_logo = selected.dataset.teamALogo;
             data.team_b_logo = selected.dataset.teamBLogo;
+            data.team_a_captain_image = selected.dataset.teamACaptainImage;
+            data.team_b_captain_image = selected.dataset.teamBCaptainImage;
+            data.team_a_captain_name = selected.dataset.teamACaptainName;
+            data.team_b_captain_name = selected.dataset.teamBCaptainName;
             data.match_date = selected.dataset.date;
             data.match_time = selected.dataset.time;
             data.venue = selected.dataset.venue;
-            data.match_stage = selected.dataset.stage;
+            data.ground_name = selected.dataset.venue;
+            data.match_stage = selected.dataset.stageDisplay || selected.dataset.stage;
+            data.match_number = selected.dataset.matchNumber;
             if (currentType === 'match_summary') {
                 data.team_a_score = selected.dataset.teamAScore;
                 data.team_b_score = selected.dataset.teamBScore;
@@ -372,6 +388,18 @@ function showDataSummary(data) {
     }
     if (data.match_date) html += `<p>Date: ${data.match_date}</p>`;
     if (data.venue) html += `<p>Venue: ${data.venue}</p>`;
+    if (data.team_a_captain_name || data.team_b_captain_name) {
+        html += `<p class="text-xs text-gray-500 mt-1">Captains: ${data.team_a_captain_name || 'TBD'} vs ${data.team_b_captain_name || 'TBD'}</p>`;
+    }
+    if (data.team_a_captain_image || data.team_b_captain_image) {
+        html += `<div class="flex items-center gap-2 mt-2">`;
+        if (data.team_a_captain_image) html += `<img src="${data.team_a_captain_image}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm">`;
+        if (data.team_a_logo) html += `<img src="${data.team_a_logo}" class="w-6 h-6 object-contain">`;
+        html += `<span class="text-xs text-gray-400">vs</span>`;
+        if (data.team_b_logo) html += `<img src="${data.team_b_logo}" class="w-6 h-6 object-contain">`;
+        if (data.team_b_captain_image) html += `<img src="${data.team_b_captain_image}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm">`;
+        html += `</div>`;
+    }
     if (data.player_name) html += `<p>Player: <strong>${data.player_name}</strong></p>`;
     if (data.team_name) html += `<p>Team: ${data.team_name}</p>`;
     if (data.award_name) html += `<p>Award: ${data.award_name}</p>`;

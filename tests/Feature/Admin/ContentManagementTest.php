@@ -61,23 +61,27 @@ class ContentManagementTest extends TestCase
         ]);
 
         // Register taxonomies by creating taxonomy records directly
-        Taxonomy::create([
-            'name' => 'category',
-            'label' => 'Categories',
-            'label_singular' => 'Category',
-            'hierarchical' => true,
-            'show_in_menu' => true,
-            'post_types' => ['post'],
-        ]);
+        Taxonomy::firstOrCreate(
+            ['name' => 'category'],
+            [
+                'label' => 'Categories',
+                'label_singular' => 'Category',
+                'hierarchical' => true,
+                'show_in_menu' => true,
+                'post_types' => ['post'],
+            ]
+        );
 
-        Taxonomy::create([
-            'name' => 'tag',
-            'label' => 'Tags',
-            'label_singular' => 'Tag',
-            'hierarchical' => false,
-            'show_in_menu' => true,
-            'post_types' => ['post'],
-        ]);
+        Taxonomy::firstOrCreate(
+            ['name' => 'tag'],
+            [
+                'label' => 'Tags',
+                'label_singular' => 'Tag',
+                'hierarchical' => false,
+                'show_in_menu' => true,
+                'post_types' => ['post'],
+            ]
+        );
 
         // Create a more comprehensive mock view for terms.index
         View::addNamespace('backend', resource_path('views/backend'));
