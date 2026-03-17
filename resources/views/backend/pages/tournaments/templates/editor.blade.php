@@ -1208,8 +1208,14 @@ const editor = {
             } else if (obj.elementType === 'image') {
                 return {
                     ...base,
-                    width: (obj.placeholderWidth || obj.width) * (obj.scaleX || 1),
-                    height: (obj.placeholderHeight || obj.height) * (obj.scaleY || 1),
+                    width: (obj.placeholderWidth || obj.width || 150) * (obj.scaleX || 1),
+                    height: (obj.placeholderHeight || obj.height || 150) * (obj.scaleY || 1),
+                };
+            } else if (obj.elementType === 'uploadedImage') {
+                return {
+                    ...base,
+                    width: (obj.placeholderWidth || obj.width || 150) * (obj.scaleX || 1),
+                    height: (obj.placeholderHeight || obj.height || 150) * (obj.scaleY || 1),
                 };
             } else if (obj.elementType === 'shape') {
                 return {
@@ -1218,6 +1224,14 @@ const editor = {
                     fill: obj.fill,
                     stroke: obj.stroke,
                     strokeWidth: obj.strokeWidth,
+                    width: (obj.width || 150) * (obj.scaleX || 1),
+                    height: (obj.height || 100) * (obj.scaleY || 1),
+                };
+            } else if (obj.type === 'image') {
+                // Regular Fabric image (uploaded)
+                return {
+                    ...base,
+                    type: 'uploadedImage',
                     width: obj.width * (obj.scaleX || 1),
                     height: obj.height * (obj.scaleY || 1),
                 };
@@ -1229,6 +1243,13 @@ const editor = {
         document.getElementById('formLayoutJson').value = JSON.stringify(layoutJson);
         document.getElementById('formCanvasWidth').value = this.canvasWidth;
         document.getElementById('formCanvasHeight').value = this.canvasHeight;
+
+        // Show saving indicator
+        const saveBtn = document.querySelector('[onclick="editor.save()"]');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
+        }
 
         // Submit form
         document.getElementById('saveForm').submit();
@@ -1243,7 +1264,8 @@ const editor = {
             const y = (item.y / 100) * this.canvasHeight;
 
             if (item.type === 'text' || item.type === 'i-text') {
-                const text = new fabric.IText('{{' + item.placeholder + '}}', {
+                const displayText = item.placeholder ? '{{' + item.placeholder + '}}' : 'Text';
+                const text = new fabric.IText(displayText, {
                     left: x,
                     top: y,
                     fontSize: item.fontSize || 24,
@@ -1269,13 +1291,124 @@ const editor = {
                 text.elementType = 'text';
                 this.canvas.add(text);
             } else if (item.type === 'image') {
-                this.addImagePlaceholder(item.placeholder, x, y);
+                this.addImagePlaceholderAtPos(item, x, y);
+            } else if (item.type === 'uploadedImage') {
+                // Show placeholder for uploaded images (they'd need to be re-uploaded)
+                this.addUploadedImagePlaceholder(item, x, y);
             } else if (item.type === 'shape') {
                 this.addShapeFromData(item, x, y);
             }
         });
 
         this.canvas.renderAll();
+    },
+
+    addImagePlaceholderAtPos(item, x, y) {
+        const placeholder = item.placeholder || 'image';
+        const width = item.width || 150;
+        const height = item.height || 150;
+
+        const group = new fabric.Group([], {
+            left: x,
+            top: y,
+            angle: item.rotation || 0,
+            opacity: (item.opacity || 100) / 100,
+            originX: 'center',
+            originY: 'center',
+        });
+
+        const rect = new fabric.Rect({
+            width: width,
+            height: height,
+            fill: 'rgba(99, 102, 241, 0.3)',
+            stroke: '#6366f1',
+            strokeWidth: 2,
+            strokeDashArray: [5, 5],
+            rx: 8,
+            ry: 8,
+            originX: 'center',
+            originY: 'center',
+        });
+
+        const iconText = new fabric.Text('🖼️', {
+            fontSize: 32,
+            originX: 'center',
+            originY: 'center',
+            top: -15,
+        });
+
+        const label = new fabric.Text(placeholder.replace(/_/g, ' '), {
+            fontSize: 12,
+            fill: '#ffffff',
+            fontFamily: 'Arial',
+            originX: 'center',
+            originY: 'center',
+            top: 30,
+        });
+
+        group.addWithUpdate(rect);
+        group.addWithUpdate(iconText);
+        group.addWithUpdate(label);
+
+        group.placeholder = placeholder;
+        group.elementType = 'image';
+        group.placeholderWidth = width;
+        group.placeholderHeight = height;
+
+        this.canvas.add(group);
+    },
+
+    addUploadedImagePlaceholder(item, x, y) {
+        const width = item.width || 150;
+        const height = item.height || 150;
+
+        const group = new fabric.Group([], {
+            left: x,
+            top: y,
+            angle: item.rotation || 0,
+            opacity: (item.opacity || 100) / 100,
+            originX: 'center',
+            originY: 'center',
+        });
+
+        const rect = new fabric.Rect({
+            width: width,
+            height: height,
+            fill: 'rgba(236, 72, 153, 0.3)',
+            stroke: '#ec4899',
+            strokeWidth: 2,
+            strokeDashArray: [5, 5],
+            rx: 8,
+            ry: 8,
+            originX: 'center',
+            originY: 'center',
+        });
+
+        const iconText = new fabric.Text('📷', {
+            fontSize: 32,
+            originX: 'center',
+            originY: 'center',
+            top: -15,
+        });
+
+        const label = new fabric.Text('Re-upload Image', {
+            fontSize: 10,
+            fill: '#ffffff',
+            fontFamily: 'Arial',
+            originX: 'center',
+            originY: 'center',
+            top: 30,
+        });
+
+        group.addWithUpdate(rect);
+        group.addWithUpdate(iconText);
+        group.addWithUpdate(label);
+
+        group.elementType = 'uploadedImage';
+        group.placeholderWidth = width;
+        group.placeholderHeight = height;
+
+        this.canvas.add(group);
     },
 
     addShapeFromData(item, x, y) {

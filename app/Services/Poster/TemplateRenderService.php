@@ -106,7 +106,12 @@ class TemplateRenderService extends PosterGeneratorService
         $value = $data[$placeholder] ?? $this->getDisplayValue($placeholder);
 
         if ($type === 'image') {
-            $this->renderImageElement($canvas, $element, $value, $x, $y);
+            $this->renderImageElement($canvas, $element, $value, $x, $y, $canvasWidth);
+        } elseif ($type === 'uploadedImage') {
+            // Uploaded images are stored as base64 or path in the element
+            $this->renderUploadedImage($canvas, $element, $x, $y, $canvasWidth);
+        } elseif ($type === 'shape') {
+            $this->renderShapeElement($canvas, $element, $x, $y, $canvasWidth);
         } else {
             $this->renderTextElement($canvas, $element, $value, $x, $y);
         }
@@ -170,18 +175,16 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
-     * Render image element
+     * Render image element (placeholder)
      */
-    protected function renderImageElement(\GdImage $canvas, array $element, string $imagePath, int $x, int $y): void
+    protected function renderImageElement(\GdImage $canvas, array $element, string $imagePath, int $x, int $y, int $canvasWidth): void
     {
         $width = (int) ($element['width'] ?? 100);
         $height = (int) ($element['height'] ?? 100);
         $borderRadius = (int) ($element['borderRadius'] ?? 0);
 
-        // Scale dimensions based on canvas (layout uses 540px canvas, actual is 1080px)
-        $scale = imagesx($canvas) / 540;
-        $width = (int) ($width * $scale);
-        $height = (int) ($height * $scale);
+        // Scale dimensions: element sizes are stored relative to 1080px canvas
+        // No additional scaling needed if canvas is already at target size
 
         // Convert URL to storage path if needed
         $storagePath = $this->extractStoragePath($imagePath);
@@ -205,6 +208,78 @@ class TemplateRenderService extends PosterGeneratorService
             // Regular image
             $this->addImage($canvas, $storagePath, (int) $drawX, (int) $drawY, $width, $height);
         }
+    }
+
+    /**
+     * Render uploaded image (stored with template)
+     */
+    protected function renderUploadedImage(\GdImage $canvas, array $element, int $x, int $y, int $canvasWidth): void
+    {
+        // For uploaded images, we'd need to store the image data/path
+        // Currently just draw a placeholder since we don't have the actual image data
+        $width = (int) ($element['width'] ?? 150);
+        $height = (int) ($element['height'] ?? 150);
+        $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+    }
+
+    /**
+     * Render shape element
+     */
+    protected function renderShapeElement(\GdImage $canvas, array $element, int $x, int $y, int $canvasWidth): void
+    {
+        $shapeType = $element['shapeType'] ?? 'rect';
+        $width = (int) ($element['width'] ?? 150);
+        $height = (int) ($element['height'] ?? 100);
+        $fill = $element['fill'] ?? 'rgba(99, 102, 241, 0.5)';
+        $stroke = $element['stroke'] ?? '#6366f1';
+        $strokeWidth = (int) ($element['strokeWidth'] ?? 2);
+
+        // Parse fill color
+        $fillColor = $this->parseColor($canvas, $fill);
+
+        $drawX = (int) ($x - $width / 2);
+        $drawY = (int) ($y - $height / 2);
+
+        if ($shapeType === 'rect') {
+            imagefilledrectangle($canvas, $drawX, $drawY, $drawX + $width, $drawY + $height, $fillColor);
+        } elseif ($shapeType === 'circle') {
+            $radius = min($width, $height) / 2;
+            imagefilledellipse($canvas, $x, $y, (int)($radius * 2), (int)($radius * 2), $fillColor);
+        } elseif ($shapeType === 'line') {
+            $strokeColor = $this->parseColor($canvas, $stroke);
+            imagesetthickness($canvas, $strokeWidth);
+            imageline($canvas, $drawX, $y, $drawX + $width, $y, $strokeColor);
+        }
+    }
+
+    /**
+     * Parse color string to GD color
+     */
+    protected function parseColor(\GdImage $canvas, string $color): int
+    {
+        // Handle rgba format
+        if (preg_match('/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/', $color, $matches)) {
+            $r = (int) $matches[1];
+            $g = (int) $matches[2];
+            $b = (int) $matches[3];
+            $a = isset($matches[4]) ? (int) ((1 - (float) $matches[4]) * 127) : 0;
+            return imagecolorallocatealpha($canvas, $r, $g, $b, $a);
+        }
+
+        // Handle hex format
+        if (str_starts_with($color, '#')) {
+            $hex = ltrim($color, '#');
+            if (strlen($hex) === 3) {
+                $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+            }
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+            return imagecolorallocate($canvas, $r, $g, $b);
+        }
+
+        // Default to white
+        return imagecolorallocate($canvas, 255, 255, 255);
     }
 
     /**
@@ -264,10 +339,9 @@ class TemplateRenderService extends PosterGeneratorService
         $x = (int) (($overlay['x'] ?? 50) / 100 * $canvasWidth);
         $y = (int) (($overlay['y'] ?? 50) / 100 * $canvasHeight);
 
-        // Get dimensions - scale from editor (540px base) to output
-        $scale = $canvasWidth / 540;
-        $width = (int) (($overlay['width'] ?? 100) * $scale);
-        $height = (int) (($overlay['height'] ?? 100) * $scale);
+        // Overlay dimensions are stored as actual pixel values
+        $width = (int) ($overlay['width'] ?? 100);
+        $height = (int) ($overlay['height'] ?? 100);
 
         // Center the image at x, y
         $drawX = (int) ($x - $width / 2);

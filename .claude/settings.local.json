@@ -20,7 +20,10 @@
       "Bash(icacls:*)",
       "Bash(cd /d D:NavasClientSalih MuahammadOrganizerPro)",
       "Bash(cd:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git remote:*)",
+      "Bash(curl:*)",
+      "Bash(npx md-to-pdf:*)"
     ]
   }
 }

@@ -1,0 +1,1082 @@
+<!DOCTYPE html><html><head><title></title><meta charset="utf-8"><style>* {
+	box-sizing: border-box;
+}
+
+html {
+	font-size: 100%;
+}
+
+body {
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+		'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+	line-height: 1.6;
+	font-size: 0.6875em; /* 11 pt */
+	color: #111;
+	margin: 0;
+}
+
+body > :first-child {
+	padding-top: 0;
+	margin-top: 0;
+}
+
+body > :last-child {
+	margin-bottom: 0;
+	padding-bottom: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	margin: 0;
+	padding: 0.5em 0 0.25em;
+}
+
+h5,
+h6 {
+	padding: 0;
+}
+
+h5 {
+	font-size: 1em;
+}
+
+h6 {
+	font-size: 0.875em;
+	text-transform: uppercase;
+}
+
+p {
+	margin: 0.25em 0 1em;
+}
+
+blockquote {
+	margin: 0.5em 0 1em;
+	padding-left: 0.5em;
+	padding-right: 1em;
+	border-left: 4px solid gainsboro;
+	font-style: italic;
+}
+
+ul,
+ol {
+	margin: 0;
+	margin-left: 1em;
+	padding: 0 1.5em 0.5em;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code,
+p code,
+li code,
+pre code {
+	background-color: #f8f8f8;
+	padding: 0.1em 0.375em;
+	border: 1px solid #f8f8f8;
+	border-radius: 0.25em;
+	font-family: monospace;
+	font-size: 1.2em;
+}
+
+pre code {
+	display: block;
+	padding: 0.5em;
+}
+
+.page-break {
+	page-break-after: always;
+}
+
+img {
+	max-width: 100%;
+	margin: 1em 0;
+}
+
+table {
+	border-spacing: 0;
+	border-collapse: collapse;
+	display: block;
+	margin: 0 0 1em;
+	width: 100%;
+	overflow: auto;
+}
+
+table th,
+table td {
+	padding: 0.5em 1em;
+	border: 1px solid gainsboro;
+}
+
+table th {
+	font-weight: 600;
+}
+
+table tr {
+	background-color: white;
+	border-top: 1px solid gainsboro;
+}
+
+table tr:nth-child(2n) {
+	background-color: whitesmoke;
+}
+/*# sourceURL=C:\Users\Navas Fazil\AppData\Local\npm-cache\_npx\55158e48eb5c59f7\node_modules\md-to-pdf\markdown.css*/</style><style>pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em
+}
+code.hljs {
+  padding: 3px 5px
+}
+/*!
+  Theme: GitHub
+  Description: Light theme as seen on github.com
+  Author: github.com
+  Maintainer: @Hirse
+  Updated: 2021-05-15
+
+  Outdated base version: https://github.com/primer/github-syntax-light
+  Current colors taken from GitHub's CSS
+*/
+.hljs {
+  color: #24292e;
+  background: #ffffff
+}
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  /* prettylights-syntax-keyword */
+  color: #d73a49
+}
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  /* prettylights-syntax-entity */
+  color: #6f42c1
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  /* prettylights-syntax-constant */
+  color: #005cc5
+}
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  /* prettylights-syntax-string */
+  color: #032f62
+}
+.hljs-built_in,
+.hljs-symbol {
+  /* prettylights-syntax-variable */
+  color: #e36209
+}
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  /* prettylights-syntax-comment */
+  color: #6a737d
+}
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  /* prettylights-syntax-entity-tag */
+  color: #22863a
+}
+.hljs-subst {
+  /* prettylights-syntax-storage-modifier-import */
+  color: #24292e
+}
+.hljs-section {
+  /* prettylights-syntax-markup-heading */
+  color: #005cc5;
+  font-weight: bold
+}
+.hljs-bullet {
+  /* prettylights-syntax-markup-list */
+  color: #735c0f
+}
+.hljs-emphasis {
+  /* prettylights-syntax-markup-italic */
+  color: #24292e;
+  font-style: italic
+}
+.hljs-strong {
+  /* prettylights-syntax-markup-bold */
+  color: #24292e;
+  font-weight: bold
+}
+.hljs-addition {
+  /* prettylights-syntax-markup-inserted */
+  color: #22863a;
+  background-color: #f0fff4
+}
+.hljs-deletion {
+  /* prettylights-syntax-markup-deleted */
+  color: #b31d28;
+  background-color: #ffeef0
+}
+.hljs-char.escape_,
+.hljs-link,
+.hljs-params,
+.hljs-property,
+.hljs-punctuation,
+.hljs-tag {
+  /* purposely ignored */
+  
+}/*# sourceURL=C:\Users\Navas Fazil\AppData\Local\npm-cache\_npx\55158e48eb5c59f7\node_modules\highlight.js\styles\github.css*/</style></head>
+	<body class="">
+		<h1 id="sportzleycom---complete-user-guide">Sportzley.com - Complete User Guide</h1>
+<p><strong>Website:</strong> <a href="https://sportzley.com/">https://sportzley.com/</a>
+<strong>Admin Panel:</strong> <a href="https://sportzley.com/admin">https://sportzley.com/admin</a>
+<strong>Last Updated:</strong> March 2026</p>
+<hr>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#recent-updates-summary">Recent Updates Summary</a></li>
+<li><a href="#user-roles--access-levels">User Roles &amp; Access Levels</a></li>
+<li><a href="#admin-panel-menu-guide">Admin Panel Menu Guide</a></li>
+<li><a href="#public-urls--sharing-links">Public URLs &amp; Sharing Links</a></li>
+<li><a href="#feature-guides">Feature Guides</a></li>
+</ol>
+<hr>
+<h2 id="recent-updates-summary">Recent Updates Summary</h2>
+<h3 id="new-features-march-2026">New Features (March 2026)</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Canva-Style Template Editor</strong></td>
+<td>Drag-and-drop poster/certificate designer using Fabric.js</td>
+</tr>
+<tr>
+<td><strong>Generate Poster Page</strong></td>
+<td>Auto-generate posters with real tournament data</td>
+</tr>
+<tr>
+<td><strong>IPL-Style Dashboard</strong></td>
+<td>Professional tournament management dashboard</td>
+</tr>
+<tr>
+<td><strong>Live Match Ticker</strong></td>
+<td>1920x1080 broadcast-ready live score ticker</td>
+</tr>
+<tr>
+<td><strong>Player Registration System</strong></td>
+<td>Online registration for players and teams</td>
+</tr>
+<tr>
+<td><strong>Toss Management</strong></td>
+<td>Record toss winner and decision (bat/bowl)</td>
+</tr>
+<tr>
+<td><strong>Player Verification</strong></td>
+<td>Email verification with password confirmation</td>
+</tr>
+<tr>
+<td><strong>Background Removal</strong></td>
+<td>Auto-remove player photo backgrounds</td>
+</tr>
+<tr>
+<td><strong>Calendar Scheduling</strong></td>
+<td>Visual match scheduling with calendar view</td>
+</tr>
+<tr>
+<td><strong>Zones Management</strong></td>
+<td>Geographic organization of tournaments</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="user-roles--access-levels">User Roles &amp; Access Levels</h2>
+<h3 id="role-hierarchy">Role Hierarchy</h3>
+<pre><code>Superadmin (Full Access)
+    |
+    +-- Admin (Most features, no critical settings)
+    |
+    +-- Organizer (Tournament management)
+    |
+    +-- Team Manager (Team &amp; player management)
+    |
+    +-- Coach / Captain (View team &amp; players)
+    |
+    +-- Scorer (Match scoring)
+    |
+    +-- Player (Own profile only)
+    |
+    +-- Viewer / Subscriber / Contact (Basic access)
+</code></pre>
+<hr>
+<h3 id="1-superadmin">1. Superadmin</h3>
+<p><strong>Login URL:</strong> <a href="https://sportzley.com/login">https://sportzley.com/login</a></p>
+<p><strong>Full Access To:</strong></p>
+<ul>
+<li>All features and settings</li>
+<li>User management</li>
+<li>Role &amp; permission management</li>
+<li>System monitoring (Laravel Pulse, Action Logs)</li>
+<li>Modules management</li>
+<li>Backup &amp; restore</li>
+<li>Translations</li>
+<li>Organizations management</li>
+</ul>
+<p><strong>Menu Access:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+</tr>
+<tr>
+<td>Roles &amp; Permissions</td>
+<td><a href="https://sportzley.com/admin/roles">https://sportzley.com/admin/roles</a></td>
+</tr>
+<tr>
+<td>Users</td>
+<td><a href="https://sportzley.com/admin/users">https://sportzley.com/admin/users</a></td>
+</tr>
+<tr>
+<td>Players</td>
+<td><a href="https://sportzley.com/admin/players">https://sportzley.com/admin/players</a></td>
+</tr>
+<tr>
+<td>Teams</td>
+<td><a href="https://sportzley.com/admin/actual-teams">https://sportzley.com/admin/actual-teams</a></td>
+</tr>
+<tr>
+<td>Matches</td>
+<td><a href="https://sportzley.com/admin/matches">https://sportzley.com/admin/matches</a></td>
+</tr>
+<tr>
+<td>Tournaments</td>
+<td><a href="https://sportzley.com/admin/tournaments">https://sportzley.com/admin/tournaments</a></td>
+</tr>
+<tr>
+<td>Auctions</td>
+<td><a href="https://sportzley.com/admin/auctions">https://sportzley.com/admin/auctions</a></td>
+</tr>
+<tr>
+<td>Organizations</td>
+<td><a href="https://sportzley.com/admin/organizations">https://sportzley.com/admin/organizations</a></td>
+</tr>
+<tr>
+<td>Zones</td>
+<td><a href="https://sportzley.com/admin/zones">https://sportzley.com/admin/zones</a></td>
+</tr>
+<tr>
+<td>Grounds</td>
+<td><a href="https://sportzley.com/admin/grounds">https://sportzley.com/admin/grounds</a></td>
+</tr>
+<tr>
+<td>Appreciations</td>
+<td><a href="https://sportzley.com/admin/appreciations">https://sportzley.com/admin/appreciations</a></td>
+</tr>
+<tr>
+<td>Modules</td>
+<td><a href="https://sportzley.com/admin/modules">https://sportzley.com/admin/modules</a></td>
+</tr>
+<tr>
+<td>Monitoring &gt; Action Logs</td>
+<td><a href="https://sportzley.com/admin/action-log">https://sportzley.com/admin/action-log</a></td>
+</tr>
+<tr>
+<td>Monitoring &gt; Laravel Pulse</td>
+<td><a href="https://sportzley.com/pulse">https://sportzley.com/pulse</a></td>
+</tr>
+<tr>
+<td>Settings &gt; General</td>
+<td><a href="https://sportzley.com/admin/settings">https://sportzley.com/admin/settings</a></td>
+</tr>
+<tr>
+<td>Settings &gt; Templates</td>
+<td><a href="https://sportzley.com/admin/image-templates">https://sportzley.com/admin/image-templates</a></td>
+</tr>
+<tr>
+<td>Settings &gt; Translations</td>
+<td><a href="https://sportzley.com/admin/translations">https://sportzley.com/admin/translations</a></td>
+</tr>
+<tr>
+<td>Settings &gt; Backup/Restore</td>
+<td><a href="https://sportzley.com/admin/backups">https://sportzley.com/admin/backups</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="2-admin">2. Admin</h3>
+<p><strong>Similar to Superadmin but CANNOT access:</strong></p>
+<ul>
+<li>Role management</li>
+<li>User deletion</li>
+<li>Module management</li>
+<li>Organization management</li>
+<li>System monitoring</li>
+<li>Critical settings</li>
+</ul>
+<p><strong>Menu Access:</strong> Same as Superadmin except restricted items above.</p>
+<hr>
+<h3 id="3-organizer">3. Organizer</h3>
+<p><strong>Purpose:</strong> Manage tournaments, matches, teams, and players</p>
+<p><strong>Can Access:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+<td>Overview</td>
+</tr>
+<tr>
+<td>Tournaments</td>
+<td><a href="https://sportzley.com/admin/tournaments">https://sportzley.com/admin/tournaments</a></td>
+<td>Create &amp; manage tournaments</td>
+</tr>
+<tr>
+<td>Tournament Dashboard</td>
+<td><a href="https://sportzley.com/admin/tournaments/%7Bid%7D/dashboard">https://sportzley.com/admin/tournaments/{id}/dashboard</a></td>
+<td>IPL-style management</td>
+</tr>
+<tr>
+<td>Teams</td>
+<td><a href="https://sportzley.com/admin/actual-teams">https://sportzley.com/admin/actual-teams</a></td>
+<td>Manage teams</td>
+</tr>
+<tr>
+<td>Players</td>
+<td><a href="https://sportzley.com/admin/players">https://sportzley.com/admin/players</a></td>
+<td>View/create players</td>
+</tr>
+<tr>
+<td>Matches</td>
+<td><a href="https://sportzley.com/admin/matches">https://sportzley.com/admin/matches</a></td>
+<td>Schedule &amp; manage matches</td>
+</tr>
+<tr>
+<td>Grounds</td>
+<td><a href="https://sportzley.com/admin/grounds">https://sportzley.com/admin/grounds</a></td>
+<td>Manage venues</td>
+</tr>
+<tr>
+<td>Zones</td>
+<td><a href="https://sportzley.com/admin/zones">https://sportzley.com/admin/zones</a></td>
+<td>View zones</td>
+</tr>
+<tr>
+<td>Appreciations</td>
+<td><a href="https://sportzley.com/admin/appreciations">https://sportzley.com/admin/appreciations</a></td>
+<td>Player appreciations</td>
+</tr>
+<tr>
+<td>Templates</td>
+<td><a href="https://sportzley.com/admin/image-templates">https://sportzley.com/admin/image-templates</a></td>
+<td>Design posters</td>
+</tr>
+</tbody></table>
+<p><strong>Tournament Management Features:</strong></p>
+<ul>
+<li>Settings &amp; configuration</li>
+<li>Team registrations</li>
+<li>Group management</li>
+<li>Fixture generation</li>
+<li>Point table management</li>
+<li>Statistics</li>
+<li>Awards</li>
+</ul>
+<hr>
+<h3 id="4-team-manager">4. Team Manager</h3>
+<p><strong>Purpose:</strong> Manage their assigned team and participate in auctions</p>
+<p><strong>Simplified Menu:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Team Dashboard</td>
+<td><a href="https://sportzley.com/team-manager/dashboard">https://sportzley.com/team-manager/dashboard</a></td>
+<td>Team overview</td>
+</tr>
+<tr>
+<td>My Players</td>
+<td><a href="https://sportzley.com/admin/actual-teams">https://sportzley.com/admin/actual-teams</a></td>
+<td>View team players</td>
+</tr>
+<tr>
+<td>Add Player</td>
+<td><a href="https://sportzley.com/team-manager/players/create">https://sportzley.com/team-manager/players/create</a></td>
+<td>Add new player</td>
+</tr>
+<tr>
+<td>My Auctions</td>
+<td><a href="https://sportzley.com/team-manager/auctions">https://sportzley.com/team-manager/auctions</a></td>
+<td>View assigned auctions</td>
+</tr>
+<tr>
+<td>Matches</td>
+<td><a href="https://sportzley.com/admin/matches">https://sportzley.com/admin/matches</a></td>
+<td>View matches</td>
+</tr>
+</tbody></table>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li>Add players to their team</li>
+<li>View team roster</li>
+<li>Participate in live auctions</li>
+<li>View match schedules</li>
+</ul>
+<hr>
+<h3 id="5-coach">5. Coach</h3>
+<p><strong>Purpose:</strong> View team and player information</p>
+<p><strong>Can Access:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+</tr>
+<tr>
+<td>Teams (View)</td>
+<td><a href="https://sportzley.com/admin/actual-teams">https://sportzley.com/admin/actual-teams</a></td>
+</tr>
+<tr>
+<td>Players (View)</td>
+<td><a href="https://sportzley.com/admin/players">https://sportzley.com/admin/players</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="6-captain">6. Captain</h3>
+<p><strong>Purpose:</strong> View own team and players</p>
+<p><strong>Can Access:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+</tr>
+<tr>
+<td>Teams (View)</td>
+<td><a href="https://sportzley.com/admin/actual-teams">https://sportzley.com/admin/actual-teams</a></td>
+</tr>
+<tr>
+<td>Players (View)</td>
+<td><a href="https://sportzley.com/admin/players">https://sportzley.com/admin/players</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="7-scorer">7. Scorer</h3>
+<p><strong>Purpose:</strong> Record match scores</p>
+<p><strong>Can Access:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+<td>Overview</td>
+</tr>
+<tr>
+<td>Matches</td>
+<td><a href="https://sportzley.com/admin/matches">https://sportzley.com/admin/matches</a></td>
+<td>View &amp; edit match scores</td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="8-player">8. Player</h3>
+<p><strong>Purpose:</strong> View and manage own profile</p>
+<p><strong>Can Access:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+</tr>
+<tr>
+<td>My Profile</td>
+<td><a href="https://sportzley.com/player/%7Bid%7D/dashboard">https://sportzley.com/player/{id}/dashboard</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h3 id="9-viewer--subscriber--contact">9. Viewer / Subscriber / Contact</h3>
+<p><strong>Purpose:</strong> Basic read-only access</p>
+<p><strong>Can Access:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Menu Item</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+</tr>
+<tr>
+<td>Profile</td>
+<td>Profile view/edit</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="admin-panel-menu-guide">Admin Panel Menu Guide</h2>
+<h3 id="main-menu-structure">Main Menu Structure</h3>
+<pre><code>MAIN
+├── Dashboard
+├── Roles &amp; Permissions (Superadmin/Admin)
+│   ├── Roles
+│   ├── New Role
+│   └── Permissions
+├── Users (Superadmin/Admin)
+│   ├── Users List
+│   └── New User
+├── Players
+│   ├── All Players
+│   └── New Player
+├── Organizations (Superadmin only)
+│   ├── All Organizations
+│   └── New Organization
+├── Zones
+│   ├── All Zones
+│   └── New Zone
+├── Teams
+│   ├── All Teams
+│   └── New Team
+├── Matches
+│   ├── All Matches
+│   ├── New Match
+│   └── Live Ticker (1920x1080)
+├── Appreciations
+│   └── All Appreciations
+├── Tournaments
+│   ├── All Tournaments
+│   └── New Tournament
+├── Grounds
+│   ├── All Grounds
+│   └── New Ground
+├── Auctions
+│   ├── All Auctions
+│   ├── New Auction
+│   ├── Closed Bids
+│   └── LED Templates
+└── Modules (Superadmin only)
+
+MORE
+├── Settings
+│   ├── General Settings
+│   ├── Templates
+│   ├── Translations
+│   └── Backup / Restore
+├── Monitoring (Superadmin only)
+│   ├── Action Logs
+│   └── Laravel Pulse
+└── Logout
+</code></pre>
+<hr>
+<h2 id="public-urls--sharing-links">Public URLs &amp; Sharing Links</h2>
+<h3 id="tournament-urls">Tournament URLs</h3>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>URL Format</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tournament Page</td>
+<td><code>https://sportzley.com/t/{slug}</code></td>
+<td><a href="https://sportzley.com/t/ipl-2026">https://sportzley.com/t/ipl-2026</a></td>
+</tr>
+<tr>
+<td>Fixtures</td>
+<td><code>https://sportzley.com/t/{slug}/fixtures</code></td>
+<td><a href="https://sportzley.com/t/ipl-2026/fixtures">https://sportzley.com/t/ipl-2026/fixtures</a></td>
+</tr>
+<tr>
+<td>Point Table</td>
+<td><code>https://sportzley.com/t/{slug}/point-table</code></td>
+<td><a href="https://sportzley.com/t/ipl-2026/point-table">https://sportzley.com/t/ipl-2026/point-table</a></td>
+</tr>
+<tr>
+<td>Statistics</td>
+<td><code>https://sportzley.com/t/{slug}/statistics</code></td>
+<td><a href="https://sportzley.com/t/ipl-2026/statistics">https://sportzley.com/t/ipl-2026/statistics</a></td>
+</tr>
+<tr>
+<td>Teams</td>
+<td><code>https://sportzley.com/t/{slug}/teams</code></td>
+<td><a href="https://sportzley.com/t/ipl-2026/teams">https://sportzley.com/t/ipl-2026/teams</a></td>
+</tr>
+</tbody></table>
+<h3 id="registration-urls">Registration URLs</h3>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>URL Format</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Player Registration</td>
+<td><code>https://sportzley.com/t/{slug}/register/player</code></td>
+<td><a href="https://sportzley.com/t/ipl-2026/register/player">https://sportzley.com/t/ipl-2026/register/player</a></td>
+</tr>
+<tr>
+<td>Team Registration</td>
+<td><code>https://sportzley.com/t/{slug}/register/team</code></td>
+<td><a href="https://sportzley.com/t/ipl-2026/register/team">https://sportzley.com/t/ipl-2026/register/team</a></td>
+</tr>
+<tr>
+<td>General Player Registration</td>
+<td><code>https://sportzley.com/player/register</code></td>
+<td>Direct player signup</td>
+</tr>
+</tbody></table>
+<h3 id="match-urls">Match URLs</h3>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>URL Format</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Match Details</td>
+<td><code>https://sportzley.com/m/{match-id}</code></td>
+<td><a href="https://sportzley.com/m/123">https://sportzley.com/m/123</a></td>
+</tr>
+<tr>
+<td>Match Scorecard</td>
+<td><code>https://sportzley.com/m/{match-id}/scorecard</code></td>
+<td><a href="https://sportzley.com/m/123/scorecard">https://sportzley.com/m/123/scorecard</a></td>
+</tr>
+<tr>
+<td>Match Summary</td>
+<td><code>https://sportzley.com/m/{match-id}/summary</code></td>
+<td><a href="https://sportzley.com/m/123/summary">https://sportzley.com/m/123/summary</a></td>
+</tr>
+<tr>
+<td>Match Poster</td>
+<td><code>https://sportzley.com/m/{match-id}/poster</code></td>
+<td><a href="https://sportzley.com/m/123/poster">https://sportzley.com/m/123/poster</a></td>
+</tr>
+</tbody></table>
+<h3 id="live-ticker-urls-for-broadcastingstreaming">Live Ticker URLs (For Broadcasting/Streaming)</h3>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>URL Format</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Public Live Ticker</td>
+<td><code>https://sportzley.com/live/{match-id}</code></td>
+<td><a href="https://sportzley.com/live/123">https://sportzley.com/live/123</a></td>
+</tr>
+<tr>
+<td>Alternative Ticker</td>
+<td><code>https://sportzley.com/m/{match-id}/ticker</code></td>
+<td><a href="https://sportzley.com/m/123/ticker">https://sportzley.com/m/123/ticker</a></td>
+</tr>
+</tbody></table>
+<p><strong>Usage:</strong> Add this URL as a browser source in OBS/Streamlabs for 1920x1080 live score display.</p>
+<h3 id="auction-urls">Auction URLs</h3>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>URL Format</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Live Auction Display</td>
+<td><code>https://sportzley.com/auction/{id}/live</code></td>
+<td>For LED screens</td>
+</tr>
+<tr>
+<td>Auction Results</td>
+<td><code>https://sportzley.com/auction/{id}/results</code></td>
+<td>Final results</td>
+</tr>
+<tr>
+<td>Sold Players Display</td>
+<td><code>https://sportzley.com/auction/{id}/sold</code></td>
+<td>Sold list</td>
+</tr>
+</tbody></table>
+<h3 id="player-urls">Player URLs</h3>
+<table>
+<thead>
+<tr>
+<th>Purpose</th>
+<th>URL Format</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Player Dashboard</td>
+<td><code>https://sportzley.com/player/{id}/dashboard</code></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="feature-guides">Feature Guides</h2>
+<h3 id="1-creating-a-tournament">1. Creating a Tournament</h3>
+<ol>
+<li><strong>Login</strong> at <a href="https://sportzley.com/admin">https://sportzley.com/admin</a></li>
+<li>Go to <strong>Tournaments</strong> &gt; <strong>New Tournament</strong></li>
+<li>Fill in tournament details:<ul>
+<li>Name, description, dates</li>
+<li>Set status to "registration" to enable registrations</li>
+<li>Configure settings</li>
+</ul>
+</li>
+<li>After creation, access <strong>Tournament Dashboard</strong></li>
+</ol>
+<h3 id="2-tournament-dashboard-features">2. Tournament Dashboard Features</h3>
+<p>Access: <a href="https://sportzley.com/admin/tournaments/%7Bid%7D/dashboard">https://sportzley.com/admin/tournaments/{id}/dashboard</a></p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Overview</strong></td>
+<td>Tournament stats and quick actions</td>
+</tr>
+<tr>
+<td><strong>Settings</strong></td>
+<td>Configure tournament options</td>
+</tr>
+<tr>
+<td><strong>Registrations</strong></td>
+<td>View/approve player &amp; team registrations</td>
+</tr>
+<tr>
+<td><strong>Groups</strong></td>
+<td>Create and manage groups</td>
+</tr>
+<tr>
+<td><strong>Fixtures</strong></td>
+<td>Generate group stage &amp; knockout fixtures</td>
+</tr>
+<tr>
+<td><strong>Point Table</strong></td>
+<td>Standings and qualifications</td>
+</tr>
+<tr>
+<td><strong>Statistics</strong></td>
+<td>Player and team statistics</td>
+</tr>
+<tr>
+<td><strong>Awards</strong></td>
+<td>Configure tournament awards</td>
+</tr>
+<tr>
+<td><strong>Calendar</strong></td>
+<td>Visual match scheduling</td>
+</tr>
+<tr>
+<td><strong>Templates</strong></td>
+<td>Generate posters</td>
+</tr>
+</tbody></table>
+<h3 id="3-sharing-registration-links">3. Sharing Registration Links</h3>
+<p>From Tournament Dashboard, copy these links:</p>
+<p><strong>For Players:</strong></p>
+<pre><code>https://sportzley.com/t/{tournament-slug}/register/player
+</code></pre>
+<p><strong>For Teams:</strong></p>
+<pre><code>https://sportzley.com/t/{tournament-slug}/register/team
+</code></pre>
+<h3 id="4-using-the-template-editor">4. Using the Template Editor</h3>
+<ol>
+<li>Go to <strong>Settings</strong> &gt; <strong>Templates</strong></li>
+<li>Create new template or edit existing</li>
+<li>Use drag-and-drop editor to:<ul>
+<li>Add text, images, shapes</li>
+<li>Position elements</li>
+<li>Set colors and fonts</li>
+</ul>
+</li>
+<li>Save and use in poster generation</li>
+</ol>
+<h3 id="5-generating-posters">5. Generating Posters</h3>
+<ol>
+<li>Go to <strong>Tournament</strong> &gt; <strong>Dashboard</strong> &gt; <strong>Templates</strong> &gt; <strong>Generate</strong></li>
+<li>Select template</li>
+<li>Choose data (player, match, etc.)</li>
+<li>Generate and download poster</li>
+</ol>
+<h3 id="6-setting-up-live-ticker-for-streaming">6. Setting Up Live Ticker for Streaming</h3>
+<ol>
+<li>Create/edit a match</li>
+<li>Go to match details and click <strong>Live Ticker</strong></li>
+<li>Copy the public URL: <code>https://sportzley.com/live/{match-id}</code></li>
+<li>In OBS/Streamlabs:<ul>
+<li>Add Browser Source</li>
+<li>Set URL to the live ticker link</li>
+<li>Set resolution to 1920x1080</li>
+</ul>
+</li>
+<li>Update scores from admin panel - ticker updates in real-time</li>
+</ol>
+<h3 id="7-running-an-auction">7. Running an Auction</h3>
+<ol>
+<li>Go to <strong>Auctions</strong> &gt; <strong>New Auction</strong></li>
+<li>Configure:<ul>
+<li>Linked tournament</li>
+<li>Participating teams</li>
+<li>Player pool</li>
+<li>Budget settings</li>
+</ul>
+</li>
+<li>Start auction from admin panel</li>
+<li>Share public display URL for LED screens</li>
+<li>Team managers can bid via their dashboard</li>
+</ol>
+<h3 id="8-managing-registrations">8. Managing Registrations</h3>
+<ol>
+<li>Go to <strong>Tournament</strong> &gt; <strong>Registrations</strong></li>
+<li>Review pending registrations</li>
+<li><strong>Approve</strong> or <strong>Reject</strong> individually</li>
+<li>Use <strong>Bulk Approve</strong> for multiple registrations</li>
+<li>Approved players/teams appear in the system</li>
+</ol>
+<hr>
+<h2 id="quick-reference-card">Quick Reference Card</h2>
+<h3 id="admin-urls">Admin URLs</h3>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Login</td>
+<td><a href="https://sportzley.com/login">https://sportzley.com/login</a></td>
+</tr>
+<tr>
+<td>Dashboard</td>
+<td><a href="https://sportzley.com/admin">https://sportzley.com/admin</a></td>
+</tr>
+<tr>
+<td>Tournaments</td>
+<td><a href="https://sportzley.com/admin/tournaments">https://sportzley.com/admin/tournaments</a></td>
+</tr>
+<tr>
+<td>Matches</td>
+<td><a href="https://sportzley.com/admin/matches">https://sportzley.com/admin/matches</a></td>
+</tr>
+<tr>
+<td>Players</td>
+<td><a href="https://sportzley.com/admin/players">https://sportzley.com/admin/players</a></td>
+</tr>
+<tr>
+<td>Teams</td>
+<td><a href="https://sportzley.com/admin/actual-teams">https://sportzley.com/admin/actual-teams</a></td>
+</tr>
+<tr>
+<td>Auctions</td>
+<td><a href="https://sportzley.com/admin/auctions">https://sportzley.com/admin/auctions</a></td>
+</tr>
+</tbody></table>
+<h3 id="public-urls-share-with-audience">Public URLs (Share with audience)</h3>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>URL Format</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tournament</td>
+<td><a href="https://sportzley.com/t/%7Bslug%7D">https://sportzley.com/t/{slug}</a></td>
+</tr>
+<tr>
+<td>Player Registration</td>
+<td><a href="https://sportzley.com/t/%7Bslug%7D/register/player">https://sportzley.com/t/{slug}/register/player</a></td>
+</tr>
+<tr>
+<td>Team Registration</td>
+<td><a href="https://sportzley.com/t/%7Bslug%7D/register/team">https://sportzley.com/t/{slug}/register/team</a></td>
+</tr>
+<tr>
+<td>Live Ticker</td>
+<td><a href="https://sportzley.com/live/%7Bmatch-id%7D">https://sportzley.com/live/{match-id}</a></td>
+</tr>
+<tr>
+<td>Match Details</td>
+<td><a href="https://sportzley.com/m/%7Bmatch-id%7D">https://sportzley.com/m/{match-id}</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="support">Support</h2>
+<p>For technical support or feature requests, please contact your development team.</p>
+<hr>
+<p><em>Document generated for Sportzley.com - Cricket Tournament Management Platform</em></p>
+
+	
+
+</body></html>
