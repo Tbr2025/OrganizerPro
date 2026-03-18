@@ -67,7 +67,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     @foreach($live_matches->take(2) as $match)
-                        <a href="{{ route('admin.tournaments.matches.show', [$match->tournament_id, $match->id]) }}"
+                        <a href="{{ route('admin.matches.show', $match->id) }}"
                            class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition">
                             {{ $match->teamA?->short_name ?? 'TBD' }} vs {{ $match->teamB?->short_name ?? 'TBD' }}
                         </a>
@@ -215,7 +215,7 @@
                 </div>
                 <div class="divide-y divide-gray-100 dark:divide-gray-700">
                     @forelse($upcoming_matches as $match)
-                        <a href="{{ route('admin.tournaments.matches.show', [$match->tournament_id, $match->id]) }}" class="block px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                        <a href="{{ route('admin.matches.show', $match->id) }}" class="block px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-4">
                                     <div class="text-center">
