@@ -23,7 +23,8 @@
       "Bash(ls:*)",
       "Bash(git remote:*)",
       "Bash(curl:*)",
-      "Bash(npx md-to-pdf:*)"
+      "Bash(npx md-to-pdf:*)",
+      "Bash(which python3 2>&1 && python3 -c \"import rembg; print\\('rembg available'\\)\" 2>&1)"
     ]
   }
 }
