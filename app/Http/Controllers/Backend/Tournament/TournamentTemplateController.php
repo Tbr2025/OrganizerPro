@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Http\Controllers\Controller;
+use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
 use App\Services\ImageBackgroundRemovalService;
@@ -81,10 +82,10 @@ class TournamentTemplateController extends Controller
 
         $completedMatches = $matches->where('status', 'completed');
 
-        // Load registered players
-        $players = $tournament->registrations()
+        // Load players belonging to tournament's actual teams
+        $players = Player::whereIn('actual_team_id', $tournament->actualTeams()->pluck('id'))
+            ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
             ->where('status', 'approved')
-            ->with(['team', 'playerType', 'battingProfile', 'bowlingProfile'])
             ->get();
 
         return view('backend.pages.tournaments.templates.generate', compact(

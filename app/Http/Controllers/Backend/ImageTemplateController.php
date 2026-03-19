@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ImageTemplate;
 use App\Models\ImageTemplateCategories;
 use App\Models\Player;
+use App\Models\Tournament;
+use App\Models\TournamentTemplate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -99,12 +101,14 @@ class ImageTemplateController extends Controller
         return view('backend.pages.image-templates.index', compact('templates'));
     }
 
-    // Show editor
+    // Show editor - lets user pick tournament + template type, then redirects to tournament template editor
     public function create()
     {
         $categories = ImageTemplateCategories::all();
+        $tournaments = Tournament::where('status', '!=', 'completed')->orderByDesc('id')->get();
+        $templateTypes = TournamentTemplate::TYPES;
 
-        return view('backend.pages.image-templates.create', compact('categories'));
+        return view('backend.pages.image-templates.create', compact('categories', 'tournaments', 'templateTypes'));
     }
 
     // Store layout JSON to DB

@@ -946,9 +946,10 @@ class PlayerController extends Controller
                     throw new \Exception('Python script failed to create the output file. Output: ' . $output);
                 }
             } catch (\Exception $e) {
-                Log::error("Background removal failed: " . $e->getMessage());
-                // Optionally, return an error response to the user
-                // return back()->withErrors(['image_path' => 'Failed to process the image.']);
+                Log::warning("Background removal failed, using original image: " . $e->getMessage());
+                // Fallback: use the original uploaded image
+                $player->image_path = 'player_images/' . $originalFilename;
+                $validated['image_path'] = $player->image_path;
             }
         }
 

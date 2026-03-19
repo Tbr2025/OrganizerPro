@@ -121,13 +121,13 @@
                             <option value="{{ $player->id }}"
                                     data-name="{{ $player->name }}"
                                     data-jersey="{{ $player->jersey_number }}"
-                                    data-team="{{ $player->team?->name }}"
-                                    data-team-logo="{{ $player->team?->team_logo ? asset('storage/' . $player->team->team_logo) : '' }}"
-                                    data-photo="{{ $player->photo ? asset('storage/' . $player->photo) : '' }}"
-                                    data-type="{{ $player->playerType?->name }}"
-                                    data-batting="{{ $player->battingProfile?->name }}"
-                                    data-bowling="{{ $player->bowlingProfile?->name }}">
-                                {{ $player->name }} @if($player->team) ({{ $player->team->name }}) @endif
+                                    data-team="{{ $player->actualTeam?->name }}"
+                                    data-team-logo="{{ $player->actualTeam?->team_logo_url ?? '' }}"
+                                    data-photo="{{ $player->image_path ? asset('storage/' . $player->image_path) : '' }}"
+                                    data-type="{{ $player->playerType?->type ?? '' }}"
+                                    data-batting="{{ $player->battingProfile?->style ?? '' }}"
+                                    data-bowling="{{ $player->bowlingProfile?->style ?? '' }}">
+                                {{ $player->name }} @if($player->actualTeam) ({{ $player->actualTeam->name }}) @endif
                             </option>
                         @endforeach
                     </select>

@@ -124,10 +124,12 @@ abstract class PosterGeneratorService
             $height = $srcHeight;
         }
 
-        // Create resized image
+        // Create resized image with transparency
         $resized = imagecreatetruecolor($width, $height);
         imagealphablending($resized, false);
         imagesavealpha($resized, true);
+        $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
+        imagefill($resized, 0, 0, $transparent);
 
         imagecopyresampled(
             $resized,
@@ -137,7 +139,8 @@ abstract class PosterGeneratorService
             $srcWidth, $srcHeight
         );
 
-        // Copy to canvas
+        // Copy to canvas with alpha blending
+        imagealphablending($canvas, true);
         imagecopy($canvas, $resized, $x, $y, 0, 0, $width, $height);
 
         imagedestroy($overlayImage);
