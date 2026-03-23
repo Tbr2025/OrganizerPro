@@ -197,8 +197,11 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
-        // Remove background from image
-        $storagePath = $this->getBackgroundRemovedImage($storagePath);
+        // Only remove background from player/captain photos, not logos
+        $placeholder = $element['placeholder'] ?? '';
+        if ($this->shouldRemoveBackground($placeholder)) {
+            $storagePath = $this->getBackgroundRemovedImage($storagePath);
+        }
 
         // Center the image at x, y
         $drawX = $x - ($width / 2);
@@ -339,9 +342,6 @@ class TemplateRenderService extends PosterGeneratorService
             return; // Skip if overlay image doesn't exist
         }
 
-        // Remove background from overlay image
-        $path = $this->getBackgroundRemovedImage($path);
-
         // Calculate position from percentage
         $x = (int) (($overlay['x'] ?? 50) / 100 * $canvasWidth);
         $y = (int) (($overlay['y'] ?? 50) / 100 * $canvasHeight);
@@ -408,6 +408,24 @@ class TemplateRenderService extends PosterGeneratorService
 
         imagedestroy($overlayImage);
         imagedestroy($resized);
+    }
+
+    /**
+     * Check if background removal should be applied for this placeholder type
+     */
+    protected function shouldRemoveBackground(string $placeholder): bool
+    {
+        $bgRemovalPlaceholders = [
+            'player_image',
+            'player_photo',
+            'team_a_captain_image',
+            'team_b_captain_image',
+            'captain_image',
+            'man_of_the_match_image',
+            'award_player_image',
+        ];
+
+        return in_array($placeholder, $bgRemovalPlaceholders);
     }
 
     /**
