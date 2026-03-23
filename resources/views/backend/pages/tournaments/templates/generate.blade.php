@@ -440,12 +440,19 @@ function generatePreview() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
             'Accept': 'application/json',
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+            });
+        }
+        return response.json();
+    })
     .then(result => {
         document.getElementById('previewLoading').classList.add('hidden');
 
@@ -463,7 +470,7 @@ function generatePreview() {
         document.getElementById('previewLoading').classList.add('hidden');
         document.getElementById('previewPlaceholder').classList.remove('hidden');
         console.error('Error:', err);
-        alert('Failed to generate preview');
+        alert('Error: ' + err.message);
     });
 }
 
