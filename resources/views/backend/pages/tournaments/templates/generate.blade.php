@@ -432,8 +432,20 @@ function generatePreview() {
     document.getElementById('previewPlaceholder').classList.add('hidden');
     document.getElementById('previewImage').classList.add('hidden');
     document.getElementById('previewLoading').classList.remove('hidden');
+    document.getElementById('previewBtn').disabled = true;
+    document.getElementById('previewBtn').innerHTML = `
+        <svg class="w-5 h-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Generating...
+    `;
 
     showDataSummary(data);
+
+    // Create abort controller with 3 minute timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000);
 
     // Call API to generate preview
     fetch(`{{ route('admin.tournaments.templates.generate-preview', $tournament) }}`, {
@@ -443,17 +455,20 @@ function generatePreview() {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
             'Accept': 'application/json',
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        signal: controller.signal
     })
     .then(response => {
+        clearTimeout(timeoutId);
         if (!response.ok) {
             return response.text().then(text => {
-                throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+                throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`);
             });
         }
         return response.json();
     })
     .then(result => {
+        resetPreviewBtn();
         document.getElementById('previewLoading').classList.add('hidden');
 
         if (result.success && result.image) {
@@ -467,11 +482,34 @@ function generatePreview() {
         }
     })
     .catch(err => {
+        clearTimeout(timeoutId);
+        resetPreviewBtn();
         document.getElementById('previewLoading').classList.add('hidden');
         document.getElementById('previewPlaceholder').classList.remove('hidden');
-        console.error('Error:', err);
-        alert('Error: ' + err.message);
+        console.error('Generation Error:', err);
+
+        let errorMsg = 'Failed to generate preview: ';
+        if (err.name === 'AbortError') {
+            errorMsg += 'Request timed out. Please try again.';
+        } else if (err.message.includes('Failed to fetch')) {
+            errorMsg += 'Network error or server timeout. Please check your connection and try again.';
+        } else {
+            errorMsg += err.message;
+        }
+        alert(errorMsg);
     });
+}
+
+function resetPreviewBtn() {
+    const btn = document.getElementById('previewBtn');
+    btn.disabled = false;
+    btn.innerHTML = `
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+        </svg>
+        Generate Preview
+    `;
 }
 
 function downloadPoster() {

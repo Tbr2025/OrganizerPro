@@ -499,12 +499,30 @@ class TemplateRenderService extends PosterGeneratorService
 
     /**
      * Render template and return as base64 for preview
+     * @param bool $optimizeForWeb Compress output for faster transfer
      */
-    public function renderToBase64(TournamentTemplate $template, array $data = []): string
+    public function renderToBase64(TournamentTemplate $template, array $data = [], bool $optimizeForWeb = true): string
     {
         $path = $this->renderTemplate($template, $data, true);
         $fullPath = Storage::disk('public')->path($path);
 
+        if ($optimizeForWeb) {
+            // Load the PNG and convert to optimized JPEG for preview
+            $image = @imagecreatefrompng($fullPath);
+            if ($image) {
+                ob_start();
+                imagejpeg($image, null, 85); // 85% quality JPEG for faster transfer
+                $imageData = ob_get_clean();
+                imagedestroy($image);
+
+                // Clean up preview file
+                Storage::disk('public')->delete($path);
+
+                return 'data:image/jpeg;base64,' . base64_encode($imageData);
+            }
+        }
+
+        // Fallback to PNG if JPEG conversion fails
         $imageData = file_get_contents($fullPath);
         $base64 = base64_encode($imageData);
 
