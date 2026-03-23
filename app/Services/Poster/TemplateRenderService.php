@@ -484,7 +484,7 @@ class TemplateRenderService extends PosterGeneratorService
             'match_date_day' => date('d'),
             'match_date_month' => strtoupper(date('M')),
             'match_date_weekday' => strtoupper(date('D')),
-            'match_time' => '09:00PM',
+            'match_time' => '09:00 PM',
             'match_day' => date('l'),
             // Venue
             'venue' => 'DCS YouSelects Arena',

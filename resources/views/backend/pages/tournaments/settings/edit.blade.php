@@ -145,10 +145,10 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label for="registration_deadline" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Registration Deadline</label>
-                            <input type="date" name="registration_deadline" id="registration_deadline"
-                                value="{{ old('registration_deadline', $settings->registration_deadline?->format('Y-m-d')) }}"
+                            <input type="datetime-local" name="registration_deadline" id="registration_deadline"
+                                value="{{ old('registration_deadline', $settings->registration_deadline?->format('Y-m-d\TH:i')) }}"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                            <p class="text-xs text-gray-500 mt-1">Registration auto-closes after this date</p>
+                            <p class="text-xs text-gray-500 mt-1">Registration auto-closes after this date & time</p>
                         </div>
 
                         <div>

@@ -91,7 +91,7 @@
                                     data-team-a-captain-name="{{ $match->teamA?->captain?->name ?? '' }}"
                                     data-team-b-captain-name="{{ $match->teamB?->captain?->name ?? '' }}"
                                     data-date="{{ $match->match_date?->format('M d, Y') }}"
-                                    data-time="{{ $match->start_time ?? '' }}"
+                                    data-time="{{ $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : '' }}"
                                     data-venue="{{ $match->ground?->name ?? $match->venue }}"
                                     data-stage="{{ $match->stage }}"
                                     data-stage-display="{{ $match->stage_display }}"
@@ -386,7 +386,7 @@ function showDataSummary(data) {
     if (data.team_a_name && data.team_b_name) {
         html += `<p><strong>${data.team_a_name}</strong> vs <strong>${data.team_b_name}</strong></p>`;
     }
-    if (data.match_date) html += `<p>Date: ${data.match_date}</p>`;
+    if (data.match_date) html += `<p>Date: ${data.match_date}${data.match_time ? ' at ' + data.match_time : ''}</p>`;
     if (data.venue) html += `<p>Venue: ${data.venue}</p>`;
     if (data.team_a_captain_name || data.team_b_captain_name) {
         html += `<p class="text-xs text-gray-500 mt-1">Captains: ${data.team_a_captain_name || 'TBD'} vs ${data.team_b_captain_name || 'TBD'}</p>`;

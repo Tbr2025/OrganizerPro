@@ -167,47 +167,68 @@
                 @if($tournament->status !== 'completed')
                     <div class="mb-10" x-data="{ open: false }">
                         @if($tournament->status === 'registration')
-                            {{-- Registration Open - Show Register Now Button --}}
-                            <div class="relative inline-block">
-                                <button @click="open = !open"
-                                        class="group px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center gap-3 glow-green">
-                                    <i class="fas fa-clipboard-check text-2xl"></i>
-                                    Register Now
-                                    <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': open }"></i>
-                                </button>
+                            {{-- Registration Open --}}
+                            @php
+                                $playerOpen = $settings?->player_registration_open ?? false;
+                                $teamOpen = $settings?->team_registration_open ?? false;
+                            @endphp
 
-                                {{-- Dropdown Options --}}
-                                <div x-show="open"
-                                     x-transition:enter="transition ease-out duration-200"
-                                     x-transition:enter-start="opacity-0 transform scale-95"
-                                     x-transition:enter-end="opacity-100 transform scale-100"
-                                     x-transition:leave="transition ease-in duration-150"
-                                     x-transition:leave-start="opacity-100 transform scale-100"
-                                     x-transition:leave-end="opacity-0 transform scale-95"
-                                     @click.away="open = false"
-                                     class="absolute left-1/2 transform -translate-x-1/2 mt-4 w-72 bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden z-50">
-                                    <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
-                                       class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors border-b border-gray-700">
-                                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                            <i class="fas fa-user text-xl text-white"></i>
-                                        </div>
-                                        <div class="text-left">
-                                            <p class="font-bold text-white">Register as Player</p>
-                                            <p class="text-sm text-gray-400">Join a team as individual</p>
-                                        </div>
-                                    </a>
-                                    <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
-                                       class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors">
-                                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                                            <i class="fas fa-users text-xl text-white"></i>
-                                        </div>
-                                        <div class="text-left">
-                                            <p class="font-bold text-white">Register as Team</p>
-                                            <p class="text-sm text-gray-400">Register your entire team</p>
-                                        </div>
-                                    </a>
+                            @if($playerOpen && $teamOpen)
+                                {{-- Both open - Show dropdown --}}
+                                <div class="relative inline-block">
+                                    <button @click="open = !open"
+                                            class="group px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center gap-3 glow-green">
+                                        <i class="fas fa-clipboard-check text-2xl"></i>
+                                        Register Now
+                                        <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': open }"></i>
+                                    </button>
+
+                                    <div x-show="open"
+                                         x-transition:enter="transition ease-out duration-200"
+                                         x-transition:enter-start="opacity-0 transform scale-95"
+                                         x-transition:enter-end="opacity-100 transform scale-100"
+                                         x-transition:leave="transition ease-in duration-150"
+                                         x-transition:leave-start="opacity-100 transform scale-100"
+                                         x-transition:leave-end="opacity-0 transform scale-95"
+                                         @click.away="open = false"
+                                         class="absolute left-1/2 transform -translate-x-1/2 mt-4 w-72 bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden z-50">
+                                        <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
+                                           class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors border-b border-gray-700">
+                                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                                <i class="fas fa-user text-xl text-white"></i>
+                                            </div>
+                                            <div class="text-left">
+                                                <p class="font-bold text-white">Register as Player</p>
+                                                <p class="text-sm text-gray-400">Join a team as individual</p>
+                                            </div>
+                                        </a>
+                                        <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
+                                           class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors">
+                                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                                                <i class="fas fa-users text-xl text-white"></i>
+                                            </div>
+                                            <div class="text-left">
+                                                <p class="font-bold text-white">Register as Team</p>
+                                                <p class="text-sm text-gray-400">Register your entire team</p>
+                                            </div>
+                                        </a>
+                                    </div>
                                 </div>
-                            </div>
+                            @elseif($teamOpen)
+                                {{-- Only team registration - Direct button --}}
+                                <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
+                                   class="group px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl transition-all transform hover:scale-105 hover:shadow-2xl inline-flex items-center gap-3 glow-green">
+                                    <i class="fas fa-users text-2xl"></i>
+                                    Register Your Team
+                                </a>
+                            @elseif($playerOpen)
+                                {{-- Only player registration - Direct button --}}
+                                <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
+                                   class="group px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl transition-all transform hover:scale-105 hover:shadow-2xl inline-flex items-center gap-3 glow-green">
+                                    <i class="fas fa-user text-2xl"></i>
+                                    Register as Player
+                                </a>
+                            @endif
                         @else
                             {{-- Registration Closed --}}
                             <div class="inline-flex items-center gap-3 px-8 py-4 bg-gray-800/50 backdrop-blur border border-gray-700 text-gray-400 font-semibold text-lg rounded-xl">

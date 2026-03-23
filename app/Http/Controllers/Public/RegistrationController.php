@@ -99,7 +99,7 @@ class RegistrationController extends Controller
         try {
             $registration = $this->registrationService->registerPlayer($tournament, $validated);
 
-            return redirect()->route('public.tournament.register.player.success', [
+            return redirect()->route('public.tournament.registration.player.success', [
                 'tournament' => $tournament->slug,
             ])->with('success', __('Registration submitted successfully!'));
         } catch (\Exception $e) {
@@ -155,7 +155,7 @@ class RegistrationController extends Controller
         try {
             $registration = $this->registrationService->registerTeam($tournament, $validated);
 
-            return redirect()->route('public.tournament.register.team.success', [
+            return redirect()->route('public.tournament.registration.team.success', [
                 'tournament' => $tournament->slug,
             ])->with('success', __('Team registration submitted successfully!'));
         } catch (\Exception $e) {
