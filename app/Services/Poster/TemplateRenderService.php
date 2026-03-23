@@ -3,6 +3,7 @@
 namespace App\Services\Poster;
 
 use App\Models\TournamentTemplate;
+use App\Services\ImageBackgroundRemovalService;
 use Illuminate\Support\Facades\Storage;
 
 class TemplateRenderService extends PosterGeneratorService
@@ -196,6 +197,9 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
+        // Remove background from image
+        $storagePath = $this->getBackgroundRemovedImage($storagePath);
+
         // Center the image at x, y
         $drawX = $x - ($width / 2);
         $drawY = $y - ($height / 2);
@@ -335,6 +339,9 @@ class TemplateRenderService extends PosterGeneratorService
             return; // Skip if overlay image doesn't exist
         }
 
+        // Remove background from overlay image
+        $path = $this->getBackgroundRemovedImage($path);
+
         // Calculate position from percentage
         $x = (int) (($overlay['x'] ?? 50) / 100 * $canvasWidth);
         $y = (int) (($overlay['y'] ?? 50) / 100 * $canvasHeight);
@@ -401,6 +408,16 @@ class TemplateRenderService extends PosterGeneratorService
 
         imagedestroy($overlayImage);
         imagedestroy($resized);
+    }
+
+    /**
+     * Get background-removed version of an image, with caching
+     */
+    protected function getBackgroundRemovedImage(string $storagePath): string
+    {
+        $bgService = new ImageBackgroundRemovalService();
+        $noBgPath = $bgService->removeBackgroundNonDestructive($storagePath);
+        return $noBgPath ?? $storagePath;
     }
 
     /**

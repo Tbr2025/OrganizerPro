@@ -293,6 +293,40 @@ class ImageBackgroundRemovalService
     }
 
     /**
+     * Remove background non-destructively (keeps original file, caches result)
+     */
+    public function removeBackgroundNonDestructive(string $imagePath): ?string
+    {
+        $fullPath = Storage::disk('public')->path($imagePath);
+        if (!file_exists($fullPath)) {
+            return null;
+        }
+
+        $pathInfo = pathinfo($imagePath);
+        $outputPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '-nobg.png';
+
+        // Check cache
+        if (Storage::disk('public')->exists($outputPath)) {
+            return $outputPath;
+        }
+
+        $outputFullPath = Storage::disk('public')->path($outputPath);
+
+        // Try rembg first, then GD fallback
+        if ($this->removeBackgroundWithRembg($fullPath, $outputFullPath)) {
+            \Log::info("Background removed (non-destructive) with rembg: {$outputPath}");
+            return $outputPath;
+        }
+
+        if ($this->removeBackgroundWithGD($fullPath, $outputFullPath)) {
+            \Log::info("Background removed (non-destructive) with GD: {$outputPath}");
+            return $outputPath;
+        }
+
+        return null;
+    }
+
+    /**
      * Remove background using flood fill algorithm from edges
      */
     protected function floodFillRemove(\GdImage $src, \GdImage $dest, int $width, int $height, array $bgColor): void
