@@ -297,6 +297,12 @@ class ImageBackgroundRemovalService
      */
     public function removeBackgroundNonDestructive(string $imagePath): ?string
     {
+        // Skip PNG files — they typically already have transparent backgrounds
+        $ext = strtolower(pathinfo($imagePath, PATHINFO_EXTENSION));
+        if ($ext === 'png') {
+            return null;
+        }
+
         $fullPath = Storage::disk('public')->path($imagePath);
         if (!file_exists($fullPath)) {
             return null;
@@ -312,18 +318,74 @@ class ImageBackgroundRemovalService
 
         $outputFullPath = Storage::disk('public')->path($outputPath);
 
-        // Try rembg first, then GD fallback
+        // Try rembg first (best quality, preserves faces/bodies)
         if ($this->removeBackgroundWithRembg($fullPath, $outputFullPath)) {
             \Log::info("Background removed (non-destructive) with rembg: {$outputPath}");
             return $outputPath;
         }
 
-        if ($this->removeBackgroundWithGD($fullPath, $outputFullPath)) {
-            \Log::info("Background removed (non-destructive) with GD: {$outputPath}");
+        // Fallback: flood-fill from edges only (safe for faces/bodies)
+        if ($this->removeBackgroundWithFloodFill($fullPath, $outputFullPath)) {
+            \Log::info("Background removed (non-destructive) with flood fill: {$outputPath}");
             return $outputPath;
         }
 
         return null;
+    }
+
+    /**
+     * Remove background using edge flood fill (safe for faces/bodies — only removes connected bg from edges)
+     */
+    protected function removeBackgroundWithFloodFill(string $inputPath, string $outputPath): bool
+    {
+        try {
+            $imageInfo = @getimagesize($inputPath);
+            if (!$imageInfo) return false;
+
+            $mime = $imageInfo['mime'];
+            $width = $imageInfo[0];
+            $height = $imageInfo[1];
+
+            if ($width * $height > 4000000) return false;
+
+            $srcImage = match ($mime) {
+                'image/jpeg' => @imagecreatefromjpeg($inputPath),
+                'image/png' => @imagecreatefrompng($inputPath),
+                'image/webp' => @imagecreatefromwebp($inputPath),
+                default => null,
+            };
+            if (!$srcImage) return false;
+
+            $newImage = imagecreatetruecolor($width, $height);
+            imagesavealpha($newImage, true);
+            imagealphablending($newImage, false);
+            $transparent = imagecolorallocatealpha($newImage, 0, 0, 0, 127);
+            imagefill($newImage, 0, 0, $transparent);
+
+            $bgColor = $this->detectBackgroundColor($srcImage, $width, $height);
+
+            $isLikelyBackground = (
+                ($bgColor['r'] > 200 && $bgColor['g'] > 200 && $bgColor['b'] > 200) ||
+                (abs($bgColor['r'] - $bgColor['g']) < 20 && abs($bgColor['g'] - $bgColor['b']) < 20)
+            );
+
+            if (!$isLikelyBackground) {
+                imagedestroy($srcImage);
+                imagedestroy($newImage);
+                return false;
+            }
+
+            $this->floodFillRemove($srcImage, $newImage, $width, $height, $bgColor);
+
+            $result = imagepng($newImage, $outputPath, 9);
+            imagedestroy($srcImage);
+            imagedestroy($newImage);
+
+            return $result && file_exists($outputPath);
+        } catch (\Exception $e) {
+            \Log::error('Flood fill background removal error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
