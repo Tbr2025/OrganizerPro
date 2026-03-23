@@ -39,6 +39,42 @@
     ['name' => 'Summary Editor']
 ]" />
 
+@php
+    $summaryMode = $tournament->settings?->summary_update_mode ?? 'manual';
+@endphp
+
+{{-- Summary Mode & CricHeroes Info --}}
+@if($summaryMode === 'manual')
+<div class="mb-4 p-4 rounded-xl border {{ $match->cricheroes_match_url ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' }}">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold {{ $summaryMode === 'manual' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' }}">
+                {{ ucfirst($summaryMode) }} Mode
+            </span>
+            <span class="text-sm text-gray-600 dark:text-gray-400">
+                @if($match->cricheroes_match_url)
+                    CricHeroes linked - update scores manually from the CricHeroes page
+                @else
+                    No CricHeroes link - enter scores manually or add a CricHeroes URL in match edit
+                @endif
+            </span>
+        </div>
+        @if($match->cricheroes_match_url)
+            <a href="{{ $match->cricheroes_match_url }}" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                Open in CricHeroes
+            </a>
+        @else
+            <a href="{{ route('admin.matches.edit', $match) }}"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition">
+                Add CricHeroes URL
+            </a>
+        @endif
+    </div>
+</div>
+@endif
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Main Content -->
     <div class="lg:col-span-2 space-y-6">

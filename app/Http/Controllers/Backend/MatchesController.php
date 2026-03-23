@@ -523,6 +523,7 @@ class MatchesController extends Controller
             'winner_team_id' => 'nullable|exists:actual_teams,id',
             'toss_winner_team_id' => 'nullable|exists:actual_teams,id',
             'toss_decision' => 'nullable|in:bat,bowl',
+            'cricheroes_match_url' => 'nullable|url|max:500',
         ]);
 
         $match->update($request->only([
@@ -538,7 +539,8 @@ class MatchesController extends Controller
             'status',
             'winner_team_id',
             'toss_winner_team_id',
-            'toss_decision'
+            'toss_decision',
+            'cricheroes_match_url',
         ]));
 
         return redirect()->route('admin.matches.index')->with('success', 'Match updated successfully.');

@@ -26,6 +26,7 @@ class Matches extends Model
         'match_number',
         'start_time',
         'end_time',
+        'cricheroes_match_url',
         'winner_team_id',
         'toss_winner_team_id',
         'toss_decision',

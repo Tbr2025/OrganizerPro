@@ -203,6 +203,21 @@
                             </div>
                         </div>
 
+                        {{-- CricHeroes URL --}}
+                        <div>
+                            <label for="cricheroes_match_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                CricHeroes Match URL
+                            </label>
+                            <input type="url" name="cricheroes_match_url" id="cricheroes_match_url"
+                                value="{{ old('cricheroes_match_url', $match->cricheroes_match_url ?? '') }}"
+                                placeholder="https://cricheroes.com/match/..."
+                                class="block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">Paste CricHeroes match URL to link match data for manual summary updates</p>
+                            @error('cricheroes_match_url')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                             {{-- Overs --}}
                             <div>

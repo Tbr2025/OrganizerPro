@@ -77,6 +77,9 @@ class TournamentSettingsController extends Controller
             'send_match_reminders' => 'boolean',
             'send_result_notifications' => 'boolean',
 
+            // Summary
+            'summary_update_mode' => 'in:manual,automatic',
+
             // Social
             'description' => 'nullable|string|max:1000',
             'rules' => 'nullable|string|max:5000',

@@ -5,6 +5,7 @@ namespace App\Services\Tournament;
 use App\Mail\NewRegistrationAdminMail;
 use App\Mail\PlayerWelcomeMail;
 use App\Mail\RegistrationApprovedMail;
+use App\Mail\TeamManagerCredentialsMail;
 use App\Models\ActualTeam;
 use App\Models\Player;
 use App\Models\Tournament;
@@ -199,19 +200,33 @@ class RegistrationService
 
             // Create user for captain if doesn't exist
             $captainUser = User::where('email', $registration->captain_email)->first();
+            $isNewUser = false;
+            $plainPassword = null;
+
             if (!$captainUser) {
-                $password = Str::random(12);
+                $isNewUser = true;
+                $plainPassword = Str::random(12);
                 $captainUser = User::create([
                     'name' => $registration->captain_name,
                     'email' => $registration->captain_email,
                     'username' => Str::slug($registration->captain_name) . '-' . Str::random(5),
-                    'password' => Hash::make($password),
+                    'password' => Hash::make($plainPassword),
                     'organization_id' => $tournament->organization_id,
                 ]);
             }
 
+            // Assign Team Manager role
+            if (!$captainUser->hasRole('Team Manager')) {
+                $captainUser->assignRole('Team Manager');
+            }
+
             // Associate captain with team
             $actualTeam->users()->attach($captainUser->id, ['role' => 'captain']);
+
+            // Send credentials email to new team manager
+            if ($isNewUser && $plainPassword) {
+                $this->sendTeamManagerCredentials($captainUser, $plainPassword, $tournament, $actualTeam);
+            }
 
             // Send approval email to captain
             $this->sendApprovalEmail($registration);
@@ -275,30 +290,20 @@ class RegistrationService
      */
     public function isPlayerRegistrationOpen(Tournament $tournament): bool
     {
-        // If tournament status is 'registration', allow registration
-        if ($tournament->status === 'registration') {
-            $settings = $tournament->settings;
-
-            // Only check deadline if settings exist
-            if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
-                return false;
-            }
-
-            return true;
-        }
-
-        // Otherwise check settings
         $settings = $tournament->settings;
 
-        if (!$settings) {
+        // Check deadline first
+        if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
             return false;
         }
 
-        if ($settings->registration_deadline && $settings->registration_deadline->isPast()) {
+        // Check if player registration is explicitly enabled in settings
+        if ($settings && !$settings->player_registration_open) {
             return false;
         }
 
-        return $settings->player_registration_open;
+        // Tournament must be in registration status
+        return $tournament->status === 'registration';
     }
 
     /**
@@ -306,30 +311,20 @@ class RegistrationService
      */
     public function isTeamRegistrationOpen(Tournament $tournament): bool
     {
-        // If tournament status is 'registration', allow registration
-        if ($tournament->status === 'registration') {
-            $settings = $tournament->settings;
-
-            // Only check deadline if settings exist
-            if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
-                return false;
-            }
-
-            return true;
-        }
-
-        // Otherwise check settings
         $settings = $tournament->settings;
 
-        if (!$settings) {
+        // Check deadline first
+        if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
             return false;
         }
 
-        if ($settings->registration_deadline && $settings->registration_deadline->isPast()) {
+        // Check if team registration is explicitly enabled in settings
+        if ($settings && !$settings->team_registration_open) {
             return false;
         }
 
-        return $settings->team_registration_open;
+        // Tournament must be in registration status
+        return $tournament->status === 'registration';
     }
 
     /**
@@ -348,6 +343,18 @@ class RegistrationService
             } catch (\Exception $e) {
                 Log::error('Failed to send admin notification for new registration: ' . $e->getMessage());
             }
+        }
+    }
+
+    /**
+     * Send team manager credentials email
+     */
+    protected function sendTeamManagerCredentials(User $user, string $password, Tournament $tournament, ActualTeam $team): void
+    {
+        try {
+            Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $password, $tournament, $team));
+        } catch (\Exception $e) {
+            Log::error('Failed to send team manager credentials: ' . $e->getMessage());
         }
     }
 

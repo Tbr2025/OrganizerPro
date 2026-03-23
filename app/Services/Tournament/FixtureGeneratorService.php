@@ -19,6 +19,11 @@ class FixtureGeneratorService
     {
         $settings = $tournament->settings;
         $groups = $tournament->groups()->with('teams')->get();
+
+        if ($groups->isEmpty()) {
+            throw new \RuntimeException('No groups found. Please create groups and add teams first.');
+        }
+
         $grounds = Ground::where('organization_id', $tournament->organization_id)
             ->active()
             ->limit($settings->number_of_grounds ?? 1)
@@ -26,7 +31,9 @@ class FixtureGeneratorService
 
         $fixtures = collect();
         $matchNumber = 1;
-        $currentDate = Carbon::parse($tournament->start_date);
+        $currentDate = $tournament->start_date
+            ? Carbon::parse($tournament->start_date)
+            : Carbon::now()->addDays(7)->startOfWeek();
         $matchesPerWeek = $settings->matches_per_week ?? 4;
         $matchesScheduledThisWeek = 0;
 
@@ -48,8 +55,11 @@ class FixtureGeneratorService
                     $matchesScheduledThisWeek = 0;
                 }
 
-                $groundIndex = $matchesScheduledThisWeek % $grounds->count();
-                $ground = $grounds[$groundIndex] ?? $grounds->first();
+                $ground = null;
+                if ($grounds->isNotEmpty()) {
+                    $groundIndex = $matchesScheduledThisWeek % $grounds->count();
+                    $ground = $grounds[$groundIndex] ?? $grounds->first();
+                }
 
                 $teamA = $teams->firstWhere('id', $pair[0]);
                 $teamB = $teams->firstWhere('id', $pair[1]);

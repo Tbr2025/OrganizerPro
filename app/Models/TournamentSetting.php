@@ -46,6 +46,7 @@ class TournamentSetting extends Model
         'auto_send_welcome_cards',
         'auto_send_flyer_on_registration',
         'auto_send_match_summary',
+        'summary_update_mode',
         // Template references
         'default_welcome_template_id',
         'default_match_template_id',
