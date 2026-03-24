@@ -102,7 +102,7 @@ class CalendarFixtureService
         $matches = $tournament->matches()
             ->whereNull('match_date')
             ->where('is_cancelled', false)
-            ->orderByRaw("FIELD(stage, 'group', 'league', 'quarter_final', 'semi_final', 'third_place', 'final')")
+            ->orderByRaw("FIELD(stage, 'group', 'league', 'quarter_final', 'semi_final', 'third_place', 'qualifier_1', 'eliminator', 'qualifier_2', 'final')")
             ->orderBy('match_number')
             ->get();
 
@@ -276,7 +276,7 @@ class CalendarFixtureService
             ->whereNull('match_date')
             ->where('is_cancelled', false)
             ->with(['teamA', 'teamB'])
-            ->orderByRaw("FIELD(stage, 'group', 'league', 'quarter_final', 'semi_final', 'third_place', 'final')")
+            ->orderByRaw("FIELD(stage, 'group', 'league', 'quarter_final', 'semi_final', 'third_place', 'qualifier_1', 'eliminator', 'qualifier_2', 'final')")
             ->orderBy('match_number')
             ->get()
             ->map(function ($match) {

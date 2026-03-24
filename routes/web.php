@@ -726,13 +726,17 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
         // Fixtures
         Route::get('/fixtures', [TournamentFixtureController::class, 'index'])->name('fixtures.index');
+        Route::post('/fixtures', [TournamentFixtureController::class, 'store'])->name('fixtures.store');
         Route::post('/fixtures/generate-group-stage', [TournamentFixtureController::class, 'generateGroupStage'])->name('fixtures.generate-group');
         Route::post('/fixtures/generate-knockouts', [TournamentFixtureController::class, 'generateKnockouts'])->name('fixtures.generate-knockouts');
+        Route::post('/fixtures/generate-ipl-playoffs', [TournamentFixtureController::class, 'generateIplPlayoffs'])->name('fixtures.generate-ipl-playoffs');
+        Route::delete('/fixtures/group-stage', [TournamentFixtureController::class, 'deleteGroupStage'])->name('fixtures.delete-group');
+        Route::post('/fixtures/bulk-generate-posters', [TournamentFixtureController::class, 'bulkGeneratePosters'])->name('fixtures.bulk-posters');
+        Route::put('/fixtures/{match}', [TournamentFixtureController::class, 'update'])->name('fixtures.update');
+        Route::delete('/fixtures/{match}', [TournamentFixtureController::class, 'destroy'])->name('fixtures.destroy');
         Route::post('/fixtures/{match}/reschedule', [TournamentFixtureController::class, 'reschedule'])->name('fixtures.reschedule');
         Route::post('/fixtures/{match}/cancel', [TournamentFixtureController::class, 'cancel'])->name('fixtures.cancel');
         Route::post('/fixtures/{match}/generate-poster', [TournamentFixtureController::class, 'generatePoster'])->name('fixtures.generate-poster');
-        Route::delete('/fixtures/group-stage', [TournamentFixtureController::class, 'deleteGroupStage'])->name('fixtures.delete-group');
-        Route::post('/fixtures/bulk-generate-posters', [TournamentFixtureController::class, 'bulkGeneratePosters'])->name('fixtures.bulk-posters');
 
         // Point Table
         Route::get('/point-table', [PointTableController::class, 'index'])->name('point-table.index');

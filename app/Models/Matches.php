@@ -153,7 +153,7 @@ class Matches extends Model
 
     public function scopeKnockoutStage($query)
     {
-        return $query->whereIn('stage', ['quarter_final', 'semi_final', 'final', 'third_place']);
+        return $query->whereIn('stage', ['quarter_final', 'semi_final', 'final', 'third_place', 'qualifier_1', 'eliminator', 'qualifier_2']);
     }
 
     public function scopeNeedsPosterSending($query, $daysBefore = 3)
@@ -193,7 +193,7 @@ class Matches extends Model
 
     public function isKnockoutStage(): bool
     {
-        return in_array($this->stage, ['quarter_final', 'semi_final', 'final', 'third_place']);
+        return in_array($this->stage, ['quarter_final', 'semi_final', 'final', 'third_place', 'qualifier_1', 'eliminator', 'qualifier_2']);
     }
 
     public function isFinal(): bool
@@ -204,6 +204,21 @@ class Matches extends Model
     public function isSemiFinal(): bool
     {
         return $this->stage === 'semi_final';
+    }
+
+    public function isQualifier(): bool
+    {
+        return in_array($this->stage, ['qualifier_1', 'qualifier_2']);
+    }
+
+    public function isEliminator(): bool
+    {
+        return $this->stage === 'eliminator';
+    }
+
+    public function isIplPlayoff(): bool
+    {
+        return in_array($this->stage, ['qualifier_1', 'eliminator', 'qualifier_2']);
     }
 
     public function getPublicUrlAttribute(): string
@@ -225,6 +240,9 @@ class Matches extends Model
             'semi_final' => 'Semi Final',
             'final' => 'Final',
             'third_place' => '3rd Place Playoff',
+            'qualifier_1' => 'Qualifier 1',
+            'eliminator' => 'Eliminator',
+            'qualifier_2' => 'Qualifier 2',
             default => ucfirst($this->stage),
         };
     }
@@ -270,7 +288,7 @@ class Matches extends Model
      */
     public function isHighStakes(): bool
     {
-        return in_array($this->stage, ['semi_final', 'final', 'third_place']);
+        return in_array($this->stage, ['semi_final', 'final', 'third_place', 'qualifier_1', 'eliminator', 'qualifier_2']);
     }
 
     /**

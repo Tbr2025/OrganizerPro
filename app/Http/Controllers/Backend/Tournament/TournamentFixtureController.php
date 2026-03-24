@@ -48,12 +48,15 @@ class TournamentFixtureController extends Controller
 
         $grounds = Ground::where('organization_id', $tournament->organization_id)->active()->get();
 
+        $teams = $tournament->actualTeams;
+
         return view('backend.pages.tournaments.fixtures.index', [
             'tournament' => $tournament,
             'matches' => $matches,
             'groupedMatches' => $groupedMatches,
             'groups' => $tournament->groups,
             'grounds' => $grounds,
+            'teams' => $teams,
             'breadcrumbs' => [
                 'title' => __('Fixtures'),
                 'items' => [
@@ -173,7 +176,7 @@ class TournamentFixtureController extends Controller
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
         try {
-            if ($match->isFinal() || $match->isSemiFinal()) {
+            if ($match->isHighStakes()) {
                 $path = $this->posterService->generateFinalsPosters($match);
             } else {
                 $path = $this->posterService->generate($match);
@@ -216,7 +219,7 @@ class TournamentFixtureController extends Controller
         $generated = 0;
         foreach ($matches as $match) {
             try {
-                if ($match->isFinal() || $match->isSemiFinal()) {
+                if ($match->isHighStakes()) {
                     $this->posterService->generateFinalsPosters($match);
                 } else {
                     $this->posterService->generate($match);
@@ -229,5 +232,93 @@ class TournamentFixtureController extends Controller
         }
 
         return redirect()->back()->with('success', __(':count match posters generated.', ['count' => $generated]));
+    }
+
+    public function store(Request $request, Tournament $tournament): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        $validated = $request->validate([
+            'team_a_id' => 'required|exists:actual_teams,id',
+            'team_b_id' => 'required|exists:actual_teams,id|different:team_a_id',
+            'stage' => 'required|in:group,league,quarter_final,semi_final,final,third_place,qualifier_1,eliminator,qualifier_2',
+            'date' => 'nullable|date',
+            'start_time' => 'nullable|date_format:H:i',
+            'ground_id' => 'nullable|exists:grounds,id',
+            'group_id' => 'nullable|exists:tournament_groups,id',
+            'overs' => 'nullable|integer|min:1|max:50',
+        ]);
+
+        try {
+            $match = $this->fixtureService->createCustomMatch($tournament, $validated);
+            return redirect()->back()->with('success', __('Match created successfully.'));
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', __('Failed to create match: ') . $e->getMessage());
+        }
+    }
+
+    public function update(Request $request, Tournament $tournament, Matches $match): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        $validated = $request->validate([
+            'team_a_id' => 'nullable|exists:actual_teams,id',
+            'team_b_id' => 'nullable|exists:actual_teams,id',
+            'stage' => 'nullable|in:group,league,quarter_final,semi_final,final,third_place,qualifier_1,eliminator,qualifier_2',
+            'date' => 'nullable|date',
+            'start_time' => 'nullable|date_format:H:i',
+            'ground_id' => 'nullable|exists:grounds,id',
+            'group_id' => 'nullable|exists:tournament_groups,id',
+            'overs' => 'nullable|integer|min:1|max:50',
+        ]);
+
+        // Ensure team_a and team_b are different if both provided
+        if (isset($validated['team_a_id']) && isset($validated['team_b_id']) && $validated['team_a_id'] === $validated['team_b_id']) {
+            return redirect()->back()->with('error', __('Team A and Team B must be different.'));
+        }
+
+        try {
+            $this->fixtureService->updateMatch($match, $validated);
+            return redirect()->back()->with('success', __('Match updated successfully.'));
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', __('Failed to update match: ') . $e->getMessage());
+        }
+    }
+
+    public function destroy(Tournament $tournament, Matches $match): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        if ($match->isCompleted()) {
+            return redirect()->back()->with('error', __('Cannot delete a completed match.'));
+        }
+
+        try {
+            $this->fixtureService->deleteMatch($match);
+            return redirect()->back()->with('success', __('Match deleted successfully.'));
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', __('Failed to delete match: ') . $e->getMessage());
+        }
+    }
+
+    public function generateIplPlayoffs(Tournament $tournament): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        // Check if IPL playoff fixtures already exist
+        $existingIplMatches = $tournament->matches()
+            ->whereIn('stage', ['qualifier_1', 'eliminator', 'qualifier_2'])
+            ->count();
+
+        if ($existingIplMatches > 0) {
+            return redirect()->back()->with('error', __('IPL playoff fixtures already exist.'));
+        }
+
+        try {
+            $fixtures = $this->fixtureService->generateIplPlayoffs($tournament);
+            return redirect()->back()->with('success', __(':count IPL playoff matches generated.', ['count' => $fixtures->count()]));
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', __('Failed to generate IPL playoffs: ') . $e->getMessage());
+        }
     }
 }

@@ -319,11 +319,22 @@ class MatchPosterService extends PosterGeneratorService
             $this->addText($canvas, $venue, $width / 2, $detailsY + 100, 24, '#CCCCCC', 'Montserrat-Medium.ttf', 'center');
         }
 
-        // "Champions will be crowned" text for final
+        // Special text for high-stakes matches
         if ($match->stage === 'final') {
             $this->addText(
                 $canvas,
                 'CHAMPIONS WILL BE CROWNED',
+                $width / 2,
+                $height - 100,
+                20,
+                '#FFD700',
+                'Montserrat-Medium.ttf',
+                'center'
+            );
+        } elseif ($match->isIplPlayoff()) {
+            $this->addText(
+                $canvas,
+                strtoupper($match->stage_display),
                 $width / 2,
                 $height - 100,
                 20,
