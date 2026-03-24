@@ -384,58 +384,23 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div x-data="{
-                            init() {
-                                this.$watch('$store.editMatch.date', (val) => {
-                                    if (this.$refs.editDatePicker && this.$refs.editDatePicker._flatpickr) {
-                                        this.$refs.editDatePicker._flatpickr.setDate(val, false);
-                                    }
-                                });
-                                flatpickr(this.$refs.editDatePicker, {
-                                    enableTime: false,
-                                    dateFormat: 'Y-m-d',
-                                    altInput: true,
-                                    altFormat: 'F j, Y',
-                                    disableMobile: true,
-                                    static: true,
-                                    locale: { firstDayOfWeek: 1 }
-                                });
-                            }
-                        }">
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
                                     <iconify-icon icon="lucide:calendar" class="text-gray-400 dark:text-gray-500 z-1"></iconify-icon>
                                 </div>
-                                <input x-ref="editDatePicker" type="text" name="date" x-model="editMatch.date"
+                                <input x-ref="editDatePicker" type="text" name="date"
                                        class="form-control !ps-10 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" placeholder="Select date">
                             </div>
                         </div>
-                        <div x-data="{
-                            init() {
-                                this.$watch('$store.editMatch.start_time', (val) => {
-                                    if (this.$refs.editTimePicker && this.$refs.editTimePicker._flatpickr) {
-                                        this.$refs.editTimePicker._flatpickr.setDate(val, false);
-                                    }
-                                });
-                                flatpickr(this.$refs.editTimePicker, {
-                                    enableTime: true,
-                                    noCalendar: true,
-                                    dateFormat: 'H:i',
-                                    altInput: true,
-                                    altFormat: 'h:i K',
-                                    time_24hr: false,
-                                    disableMobile: true,
-                                    static: true
-                                });
-                            }
-                        }">
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
                                     <iconify-icon icon="lucide:clock" class="text-gray-400 dark:text-gray-500 z-1"></iconify-icon>
                                 </div>
-                                <input x-ref="editTimePicker" type="text" name="start_time" x-model="editMatch.start_time"
+                                <input x-ref="editTimePicker" type="text" name="start_time"
                                        class="form-control !ps-10 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" placeholder="Select time">
                             </div>
                         </div>
@@ -492,12 +457,56 @@ function fixtureManager() {
         get editFormAction() {
             return '{{ url("admin/tournaments/" . $tournament->id . "/fixtures") }}/' + this.editMatch.id;
         },
+        editDateFp: null,
+        editTimeFp: null,
+        initEditPickers() {
+            this.$nextTick(() => {
+                if (!this.editDateFp && this.$refs.editDatePicker) {
+                    this.editDateFp = flatpickr(this.$refs.editDatePicker, {
+                        enableTime: false,
+                        dateFormat: 'Y-m-d',
+                        altInput: true,
+                        altFormat: 'F j, Y',
+                        disableMobile: true,
+                        static: true,
+                        locale: { firstDayOfWeek: 1 },
+                        onChange: (selectedDates, dateStr) => {
+                            this.editMatch.date = dateStr;
+                        }
+                    });
+                }
+                if (!this.editTimeFp && this.$refs.editTimePicker) {
+                    this.editTimeFp = flatpickr(this.$refs.editTimePicker, {
+                        enableTime: true,
+                        noCalendar: true,
+                        dateFormat: 'H:i',
+                        altInput: true,
+                        altFormat: 'h:i K',
+                        time_24hr: false,
+                        disableMobile: true,
+                        static: true,
+                        onChange: (selectedDates, dateStr) => {
+                            this.editMatch.start_time = dateStr;
+                        }
+                    });
+                }
+            });
+        },
         openAddModal() {
             this.showAddModal = true;
         },
         openEditModal(match) {
             this.editMatch = { ...match };
             this.showEditModal = true;
+            this.$nextTick(() => {
+                this.initEditPickers();
+                if (this.editDateFp) {
+                    this.editDateFp.setDate(this.editMatch.date || '', false);
+                }
+                if (this.editTimeFp) {
+                    this.editTimeFp.setDate(this.editMatch.start_time || '', false);
+                }
+            });
         }
     };
 }
