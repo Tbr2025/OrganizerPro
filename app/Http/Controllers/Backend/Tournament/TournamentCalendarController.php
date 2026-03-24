@@ -32,9 +32,10 @@ class TournamentCalendarController extends Controller
         $unscheduledMatches = $this->calendarService->getUnscheduledMatches($tournament);
         $stats = $this->calendarService->getSchedulingStats($tournament);
 
-        $grounds = Ground::where('organization_id', $tournament->organization_id)
-            ->where('is_active', true)
-            ->get();
+        $grounds = Ground::where(function ($q) use ($tournament) {
+            $q->where('organization_id', $tournament->organization_id)
+              ->orWhereNull('organization_id');
+        })->where('is_active', true)->get();
 
         return view('backend.pages.tournaments.calendar.index', compact(
             'tournament',

@@ -46,7 +46,10 @@ class TournamentFixtureController extends Controller
         // Group matches by stage
         $groupedMatches = $matches->groupBy('stage');
 
-        $grounds = Ground::where('organization_id', $tournament->organization_id)->active()->get();
+        $grounds = Ground::where(function ($q) use ($tournament) {
+            $q->where('organization_id', $tournament->organization_id)
+              ->orWhereNull('organization_id');
+        })->active()->get();
 
         $teams = $tournament->actualTeams;
 

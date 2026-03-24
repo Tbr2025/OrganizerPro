@@ -248,13 +248,50 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div>
+                        <div x-data="{
+                            init() {
+                                flatpickr(this.$refs.addDatePicker, {
+                                    enableTime: false,
+                                    dateFormat: 'Y-m-d',
+                                    altInput: true,
+                                    altFormat: 'F j, Y',
+                                    disableMobile: true,
+                                    static: true,
+                                    locale: { firstDayOfWeek: 1 }
+                                });
+                            }
+                        }">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-                            <input type="date" name="date" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                    <iconify-icon icon="lucide:calendar" class="text-gray-400 dark:text-gray-500 z-1"></iconify-icon>
+                                </div>
+                                <input x-ref="addDatePicker" type="text" name="date"
+                                       class="form-control !ps-10 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" placeholder="Select date">
+                            </div>
                         </div>
-                        <div>
+                        <div x-data="{
+                            init() {
+                                flatpickr(this.$refs.addTimePicker, {
+                                    enableTime: true,
+                                    noCalendar: true,
+                                    dateFormat: 'H:i',
+                                    altInput: true,
+                                    altFormat: 'h:i K',
+                                    time_24hr: false,
+                                    disableMobile: true,
+                                    static: true
+                                });
+                            }
+                        }">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
-                            <input type="time" name="start_time" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                    <iconify-icon icon="lucide:clock" class="text-gray-400 dark:text-gray-500 z-1"></iconify-icon>
+                                </div>
+                                <input x-ref="addTimePicker" type="text" name="start_time"
+                                       class="form-control !ps-10 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" placeholder="Select time">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ground</label>
@@ -336,15 +373,60 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div>
+                        <div x-data="{
+                            init() {
+                                this.$watch('$store.editMatch.date', (val) => {
+                                    if (this.$refs.editDatePicker && this.$refs.editDatePicker._flatpickr) {
+                                        this.$refs.editDatePicker._flatpickr.setDate(val, false);
+                                    }
+                                });
+                                flatpickr(this.$refs.editDatePicker, {
+                                    enableTime: false,
+                                    dateFormat: 'Y-m-d',
+                                    altInput: true,
+                                    altFormat: 'F j, Y',
+                                    disableMobile: true,
+                                    static: true,
+                                    locale: { firstDayOfWeek: 1 }
+                                });
+                            }
+                        }">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-                            <input type="date" name="date" x-model="editMatch.date"
-                                   class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                    <iconify-icon icon="lucide:calendar" class="text-gray-400 dark:text-gray-500 z-1"></iconify-icon>
+                                </div>
+                                <input x-ref="editDatePicker" type="text" name="date" x-model="editMatch.date"
+                                       class="form-control !ps-10 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" placeholder="Select date">
+                            </div>
                         </div>
-                        <div>
+                        <div x-data="{
+                            init() {
+                                this.$watch('$store.editMatch.start_time', (val) => {
+                                    if (this.$refs.editTimePicker && this.$refs.editTimePicker._flatpickr) {
+                                        this.$refs.editTimePicker._flatpickr.setDate(val, false);
+                                    }
+                                });
+                                flatpickr(this.$refs.editTimePicker, {
+                                    enableTime: true,
+                                    noCalendar: true,
+                                    dateFormat: 'H:i',
+                                    altInput: true,
+                                    altFormat: 'h:i K',
+                                    time_24hr: false,
+                                    disableMobile: true,
+                                    static: true
+                                });
+                            }
+                        }">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
-                            <input type="time" name="start_time" x-model="editMatch.start_time"
-                                   class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                    <iconify-icon icon="lucide:clock" class="text-gray-400 dark:text-gray-500 z-1"></iconify-icon>
+                                </div>
+                                <input x-ref="editTimePicker" type="text" name="start_time" x-model="editMatch.start_time"
+                                       class="form-control !ps-10 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" placeholder="Select time">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ground</label>
