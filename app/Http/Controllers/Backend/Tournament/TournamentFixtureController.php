@@ -241,6 +241,14 @@ class TournamentFixtureController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
+        // Handle tournament location as venue text
+        $venue = null;
+        $groundId = $request->input('ground_id');
+        if ($groundId && str_starts_with($groundId, 'location:')) {
+            $venue = substr($groundId, 9);
+            $request->merge(['ground_id' => null]);
+        }
+
         $validated = $request->validate([
             'team_a_id' => 'required|exists:actual_teams,id',
             'team_b_id' => 'required|exists:actual_teams,id|different:team_a_id',
@@ -251,6 +259,10 @@ class TournamentFixtureController extends Controller
             'group_id' => 'nullable|exists:tournament_groups,id',
             'overs' => 'nullable|integer|min:1|max:50',
         ]);
+
+        if ($venue) {
+            $validated['venue'] = $venue;
+        }
 
         try {
             $match = $this->fixtureService->createCustomMatch($tournament, $validated);
@@ -264,6 +276,14 @@ class TournamentFixtureController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
+        // Handle tournament location as venue text
+        $venue = null;
+        $groundId = $request->input('ground_id');
+        if ($groundId && str_starts_with($groundId, 'location:')) {
+            $venue = substr($groundId, 9);
+            $request->merge(['ground_id' => null]);
+        }
+
         $validated = $request->validate([
             'team_a_id' => 'nullable|exists:actual_teams,id',
             'team_b_id' => 'nullable|exists:actual_teams,id',
@@ -274,6 +294,11 @@ class TournamentFixtureController extends Controller
             'group_id' => 'nullable|exists:tournament_groups,id',
             'overs' => 'nullable|integer|min:1|max:50',
         ]);
+
+        if ($venue) {
+            $validated['venue'] = $venue;
+            $validated['ground_id'] = null;
+        }
 
         // Ensure team_a and team_b are different if both provided
         if (isset($validated['team_a_id']) && isset($validated['team_b_id']) && $validated['team_a_id'] === $validated['team_b_id']) {

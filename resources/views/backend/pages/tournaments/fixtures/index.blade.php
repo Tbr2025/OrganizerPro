@@ -297,6 +297,9 @@
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ground</label>
                             <select name="ground_id" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
                                 <option value="">Select ground...</option>
+                                @if($tournament->location)
+                                    <option value="location:{{ $tournament->location }}" selected>{{ $tournament->location }} (Tournament Location)</option>
+                                @endif
                                 @foreach($grounds as $ground)
                                     <option value="{{ $ground->id }}">{{ $ground->name }}</option>
                                 @endforeach
@@ -432,6 +435,9 @@
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ground</label>
                             <select name="ground_id" x-model="editMatch.ground_id" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
                                 <option value="">Select ground...</option>
+                                @if($tournament->location)
+                                    <option value="location:{{ $tournament->location }}">{{ $tournament->location }} (Tournament Location)</option>
+                                @endif
                                 @foreach($grounds as $ground)
                                     <option value="{{ $ground->id }}">{{ $ground->name }}</option>
                                 @endforeach

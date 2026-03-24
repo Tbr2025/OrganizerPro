@@ -152,9 +152,10 @@ class FixtureGeneratorService
         $existingMatches = $tournament->matches()->max('match_number') ?? 0;
         $matchNumber = $existingMatches + 1;
 
-        $grounds = Ground::where('organization_id', $tournament->organization_id)
-            ->active()
-            ->get();
+        $grounds = Ground::where(function ($q) use ($tournament) {
+            $q->where('organization_id', $tournament->organization_id)
+              ->orWhereNull('organization_id');
+        })->active()->get();
 
         $teamsForStage = $this->getTeamsForKnockoutStage($tournament, $stage);
         $matchCount = count($teamsForStage) / 2;
@@ -317,6 +318,7 @@ class FixtureGeneratorService
         $teamBName = $teamB?->name ?? 'TBD';
 
         $ground = isset($data['ground_id']) ? Ground::find($data['ground_id']) : null;
+        $venue = $data['venue'] ?? $ground?->name ?? $tournament->location;
 
         return Matches::create([
             'tournament_id' => $tournament->id,
@@ -328,7 +330,7 @@ class FixtureGeneratorService
             'match_date' => $data['date'] ?? null,
             'start_time' => $data['start_time'] ?? null,
             'ground_id' => $ground?->id,
-            'venue' => $ground?->name ?? $tournament->location,
+            'venue' => $venue,
             'stage' => $data['stage'] ?? 'group',
             'match_number' => $matchNumber,
             'status' => 'upcoming',
@@ -346,9 +348,10 @@ class FixtureGeneratorService
         $matchNumber = $existingMax + 1;
 
         $settings = $tournament->settings;
-        $grounds = Ground::where('organization_id', $tournament->organization_id)
-            ->active()
-            ->get();
+        $grounds = Ground::where(function ($q) use ($tournament) {
+            $q->where('organization_id', $tournament->organization_id)
+              ->orWhereNull('organization_id');
+        })->active()->get();
 
         $ground = $grounds->first();
 
@@ -445,7 +448,10 @@ class FixtureGeneratorService
         if (isset($data['stage'])) {
             $updates['stage'] = $data['stage'];
         }
-        if (isset($data['ground_id'])) {
+        if (isset($data['venue'])) {
+            $updates['venue'] = $data['venue'];
+            $updates['ground_id'] = null;
+        } elseif (isset($data['ground_id'])) {
             $ground = Ground::find($data['ground_id']);
             $updates['ground_id'] = $ground?->id;
             $updates['venue'] = $ground?->name;
@@ -508,9 +514,10 @@ class FixtureGeneratorService
     {
         $settings = $tournament->settings;
         $teams = $tournament->actualTeams;
-        $grounds = Ground::where('organization_id', $tournament->organization_id)
-            ->active()
-            ->get();
+        $grounds = Ground::where(function ($q) use ($tournament) {
+            $q->where('organization_id', $tournament->organization_id)
+              ->orWhereNull('organization_id');
+        })->active()->get();
 
         $fixtures = collect();
         $matchNumber = 1;
