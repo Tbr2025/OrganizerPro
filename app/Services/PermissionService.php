@@ -106,6 +106,7 @@ class PermissionService
                 'permissions' => [
                     'pulse.view',
                     'actionlog.view',
+                    'emaillog.view',
                 ],
             ],
             [

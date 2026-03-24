@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Backend\ActionLogController;
+use App\Http\Controllers\Backend\EmailLogController;
 use App\Http\Controllers\Backend\ActualTeamController;
 use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
@@ -338,6 +339,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
     Route::post('actual-teams/{actualTeam}/team-manager', [ActualTeamController::class, 'createTeamManager'])->name('actual-teams.create-team-manager');
     Route::get('actual-teams/{actualTeam}/team-managers', [ActualTeamController::class, 'getTeamManagers'])->name('actual-teams.get-team-managers');
     Route::post('actual-teams/{actualTeam}/team-manager/{user}/reset-password', [ActualTeamController::class, 'resetTeamManagerPassword'])->name('actual-teams.reset-team-manager-password');
+    Route::post('actual-teams/{actualTeam}/team-manager/{user}/resend-credentials', [ActualTeamController::class, 'resendTeamManagerCredentials'])->name('actual-teams.resend-team-manager-credentials');
 
     // Auctions
     // Route::prefix('auctions')->as('auctions.')->group(function () {
@@ -507,6 +509,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
     // Action Log Routes.
     Route::get('/action-log', [ActionLogController::class, 'index'])->name('actionlog.index');
+
+    // Email Log Routes.
+    Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
 
     // Content Management Routes
 

@@ -359,6 +359,10 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
+                                    <button type="button" @click="resendCredentials(manager)" class="btn btn-sm btn-primary" title="Send Credentials Email" :disabled="manager.sending">
+                                        <i class="fas fa-envelope" x-show="!manager.sending"></i>
+                                        <i class="fas fa-spinner fa-spin" x-show="manager.sending"></i>
+                                    </button>
                                     <button type="button" @click="resetPassword(manager)" class="btn btn-sm btn-secondary" title="Reset Password">
                                         <i class="fas fa-key"></i>
                                     </button>
@@ -661,6 +665,36 @@
                             alert('An error occurred. Please try again.');
                             console.error(e);
                         }
+                    },
+
+                    async resendCredentials(manager) {
+                        if (!confirm(`Send credentials email to ${manager.email}? This will reset their password.`)) return;
+
+                        manager.sending = true;
+                        try {
+                            const res = await fetch(`/admin/actual-teams/{{ $actualTeam->id }}/team-manager/${manager.id}/resend-credentials`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                },
+                                body: JSON.stringify({})
+                            });
+
+                            const data = await res.json();
+
+                            if (data.success) {
+                                this.credentials = data.credentials;
+                                this.showCredentialsModal = true;
+                                alert(data.message || 'Credentials email sent!');
+                            } else {
+                                alert(data.message || 'Failed to send credentials.');
+                            }
+                        } catch (e) {
+                            alert('An error occurred. Please try again.');
+                            console.error(e);
+                        }
+                        manager.sending = false;
                     },
 
                     copyCredentials() {

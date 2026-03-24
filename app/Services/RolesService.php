@@ -265,6 +265,7 @@ class RolesService
             'term.delete',
             'pulse.view',
             'actionlog.view',
+            'emaillog.view',
             'settings.view',
             'settings.edit',
             'translations.view',

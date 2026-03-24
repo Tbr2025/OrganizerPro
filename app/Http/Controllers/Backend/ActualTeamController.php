@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TeamManagerCredentialsMail;
 use App\Models\ActualTeam;
 use App\Models\Auction;
 use App\Models\AuctionPlayer;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -781,9 +783,16 @@ class ActualTeamController extends Controller
 
             DB::commit();
 
+            // Auto-send credentials email
+            try {
+                Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $plainPassword, $actualTeam->tournament, $actualTeam));
+            } catch (\Throwable $e) {
+                Log::warning("Failed to send credentials email to {$user->email}: {$e->getMessage()}");
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Team manager created successfully!',
+                'message' => 'Team manager created successfully! Credentials email sent.',
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -847,6 +856,53 @@ class ActualTeamController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Password reset successfully!',
+            'credentials' => [
+                'email' => $user->email,
+                'password' => $newPassword,
+            ],
+        ]);
+    }
+
+    /**
+     * Resend credentials for a team manager (reset password + send email)
+     */
+    public function resendTeamManagerCredentials(ActualTeam $actualTeam, User $user)
+    {
+        // Verify user belongs to this team
+        $isMember = DB::table('actual_team_users')
+            ->where('actual_team_id', $actualTeam->id)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (!$isMember) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User is not a member of this team.',
+            ], 400);
+        }
+
+        $newPassword = Str::random(10);
+        $user->update(['password' => Hash::make($newPassword)]);
+
+        // Send credentials email
+        try {
+            Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $newPassword, $actualTeam->tournament, $actualTeam));
+        } catch (\Throwable $e) {
+            Log::warning("Failed to send credentials email to {$user->email}: {$e->getMessage()}");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset but email failed to send.',
+                'credentials' => [
+                    'email' => $user->email,
+                    'password' => $newPassword,
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Credentials email sent successfully!',
             'credentials' => [
                 'email' => $user->email,
                 'password' => $newPassword,

@@ -534,9 +534,9 @@ class AdminMenuService
             'label' => __('Monitoring'),
             'icon' => 'lucide:monitor',
             'id' => 'monitoring-submenu',
-            'active' => Route::is('admin.actionlog.*'),
+            'active' => Route::is('admin.actionlog.*') || Route::is('admin.email-logs.*'),
             'priority' => 40,
-            'permissions' => ['pulse.view', 'actionlog.view'],
+            'permissions' => ['pulse.view', 'actionlog.view', 'emaillog.view'],
             'children' => [
                 [
                     'label' => __('Action Logs'),
@@ -544,6 +544,13 @@ class AdminMenuService
                     'active' => Route::is('admin.actionlog.index'),
                     'priority' => 20,
                     'permissions' => 'actionlog.view',
+                ],
+                [
+                    'label' => __('Email Logs'),
+                    'route' => route('admin.email-logs.index'),
+                    'active' => Route::is('admin.email-logs.index'),
+                    'priority' => 15,
+                    'permissions' => 'emaillog.view',
                 ],
                 [
                     'label' => __('Laravel Pulse'),
