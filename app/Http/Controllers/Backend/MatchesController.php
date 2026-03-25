@@ -22,13 +22,22 @@ class MatchesController extends Controller
         $user = auth()->user();
         $query = Matches::with(['tournament', 'teamA', 'teamB', 'winner']);
 
-        // Team Managers only see matches involving their team(s)
-        if ($user->hasRole('Team Manager') && !$user->hasRole('Superadmin') && !$user->hasRole('Admin')) {
-            $teamIds = $user->actualTeams->pluck('id')->toArray();
-            $query->where(function ($q) use ($teamIds) {
-                $q->whereIn('team_a_id', $teamIds)
-                  ->orWhereIn('team_b_id', $teamIds);
-            });
+        if (!$user->hasRole('Superadmin')) {
+            // Team Managers / Captains / Coaches: only matches involving their team(s)
+            if ($user->hasRole('Team Manager')) {
+                $teamIds = $user->actualTeams->pluck('id')->toArray();
+                $query->where(function ($q) use ($teamIds) {
+                    $q->whereIn('team_a_id', $teamIds)
+                      ->orWhereIn('team_b_id', $teamIds);
+                });
+            }
+            // Admins / Organizers / other roles: only matches from their organization's tournaments
+            elseif ($user->organization_id) {
+                $tournamentIds = Tournament::where('organization_id', $user->organization_id)->pluck('id');
+                $query->whereIn('tournament_id', $tournamentIds);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         $matches = $query->latest()->paginate(20);
