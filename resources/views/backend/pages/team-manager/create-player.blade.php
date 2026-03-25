@@ -21,6 +21,23 @@
                     <form action="{{ route('team-manager.players.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
 
+                        @if ($errors->any())
+                            <div class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                <h4 class="text-sm font-medium text-red-800 dark:text-red-300 mb-2">Please fix the following errors:</h4>
+                                <ul class="list-disc list-inside text-sm text-red-600 dark:text-red-400 space-y-1">
+                                    @foreach ($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
+                        @if (session('success'))
+                            <div class="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                                <p class="text-sm text-green-800 dark:text-green-300">{{ session('success') }}</p>
+                            </div>
+                        @endif
+
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 
                             @php
