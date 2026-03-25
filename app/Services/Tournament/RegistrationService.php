@@ -435,7 +435,7 @@ class RegistrationService
     /**
      * Send team manager credentials email
      */
-    protected function sendTeamManagerCredentials(User $user, string $password, Tournament $tournament, ActualTeam $team, string $roleName = 'Team Manager'): void
+    protected function sendTeamManagerCredentials(User $user, ?string $password, Tournament $tournament, ActualTeam $team, string $roleName = 'Team Manager'): void
     {
         try {
             Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $password, $tournament, $team, $roleName));
