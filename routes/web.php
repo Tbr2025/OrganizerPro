@@ -43,6 +43,7 @@ use App\Http\Controllers\Backend\UsersController;
 use App\Http\Controllers\Backend\PlayerVerificationController;
 use App\Http\Controllers\Backend\TeamManagerController;
 use App\Http\Controllers\PublicAuctionController;
+use App\Http\Controllers\PublicTeamJoinController;
 use App\Http\Controllers\PublicPlayerController;
 use App\Http\Controllers\PublicTournamentRegistrationController;
 use App\Http\Controllers\Backend\Tournament\TournamentSettingsController;
@@ -222,6 +223,7 @@ Route::middleware(['auth'])
         Route::post('/players/add', [TeamManagerController::class, 'addPlayerToRoster'])->name('players.add');
         Route::delete('/players/{player}', [TeamManagerController::class, 'removePlayerFromRoster'])->name('players.remove');
         Route::post('/players/{player}/verify', [TeamManagerController::class, 'verifyPlayer'])->name('players.verify');
+        Route::post('/players/{player}/reject', [TeamManagerController::class, 'rejectPlayer'])->name('players.reject');
 
         // Captain management
         Route::post('/assign-captain', [TeamManagerController::class, 'assignCaptain'])->name('assign-captain');
@@ -253,6 +255,14 @@ Route::post('/tournament/{tournament}/register/team', [PublicTournamentRegistrat
     ->name('public.tournament.register.team');
 Route::get('/tournament/{tournament}/register/success', [PublicTournamentRegistrationController::class, 'success'])
     ->name('public.tournament.registration.success');
+
+// --- Public Team Join (Invite Link) Routes ---
+Route::get('/join/{invite_code}', [PublicTeamJoinController::class, 'showForm'])
+    ->name('public.team.join');
+Route::post('/join/{invite_code}', [PublicTeamJoinController::class, 'store'])
+    ->name('public.team.join.store');
+Route::get('/join/{invite_code}/success', [PublicTeamJoinController::class, 'success'])
+    ->name('public.team.join.success');
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
 

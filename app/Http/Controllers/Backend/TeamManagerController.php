@@ -15,6 +15,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\NewPlayerAddedMail;
+use App\Mail\PlayerApprovedMail;
+use App\Models\BattingProfile;
+use App\Models\BowlingProfile;
+use App\Models\KitSize;
+use App\Models\PlayerLocation;
+use App\Models\PlayerType;
+use App\Models\ImageTemplate;
 use App\Notifications\GeneralNotification;
 
 class TeamManagerController extends Controller
@@ -111,7 +118,15 @@ class TeamManagerController extends Controller
                 ->with('error', 'You are not assigned to any team.');
         }
 
-        return view('backend.pages.team-manager.create-player', compact('team'));
+        $locations = PlayerLocation::orderBy('name')->get();
+        $kitSizes = KitSize::all();
+        $battingProfiles = BattingProfile::all();
+        $bowlingProfiles = BowlingProfile::all();
+        $playerTypes = PlayerType::all();
+
+        return view('backend.pages.team-manager.create-player', compact(
+            'team', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes'
+        ));
     }
 
     /**
@@ -129,21 +144,47 @@ class TeamManagerController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:players,email',
+            'email' => 'nullable|email',
             'phone' => 'nullable|string|max:20',
-            'dob' => 'nullable|date',
-            'batting_style' => 'nullable|string|max:50',
-            'bowling_style' => 'nullable|string|max:50',
-            'playing_role' => 'nullable|string|max:50',
-            'jersey_number' => 'nullable|integer|min:0|max:99',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'cricheroes_number_full' => 'nullable|string|max:20',
+            'location_id' => 'nullable|exists:player_locations,id',
+            'jersey_name' => 'nullable|string|max:50',
+            'jersey_number' => 'nullable|integer|min:0|max:999',
+            'kit_size_id' => 'nullable|exists:kit_sizes,id',
+            'player_type_id' => 'nullable|exists:player_types,id',
+            'batting_profile_id' => 'nullable|exists:batting_profiles,id',
+            'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
+            'is_wicket_keeper' => 'nullable|boolean',
+            'total_matches' => 'nullable|integer|min:0',
+            'total_runs' => 'nullable|integer|min:0',
+            'total_wickets' => 'nullable|integer|min:0',
+            'transportation_required' => 'nullable|boolean',
+            'no_travel_plan' => 'nullable|boolean',
+            'travel_date_from' => 'nullable|date',
+            'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:6144',
         ]);
 
         $data = [
             'name' => $validated['name'],
             'email' => $validated['email'] ?? null,
             'mobile_number_full' => $validated['phone'] ?? null,
+            'cricheroes_number_full' => $validated['cricheroes_number_full'] ?? null,
+            'location_id' => $validated['location_id'] ?? null,
+            'jersey_name' => $validated['jersey_name'] ?? null,
             'jersey_number' => $validated['jersey_number'] ?? null,
+            'kit_size_id' => $validated['kit_size_id'] ?? null,
+            'player_type_id' => $validated['player_type_id'] ?? null,
+            'batting_profile_id' => $validated['batting_profile_id'] ?? null,
+            'bowling_profile_id' => $validated['bowling_profile_id'] ?? null,
+            'is_wicket_keeper' => $request->boolean('is_wicket_keeper'),
+            'total_matches' => $validated['total_matches'] ?? 0,
+            'total_runs' => $validated['total_runs'] ?? 0,
+            'total_wickets' => $validated['total_wickets'] ?? 0,
+            'transportation_required' => $request->boolean('transportation_required'),
+            'no_travel_plan' => $request->boolean('no_travel_plan'),
+            'travel_date_from' => $validated['travel_date_from'] ?? null,
+            'travel_date_to' => $validated['travel_date_to'] ?? null,
             'actual_team_id' => $team->id,
             'player_mode' => 'normal',
             'status' => 'pending',
@@ -353,8 +394,64 @@ class TeamManagerController extends Controller
             'approved_by' => $user->id,
         ]);
 
+        // Generate welcome card if template exists and player has a photo
+        $welcomeCardPath = null;
+        try {
+            $template = ImageTemplate::where('category_id', 1)->first();
+            if ($template && $player->image_path) {
+                $imagePath = PlayerController::generateWelcomePlayerImageGD($player, $template);
+                if (is_array($imagePath)) {
+                    $imagePath = $imagePath[0] ?? '';
+                }
+                if ($imagePath) {
+                    $welcomeCardPath = public_path($imagePath);
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate welcome card: ' . $e->getMessage());
+        }
+
+        // Send approval email to player (with welcome card if available)
+        if ($player->email) {
+            try {
+                $team->load('tournament.settings');
+                Mail::to($player->email)->send(new PlayerApprovedMail($player, $team, $welcomeCardPath));
+
+                // Mark welcome email as sent if card was attached
+                if ($welcomeCardPath) {
+                    $player->update(['welcome_email_sent_at' => now()]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to send player approved email: ' . $e->getMessage());
+            }
+        }
+
         return redirect()->route('team-manager.dashboard')
-            ->with('success', 'Player "' . $player->name . '" has been verified successfully.');
+            ->with('success', 'Player "' . $player->name . '" has been verified successfully.' . ($player->email ? ' Approval email sent.' : ''));
+    }
+
+    /**
+     * Reject a pending player
+     */
+    public function rejectPlayer(Player $player)
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        if ($player->actual_team_id !== $team->id) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'This player is not on your team.');
+        }
+
+        $player->update(['status' => 'rejected']);
+
+        return redirect()->route('team-manager.dashboard')
+            ->with('success', 'Player "' . $player->name . '" has been rejected.');
     }
 
     /**

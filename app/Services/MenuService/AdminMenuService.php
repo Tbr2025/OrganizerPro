@@ -100,7 +100,13 @@ class AdminMenuService
 
         // For Team Managers, show simplified menu
         if ($isTeamManager) {
+            $primaryTeam = $user->actualTeams()->first();
+
             // Team Manager specific menu
+            $myPlayersRoute = $primaryTeam
+                ? route('admin.actual-teams.show', $primaryTeam)
+                : route('team-manager.dashboard');
+
             $this->addMenuItem([
                 'label' => __('My Team'),
                 'icon' => 'feather:users',
@@ -118,8 +124,8 @@ class AdminMenuService
                     ],
                     [
                         'label' => __('My Players'),
-                        'route' => route('admin.actual-teams.index'),
-                        'active' => Route::is('admin.actual-teams.*'),
+                        'route' => $myPlayersRoute,
+                        'active' => Route::is('admin.actual-teams.show'),
                         'priority' => 15,
                         'permissions' => 'actual-team.view',
                     ],

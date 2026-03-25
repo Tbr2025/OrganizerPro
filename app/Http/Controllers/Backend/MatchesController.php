@@ -19,7 +19,19 @@ class MatchesController extends Controller
 {
     public function index(): View
     {
-        $matches = Matches::with(['tournament', 'teamA', 'teamB', 'winner'])->latest()->paginate(20);
+        $user = auth()->user();
+        $query = Matches::with(['tournament', 'teamA', 'teamB', 'winner']);
+
+        // Team Managers only see matches involving their team(s)
+        if ($user->hasRole('Team Manager') && !$user->hasRole('Superadmin') && !$user->hasRole('Admin')) {
+            $teamIds = $user->actualTeams->pluck('id')->toArray();
+            $query->where(function ($q) use ($teamIds) {
+                $q->whereIn('team_a_id', $teamIds)
+                  ->orWhereIn('team_b_id', $teamIds);
+            });
+        }
+
+        $matches = $query->latest()->paginate(20);
 
         return view('backend.pages.matches.index', compact('matches'));
     }

@@ -68,6 +68,30 @@
                     View Auctions
                 </a>
             </div>
+
+            {{-- Invite Link --}}
+            @if($team->invite_code)
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                        </svg>
+                        Player Invite Link
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="invite-link" value="{{ $team->invite_link }}" readonly
+                               class="form-control text-xs flex-1 bg-gray-50 dark:bg-gray-700">
+                        <button type="button" onclick="copyInviteLink()" id="copy-btn"
+                                class="btn btn-secondary btn-sm whitespace-nowrap flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                            Copy
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Share this link with players to join your team</p>
+                </div>
+            @endif
         </div>
 
         {{-- Team Owner & Captain --}}
@@ -265,6 +289,16 @@
                                                 </svg>
                                                 Verify
                                             </button>
+                                            <form action="{{ route('team-manager.players.reject', $player) }}" method="POST" class="inline"
+                                                  onsubmit="return confirm('Are you sure you want to reject {{ addslashes($player->name) }}?')">
+                                                @csrf
+                                                <button type="submit" class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                    </svg>
+                                                    Reject
+                                                </button>
+                                            </form>
                                         @endif
                                         @if($player->player_mode !== 'auctioned' && $player->player_mode !== 'retained')
                                             <form action="{{ route('team-manager.players.remove', $player) }}" method="POST" class="inline"
@@ -465,6 +499,21 @@
 
     function closeVerifyModal() {
         document.getElementById('verify-player-modal').classList.add('hidden');
+    }
+
+    function copyInviteLink() {
+        const input = document.getElementById('invite-link');
+        const btn = document.getElementById('copy-btn');
+        navigator.clipboard.writeText(input.value).then(() => {
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-success');
+            setTimeout(() => {
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg> Copy';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-secondary');
+            }, 2000);
+        });
     }
 </script>
 @endsection

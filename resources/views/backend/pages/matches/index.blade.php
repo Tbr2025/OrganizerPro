@@ -7,7 +7,9 @@
 <div class="card p-4">
     <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">Matches</h2>
-        <a href="{{ route('admin.matches.create') }}" class="btn-primary">+ New Match</a>
+        @unless(auth()->user()->hasRole('Team Manager') && !auth()->user()->hasRole('Superadmin') && !auth()->user()->hasRole('Admin'))
+            <a href="{{ route('admin.matches.create') }}" class="btn-primary">+ New Match</a>
+        @endunless
     </div>
 
   <div class="space-y-3 border-t border-gray-100 dark:border-gray-800 overflow-x-auto overflow-y-visible">

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class ActualTeam extends Model
 {
@@ -18,7 +19,31 @@ class ActualTeam extends Model
         'secondary_color',
         'sponsor_logo',
         'captain_image',
+        'invite_code',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($team) {
+            if (empty($team->invite_code)) {
+                $team->invite_code = Str::random(12);
+            }
+        });
+    }
+
+    public function getInviteLinkAttribute(): string
+    {
+        $link = url('/join/' . $this->invite_code);
+
+        // Ensure HTTPS in production
+        if (app()->environment('production')) {
+            $link = str_replace('http://', 'https://', $link);
+        }
+
+        return $link;
+    }
 
     /**
      * Get team logo URL
