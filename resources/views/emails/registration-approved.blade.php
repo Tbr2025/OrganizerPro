@@ -6,9 +6,13 @@
     <title>Registration Approved</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <img src="{{ url('/images/logo/logo.png') }}" alt="{{ config('app.name') }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Registration Approved!</h1>
+    @php
+        $primaryColor = $tournament->settings?->primary_color ?? '#1a56db';
+        $secondaryColor = $tournament->settings?->secondary_color ?? '#ffffff';
+    @endphp
+    <div style="background: {{ $primaryColor }}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <img src="{{ $tournament->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+        <h1 style="color: {{ $secondaryColor }}; margin: 0; font-size: 24px;">Registration Approved!</h1>
     </div>
 
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
@@ -28,7 +32,7 @@
             </p>
         @endif
 
-        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #28a745;">
+        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {{ $primaryColor }};">
             <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Tournament Details</h3>
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
@@ -58,7 +62,7 @@
 
         <div style="text-align: center;">
             <a href="{{ route('public.tournament.show', $tournament->slug) }}"
-               style="display: inline-block; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+               style="display: inline-block; background: {{ $primaryColor }}; color: {{ $secondaryColor }}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 View Tournament
             </a>
         </div>

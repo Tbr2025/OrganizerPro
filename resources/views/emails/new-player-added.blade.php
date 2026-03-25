@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to {{ $team->name }}</title>
+    @php
+        $primaryColor = $team->tournament?->settings?->primary_color ?? '#1a56db';
+        $secondaryColor = $team->tournament?->settings?->secondary_color ?? '#ffffff';
+    @endphp
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -33,7 +37,7 @@
         }
         .team-badge {
             display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: {{ $primaryColor }};
             color: white;
             padding: 8px 16px;
             border-radius: 20px;
@@ -45,11 +49,11 @@
             font-size: 16px;
         }
         .content strong {
-            color: #0056b3;
+            color: {{ $primaryColor }};
         }
         .info-box {
             background-color: #f8f9fa;
-            border-left: 4px solid #007bff;
+            border-left: 4px solid {{ $primaryColor }};
             padding: 15px;
             margin: 20px 0;
             border-radius: 4px;
@@ -85,6 +89,7 @@
 <body>
     <div class="container">
         <div class="header">
+            <img src="{{ $team->tournament?->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $team->tournament?->name ?? config('app.name') }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px; border: 1px solid #e9ecef;">
             <h1>Welcome to the Team!</h1>
             <span class="team-badge">{{ $team->name }}</span>
         </div>

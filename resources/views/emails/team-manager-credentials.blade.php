@@ -6,12 +6,16 @@
     <title>{{ $roleName }} Account</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <img src="{{ url('/images/logo/logo.png') }}" alt="{{ config('app.name') }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+    @php
+        $primaryColor = $tournament->settings?->primary_color ?? '#1a56db';
+        $secondaryColor = $tournament->settings?->secondary_color ?? '#ffffff';
+    @endphp
+    <div style="background: {{ $primaryColor }}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <img src="{{ $tournament->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
         @if($isNewUser)
-            <h1 style="color: white; margin: 0; font-size: 24px;">{{ $roleName }} Account Created</h1>
+            <h1 style="color: {{ $secondaryColor }}; margin: 0; font-size: 24px;">{{ $roleName }} Account Created</h1>
         @else
-            <h1 style="color: white; margin: 0; font-size: 24px;">You've Been Added as {{ $roleName }}</h1>
+            <h1 style="color: {{ $secondaryColor }}; margin: 0; font-size: 24px;">You've Been Added as {{ $roleName }}</h1>
         @endif
     </div>
 
@@ -26,13 +30,13 @@
                 A {{ strtolower($roleName) }} account has been created for you to manage your team.
             </p>
 
-            <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #6366f1;">
+            <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {{ $primaryColor }};">
                 <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Your Login Credentials</h3>
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                         <td style="padding: 8px 0; color: #6c757d; width: 40%;">Login URL:</td>
                         <td style="padding: 8px 0; font-weight: 600;">
-                            <a href="{{ url('/admin/login') }}" style="color: #6366f1;">{{ url('/admin/login') }}</a>
+                            <a href="{{ url('/admin/login') }}" style="color: {{ $primaryColor }};">{{ url('/admin/login') }}</a>
                         </td>
                     </tr>
                     <tr>
@@ -57,13 +61,13 @@
                 You have been assigned as <strong>{{ $roleName }}</strong> for this team.
             </p>
 
-            <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #6366f1;">
+            <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {{ $primaryColor }};">
                 <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Login Details</h3>
                 <table style="width: 100%; border-collapse: collapse;">
                     <tr>
                         <td style="padding: 8px 0; color: #6c757d; width: 40%;">Login URL:</td>
                         <td style="padding: 8px 0; font-weight: 600;">
-                            <a href="{{ url('/admin/login') }}" style="color: #6366f1;">{{ url('/admin/login') }}</a>
+                            <a href="{{ url('/admin/login') }}" style="color: {{ $primaryColor }};">{{ url('/admin/login') }}</a>
                         </td>
                     </tr>
                     <tr>
@@ -76,13 +80,13 @@
             <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
                 <p style="margin: 0; color: #856404; font-size: 14px;">
                     Log in with your existing account. If you've forgotten your password, use the
-                    <a href="{{ url('/password/reset') }}" style="color: #6366f1; font-weight: 600;">Forgot Password</a> link to reset it.
+                    <a href="{{ url('/password/reset') }}" style="color: {{ $primaryColor }}; font-weight: 600;">Forgot Password</a> link to reset it.
                 </p>
             </div>
         @endif
 
         <div style="background: #e8eaf6; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; color: #3949ab;">What you can do as {{ $roleName }}:</h4>
+            <h4 style="margin: 0 0 10px 0; color: {{ $primaryColor }};">What you can do as {{ $roleName }}:</h4>
             <ul style="margin: 0; padding-left: 20px; color: #5c6bc0; font-size: 14px;">
                 <li>View and manage your team</li>
                 <li>Add players to your team</li>
@@ -93,7 +97,7 @@
 
         <div style="text-align: center;">
             <a href="{{ url('/admin/login') }}"
-               style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+               style="display: inline-block; background: {{ $primaryColor }}; color: {{ $secondaryColor }}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Login Now
             </a>
         </div>

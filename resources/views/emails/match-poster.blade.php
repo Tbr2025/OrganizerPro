@@ -6,11 +6,16 @@
     <title>Upcoming Match</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #1f2937; color: #ffffff;">
+    @php
+        $primaryColor = $tournament->settings?->primary_color ?? '#1a56db';
+        $secondaryColor = $tournament->settings?->secondary_color ?? '#ffffff';
+    @endphp
     <table role="presentation" style="width: 100%; max-width: 600px; margin: 0 auto; background-color: #111827;">
         {{-- Header --}}
         <tr>
-            <td style="padding: 30px 20px; text-align: center; background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);">
-                <h1 style="margin: 0; color: #111827; font-size: 24px;">{{ $tournament->name }}</h1>
+            <td style="padding: 30px 20px; text-align: center; background: {{ $primaryColor }};">
+                <img src="{{ $tournament->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+                <h1 style="margin: 0; color: {{ $secondaryColor }}; font-size: 24px;">{{ $tournament->name }}</h1>
             </td>
         </tr>
 
@@ -37,7 +42,7 @@
                                         </p>
                                     </td>
                                     <td style="width: 20%; text-align: center; vertical-align: middle;">
-                                        <span style="display: inline-block; padding: 10px 15px; background-color: #eab308; color: #111827; font-weight: bold; border-radius: 50%; font-size: 14px;">
+                                        <span style="display: inline-block; padding: 10px 15px; background-color: {{ $primaryColor }}; color: {{ $secondaryColor }}; font-weight: bold; border-radius: 50%; font-size: 14px;">
                                             VS
                                         </span>
                                     </td>
@@ -98,7 +103,7 @@
                     <tr>
                         <td style="text-align: center;">
                             <a href="{{ route('public.match.show', $match->slug) }}"
-                               style="display: inline-block; padding: 15px 30px; background-color: #eab308; color: #111827; text-decoration: none; font-weight: bold; border-radius: 8px;">
+                               style="display: inline-block; padding: 15px 30px; background-color: {{ $primaryColor }}; color: {{ $secondaryColor }}; text-decoration: none; font-weight: bold; border-radius: 8px;">
                                 View Match Details
                             </a>
                         </td>

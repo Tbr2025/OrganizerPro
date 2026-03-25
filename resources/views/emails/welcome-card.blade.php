@@ -62,6 +62,7 @@
 <body>
     <div class="container">
         <div class="header">
+            <img src="{{ url('/images/logo/logo.png') }}" alt="{{ config('app.name') }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px; border: 1px solid #e9ecef;">
             <h1>Welcome Aboard!</h1>
         </div>
 
