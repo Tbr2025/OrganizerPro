@@ -236,7 +236,7 @@
                         </div>
                     </div>
                 @else
-                    <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
                         <a href="{{ route('admin.tournaments.registrations.index', $tournament) }}"
                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,6 +244,18 @@
                             </svg>
                             Back to List
                         </a>
+                        <form action="{{ route('admin.tournaments.registrations.force-delete', [$tournament, $registration]) }}" method="POST" class="inline"
+                              onsubmit="return confirm('{{ $registration->type == 'team' && $registration->status == 'approved' ? 'WARNING: This will also delete the team created from this registration. Are you sure?' : 'Are you sure you want to delete this registration?' }}')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit"
+                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-800 border border-transparent rounded-md shadow-sm hover:bg-red-900">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                                Force Delete
+                            </button>
+                        </form>
                     </div>
                 @endif
             </div>

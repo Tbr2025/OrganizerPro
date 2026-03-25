@@ -128,6 +128,21 @@ class TournamentRegistrationController extends Controller
         return redirect()->back()->with('error', __('Failed to reject registration.'));
     }
 
+    public function forceDelete(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        // If approved team registration, delete the linked ActualTeam first (cascade handles pivot)
+        if ($registration->isTeamRegistration() && $registration->isApproved() && $registration->actualTeam) {
+            $registration->actualTeam->delete();
+        }
+
+        $registration->delete();
+
+        return redirect()->route('admin.tournaments.registrations.index', $tournament)
+            ->with('success', __('Registration deleted successfully.'));
+    }
+
     public function bulkApprove(Request $request, Tournament $tournament): RedirectResponse
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);

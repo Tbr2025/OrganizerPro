@@ -718,6 +718,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
         Route::post('/registrations/{registration}/approve', [TournamentRegistrationController::class, 'approve'])->name('registrations.approve');
         Route::post('/registrations/{registration}/reject', [TournamentRegistrationController::class, 'reject'])->name('registrations.reject');
         Route::post('/registrations/bulk-approve', [TournamentRegistrationController::class, 'bulkApprove'])->name('registrations.bulk-approve');
+        Route::delete('/registrations/{registration}/force-delete', [TournamentRegistrationController::class, 'forceDelete'])->name('registrations.force-delete');
 
         // Groups
         Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');
