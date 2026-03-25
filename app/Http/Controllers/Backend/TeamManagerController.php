@@ -145,7 +145,7 @@ class TeamManagerController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email',
-            'phone' => 'nullable|string|max:20',
+            'mobile_number_full' => 'nullable|string|max:20',
             'cricheroes_number_full' => 'nullable|string|max:20',
             'location_id' => 'nullable|exists:player_locations,id',
             'jersey_name' => 'nullable|string|max:50',
@@ -162,13 +162,13 @@ class TeamManagerController extends Controller
             'no_travel_plan' => 'nullable|boolean',
             'travel_date_from' => 'nullable|date',
             'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:6144',
+            'image_path' => 'nullable|image|mimes:jpeg,png,jpg|max:6144',
         ]);
 
         $data = [
             'name' => $validated['name'],
             'email' => $validated['email'] ?? null,
-            'mobile_number_full' => $validated['phone'] ?? null,
+            'mobile_number_full' => $validated['mobile_number_full'] ?? null,
             'cricheroes_number_full' => $validated['cricheroes_number_full'] ?? null,
             'location_id' => $validated['location_id'] ?? null,
             'jersey_name' => $validated['jersey_name'] ?? null,
@@ -191,9 +191,9 @@ class TeamManagerController extends Controller
             'created_by' => $user->id,
         ];
 
-        // Handle photo upload
-        if ($request->hasFile('photo')) {
-            $data['image_path'] = $request->file('photo')->store('player_images', 'public');
+        // Handle image upload
+        if ($request->hasFile('image_path')) {
+            $data['image_path'] = $request->file('image_path')->store('player_images', 'public');
         }
 
         $player = Player::create($data);
