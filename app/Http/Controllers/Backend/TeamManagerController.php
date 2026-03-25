@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\NewPlayerAddedMail;
+use App\Notifications\GeneralNotification;
 
 class TeamManagerController extends Controller
 {
@@ -164,6 +165,20 @@ class TeamManagerController extends Controller
             } catch (\Exception $e) {
                 // Log the error but don't fail the player creation
                 \Log::error('Failed to send new player email: ' . $e->getMessage());
+            }
+        }
+
+        // In-app notification to Owner/Manager (if different from current user)
+        $dashboardUrl = route('team-manager.dashboard');
+        $teamMembers = $team->users()->get();
+        foreach ($teamMembers as $member) {
+            $role = $member->pivot->role;
+            if (in_array($role, ['Owner', 'Manager']) && $member->id !== $user->id) {
+                $member->notify(new GeneralNotification(
+                    "{$player->name} was added to {$team->name} by {$user->name}",
+                    $dashboardUrl,
+                    'player-added'
+                ));
             }
         }
 
@@ -400,6 +415,32 @@ class TeamManagerController extends Controller
 
         // Assign new captain
         $team->users()->updateExistingPivot($validated['new_captain_user_id'], ['role' => 'captain']);
+
+        // In-app notifications for captain assignment
+        $dashboardUrl = route('team-manager.dashboard');
+
+        // Notify the new captain
+        $newCaptainUser = User::find($validated['new_captain_user_id']);
+        if ($newCaptainUser && $newCaptainUser->id !== $user->id) {
+            $newCaptainUser->notify(new GeneralNotification(
+                "You have been assigned as Captain of {$team->name}",
+                $dashboardUrl,
+                'captain'
+            ));
+        }
+
+        // Notify Owner and Manager (if different from current user and new captain)
+        $teamMembers = $team->users()->get();
+        foreach ($teamMembers as $member) {
+            $role = $member->pivot->role;
+            if (in_array($role, ['Owner', 'Manager']) && $member->id !== $user->id && $member->id !== $validated['new_captain_user_id']) {
+                $member->notify(new GeneralNotification(
+                    "{$newCaptain->name} has been assigned as Captain of {$team->name}",
+                    $dashboardUrl,
+                    'captain'
+                ));
+            }
+        }
 
         return redirect()->route('team-manager.dashboard')
             ->with('success', 'Captain has been assigned to ' . $newCaptain->name . '.');

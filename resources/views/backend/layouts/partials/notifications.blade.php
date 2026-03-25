@@ -49,7 +49,7 @@
                     <a href="javascript:void(0)" class="flex-1"
                        onclick="markNotificationAsRead('{{ $notification->id }}','{{ $notification->data['page'] ?? '' }}')">
                         {{ $notification->data['message'] ?? 'Notification' }}
-                        <small class="block text-gray-500 dark:text-gray-400">By {{ $notification->data['updated_by_name'] ?? '' }}</small>
+                        <small class="block text-gray-500 dark:text-gray-400">{{ $notification->created_at->diffForHumans() }}</small>
                     </a>
                     <button onclick="markNotificationAsRead('{{ $notification->id }}','', this)"
                         class="text-gray-400 hover:text-red-500 ml-2">✕</button>
@@ -86,10 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const msg = document.createElement('div');
         msg.textContent = n.data?.message ?? 'Notification';
 
-        // small by-line
+        // time line
         const small = document.createElement('small');
         small.className = 'block text-gray-500 dark:text-gray-400';
-        small.textContent = 'By ' + (n.data?.updated_by_name ?? '');
+        small.textContent = n.created_at_human || (n.data?.time ?? '');
 
         msg.appendChild(small);
         a.appendChild(msg);

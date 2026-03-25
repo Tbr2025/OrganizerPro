@@ -33,7 +33,8 @@ class AdminNotificationController extends Controller
             return [
                 'id' => $n->id,
                 'data' => $n->data,
-                'created_at' => $n->created_at->toDateTimeString()
+                'created_at' => $n->created_at->toDateTimeString(),
+                'created_at_human' => $n->created_at->diffForHumans(),
             ];
         });
 

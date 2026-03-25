@@ -5,10 +5,9 @@
 @endsection
 
 @section('admin-content')
-<div class="bg-white shadow rounded-lg p-6">
+<div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
     <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold">Notifications</h2>
-        <a href="{{ route('admin.notifications.index') }}" class="text-blue-500 hover:underline text-sm">View All</a>
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">Notifications</h2>
     </div>
 
     <div id="notifications-container">

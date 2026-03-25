@@ -11,10 +11,12 @@ use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Models\User;
+use App\Notifications\GeneralNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class RegistrationService
@@ -112,6 +114,13 @@ class RegistrationService
             // Send admin notification
             $this->notifyAdminOfNewRegistration($tournament, $registration, 'player');
 
+            // In-app notification for admins
+            $this->notifyAdminsInApp(
+                "New player registration: {$data['name']} for {$tournament->name}",
+                route('admin.tournaments.registrations.show', [$tournament, $registration]),
+                'player'
+            );
+
             return $registration;
         });
     }
@@ -144,6 +153,13 @@ class RegistrationService
 
         // Send admin notification
         $this->notifyAdminOfNewRegistration($tournament, $registration, 'team');
+
+        // In-app notification for admins
+        $this->notifyAdminsInApp(
+            "New team registration: {$data['team_name']} for {$tournament->name}",
+            route('admin.tournaments.registrations.show', [$tournament, $registration]),
+            'team'
+        );
 
         return $registration;
     }
@@ -274,6 +290,20 @@ class RegistrationService
             // Send approval email to captain
             $this->sendApprovalEmail($registration);
 
+            // In-app notification to Manager and Owner
+            $dashboardUrl = route('team-manager.dashboard');
+            $teamMembers = $actualTeam->users()->get();
+            foreach ($teamMembers as $member) {
+                $role = $member->pivot->role;
+                if (in_array($role, ['Manager', 'Owner'])) {
+                    $member->notify(new GeneralNotification(
+                        "Your team {$actualTeam->name} has been approved for {$tournament->name}",
+                        $dashboardUrl,
+                        'team-approved'
+                    ));
+                }
+            }
+
             return $actualTeam;
         });
     }
@@ -368,6 +398,19 @@ class RegistrationService
 
         // Tournament must be in registration status
         return $tournament->status === 'registration';
+    }
+
+    /**
+     * Send in-app notification to all Superadmin and Admin users
+     */
+    protected function notifyAdminsInApp(string $message, ?string $page, string $icon = 'info'): void
+    {
+        try {
+            $admins = User::role(['Superadmin', 'Admin'])->get();
+            Notification::send($admins, new GeneralNotification($message, $page, $icon));
+        } catch (\Exception $e) {
+            Log::error('Failed to send in-app admin notification: ' . $e->getMessage());
+        }
     }
 
     /**
