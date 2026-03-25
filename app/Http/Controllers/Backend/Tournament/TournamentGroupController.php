@@ -36,11 +36,14 @@ class TournamentGroupController extends Controller
             return !$team->groups()->where('tournament_id', $tournament->id)->exists();
         });
 
+        $canEdit = Auth::user()->can('tournament.edit');
+
         return view('backend.pages.tournaments.groups.index', [
             'tournament' => $tournament,
             'groups' => $groups,
             'allTeams' => $allTeams,
             'availableTeams' => $availableTeams,
+            'canEdit' => $canEdit,
             'breadcrumbs' => [
                 'title' => __('Groups'),
                 'items' => [

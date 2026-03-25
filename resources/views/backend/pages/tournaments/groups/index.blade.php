@@ -44,6 +44,9 @@
                             <th class="px-4 py-3">Manager</th>
                             <th class="px-4 py-3">Group</th>
                             <th class="px-4 py-3 text-center">Status</th>
+                            @if($canEdit)
+                                <th class="px-4 py-3 text-right">Actions</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -108,6 +111,18 @@
                                         Approved
                                     </span>
                                 </td>
+                                @if($canEdit)
+                                    <td class="px-4 py-3 text-right">
+                                        <a href="{{ route('actual-teams.show', $team) }}"
+                                           class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:text-indigo-400 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 rounded-lg transition">
+                                            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            </svg>
+                                            Manage
+                                        </a>
+                                    </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
@@ -141,21 +156,23 @@
                 </h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Organize registered teams into groups for fixtures</p>
             </div>
-            <div class="flex gap-2">
-                <form action="{{ route('admin.tournaments.groups.auto-create', $tournament) }}" method="POST" class="inline">
-                    @csrf
-                    <button type="submit" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm">
-                        Auto-Create Groups
+            @if($canEdit)
+                <div class="flex gap-2">
+                    <form action="{{ route('admin.tournaments.groups.auto-create', $tournament) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm">
+                            Auto-Create Groups
+                        </button>
+                    </form>
+                    <button type="button" onclick="document.getElementById('newGroupModal').classList.remove('hidden')"
+                            class="btn-primary text-sm">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Add Group
                     </button>
-                </form>
-                <button type="button" onclick="document.getElementById('newGroupModal').classList.remove('hidden')"
-                        class="btn-primary text-sm">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                    </svg>
-                    Add Group
-                </button>
-            </div>
+                </div>
+            @endif
         </div>
 
         @if($groups->count() > 0)
@@ -181,15 +198,17 @@
                                                 @endif
                                                 <span class="text-sm font-medium text-gray-900 dark:text-white">{{ $team->name }}</span>
                                             </div>
-                                            <form action="{{ route('admin.tournaments.groups.remove-team', [$tournament, $group, $team]) }}" method="POST" class="inline">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" onclick="return confirm('Remove this team from the group?')" class="text-red-500 hover:text-red-700">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                    </svg>
-                                                </button>
-                                            </form>
+                                            @if($canEdit)
+                                                <form action="{{ route('admin.tournaments.groups.remove-team', [$tournament, $group, $team]) }}" method="POST" class="inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" onclick="return confirm('Remove this team from the group?')" class="text-red-500 hover:text-red-700">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                        </svg>
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </li>
                                     @endforeach
                                 </ul>
@@ -197,8 +216,7 @@
                                 <p class="text-gray-500 text-sm text-center py-4">No teams in this group</p>
                             @endif
 
-                            <!-- Add Team Form -->
-                            @if($availableTeams->count() > 0)
+                            @if($canEdit && $availableTeams->count() > 0)
                                 <form action="{{ route('admin.tournaments.groups.add-team', [$tournament, $group]) }}" method="POST" class="mt-4">
                                     @csrf
                                     <div class="flex gap-2">
@@ -215,15 +233,17 @@
                                 </form>
                             @endif
                         </div>
-                        <div class="border-t dark:border-gray-700 px-4 py-2 flex justify-end">
-                            <form action="{{ route('admin.tournaments.groups.destroy', [$tournament, $group]) }}" method="POST" class="inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" onclick="return confirm('Delete this group?')" class="text-sm text-red-500 hover:text-red-700">
-                                    Delete Group
-                                </button>
-                            </form>
-                        </div>
+                        @if($canEdit)
+                            <div class="border-t dark:border-gray-700 px-4 py-2 flex justify-end">
+                                <form action="{{ route('admin.tournaments.groups.destroy', [$tournament, $group]) }}" method="POST" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" onclick="return confirm('Delete this group?')" class="text-sm text-red-500 hover:text-red-700">
+                                        Delete Group
+                                    </button>
+                                </form>
+                            </div>
+                        @endif
                     </div>
                 @endforeach
             </div>
@@ -241,6 +261,7 @@
     </div>
 </div>
 
+@if($canEdit)
 <!-- New Group Modal -->
 <div id="newGroupModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
@@ -267,4 +288,5 @@
         </div>
     </div>
 </div>
+@endif
 @endsection
