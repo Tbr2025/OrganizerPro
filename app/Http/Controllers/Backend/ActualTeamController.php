@@ -11,6 +11,7 @@ use App\Models\Organization;
 use App\Models\Player;
 use App\Models\Role;
 use App\Models\Tournament;
+use App\Models\TournamentRegistration;
 use App\Models\User;
 use App\Services\ImageBackgroundRemovalService;
 use Illuminate\Http\Request;
@@ -441,6 +442,22 @@ class ActualTeamController extends Controller
             ->where('status', '!=', 'completed')
             ->get();
 
+        // --- Get Registered Players for Captain Selection ---
+        $currentMemberIds = $currentMembers->pluck('id')->toArray();
+        $registeredPlayersForCaptain = collect();
+        if ($actualTeam->tournament_id) {
+            $registeredPlayersForCaptain = TournamentRegistration::where('tournament_id', $actualTeam->tournament_id)
+                ->approved()
+                ->players()
+                ->whereHas('player.user')
+                ->with('player.user')
+                ->get()
+                ->map(fn ($reg) => $reg->player->user)
+                ->filter(fn ($user) => !in_array($user->id, $currentMemberIds))
+                ->unique('id')
+                ->values();
+        }
+
         // --- Return the View ---
         // Pass the filtered roles for the select dropdowns
         // Pass the current members with their pivot data
@@ -455,6 +472,7 @@ class ActualTeamController extends Controller
             'currentMembers', // This is the array of all current members with pivot data
             'currentPlayerMembers', // This is the array of current members filtered to be only players
             'currentStaffMembers',
+            'registeredPlayersForCaptain', // Approved registered players with linked users
             'teamAuction', // Auction for this team's tournament
             'availableAuctions' // All available auctions for linking
         ));

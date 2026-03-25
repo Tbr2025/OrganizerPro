@@ -58,9 +58,24 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.view']);
 
+        // Get approved registered players with linked users for captain selection
+        $approvedPlayerUsers = collect();
+        if ($registration->isTeamRegistration() && $registration->isPending()) {
+            $approvedPlayerUsers = TournamentRegistration::where('tournament_id', $tournament->id)
+                ->approved()
+                ->players()
+                ->whereHas('player.user')
+                ->with('player.user')
+                ->get()
+                ->map(fn ($reg) => $reg->player->user)
+                ->unique('id')
+                ->values();
+        }
+
         return view('backend.pages.tournaments.registrations.show', [
             'tournament' => $tournament,
             'registration' => $registration->load(['player', 'processedBy', 'actualTeam']),
+            'approvedPlayerUsers' => $approvedPlayerUsers,
             'breadcrumbs' => [
                 'title' => __('Registration Details'),
                 'items' => [
@@ -72,7 +87,7 @@ class TournamentRegistrationController extends Controller
         ]);
     }
 
-    public function approve(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function approve(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
@@ -83,7 +98,8 @@ class TournamentRegistrationController extends Controller
         if ($registration->isPlayerRegistration()) {
             $result = $this->registrationService->approvePlayerRegistration($registration, Auth::id());
         } else {
-            $result = $this->registrationService->approveTeamRegistration($registration, Auth::id());
+            $captainUserId = $request->input('captain_user_id') ? (int) $request->input('captain_user_id') : null;
+            $result = $this->registrationService->approveTeamRegistration($registration, Auth::id(), $captainUserId);
         }
 
         if ($result) {

@@ -212,8 +212,19 @@
                                     Reject Registration
                                 </button>
                             </form>
-                            <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST" class="inline">
+                            <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST" class="inline-flex items-center gap-3">
                                 @csrf
+                                @if($registration->isTeamRegistration() && $approvedPlayerUsers->count())
+                                    <div>
+                                        <select name="captain_user_id" class="form-control text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                            <option value="">-- Captain from registration form --</option>
+                                            @foreach($approvedPlayerUsers as $playerUser)
+                                                <option value="{{ $playerUser->id }}">{{ $playerUser->name }} ({{ $playerUser->email }})</option>
+                                            @endforeach
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-1">Assign Captain from Registered Players (Optional)</p>
+                                    </div>
+                                @endif
                                 <button type="submit"
                                     class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md shadow-sm hover:bg-green-700">
                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

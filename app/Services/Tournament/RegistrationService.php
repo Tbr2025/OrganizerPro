@@ -173,13 +173,13 @@ class RegistrationService
     /**
      * Approve a team registration and create ActualTeam
      */
-    public function approveTeamRegistration(TournamentRegistration $registration, int $approvedBy): ?ActualTeam
+    public function approveTeamRegistration(TournamentRegistration $registration, int $approvedBy, ?int $captainUserId = null): ?ActualTeam
     {
         if (!$registration->isTeamRegistration() || !$registration->isPending()) {
             return null;
         }
 
-        return DB::transaction(function () use ($registration, $approvedBy) {
+        return DB::transaction(function () use ($registration, $approvedBy, $captainUserId) {
             $tournament = $registration->tournament;
 
             // Create ActualTeam
@@ -198,34 +198,39 @@ class RegistrationService
                 'actual_team_id' => $actualTeam->id,
             ]);
 
-            // Create user for captain if doesn't exist
-            $captainUser = User::where('email', $registration->captain_email)->first();
-            $isNewUser = false;
-            $plainPassword = null;
+            if ($captainUserId) {
+                // Use the selected registered player as captain
+                $actualTeam->users()->attach($captainUserId, ['role' => 'captain']);
+            } else {
+                // Default behavior: create user from captain_email
+                $captainUser = User::where('email', $registration->captain_email)->first();
+                $isNewUser = false;
+                $plainPassword = null;
 
-            if (!$captainUser) {
-                $isNewUser = true;
-                $plainPassword = Str::random(12);
-                $captainUser = User::create([
-                    'name' => $registration->captain_name,
-                    'email' => $registration->captain_email,
-                    'username' => Str::slug($registration->captain_name) . '-' . Str::random(5),
-                    'password' => Hash::make($plainPassword),
-                    'organization_id' => $tournament->organization_id,
-                ]);
-            }
+                if (!$captainUser) {
+                    $isNewUser = true;
+                    $plainPassword = Str::random(12);
+                    $captainUser = User::create([
+                        'name' => $registration->captain_name,
+                        'email' => $registration->captain_email,
+                        'username' => Str::slug($registration->captain_name) . '-' . Str::random(5),
+                        'password' => Hash::make($plainPassword),
+                        'organization_id' => $tournament->organization_id,
+                    ]);
+                }
 
-            // Assign Team Manager role
-            if (!$captainUser->hasRole('Team Manager')) {
-                $captainUser->assignRole('Team Manager');
-            }
+                // Assign Team Manager role
+                if (!$captainUser->hasRole('Team Manager')) {
+                    $captainUser->assignRole('Team Manager');
+                }
 
-            // Associate captain with team
-            $actualTeam->users()->attach($captainUser->id, ['role' => 'captain']);
+                // Associate captain with team
+                $actualTeam->users()->attach($captainUser->id, ['role' => 'captain']);
 
-            // Send credentials email to new team manager
-            if ($isNewUser && $plainPassword) {
-                $this->sendTeamManagerCredentials($captainUser, $plainPassword, $tournament, $actualTeam);
+                // Send credentials email to new team manager
+                if ($isNewUser && $plainPassword) {
+                    $this->sendTeamManagerCredentials($captainUser, $plainPassword, $tournament, $actualTeam);
+                }
             }
 
             // Send approval email to captain

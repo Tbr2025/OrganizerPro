@@ -167,14 +167,26 @@
                             </label>
                             <select id="captain_user_id" name="captain_user_id" class="form-control mt-1">
                                 <option value="">-- Select Captain --</option>
-                                @foreach($currentMembers as $member)
-                                    <option value="{{ $member->id }}"
-                                        {{ ($actualTeam->captain && $actualTeam->captain->id == $member->id) ? 'selected' : '' }}>
-                                        {{ $member->name }} ({{ $member->email }})
-                                    </option>
-                                @endforeach
+                                <optgroup label="Current Team Members">
+                                    @foreach($currentMembers as $member)
+                                        <option value="{{ $member->id }}"
+                                            {{ ($actualTeam->captain && $actualTeam->captain->id == $member->id) ? 'selected' : '' }}>
+                                            {{ $member->name }} ({{ $member->email }})
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                                @if($registeredPlayersForCaptain->count())
+                                    <optgroup label="Registered Players">
+                                        @foreach($registeredPlayersForCaptain as $regPlayer)
+                                            <option value="{{ $regPlayer->id }}"
+                                                {{ ($actualTeam->captain && $actualTeam->captain->id == $regPlayer->id) ? 'selected' : '' }}>
+                                                {{ $regPlayer->name }} ({{ $regPlayer->email }})
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             </select>
-                            <p class="text-xs text-gray-500 mt-1">Select the team captain from current squad members</p>
+                            <p class="text-xs text-gray-500 mt-1">Select the team captain from current members or registered players</p>
                             @error('captain_user_id')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
