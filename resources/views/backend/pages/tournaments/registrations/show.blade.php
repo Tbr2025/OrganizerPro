@@ -103,15 +103,23 @@
                             </div>
                         </div>
 
-                        {{-- Vice Captain Information --}}
-                        @if($registration->vice_captain_name)
+                        {{-- Team Owner Information --}}
+                        @if($registration->vice_captain_name || $registration->vice_captain_email)
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Vice Captain Information</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Team Owner Information</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                @if($registration->vice_captain_name)
                                 <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                                     <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</h4>
                                     <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $registration->vice_captain_name }}</p>
                                 </div>
+                                @endif
+                                @if($registration->vice_captain_email)
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                                    <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</h4>
+                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $registration->vice_captain_email }}</p>
+                                </div>
+                                @endif
                                 @if($registration->vice_captain_phone)
                                 <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                                     <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone</h4>

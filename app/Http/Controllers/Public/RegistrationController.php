@@ -148,6 +148,7 @@ class RegistrationController extends Controller
             'captain_email' => 'required|email|max:255',
             'captain_phone' => 'required|string|max:20',
             'vice_captain_name' => 'nullable|string|max:100',
+            'vice_captain_email' => 'nullable|email|max:255',
             'vice_captain_phone' => 'nullable|string|max:20',
             'team_description' => 'nullable|string|max:500',
         ]);

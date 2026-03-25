@@ -99,6 +99,7 @@ class PublicTournamentRegistrationController extends Controller
             'captain_email' => 'required|email|max:255',
             'captain_phone' => 'required|string|max:20',
             'vice_captain_name' => 'nullable|string|max:255',
+            'vice_captain_email' => 'nullable|email|max:255',
             'vice_captain_phone' => 'nullable|string|max:20',
             'team_description' => 'nullable|string|max:1000',
         ]);
@@ -130,6 +131,7 @@ class PublicTournamentRegistrationController extends Controller
             'captain_email' => $validated['captain_email'],
             'captain_phone' => $validated['captain_phone'],
             'vice_captain_name' => $validated['vice_captain_name'],
+            'vice_captain_email' => $validated['vice_captain_email'] ?? null,
             'vice_captain_phone' => $validated['vice_captain_phone'],
             'team_description' => $validated['team_description'],
             'status' => 'pending',

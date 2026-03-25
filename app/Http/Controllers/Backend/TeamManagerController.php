@@ -81,6 +81,7 @@ class TeamManagerController extends Controller
         $currentUserPivot = $teamMembers->firstWhere('id', $user->id);
         $isCaptain = $currentUserPivot && strtolower($currentUserPivot->pivot->role) === 'captain';
         $isOwner = $currentUserPivot && $currentUserPivot->pivot->role === 'Owner';
+        $isManager = $currentUserPivot && $currentUserPivot->pivot->role === 'Manager';
 
         return view('backend.pages.team-manager.dashboard', compact(
             'teams',
@@ -91,7 +92,8 @@ class TeamManagerController extends Controller
             'auctionBudgets',
             'teamMembers',
             'isCaptain',
-            'isOwner'
+            'isOwner',
+            'isManager'
         ));
     }
 
@@ -356,15 +358,16 @@ class TeamManagerController extends Controller
                 ->with('error', 'You are not assigned to any team.');
         }
 
-        // Verify current user is owner or captain
+        // Verify current user is owner, manager, or captain
         $currentUserPivot = $team->users()->where('user_id', $user->id)->first();
         $currentRole = $currentUserPivot?->pivot->role;
         $isOwner = $currentRole === 'Owner';
+        $isManager = $currentRole === 'Manager';
         $isCaptain = $currentRole && strtolower($currentRole) === 'captain';
 
-        if (!$isOwner && !$isCaptain) {
+        if (!$isOwner && !$isManager && !$isCaptain) {
             return redirect()->route('team-manager.dashboard')
-                ->with('error', 'Only the owner or captain can assign captaincy.');
+                ->with('error', 'Only the owner, manager, or captain can assign captaincy.');
         }
 
         $validated = $request->validate([
@@ -390,8 +393,8 @@ class TeamManagerController extends Controller
             $team->users()->updateExistingPivot($currentCaptainPivot->id, ['role' => 'Player']);
         }
 
-        // If current user is captain (not owner) transferring, demote self
-        if ($isCaptain && !$isOwner && $user->id !== $validated['new_captain_user_id']) {
+        // If current user is captain (not owner/manager) transferring, demote self
+        if ($isCaptain && !$isOwner && !$isManager && $user->id !== $validated['new_captain_user_id']) {
             $team->users()->updateExistingPivot($user->id, ['role' => 'Player']);
         }
 

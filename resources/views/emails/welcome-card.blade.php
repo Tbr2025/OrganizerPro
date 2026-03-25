@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to {{ config('app.name', 'OrganizerPro') }}</title>
+    <title>Welcome to {{ config('app.name', 'Sportzley') }}</title>
     <style>
         /* Basic styling for email clients */
         body {
@@ -70,7 +70,7 @@
             <p>Hi <strong>{{ $player->name }}</strong>,</p>
 
             <p>
-                A warm welcome to <strong>{{ config('app.name', 'OrganizerPro') }}</strong>! We are thrilled to have you join our community.
+                A warm welcome to <strong>{{ config('app.name', 'Sportzley') }}</strong>! We are thrilled to have you join our community.
             </p>
 
             <p>
@@ -87,7 +87,7 @@
 
         <div class="footer">
             <p>Best regards,</p>
-            <p>The {{ config('app.name', 'OrganizerPro') }} Team</p>
+            <p>The {{ config('app.name', 'Sportzley') }} Team</p>
         </div>
     </div>
 </body>

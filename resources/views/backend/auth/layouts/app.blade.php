@@ -83,7 +83,7 @@ $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(valu
 
                                 <!-- Tagline -->
                                 <h2 class="text-2xl xl:text-3xl font-bold text-white mb-4 drop-shadow-lg">
-                                    {{ config('app.name', 'OrganizerPro') }}
+                                    {{ config('app.name', 'Sportzley') }}
                                 </h2>
                                 <p class="text-white/80 text-base xl:text-lg mb-8 leading-relaxed">
                                     Manage tournaments, teams, auctions & matches with ease

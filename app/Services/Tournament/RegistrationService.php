@@ -136,6 +136,7 @@ class RegistrationService
             'captain_email' => $data['captain_email'],
             'captain_phone' => $data['captain_phone'],
             'vice_captain_name' => $data['vice_captain_name'] ?? null,
+            'vice_captain_email' => $data['vice_captain_email'] ?? null,
             'vice_captain_phone' => $data['vice_captain_phone'] ?? null,
             'team_description' => $data['team_description'] ?? null,
             'status' => 'pending',
@@ -203,38 +204,71 @@ class RegistrationService
                 $actualTeam->users()->attach($captainUserId, ['role' => 'captain']);
             }
 
-            // Always create/find the owner user from captain_email (registration form owner)
+            // Create/find the Manager user from captain_email
             {
-                $ownerUser = User::where('email', $registration->captain_email)->first();
-                $isNewUser = false;
-                $plainPassword = null;
+                $managerUser = User::where('email', $registration->captain_email)->first();
+                $isNewManager = false;
+                $managerPassword = null;
 
-                if (!$ownerUser) {
-                    $isNewUser = true;
-                    $plainPassword = Str::random(12);
-                    $ownerUser = User::create([
+                if (!$managerUser) {
+                    $isNewManager = true;
+                    $managerPassword = Str::random(12);
+                    $managerUser = User::create([
                         'name' => $registration->captain_name,
                         'email' => $registration->captain_email,
                         'username' => Str::slug($registration->captain_name) . '-' . Str::random(5),
-                        'password' => Hash::make($plainPassword),
+                        'password' => Hash::make($managerPassword),
                         'organization_id' => $tournament->organization_id,
                     ]);
                 }
 
-                // Assign Team Manager role (controls menu/page access)
+                // Assign Team Manager Spatie role (controls menu/page access)
+                if (!$managerUser->hasRole('Team Manager')) {
+                    $managerUser->assignRole('Team Manager');
+                }
+
+                // Determine pivot role: if owner email same as manager email, upgrade to Owner
+                $managerPivotRole = 'Manager';
+                if ($registration->vice_captain_email && strtolower($registration->vice_captain_email) === strtolower($registration->captain_email)) {
+                    $managerPivotRole = 'Owner';
+                }
+
+                if (!$actualTeam->users()->where('user_id', $managerUser->id)->exists()) {
+                    $actualTeam->users()->attach($managerUser->id, ['role' => $managerPivotRole]);
+                }
+
+                // Send credentials (new user) or login notification (existing user)
+                $this->sendTeamManagerCredentials($managerUser, $managerPassword, $tournament, $actualTeam, 'Team Manager');
+            }
+
+            // Create/find the Owner user from vice_captain_email (if provided and different from manager)
+            if ($registration->vice_captain_email && strtolower($registration->vice_captain_email) !== strtolower($registration->captain_email)) {
+                $ownerUser = User::where('email', $registration->vice_captain_email)->first();
+                $isNewOwner = false;
+                $ownerPassword = null;
+
+                if (!$ownerUser) {
+                    $isNewOwner = true;
+                    $ownerPassword = Str::random(12);
+                    $ownerUser = User::create([
+                        'name' => $registration->vice_captain_name ?? 'Team Owner',
+                        'email' => $registration->vice_captain_email,
+                        'username' => Str::slug($registration->vice_captain_name ?? 'team-owner') . '-' . Str::random(5),
+                        'password' => Hash::make($ownerPassword),
+                        'organization_id' => $tournament->organization_id,
+                    ]);
+                }
+
                 if (!$ownerUser->hasRole('Team Manager')) {
                     $ownerUser->assignRole('Team Manager');
                 }
 
-                // Associate owner with team (Owner role — highest role)
                 if (!$actualTeam->users()->where('user_id', $ownerUser->id)->exists()) {
                     $actualTeam->users()->attach($ownerUser->id, ['role' => 'Owner']);
                 }
 
-                // Send credentials email to new team manager
-                if ($isNewUser && $plainPassword) {
-                    $this->sendTeamManagerCredentials($ownerUser, $plainPassword, $tournament, $actualTeam);
-                }
+                // Send credentials (new user) or login notification (existing user)
+                $this->sendTeamManagerCredentials($ownerUser, $ownerPassword, $tournament, $actualTeam, 'Team Owner');
             }
 
             // Send approval email to captain
@@ -358,10 +392,10 @@ class RegistrationService
     /**
      * Send team manager credentials email
      */
-    protected function sendTeamManagerCredentials(User $user, string $password, Tournament $tournament, ActualTeam $team): void
+    protected function sendTeamManagerCredentials(User $user, string $password, Tournament $tournament, ActualTeam $team, string $roleName = 'Team Manager'): void
     {
         try {
-            Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $password, $tournament, $team));
+            Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $password, $tournament, $team, $roleName));
         } catch (\Exception $e) {
             Log::error('Failed to send team manager credentials: ' . $e->getMessage());
         }

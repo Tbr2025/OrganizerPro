@@ -75,10 +75,11 @@
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Team Leadership</h3>
             @php
                 $owner = $teamMembers->first(fn($m) => $m->pivot->role === 'Owner');
+                $manager = $teamMembers->first(fn($m) => $m->pivot->role === 'Manager');
                 $captain = $teamMembers->first(fn($m) => strtolower($m->pivot->role) === 'captain');
             @endphp
 
-            {{-- Team Manager --}}
+            {{-- Team Owner --}}
             @if($owner)
                 <div class="flex items-center gap-3 mb-3">
                     <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold">
@@ -87,7 +88,22 @@
                     <div>
                         <p class="font-medium text-gray-900 dark:text-white">{{ $owner->name }}</p>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            Team Manager
+                            Owner
+                        </span>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Team Manager --}}
+            @if($manager)
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold">
+                        {{ strtoupper(substr($manager->name, 0, 1)) }}
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-white">{{ $manager->name }}</p>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                            Manager
                         </span>
                     </div>
                 </div>
@@ -110,16 +126,16 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">No captain assigned yet</p>
             @endif
 
-            @if($isOwner || $isCaptain)
+            @if($isOwner || $isManager || $isCaptain)
                 @php
-                    $assignableMembers = $teamMembers->filter(fn($m) => $m->id !== auth()->id() && $m->pivot->role !== 'Owner');
+                    $assignableMembers = $teamMembers->filter(fn($m) => $m->id !== auth()->id() && !in_array($m->pivot->role, ['Owner', 'Manager']));
                 @endphp
                 @if($assignableMembers->isNotEmpty())
                     <form action="{{ route('team-manager.assign-captain') }}" method="POST"
-                          onsubmit="return confirm('{{ $isOwner ? 'Are you sure you want to assign this member as captain?' : 'Are you sure you want to transfer captaincy? This action cannot be undone by you.' }}')">
+                          onsubmit="return confirm('{{ ($isOwner || $isManager) ? 'Are you sure you want to assign this member as captain?' : 'Are you sure you want to transfer captaincy? This action cannot be undone by you.' }}')">
                         @csrf
                         <label for="new_captain_user_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {{ $isOwner ? 'Assign Captain' : 'Transfer Captaincy To' }}
+                            {{ ($isOwner || $isManager) ? 'Assign Captain' : 'Transfer Captaincy To' }}
                         </label>
                         <select name="new_captain_user_id" id="new_captain_user_id" class="form-control mb-3" required>
                             <option value="">Select a member...</option>
@@ -131,7 +147,7 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
                             </svg>
-                            {{ $isOwner ? 'Assign Captain' : 'Transfer Captaincy' }}
+                            {{ ($isOwner || $isManager) ? 'Assign Captain' : 'Transfer Captaincy' }}
                         </button>
                     </form>
                 @else

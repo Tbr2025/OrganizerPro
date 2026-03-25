@@ -131,7 +131,7 @@
 
         <div class="footer">
             <p>Best regards,</p>
-            <p>The {{ config('app.name', 'OrganizerPro') }} Team</p>
+            <p>The {{ config('app.name', 'Sportzley') }} Team</p>
         </div>
     </div>
 </body>

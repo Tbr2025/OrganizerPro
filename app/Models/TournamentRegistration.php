@@ -24,6 +24,7 @@ class TournamentRegistration extends Model
         'captain_email',
         'captain_phone',
         'vice_captain_name',
+        'vice_captain_email',
         'vice_captain_phone',
         'team_description',
         // Common

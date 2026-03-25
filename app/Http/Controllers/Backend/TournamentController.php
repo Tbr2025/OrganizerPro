@@ -95,12 +95,16 @@ class TournamentController extends Controller
         // Get teams count via groups
         $tournaments = $query->latest()->paginate(12);
 
-        // Append teams count for each tournament
+        // Append teams count: max of actual_teams (from approvals) and group_teams (manually added)
         foreach ($tournaments as $tournament) {
-            $tournament->teams_count = DB::table('tournament_group_teams')
+            $actualCount = DB::table('actual_teams')
+                ->where('tournament_id', $tournament->id)
+                ->count();
+            $groupCount = DB::table('tournament_group_teams')
                 ->join('tournament_groups', 'tournament_group_teams.tournament_group_id', '=', 'tournament_groups.id')
                 ->where('tournament_groups.tournament_id', $tournament->id)
                 ->count();
+            $tournament->teams_count = max($actualCount, $groupCount);
         }
 
         return view('backend.pages.tournaments.index', [
@@ -137,10 +141,13 @@ class TournamentController extends Controller
 
         // Get various counts and stats
         $stats = [
-            'teams_count' => DB::table('tournament_group_teams')
-                ->join('tournament_groups', 'tournament_group_teams.tournament_group_id', '=', 'tournament_groups.id')
-                ->where('tournament_groups.tournament_id', $tournament->id)
-                ->count(),
+            'teams_count' => max(
+                DB::table('actual_teams')->where('tournament_id', $tournament->id)->count(),
+                DB::table('tournament_group_teams')
+                    ->join('tournament_groups', 'tournament_group_teams.tournament_group_id', '=', 'tournament_groups.id')
+                    ->where('tournament_groups.tournament_id', $tournament->id)
+                    ->count()
+            ),
             'groups_count' => $tournament->groups()->count(),
             'total_matches' => $tournament->matches()->count(),
             'completed_matches' => $tournament->matches()->where('status', 'completed')->count(),

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Team Manager Account</title>
+    <title>{{ $roleName }} Account</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -15,46 +15,81 @@
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
         </div>
-        <h1 style="color: white; margin: 0; font-size: 24px;">Team Manager Account Created</h1>
+        @if($isNewUser)
+            <h1 style="color: white; margin: 0; font-size: 24px;">{{ $roleName }} Account Created</h1>
+        @else
+            <h1 style="color: white; margin: 0; font-size: 24px;">You've Been Added as {{ $roleName }}</h1>
+        @endif
     </div>
 
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
         <p style="margin: 0 0 20px 0; font-size: 16px;">
             Dear <strong>{{ $user->name }}</strong>,
         </p>
-        <p style="margin: 0 0 20px 0;">
-            Your team <strong>{{ $team->name }}</strong> has been approved for <strong>{{ $tournament->name }}</strong>.
-            A team manager account has been created for you to manage your team.
-        </p>
 
-        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #6366f1;">
-            <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Your Login Credentials</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                    <td style="padding: 8px 0; color: #6c757d; width: 40%;">Login URL:</td>
-                    <td style="padding: 8px 0; font-weight: 600;">
-                        <a href="{{ url('/admin/login') }}" style="color: #6366f1;">{{ url('/admin/login') }}</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px 0; color: #6c757d;">Email:</td>
-                    <td style="padding: 8px 0; font-weight: 600;">{{ $user->email }}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px 0; color: #6c757d;">Password:</td>
-                    <td style="padding: 8px 0; font-weight: 600; font-family: monospace; font-size: 16px; letter-spacing: 1px;">{{ $password }}</td>
-                </tr>
-            </table>
-        </div>
-
-        <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-            <p style="margin: 0; color: #856404; font-size: 14px;">
-                Please change your password after your first login for security.
+        @if($isNewUser)
+            <p style="margin: 0 0 20px 0;">
+                Your team <strong>{{ $team->name }}</strong> has been approved for <strong>{{ $tournament->name }}</strong>.
+                A {{ strtolower($roleName) }} account has been created for you to manage your team.
             </p>
-        </div>
+
+            <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #6366f1;">
+                <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Your Login Credentials</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #6c757d; width: 40%;">Login URL:</td>
+                        <td style="padding: 8px 0; font-weight: 600;">
+                            <a href="{{ url('/admin/login') }}" style="color: #6366f1;">{{ url('/admin/login') }}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #6c757d;">Email:</td>
+                        <td style="padding: 8px 0; font-weight: 600;">{{ $user->email }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #6c757d;">Password:</td>
+                        <td style="padding: 8px 0; font-weight: 600; font-family: monospace; font-size: 16px; letter-spacing: 1px;">{{ $password }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #856404; font-size: 14px;">
+                    Please change your password after your first login for security.
+                </p>
+            </div>
+        @else
+            <p style="margin: 0 0 20px 0;">
+                Your team <strong>{{ $team->name }}</strong> has been approved for <strong>{{ $tournament->name }}</strong>.
+                You have been assigned as <strong>{{ $roleName }}</strong> for this team.
+            </p>
+
+            <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #6366f1;">
+                <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Login Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #6c757d; width: 40%;">Login URL:</td>
+                        <td style="padding: 8px 0; font-weight: 600;">
+                            <a href="{{ url('/admin/login') }}" style="color: #6366f1;">{{ url('/admin/login') }}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #6c757d;">Email:</td>
+                        <td style="padding: 8px 0; font-weight: 600;">{{ $user->email }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                <p style="margin: 0; color: #856404; font-size: 14px;">
+                    Log in with your existing account. If you've forgotten your password, use the
+                    <a href="{{ url('/password/reset') }}" style="color: #6366f1; font-weight: 600;">Forgot Password</a> link to reset it.
+                </p>
+            </div>
+        @endif
 
         <div style="background: #e8eaf6; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-            <h4 style="margin: 0 0 10px 0; color: #3949ab;">What you can do as Team Manager:</h4>
+            <h4 style="margin: 0 0 10px 0; color: #3949ab;">What you can do as {{ $roleName }}:</h4>
             <ul style="margin: 0; padding-left: 20px; color: #5c6bc0; font-size: 14px;">
                 <li>View and manage your team</li>
                 <li>Add players to your team</li>

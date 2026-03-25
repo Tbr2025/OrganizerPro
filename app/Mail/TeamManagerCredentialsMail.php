@@ -16,22 +16,26 @@ class TeamManagerCredentialsMail extends Mailable
     use Queueable, SerializesModels;
 
     public User $user;
-    public string $password;
+    public ?string $password;
     public Tournament $tournament;
     public ActualTeam $team;
+    public string $roleName;
+    public bool $isNewUser;
 
-    public function __construct(User $user, string $password, Tournament $tournament, ActualTeam $team)
+    public function __construct(User $user, ?string $password, Tournament $tournament, ActualTeam $team, string $roleName = 'Team Manager')
     {
         $this->user = $user;
         $this->password = $password;
         $this->tournament = $tournament;
         $this->team = $team;
+        $this->roleName = $roleName;
+        $this->isNewUser = $password !== null;
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your Team Manager Account - ' . $this->tournament->name,
+            subject: 'Your ' . $this->roleName . ' Account - ' . $this->tournament->name,
         );
     }
 

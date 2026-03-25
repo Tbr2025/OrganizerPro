@@ -103,24 +103,35 @@
                     </div>
                 </div>
 
-                {{-- Vice Captain Info Section --}}
+                {{-- Team Owner Info Section --}}
                 <div>
-                    <h2 class="text-lg font-semibold mb-4 text-yellow-400">Vice Captain Details (Optional)</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-yellow-400">Team Owner Details (Optional)</h2>
 
-                    {{-- Vice Captain Name --}}
+                    {{-- Owner Name --}}
                     <div class="mb-4">
-                        <label for="vice_captain_name" class="block text-sm font-medium mb-2">Vice Captain Name</label>
+                        <label for="vice_captain_name" class="block text-sm font-medium mb-2">Owner Name</label>
                         <input type="text" name="vice_captain_name" id="vice_captain_name" value="{{ old('vice_captain_name') }}"
                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="Full name of vice captain">
+                               placeholder="Full name of team owner">
                         @error('vice_captain_name')
                             <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- Vice Captain Phone --}}
+                    {{-- Owner Email --}}
+                    <div class="mb-4">
+                        <label for="vice_captain_email" class="block text-sm font-medium mb-2">Owner Email</label>
+                        <input type="email" name="vice_captain_email" id="vice_captain_email" value="{{ old('vice_captain_email') }}"
+                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                               placeholder="owner@email.com">
+                        @error('vice_captain_email')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Owner Phone --}}
                     <div>
-                        <label for="vice_captain_phone" class="block text-sm font-medium mb-2">Vice Captain Phone</label>
+                        <label for="vice_captain_phone" class="block text-sm font-medium mb-2">Owner Phone</label>
                         <input type="tel" name="vice_captain_phone" id="vice_captain_phone" value="{{ old('vice_captain_phone') }}"
                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                                placeholder="+971 50 123 4567">
