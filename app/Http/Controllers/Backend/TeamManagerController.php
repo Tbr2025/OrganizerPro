@@ -21,7 +21,9 @@ use App\Models\BowlingProfile;
 use App\Models\KitSize;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
-use App\Models\ImageTemplate;
+use App\Models\TournamentTemplate;
+use App\Services\Poster\TemplateRenderService;
+use Illuminate\Support\Facades\Storage;
 use App\Notifications\GeneralNotification;
 
 class TeamManagerController extends Controller
@@ -394,17 +396,41 @@ class TeamManagerController extends Controller
             'approved_by' => $user->id,
         ]);
 
-        // Generate welcome card if template exists and player has a photo
+        // Generate welcome card using tournament template
         $welcomeCardPath = null;
         try {
-            $template = ImageTemplate::where('category_id', 1)->first();
-            if ($template && $player->image_path) {
-                $imagePath = PlayerController::generateWelcomePlayerImageGD($player, $template);
-                if (is_array($imagePath)) {
-                    $imagePath = $imagePath[0] ?? '';
-                }
-                if ($imagePath) {
-                    $welcomeCardPath = public_path($imagePath);
+            $team->load('tournament.settings');
+            $tournament = $team->tournament;
+
+            if ($tournament) {
+                $template = $tournament->getTemplate(TournamentTemplate::TYPE_WELCOME_CARD);
+
+                if ($template && $template->background_image) {
+                    $renderService = new TemplateRenderService();
+
+                    $data = [
+                        'player_name' => $player->name,
+                        'jersey_name' => $player->jersey_name ?? '',
+                        'jersey_number' => $player->jersey_number ?? '',
+                        'player_image' => $player->image_path ?? '',
+                        'player_type' => $player->playerType->type ?? '',
+                        'batting_style' => $player->battingProfile->style ?? '',
+                        'bowling_style' => $player->bowlingProfile->style ?? '',
+                        'team_name' => $team->name,
+                        'team_logo' => $team->team_logo ?? '',
+                        'tournament_name' => $tournament->name,
+                        'tournament_logo' => $tournament->settings->logo ?? '',
+                    ];
+
+                    $outputPath = $renderService->renderAndSave(
+                        $template,
+                        $data,
+                        'welcome-card-' . $player->id . '-' . time() . '.png'
+                    );
+
+                    if ($outputPath && Storage::disk('public')->exists($outputPath)) {
+                        $welcomeCardPath = Storage::disk('public')->path($outputPath);
+                    }
                 }
             }
         } catch (\Exception $e) {
