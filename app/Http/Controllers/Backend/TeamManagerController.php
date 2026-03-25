@@ -49,6 +49,7 @@ class TeamManagerController extends Controller
 
         // Get players on this team
         $teamPlayers = Player::where('actual_team_id', $team->id)
+            ->with(['playerType', 'battingProfile', 'bowlingProfile'])
             ->orderBy('name')
             ->get();
 
