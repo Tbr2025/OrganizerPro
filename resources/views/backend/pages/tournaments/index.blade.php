@@ -185,10 +185,10 @@
             @endphp
 
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700
-                        overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group">
+                        transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group">
 
                 {{-- Card Header with Logo/Banner --}}
-                <div class="relative h-32 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 overflow-hidden">
+                <div class="relative h-32 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 overflow-hidden rounded-t-xl">
                     @if($logo)
                         <img src="{{ $logo }}" alt="{{ $tournament->name }}"
                              class="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:opacity-40 transition-opacity">
@@ -311,7 +311,7 @@
                 </div>
 
                 {{-- Card Footer with Actions --}}
-                <div class="px-4 pb-4 flex items-center justify-between gap-2">
+                <div class="px-4 pb-4 flex items-center justify-between gap-2 flex-wrap">
                     {{-- Manage Dropdown --}}
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open" @click.away="open = false"
