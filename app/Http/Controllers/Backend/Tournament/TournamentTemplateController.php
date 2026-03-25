@@ -563,7 +563,7 @@ class TournamentTemplateController extends Controller
     public function uploadOverlay(Tournament $tournament, Request $request)
     {
         $request->validate([
-            'overlay_image' => 'required|image|max:5120',
+            'overlay_image' => 'required|file|mimes:png,jpg,jpeg,gif,svg,webp|max:5120',
         ]);
 
         $path = $request->file('overlay_image')

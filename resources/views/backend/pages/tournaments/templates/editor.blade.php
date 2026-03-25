@@ -204,6 +204,34 @@
                             <div class="icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);"><svg fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></div>
                             <div class="info"><div class="name">Circle</div><div class="type">Shape</div></div>
                         </div>
+                        <div class="draggable-item" draggable="true" data-type="shape" data-shape="triangle">
+                            <div class="icon" style="background: linear-gradient(135deg, #ec4899, #be185d);"><svg fill="currentColor" viewBox="0 0 24 24"><polygon points="12,2 22,22 2,22"/></svg></div>
+                            <div class="info"><div class="name">Triangle</div><div class="type">Shape</div></div>
+                        </div>
+                        <div class="draggable-item" draggable="true" data-type="shape" data-shape="line">
+                            <div class="icon" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"><svg fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/></svg></div>
+                            <div class="info"><div class="name">Line</div><div class="type">Shape</div></div>
+                        </div>
+                        <div class="draggable-item" draggable="true" data-type="shape" data-shape="star">
+                            <div class="icon" style="background: linear-gradient(135deg, #eab308, #ca8a04);"><svg fill="currentColor" viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg></div>
+                            <div class="info"><div class="name">Star</div><div class="type">Shape</div></div>
+                        </div>
+                        <div class="draggable-item" draggable="true" data-type="shape" data-shape="diamond">
+                            <div class="icon" style="background: linear-gradient(135deg, #06b6d4, #0e7490);"><svg fill="currentColor" viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12"/></svg></div>
+                            <div class="info"><div class="name">Diamond</div><div class="type">Shape</div></div>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Image Layers</div>
+                        <label class="bg-upload-area block" id="overlayUploadArea" style="padding: 12px; cursor: pointer;">
+                            <input type="file" id="overlayImageInput" accept="image/png,image/jpeg,image/svg+xml" class="hidden" onchange="editor.uploadOverlayImage(this)">
+                            <svg class="w-8 h-8 mx-auto text-gray-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <p class="text-xs text-gray-400 text-center">Upload PNG, SVG, JPG</p>
+                        </label>
+                        <div id="overlayImagesList" class="mt-2 space-y-1">
+                            {{-- Populated dynamically --}}
+                        </div>
                     </div>
                 </div>
 
@@ -317,6 +345,78 @@
                 </div>
             </div>
 
+            {{-- Shape Properties --}}
+            <div id="shapePropertiesPanel" class="hidden">
+                <div class="prop-section">
+                    <div class="prop-section-title">Shape Properties</div>
+                    <div class="prop-group">
+                        <label class="prop-label">Fill Type</label>
+                        <select id="propFillType" class="prop-input" onchange="editor.updateShapeFillType(this.value)">
+                            <option value="solid">Solid</option>
+                            <option value="linear">Linear Gradient</option>
+                            <option value="radial">Radial Gradient</option>
+                        </select>
+                    </div>
+                    <div id="solidFillGroup" class="prop-group">
+                        <label class="prop-label">Fill Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="propShapeFill" class="color-preview" value="#6366f1" onchange="editor.updateShapeFill(this.value)">
+                            <div class="color-presets">
+                                <div class="color-preset" style="background:#6366f1" onclick="editor.updateShapeFill('#6366f1')"></div>
+                                <div class="color-preset" style="background:#ec4899" onclick="editor.updateShapeFill('#ec4899')"></div>
+                                <div class="color-preset" style="background:#10b981" onclick="editor.updateShapeFill('#10b981')"></div>
+                                <div class="color-preset" style="background:#f59e0b" onclick="editor.updateShapeFill('#f59e0b')"></div>
+                                <div class="color-preset" style="background:#ef4444" onclick="editor.updateShapeFill('#ef4444')"></div>
+                                <div class="color-preset" style="background:#3b82f6" onclick="editor.updateShapeFill('#3b82f6')"></div>
+                                <div class="color-preset" style="background:#8b5cf6" onclick="editor.updateShapeFill('#8b5cf6')"></div>
+                                <div class="color-preset" style="background:#06b6d4" onclick="editor.updateShapeFill('#06b6d4')"></div>
+                                <div class="color-preset" style="background:#fff" onclick="editor.updateShapeFill('#ffffff')"></div>
+                                <div class="color-preset" style="background:#000" onclick="editor.updateShapeFill('#000000')"></div>
+                                <div class="color-preset" style="background:rgba(255,255,255,0.3);border:1px solid #555" onclick="editor.updateShapeFill('rgba(255,255,255,0.3)')"></div>
+                                <div class="color-preset" style="background:rgba(0,0,0,0.5);border:1px solid #555" onclick="editor.updateShapeFill('rgba(0,0,0,0.5)')"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="gradientFillGroup" class="hidden">
+                        <div class="prop-group">
+                            <label class="prop-label">Color 1</label>
+                            <input type="color" id="propGradientColor1" class="color-preview" value="#6366f1" onchange="editor.updateShapeGradient()">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Color 2</label>
+                            <input type="color" id="propGradientColor2" class="color-preview" value="#ec4899" onchange="editor.updateShapeGradient()">
+                        </div>
+                        <div id="gradientAngleGroup" class="prop-group">
+                            <label class="prop-label">Angle: <span id="gradientAngleValue">90</span>°</label>
+                            <input type="range" id="propGradientAngle" class="prop-slider" min="0" max="360" value="90" oninput="document.getElementById('gradientAngleValue').textContent=this.value; editor.updateShapeGradient()">
+                        </div>
+                        <div class="color-presets" style="margin-top: 6px;">
+                            <div class="color-preset" style="background:linear-gradient(135deg,#6366f1,#ec4899);width:36px" onclick="editor.applyGradientPreset('#6366f1','#ec4899')" title="Purple→Pink"></div>
+                            <div class="color-preset" style="background:linear-gradient(135deg,#f59e0b,#ef4444);width:36px" onclick="editor.applyGradientPreset('#f59e0b','#ef4444')" title="Amber→Red"></div>
+                            <div class="color-preset" style="background:linear-gradient(135deg,#10b981,#3b82f6);width:36px" onclick="editor.applyGradientPreset('#10b981','#3b82f6')" title="Green→Blue"></div>
+                            <div class="color-preset" style="background:linear-gradient(135deg,#8b5cf6,#06b6d4);width:36px" onclick="editor.applyGradientPreset('#8b5cf6','#06b6d4')" title="Violet→Cyan"></div>
+                            <div class="color-preset" style="background:linear-gradient(135deg,#000000,#6366f1);width:36px" onclick="editor.applyGradientPreset('#000000','#6366f1')" title="Black→Indigo"></div>
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Stroke Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="propShapeStroke" class="color-preview" value="#6366f1" onchange="editor.updateShapeStroke(this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Stroke Width</label>
+                            <input type="number" id="propShapeStrokeWidth" class="prop-input" min="0" max="20" value="2" onchange="editor.updateShapeStrokeWidth(parseInt(this.value))">
+                        </div>
+                        <div class="prop-group" id="borderRadiusGroup">
+                            <label class="prop-label">Border Radius</label>
+                            <input type="number" id="propShapeBorderRadius" class="prop-input" min="0" max="100" value="8" onchange="editor.updateShapeBorderRadius(parseInt(this.value))">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {{-- Common Properties --}}
             <div id="commonPropertiesPanel" class="hidden">
                 <div class="prop-section">
@@ -392,6 +492,7 @@
     <input type="hidden" name="canvas_width" id="formCanvasWidth">
     <input type="hidden" name="canvas_height" id="formCanvasHeight">
     <input type="hidden" name="background_image_base64" id="formBackgroundBase64">
+    <input type="hidden" name="overlay_images" id="formOverlayImages">
 </form>
 @endsection
 
@@ -430,6 +531,14 @@ const editor = {
 
         @if($template && $template->background_image)
             this.loadBackgroundFromUrl('{{ $template->background_image_url }}');
+        @endif
+
+        // Load existing overlay images into sidebar list
+        @if($template && $template->overlay_images)
+            @foreach($template->overlay_images as $ov)
+                this.uploadedOverlays.push({ path: '{{ $ov['imagePath'] ?? $ov['path'] ?? '' }}', url: '{{ asset("storage/" . ($ov['imagePath'] ?? $ov['path'] ?? '')) }}', name: '{{ basename($ov['imagePath'] ?? $ov['path'] ?? 'image') }}' });
+            @endforeach
+            this.renderOverlayList();
         @endif
 
         // Update canvas size dropdown
@@ -538,6 +647,10 @@ const editor = {
         const props = { left: x, top: y, fill: 'rgba(99, 102, 241, 0.5)', stroke: '#6366f1', strokeWidth: 2, originX: 'center', originY: 'center' };
         if (type === 'rect') shape = new fabric.Rect({ ...props, width: 150, height: 100, rx: 8, ry: 8 });
         else if (type === 'circle') shape = new fabric.Circle({ ...props, radius: 60 });
+        else if (type === 'triangle') shape = new fabric.Triangle({ ...props, width: 120, height: 120 });
+        else if (type === 'line') shape = new fabric.Line([0, 0, 200, 0], { stroke: '#6366f1', strokeWidth: 4, left: x, top: y, originX: 'center', originY: 'center' });
+        else if (type === 'star') shape = new fabric.Polygon(this.starPoints(5, 60, 30), { ...props });
+        else if (type === 'diamond') shape = new fabric.Polygon([{x:60,y:0},{x:120,y:80},{x:60,y:160},{x:0,y:80}], { ...props });
         if (shape) {
             shape.elementType = 'shape';
             shape.shapeType = type;
@@ -545,6 +658,17 @@ const editor = {
             this.canvas.setActiveObject(shape);
             this.saveHistory();
         }
+    },
+
+    starPoints(spikes, outerR, innerR) {
+        const points = [];
+        const step = Math.PI / spikes;
+        for (let i = 0; i < 2 * spikes; i++) {
+            const r = i % 2 === 0 ? outerR : innerR;
+            const angle = i * step - Math.PI / 2;
+            points.push({ x: outerR + r * Math.cos(angle), y: outerR + r * Math.sin(angle) });
+        }
+        return points;
     },
 
     // Background
@@ -625,7 +749,9 @@ const editor = {
         document.getElementById('commonPropertiesPanel').classList.remove('hidden');
 
         const isText = obj.elementType === 'text' || obj.type === 'i-text';
+        const isShape = obj.elementType === 'shape';
         document.getElementById('textPropertiesPanel').classList.toggle('hidden', !isText);
+        document.getElementById('shapePropertiesPanel').classList.toggle('hidden', !isShape);
 
         if (isText) {
             document.getElementById('propFontFamily').value = obj.fontFamily || 'Arial';
@@ -633,13 +759,60 @@ const editor = {
             document.getElementById('propFontWeight').value = obj.fontWeight || '400';
             document.getElementById('propTextColor').value = obj.fill || '#ffffff';
         }
+        if (isShape) {
+            this.updateShapePropertiesPanel(obj);
+        }
         this.updateProperties();
+    },
+
+    updateShapePropertiesPanel(obj) {
+        const fill = obj.fill;
+        const isGradient = fill && typeof fill === 'object' && fill.type;
+
+        if (isGradient) {
+            document.getElementById('propFillType').value = fill.type;
+            document.getElementById('solidFillGroup').classList.add('hidden');
+            document.getElementById('gradientFillGroup').classList.remove('hidden');
+            document.getElementById('gradientAngleGroup').style.display = fill.type === 'linear' ? '' : 'none';
+            const stops = fill.colorStops || [];
+            if (stops.length >= 2) {
+                document.getElementById('propGradientColor1').value = stops[0].color || '#6366f1';
+                document.getElementById('propGradientColor2').value = stops[1].color || '#ec4899';
+            }
+            document.getElementById('propGradientAngle').value = obj.gradientAngle || 90;
+            document.getElementById('gradientAngleValue').textContent = obj.gradientAngle || 90;
+        } else {
+            document.getElementById('propFillType').value = 'solid';
+            document.getElementById('solidFillGroup').classList.remove('hidden');
+            document.getElementById('gradientFillGroup').classList.add('hidden');
+            // Convert fill to hex for color picker
+            const hex = this.colorToHex(fill || '#6366f1');
+            document.getElementById('propShapeFill').value = hex;
+        }
+
+        document.getElementById('propShapeStroke').value = this.colorToHex(obj.stroke || '#6366f1');
+        document.getElementById('propShapeStrokeWidth').value = obj.strokeWidth || 2;
+        // Show border radius only for rect
+        const brGroup = document.getElementById('borderRadiusGroup');
+        brGroup.style.display = obj.shapeType === 'rect' ? '' : 'none';
+        if (obj.shapeType === 'rect') {
+            document.getElementById('propShapeBorderRadius').value = obj.rx || 0;
+        }
+    },
+
+    colorToHex(color) {
+        if (!color || typeof color !== 'string') return '#6366f1';
+        if (color.startsWith('#')) return color.length === 4 ? '#' + color[1]+color[1]+color[2]+color[2]+color[3]+color[3] : color;
+        const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (m) return '#' + [m[1],m[2],m[3]].map(x => parseInt(x).toString(16).padStart(2,'0')).join('');
+        return '#6366f1';
     },
 
     hideProperties() {
         document.getElementById('noSelectionPanel').classList.remove('hidden');
         document.getElementById('commonPropertiesPanel').classList.add('hidden');
         document.getElementById('textPropertiesPanel').classList.add('hidden');
+        document.getElementById('shapePropertiesPanel').classList.add('hidden');
     },
 
     updateProperties() {
@@ -688,6 +861,170 @@ const editor = {
         this.canvas.renderAll();
     },
 
+    // Shape property updates
+    updateShapeFillType(type) {
+        if (type === 'solid') {
+            document.getElementById('solidFillGroup').classList.remove('hidden');
+            document.getElementById('gradientFillGroup').classList.add('hidden');
+            this.updateShapeFill(document.getElementById('propShapeFill').value);
+        } else {
+            document.getElementById('solidFillGroup').classList.add('hidden');
+            document.getElementById('gradientFillGroup').classList.remove('hidden');
+            document.getElementById('gradientAngleGroup').style.display = type === 'linear' ? '' : 'none';
+            this.updateShapeGradient();
+        }
+    },
+
+    updateShapeFill(color) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'shape') return;
+        obj.set('fill', color);
+        obj.gradientFillConfig = null;
+        document.getElementById('propShapeFill').value = this.colorToHex(color);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateShapeGradient() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'shape') return;
+        const type = document.getElementById('propFillType').value;
+        const c1 = document.getElementById('propGradientColor1').value;
+        const c2 = document.getElementById('propGradientColor2').value;
+        const angle = parseInt(document.getElementById('propGradientAngle').value) || 90;
+
+        const w = obj.width || 120;
+        const h = obj.height || 120;
+
+        let gradient;
+        if (type === 'linear') {
+            const rad = (angle * Math.PI) / 180;
+            const cos = Math.cos(rad), sin = Math.sin(rad);
+            gradient = new fabric.Gradient({
+                type: 'linear',
+                coords: { x1: w/2 - cos*w/2, y1: h/2 - sin*h/2, x2: w/2 + cos*w/2, y2: h/2 + sin*h/2 },
+                colorStops: [{ offset: 0, color: c1 }, { offset: 1, color: c2 }]
+            });
+        } else {
+            gradient = new fabric.Gradient({
+                type: 'radial',
+                coords: { x1: w/2, y1: h/2, r1: 0, x2: w/2, y2: h/2, r2: Math.max(w, h)/2 },
+                colorStops: [{ offset: 0, color: c1 }, { offset: 1, color: c2 }]
+            });
+        }
+        obj.set('fill', gradient);
+        obj.gradientAngle = angle;
+        obj.gradientFillConfig = { type, angle, colorStops: [{ offset: 0, color: c1 }, { offset: 1, color: c2 }] };
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    applyGradientPreset(c1, c2) {
+        document.getElementById('propGradientColor1').value = c1;
+        document.getElementById('propGradientColor2').value = c2;
+        if (document.getElementById('propFillType').value === 'solid') {
+            document.getElementById('propFillType').value = 'linear';
+            this.updateShapeFillType('linear');
+        } else {
+            this.updateShapeGradient();
+        }
+    },
+
+    updateShapeStroke(color) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'shape') return;
+        obj.set('stroke', color);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateShapeStrokeWidth(val) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'shape') return;
+        obj.set('strokeWidth', val);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateShapeBorderRadius(val) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.shapeType !== 'rect') return;
+        obj.set({ rx: val, ry: val });
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    // Image overlay upload
+    uploadedOverlays: [],
+
+    uploadOverlayImage(input) {
+        if (!input.files[0]) return;
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('overlay_image', file);
+        formData.append('_token', '{{ csrf_token() }}');
+
+        fetch('{{ route("admin.tournaments.templates.upload-overlay", $tournament) }}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                this.uploadedOverlays.push({ path: data.path, url: data.url, name: file.name });
+                this.renderOverlayList();
+                input.value = '';
+            }
+        })
+        .catch(err => console.error('Upload failed:', err));
+    },
+
+    renderOverlayList() {
+        const list = document.getElementById('overlayImagesList');
+        list.innerHTML = this.uploadedOverlays.map((ov, i) => `
+            <div class="flex items-center gap-2 p-2 rounded bg-gray-800/50 hover:bg-gray-700/50 cursor-pointer group" style="font-size:12px;">
+                <img src="${ov.url}" class="w-8 h-8 rounded object-cover flex-shrink-0" onerror="this.style.display='none'">
+                <span class="text-gray-300 truncate flex-1" onclick="editor.addUploadedImage('${ov.url}', '${ov.path}')" title="Click to add">${ov.name}</span>
+                <button onclick="editor.removeOverlay(${i})" class="text-gray-500 hover:text-red-400 flex-shrink-0" title="Delete">&times;</button>
+            </div>
+        `).join('');
+    },
+
+    addUploadedImage(url, path) {
+        fabric.Image.fromURL(url, (img) => {
+            img.set({
+                left: this.canvasWidth / 2,
+                top: this.canvasHeight / 2,
+                originX: 'center',
+                originY: 'center',
+                elementType: 'uploadedImage',
+                imagePath: path,
+            });
+            img.scaleToWidth(Math.min(200, this.canvasWidth / 3));
+            this.canvas.add(img);
+            this.canvas.setActiveObject(img);
+            this.saveHistory();
+        }, { crossOrigin: 'anonymous' });
+    },
+
+    removeOverlay(index) {
+        const ov = this.uploadedOverlays[index];
+        if (!ov) return;
+        fetch('{{ route("admin.tournaments.templates.delete-overlay", $tournament) }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify({ path: ov.path })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                this.uploadedOverlays.splice(index, 1);
+                this.renderOverlayList();
+            }
+        });
+    },
+
     // Actions
     deleteSelected() {
         const obj = this.canvas.getActiveObject();
@@ -701,6 +1038,12 @@ const editor = {
             cloned.set({ left: obj.left + 20, top: obj.top + 20 });
             cloned.placeholder = obj.placeholder;
             cloned.elementType = obj.elementType;
+            cloned.shapeType = obj.shapeType;
+            cloned.imagePath = obj.imagePath;
+            cloned.gradientAngle = obj.gradientAngle;
+            cloned.gradientFillConfig = obj.gradientFillConfig;
+            cloned.placeholderWidth = obj.placeholderWidth;
+            cloned.placeholderHeight = obj.placeholderHeight;
             this.canvas.add(cloned);
             this.canvas.setActiveObject(cloned);
             this.saveHistory();
@@ -712,7 +1055,7 @@ const editor = {
 
     // History
     saveHistory() {
-        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight']);
+        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig']);
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(JSON.stringify(json));
         this.historyIndex++;
@@ -801,10 +1144,65 @@ const editor = {
                 this.canvas.add(group);
             } else if (item.type === 'shape') {
                 let shape;
-                const props = { left: x, top: y, fill: item.fill || 'rgba(99,102,241,0.5)', stroke: item.stroke || '#6366f1', strokeWidth: item.strokeWidth || 2, angle: item.rotation || 0, opacity: (item.opacity || 100) / 100, originX: 'center', originY: 'center' };
-                if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: 8, ry: 8 });
+                const solidFill = (typeof item.fill === 'string') ? item.fill : 'rgba(99,102,241,0.5)';
+                const props = { left: x, top: y, fill: solidFill, stroke: item.stroke || '#6366f1', strokeWidth: item.strokeWidth || 2, angle: item.rotation || 0, opacity: (item.opacity || 100) / 100, originX: 'center', originY: 'center' };
+                if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: item.rx || 8, ry: item.ry || 8 });
                 else if (item.shapeType === 'circle') shape = new fabric.Circle({ ...props, radius: (item.width || 120) / 2 });
-                if (shape) { shape.elementType = 'shape'; shape.shapeType = item.shapeType; this.canvas.add(shape); }
+                else if (item.shapeType === 'triangle') shape = new fabric.Triangle({ ...props, width: item.width || 120, height: item.height || 120 });
+                else if (item.shapeType === 'line') shape = new fabric.Line([0, 0, item.width || 200, 0], { ...props, fill: null });
+                else if (item.shapeType === 'star') shape = new fabric.Polygon(this.starPoints(5, (item.width || 120) / 2, (item.width || 120) / 4), { ...props });
+                else if (item.shapeType === 'diamond') {
+                    const w = item.width || 120, h = item.height || 160;
+                    shape = new fabric.Polygon([{x:w/2,y:0},{x:w,y:h/2},{x:w/2,y:h},{x:0,y:h/2}], { ...props });
+                }
+                if (shape) {
+                    shape.elementType = 'shape';
+                    shape.shapeType = item.shapeType;
+                    // Restore gradient fill if saved
+                    if (item.fill && typeof item.fill === 'object' && item.fill.type) {
+                        const gc = item.fill;
+                        const w = shape.width || 120, h = shape.height || 120;
+                        let gradient;
+                        if (gc.type === 'linear') {
+                            const angle = gc.angle || 90;
+                            const rad = (angle * Math.PI) / 180;
+                            const cos = Math.cos(rad), sin = Math.sin(rad);
+                            gradient = new fabric.Gradient({
+                                type: 'linear',
+                                coords: { x1: w/2 - cos*w/2, y1: h/2 - sin*h/2, x2: w/2 + cos*w/2, y2: h/2 + sin*h/2 },
+                                colorStops: gc.colorStops || [{ offset: 0, color: '#6366f1' }, { offset: 1, color: '#ec4899' }]
+                            });
+                        } else {
+                            gradient = new fabric.Gradient({
+                                type: 'radial',
+                                coords: { x1: w/2, y1: h/2, r1: 0, x2: w/2, y2: h/2, r2: Math.max(w, h)/2 },
+                                colorStops: gc.colorStops || [{ offset: 0, color: '#6366f1' }, { offset: 1, color: '#ec4899' }]
+                            });
+                        }
+                        shape.set('fill', gradient);
+                        shape.gradientAngle = gc.angle || 90;
+                        shape.gradientFillConfig = gc;
+                    }
+                    this.canvas.add(shape);
+                }
+            } else if (item.type === 'uploadedImage') {
+                const imgPath = item.imagePath || item.path || '';
+                if (imgPath) {
+                    const imgUrl = imgPath.startsWith('http') ? imgPath : '{{ asset("storage") }}/' + imgPath;
+                    fabric.Image.fromURL(imgUrl, (img) => {
+                        img.set({
+                            left: x, top: y,
+                            originX: 'center', originY: 'center',
+                            angle: item.rotation || 0,
+                            opacity: (item.opacity || 100) / 100,
+                            elementType: 'uploadedImage',
+                            imagePath: imgPath,
+                        });
+                        if (item.width) img.scaleToWidth(item.width);
+                        this.canvas.add(img);
+                        this.canvas.renderAll();
+                    }, { crossOrigin: 'anonymous' });
+                }
             }
         });
         this.canvas.renderAll();
@@ -833,13 +1231,27 @@ const editor = {
             } else if (obj.elementType === 'image') {
                 return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'shape') {
-                return { ...base, shapeType: obj.shapeType, fill: obj.fill, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1) };
+                // Serialize gradient fill config if present
+                let fillData = obj.fill;
+                if (obj.gradientFillConfig) {
+                    fillData = obj.gradientFillConfig;
+                } else if (obj.fill && typeof obj.fill === 'object' && obj.fill.type) {
+                    // Extract gradient info from fabric gradient object
+                    fillData = { type: obj.fill.type, angle: obj.gradientAngle || 90, colorStops: obj.fill.colorStops };
+                }
+                return { ...base, shapeType: obj.shapeType, fill: fillData, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1), rx: obj.rx || 0, ry: obj.ry || 0 };
+            } else if (obj.elementType === 'uploadedImage') {
+                return { ...base, type: 'uploadedImage', imagePath: obj.imagePath, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 150) * (obj.scaleY || 1) };
             }
             return base;
         });
 
+        // Separate uploaded images into overlay_images array
+        const overlayImages = layout.filter(el => el.type === 'uploadedImage');
+
         document.getElementById('formName').value = document.getElementById('templateName').value;
         document.getElementById('formLayoutJson').value = JSON.stringify(layout);
+        document.getElementById('formOverlayImages').value = JSON.stringify(overlayImages);
         document.getElementById('formCanvasWidth').value = this.canvasWidth;
         document.getElementById('formCanvasHeight').value = this.canvasHeight;
 

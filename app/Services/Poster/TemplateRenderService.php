@@ -246,11 +246,57 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function renderUploadedImage(\GdImage $canvas, array $element, int $x, int $y, int $canvasWidth): void
     {
-        // For uploaded images, we'd need to store the image data/path
-        // Currently just draw a placeholder since we don't have the actual image data
+        $path = $element['imagePath'] ?? $element['path'] ?? '';
         $width = (int) ($element['width'] ?? 150);
         $height = (int) ($element['height'] ?? 150);
-        $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+
+        if (empty($path) || !Storage::disk('public')->exists($path)) {
+            $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+            return;
+        }
+
+        $drawX = (int) ($x - $width / 2);
+        $drawY = (int) ($y - $height / 2);
+
+        // Load and render the uploaded image
+        $srcImage = $this->loadBackground($path);
+        if (!$srcImage) {
+            $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+            return;
+        }
+
+        $srcWidth = imagesx($srcImage);
+        $srcHeight = imagesy($srcImage);
+
+        // Create resized image with alpha support
+        $resized = imagecreatetruecolor($width, $height);
+        imagealphablending($resized, false);
+        imagesavealpha($resized, true);
+        $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
+        imagefill($resized, 0, 0, $transparent);
+
+        imagecopyresampled($resized, $srcImage, 0, 0, 0, 0, $width, $height, $srcWidth, $srcHeight);
+
+        // Handle rotation
+        $rotation = $element['rotation'] ?? 0;
+        if ($rotation != 0) {
+            $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
+            $rotated = imagerotate($resized, -$rotation, $transparent);
+            if ($rotated) {
+                imagedestroy($resized);
+                $resized = $rotated;
+                $width = imagesx($resized);
+                $height = imagesy($resized);
+                $drawX = (int) ($x - $width / 2);
+                $drawY = (int) ($y - $height / 2);
+            }
+        }
+
+        imagealphablending($canvas, true);
+        imagecopy($canvas, $resized, $drawX, $drawY, 0, 0, imagesx($resized), imagesy($resized));
+
+        imagedestroy($srcImage);
+        imagedestroy($resized);
     }
 
     /**
@@ -265,29 +311,294 @@ class TemplateRenderService extends PosterGeneratorService
         $stroke = $element['stroke'] ?? '#6366f1';
         $strokeWidth = (int) ($element['strokeWidth'] ?? 2);
 
-        // Parse fill color
-        $fillColor = $this->parseColor($canvas, $fill);
-
         $drawX = (int) ($x - $width / 2);
         $drawY = (int) ($y - $height / 2);
 
+        // Check if fill is a gradient config
+        $isGradient = is_array($fill) && isset($fill['type']);
+
         if ($shapeType === 'rect') {
-            imagefilledrectangle($canvas, $drawX, $drawY, $drawX + $width, $drawY + $height, $fillColor);
+            if ($isGradient) {
+                $this->renderGradientRect($canvas, $drawX, $drawY, $width, $height, $fill);
+            } else {
+                $fillColor = $this->parseColor($canvas, $fill);
+                imagefilledrectangle($canvas, $drawX, $drawY, $drawX + $width, $drawY + $height, $fillColor);
+            }
         } elseif ($shapeType === 'circle') {
             $radius = min($width, $height) / 2;
-            imagefilledellipse($canvas, $x, $y, (int)($radius * 2), (int)($radius * 2), $fillColor);
+            if ($isGradient) {
+                $this->renderGradientEllipse($canvas, $x, $y, (int)($radius * 2), (int)($radius * 2), $fill);
+            } else {
+                $fillColor = $this->parseColor($canvas, $fill);
+                imagefilledellipse($canvas, $x, $y, (int)($radius * 2), (int)($radius * 2), $fillColor);
+            }
+        } elseif ($shapeType === 'triangle') {
+            $points = [
+                $drawX + $width / 2, $drawY,             // top center
+                $drawX, $drawY + $height,                 // bottom-left
+                $drawX + $width, $drawY + $height,        // bottom-right
+            ];
+            if ($isGradient) {
+                $this->renderGradientPolygon($canvas, $points, 3, $drawX, $drawY, $width, $height, $fill);
+            } else {
+                $fillColor = $this->parseColor($canvas, $fill);
+                imagefilledpolygon($canvas, $points, $fillColor);
+            }
         } elseif ($shapeType === 'line') {
             $strokeColor = $this->parseColor($canvas, $stroke);
             imagesetthickness($canvas, $strokeWidth);
             imageline($canvas, $drawX, $y, $drawX + $width, $y, $strokeColor);
+            return; // Lines don't have fill
+        } elseif ($shapeType === 'star') {
+            $points = $this->calculateStarPoints(5, $width / 2, $width / 4, $x, $y);
+            if ($isGradient) {
+                $this->renderGradientPolygon($canvas, $points, 10, $drawX, $drawY, $width, $height, $fill);
+            } else {
+                $fillColor = $this->parseColor($canvas, $fill);
+                imagefilledpolygon($canvas, $points, $fillColor);
+            }
+        } elseif ($shapeType === 'diamond') {
+            $points = [
+                $x, $drawY,                  // top
+                $drawX + $width, $y,         // right
+                $x, $drawY + $height,        // bottom
+                $drawX, $y,                  // left
+            ];
+            if ($isGradient) {
+                $this->renderGradientPolygon($canvas, $points, 4, $drawX, $drawY, $width, $height, $fill);
+            } else {
+                $fillColor = $this->parseColor($canvas, $fill);
+                imagefilledpolygon($canvas, $points, $fillColor);
+            }
         }
+
+        // Draw stroke for non-line shapes
+        if ($shapeType !== 'line' && $strokeWidth > 0) {
+            $strokeColor = $this->parseColor($canvas, $stroke);
+            imagesetthickness($canvas, $strokeWidth);
+
+            if ($shapeType === 'rect') {
+                imagerectangle($canvas, $drawX, $drawY, $drawX + $width, $drawY + $height, $strokeColor);
+            } elseif ($shapeType === 'circle') {
+                $radius = min($width, $height) / 2;
+                imageellipse($canvas, $x, $y, (int)($radius * 2), (int)($radius * 2), $strokeColor);
+            } elseif ($shapeType === 'triangle') {
+                $points = [$drawX + $width / 2, $drawY, $drawX, $drawY + $height, $drawX + $width, $drawY + $height];
+                imagepolygon($canvas, $points, $strokeColor);
+            } elseif ($shapeType === 'star') {
+                $points = $this->calculateStarPoints(5, $width / 2, $width / 4, $x, $y);
+                imagepolygon($canvas, $points, $strokeColor);
+            } elseif ($shapeType === 'diamond') {
+                $points = [$x, $drawY, $drawX + $width, $y, $x, $drawY + $height, $drawX, $y];
+                imagepolygon($canvas, $points, $strokeColor);
+            }
+        }
+    }
+
+    /**
+     * Calculate star polygon points for GD rendering
+     */
+    protected function calculateStarPoints(int $spikes, float $outerR, float $innerR, int $cx, int $cy): array
+    {
+        $points = [];
+        $step = M_PI / $spikes;
+        for ($i = 0; $i < 2 * $spikes; $i++) {
+            $r = ($i % 2 === 0) ? $outerR : $innerR;
+            $angle = $i * $step - M_PI / 2;
+            $points[] = (int) ($cx + $r * cos($angle));
+            $points[] = (int) ($cy + $r * sin($angle));
+        }
+        return $points;
+    }
+
+    /**
+     * Render gradient-filled rectangle
+     */
+    protected function renderGradientRect(\GdImage $canvas, int $x, int $y, int $w, int $h, array $gradientConfig): void
+    {
+        $stops = $gradientConfig['colorStops'] ?? [];
+        if (count($stops) < 2) return;
+
+        $color1 = $this->hexToRgb($stops[0]['color'] ?? '#6366f1');
+        $color2 = $this->hexToRgb($stops[1]['color'] ?? '#ec4899');
+        $angle = (int) ($gradientConfig['angle'] ?? 90);
+
+        imagealphablending($canvas, true);
+
+        if ($angle === 0 || $angle === 360 || $angle === 180) {
+            // Horizontal gradient
+            $reverse = ($angle === 180);
+            for ($i = 0; $i < $w; $i++) {
+                $ratio = $i / max($w - 1, 1);
+                if ($reverse) $ratio = 1 - $ratio;
+                $lineColor = $this->interpolateColor($canvas, $color1, $color2, $ratio);
+                imageline($canvas, $x + $i, $y, $x + $i, $y + $h, $lineColor);
+            }
+        } else {
+            // Vertical or angled gradient — render vertically (default for 90°, 270°)
+            $reverse = ($angle > 180 && $angle < 360);
+            for ($i = 0; $i < $h; $i++) {
+                $ratio = $i / max($h - 1, 1);
+                if ($reverse) $ratio = 1 - $ratio;
+                $lineColor = $this->interpolateColor($canvas, $color1, $color2, $ratio);
+                imageline($canvas, $x, $y + $i, $x + $w, $y + $i, $lineColor);
+            }
+        }
+    }
+
+    /**
+     * Render gradient-filled ellipse using a temporary image
+     */
+    protected function renderGradientEllipse(\GdImage $canvas, int $cx, int $cy, int $w, int $h, array $gradientConfig): void
+    {
+        $stops = $gradientConfig['colorStops'] ?? [];
+        if (count($stops) < 2) return;
+
+        $color1 = $this->hexToRgb($stops[0]['color'] ?? '#6366f1');
+        $color2 = $this->hexToRgb($stops[1]['color'] ?? '#ec4899');
+        $type = $gradientConfig['type'] ?? 'linear';
+
+        // Create temp image for the gradient shape
+        $temp = imagecreatetruecolor($w, $h);
+        imagealphablending($temp, false);
+        imagesavealpha($temp, true);
+        $transparent = imagecolorallocatealpha($temp, 0, 0, 0, 127);
+        imagefill($temp, 0, 0, $transparent);
+
+        imagealphablending($temp, true);
+
+        if ($type === 'radial') {
+            // Radial gradient from center
+            $maxR = max($w, $h) / 2;
+            for ($r = (int) $maxR; $r >= 0; $r--) {
+                $ratio = $r / max($maxR, 1);
+                $c = $this->interpolateColor($temp, $color1, $color2, $ratio);
+                imagefilledellipse($temp, (int)($w / 2), (int)($h / 2), $r * 2, $r * 2, $c);
+            }
+        } else {
+            // Linear gradient, draw line-by-line then mask
+            for ($i = 0; $i < $h; $i++) {
+                $ratio = $i / max($h - 1, 1);
+                $c = $this->interpolateColor($temp, $color1, $color2, $ratio);
+                imageline($temp, 0, $i, $w, $i, $c);
+            }
+        }
+
+        // Mask with ellipse — clear pixels outside ellipse
+        $mask = imagecreatetruecolor($w, $h);
+        imagealphablending($mask, false);
+        $black = imagecolorallocate($mask, 0, 0, 0);
+        $white = imagecolorallocate($mask, 255, 255, 255);
+        imagefill($mask, 0, 0, $black);
+        imagefilledellipse($mask, (int)($w / 2), (int)($h / 2), $w, $h, $white);
+
+        for ($px = 0; $px < $w; $px++) {
+            for ($py = 0; $py < $h; $py++) {
+                $maskColor = imagecolorat($mask, $px, $py) & 0xFF;
+                if ($maskColor === 0) {
+                    imagesetpixel($temp, $px, $py, $transparent);
+                }
+            }
+        }
+        imagedestroy($mask);
+
+        imagealphablending($canvas, true);
+        imagecopy($canvas, $temp, $cx - (int)($w / 2), $cy - (int)($h / 2), 0, 0, $w, $h);
+        imagedestroy($temp);
+    }
+
+    /**
+     * Render gradient-filled polygon using a temporary image
+     */
+    protected function renderGradientPolygon(\GdImage $canvas, array $points, int $numPoints, int $bx, int $by, int $bw, int $bh, array $gradientConfig): void
+    {
+        $stops = $gradientConfig['colorStops'] ?? [];
+        if (count($stops) < 2) return;
+
+        $color1 = $this->hexToRgb($stops[0]['color'] ?? '#6366f1');
+        $color2 = $this->hexToRgb($stops[1]['color'] ?? '#ec4899');
+
+        // Create temp image with gradient
+        $temp = imagecreatetruecolor($bw, $bh);
+        imagealphablending($temp, false);
+        imagesavealpha($temp, true);
+        $transparent = imagecolorallocatealpha($temp, 0, 0, 0, 127);
+        imagefill($temp, 0, 0, $transparent);
+        imagealphablending($temp, true);
+
+        for ($i = 0; $i < $bh; $i++) {
+            $ratio = $i / max($bh - 1, 1);
+            $c = $this->interpolateColor($temp, $color1, $color2, $ratio);
+            imageline($temp, 0, $i, $bw, $i, $c);
+        }
+
+        // Mask: only keep pixels inside polygon
+        // Translate polygon points to temp image coordinates
+        $localPoints = [];
+        for ($i = 0; $i < count($points); $i += 2) {
+            $localPoints[] = $points[$i] - $bx;
+            $localPoints[] = $points[$i + 1] - $by;
+        }
+
+        $mask = imagecreatetruecolor($bw, $bh);
+        imagealphablending($mask, false);
+        $black = imagecolorallocate($mask, 0, 0, 0);
+        $white = imagecolorallocate($mask, 255, 255, 255);
+        imagefill($mask, 0, 0, $black);
+        imagefilledpolygon($mask, $localPoints, $white);
+
+        for ($px = 0; $px < $bw; $px++) {
+            for ($py = 0; $py < $bh; $py++) {
+                $maskColor = imagecolorat($mask, $px, $py) & 0xFF;
+                if ($maskColor === 0) {
+                    imagesetpixel($temp, $px, $py, $transparent);
+                }
+            }
+        }
+        imagedestroy($mask);
+
+        imagealphablending($canvas, true);
+        imagecopy($canvas, $temp, $bx, $by, 0, 0, $bw, $bh);
+        imagedestroy($temp);
+    }
+
+    /**
+     * Interpolate between two colors
+     */
+    protected function interpolateColor(\GdImage $canvas, array $c1, array $c2, float $ratio): int
+    {
+        $r = (int) ($c1['r'] + ($c2['r'] - $c1['r']) * $ratio);
+        $g = (int) ($c1['g'] + ($c2['g'] - $c1['g']) * $ratio);
+        $b = (int) ($c1['b'] + ($c2['b'] - $c1['b']) * $ratio);
+        return imagecolorallocate($canvas, max(0, min(255, $r)), max(0, min(255, $g)), max(0, min(255, $b)));
+    }
+
+    /**
+     * Convert hex color to RGB array
+     */
+    protected function hexToRgb(string $hex): array
+    {
+        $hex = ltrim($hex, '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        return [
+            'r' => hexdec(substr($hex, 0, 2)),
+            'g' => hexdec(substr($hex, 2, 2)),
+            'b' => hexdec(substr($hex, 4, 2)),
+        ];
     }
 
     /**
      * Parse color string to GD color
      */
-    protected function parseColor(\GdImage $canvas, string $color): int
+    protected function parseColor(\GdImage $canvas, string|array $color): int
     {
+        // If gradient config was passed, use first color stop
+        if (is_array($color)) {
+            $firstColor = $color['colorStops'][0]['color'] ?? '#ffffff';
+            return $this->parseColor($canvas, $firstColor);
+        }
         // Handle rgba format
         if (preg_match('/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/', $color, $matches)) {
             $r = (int) $matches[1];
