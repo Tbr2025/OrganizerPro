@@ -203,17 +203,41 @@ class TemplateRenderService extends PosterGeneratorService
             $storagePath = $this->getBackgroundRemovedImage($storagePath);
         }
 
+        // Load source image to get actual dimensions for aspect ratio
+        $srcImage = $this->loadBackground($storagePath);
+        if (!$srcImage) {
+            $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, $element['placeholder'] ?? 'Image');
+            return;
+        }
+        $srcWidth = imagesx($srcImage);
+        $srcHeight = imagesy($srcImage);
+        imagedestroy($srcImage);
+
+        // Calculate "contain" dimensions — fit within bounding box, preserve aspect ratio
+        $srcRatio = $srcWidth / $srcHeight;
+        $boxRatio = $width / $height;
+
+        if ($srcRatio > $boxRatio) {
+            // Source is wider than box — fit by width
+            $drawWidth = $width;
+            $drawHeight = (int) ($width / $srcRatio);
+        } else {
+            // Source is taller than box — fit by height
+            $drawHeight = $height;
+            $drawWidth = (int) ($height * $srcRatio);
+        }
+
         // Center the image at x, y
-        $drawX = $x - ($width / 2);
-        $drawY = $y - ($height / 2);
+        $drawX = $x - ($drawWidth / 2);
+        $drawY = $y - ($drawHeight / 2);
 
         if ($borderRadius >= 50) {
             // Circular image
-            $diameter = min($width, $height);
+            $diameter = min($drawWidth, $drawHeight);
             $this->addCircularImage($canvas, $storagePath, $x, $y, $diameter);
         } else {
-            // Regular image
-            $this->addImage($canvas, $storagePath, (int) $drawX, (int) $drawY, $width, $height);
+            // Regular image — aspect ratio preserved
+            $this->addImage($canvas, $storagePath, (int) $drawX, (int) $drawY, $drawWidth, $drawHeight);
         }
     }
 

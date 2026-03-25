@@ -481,6 +481,86 @@ class TeamManagerController extends Controller
     }
 
     /**
+     * Resend welcome/approval email to an approved player
+     */
+    public function resendWelcomeEmail(Player $player)
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        if ($player->actual_team_id !== $team->id) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'This player is not on your team.');
+        }
+
+        if (!$player->email) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'Player does not have an email address.');
+        }
+
+        // Generate welcome card using tournament template
+        $welcomeCardPath = null;
+        try {
+            $team->load('tournament.settings');
+            $tournament = $team->tournament;
+
+            if ($tournament) {
+                $template = $tournament->getTemplate(TournamentTemplate::TYPE_WELCOME_CARD);
+
+                if ($template && $template->background_image) {
+                    $renderService = new TemplateRenderService();
+
+                    $data = [
+                        'player_name' => $player->name,
+                        'jersey_name' => $player->jersey_name ?? '',
+                        'jersey_number' => $player->jersey_number ?? '',
+                        'player_image' => $player->image_path ?? '',
+                        'player_type' => $player->playerType->type ?? '',
+                        'batting_style' => $player->battingProfile->style ?? '',
+                        'bowling_style' => $player->bowlingProfile->style ?? '',
+                        'team_name' => $team->name,
+                        'team_logo' => $team->team_logo ?? '',
+                        'tournament_name' => $tournament->name,
+                        'tournament_logo' => $tournament->settings->logo ?? '',
+                    ];
+
+                    $outputPath = $renderService->renderAndSave(
+                        $template,
+                        $data,
+                        'welcome-card-' . $player->id . '-' . time() . '.png'
+                    );
+
+                    if ($outputPath && Storage::disk('public')->exists($outputPath)) {
+                        $welcomeCardPath = Storage::disk('public')->path($outputPath);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate welcome card for resend: ' . $e->getMessage());
+        }
+
+        // Send the approval email
+        try {
+            $team->load('tournament.settings');
+            Mail::to($player->email)->send(new PlayerApprovedMail($player, $team, $welcomeCardPath));
+
+            $player->update(['welcome_email_sent_at' => now()]);
+
+            return redirect()->route('team-manager.dashboard')
+                ->with('success', 'Welcome email resent to ' . $player->name . '.');
+        } catch (\Exception $e) {
+            \Log::error('Failed to resend welcome email: ' . $e->getMessage());
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'Failed to send email. Please try again later.');
+        }
+    }
+
+    /**
      * Assign captain role to a team member.
      * Both Owner and Captain can perform this action.
      * Owner keeps their 'Owner' role; old captain (if different) becomes 'Player'.
