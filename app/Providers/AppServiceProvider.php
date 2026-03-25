@@ -47,7 +47,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        if (env('REDIRECT_HTTPS')) {
+        if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
 
