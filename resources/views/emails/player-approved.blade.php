@@ -61,6 +61,12 @@
             </table>
         </div>
 
+        @if(!empty($welcomeCardBase64))
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="{{ $welcomeCardBase64 }}" alt="Welcome Card" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+        </div>
+        @endif
+
         <div style="background: #d4edda; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
             <p style="margin: 0; color: #155724; font-size: 14px;">
                 You are now officially part of the team roster. Stay tuned for further updates and match schedules!

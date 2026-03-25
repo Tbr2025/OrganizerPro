@@ -35,8 +35,14 @@ class PlayerApprovedMail extends Mailable
 
     public function content(): Content
     {
+        $welcomeCardBase64 = null;
+        if ($this->welcomeCardPath && file_exists($this->welcomeCardPath)) {
+            $welcomeCardBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($this->welcomeCardPath));
+        }
+
         return new Content(
             view: 'emails.player-approved',
+            with: ['welcomeCardBase64' => $welcomeCardBase64],
         );
     }
 
