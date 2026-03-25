@@ -63,6 +63,13 @@ class AppServiceProvider extends ServiceProvider
                 foreach ($settings as $key => $value) {
                     config(['settings.' . $key => $value]);
                 }
+
+                // Apply configured timezone
+                $tz = config('settings.app_timezone');
+                if ($tz) {
+                    config(['app.timezone' => $tz]);
+                    date_default_timezone_set($tz);
+                }
             }
         } catch (\Exception $e) {
             // Skip loading settings if database connection fails

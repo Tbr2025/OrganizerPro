@@ -515,6 +515,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
     // Email Log Routes.
     Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
+    Route::delete('/email-logs', [EmailLogController::class, 'clear'])->name('email-logs.clear');
 
     // Content Management Routes
 
