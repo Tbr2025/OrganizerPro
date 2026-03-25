@@ -24,19 +24,18 @@ class MatchesController extends Controller
 
         if (!$user->hasRole('Superadmin')) {
             if (!$user->hasRole('Admin') && !$user->hasRole('Organizer')) {
-                // Team Managers / Owners / Captains: only matches for the currently selected team
+                // Team Managers / Owners / Captains: only matches for the selected team's tournament
                 $selectedTeamId = session('selected_team_id');
-                if ($selectedTeamId) {
-                    $teamIds = [$selectedTeamId];
-                } else {
-                    $teamIds = $user->actualTeams->pluck('id')->toArray();
-                }
+                $selectedTeam = $selectedTeamId
+                    ? $user->actualTeams->firstWhere('id', $selectedTeamId)
+                    : $user->actualTeams->first();
 
-                if (!empty($teamIds)) {
-                    $query->where(function ($q) use ($teamIds) {
-                        $q->whereIn('team_a_id', $teamIds)
-                          ->orWhereIn('team_b_id', $teamIds);
-                    });
+                if ($selectedTeam) {
+                    $query->where('tournament_id', $selectedTeam->tournament_id)
+                          ->where(function ($q) use ($selectedTeam) {
+                              $q->where('team_a_id', $selectedTeam->id)
+                                ->orWhere('team_b_id', $selectedTeam->id);
+                          });
                 } else {
                     $query->whereRaw('1 = 0');
                 }
