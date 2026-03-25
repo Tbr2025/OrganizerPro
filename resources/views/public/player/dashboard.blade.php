@@ -255,7 +255,7 @@
 
     {{-- Footer --}}
     <footer class="bg-gray-800 mt-12 py-6 text-center">
-        <p class="text-gray-500 text-sm">Powered by OrganizerPro</p>
+        <p class="text-gray-500 text-sm">Powered by {{ config('app.name') }}</p>
     </footer>
 
     <script>

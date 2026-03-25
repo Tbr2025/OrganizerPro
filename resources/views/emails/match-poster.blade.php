@@ -114,7 +114,7 @@
                     This email was sent by {{ config('app.name') }}
                 </p>
                 <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">
-                    Powered by OrganizerPro
+                    Powered by {{ config('app.name') }}
                 </p>
             </td>
         </tr>

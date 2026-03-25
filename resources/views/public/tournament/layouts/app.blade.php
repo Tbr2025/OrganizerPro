@@ -277,7 +277,7 @@
                     <a href="{{ route('public.tournament.teams', $tournament->slug) }}" class="footer-link text-sm">Teams</a>
                 </div>
                 <p class="text-gray-600 text-sm">
-                    Powered by <span class="text-yellow-400">OrganizerPro</span>
+                    Powered by <span class="text-yellow-400">{{ config('app.name') }}</span>
                 </p>
             </div>
         </div>
