@@ -44,10 +44,17 @@ class TeamManagerController extends Controller
             return view('backend.pages.team-manager.no-team');
         }
 
-        // Get the selected team from query param, or default to first
-        $team = $request->has('team')
-            ? $teams->firstWhere('id', $request->query('team')) ?? $teams->first()
-            : $teams->first();
+        // Get the selected team from query param, or session, or default to first
+        if ($request->has('team')) {
+            $team = $teams->firstWhere('id', $request->query('team')) ?? $teams->first();
+        } elseif (session('selected_team_id')) {
+            $team = $teams->firstWhere('id', session('selected_team_id')) ?? $teams->first();
+        } else {
+            $team = $teams->first();
+        }
+
+        // Store selected team in session for other pages (matches, players, etc.)
+        session(['selected_team_id' => $team->id]);
 
         // Get players on this team
         $teamPlayers = Player::where('actual_team_id', $team->id)

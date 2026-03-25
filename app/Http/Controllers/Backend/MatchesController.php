@@ -23,14 +23,23 @@ class MatchesController extends Controller
         $query = Matches::with(['tournament', 'teamA', 'teamB', 'winner']);
 
         if (!$user->hasRole('Superadmin')) {
-            $teamIds = $user->actualTeams->pluck('id')->toArray();
+            if (!$user->hasRole('Admin') && !$user->hasRole('Organizer')) {
+                // Team Managers / Owners / Captains: only matches for the currently selected team
+                $selectedTeamId = session('selected_team_id');
+                if ($selectedTeamId) {
+                    $teamIds = [$selectedTeamId];
+                } else {
+                    $teamIds = $user->actualTeams->pluck('id')->toArray();
+                }
 
-            if (!empty($teamIds) && !$user->hasRole('Admin') && !$user->hasRole('Organizer')) {
-                // Team Managers / Owners / Captains: only matches involving their team(s)
-                $query->where(function ($q) use ($teamIds) {
-                    $q->whereIn('team_a_id', $teamIds)
-                      ->orWhereIn('team_b_id', $teamIds);
-                });
+                if (!empty($teamIds)) {
+                    $query->where(function ($q) use ($teamIds) {
+                        $q->whereIn('team_a_id', $teamIds)
+                          ->orWhereIn('team_b_id', $teamIds);
+                    });
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
             } elseif ($user->organization_id) {
                 // Admins / Organizers: matches from their organization's tournaments
                 $tournamentIds = Tournament::where('organization_id', $user->organization_id)->pluck('id');
