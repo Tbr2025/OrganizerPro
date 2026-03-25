@@ -6,7 +6,10 @@ namespace App\Traits;
 
 use App\Enums\ActionType;
 use App\Models\ActionLog;
+use App\Models\User;
+use App\Notifications\GeneralNotification;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 
 trait HasActionLogTrait
 {
@@ -86,6 +89,12 @@ trait HasActionLogTrait
                 'action_by' => $data['action_by'] ?? Auth::id(), // Store the user's ID who triggered the action
                 'data' => json_encode($data), // Store the action data as JSON
             ]);
+
+            // Notify all Superadmin/Admin users about this action
+            if (!app()->runningInConsole()) {
+                $admins = User::role(['Superadmin', 'Admin'])->get();
+                Notification::send($admins, new GeneralNotification($title, route('admin.actionlog.index')));
+            }
 
             return $actionLog;
         } catch (\Exception $e) {

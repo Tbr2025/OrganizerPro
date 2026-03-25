@@ -21,6 +21,14 @@
                     ])
 
                     <div class="flex items-center gap-3">
+                        <form action="{{ route('admin.actionlog.clear') }}" method="POST" onsubmit="return confirm('{{ __('Are you sure you want to clear all action logs? This cannot be undone.') }}')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn-danger flex items-center justify-center gap-2">
+                                <iconify-icon icon="lucide:trash-2"></iconify-icon>
+                                {{ __('Clear All Logs') }}
+                            </button>
+                        </form>
                         <div class="flex items-center justify-center">
                             <button id="dropdownDefault" data-dropdown-toggle="dropdown" class="btn-secondary flex items-center justify-center gap-2" type="button">
                                 <iconify-icon icon="lucide:sliders"></iconify-icon>

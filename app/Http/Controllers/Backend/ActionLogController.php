@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActionLog;
 use App\Services\ActionLogService;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,5 +25,14 @@ class ActionLogController extends Controller
                 'title' => __('Action Logs'),
             ],
         ]);
+    }
+
+    public function clear()
+    {
+        $this->checkAuthorization(Auth::user(), ['actionlog.view']);
+
+        ActionLog::truncate();
+
+        return redirect()->back()->with('success', __('All action logs have been cleared.'));
     }
 }

@@ -512,6 +512,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], 
 
     // Action Log Routes.
     Route::get('/action-log', [ActionLogController::class, 'index'])->name('actionlog.index');
+    Route::delete('/action-log', [ActionLogController::class, 'clear'])->name('actionlog.clear');
 
     // Email Log Routes.
     Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
