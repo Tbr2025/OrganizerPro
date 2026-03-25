@@ -31,7 +31,7 @@ class TeamManagerController extends Controller
     /**
      * Team Manager Dashboard - Shows their team, players, and upcoming auctions
      */
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         $user = Auth::user();
 
@@ -44,8 +44,10 @@ class TeamManagerController extends Controller
             return view('backend.pages.team-manager.no-team');
         }
 
-        // Get the primary team (first one, or could be selected)
-        $team = $teams->first();
+        // Get the selected team from query param, or default to first
+        $team = $request->has('team')
+            ? $teams->firstWhere('id', $request->query('team')) ?? $teams->first()
+            : $teams->first();
 
         // Get players on this team
         $teamPlayers = Player::where('actual_team_id', $team->id)
