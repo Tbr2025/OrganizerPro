@@ -84,9 +84,9 @@
                 @if($registration->type == 'team')
                     {{-- Team Registration Details --}}
                     <div class="space-y-6">
-                        {{-- Team Owner Information --}}
+                        {{-- Team Manager Information --}}
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Team Owner Information</h3>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Team Manager Information</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                                     <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</h4>

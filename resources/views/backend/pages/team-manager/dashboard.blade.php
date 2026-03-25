@@ -78,7 +78,7 @@
                 $captain = $teamMembers->first(fn($m) => strtolower($m->pivot->role) === 'captain');
             @endphp
 
-            {{-- Owner --}}
+            {{-- Team Manager --}}
             @if($owner)
                 <div class="flex items-center gap-3 mb-3">
                     <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold">
@@ -87,7 +87,7 @@
                     <div>
                         <p class="font-medium text-gray-900 dark:text-white">{{ $owner->name }}</p>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            Owner
+                            Team Manager
                         </span>
                     </div>
                 </div>

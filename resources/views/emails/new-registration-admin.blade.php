@@ -41,15 +41,15 @@
                         <td style="padding: 8px 0; font-weight: 600;">{{ $registration->team_name }}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px 0; color: #6c757d;">Owner Name:</td>
+                        <td style="padding: 8px 0; color: #6c757d;">Manager Name:</td>
                         <td style="padding: 8px 0;">{{ $registration->captain_name }}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px 0; color: #6c757d;">Owner Email:</td>
+                        <td style="padding: 8px 0; color: #6c757d;">Manager Email:</td>
                         <td style="padding: 8px 0;">{{ $registration->captain_email }}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px 0; color: #6c757d;">Owner Phone:</td>
+                        <td style="padding: 8px 0; color: #6c757d;">Manager Phone:</td>
                         <td style="padding: 8px 0;">{{ $registration->captain_phone }}</td>
                     </tr>
                 </table>

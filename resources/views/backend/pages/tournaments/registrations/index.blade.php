@@ -152,7 +152,7 @@
                                                         @if($registration->team_short_name)
                                                             <div class="text-xs text-gray-500">({{ $registration->team_short_name }})</div>
                                                         @endif
-                                                        <div class="text-xs text-gray-500">Owner: {{ $registration->captain_name }}</div>
+                                                        <div class="text-xs text-gray-500">Manager: {{ $registration->captain_name }}</div>
                                                     </div>
                                                 </div>
                                             @else
