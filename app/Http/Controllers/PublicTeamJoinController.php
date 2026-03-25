@@ -44,7 +44,7 @@ class PublicTeamJoinController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email',
+            'email' => 'required|email|unique:players,email',
             'mobile_number_full' => 'required|string|max:20',
             'cricheroes_number_full' => 'nullable|string|max:20',
             'cricheroes_profile_url' => 'nullable|url|max:500',

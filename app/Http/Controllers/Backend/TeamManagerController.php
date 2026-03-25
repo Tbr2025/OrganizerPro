@@ -146,7 +146,7 @@ class TeamManagerController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email',
+            'email' => 'nullable|email|unique:players,email',
             'mobile_number_full' => 'nullable|string|max:20',
             'cricheroes_number_full' => 'nullable|string|max:20',
             'location_id' => 'nullable|exists:player_locations,id',
