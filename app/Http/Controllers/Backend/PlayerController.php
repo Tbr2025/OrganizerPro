@@ -140,30 +140,22 @@ class PlayerController extends Controller
         // 3. Apply role-based data scoping
         if ($user->hasRole('Superadmin')) {
             // Superadmins see all players. No initial scope is applied.
-        } elseif ($user->hasAnyRole(['Admin'])) {
-            // Admins see all players from their own organization, including retained players.
-            if ($user->organization_id) {
-                $query->whereHas('user', fn($q) => $q->where('organization_id', $user->organization_id));
+        } elseif ($user->hasRole('Team Manager') && !$user->hasRole('Admin')) {
+            // Team Managers only see players from their own team(s)
+            $teamIds = $user->actualTeams->pluck('id')->toArray();
+            if (!empty($teamIds)) {
+                $query->whereIn('actual_team_id', $teamIds);
             } else {
-                $query->whereRaw('1 = 0'); // See no players if not assigned to an org
+                $query->whereRaw('1 = 0');
             }
-        } else { // This handles 'Team Manager' and any other non-privileged roles
-            // These users have the most restricted view.
-            if ($user->organization_id) {
-                // a) Must be in their organization
-                $query->whereHas('user', fn($q) => $q->where('organization_id', $user->organization_id));
-
-                // b) Must be an "onboarded" player
-                $query->whereNotNull('welcome_email_sent_at');
-
-                // c) Must NOT be a "Retained" player
-                // $query->where(function ($q) {
-                //     $q->where('player_mode', '!=', 'retained')
-                //         ->orWhereNull('player_mode');
-                // });
-            } else {
-                $query->whereRaw('1 = 0'); // See no players if not assigned to an org
-            }
+        } elseif ($user->organization_id) {
+            // Admins/Organizers see players from their organization's tournaments
+            $orgTeamIds = \App\Models\ActualTeam::whereHas('tournament', function ($q) use ($user) {
+                $q->where('organization_id', $user->organization_id);
+            })->pluck('id')->toArray();
+            $query->whereIn('actual_team_id', $orgTeamIds);
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
         // 4. Apply all user-selected filters to the query
