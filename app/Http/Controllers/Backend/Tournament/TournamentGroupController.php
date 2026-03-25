@@ -23,15 +23,23 @@ class TournamentGroupController extends Controller
         $this->checkAuthorization(Auth::user(), ['tournament.view']);
 
         $groups = $tournament->groups()->with(['teams', 'pointTableEntries.team'])->get();
-        $availableTeams = ActualTeam::where('tournament_id', $tournament->id)
-            ->whereDoesntHave('groups', function ($query) use ($tournament) {
-                $query->where('tournament_id', $tournament->id);
-            })
+
+        // All teams for this tournament (from registration approval)
+        $allTeams = ActualTeam::where('tournament_id', $tournament->id)
+            ->with(['users' => function ($q) {
+                $q->wherePivotIn('role', ['Owner', 'Manager']);
+            }])
             ->get();
+
+        // Teams not yet assigned to any group (available for group assignment)
+        $availableTeams = $allTeams->filter(function ($team) use ($tournament) {
+            return !$team->groups()->where('tournament_id', $tournament->id)->exists();
+        });
 
         return view('backend.pages.tournaments.groups.index', [
             'tournament' => $tournament,
             'groups' => $groups,
+            'allTeams' => $allTeams,
             'availableTeams' => $availableTeams,
             'breadcrumbs' => [
                 'title' => __('Groups'),
