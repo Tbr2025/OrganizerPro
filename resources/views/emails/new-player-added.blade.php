@@ -115,8 +115,17 @@
                 Your registration is currently pending verification by the team manager. Once verified, you will be officially part of the team roster.
             </p>
 
+            <div class="info-box" style="border-left-color: #28a745;">
+                <h3>Added By</h3>
+                <p><strong>Name:</strong> {{ $addedBy->name }}</p>
+                <p><strong>Email:</strong> {{ $addedBy->email }}</p>
+                @if($addedByPhone)
+                    <p><strong>Phone:</strong> {{ $addedByPhone }}</p>
+                @endif
+            </div>
+
             <p>
-                If you have any questions, please contact your team manager.
+                If you have any questions, please contact {{ $addedBy->name }} using the details above.
             </p>
         </div>
 

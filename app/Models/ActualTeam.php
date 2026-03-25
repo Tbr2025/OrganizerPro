@@ -60,6 +60,14 @@ class ActualTeam extends Model
         return $this->users()->wherePivot('role', 'captain')->first();
     }
 
+    /**
+     * Get team owner (first user with Owner role)
+     */
+    public function getOwnerAttribute()
+    {
+        return $this->users()->wherePivot('role', 'Owner')->first();
+    }
+
     public function scopeApplyFilters(Builder $query, array $filters): Builder
     {
         // Apply Organization filter if provided

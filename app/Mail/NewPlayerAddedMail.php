@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Models\Player;
 use App\Models\ActualTeam;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -16,14 +17,18 @@ class NewPlayerAddedMail extends Mailable
 
     public Player $player;
     public ActualTeam $team;
+    public User $addedBy;
+    public ?string $addedByPhone;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Player $player, ActualTeam $team)
+    public function __construct(Player $player, ActualTeam $team, User $addedBy, ?string $addedByPhone = null)
     {
         $this->player = $player;
         $this->team = $team;
+        $this->addedBy = $addedBy;
+        $this->addedByPhone = $addedByPhone;
     }
 
     /**

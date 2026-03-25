@@ -201,16 +201,18 @@ class RegistrationService
             if ($captainUserId) {
                 // Use the selected registered player as captain
                 $actualTeam->users()->attach($captainUserId, ['role' => 'captain']);
-            } else {
-                // Default behavior: create user from captain_email
-                $captainUser = User::where('email', $registration->captain_email)->first();
+            }
+
+            // Always create/find the owner user from captain_email (registration form owner)
+            {
+                $ownerUser = User::where('email', $registration->captain_email)->first();
                 $isNewUser = false;
                 $plainPassword = null;
 
-                if (!$captainUser) {
+                if (!$ownerUser) {
                     $isNewUser = true;
                     $plainPassword = Str::random(12);
-                    $captainUser = User::create([
+                    $ownerUser = User::create([
                         'name' => $registration->captain_name,
                         'email' => $registration->captain_email,
                         'username' => Str::slug($registration->captain_name) . '-' . Str::random(5),
@@ -219,17 +221,19 @@ class RegistrationService
                     ]);
                 }
 
-                // Assign Team Manager role
-                if (!$captainUser->hasRole('Team Manager')) {
-                    $captainUser->assignRole('Team Manager');
+                // Assign Team Manager role (controls menu/page access)
+                if (!$ownerUser->hasRole('Team Manager')) {
+                    $ownerUser->assignRole('Team Manager');
                 }
 
-                // Associate captain with team
-                $actualTeam->users()->attach($captainUser->id, ['role' => 'captain']);
+                // Associate owner with team (Owner role — highest role)
+                if (!$actualTeam->users()->where('user_id', $ownerUser->id)->exists()) {
+                    $actualTeam->users()->attach($ownerUser->id, ['role' => 'Owner']);
+                }
 
                 // Send credentials email to new team manager
                 if ($isNewUser && $plainPassword) {
-                    $this->sendTeamManagerCredentials($captainUser, $plainPassword, $tournament, $actualTeam);
+                    $this->sendTeamManagerCredentials($ownerUser, $plainPassword, $tournament, $actualTeam);
                 }
             }
 

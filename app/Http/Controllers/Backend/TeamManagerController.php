@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
 use App\Models\Player;
+use App\Models\TournamentRegistration;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -75,13 +76,22 @@ class TeamManagerController extends Controller
             ];
         }
 
+        // Team members from pivot table (for captain/owner management)
+        $teamMembers = $team->users()->get();
+        $currentUserPivot = $teamMembers->firstWhere('id', $user->id);
+        $isCaptain = $currentUserPivot && strtolower($currentUserPivot->pivot->role) === 'captain';
+        $isOwner = $currentUserPivot && $currentUserPivot->pivot->role === 'Owner';
+
         return view('backend.pages.team-manager.dashboard', compact(
             'teams',
             'team',
             'teamPlayers',
             'upcomingAuctions',
             'availablePlayers',
-            'auctionBudgets'
+            'auctionBudgets',
+            'teamMembers',
+            'isCaptain',
+            'isOwner'
         ));
     }
 
@@ -147,7 +157,8 @@ class TeamManagerController extends Controller
         // Send welcome email to player if they have an email address
         if ($player->email) {
             try {
-                Mail::to($player->email)->send(new NewPlayerAddedMail($player, $team));
+                $addedByPhone = TournamentRegistration::where('actual_team_id', $team->id)->first()?->captain_phone;
+                Mail::to($player->email)->send(new NewPlayerAddedMail($player, $team, $user, $addedByPhone));
             } catch (\Exception $e) {
                 // Log the error but don't fail the player creation
                 \Log::error('Failed to send new player email: ' . $e->getMessage());
@@ -327,5 +338,67 @@ class TeamManagerController extends Controller
 
         return redirect()->route('team-manager.dashboard')
             ->with('success', 'Player "' . $player->name . '" has been verified successfully.');
+    }
+
+    /**
+     * Assign captain role to a team member.
+     * Both Owner and Captain can perform this action.
+     * Owner keeps their 'Owner' role; old captain (if different) becomes 'Player'.
+     * If Captain transfers: old captain becomes 'Player', new captain gets 'captain' role.
+     */
+    public function assignCaptain(Request $request)
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        // Verify current user is owner or captain
+        $currentUserPivot = $team->users()->where('user_id', $user->id)->first();
+        $currentRole = $currentUserPivot?->pivot->role;
+        $isOwner = $currentRole === 'Owner';
+        $isCaptain = $currentRole && strtolower($currentRole) === 'captain';
+
+        if (!$isOwner && !$isCaptain) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'Only the owner or captain can assign captaincy.');
+        }
+
+        $validated = $request->validate([
+            'new_captain_user_id' => 'required|integer',
+        ]);
+
+        // Verify the new captain is a member of this team
+        $newCaptain = $team->users()->where('user_id', $validated['new_captain_user_id'])->first();
+        if (!$newCaptain) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'Selected user is not a member of this team.');
+        }
+
+        // Ensure new captain has Team Manager role for dashboard access
+        $newCaptainUser = User::find($validated['new_captain_user_id']);
+        if ($newCaptainUser && !$newCaptainUser->hasRole('Team Manager')) {
+            $newCaptainUser->assignRole('Team Manager');
+        }
+
+        // Demote current captain (if exists and is a different person from owner and new captain)
+        $currentCaptainPivot = $team->users()->wherePivot('role', 'captain')->first();
+        if ($currentCaptainPivot && $currentCaptainPivot->id !== $validated['new_captain_user_id']) {
+            $team->users()->updateExistingPivot($currentCaptainPivot->id, ['role' => 'Player']);
+        }
+
+        // If current user is captain (not owner) transferring, demote self
+        if ($isCaptain && !$isOwner && $user->id !== $validated['new_captain_user_id']) {
+            $team->users()->updateExistingPivot($user->id, ['role' => 'Player']);
+        }
+
+        // Assign new captain
+        $team->users()->updateExistingPivot($validated['new_captain_user_id'], ['role' => 'captain']);
+
+        return redirect()->route('team-manager.dashboard')
+            ->with('success', 'Captain has been assigned to ' . $newCaptain->name . '.');
     }
 }

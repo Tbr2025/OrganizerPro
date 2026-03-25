@@ -222,6 +222,9 @@ Route::middleware(['auth'])
         Route::post('/players/add', [TeamManagerController::class, 'addPlayerToRoster'])->name('players.add');
         Route::delete('/players/{player}', [TeamManagerController::class, 'removePlayerFromRoster'])->name('players.remove');
         Route::post('/players/{player}/verify', [TeamManagerController::class, 'verifyPlayer'])->name('players.verify');
+
+        // Captain management
+        Route::post('/assign-captain', [TeamManagerController::class, 'assignCaptain'])->name('assign-captain');
     });
 
 

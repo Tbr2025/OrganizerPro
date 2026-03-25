@@ -70,9 +70,80 @@
             </div>
         </div>
 
-        {{-- Budget Overview (for active auctions) --}}
+        {{-- Team Owner & Captain --}}
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Auction Budgets</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Team Leadership</h3>
+            @php
+                $owner = $teamMembers->first(fn($m) => $m->pivot->role === 'Owner');
+                $captain = $teamMembers->first(fn($m) => strtolower($m->pivot->role) === 'captain');
+            @endphp
+
+            {{-- Owner --}}
+            @if($owner)
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold">
+                        {{ strtoupper(substr($owner->name, 0, 1)) }}
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-white">{{ $owner->name }}</p>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                            Owner
+                        </span>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Captain --}}
+            @if($captain)
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center text-yellow-600 dark:text-yellow-300 font-bold">
+                        {{ strtoupper(substr($captain->name, 0, 1)) }}
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-white">{{ $captain->name }}</p>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                            Captain
+                        </span>
+                    </div>
+                </div>
+            @else
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">No captain assigned yet</p>
+            @endif
+
+            @if($isOwner || $isCaptain)
+                @php
+                    $assignableMembers = $teamMembers->filter(fn($m) => $m->id !== auth()->id() && $m->pivot->role !== 'Owner');
+                @endphp
+                @if($assignableMembers->isNotEmpty())
+                    <form action="{{ route('team-manager.assign-captain') }}" method="POST"
+                          onsubmit="return confirm('{{ $isOwner ? 'Are you sure you want to assign this member as captain?' : 'Are you sure you want to transfer captaincy? This action cannot be undone by you.' }}')">
+                        @csrf
+                        <label for="new_captain_user_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            {{ $isOwner ? 'Assign Captain' : 'Transfer Captaincy To' }}
+                        </label>
+                        <select name="new_captain_user_id" id="new_captain_user_id" class="form-control mb-3" required>
+                            <option value="">Select a member...</option>
+                            @foreach($assignableMembers as $member)
+                                <option value="{{ $member->id }}">{{ $member->name }} ({{ $member->pivot->role }})</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="btn btn-warning w-full flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                            {{ $isOwner ? 'Assign Captain' : 'Transfer Captaincy' }}
+                        </button>
+                    </form>
+                @else
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No other team members to assign as captain.</p>
+                @endif
+            @endif
+        </div>
+    </div>
+
+    {{-- Budget Overview (for active auctions) --}}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Auction Budgets</h3>
             @forelse($upcomingAuctions as $auction)
                 @php
                     $budget = $auctionBudgets[$auction->id] ?? ['max' => 0, 'spent' => 0, 'remaining' => 0];
@@ -93,7 +164,6 @@
             @empty
                 <p class="text-sm text-gray-500 dark:text-gray-400">No active auctions</p>
             @endforelse
-        </div>
     </div>
 
     {{-- Team Players Section --}}
