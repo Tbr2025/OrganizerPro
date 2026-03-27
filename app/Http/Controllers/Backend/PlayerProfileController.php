@@ -264,11 +264,11 @@ class PlayerProfileController extends Controller
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
             // Use Laravel helpers for robust path definitions
-            $pythonBinary = base_path('rembg-env/bin/python');
             $pythonScript = resource_path('scripts/remove_bg.py');
+            $rembgEnv = base_path('rembg-env/bin/python');
+            $pythonBinary = file_exists($rembgEnv) ? $rembgEnv : 'python3';
             if (app()->environment('production')) {
                 // === PRODUCTION ENVIRONMENT ===
-                $pythonBinary = base_path('rembg-env/bin/python');
                 $cachePath = storage_path('app/rembg_cache');
                 File::ensureDirectoryExists($cachePath);
 

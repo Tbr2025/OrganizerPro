@@ -108,8 +108,9 @@ class PublicTeamJoinController extends Controller
             $outputFilename = 'processed-' . Str::random(10) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            $pythonBinary = base_path('rembg-env/bin/python');
             $pythonScript = resource_path('scripts/remove_bg.py');
+            $rembgEnv = base_path('rembg-env/bin/python');
+            $pythonBinary = file_exists($rembgEnv) ? $rembgEnv : 'python3';
 
             if (app()->environment('production')) {
                 $cachePath = storage_path('app/rembg_cache');
