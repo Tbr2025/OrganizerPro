@@ -301,13 +301,13 @@ class ImageBackgroundRemovalService
      */
     public function removeBackgroundNonDestructive(string $imagePath): ?string
     {
-        // Skip already-processed images (background already removed)
-        if (str_contains(basename($imagePath), 'processed-') || str_contains(basename($imagePath), '-nobg')) {
+        $fullPath = Storage::disk('public')->path($imagePath);
+        if (!file_exists($fullPath)) {
             return null;
         }
 
-        $fullPath = Storage::disk('public')->path($imagePath);
-        if (!file_exists($fullPath)) {
+        // Skip images that already have transparency
+        if ($this->hasTransparency($fullPath)) {
             return null;
         }
 
@@ -461,5 +461,52 @@ class ImageBackgroundRemovalService
                 }
             }
         }
+    }
+
+    /**
+     * Check if a PNG image already has transparent pixels (sampled from corners).
+     */
+    protected function hasTransparency(string $filePath): bool
+    {
+        $info = @getimagesize($filePath);
+        if (!$info || $info[2] !== IMAGETYPE_PNG) {
+            return false; // Not a PNG, so no alpha channel possible (JPEG etc.)
+        }
+
+        $image = @imagecreatefrompng($filePath);
+        if (!$image) {
+            return false;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $transparentCount = 0;
+        $sampleSize = 5;
+
+        // Sample corners for transparent pixels
+        $corners = [
+            [0, 0],
+            [$width - $sampleSize, 0],
+            [0, $height - $sampleSize],
+            [$width - $sampleSize, $height - $sampleSize],
+        ];
+
+        foreach ($corners as [$startX, $startY]) {
+            for ($x = max(0, $startX); $x < min($width, $startX + $sampleSize); $x++) {
+                for ($y = max(0, $startY); $y < min($height, $startY + $sampleSize); $y++) {
+                    $rgba = imagecolorat($image, $x, $y);
+                    $alpha = ($rgba >> 24) & 0x7F; // 0 = opaque, 127 = fully transparent
+                    if ($alpha > 64) {
+                        $transparentCount++;
+                    }
+                }
+            }
+        }
+
+        imagedestroy($image);
+
+        // If at least 20% of corner samples are transparent, image already has transparency
+        $totalSamples = count($corners) * $sampleSize * $sampleSize;
+        return ($transparentCount / $totalSamples) > 0.2;
     }
 }
