@@ -11,6 +11,10 @@ use App\Models\PlayerLocation;
 use App\Models\PlayerType;
 use App\Notifications\GeneralNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PublicTeamJoinController extends Controller
 {
@@ -93,7 +97,72 @@ class PublicTeamJoinController extends Controller
         ];
 
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('player_images', 'public');
+            $imageFile = $request->file('image');
+
+            // Save original upload
+            $originalFilename = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
+            $imageFile->storeAs('public/player_images', $originalFilename);
+            $inputPath = storage_path('app/public/player_images/' . $originalFilename);
+
+            // Define output path for background-removed image
+            $outputFilename = 'processed-' . Str::random(10) . '.png';
+            $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+
+            $pythonBinary = base_path('rembg-env/bin/python');
+            $pythonScript = resource_path('scripts/remove_bg.py');
+
+            if (app()->environment('production')) {
+                $cachePath = storage_path('app/rembg_cache');
+                File::ensureDirectoryExists($cachePath);
+
+                $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+                    escapeshellcmd($pythonBinary) . ' ' .
+                    escapeshellarg($pythonScript) . ' ' .
+                    escapeshellarg($inputPath) . ' ' .
+                    escapeshellarg($outputPath) . ' 2>&1';
+            } else {
+                $localPython = PHP_OS_FAMILY === 'Windows'
+                    ? base_path('venv/Scripts/python.exe')
+                    : 'python3';
+
+                $command = "\"{$localPython}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+            }
+
+            try {
+                set_time_limit(300);
+                $output = shell_exec($command);
+
+                if (File::exists($outputPath)) {
+                    File::delete($inputPath);
+
+                    // Resize while preserving transparency
+                    $sourceImage = imagecreatefrompng($outputPath);
+                    $origWidth = imagesx($sourceImage);
+                    $origHeight = imagesy($sourceImage);
+
+                    $targetWidth = 425;
+                    $scale = $targetWidth / $origWidth;
+                    $newWidth = $targetWidth;
+                    $newHeight = (int)($origHeight * $scale);
+
+                    $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
+                    imagealphablending($resizedImage, false);
+                    imagesavealpha($resizedImage, true);
+                    imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+                    imagepng($resizedImage, $outputPath);
+
+                    imagedestroy($sourceImage);
+                    imagedestroy($resizedImage);
+
+                    $data['image_path'] = 'player_images/' . $outputFilename;
+                } else {
+                    throw new \Exception('Background removal script failed. Output: ' . $output);
+                }
+            } catch (\Exception $e) {
+                Log::error("Background removal failed (team join): " . $e->getMessage());
+                // Fallback: use original image as-is
+                $data['image_path'] = 'player_images/' . $originalFilename;
+            }
         }
 
         $player = Player::create($data);
