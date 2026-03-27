@@ -104,7 +104,7 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
 
 
 // --- Main Admin Route Group for general pages ---
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager']], function () {
 
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
@@ -265,7 +265,7 @@ Route::post('/join/{invite_code}', [PublicTeamJoinController::class, 'store'])
 Route::get('/join/{invite_code}/success', [PublicTeamJoinController::class, 'success'])
     ->name('public.team.join.success');
 
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager']], function () {
 
 
 
@@ -716,7 +716,7 @@ Route::get('/live/{match}', [MatchPublicController::class, 'liveTicker'])->name(
 Route::get('/player/{player}/dashboard', [PlayerDashboardController::class, 'show'])->name('public.player.dashboard');
 
 // Admin Tournament Management Routes
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth']], function () {
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager']], function () {
     // Grounds
     Route::resource('grounds', GroundController::class);
 

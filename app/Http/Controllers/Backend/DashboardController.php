@@ -28,7 +28,13 @@ class DashboardController extends Controller
 
     public function index()
     {
-        $this->checkAuthorization(auth()->user(), ['dashboard.view']);
+        $user = auth()->user();
+
+        if ($user->hasRole('Team Manager') && !$user->hasAnyRole(['Super Admin', 'Admin', 'Organizer'])) {
+            return redirect()->route('team-manager.dashboard');
+        }
+
+        $this->checkAuthorization($user, ['dashboard.view']);
 
         // Tournament statistics
         $tournamentStats = [

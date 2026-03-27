@@ -43,7 +43,7 @@ class LoginController extends Controller
     public function showLoginForm()
     {
         if (Auth::guard('web')->check()) {
-            return redirect()->route('admin.dashboard');
+            return $this->redirectByRole();
         }
 
         $this->demoAppService->maybeSetDemoLocaleToEnByDefault();
@@ -65,19 +65,30 @@ class LoginController extends Controller
             $this->demoAppService->maybeSetDemoLocaleToEnByDefault();
             session()->flash('success', 'Successfully Logged in!');
 
-            return redirect()->route('admin.dashboard');
+            return $this->redirectByRole();
         }
 
         if (Auth::guard('web')->attempt(['username' => $request->email, 'password' => $request->password], $request->remember)) {
             $this->demoAppService->maybeSetDemoLocaleToEnByDefault();
             session()->flash('success', 'Successfully Logged in!');
 
-            return redirect()->route('admin.dashboard');
+            return $this->redirectByRole();
         }
 
         session()->flash('error', __('auth.failed'));
 
         return back();
+    }
+
+    protected function redirectByRole()
+    {
+        $user = Auth::guard('web')->user();
+
+        if ($user->hasRole('Team Manager') && !$user->hasAnyRole(['Super Admin', 'Admin', 'Organizer'])) {
+            return redirect()->route('team-manager.dashboard');
+        }
+
+        return redirect()->route('admin.dashboard');
     }
 
     /**
