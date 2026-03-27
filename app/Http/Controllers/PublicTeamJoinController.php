@@ -9,10 +9,12 @@ use App\Models\KitSize;
 use App\Models\Player;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
+use App\Mail\PlayerJoinRequestMail;
 use App\Notifications\GeneralNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -168,7 +170,7 @@ class PublicTeamJoinController extends Controller
 
         $player = Player::create($data);
 
-        // Notify team Owner/Manager
+        // Notify team Owner/Manager via database + email
         $dashboardUrl = route('team-manager.dashboard');
         $teamMembers = $team->users()->get();
         foreach ($teamMembers as $member) {
@@ -179,6 +181,13 @@ class PublicTeamJoinController extends Controller
                     $dashboardUrl,
                     'player-join-request'
                 ));
+
+                // Send email notification
+                try {
+                    Mail::to($member->email)->send(new PlayerJoinRequestMail($player, $team, $dashboardUrl));
+                } catch (\Exception $e) {
+                    Log::error("Failed to send join request email to {$member->email}: " . $e->getMessage());
+                }
             }
         }
 
