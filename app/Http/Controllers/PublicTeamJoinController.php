@@ -175,7 +175,7 @@ class PublicTeamJoinController extends Controller
         $teamMembers = $team->users()->get();
         foreach ($teamMembers as $member) {
             $role = $member->pivot->role;
-            if (in_array($role, ['Owner', 'Manager', 'captain'])) {
+            if (in_array($role, ['Owner', 'Manager', 'Team Manager', 'captain'])) {
                 $member->notify(new GeneralNotification(
                     "{$player->name} has requested to join {$team->name}",
                     $dashboardUrl,
