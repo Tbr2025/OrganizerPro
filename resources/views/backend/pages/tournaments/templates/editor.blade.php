@@ -644,7 +644,7 @@ const editor = {
 
     addShape(type, x, y) {
         let shape;
-        const props = { left: x, top: y, fill: 'rgba(99, 102, 241, 0.5)', stroke: '#6366f1', strokeWidth: 2, originX: 'center', originY: 'center' };
+        const props = { left: x, top: y, fill: '#6366f1', stroke: '#6366f1', strokeWidth: 2, originX: 'center', originY: 'center' };
         if (type === 'rect') shape = new fabric.Rect({ ...props, width: 150, height: 100, rx: 8, ry: 8 });
         else if (type === 'circle') shape = new fabric.Circle({ ...props, radius: 60 });
         else if (type === 'triangle') shape = new fabric.Triangle({ ...props, width: 120, height: 120 });
@@ -1149,7 +1149,7 @@ const editor = {
                 this.canvas.add(group);
             } else if (item.type === 'shape') {
                 let shape;
-                const solidFill = (typeof item.fill === 'string') ? item.fill : 'rgba(99,102,241,0.5)';
+                const solidFill = (typeof item.fill === 'string') ? item.fill : '#6366f1';
                 const props = { left: x, top: y, fill: solidFill, stroke: item.stroke || '#6366f1', strokeWidth: item.strokeWidth || 2, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' };
                 if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: item.rx ?? 8, ry: item.ry ?? 8 });
                 else if (item.shapeType === 'circle') shape = new fabric.Circle({ ...props, radius: (item.width || 120) / 2 });
