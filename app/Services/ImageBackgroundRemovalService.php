@@ -301,9 +301,8 @@ class ImageBackgroundRemovalService
      */
     public function removeBackgroundNonDestructive(string $imagePath): ?string
     {
-        // Skip PNG files — they typically already have transparent backgrounds
-        $ext = strtolower(pathinfo($imagePath, PATHINFO_EXTENSION));
-        if ($ext === 'png') {
+        // Skip already-processed images (background already removed)
+        if (str_contains(basename($imagePath), 'processed-') || str_contains(basename($imagePath), '-nobg')) {
             return null;
         }
 
