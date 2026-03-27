@@ -84,10 +84,14 @@ class ImageBackgroundRemovalService
             }
 
             // Linux/Mac: Set environment variables for www-data user
+            $cachePath = storage_path('app/rembg_cache');
+            if (!is_dir($cachePath)) {
+                @mkdir($cachePath, 0775, true);
+            }
             $env = [
                 'HOME' => '/var/www',
-                'NUMBA_CACHE_DIR' => '/var/www/.cache/numba',
-                'U2NET_HOME' => '/var/www/.u2net',
+                'NUMBA_CACHE_DIR' => $cachePath,
+                'U2NET_HOME' => $cachePath,
                 'PATH' => '/usr/local/bin:/usr/bin:/bin',
             ];
 

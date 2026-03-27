@@ -46,9 +46,19 @@ class ImageTemplateController extends Controller
         $image->move(dirname($inputPath), basename($inputPath));
 
         // Build command
-        $pythonPath = base_path('venv/Scripts/python.exe');
-        $scriptPath = base_path('resources/scripts/remove_bg.py');
-        $command = "\"{$pythonPath}\" \"{$scriptPath}\" \"{$inputPath}\" \"{$outputPath}\"";
+        $rembgEnv = base_path('rembg-env/bin/python');
+        $pythonPath = file_exists($rembgEnv) ? $rembgEnv : 'python3';
+        $scriptPath = resource_path('scripts/remove_bg.py');
+        $cachePath = storage_path('app/rembg_cache');
+        if (!file_exists($cachePath)) {
+            mkdir($cachePath, 0775, true);
+        }
+
+        $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+            escapeshellcmd($pythonPath) . ' ' .
+            escapeshellarg($scriptPath) . ' ' .
+            escapeshellarg($inputPath) . ' ' .
+            escapeshellarg($outputPath) . ' 2>&1';
 
         try {
             Log::info("Running command: $command");
