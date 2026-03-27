@@ -439,8 +439,8 @@
                         <input type="range" id="propRotation" class="prop-slider" min="-180" max="180" value="0" oninput="editor.updateRotation(this.value)">
                     </div>
                     <div class="prop-group">
-                        <label class="prop-label">Opacity: <span id="opacityValue">100</span>%</label>
-                        <input type="range" id="propOpacity" class="prop-slider" min="0" max="100" value="100" oninput="editor.updateOpacity(this.value)">
+                        <label class="prop-label">Transparency: <span id="opacityValue">0</span>%</label>
+                        <input type="range" id="propOpacity" class="prop-slider" min="0" max="100" value="0" oninput="editor.updateOpacity(this.value)">
                     </div>
                 </div>
                 <div class="prop-section">
@@ -822,8 +822,8 @@ const editor = {
         document.getElementById('propPosY').value = Math.round(obj.top);
         document.getElementById('propRotation').value = Math.round(obj.angle || 0);
         document.getElementById('rotationValue').textContent = Math.round(obj.angle || 0);
-        document.getElementById('propOpacity').value = Math.round((obj.opacity ?? 1) * 100);
-        document.getElementById('opacityValue').textContent = Math.round((obj.opacity ?? 1) * 100);
+        document.getElementById('propOpacity').value = Math.round(100 - (obj.opacity ?? 1) * 100);
+        document.getElementById('opacityValue').textContent = Math.round(100 - (obj.opacity ?? 1) * 100);
     },
 
     updateText(prop, value) {
@@ -857,7 +857,7 @@ const editor = {
         const obj = this.canvas.getActiveObject();
         if (!obj) return;
         document.getElementById('opacityValue').textContent = val;
-        obj.set('opacity', val / 100);
+        obj.set('opacity', (100 - val) / 100);
         this.canvas.renderAll();
     },
 
