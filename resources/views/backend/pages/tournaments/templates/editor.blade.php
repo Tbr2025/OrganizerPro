@@ -1238,11 +1238,12 @@ const editor = {
 
         const objects = this.canvas.getObjects();
         const layout = objects.map((obj, i) => {
+            const center = obj.getCenterPoint();
             const base = {
                 type: obj.elementType || obj.type,
                 placeholder: obj.placeholder || null,
-                x: (obj.left / this.canvasWidth) * 100,
-                y: (obj.top / this.canvasHeight) * 100,
+                x: (center.x / this.canvasWidth) * 100,
+                y: (center.y / this.canvasHeight) * 100,
                 rotation: obj.angle || 0,
                 opacity: (obj.opacity ?? 1) * 100,
                 zIndex: i,
