@@ -822,8 +822,8 @@ const editor = {
         document.getElementById('propPosY').value = Math.round(obj.top);
         document.getElementById('propRotation').value = Math.round(obj.angle || 0);
         document.getElementById('rotationValue').textContent = Math.round(obj.angle || 0);
-        document.getElementById('propOpacity').value = Math.round((obj.opacity || 1) * 100);
-        document.getElementById('opacityValue').textContent = Math.round((obj.opacity || 1) * 100);
+        document.getElementById('propOpacity').value = Math.round((obj.opacity ?? 1) * 100);
+        document.getElementById('opacityValue').textContent = Math.round((obj.opacity ?? 1) * 100);
     },
 
     updateText(prop, value) {
@@ -1112,7 +1112,10 @@ const editor = {
     // Load template
     loadTemplate(layout) {
         if (!layout || !Array.isArray(layout)) return;
-        layout.forEach(item => {
+        let pendingImages = 0;
+        const totalItems = layout.length;
+
+        layout.forEach((item, layoutIndex) => {
             const x = (item.x / 100) * this.canvasWidth;
             const y = (item.y / 100) * this.canvasHeight;
 
@@ -1124,29 +1127,31 @@ const editor = {
                     fontWeight: item.fontWeight || '400',
                     fill: item.color || '#ffffff',
                     angle: item.rotation || 0,
-                    opacity: (item.opacity || 100) / 100,
+                    opacity: (item.opacity ?? 100) / 100,
                     textAlign: item.textAlign || 'center',
                     originX: 'center', originY: 'center',
                 });
                 if (item.shadow) text.shadow = new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: item.shadow.blur || 5, offsetX: item.shadow.offsetX || 2, offsetY: item.shadow.offsetY || 2 });
                 text.placeholder = item.placeholder;
                 text.elementType = 'text';
+                text._layoutIndex = layoutIndex;
                 this.canvas.add(text);
             } else if (item.type === 'image') {
                 const w = item.width || 150, h = item.height || 150;
                 const rect = new fabric.Rect({ width: w, height: h, fill: 'rgba(99, 102, 241, 0.3)', stroke: '#6366f1', strokeWidth: 2, strokeDashArray: [5, 5], rx: 8, ry: 8, originX: 'center', originY: 'center' });
                 const label = new fabric.Text((item.placeholder || 'image').replace(/_/g, '\n'), { fontSize: 14, fill: '#fff', fontFamily: 'Arial', originX: 'center', originY: 'center', textAlign: 'center' });
-                const group = new fabric.Group([rect, label], { left: x, top: y, angle: item.rotation || 0, opacity: (item.opacity || 100) / 100, originX: 'center', originY: 'center' });
+                const group = new fabric.Group([rect, label], { left: x, top: y, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' });
                 group.placeholder = item.placeholder;
                 group.elementType = 'image';
                 group.placeholderWidth = w;
                 group.placeholderHeight = h;
+                group._layoutIndex = layoutIndex;
                 this.canvas.add(group);
             } else if (item.type === 'shape') {
                 let shape;
                 const solidFill = (typeof item.fill === 'string') ? item.fill : 'rgba(99,102,241,0.5)';
-                const props = { left: x, top: y, fill: solidFill, stroke: item.stroke || '#6366f1', strokeWidth: item.strokeWidth || 2, angle: item.rotation || 0, opacity: (item.opacity || 100) / 100, originX: 'center', originY: 'center' };
-                if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: item.rx || 8, ry: item.ry || 8 });
+                const props = { left: x, top: y, fill: solidFill, stroke: item.stroke || '#6366f1', strokeWidth: item.strokeWidth || 2, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' };
+                if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: item.rx ?? 8, ry: item.ry ?? 8 });
                 else if (item.shapeType === 'circle') shape = new fabric.Circle({ ...props, radius: (item.width || 120) / 2 });
                 else if (item.shapeType === 'triangle') shape = new fabric.Triangle({ ...props, width: item.width || 120, height: item.height || 120 });
                 else if (item.shapeType === 'line') shape = new fabric.Line([0, 0, item.width || 200, 0], { ...props, fill: null });
@@ -1158,6 +1163,7 @@ const editor = {
                 if (shape) {
                     shape.elementType = 'shape';
                     shape.shapeType = item.shapeType;
+                    shape._layoutIndex = layoutIndex;
                     // Restore gradient fill if saved
                     if (item.fill && typeof item.fill === 'object' && item.fill.type) {
                         const gc = item.fill;
@@ -1186,6 +1192,7 @@ const editor = {
                     this.canvas.add(shape);
                 }
             } else if (item.type === 'uploadedImage') {
+                pendingImages++;
                 const imgPath = item.imagePath || item.path || '';
                 if (imgPath) {
                     const imgUrl = imgPath.startsWith('http') ? imgPath : '{{ asset("storage") }}/' + imgPath;
@@ -1194,17 +1201,32 @@ const editor = {
                             left: x, top: y,
                             originX: 'center', originY: 'center',
                             angle: item.rotation || 0,
-                            opacity: (item.opacity || 100) / 100,
+                            opacity: (item.opacity ?? 100) / 100,
                             elementType: 'uploadedImage',
                             imagePath: imgPath,
                         });
+                        img._layoutIndex = layoutIndex;
                         if (item.width) img.scaleToWidth(item.width);
                         this.canvas.add(img);
+                        pendingImages--;
+                        if (pendingImages === 0) {
+                            this._reorderByLayoutIndex();
+                        }
                         this.canvas.renderAll();
                     }, { crossOrigin: 'anonymous' });
+                } else {
+                    pendingImages--;
                 }
             }
         });
+        this.canvas.renderAll();
+    },
+
+    _reorderByLayoutIndex() {
+        const objects = this.canvas.getObjects().slice();
+        objects.sort((a, b) => (a._layoutIndex ?? 0) - (b._layoutIndex ?? 0));
+        this.canvas._objects.length = 0;
+        objects.forEach(obj => this.canvas._objects.push(obj));
         this.canvas.renderAll();
     },
 
@@ -1222,7 +1244,7 @@ const editor = {
                 x: (obj.left / this.canvasWidth) * 100,
                 y: (obj.top / this.canvasHeight) * 100,
                 rotation: obj.angle || 0,
-                opacity: (obj.opacity || 1) * 100,
+                opacity: (obj.opacity ?? 1) * 100,
                 zIndex: i,
             };
 

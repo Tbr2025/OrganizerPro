@@ -280,6 +280,15 @@
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-2">
+                                        <button type="button"
+                                            onclick="openViewPlayerModal({{ $player->id }})"
+                                            class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-gray-600 hover:bg-gray-700 rounded-md">
+                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                            View
+                                        </button>
                                         @if($player->status === 'pending')
                                             <button type="button"
                                                 onclick="openVerifyModal({{ $player->id }}, '{{ addslashes($player->name) }}')"
@@ -501,7 +510,103 @@
     </div>
 </div>
 
+{{-- View Player Modal --}}
+<div id="view-player-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-10 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Player Details</h3>
+            <button type="button" onclick="document.getElementById('view-player-modal').classList.add('hidden')"
+                class="text-gray-400 hover:text-gray-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="view-player-content" class="space-y-4 max-h-[70vh] overflow-y-auto"></div>
+    </div>
+</div>
+
 <script>
+    const playersData = @json($teamPlayers->map(function($player) {
+        return [
+            'id' => $player->id,
+            'name' => $player->name,
+            'email' => $player->email,
+            'mobile_number_full' => $player->mobile_number_full,
+            'cricheroes_number_full' => $player->cricheroes_number_full,
+            'cricheroes_profile_url' => $player->cricheroes_profile_url,
+            'jersey_name' => $player->jersey_name,
+            'jersey_number' => $player->jersey_number,
+            'player_type' => $player->playerType->type ?? null,
+            'batting_profile' => $player->battingProfile->style ?? null,
+            'bowling_profile' => $player->bowlingProfile->style ?? null,
+            'is_wicket_keeper' => $player->is_wicket_keeper,
+            'kit_size' => $player->kitSize->name ?? null,
+            'location' => $player->location->name ?? null,
+            'total_matches' => $player->total_matches,
+            'total_runs' => $player->total_runs,
+            'total_wickets' => $player->total_wickets,
+            'transportation_required' => $player->transportation_required,
+            'no_travel_plan' => $player->no_travel_plan,
+            'travel_date_from' => $player->travel_date_from?->format('d M Y'),
+            'travel_date_to' => $player->travel_date_to?->format('d M Y'),
+            'status' => $player->status,
+            'image_path' => $player->image_path ? asset('storage/' . $player->image_path) : null,
+            'photo' => $player->photo ? asset('storage/' . $player->photo) : null,
+        ];
+    })->keyBy('id'));
+
+    function openViewPlayerModal(playerId) {
+        const player = playersData[playerId];
+        if (!player) return;
+
+        const img = player.image_path || player.photo;
+        let html = `<div class="flex items-center gap-4 mb-4">`;
+        if (img) {
+            html += `<img src="${img}" alt="${player.name}" class="w-20 h-20 rounded-lg object-cover">`;
+        } else {
+            html += `<div class="w-20 h-20 rounded-lg bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-2xl font-bold text-gray-600 dark:text-gray-300">${player.name.charAt(0).toUpperCase()}</div>`;
+        }
+        html += `<div>
+            <h4 class="text-xl font-bold text-gray-900 dark:text-white">${player.name}</h4>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${player.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : player.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}">${player.status.charAt(0).toUpperCase() + player.status.slice(1)}</span>
+        </div></div>`;
+
+        const fields = [
+            ['Email', player.email],
+            ['Mobile', player.mobile_number_full],
+            ['CricHeroes', player.cricheroes_number_full],
+            ['CricHeroes URL', player.cricheroes_profile_url ? `<a href="${player.cricheroes_profile_url}" target="_blank" class="text-blue-600 hover:underline">${player.cricheroes_profile_url}</a>` : null],
+            ['Location', player.location],
+            ['Jersey Name', player.jersey_name],
+            ['Jersey Number', player.jersey_number],
+            ['Kit Size', player.kit_size],
+            ['Player Type', player.player_type],
+            ['Batting', player.batting_profile],
+            ['Bowling', player.bowling_profile],
+            ['Wicket Keeper', player.is_wicket_keeper ? 'Yes' : 'No'],
+            ['Matches', player.total_matches],
+            ['Runs', player.total_runs],
+            ['Wickets', player.total_wickets],
+            ['Transport Needed', player.transportation_required ? 'Yes' : 'No'],
+            ['Travel Plan', player.no_travel_plan ? 'No travel plan' : (player.travel_date_from ? `${player.travel_date_from} - ${player.travel_date_to}` : null)],
+        ];
+
+        html += `<div class="grid grid-cols-2 gap-3">`;
+        fields.forEach(([label, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+                html += `<div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${label}</p>
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">${value}</p>
+                </div>`;
+            }
+        });
+        html += `</div>`;
+
+        document.getElementById('view-player-content').innerHTML = html;
+        document.getElementById('view-player-modal').classList.remove('hidden');
+    }
+
     function openVerifyModal(playerId, playerName) {
         document.getElementById('verify-player-name').textContent = playerName;
         document.getElementById('verify-player-form').action = '{{ url("/") }}/admin/team-manager/players/' + playerId + '/verify';

@@ -177,6 +177,7 @@ class TournamentTemplateController extends Controller
             'background_image' => 'nullable|image|max:5120',
             'background_image_base64' => 'nullable|string',
             'layout_json' => 'nullable|json',
+            'overlay_images' => 'nullable|json',
             'canvas_width' => 'nullable|integer|min:540|max:2160',
             'canvas_height' => 'nullable|integer|min:540|max:3840',
             'is_default' => 'boolean',
@@ -199,6 +200,11 @@ class TournamentTemplateController extends Controller
         // Parse layout JSON
         if (isset($validated['layout_json'])) {
             $validated['layout_json'] = json_decode($validated['layout_json'], true);
+        }
+
+        // Parse overlay images JSON
+        if (isset($validated['overlay_images'])) {
+            $validated['overlay_images'] = json_decode($validated['overlay_images'], true);
         }
 
         // Set default placeholders if not provided
