@@ -526,8 +526,8 @@
     </div>
 </div>
 
-<script>
-    const playersData = @json($teamPlayers->map(function($player) {
+@php
+    $playersJsonData = $teamPlayers->map(function($player) {
         return [
             'id' => $player->id,
             'name' => $player->name,
@@ -554,7 +554,11 @@
             'image_path' => $player->image_path ? asset('storage/' . $player->image_path) : null,
             'photo' => $player->photo ? asset('storage/' . $player->photo) : null,
         ];
-    })->keyBy('id'));
+    })->keyBy('id');
+@endphp
+
+<script>
+    const playersData = @json($playersJsonData);
 
     function openViewPlayerModal(playerId) {
         const player = playersData[playerId];
