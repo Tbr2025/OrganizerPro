@@ -270,8 +270,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
 
     Route::get('/backups', [BackupController::class, 'index'])->name('backups.index');
-
-
+    Route::post('/backups/create', [BackupController::class, 'create'])->name('backups.create');
+    Route::get('/backups/download', [BackupController::class, 'download'])->name('backups.download');
+    Route::post('/backups/restore', [BackupController::class, 'restore'])->name('backups.restore');
+    Route::delete('/backups/delete', [BackupController::class, 'delete'])->name('backups.delete');
 
     Route::get('/download-log', function () {
         $path = storage_path('logs/laravel.log');
