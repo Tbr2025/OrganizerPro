@@ -46,30 +46,12 @@ class BackupController extends Controller
      */
     public function create(): RedirectResponse
     {
-        $dbHost = config('database.connections.mysql.host', '127.0.0.1');
-        $dbPort = config('database.connections.mysql.port', '3306');
-        $dbName = config('database.connections.mysql.database');
-        $dbUser = config('database.connections.mysql.username');
-        $dbPass = config('database.connections.mysql.password');
-
         $fileName = 'backup-' . date('Ymd-His') . '.sql';
-        $dirPath = storage_path('app/backups');
-        $filePath = $dirPath . '/' . $fileName;
+        $filePath = storage_path('app/backups/' . $fileName);
 
-        // Ensure backups directory exists
-        if (!is_dir($dirPath)) {
-            mkdir($dirPath, 0755, true);
-        }
+        $this->ensureBackupDir();
 
-        $command = sprintf(
-            'mysqldump --user=%s --password=%s --host=%s --port=%s --single-transaction %s > %s 2>&1',
-            escapeshellarg($dbUser),
-            escapeshellarg($dbPass),
-            escapeshellarg($dbHost),
-            escapeshellarg($dbPort),
-            escapeshellarg($dbName),
-            escapeshellarg($filePath)
-        );
+        $command = $this->buildDumpCommand($filePath);
 
         exec($command, $output, $returnVar);
 
@@ -121,21 +103,7 @@ class BackupController extends Controller
         // Create a safety backup before restoring
         $this->createSafetyBackup();
 
-        $dbHost = config('database.connections.mysql.host', '127.0.0.1');
-        $dbPort = config('database.connections.mysql.port', '3306');
-        $dbName = config('database.connections.mysql.database');
-        $dbUser = config('database.connections.mysql.username');
-        $dbPass = config('database.connections.mysql.password');
-
-        $command = sprintf(
-            'mysql --user=%s --password=%s --host=%s --port=%s %s < %s 2>&1',
-            escapeshellarg($dbUser),
-            escapeshellarg($dbPass),
-            escapeshellarg($dbHost),
-            escapeshellarg($dbPort),
-            escapeshellarg($dbName),
-            escapeshellarg($filePath)
-        );
+        $command = $this->buildImportCommand($filePath);
 
         exec($command, $output, $returnVar);
 
@@ -176,29 +144,89 @@ class BackupController extends Controller
      */
     private function createSafetyBackup(): void
     {
-        $dbHost = config('database.connections.mysql.host', '127.0.0.1');
-        $dbPort = config('database.connections.mysql.port', '3306');
-        $dbName = config('database.connections.mysql.database');
-        $dbUser = config('database.connections.mysql.username');
-        $dbPass = config('database.connections.mysql.password');
-
-        $fileName = 'backup-pre-restore-' . date('Ymd-His') . '.sql';
-        $filePath = storage_path('app/backups/' . $fileName);
-
-        $command = sprintf(
-            'mysqldump --user=%s --password=%s --host=%s --port=%s --single-transaction %s > %s 2>&1',
-            escapeshellarg($dbUser),
-            escapeshellarg($dbPass),
-            escapeshellarg($dbHost),
-            escapeshellarg($dbPort),
-            escapeshellarg($dbName),
-            escapeshellarg($filePath)
-        );
+        $filePath = storage_path('app/backups/backup-pre-restore-' . date('Ymd-His') . '.sql');
+        $command = $this->buildDumpCommand($filePath);
 
         exec($command, $output, $returnVar);
 
         if ($returnVar !== 0) {
             Log::warning('Safety backup before restore failed', ['output' => $output]);
+        }
+    }
+
+    /**
+     * Find the mysqldump binary path.
+     */
+    private function findMysqlDump(): string
+    {
+        foreach (['/usr/bin/mysqldump', '/usr/local/bin/mysqldump', '/usr/local/mysql/bin/mysqldump'] as $path) {
+            if (file_exists($path)) {
+                return $path;
+            }
+        }
+
+        // Fall back to PATH lookup
+        $which = trim((string) shell_exec('which mysqldump 2>/dev/null'));
+        return $which ?: 'mysqldump';
+    }
+
+    /**
+     * Find the mysql binary path.
+     */
+    private function findMysql(): string
+    {
+        foreach (['/usr/bin/mysql', '/usr/local/bin/mysql', '/usr/local/mysql/bin/mysql'] as $path) {
+            if (file_exists($path)) {
+                return $path;
+            }
+        }
+
+        $which = trim((string) shell_exec('which mysql 2>/dev/null'));
+        return $which ?: 'mysql';
+    }
+
+    /**
+     * Build the mysqldump command string.
+     */
+    private function buildDumpCommand(string $outputPath): string
+    {
+        return sprintf(
+            '%s --user=%s --password=%s --host=%s --port=%s --single-transaction %s > %s 2>&1',
+            $this->findMysqlDump(),
+            escapeshellarg(config('database.connections.mysql.username')),
+            escapeshellarg(config('database.connections.mysql.password')),
+            escapeshellarg(config('database.connections.mysql.host', '127.0.0.1')),
+            escapeshellarg(config('database.connections.mysql.port', '3306')),
+            escapeshellarg(config('database.connections.mysql.database')),
+            escapeshellarg($outputPath)
+        );
+    }
+
+    /**
+     * Build the mysql import command string.
+     */
+    private function buildImportCommand(string $inputPath): string
+    {
+        return sprintf(
+            '%s --user=%s --password=%s --host=%s --port=%s %s < %s 2>&1',
+            $this->findMysql(),
+            escapeshellarg(config('database.connections.mysql.username')),
+            escapeshellarg(config('database.connections.mysql.password')),
+            escapeshellarg(config('database.connections.mysql.host', '127.0.0.1')),
+            escapeshellarg(config('database.connections.mysql.port', '3306')),
+            escapeshellarg(config('database.connections.mysql.database')),
+            escapeshellarg($inputPath)
+        );
+    }
+
+    /**
+     * Ensure the backups directory exists.
+     */
+    private function ensureBackupDir(): void
+    {
+        $dirPath = storage_path('app/backups');
+        if (!is_dir($dirPath)) {
+            mkdir($dirPath, 0755, true);
         }
     }
 }
