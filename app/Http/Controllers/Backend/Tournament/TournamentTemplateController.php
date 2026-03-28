@@ -88,13 +88,17 @@ class TournamentTemplateController extends Controller
             ->where('status', 'approved')
             ->get();
 
+        // Load groups for point table type
+        $groups = $tournament->groups;
+
         return view('backend.pages.tournaments.templates.generate', compact(
             'tournament',
             'type',
             'templates',
             'matches',
             'completedMatches',
-            'players'
+            'players',
+            'groups'
         ));
     }
 
@@ -130,8 +134,30 @@ class TournamentTemplateController extends Controller
                 $data['tournament_logo'] = $tournament->settings->logo;
             }
 
-            // Filter empty values
-            $data = array_filter($data);
+            // Handle point_table type — build table_data from group entries
+            if ($template->type === TournamentTemplate::TYPE_POINT_TABLE && $request->input('group_id')) {
+                $group = $tournament->groups()->find($request->input('group_id'));
+                if ($group) {
+                    $entries = $group->pointTableEntries()->with('team')->ranked()->get();
+                    $data['table_data'] = $entries->map(fn($entry) => [
+                        'position' => $entry->position,
+                        'team_name' => $entry->team?->name ?? 'Unknown',
+                        'team_logo' => $entry->team?->team_logo ?? '',
+                        'matches_played' => $entry->matches_played,
+                        'won' => $entry->won,
+                        'lost' => $entry->lost,
+                        'tied' => $entry->tied,
+                        'net_run_rate' => $entry->net_run_rate,
+                        'points' => $entry->points,
+                        'qualified' => $entry->qualified,
+                    ])->toArray();
+                    $data['group_name'] = $group->name;
+                    $data['last_updated'] = now()->format('M d, Y H:i');
+                }
+            }
+
+            // Filter empty values (but keep table_data array)
+            $data = array_filter($data, fn($v) => is_array($v) ? !empty($v) : ($v !== null && $v !== ''));
 
             // Render to base64
             $base64Image = $renderService->renderToBase64($template, $data);

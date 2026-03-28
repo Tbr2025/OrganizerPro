@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
+use App\Models\TournamentTemplate;
 use App\Services\Poster\PointTablePosterService;
+use App\Services\Poster\TemplateRenderService;
 use App\Services\Tournament\PointTableService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,18 +70,66 @@ class PointTableController extends Controller
 
         $groupId = $request->get('group_id');
 
+        // Check for active point_table template
+        $template = $tournament->templates()
+            ->where('type', TournamentTemplate::TYPE_POINT_TABLE)
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->first();
+
         try {
             if ($groupId) {
                 $group = $tournament->groups()->findOrFail($groupId);
-                $path = $this->posterService->generate($group);
+
+                if ($template) {
+                    $this->generateWithTemplate($template, $tournament, $group);
+                } else {
+                    $this->posterService->generate($group);
+                }
+
                 return redirect()->back()->with('success', __('Point table poster generated for :group.', ['group' => $group->name]));
             } else {
-                $paths = $this->posterService->generateAllGroups($tournament);
-                return redirect()->back()->with('success', __(':count point table posters generated.', ['count' => count($paths)]));
+                if ($template) {
+                    foreach ($tournament->groups as $group) {
+                        $this->generateWithTemplate($template, $tournament, $group);
+                    }
+                    return redirect()->back()->with('success', __(':count point table posters generated.', ['count' => $tournament->groups->count()]));
+                } else {
+                    $paths = $this->posterService->generateAllGroups($tournament);
+                    return redirect()->back()->with('success', __(':count point table posters generated.', ['count' => count($paths)]));
+                }
             }
         } catch (\Exception $e) {
             return redirect()->back()->with('error', __('Failed to generate poster: ') . $e->getMessage());
         }
+    }
+
+    private function generateWithTemplate(TournamentTemplate $template, Tournament $tournament, $group): string
+    {
+        $entries = $group->pointTableEntries()->with('team')->ranked()->get();
+
+        $data = [
+            'tournament_name' => $tournament->name,
+            'tournament_logo' => $tournament->settings?->logo ?? '',
+            'group_name' => $group->name,
+            'last_updated' => now()->format('M d, Y H:i'),
+            'table_data' => $entries->map(fn($entry) => [
+                'position' => $entry->position,
+                'team_name' => $entry->team?->name ?? 'Unknown',
+                'team_logo' => $entry->team?->team_logo ?? '',
+                'matches_played' => $entry->matches_played,
+                'won' => $entry->won,
+                'lost' => $entry->lost,
+                'tied' => $entry->tied,
+                'net_run_rate' => $entry->net_run_rate,
+                'points' => $entry->points,
+                'qualified' => $entry->qualified,
+            ])->toArray(),
+        ];
+
+        $renderService = new TemplateRenderService();
+        $filename = 'points-' . $group->id . '-' . now()->format('Y-m-d-His') . '.png';
+        return $renderService->renderAndSave($template, $data, $filename);
     }
 
     public function initialize(Tournament $tournament): RedirectResponse

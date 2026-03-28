@@ -106,7 +106,10 @@ class TemplateRenderService extends PosterGeneratorService
         // Get value from data or use placeholder display
         $value = $data[$placeholder] ?? $this->getDisplayValue($placeholder);
 
-        if ($type === 'image') {
+        if ($type === 'tableArea') {
+            $this->renderTableArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
+            return;
+        } elseif ($type === 'image') {
             $this->renderImageElement($canvas, $element, $value, $x, $y, $canvasWidth);
         } elseif ($type === 'uploadedImage') {
             // Uploaded images are stored as base64 or path in the element
@@ -393,6 +396,165 @@ class TemplateRenderService extends PosterGeneratorService
                 imagepolygon($canvas, $points, $strokeColor);
             }
         }
+    }
+
+    /**
+     * Render point table area element
+     */
+    protected function renderTableArea(\GdImage $canvas, array $element, array $data, int $canvasWidth, int $canvasHeight): void
+    {
+        $tableData = $data['table_data'] ?? [];
+        if (empty($tableData) || !is_array($tableData)) {
+            return;
+        }
+
+        $config = $element['tableConfig'] ?? [];
+        $headerBg = $config['headerBg'] ?? '#1e40af';
+        $headerText = $config['headerText'] ?? '#ffffff';
+        $evenRowBg = $config['evenRowBg'] ?? '#1e293b';
+        $oddRowBg = $config['oddRowBg'] ?? '#334155';
+        $qualifiedBg = $config['qualifiedBg'] ?? '#064e3b';
+        $textColor = $config['textColor'] ?? '#ffffff';
+        $pointsColor = $config['pointsColor'] ?? '#FFD700';
+        $fontSize = (int) ($config['fontSize'] ?? 16);
+        $configRowHeight = (int) ($config['rowHeight'] ?? 80);
+        $showTeamLogo = $config['showTeamLogo'] ?? true;
+        $showNRR = $config['showNRR'] ?? true;
+        $showLegend = $config['showLegend'] ?? true;
+
+        // Calculate element area from percentage position
+        $areaWidth = (int) ($element['width'] ?? 900);
+        $areaHeight = (int) ($element['height'] ?? 500);
+        $centerX = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
+        $centerY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+        $areaX = (int) ($centerX - $areaWidth / 2);
+        $areaY = (int) ($centerY - $areaHeight / 2);
+
+        // Header row height
+        $headerRowHeight = (int) ($configRowHeight * 0.75);
+        $legendHeight = $showLegend ? 40 : 0;
+        $availableHeight = $areaHeight - $headerRowHeight - $legendHeight;
+        $teamCount = count($tableData);
+        $rowHeight = min($configRowHeight, (int) ($availableHeight / max($teamCount, 1)));
+
+        // Calculate column positions
+        $columns = $this->calculateTableColumns($areaWidth, $showNRR, $showTeamLogo);
+
+        // Draw header row
+        $headerColor = $this->parseColor($canvas, $headerBg);
+        imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + $headerRowHeight, $headerColor);
+
+        $headerFont = 'Montserrat-Bold.ttf';
+        $headerFontSize = (int) ($fontSize * 0.9);
+        $headerY = $areaY + (int) ($headerRowHeight * 0.65);
+
+        $this->addText($canvas, '#', $areaX + $columns['pos'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        $this->addText($canvas, 'Team', $areaX + $columns['team'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        $this->addText($canvas, 'P', $areaX + $columns['played'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        $this->addText($canvas, 'W', $areaX + $columns['won'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        $this->addText($canvas, 'L', $areaX + $columns['lost'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        $this->addText($canvas, 'T', $areaX + $columns['tied'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        if ($showNRR) {
+            $this->addText($canvas, 'NRR', $areaX + $columns['nrr'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        }
+        $this->addText($canvas, 'Pts', $areaX + $columns['pts'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+
+        // Draw team rows
+        $currentY = $areaY + $headerRowHeight;
+        $bodyFont = 'Montserrat-Medium.ttf';
+
+        foreach ($tableData as $index => $team) {
+            $isQualified = !empty($team['qualified']);
+            if ($isQualified) {
+                $rowBg = $qualifiedBg;
+            } else {
+                $rowBg = ($index % 2 === 0) ? $evenRowBg : $oddRowBg;
+            }
+
+            $rowColor = $this->parseColor($canvas, $rowBg);
+            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowColor);
+
+            $textY = $currentY + (int) ($rowHeight * 0.6);
+
+            // Position number
+            $this->addText($canvas, (string) ($team['position'] ?? ($index + 1)), $areaX + $columns['pos'], $textY, $fontSize, $textColor, 'Montserrat-Bold.ttf', 'left');
+
+            // Team logo (circular)
+            $teamNameX = $areaX + $columns['team'];
+            if ($showTeamLogo && !empty($team['team_logo'])) {
+                $logoPath = $this->extractStoragePath($team['team_logo']);
+                if (!empty($logoPath) && \Illuminate\Support\Facades\Storage::disk('public')->exists($logoPath)) {
+                    $logoDiameter = (int) ($rowHeight * 0.6);
+                    $logoCenterX = $areaX + $columns['team'];
+                    $logoCenterY = $currentY + (int) ($rowHeight / 2);
+                    $this->addCircularImage($canvas, $logoPath, $logoCenterX, $logoCenterY, $logoDiameter);
+                    $teamNameX = $areaX + $columns['team'] + (int) ($logoDiameter * 0.7);
+                }
+            }
+
+            // Team name (truncated)
+            $teamName = substr($team['team_name'] ?? 'Unknown', 0, 22);
+            $this->addText($canvas, $teamName, $teamNameX, $textY, $fontSize, $textColor, $bodyFont, 'left');
+
+            // Stats
+            $this->addText($canvas, (string) ($team['matches_played'] ?? 0), $areaX + $columns['played'], $textY, $fontSize, $textColor, $bodyFont, 'left');
+            $this->addText($canvas, (string) ($team['won'] ?? 0), $areaX + $columns['won'], $textY, $fontSize, '#4ADE80', $bodyFont, 'left');
+            $this->addText($canvas, (string) ($team['lost'] ?? 0), $areaX + $columns['lost'], $textY, $fontSize, '#F87171', $bodyFont, 'left');
+            $this->addText($canvas, (string) ($team['tied'] ?? 0), $areaX + $columns['tied'], $textY, $fontSize, '#FBBF24', $bodyFont, 'left');
+
+            // NRR
+            if ($showNRR) {
+                $nrr = (float) ($team['net_run_rate'] ?? 0);
+                $nrrText = ($nrr >= 0 ? '+' : '') . number_format($nrr, 3);
+                $nrrColor = $nrr >= 0 ? '#4ADE80' : '#F87171';
+                $this->addText($canvas, $nrrText, $areaX + $columns['nrr'], $textY, $fontSize, $nrrColor, $bodyFont, 'left');
+            }
+
+            // Points
+            $this->addText($canvas, (string) ($team['points'] ?? 0), $areaX + $columns['pts'], $textY, (int) ($fontSize * 1.15), $pointsColor, 'Montserrat-Bold.ttf', 'left');
+
+            $currentY += $rowHeight;
+        }
+
+        // Legend
+        if ($showLegend) {
+            $legendY = $currentY + 10;
+            $qualifiedLegendColor = $this->parseColor($canvas, $qualifiedBg);
+            imagefilledrectangle($canvas, $areaX + 10, $legendY, $areaX + 30, $legendY + 20, $qualifiedLegendColor);
+            $this->addText($canvas, '= Qualified for next round', $areaX + 40, $legendY + 16, (int) ($fontSize * 0.8), '#AAAAAA', 'Montserrat-Medium.ttf', 'left');
+        }
+    }
+
+    /**
+     * Calculate proportional column x-positions for table area
+     */
+    protected function calculateTableColumns(int $areaWidth, bool $showNRR, bool $showTeamLogo): array
+    {
+        $padding = (int) ($areaWidth * 0.02);
+
+        if ($showNRR) {
+            return [
+                'pos' => $padding,
+                'team' => (int) ($areaWidth * 0.05),
+                'played' => (int) ($areaWidth * 0.42),
+                'won' => (int) ($areaWidth * 0.50),
+                'lost' => (int) ($areaWidth * 0.58),
+                'tied' => (int) ($areaWidth * 0.66),
+                'nrr' => (int) ($areaWidth * 0.72),
+                'pts' => (int) ($areaWidth * 0.88),
+            ];
+        }
+
+        return [
+            'pos' => $padding,
+            'team' => (int) ($areaWidth * 0.05),
+            'played' => (int) ($areaWidth * 0.50),
+            'won' => (int) ($areaWidth * 0.58),
+            'lost' => (int) ($areaWidth * 0.66),
+            'tied' => (int) ($areaWidth * 0.74),
+            'nrr' => 0,
+            'pts' => (int) ($areaWidth * 0.85),
+        ];
     }
 
     /**
@@ -848,6 +1010,7 @@ class TemplateRenderService extends PosterGeneratorService
             'year' => date('Y'),
             'group_name' => 'Group A',
             'last_updated' => date('M d, Y H:i'),
+            'table_data' => '[Table Data]',
             default => ucwords(str_replace('_', ' ', $placeholder)),
         };
     }
@@ -861,10 +1024,27 @@ class TemplateRenderService extends PosterGeneratorService
         $data = [];
 
         foreach ($placeholders as $placeholder) {
+            if ($placeholder === 'table_data') {
+                $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleTableData();
+                continue;
+            }
             $data[$placeholder] = $customData[$placeholder] ?? $this->getDisplayValue($placeholder);
         }
 
         return $data;
+    }
+
+    /**
+     * Get sample point table data for preview
+     */
+    protected function getSampleTableData(): array
+    {
+        return [
+            ['position' => 1, 'team_name' => 'Mountrich CC', 'team_logo' => '', 'matches_played' => 5, 'won' => 4, 'lost' => 1, 'tied' => 0, 'net_run_rate' => 1.250, 'points' => 8, 'qualified' => true],
+            ['position' => 2, 'team_name' => 'Canadian CC', 'team_logo' => '', 'matches_played' => 5, 'won' => 3, 'lost' => 2, 'tied' => 0, 'net_run_rate' => 0.450, 'points' => 6, 'qualified' => true],
+            ['position' => 3, 'team_name' => 'Thunder Kings', 'team_logo' => '', 'matches_played' => 5, 'won' => 2, 'lost' => 3, 'tied' => 0, 'net_run_rate' => -0.320, 'points' => 4, 'qualified' => false],
+            ['position' => 4, 'team_name' => 'Royal Strikers', 'team_logo' => '', 'matches_played' => 5, 'won' => 1, 'lost' => 4, 'tied' => 0, 'net_run_rate' => -1.100, 'points' => 2, 'qualified' => false],
+        ];
     }
 
     /**

@@ -168,7 +168,7 @@
                         <div class="sidebar-section-title">Text Placeholders</div>
                         @foreach($placeholders as $placeholder)
                             @php $isImage = in_array($placeholder, ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo', 'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image', 'qr_code']); @endphp
-                            @if(!$isImage)
+                            @if(!$isImage && $placeholder !== 'table_data')
                             <div class="draggable-item" draggable="true" data-type="text" data-placeholder="{{ $placeholder }}">
                                 <div class="icon text"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg></div>
                                 <div class="info">
@@ -223,6 +223,21 @@
                             <div class="info"><div class="name">Diamond</div><div class="type">Shape</div></div>
                         </div>
                     </div>
+
+                    @if($type === 'point_table')
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Table Area</div>
+                        <div class="draggable-item" draggable="true" data-type="tableArea">
+                            <div class="icon" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18M8 6v12M16 6v12"/></svg>
+                            </div>
+                            <div class="info">
+                                <div class="name">Point Table Area</div>
+                                <div class="type">Table</div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
 
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Image Layers</div>
@@ -419,6 +434,87 @@
                 </div>
             </div>
 
+            {{-- Table Properties --}}
+            <div id="tablePropertiesPanel" class="hidden">
+                <div class="prop-section">
+                    <div class="prop-section-title">Table Colors</div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Header BG</label>
+                            <input type="color" id="propTableHeaderBg" class="color-preview" value="#1e40af" onchange="editor.updateTableConfig('headerBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Header Text</label>
+                            <input type="color" id="propTableHeaderText" class="color-preview" value="#ffffff" onchange="editor.updateTableConfig('headerText', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Even Row</label>
+                            <input type="color" id="propTableEvenRowBg" class="color-preview" value="#1e293b" onchange="editor.updateTableConfig('evenRowBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Odd Row</label>
+                            <input type="color" id="propTableOddRowBg" class="color-preview" value="#334155" onchange="editor.updateTableConfig('oddRowBg', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Qualified BG</label>
+                            <input type="color" id="propTableQualifiedBg" class="color-preview" value="#064e3b" onchange="editor.updateTableConfig('qualifiedBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Text Color</label>
+                            <input type="color" id="propTableTextColor" class="color-preview" value="#ffffff" onchange="editor.updateTableConfig('textColor', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Points Color</label>
+                        <input type="color" id="propTablePointsColor" class="color-preview" value="#FFD700" onchange="editor.updateTableConfig('pointsColor', this.value)">
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Table Layout</div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Font Size</label>
+                            <input type="number" id="propTableFontSize" class="prop-input" min="10" max="32" value="16" onchange="editor.updateTableConfig('fontSize', parseInt(this.value))">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Row Height</label>
+                            <input type="number" id="propTableRowHeight" class="prop-input" min="30" max="120" value="80" onchange="editor.updateTableConfig('rowHeight', parseInt(this.value))">
+                        </div>
+                    </div>
+                    <div class="prop-group" style="margin-top:12px;">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propTableShowLogo" checked onchange="editor.updateTableConfig('showTeamLogo', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show Team Logo</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propTableShowNRR" checked onchange="editor.updateTableConfig('showNRR', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show NRR</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propTableShowLegend" checked onchange="editor.updateTableConfig('showLegend', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show Legend</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Style Presets</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="editor.applyTablePreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark Blue</button>
+                        <button onclick="editor.applyTablePreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
+                        <button onclick="editor.applyTablePreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#fff;border-color:#7c3aed;">IPL Style</button>
+                        <button onclick="editor.applyTablePreset('minimal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#18181b;color:#a1a1aa;border-color:#3f3f46;">Minimal</button>
+                    </div>
+                </div>
+            </div>
+
             {{-- Common Properties --}}
             <div id="commonPropertiesPanel" class="hidden">
                 <div class="prop-section">
@@ -585,6 +681,7 @@ const editor = {
             if (type === 'text') this.addText(placeholder, x, y);
             else if (type === 'image') this.addImagePlaceholder(placeholder, x, y);
             else if (type === 'shape') this.addShape(shape, x, y);
+            else if (type === 'tableArea') this.addTableArea(x, y);
         });
     },
 
@@ -660,6 +757,96 @@ const editor = {
             this.canvas.setActiveObject(shape);
             this.saveHistory();
         }
+    },
+
+    addTableArea(x, y) {
+        // Prevent adding multiple table areas
+        const existing = this.canvas.getObjects().find(o => o.elementType === 'tableArea');
+        if (existing) { alert('Only one table area allowed per template.'); this.canvas.setActiveObject(existing); this.canvas.renderAll(); return; }
+
+        const w = 900, h = 500;
+        const border = new fabric.Rect({
+            width: w, height: h,
+            fill: 'rgba(30, 64, 175, 0.15)',
+            stroke: '#3b82f6', strokeWidth: 3, strokeDashArray: [10, 5],
+            rx: 8, ry: 8,
+            originX: 'center', originY: 'center',
+        });
+        const title = new fabric.Text('POINT TABLE AREA', {
+            fontSize: 20, fill: '#60a5fa', fontFamily: 'Arial', fontWeight: '700',
+            originX: 'center', originY: 'center', top: -h/2 + 30,
+        });
+        const sample = new fabric.Text('#  Team              P  W  L  T   NRR    Pts\n1  Team Alpha         5  4  1  0  +1.250   8\n2  Team Beta          5  3  2  0  +0.450   6\n3  Team Gamma         5  2  3  0  -0.320   4\n4  Team Delta         5  1  4  0  -1.100   2', {
+            fontSize: 13, fill: '#94a3b8', fontFamily: 'Courier New',
+            originX: 'center', originY: 'center', top: 20, lineHeight: 1.6,
+        });
+        const group = new fabric.Group([border, title, sample], {
+            left: x, top: y, originX: 'center', originY: 'center',
+        });
+        group.elementType = 'tableArea';
+        group.placeholder = 'table_data';
+        group.tableConfig = {
+            headerBg: '#1e40af', headerText: '#ffffff',
+            evenRowBg: '#1e293b', oddRowBg: '#334155',
+            qualifiedBg: '#064e3b', textColor: '#ffffff',
+            pointsColor: '#FFD700', fontSize: 16, rowHeight: 80,
+            showTeamLogo: true, showNRR: true, showLegend: true,
+        };
+        this.canvas.add(group);
+        this.canvas.setActiveObject(group);
+        this.saveHistory();
+    },
+
+    updateTableConfig(key, value) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'tableArea') return;
+        obj.tableConfig = obj.tableConfig || {};
+        obj.tableConfig[key] = value;
+        // Update the border fill color to reflect header color
+        if (key === 'headerBg') {
+            const r = parseInt(value.slice(1,3),16), g = parseInt(value.slice(3,5),16), b = parseInt(value.slice(5,7),16);
+            obj.item(0).set('fill', `rgba(${r},${g},${b},0.15)`);
+            obj.item(0).set('stroke', value);
+            this.canvas.renderAll();
+        }
+        this.saveHistory();
+    },
+
+    applyTablePreset(preset) {
+        const presets = {
+            dark: { headerBg:'#1e40af', headerText:'#ffffff', evenRowBg:'#1e293b', oddRowBg:'#334155', qualifiedBg:'#064e3b', textColor:'#ffffff', pointsColor:'#FFD700' },
+            light: { headerBg:'#6366f1', headerText:'#ffffff', evenRowBg:'#f8fafc', oddRowBg:'#f1f5f9', qualifiedBg:'#dcfce7', textColor:'#1e293b', pointsColor:'#7c3aed' },
+            ipl: { headerBg:'#7c3aed', headerText:'#ffffff', evenRowBg:'#1a0533', oddRowBg:'#2d0a4e', qualifiedBg:'#065f46', textColor:'#e2e8f0', pointsColor:'#fbbf24' },
+            minimal: { headerBg:'#3f3f46', headerText:'#fafafa', evenRowBg:'#18181b', oddRowBg:'#27272a', qualifiedBg:'#1c4532', textColor:'#a1a1aa', pointsColor:'#f59e0b' },
+        };
+        const cfg = presets[preset];
+        if (!cfg) return;
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'tableArea') return;
+        obj.tableConfig = { ...obj.tableConfig, ...cfg };
+        this.updateTablePropertiesPanel(obj);
+        // Update visual
+        const r = parseInt(cfg.headerBg.slice(1,3),16), g = parseInt(cfg.headerBg.slice(3,5),16), b = parseInt(cfg.headerBg.slice(5,7),16);
+        obj.item(0).set('fill', `rgba(${r},${g},${b},0.15)`);
+        obj.item(0).set('stroke', cfg.headerBg);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateTablePropertiesPanel(obj) {
+        const cfg = obj.tableConfig || {};
+        document.getElementById('propTableHeaderBg').value = cfg.headerBg || '#1e40af';
+        document.getElementById('propTableHeaderText').value = cfg.headerText || '#ffffff';
+        document.getElementById('propTableEvenRowBg').value = cfg.evenRowBg || '#1e293b';
+        document.getElementById('propTableOddRowBg').value = cfg.oddRowBg || '#334155';
+        document.getElementById('propTableQualifiedBg').value = cfg.qualifiedBg || '#064e3b';
+        document.getElementById('propTableTextColor').value = cfg.textColor || '#ffffff';
+        document.getElementById('propTablePointsColor').value = cfg.pointsColor || '#FFD700';
+        document.getElementById('propTableFontSize').value = cfg.fontSize || 16;
+        document.getElementById('propTableRowHeight').value = cfg.rowHeight || 80;
+        document.getElementById('propTableShowLogo').checked = cfg.showTeamLogo !== false;
+        document.getElementById('propTableShowNRR').checked = cfg.showNRR !== false;
+        document.getElementById('propTableShowLegend').checked = cfg.showLegend !== false;
     },
 
     starPoints(spikes, outerR, innerR) {
@@ -752,8 +939,10 @@ const editor = {
 
         const isText = obj.elementType === 'text' || obj.type === 'i-text';
         const isShape = obj.elementType === 'shape';
+        const isTable = obj.elementType === 'tableArea';
         document.getElementById('textPropertiesPanel').classList.toggle('hidden', !isText);
         document.getElementById('shapePropertiesPanel').classList.toggle('hidden', !isShape);
+        document.getElementById('tablePropertiesPanel').classList.toggle('hidden', !isTable);
 
         if (isText) {
             document.getElementById('propFontFamily').value = obj.fontFamily || 'Arial';
@@ -763,6 +952,9 @@ const editor = {
         }
         if (isShape) {
             this.updateShapePropertiesPanel(obj);
+        }
+        if (isTable) {
+            this.updateTablePropertiesPanel(obj);
         }
         this.updateProperties();
     },
@@ -815,6 +1007,7 @@ const editor = {
         document.getElementById('commonPropertiesPanel').classList.add('hidden');
         document.getElementById('textPropertiesPanel').classList.add('hidden');
         document.getElementById('shapePropertiesPanel').classList.add('hidden');
+        document.getElementById('tablePropertiesPanel').classList.add('hidden');
     },
 
     updateProperties() {
@@ -1046,6 +1239,7 @@ const editor = {
             cloned.gradientFillConfig = obj.gradientFillConfig;
             cloned.placeholderWidth = obj.placeholderWidth;
             cloned.placeholderHeight = obj.placeholderHeight;
+            if (obj.tableConfig) cloned.tableConfig = JSON.parse(JSON.stringify(obj.tableConfig));
             this.canvas.add(cloned);
             this.canvas.setActiveObject(cloned);
             this.saveHistory();
@@ -1059,7 +1253,7 @@ const editor = {
 
     // History
     saveHistory() {
-        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig']);
+        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'tableConfig']);
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(JSON.stringify(json));
         this.historyIndex++;
@@ -1195,6 +1389,24 @@ const editor = {
                     }
                     this.canvas.add(shape);
                 }
+            } else if (item.type === 'tableArea') {
+                const tw = item.width || 900, th = item.height || 500;
+                const border = new fabric.Rect({ width: tw, height: th, fill: 'rgba(30, 64, 175, 0.15)', stroke: '#3b82f6', strokeWidth: 3, strokeDashArray: [10, 5], rx: 8, ry: 8, originX: 'center', originY: 'center' });
+                const title = new fabric.Text('POINT TABLE AREA', { fontSize: 20, fill: '#60a5fa', fontFamily: 'Arial', fontWeight: '700', originX: 'center', originY: 'center', top: -th/2 + 30 });
+                const sample = new fabric.Text('#  Team              P  W  L  T   NRR    Pts\n1  Team Alpha         5  4  1  0  +1.250   8\n2  Team Beta          5  3  2  0  +0.450   6\n3  Team Gamma         5  2  3  0  -0.320   4\n4  Team Delta         5  1  4  0  -1.100   2', { fontSize: 13, fill: '#94a3b8', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 20, lineHeight: 1.6 });
+                const group = new fabric.Group([border, title, sample], { left: x, top: y, originX: 'center', originY: 'center', angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100 });
+                group.elementType = 'tableArea';
+                group.placeholder = 'table_data';
+                group.tableConfig = item.tableConfig || {};
+                group._layoutIndex = layoutIndex;
+                // Apply saved header color to visual
+                if (group.tableConfig.headerBg) {
+                    const hc = group.tableConfig.headerBg;
+                    const r = parseInt(hc.slice(1,3),16), g = parseInt(hc.slice(3,5),16), b = parseInt(hc.slice(5,7),16);
+                    border.set('fill', `rgba(${r},${g},${b},0.15)`);
+                    border.set('stroke', hc);
+                }
+                this.canvas.add(group);
             } else if (item.type === 'uploadedImage') {
                 pendingImages++;
                 const imgPath = item.imagePath || item.path || '';
@@ -1269,6 +1481,8 @@ const editor = {
                 return { ...base, shapeType: obj.shapeType, fill: fillData, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1), rx: obj.rx || 0, ry: obj.ry || 0 };
             } else if (obj.elementType === 'uploadedImage') {
                 return { ...base, type: 'uploadedImage', imagePath: obj.imagePath, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 150) * (obj.scaleY || 1) };
+            } else if (obj.elementType === 'tableArea') {
+                return { ...base, type: 'tableArea', tableConfig: obj.tableConfig || {}, width: (obj.width || 900) * (obj.scaleX || 1), height: (obj.height || 500) * (obj.scaleY || 1) };
             }
             return base;
         });

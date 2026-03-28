@@ -27,7 +27,7 @@
                     Select Poster Type
                 </h3>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
                     <button type="button" @click="type = 'match_poster'; updateType('match_poster')"
                             :class="type === 'match_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
                             class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
@@ -62,6 +62,15 @@
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         </div>
                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Welcome Card</span>
+                    </button>
+
+                    <button type="button" @click="type = 'point_table'; updateType('point_table')"
+                            :class="type === 'point_table' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
+                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
+                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-blue-500 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Point Table</span>
                     </button>
                 </div>
             </div>
@@ -160,6 +169,22 @@
                             </select>
                         </div>
                     </div>
+                </div>
+
+                {{-- Group Selection (for point_table) --}}
+                <div id="groupSelection" class="{{ request('type') === 'point_table' ? '' : 'hidden' }}">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Group</label>
+                    <select id="groupSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                        <option value="">-- Select a group --</option>
+                        @isset($groups)
+                            @foreach($groups as $group)
+                                <option value="{{ $group->id }}" data-name="{{ $group->name }}">{{ $group->name }}</option>
+                            @endforeach
+                        @endisset
+                    </select>
+                    @if(!isset($groups) || (isset($groups) && $groups->isEmpty()))
+                        <p class="text-sm text-gray-500 mt-2">No groups found. <a href="{{ route('admin.tournaments.groups.index', $tournament) }}" class="text-purple-600 hover:underline">Create groups first</a>.</p>
+                    @endif
                 </div>
             </div>
 
@@ -266,6 +291,7 @@ function updateType(type) {
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
     document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card');
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
+    document.getElementById('groupSelection').classList.toggle('hidden', type !== 'point_table');
 
     // Reset preview
     resetPreview();
@@ -367,6 +393,13 @@ function getSelectedData() {
             const awardData = JSON.parse(selected.dataset.award || '{}');
             Object.assign(data, awardData);
         }
+    } else if (currentType === 'point_table') {
+        const groupSelect = document.getElementById('groupSelect');
+        const selected = groupSelect.options[groupSelect.selectedIndex];
+        if (selected && selected.value) {
+            data.group_id = selected.value;
+            data.group_name = selected.dataset.name;
+        }
     }
 
     // Get selected template
@@ -403,6 +436,7 @@ function showDataSummary(data) {
     if (data.player_name) html += `<p>Player: <strong>${data.player_name}</strong></p>`;
     if (data.team_name) html += `<p>Team: ${data.team_name}</p>`;
     if (data.award_name) html += `<p>Award: ${data.award_name}</p>`;
+    if (data.group_name) html += `<p>Group: <strong>${data.group_name}</strong></p>`;
 
     if (html) {
         content.innerHTML = html;
@@ -425,6 +459,11 @@ function generatePreview() {
 
     if (currentType === 'welcome_card' && !data.player_id) {
         alert('Please select a player');
+        return;
+    }
+
+    if (currentType === 'point_table' && !data.group_id) {
+        alert('Please select a group');
         return;
     }
 
@@ -562,6 +601,9 @@ document.getElementById('matchSelect')?.addEventListener('change', function() {
     if (this.value) showDataSummary(getSelectedData());
 });
 document.getElementById('playerSelect')?.addEventListener('change', function() {
+    if (this.value) showDataSummary(getSelectedData());
+});
+document.getElementById('groupSelect')?.addEventListener('change', function() {
     if (this.value) showDataSummary(getSelectedData());
 });
 </script>
