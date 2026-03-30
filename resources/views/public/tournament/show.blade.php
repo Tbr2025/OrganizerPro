@@ -381,10 +381,10 @@
                                     <i class="far fa-calendar mr-2"></i>
                                     {{ $match->match_date->format('D, M d') }}
                                 </span>
-                                @if($match->match_time)
+                                @if($match->start_time)
                                     <span class="text-sm text-yellow-400 font-semibold">
                                         <i class="far fa-clock mr-1"></i>
-                                        {{ $match->match_time->format('h:i A') }}
+                                        {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
                                     </span>
                                 @endif
                             </div>
@@ -395,17 +395,17 @@
                                     {{-- Team A --}}
                                     <div class="text-center flex-1">
                                         <div class="team-logo-container w-20 h-20 mx-auto mb-3 rounded-full flex items-center justify-center overflow-hidden">
-                                            @if($match->teamA?->logo)
-                                                <img src="{{ Storage::url($match->teamA->logo) }}"
+                                            @if($match->teamA?->team_logo)
+                                                <img src="{{ Storage::url($match->teamA->team_logo) }}"
                                                      alt="{{ $match->teamA->name }}"
                                                      class="w-16 h-16 object-contain">
                                             @else
                                                 <span class="text-2xl font-bold text-gray-400">
-                                                    {{ substr($match->teamA?->short_name ?? 'TBA', 0, 2) }}
+                                                    {{ substr($match->teamA?->display_name ?? 'TBA', 0, 3) }}
                                                 </span>
                                             @endif
                                         </div>
-                                        <p class="font-bold text-white truncate">{{ $match->teamA?->short_name ?? 'TBA' }}</p>
+                                        <p class="font-bold text-white text-sm leading-tight">{{ $match->teamA?->name ?? 'TBA' }}</p>
                                     </div>
 
                                     {{-- VS Badge --}}
@@ -418,17 +418,17 @@
                                     {{-- Team B --}}
                                     <div class="text-center flex-1">
                                         <div class="team-logo-container w-20 h-20 mx-auto mb-3 rounded-full flex items-center justify-center overflow-hidden">
-                                            @if($match->teamB?->logo)
-                                                <img src="{{ Storage::url($match->teamB->logo) }}"
+                                            @if($match->teamB?->team_logo)
+                                                <img src="{{ Storage::url($match->teamB->team_logo) }}"
                                                      alt="{{ $match->teamB->name }}"
                                                      class="w-16 h-16 object-contain">
                                             @else
                                                 <span class="text-2xl font-bold text-gray-400">
-                                                    {{ substr($match->teamB?->short_name ?? 'TBA', 0, 2) }}
+                                                    {{ substr($match->teamB?->display_name ?? 'TBA', 0, 3) }}
                                                 </span>
                                             @endif
                                         </div>
-                                        <p class="font-bold text-white truncate">{{ $match->teamB?->short_name ?? 'TBA' }}</p>
+                                        <p class="font-bold text-white text-sm leading-tight">{{ $match->teamB?->name ?? 'TBA' }}</p>
                                     </div>
                                 </div>
 
@@ -476,15 +476,15 @@
                                 {{-- Team A --}}
                                 <div class="flex items-center gap-4 flex-1">
                                     <div class="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                        @if($match->teamA?->logo)
-                                            <img src="{{ Storage::url($match->teamA->logo) }}" alt="{{ $match->teamA->name }}" class="w-10 h-10 object-contain">
+                                        @if($match->teamA?->team_logo)
+                                            <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}" class="w-10 h-10 object-contain">
                                         @else
-                                            <span class="text-lg font-bold">{{ substr($match->teamA?->short_name ?? 'A', 0, 2) }}</span>
+                                            <span class="text-lg font-bold">{{ substr($match->teamA?->display_name ?? 'A', 0, 3) }}</span>
                                         @endif
                                     </div>
                                     <div>
                                         <p class="font-bold text-lg {{ $match->winner_team_id === $match->team_a_id ? 'text-green-400' : 'text-white' }}">
-                                            {{ $match->teamA?->short_name ?? 'TBA' }}
+                                            {{ $match->teamA?->name ?? 'TBA' }}
                                             @if($match->winner_team_id === $match->team_a_id)
                                                 <i class="fas fa-trophy text-yellow-400 ml-2"></i>
                                             @endif
@@ -506,15 +506,15 @@
                                 {{-- Team B --}}
                                 <div class="flex items-center gap-4 flex-1 md:flex-row-reverse md:text-right">
                                     <div class="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                        @if($match->teamB?->logo)
-                                            <img src="{{ Storage::url($match->teamB->logo) }}" alt="{{ $match->teamB->name }}" class="w-10 h-10 object-contain">
+                                        @if($match->teamB?->team_logo)
+                                            <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}" class="w-10 h-10 object-contain">
                                         @else
-                                            <span class="text-lg font-bold">{{ substr($match->teamB?->short_name ?? 'B', 0, 2) }}</span>
+                                            <span class="text-lg font-bold">{{ substr($match->teamB?->display_name ?? 'B', 0, 3) }}</span>
                                         @endif
                                     </div>
                                     <div>
                                         <p class="font-bold text-lg {{ $match->winner_team_id === $match->team_b_id ? 'text-green-400' : 'text-white' }}">
-                                            {{ $match->teamB?->short_name ?? 'TBA' }}
+                                            {{ $match->teamB?->name ?? 'TBA' }}
                                             @if($match->winner_team_id === $match->team_b_id)
                                                 <i class="fas fa-trophy text-yellow-400 ml-2"></i>
                                             @endif

@@ -342,13 +342,13 @@
                 @endif
 
                 {{-- Time --}}
-                @if($match->match_time)
+                @if($match->start_time)
                     <div class="info-card rounded-2xl p-5 text-center">
                         <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
                             <i class="far fa-clock text-white text-lg"></i>
                         </div>
                         <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Time</p>
-                        <p class="text-white font-semibold">{{ $match->match_time->format('h:i A') }}</p>
+                        <p class="text-white font-semibold">{{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}</p>
                     </div>
                 @endif
 
@@ -526,7 +526,7 @@
                                 @elseif($otherMatch->status === 'live')
                                     <span class="text-red-400 font-medium animate-pulse">LIVE</span>
                                 @else
-                                    <span class="text-gray-500">{{ $otherMatch->match_time?->format('h:i A') ?? 'TBA' }}</span>
+                                    <span class="text-gray-500">{{ $otherMatch->start_time ? \Carbon\Carbon::parse($otherMatch->start_time)->format('h:i A') : 'TBA' }}</span>
                                 @endif
                             </div>
 
@@ -647,7 +647,7 @@ function copyToClipboard(text) {
 
 @if($match->status === 'scheduled' && $match->match_date)
 // Countdown Timer
-const matchDate = new Date('{{ $match->match_date->format("Y-m-d") }}T{{ $match->match_time ? $match->match_time->format("H:i:s") : "00:00:00" }}');
+const matchDate = new Date('{{ $match->match_date->format("Y-m-d") }}T{{ $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format("H:i:s") : "00:00:00" }}');
 
 function updateCountdown() {
     const now = new Date();

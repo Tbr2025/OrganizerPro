@@ -37,12 +37,12 @@
                 <div class="flex items-center justify-between mb-8">
                     {{-- Team A --}}
                     <div class="text-center flex-1">
-                        @if($match->teamA?->logo)
-                            <img src="{{ Storage::url($match->teamA->logo) }}" alt="{{ $match->teamA->name }}"
+                        @if($match->teamA?->team_logo)
+                            <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}"
                                  class="h-28 w-28 object-contain mx-auto mb-4 drop-shadow-lg">
                         @else
                             <div class="h-28 w-28 bg-gray-700 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                                <span class="text-3xl font-bold">{{ substr($match->teamA?->short_name ?? 'TBA', 0, 2) }}</span>
+                                <span class="text-3xl font-bold">{{ substr($match->teamA?->display_name ?? 'TBA', 0, 3) }}</span>
                             </div>
                         @endif
                         <h2 class="text-2xl font-bold text-white">{{ $match->teamA?->name ?? 'TBA' }}</h2>
@@ -60,12 +60,12 @@
 
                     {{-- Team B --}}
                     <div class="text-center flex-1">
-                        @if($match->teamB?->logo)
-                            <img src="{{ Storage::url($match->teamB->logo) }}" alt="{{ $match->teamB->name }}"
+                        @if($match->teamB?->team_logo)
+                            <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}"
                                  class="h-28 w-28 object-contain mx-auto mb-4 drop-shadow-lg">
                         @else
                             <div class="h-28 w-28 bg-gray-700 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                                <span class="text-3xl font-bold">{{ substr($match->teamB?->short_name ?? 'TBA', 0, 2) }}</span>
+                                <span class="text-3xl font-bold">{{ substr($match->teamB?->display_name ?? 'TBA', 0, 3) }}</span>
                             </div>
                         @endif
                         <h2 class="text-2xl font-bold text-white">{{ $match->teamB?->name ?? 'TBA' }}</h2>
@@ -88,11 +88,11 @@
                                 {{ $match->match_date->format('F d, Y') }}
                             </p>
                         </div>
-                        @if($match->match_time)
+                        @if($match->start_time)
                             <div class="border-l border-gray-700 pl-6">
                                 <p class="text-gray-400 text-sm">Time</p>
                                 <p class="text-xl font-bold text-white">
-                                    {{ $match->match_time->format('h:i A') }}
+                                    {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
                                 </p>
                             </div>
                         @endif
