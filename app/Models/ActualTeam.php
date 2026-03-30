@@ -108,9 +108,20 @@ class ActualTeam extends Model
             $query->where('organization_id', $filters['organization_id']);
         }
 
-        // Apply Tournament filter if provided
+        // Apply Tournament filter — check both primary tournament_id and pivot table
         if (!empty($filters['tournament_id'])) {
-            $query->where('tournament_id', $filters['tournament_id']);
+            $tournamentId = $filters['tournament_id'];
+            $query->where(function ($q) use ($tournamentId) {
+                $q->where('tournament_id', $tournamentId)
+                  ->orWhereHas('tournaments', function ($sub) use ($tournamentId) {
+                      $sub->where('tournaments.id', $tournamentId);
+                  });
+            });
+        }
+
+        // Apply name search if provided
+        if (!empty($filters['search'])) {
+            $query->where('name', 'like', '%' . $filters['search'] . '%');
         }
 
         return $query;
@@ -134,6 +145,15 @@ class ActualTeam extends Model
     public function tournament()
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    /**
+     * Many-to-many: all tournaments this team participates in
+     */
+    public function tournaments()
+    {
+        return $this->belongsToMany(Tournament::class, 'actual_team_tournament')
+            ->withTimestamps();
     }
 
     public function players()

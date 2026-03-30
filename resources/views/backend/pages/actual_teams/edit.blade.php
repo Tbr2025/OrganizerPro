@@ -227,8 +227,13 @@
 
                         <div>
                             <label for="organization_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization</label>
-                            <select id="organization_id" name="organization_id" required class="form-control mt-1">
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization
+                                @if (auth()->user()->hasRole('Superadmin'))
+                                    <span class="text-xs text-gray-400">(Reassignable)</span>
+                                @endif
+                            </label>
+                            <select id="organization_id" name="organization_id" required class="form-control mt-1"
+                                @unless(auth()->user()->hasRole('Superadmin')) disabled @endunless>
                                 @foreach ($organizations as $org)
                                     <option value="{{ $org->id }}"
                                         {{ old('organization_id', $actualTeam->organization_id) == $org->id ? 'selected' : '' }}>
@@ -236,23 +241,32 @@
                                     </option>
                                 @endforeach
                             </select>
+                            @unless(auth()->user()->hasRole('Superadmin'))
+                                {{-- Hidden input to ensure value is submitted when select is disabled --}}
+                                <input type="hidden" name="organization_id" value="{{ $actualTeam->organization_id }}">
+                            @endunless
                             @error('organization_id')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
                         </div>
 
                         <div>
-                            <label for="tournament_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament</label>
-                            <select id="tournament_id" name="tournament_id" required class="form-control mt-1">
+                            <label for="tournament_ids"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournaments</label>
+                            <select id="tournament_ids" name="tournament_ids[]" required multiple
+                                class="form-control mt-1" size="{{ min(count($tournaments), 6) }}">
                                 @foreach ($tournaments as $t)
                                     <option value="{{ $t->id }}"
-                                        {{ old('tournament_id', $actualTeam->tournament_id) == $t->id ? 'selected' : '' }}>
+                                        {{ in_array($t->id, old('tournament_ids', $selectedTournamentIds)) ? 'selected' : '' }}>
                                         {{ $t->name }}
                                     </option>
                                 @endforeach
                             </select>
-                            @error('tournament_id')
+                            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple tournaments. First selected = primary tournament.</p>
+                            @error('tournament_ids')
+                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                            @error('tournament_ids.*')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
                         </div>
@@ -565,13 +579,18 @@
 
             // Change tournament and save
             function changeTournament(tournamentId) {
-                if (!confirm('Change team tournament to match this auction? The page will reload after saving.')) {
+                if (!confirm('Add this auction\'s tournament to the team? The page will reload after saving.')) {
                     return;
                 }
 
-                const tournamentSelect = document.getElementById('tournament_id');
+                const tournamentSelect = document.getElementById('tournament_ids');
                 if (tournamentSelect) {
-                    tournamentSelect.value = tournamentId;
+                    // Select the tournament in the multi-select (add it without deselecting others)
+                    for (let option of tournamentSelect.options) {
+                        if (option.value == tournamentId) {
+                            option.selected = true;
+                        }
+                    }
                     // Submit the form
                     document.getElementById('team-form').submit();
                 }

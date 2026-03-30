@@ -31,10 +31,11 @@ class ActualTeamController extends Controller
         $filters = [
             'organization_id' => request('organization_id'),
             'tournament_id' => request('tournament_id'),
+            'search' => request('search'),
         ];
 
-        // Base query
-        $query = ActualTeam::with(['organization', 'tournament', 'auction']);
+        // Base query — eager load tournaments pivot as well
+        $query = ActualTeam::with(['organization', 'tournament', 'auction', 'tournaments']);
 
         // Filter teams based on user role
         if ($user->hasRole('Superadmin')) {
@@ -186,33 +187,31 @@ class ActualTeamController extends Controller
     }
     public function store(Request $request)
     {
-
-        // 1. Validate the incoming request data
-        // This part is mostly correct, but let's make the logo nullable for flexibility.
         $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
-            'tournament_id'   => 'required|exists:tournaments,id',
-            'name'            => 'required|string|max:255|unique:actual_teams,name', // Added unique rule
-            'team_logo'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB Max
+            'tournament_ids'  => 'required|array|min:1',
+            'tournament_ids.*' => 'exists:tournaments,id',
+            'name'            => 'required|string|max:255|unique:actual_teams,name',
+            'team_logo'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        // **THIS IS THE FIX**
-        // 2. Handle the file upload
+        // Handle the file upload
         if ($request->hasFile('team_logo')) {
-            // Store the uploaded file in the 'public' disk, inside a 'team-logos' folder.
-            // The `store()` method returns the unique path to the stored file.
-            $logoPath = $request->file('team_logo')->store('team-logos', 'public');
-
-            // Add the file path to the data that will be saved to the database.
-            $validated['team_logo'] = $logoPath;
+            $validated['team_logo'] = $request->file('team_logo')->store('team-logos', 'public');
         }
 
-        // 3. Create the new team record in the database
-        // The $validated array now contains the correct file path for the team_logo column.
-        ActualTeam::create($validated);
+        // Set primary tournament_id as first selected tournament
+        $tournamentIds = $validated['tournament_ids'];
+        $validated['tournament_id'] = $tournamentIds[0];
+        unset($validated['tournament_ids']);
 
-        // 4. Redirect with a success message
-        return redirect()->route('admin.actual-teams.index')->with('success', 'Actual Team created successfully.');
+        // Create the team
+        $team = ActualTeam::create($validated);
+
+        // Sync all selected tournaments to pivot table
+        $team->tournaments()->sync($tournamentIds);
+
+        return redirect()->route('admin.actual-teams.index')->with('success', 'Team created successfully.');
     }
 
     public function show(ActualTeam $actualTeam)
@@ -458,23 +457,28 @@ class ActualTeamController extends Controller
                 ->values();
         }
 
+        // Get current tournament IDs from pivot (for multi-select)
+        $selectedTournamentIds = $actualTeam->tournaments()->pluck('tournaments.id')->toArray();
+        // Ensure primary tournament_id is included
+        if ($actualTeam->tournament_id && !in_array($actualTeam->tournament_id, $selectedTournamentIds)) {
+            $selectedTournamentIds[] = $actualTeam->tournament_id;
+        }
+
         // --- Return the View ---
-        // Pass the filtered roles for the select dropdowns
-        // Pass the current members with their pivot data
-        // Pass the calculated available users
         return view('backend.pages.actual_teams.edit', compact(
             'actualTeam',
             'organizations',
             'tournaments',
+            'selectedTournamentIds',
             'availableRolesForSelection',
-            'allRolesForCombobox',        // All roles available for existing members' role changes
+            'allRolesForCombobox',
             'availableUsers',
-            'currentMembers', // This is the array of all current members with pivot data
-            'currentPlayerMembers', // This is the array of current members filtered to be only players
+            'currentMembers',
+            'currentPlayerMembers',
             'currentStaffMembers',
-            'registeredPlayersForCaptain', // Approved registered players with linked users
-            'teamAuction', // Auction for this team's tournament
-            'availableAuctions' // All available auctions for linking
+            'registeredPlayersForCaptain',
+            'teamAuction',
+            'availableAuctions'
         ));
     }
 
@@ -489,7 +493,8 @@ class ActualTeamController extends Controller
             'short_name' => 'nullable|string|max:50',
             'location' => 'nullable|string|max:100',
             'organization_id' => 'required|exists:organizations,id',
-            'tournament_id' => 'required|exists:tournaments,id',
+            'tournament_ids' => 'required|array|min:1',
+            'tournament_ids.*' => 'exists:tournaments,id',
             'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'sponsor_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'captain_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
@@ -529,9 +534,15 @@ class ActualTeamController extends Controller
             $validated['captain_image'] = $processedPath ?? $captainImagePath;
         }
 
-        // 4. Update the main team details (exclude captain_user_id as it's not a column)
-        $teamData = collect($validated)->except('captain_user_id')->toArray();
+        // 4. Update the main team details
+        $tournamentIds = $validated['tournament_ids'];
+        $teamData = collect($validated)->except(['captain_user_id', 'tournament_ids'])->toArray();
+        // Set primary tournament_id to first selected
+        $teamData['tournament_id'] = $tournamentIds[0];
         $actualTeam->update($teamData);
+
+        // Sync multi-tournament pivot
+        $actualTeam->tournaments()->sync($tournamentIds);
 
         // 5. Handle Captain Assignment
         if ($request->filled('captain_user_id')) {

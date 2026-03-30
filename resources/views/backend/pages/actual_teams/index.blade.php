@@ -27,14 +27,21 @@
             <!-- ======================================================= -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
                 <form action="{{ route('admin.actual-teams.index') }}" method="GET">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+
+                        {{-- Team Name Search --}}
+                        <div>
+                            <label for="search"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Team</label>
+                            <input type="text" name="search" id="search" value="{{ request('search') }}"
+                                placeholder="Team name..." class="form-control mt-1">
+                        </div>
 
                         {{-- Organization Filter (Only for Superadmins) --}}
                         @if (auth()->user()->hasRole('Superadmin'))
                             <div>
                                 <label for="organization_id"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter by
-                                    Organization</label>
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization</label>
                                 <select name="organization_id" id="organization_id" class="form-control mt-1">
                                     <option value="">All Organizations</option>
                                     @foreach ($organizations as $organization)
@@ -50,8 +57,7 @@
                         {{-- Tournament Filter --}}
                         <div>
                             <label for="tournament_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter by
-                                Tournament</label>
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament</label>
                             <select name="tournament_id" id="tournament_id" class="form-control mt-1">
                                 <option value="">All Tournaments</option>
                                 @foreach ($tournaments as $tournament)
@@ -88,6 +94,7 @@
                                 @if (auth()->user()->hasRole('Superadmin'))
                                     <th class="px-4 py-3">Organization</th>
                                 @endif
+                                <th class="px-4 py-3">Tournaments</th>
                                 <th class="px-4 py-3">Total</th>
                                 <th class="px-4 py-3">Spent</th>
                                 <th class="px-4 py-3">Balance</th>
@@ -116,6 +123,23 @@
                                     @if (auth()->user()->hasRole('Superadmin'))
                                         <td class="px-4 py-3">{{ $team->organization->name ?? '-' }}</td>
                                     @endif
+                                    <td class="px-4 py-3">
+                                        <div class="flex flex-wrap gap-1">
+                                            @forelse ($team->tournaments as $t)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                                    {{ Str::limit($t->name, 20) }}
+                                                </span>
+                                            @empty
+                                                @if ($team->tournament)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                                        {{ Str::limit($team->tournament->name, 20) }}
+                                                    </span>
+                                                @else
+                                                    <span class="text-gray-400">-</span>
+                                                @endif
+                                            @endforelse
+                                        </div>
+                                    </td>
                                     <td class="px-4 py-3">
                                         {{ $teamBudgets[$team->id]['max_budget'] ?? '-' }}
                                     </td>
@@ -196,7 +220,7 @@
                             @empty
                                 <tr>
                                     {{-- Dynamic colspan for the empty state --}}
-                                    <td colspan="{{ auth()->user()->hasRole('Superadmin') ? '6' : '5' }}"
+                                    <td colspan="{{ auth()->user()->hasRole('Superadmin') ? '9' : '8' }}"
                                         class="px-4 py-6 text-center text-gray-500">
                                         {{ __('No teams found matching your criteria.') }}
                                     </td>

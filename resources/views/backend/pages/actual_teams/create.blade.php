@@ -89,19 +89,23 @@
                             @enderror
                         </div>
 
-                        {{-- Tournament --}}
+                        {{-- Tournaments (Multi-Select) --}}
                         <div>
-                            <label for="tournament_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament <span
+                            <label for="tournament_ids"
+                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournaments <span
                                     class="text-red-500">*</span></label>
-                            <select id="tournament_id" name="tournament_id" required class="form-control mt-1">
-                                <option value="">Select Tournament</option>
+                            <select id="tournament_ids" name="tournament_ids[]" required multiple
+                                class="form-control mt-1" size="{{ min(count($tournaments), 6) }}">
                                 @foreach ($tournaments as $t)
                                     <option value="{{ $t->id }}"
-                                        {{ old('tournament_id') == $t->id ? 'selected' : '' }}>{{ $t->name }}</option>
+                                        {{ in_array($t->id, old('tournament_ids', [])) ? 'selected' : '' }}>{{ $t->name }}</option>
                                 @endforeach
                             </select>
-                            @error('tournament_id')
+                            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple tournaments</p>
+                            @error('tournament_ids')
+                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                            @error('tournament_ids.*')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
                         </div>
