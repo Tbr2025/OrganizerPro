@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Ground;
 use App\Models\Matches;
 use App\Models\Tournament;
+use App\Models\TournamentTemplate;
 use App\Services\Poster\MatchPosterService;
 use App\Services\Tournament\FixtureGeneratorService;
 use Carbon\Carbon;
@@ -53,6 +54,11 @@ class TournamentFixtureController extends Controller
 
         $teams = $tournament->actualTeams;
 
+        $posterTemplates = $tournament->templates()
+            ->where('type', TournamentTemplate::TYPE_MATCH_POSTER)
+            ->where('is_active', true)
+            ->get();
+
         return view('backend.pages.tournaments.fixtures.index', [
             'tournament' => $tournament,
             'matches' => $matches,
@@ -60,6 +66,7 @@ class TournamentFixtureController extends Controller
             'groups' => $tournament->groups,
             'grounds' => $grounds,
             'teams' => $teams,
+            'posterTemplates' => $posterTemplates,
             'breadcrumbs' => [
                 'title' => __('Fixtures'),
                 'items' => [
@@ -174,12 +181,25 @@ class TournamentFixtureController extends Controller
         return redirect()->back()->with('success', __('Match cancelled.'));
     }
 
-    public function generatePoster(Tournament $tournament, Matches $match): RedirectResponse
+    public function generatePoster(Request $request, Tournament $tournament, Matches $match): RedirectResponse
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
         try {
-            if ($match->isHighStakes()) {
+            $templateId = $request->input('template_id');
+
+            if ($templateId === 'enhanced') {
+                $enhancedService = new \App\Services\Poster\EnhancedMatchPosterService();
+                $path = $enhancedService->generate($match);
+            } elseif ($templateId) {
+                $template = $tournament->templates()->find($templateId);
+                if ($template) {
+                    $enhancedService = new \App\Services\Poster\EnhancedMatchPosterService();
+                    $path = $enhancedService->generateFromTemplate($match, $template);
+                } else {
+                    $path = $this->posterService->generate($match);
+                }
+            } elseif ($match->isHighStakes()) {
                 $path = $this->posterService->generateFinalsPosters($match);
             } else {
                 $path = $this->posterService->generate($match);

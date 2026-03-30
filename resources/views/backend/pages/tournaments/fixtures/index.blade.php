@@ -204,7 +204,7 @@
                                             team_b_id: '{{ $match->team_b_id }}',
                                             stage: '{{ $match->stage }}',
                                             date: '{{ $match->match_date ? \Carbon\Carbon::parse($match->match_date)->format('Y-m-d') : '' }}',
-                                            start_time: '{{ $match->start_time }}',
+                                            start_time: '{{ $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('H:i') : '' }}',
                                             ground_id: '{{ $match->ground_id }}',
                                             group_id: '{{ $match->tournament_group_id }}',
                                             overs: '{{ $match->overs }}'
@@ -213,14 +213,41 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                             </svg>
                                         </button>
-                                        <form action="{{ route('admin.tournaments.fixtures.generate-poster', [$tournament, $match]) }}" method="POST" class="inline">
-                                            @csrf
-                                            <button type="submit" class="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 rounded" title="{{ $match->poster_image ? 'Regenerate Poster' : 'Generate Poster' }}">
+                                        <div x-data="{ openTpl: false }" class="relative inline-block">
+                                            <button @click="openTpl = !openTpl" type="button"
+                                                class="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 rounded"
+                                                title="{{ $match->poster_image ? 'Regenerate Poster' : 'Generate Poster' }}">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                 </svg>
                                             </button>
-                                        </form>
+                                            <div x-show="openTpl" @click.away="openTpl = false" x-cloak
+                                                class="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-20 border dark:border-gray-700">
+                                                <div class="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase">Generate with</div>
+                                                <form action="{{ route('admin.tournaments.fixtures.generate-poster', [$tournament, $match]) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                        Default
+                                                    </button>
+                                                </form>
+                                                <form action="{{ route('admin.tournaments.fixtures.generate-poster', [$tournament, $match]) }}" method="POST">
+                                                    @csrf
+                                                    <input type="hidden" name="template_id" value="enhanced">
+                                                    <button type="submit" class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                        Enhanced Style
+                                                    </button>
+                                                </form>
+                                                @foreach($posterTemplates as $tpl)
+                                                    <form action="{{ route('admin.tournaments.fixtures.generate-poster', [$tournament, $match]) }}" method="POST">
+                                                        @csrf
+                                                        <input type="hidden" name="template_id" value="{{ $tpl->id }}">
+                                                        <button type="submit" class="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                            {{ $tpl->name }}
+                                                        </button>
+                                                    </form>
+                                                @endforeach
+                                            </div>
+                                        </div>
                                         @if($match->status !== 'completed')
                                             <form action="{{ route('admin.tournaments.fixtures.destroy', [$tournament, $match]) }}" method="POST" class="inline"
                                                   onsubmit="return confirm('Delete this match? This cannot be undone.')">
@@ -548,37 +575,35 @@ function fixtureManager() {
         editDateFp: null,
         editTimeFp: null,
         initEditPickers() {
-            this.$nextTick(() => {
-                if (!this.editDateFp && this.$refs.editDatePicker) {
-                    this.editDateFp = flatpickr(this.$refs.editDatePicker, {
-                        enableTime: false,
-                        dateFormat: 'Y-m-d',
-                        altInput: true,
-                        altFormat: 'F j, Y',
-                        disableMobile: true,
-                        static: true,
-                        locale: { firstDayOfWeek: 1 },
-                        onChange: (selectedDates, dateStr) => {
-                            this.editMatch.date = dateStr;
-                        }
-                    });
-                }
-                if (!this.editTimeFp && this.$refs.editTimePicker) {
-                    this.editTimeFp = flatpickr(this.$refs.editTimePicker, {
-                        enableTime: true,
-                        noCalendar: true,
-                        dateFormat: 'H:i',
-                        altInput: true,
-                        altFormat: 'h:i K',
-                        time_24hr: false,
-                        disableMobile: true,
-                        static: true,
-                        onChange: (selectedDates, dateStr) => {
-                            this.editMatch.start_time = dateStr;
-                        }
-                    });
-                }
-            });
+            if (!this.editDateFp && this.$refs.editDatePicker) {
+                this.editDateFp = flatpickr(this.$refs.editDatePicker, {
+                    enableTime: false,
+                    dateFormat: 'Y-m-d',
+                    altInput: true,
+                    altFormat: 'F j, Y',
+                    disableMobile: true,
+                    static: true,
+                    locale: { firstDayOfWeek: 1 },
+                    onChange: (selectedDates, dateStr) => {
+                        this.editMatch.date = dateStr;
+                    }
+                });
+            }
+            if (!this.editTimeFp && this.$refs.editTimePicker) {
+                this.editTimeFp = flatpickr(this.$refs.editTimePicker, {
+                    enableTime: true,
+                    noCalendar: true,
+                    dateFormat: 'H:i',
+                    altInput: true,
+                    altFormat: 'h:i K',
+                    time_24hr: false,
+                    disableMobile: true,
+                    static: true,
+                    onChange: (selectedDates, dateStr) => {
+                        this.editMatch.start_time = dateStr;
+                    }
+                });
+            }
         },
         openAddModal() {
             this.showAddModal = true;
