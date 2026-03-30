@@ -37,17 +37,21 @@ class ActualTeamController extends Controller
         // Base query — eager load tournaments pivot as well
         $query = ActualTeam::with(['organization', 'tournament', 'auction', 'tournaments']);
 
-        // Filter teams based on user role
+        // Filter teams based on user role (priority: Superadmin > Admin/Organizer > Team Manager)
         if ($user->hasRole('Superadmin')) {
             // Superadmin sees all teams
             $query->applyFilters($filters);
+        } elseif ($user->hasRole(['Admin', 'Organizer'])) {
+            // Admin/Organizer sees teams in their organization
+            $query->where('organization_id', $user->organization_id);
+            $query->applyFilters($filters);
         } elseif ($user->hasRole('Team Manager')) {
-            // Team Manager sees only their assigned teams
+            // Team Manager (only) sees only their assigned teams
             $teamIds = $user->actualTeams->pluck('id')->toArray();
             $query->whereIn('id', $teamIds);
             $query->applyFilters($filters);
         } else {
-            // Admin/Organizer sees teams in their organization
+            // Fallback: scope to own organization
             $query->where('organization_id', $user->organization_id);
             $query->applyFilters($filters);
         }
@@ -59,13 +63,13 @@ class ActualTeamController extends Controller
         $editableTeamIds = [];
         $teamManagerTeamIds = [];
         if ($user->hasRole('Superadmin')) {
-            // Superadmin can edit all teams
+            $editableTeamIds = $actualTeams->pluck('id')->toArray();
+        } elseif ($user->hasRole(['Admin', 'Organizer'])) {
             $editableTeamIds = $actualTeams->pluck('id')->toArray();
         } elseif ($user->hasRole('Team Manager')) {
             $editableTeamIds = $user->actualTeams->pluck('id')->toArray();
             $teamManagerTeamIds = $editableTeamIds;
         } else {
-            // Regular admins can edit teams in their organization
             $editableTeamIds = $actualTeams->pluck('id')->toArray();
         }
 
@@ -73,6 +77,9 @@ class ActualTeamController extends Controller
         if ($user->hasRole('Superadmin')) {
             $organizations = Organization::orderBy('name')->get();
             $tournaments = Tournament::orderBy('name')->get();
+        } elseif ($user->hasRole(['Admin', 'Organizer'])) {
+            $organizations = Organization::where('id', $user->organization_id)->get();
+            $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
         } elseif ($user->hasRole('Team Manager')) {
             $managedTeams = $user->actualTeams;
             $organizationIds = $managedTeams->pluck('organization_id')->unique();
