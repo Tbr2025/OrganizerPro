@@ -38,11 +38,11 @@ class ActualTeamController extends Controller
         $query = ActualTeam::with(['organization', 'tournament', 'auction', 'tournaments']);
 
         // Filter teams based on user role
-        if ($user->hasRole('Superadmin')) {
-            // Superadmin sees all teams
+        if ($user->hasRole('Superadmin') || $user->hasRole('Admin')) {
+            // Superadmin and Admin see all teams
             $query->applyFilters($filters);
         } else {
-            // Everyone else sees only their assigned teams (via actual_team_users pivot)
+            // Team Manager and others see only their assigned teams (via actual_team_users pivot)
             $teamIds = $user->actualTeams->pluck('id')->toArray();
             $query->whereIn('id', $teamIds);
             $query->applyFilters($filters);
@@ -54,16 +54,16 @@ class ActualTeamController extends Controller
         // Editable teams based on role
         $editableTeamIds = [];
         $teamManagerTeamIds = [];
-        if ($user->hasRole('Superadmin')) {
+        if ($user->hasRole('Superadmin') || $user->hasRole('Admin')) {
             $editableTeamIds = $actualTeams->pluck('id')->toArray();
         } else {
-            // Users can edit their assigned teams
+            // Team Manager can edit their assigned teams
             $editableTeamIds = $user->actualTeams->pluck('id')->toArray();
             $teamManagerTeamIds = $editableTeamIds;
         }
 
         // Prepare filter dropdowns
-        if ($user->hasRole('Superadmin')) {
+        if ($user->hasRole('Superadmin') || $user->hasRole('Admin')) {
             $organizations = Organization::orderBy('name')->get();
             $tournaments = Tournament::orderBy('name')->get();
         } else {
