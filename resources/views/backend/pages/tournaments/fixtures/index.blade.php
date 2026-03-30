@@ -49,12 +49,28 @@
                     </form>
                 </div>
             </div>
-            <form action="{{ route('admin.tournaments.fixtures.bulk-posters', $tournament) }}" method="POST" class="inline">
-                @csrf
-                <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm">
-                    Generate All Posters
+            <div x-data="{ openPosterMenu: false }" class="relative">
+                <button @click="openPosterMenu = !openPosterMenu" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm inline-flex items-center gap-1">
+                    Posters
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-            </form>
+                <div x-show="openPosterMenu" @click.away="openPosterMenu = false" x-cloak class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 z-10">
+                    <form action="{{ route('admin.tournaments.fixtures.bulk-posters', $tournament) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
+                            Generate Missing Posters
+                        </button>
+                    </form>
+                    <form action="{{ route('admin.tournaments.fixtures.bulk-posters', $tournament) }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="regenerate" value="1">
+                        <button type="submit" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-orange-600 dark:text-orange-400"
+                                onclick="return confirm('Regenerate ALL posters? This will overwrite existing ones.')">
+                            Regenerate All Posters
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -80,8 +96,8 @@
             <div class="text-sm text-gray-500">Upcoming</div>
         </div>
         <div class="card p-4">
-            <div class="text-2xl font-bold text-red-600">{{ $matches->where('is_cancelled', true)->count() }}</div>
-            <div class="text-sm text-gray-500">Cancelled</div>
+            <div class="text-2xl font-bold text-purple-600">{{ $matches->whereNotNull('poster_image')->count() }}/{{ $matches->count() }}</div>
+            <div class="text-sm text-gray-500">Posters</div>
         </div>
     </div>
 
@@ -95,84 +111,129 @@
                 </div>
                 <div class="divide-y dark:divide-gray-700">
                     @foreach($stageMatches as $match)
-                        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 {{ $match->is_cancelled ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
-                            <div class="flex items-center gap-4">
-                                <span class="text-gray-400 text-sm font-medium">#{{ $match->match_number }}</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ $match->teamA?->name ?? 'TBD' }}</span>
-                                    <span class="text-gray-400">vs</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ $match->teamB?->name ?? 'TBD' }}</span>
-                                </div>
-                                @if($match->group)
-                                    <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded">
-                                        {{ $match->group->name }}
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="flex items-center gap-4">
-                                <div class="text-sm text-gray-500">
-                                    @if($match->match_date)
-                                        {{ \Carbon\Carbon::parse($match->match_date)->format('M d, Y') }}
-                                        @if($match->start_time)
-                                            @ {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
-                                        @endif
-                                    @else
-                                        <span class="text-yellow-600">Not scheduled</span>
+                        <div class="p-4 {{ $match->is_cancelled ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
+                            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                {{-- Left: Match info with team logos --}}
+                                <div class="flex items-center gap-4 flex-1 min-w-0">
+                                    <span class="text-gray-400 text-sm font-mono w-8 flex-shrink-0">#{{ $match->match_number }}</span>
+
+                                    {{-- Team A --}}
+                                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                                        <div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                            @if($match->teamA?->team_logo)
+                                                <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="" class="w-7 h-7 object-contain">
+                                            @else
+                                                <span class="text-xs font-bold text-gray-400">{{ substr($match->teamA?->display_name ?? '?', 0, 2) }}</span>
+                                            @endif
+                                        </div>
+                                        <span class="font-semibold text-gray-900 dark:text-white truncate">{{ $match->teamA?->name ?? 'TBD' }}</span>
+                                    </div>
+
+                                    <span class="text-xs font-bold text-gray-400 px-2">VS</span>
+
+                                    {{-- Team B --}}
+                                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                                        <div class="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                            @if($match->teamB?->team_logo)
+                                                <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="" class="w-7 h-7 object-contain">
+                                            @else
+                                                <span class="text-xs font-bold text-gray-400">{{ substr($match->teamB?->display_name ?? '?', 0, 2) }}</span>
+                                            @endif
+                                        </div>
+                                        <span class="font-semibold text-gray-900 dark:text-white truncate">{{ $match->teamB?->name ?? 'TBD' }}</span>
+                                    </div>
+
+                                    @if($match->group)
+                                        <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded flex-shrink-0">
+                                            {{ $match->group->name }}
+                                        </span>
                                     @endif
                                 </div>
-                                @if($match->is_cancelled)
-                                    <span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">Cancelled</span>
-                                @elseif($match->status === 'completed')
-                                    <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Completed</span>
-                                @elseif($match->status === 'live')
-                                    <span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded animate-pulse">Live</span>
-                                @else
-                                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded">Upcoming</span>
-                                @endif
-                                <div class="flex gap-1">
-                                    <button @click="openEditModal({
-                                        id: {{ $match->id }},
-                                        team_a_id: '{{ $match->team_a_id }}',
-                                        team_b_id: '{{ $match->team_b_id }}',
-                                        stage: '{{ $match->stage }}',
-                                        date: '{{ $match->match_date ? \Carbon\Carbon::parse($match->match_date)->format('Y-m-d') : '' }}',
-                                        start_time: '{{ $match->start_time }}',
-                                        ground_id: '{{ $match->ground_id }}',
-                                        group_id: '{{ $match->tournament_group_id }}',
-                                        overs: '{{ $match->overs }}'
-                                    })" class="p-1 text-gray-400 hover:text-blue-500" title="Edit Match">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                        </svg>
-                                    </button>
-                                    <form action="{{ route('admin.tournaments.fixtures.generate-poster', [$tournament, $match]) }}" method="POST" class="inline">
-                                        @csrf
-                                        <button type="submit" class="p-1 text-gray-400 hover:text-green-500" title="{{ $match->poster_image ? 'Regenerate Poster' : 'Generate Poster' }}">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+                                {{-- Right: Date, status, poster, actions --}}
+                                <div class="flex items-center gap-3 flex-shrink-0">
+                                    {{-- Date --}}
+                                    <div class="text-sm text-gray-500 text-right min-w-[120px]">
+                                        @if($match->match_date)
+                                            {{ \Carbon\Carbon::parse($match->match_date)->format('M d, Y') }}
+                                            @if($match->start_time)
+                                                <br><span class="text-xs">{{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}</span>
+                                            @endif
+                                        @else
+                                            <span class="text-yellow-600">Not scheduled</span>
+                                        @endif
+                                    </div>
+
+                                    {{-- Status --}}
+                                    @if($match->is_cancelled)
+                                        <span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">Cancelled</span>
+                                    @elseif($match->status === 'completed')
+                                        <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Completed</span>
+                                    @elseif($match->status === 'live')
+                                        <span class="px-2 py-1 text-xs bg-red-100 text-red-700 rounded animate-pulse">Live</span>
+                                    @else
+                                        <span class="px-2 py-1 text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded">Upcoming</span>
+                                    @endif
+
+                                    {{-- Poster thumbnail --}}
+                                    @if($match->poster_image)
+                                        <button type="button"
+                                            @click="posterUrl = '{{ asset('storage/' . $match->poster_image) }}'; posterMatch = '#{{ $match->match_number }} {{ $match->teamA?->name ?? 'TBD' }} vs {{ $match->teamB?->name ?? 'TBD' }}'; showPosterModal = true"
+                                            class="relative group flex-shrink-0" title="View Poster">
+                                            <img src="{{ asset('storage/' . $match->poster_image) }}" alt="Poster" class="w-10 h-10 rounded object-cover border border-gray-200 dark:border-gray-700 group-hover:ring-2 group-hover:ring-green-500 transition">
+                                            <span class="absolute inset-0 flex items-center justify-center bg-black/40 rounded opacity-0 group-hover:opacity-100 transition">
+                                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                </svg>
+                                            </span>
+                                        </button>
+                                    @else
+                                        <div class="w-10 h-10 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0" title="No poster">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                             </svg>
-                                        </button>
-                                    </form>
-                                    @if($match->poster_image)
-                                        <button type="button" @click="posterUrl = '{{ asset('storage/' . $match->poster_image) }}'; posterMatch = '#{{ $match->match_number }} {{ $match->teamA?->name ?? 'TBD' }} vs {{ $match->teamB?->name ?? 'TBD' }}'; showPosterModal = true" class="p-1 text-green-500 hover:text-green-700" title="View Poster">
+                                        </div>
+                                    @endif
+
+                                    {{-- Actions --}}
+                                    <div class="flex gap-1">
+                                        <button @click="openEditModal({
+                                            id: {{ $match->id }},
+                                            team_a_id: '{{ $match->team_a_id }}',
+                                            team_b_id: '{{ $match->team_b_id }}',
+                                            stage: '{{ $match->stage }}',
+                                            date: '{{ $match->match_date ? \Carbon\Carbon::parse($match->match_date)->format('Y-m-d') : '' }}',
+                                            start_time: '{{ $match->start_time }}',
+                                            ground_id: '{{ $match->ground_id }}',
+                                            group_id: '{{ $match->tournament_group_id }}',
+                                            overs: '{{ $match->overs }}'
+                                        })" class="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded" title="Edit Match">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                             </svg>
                                         </button>
-                                    @endif
-                                    @if($match->status !== 'completed')
-                                        <form action="{{ route('admin.tournaments.fixtures.destroy', [$tournament, $match]) }}" method="POST" class="inline"
-                                              onsubmit="return confirm('Delete this match? This cannot be undone.')">
+                                        <form action="{{ route('admin.tournaments.fixtures.generate-poster', [$tournament, $match]) }}" method="POST" class="inline">
                                             @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="p-1 text-gray-400 hover:text-red-500" title="Delete Match">
+                                            <button type="submit" class="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30 rounded" title="{{ $match->poster_image ? 'Regenerate Poster' : 'Generate Poster' }}">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                 </svg>
                                             </button>
                                         </form>
-                                    @endif
+                                        @if($match->status !== 'completed')
+                                            <form action="{{ route('admin.tournaments.fixtures.destroy', [$tournament, $match]) }}" method="POST" class="inline"
+                                                  onsubmit="return confirm('Delete this match? This cannot be undone.')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="Delete Match">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                    </svg>
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -333,6 +394,26 @@
         </div>
     </div>
 
+    <!-- Poster Preview Modal -->
+    <div x-show="showPosterModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="showPosterModal = false">
+        <div class="fixed inset-0 bg-black/70" @click="showPosterModal = false"></div>
+        <div class="relative max-w-3xl w-full" @click.away="showPosterModal = false">
+            <div class="absolute -top-10 left-0 right-0 flex items-center justify-between">
+                <span class="text-white font-semibold text-sm" x-text="posterMatch"></span>
+                <div class="flex items-center gap-3">
+                    <a :href="posterUrl" download class="text-white/80 hover:text-white text-sm flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download
+                    </a>
+                    <button @click="showPosterModal = false" class="text-white/80 hover:text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <img :src="posterUrl" alt="Match Poster" class="w-full rounded-lg shadow-2xl">
+        </div>
+    </div>
+
     <!-- Edit Match Modal -->
     <div x-show="showEditModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen px-4">
@@ -443,6 +524,9 @@ function fixtureManager() {
     return {
         showAddModal: false,
         showEditModal: false,
+        showPosterModal: false,
+        posterUrl: '',
+        posterMatch: '',
         editMatch: {
             id: null,
             team_a_id: '',

@@ -210,16 +210,21 @@ class TournamentFixtureController extends Controller
         return redirect()->back()->with('success', __(':count group stage matches deleted.', ['count' => $deleted]));
     }
 
-    public function bulkGeneratePosters(Tournament $tournament): RedirectResponse
+    public function bulkGeneratePosters(Request $request, Tournament $tournament): RedirectResponse
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        $matches = $tournament->matches()
-            ->whereNull('poster_image')
-            ->where('is_cancelled', false)
-            ->get();
+        $query = $tournament->matches()->where('is_cancelled', false);
+
+        // If not forcing regeneration, only generate missing posters
+        if (!$request->boolean('regenerate')) {
+            $query->whereNull('poster_image');
+        }
+
+        $matches = $query->get();
 
         $generated = 0;
+        $failed = 0;
         foreach ($matches as $match) {
             try {
                 if ($match->isHighStakes()) {
@@ -229,12 +234,20 @@ class TournamentFixtureController extends Controller
                 }
                 $generated++;
             } catch (\Exception $e) {
-                // Log error but continue
+                $failed++;
                 \Log::error("Failed to generate poster for match {$match->id}: " . $e->getMessage());
             }
         }
 
-        return redirect()->back()->with('success', __(':count match posters generated.', ['count' => $generated]));
+        $message = $generated . ' poster(s) generated.';
+        if ($failed > 0) {
+            $message .= ' ' . $failed . ' failed.';
+        }
+        if ($generated === 0 && $failed === 0) {
+            $message = 'All matches already have posters. Use "Regenerate All" to recreate them.';
+        }
+
+        return redirect()->back()->with('success', $message);
     }
 
     public function store(Request $request, Tournament $tournament): RedirectResponse
