@@ -395,22 +395,26 @@
     </div>
 
     <!-- Poster Preview Modal -->
-    <div x-show="showPosterModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" @keydown.escape.window="showPosterModal = false">
-        <div class="fixed inset-0 bg-black/70" @click="showPosterModal = false"></div>
-        <div class="relative max-w-3xl w-full" @click.away="showPosterModal = false">
-            <div class="absolute -top-10 left-0 right-0 flex items-center justify-between">
-                <span class="text-white font-semibold text-sm" x-text="posterMatch"></span>
-                <div class="flex items-center gap-3">
-                    <a :href="posterUrl" download class="text-white/80 hover:text-white text-sm flex items-center gap-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                        Download
-                    </a>
-                    <button @click="showPosterModal = false" class="text-white/80 hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
+    <div x-show="showPosterModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape.window="showPosterModal = false">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="fixed inset-0 bg-black/80" @click="showPosterModal = false"></div>
+            <div class="relative max-w-md w-full">
+                {{-- Header bar --}}
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-white font-semibold text-sm truncate mr-4" x-text="posterMatch"></span>
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <a :href="posterUrl" download class="text-white/80 hover:text-white text-sm flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Download
+                        </a>
+                        <button @click="showPosterModal = false" class="text-white/80 hover:text-white">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
                 </div>
+                {{-- Poster image --}}
+                <img :src="posterUrl" alt="Match Poster" class="w-full rounded-lg shadow-2xl">
             </div>
-            <img :src="posterUrl" alt="Match Poster" class="w-full rounded-lg shadow-2xl">
         </div>
     </div>
 
