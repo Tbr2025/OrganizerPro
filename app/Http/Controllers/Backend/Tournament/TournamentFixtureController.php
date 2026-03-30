@@ -54,11 +54,6 @@ class TournamentFixtureController extends Controller
 
         $teams = $tournament->actualTeams;
 
-        $posterTemplates = $tournament->templates()
-            ->where('type', TournamentTemplate::TYPE_MATCH_POSTER)
-            ->where('is_active', true)
-            ->get();
-
         return view('backend.pages.tournaments.fixtures.index', [
             'tournament' => $tournament,
             'matches' => $matches,
@@ -66,7 +61,6 @@ class TournamentFixtureController extends Controller
             'groups' => $tournament->groups,
             'grounds' => $grounds,
             'teams' => $teams,
-            'posterTemplates' => $posterTemplates,
             'breadcrumbs' => [
                 'title' => __('Fixtures'),
                 'items' => [
@@ -186,19 +180,12 @@ class TournamentFixtureController extends Controller
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
         try {
-            $templateId = $request->input('template_id');
+            // Use default match poster template if one is set
+            $template = $tournament->getTemplate(TournamentTemplate::TYPE_MATCH_POSTER);
 
-            if ($templateId === 'enhanced') {
+            if ($template) {
                 $enhancedService = new \App\Services\Poster\EnhancedMatchPosterService();
-                $path = $enhancedService->generate($match);
-            } elseif ($templateId) {
-                $template = $tournament->templates()->find($templateId);
-                if ($template) {
-                    $enhancedService = new \App\Services\Poster\EnhancedMatchPosterService();
-                    $path = $enhancedService->generateFromTemplate($match, $template);
-                } else {
-                    $path = $this->posterService->generate($match);
-                }
+                $path = $enhancedService->generateFromTemplate($match, $template);
             } elseif ($match->isHighStakes()) {
                 $path = $this->posterService->generateFinalsPosters($match);
             } else {
@@ -243,11 +230,17 @@ class TournamentFixtureController extends Controller
 
         $matches = $query->get();
 
+        // Use default match poster template if one is set
+        $template = $tournament->getTemplate(TournamentTemplate::TYPE_MATCH_POSTER);
+        $enhancedService = $template ? new \App\Services\Poster\EnhancedMatchPosterService() : null;
+
         $generated = 0;
         $failed = 0;
         foreach ($matches as $match) {
             try {
-                if ($match->isHighStakes()) {
+                if ($template) {
+                    $enhancedService->generateFromTemplate($match, $template);
+                } elseif ($match->isHighStakes()) {
                     $this->posterService->generateFinalsPosters($match);
                 } else {
                     $this->posterService->generate($match);
