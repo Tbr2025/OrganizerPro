@@ -251,18 +251,16 @@
                         </div>
 
                         <div>
-                            <label for="tournament_ids"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournaments</label>
-                            <select id="tournament_ids" name="tournament_ids[]" required multiple
-                                class="form-control mt-1" size="{{ min(count($tournaments), 6) }}">
-                                @foreach ($tournaments as $t)
-                                    <option value="{{ $t->id }}"
-                                        {{ in_array($t->id, old('tournament_ids', $selectedTournamentIds)) ? 'selected' : '' }}>
-                                        {{ $t->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple tournaments. First selected = primary tournament.</p>
+                            <x-inputs.combobox
+                                name="tournament_ids[]"
+                                label="Tournaments"
+                                placeholder="Select Tournaments"
+                                :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name])->toArray()"
+                                :selected="old('tournament_ids', array_map('strval', $selectedTournamentIds))"
+                                :multiple="true"
+                                :searchable="true"
+                                :required="true"
+                            />
                             @error('tournament_ids')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
@@ -577,22 +575,27 @@
                 });
             }
 
-            // Change tournament and save
+            // Change tournament and save — inject a hidden input for the tournament and submit
             function changeTournament(tournamentId) {
                 if (!confirm('Add this auction\'s tournament to the team? The page will reload after saving.')) {
                     return;
                 }
 
-                const tournamentSelect = document.getElementById('tournament_ids');
-                if (tournamentSelect) {
-                    // Select the tournament in the multi-select (add it without deselecting others)
-                    for (let option of tournamentSelect.options) {
-                        if (option.value == tournamentId) {
-                            option.selected = true;
-                        }
+                const form = document.getElementById('team-form');
+                if (form) {
+                    // Check if this tournament is already in the form as a hidden input
+                    const existing = form.querySelectorAll('input[name^="tournament_ids"]');
+                    let found = false;
+                    existing.forEach(el => { if (el.value == tournamentId) found = true; });
+
+                    if (!found) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'tournament_ids[' + existing.length + ']';
+                        input.value = tournamentId;
+                        form.appendChild(input);
                     }
-                    // Submit the form
-                    document.getElementById('team-form').submit();
+                    form.submit();
                 }
             }
 

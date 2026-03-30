@@ -91,17 +91,16 @@
 
                         {{-- Tournaments (Multi-Select) --}}
                         <div>
-                            <label for="tournament_ids"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournaments <span
-                                    class="text-red-500">*</span></label>
-                            <select id="tournament_ids" name="tournament_ids[]" required multiple
-                                class="form-control mt-1" size="{{ min(count($tournaments), 6) }}">
-                                @foreach ($tournaments as $t)
-                                    <option value="{{ $t->id }}"
-                                        {{ in_array($t->id, old('tournament_ids', [])) ? 'selected' : '' }}>{{ $t->name }}</option>
-                                @endforeach
-                            </select>
-                            <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple tournaments</p>
+                            <x-inputs.combobox
+                                name="tournament_ids[]"
+                                label="Tournaments"
+                                placeholder="Select Tournaments"
+                                :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name])->toArray()"
+                                :selected="old('tournament_ids', [])"
+                                :multiple="true"
+                                :searchable="true"
+                                :required="true"
+                            />
                             @error('tournament_ids')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
