@@ -37,22 +37,14 @@ class ActualTeamController extends Controller
         // Base query — eager load tournaments pivot as well
         $query = ActualTeam::with(['organization', 'tournament', 'auction', 'tournaments']);
 
-        // Filter teams based on user role (priority: Superadmin > Admin/Organizer > Team Manager)
+        // Filter teams based on user role
         if ($user->hasRole('Superadmin')) {
             // Superadmin sees all teams
             $query->applyFilters($filters);
-        } elseif ($user->hasRole(['Admin', 'Organizer'])) {
-            // Admin/Organizer sees teams in their organization
-            $query->where('organization_id', $user->organization_id);
-            $query->applyFilters($filters);
-        } elseif ($user->hasRole('Team Manager')) {
-            // Team Manager (only) sees only their assigned teams
+        } else {
+            // Everyone else sees only their assigned teams (via actual_team_users pivot)
             $teamIds = $user->actualTeams->pluck('id')->toArray();
             $query->whereIn('id', $teamIds);
-            $query->applyFilters($filters);
-        } else {
-            // Fallback: scope to own organization
-            $query->where('organization_id', $user->organization_id);
             $query->applyFilters($filters);
         }
 
@@ -64,32 +56,23 @@ class ActualTeamController extends Controller
         $teamManagerTeamIds = [];
         if ($user->hasRole('Superadmin')) {
             $editableTeamIds = $actualTeams->pluck('id')->toArray();
-        } elseif ($user->hasRole(['Admin', 'Organizer'])) {
-            $editableTeamIds = $actualTeams->pluck('id')->toArray();
-        } elseif ($user->hasRole('Team Manager')) {
+        } else {
+            // Users can edit their assigned teams
             $editableTeamIds = $user->actualTeams->pluck('id')->toArray();
             $teamManagerTeamIds = $editableTeamIds;
-        } else {
-            $editableTeamIds = $actualTeams->pluck('id')->toArray();
         }
 
         // Prepare filter dropdowns
         if ($user->hasRole('Superadmin')) {
             $organizations = Organization::orderBy('name')->get();
             $tournaments = Tournament::orderBy('name')->get();
-        } elseif ($user->hasRole(['Admin', 'Organizer'])) {
-            $organizations = Organization::where('id', $user->organization_id)->get();
-            $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
-        } elseif ($user->hasRole('Team Manager')) {
+        } else {
             $managedTeams = $user->actualTeams;
             $organizationIds = $managedTeams->pluck('organization_id')->unique();
             $tournamentIds = $managedTeams->pluck('tournament_id')->unique();
 
             $organizations = Organization::whereIn('id', $organizationIds)->orderBy('name')->get();
             $tournaments = Tournament::whereIn('id', $tournamentIds)->orderBy('name')->get();
-        } else {
-            $organizations = Organization::where('id', $user->organization_id)->get();
-            $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
         }
 
         // Calculate total spent per team and auctioned players count
