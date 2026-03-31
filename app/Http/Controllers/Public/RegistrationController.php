@@ -48,6 +48,7 @@ class RegistrationController extends Controller
                       ->orWhere('organization_id', $tournament->organization_id);
             })->get(),
             'teams' => Team::where('tournament_id', $tournament->id)->get(),
+            'defaultCountry' => config('settings.default_country', ''),
         ]);
     }
 
@@ -63,6 +64,7 @@ class RegistrationController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+            'country' => 'nullable|string|max:2',
             'email' => 'required|email|max:255',
             'mobile_number_full' => 'required|string|max:20',
             'cricheroes_number_full' => 'nullable|string|max:20',

@@ -229,6 +229,9 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.create']);
 
+        $defaultCountry = config('settings.default_country', '');
+        $defaultDialCode = $defaultCountry ? config('countries.dial_codes.' . $defaultCountry, '+971') : '+971';
+
         return view('backend.pages.players.create', [
             'teams' => Team::all(),
             'actualTeams' => ActualTeam::all(),
@@ -237,6 +240,8 @@ class PlayerController extends Controller
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
+            'defaultCountry' => $defaultCountry,
+            'defaultDialCode' => $defaultDialCode,
             'breadcrumbs' => [
                 'title' => __('New Player'),
                 'items' => [['label' => __('Players'), 'url' => route('admin.players.index')]],
@@ -367,6 +372,7 @@ class PlayerController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+            'country' => 'nullable|string|max:2',
             'email' => 'required|email|unique:players,email',
             'mobile_country_code' => 'required|string|max:10',
             'mobile_national_number' => 'required|string|max:20',
@@ -554,6 +560,7 @@ class PlayerController extends Controller
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
             'templates' => ImageTemplate::all(),
+            'defaultCountry' => config('settings.default_country', ''),
             'breadcrumbs' => [
                 'title' => __('Edit Player'),
                 'items' => [
@@ -837,6 +844,7 @@ class PlayerController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+            'country' => 'nullable|string|max:2',
             'email' => 'required|email|unique:players,email,' . $player->id,
             'mobile_number_full' => 'required|string|max:20',
             'cricheroes_number_full' => 'required|string|max:20',
@@ -973,6 +981,7 @@ class PlayerController extends Controller
         // ✅ Assign validated fields
         $player->fill([
             'name' => $validated['name'],
+            'country' => $validated['country'] ?? null,
             'email' => $validated['email'],
             'total_matches' => $validated['total_matches'],
             'total_runs' => $validated['total_runs'],
@@ -1014,7 +1023,8 @@ class PlayerController extends Controller
         $player->verified_player_type_id = $request->boolean('verified_player_type_id');
         $player->verified_is_wicket_keeper = $request->boolean('verified_is_wicket_keeper');
         $player->verified_transportation_required = $request->boolean('verified_transportation_required');
-        $player->verified_no_travel_plan = $request->boolean('verified_no_travel_plan'); // ✅ add this line
+        $player->verified_no_travel_plan = $request->boolean('verified_no_travel_plan');
+        $player->verified_country = $request->boolean('verified_country');
 
 
         $player->save();

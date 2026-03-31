@@ -38,6 +38,22 @@
             </div>
         </div>
 
+        <div class="flex">
+            <div class="md:basis-1/2 relative">
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ __('Default Country') }}
+                </label>
+                <select name="default_country" class="form-control">
+                    <option value="">{{ __('-- Select Country --') }}</option>
+                    @foreach (config('countries.list', []) as $code => $name)
+                        <option value="{{ $code }}" {{ config('settings.default_country') === $code ? 'selected' : '' }}>
+                            {{ $name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <!-- Column 1: Site Logo Full Lite and Dark -->
             <div>

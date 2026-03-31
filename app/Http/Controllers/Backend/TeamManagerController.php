@@ -136,8 +136,10 @@ class TeamManagerController extends Controller
         $bowlingProfiles = BowlingProfile::all();
         $playerTypes = PlayerType::all();
 
+        $defaultCountry = config('settings.default_country', '');
+
         return view('backend.pages.team-manager.create-player', compact(
-            'team', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes'
+            'team', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry'
         ));
     }
 
@@ -156,6 +158,7 @@ class TeamManagerController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'country' => 'nullable|string|max:2',
             'email' => 'nullable|email|unique:players,email',
             'mobile_number_full' => 'nullable|string|max:20',
             'cricheroes_number_full' => 'nullable|string|max:20',
@@ -179,6 +182,7 @@ class TeamManagerController extends Controller
 
         $data = [
             'name' => $validated['name'],
+            'country' => $validated['country'] ?? null,
             'email' => $validated['email'] ?? null,
             'mobile_number_full' => $validated['mobile_number_full'] ?? null,
             'cricheroes_number_full' => $validated['cricheroes_number_full'] ?? null,

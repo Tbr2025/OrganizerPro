@@ -70,6 +70,24 @@
                                 </div>
                             @endforeach
 
+                            {{-- Country --}}
+                            <div class="space-y-1">
+                                <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Country') }}
+                                </label>
+                                <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror">
+                                    <option value="">-- Select Country --</option>
+                                    @foreach (config('countries.list', []) as $code => $name)
+                                        <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
+                                            {{ $name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('country')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
                             {{-- Leather Ball Profile Stats --}}
                             <div class="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
                                 @php

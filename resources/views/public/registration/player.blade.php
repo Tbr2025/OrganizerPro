@@ -89,6 +89,23 @@
                             @enderror
                         </div>
 
+                        {{-- Country --}}
+                        <div>
+                            <label for="country" class="block text-sm font-medium mb-2">Country</label>
+                            <select name="country" id="country"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
+                                <option value="">Select your country</option>
+                                @foreach (config('countries.list', []) as $code => $name)
+                                    <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
+                                        {{ $name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('country')
+                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         {{-- Location --}}
                         @if($locations->count() > 0)
                         <div>

@@ -6,7 +6,23 @@
 
 @section('admin-content')
     <div class="p-4 mx-auto  md:p-6">
-        <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+        <div class="flex justify-between items-center mb-4">
+            <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+            @can('player.delete')
+                <form action="{{ route('admin.players.destroy', $player->id) }}" method="POST"
+                    onsubmit="return confirm('Are you sure you want to delete this player? This action cannot be undone.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete Player
+                    </button>
+                </form>
+            @endcan
+        </div>
 
         <div class="space-y-6">
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
@@ -29,6 +45,41 @@
                                     'jersey_number' => 'Jersey Number',
                                 ];
                             @endphp
+
+                            {{-- Country --}}
+                            <div class="space-y-1">
+                                <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Country') }}
+                                </label>
+                                <div class="flex items-center space-x-2">
+                                    <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror">
+                                        <option value="">-- Select Country --</option>
+                                        @foreach (config('countries.list', []) as $code => $name)
+                                            <option value="{{ $code }}" {{ old('country', $player->country) == $code ? 'selected' : '' }}>
+                                                {{ $name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+
+                                    @php
+                                        $canVerify = auth()->user()->hasAnyRole(['Superadmin', 'Admin']);
+                                    @endphp
+                                    <label class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+                                        <input type="checkbox" name="verified_country" value="1"
+                                            class="sr-only peer"
+                                            {{ old('verified_country', $player->verified_country ?? false) ? 'checked' : '' }}
+                                            @unless ($canVerify) disabled @endunless>
+                                        <div class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
+                dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300"></div>
+                                        <div class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full
+                transition-transform duration-300 peer-checked:translate-x-full"></div>
+                                        <span class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
+                                    </label>
+                                </div>
+                                @error('country')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
 
                             {{-- Basic Inputs --}}
                             @foreach ($fields as $field => $label)

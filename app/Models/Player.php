@@ -19,6 +19,8 @@ class Player extends Model implements MustVerifyEmail
     protected $fillable = [
         'team_id',
         'name',
+        'country',
+        'verified_country',
         'team_name_ref',
         'verified_team_name_ref',
         'email',
@@ -86,6 +88,7 @@ class Player extends Model implements MustVerifyEmail
         'verified_cricheroes_number_full' => 'boolean',
         'verified_cricheroes_profile_url' => 'boolean',
         'verified_team_id' => 'boolean',
+        'verified_country' => 'boolean',
         'verified_team_name_ref' => 'boolean',
         'verified_jersey_name' => 'boolean',
         'verified_jersey_number' => 'boolean',

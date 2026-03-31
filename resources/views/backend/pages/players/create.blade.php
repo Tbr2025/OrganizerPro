@@ -27,6 +27,26 @@
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
                             </div>
+
+                            {{-- Country --}}
+                            <div class="space-y-1">
+                                <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Country') }}
+                                </label>
+                                <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror"
+                                    onchange="updateDialCode(this.value)">
+                                    <option value="">-- Select Country --</option>
+                                    @foreach (config('countries.list', []) as $code => $name)
+                                        <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
+                                            {{ $name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('country')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
                             {{-- Location --}}
                             <div>
                                 <label for="location_id" class="block font-semibold mb-1">Location <span
@@ -83,8 +103,8 @@
                                     {{-- Country Code --}}
                                     <div class="w-1/4">
                                         <input type="text" name="mobile_country_code" id="mobile_country_code" required
-                                            value="{{ old('mobile_country_code', '+91') }}" {{-- Default to +91 for India --}}
-                                            placeholder="+91"
+                                            value="{{ old('mobile_country_code', $defaultDialCode ?? '+971') }}"
+                                            placeholder="{{ $defaultDialCode ?? '+971' }}"
                                             class="form-control @error('mobile_country_code') border-red-500 @enderror">
                                         @error('mobile_country_code')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
@@ -113,8 +133,8 @@
                                     {{-- Country Code --}}
                                     <div class="w-1/4">
                                         <input type="text" name="cricheroes_country_code" id="cricheroes_country_code"
-                                            value="{{ old('cricheroes_country_code', '+91') }}" {{-- Default to +91 --}}
-                                            placeholder="+91"
+                                            value="{{ old('cricheroes_country_code', $defaultDialCode ?? '+971') }}"
+                                            placeholder="{{ $defaultDialCode ?? '+971' }}"
                                             class="form-control @error('cricheroes_country_code') border-red-500 @enderror">
                                         @error('cricheroes_country_code')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
@@ -385,3 +405,15 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    const dialCodes = @json(config('countries.dial_codes', []));
+    function updateDialCode(countryCode) {
+        if (dialCodes[countryCode]) {
+            document.getElementById('mobile_country_code').value = dialCodes[countryCode];
+            document.getElementById('cricheroes_country_code').value = dialCodes[countryCode];
+        }
+    }
+</script>
+@endpush

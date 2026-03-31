@@ -10,15 +10,31 @@
         {{-- HEADER: Breadcrumbs & Edit Button --}}
         <div class="flex justify-between items-center mb-6">
             <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
-            @can('player.edit')
-                <a href="{{ route('admin.players.edit', $player->id) }}" class="btn btn-primary inline-flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
-                    </svg>
-                    Edit Player
-                </a>
-            @endcan
+            <div class="flex items-center gap-2">
+                @can('player.edit')
+                    <a href="{{ route('admin.players.edit', $player->id) }}" class="btn btn-primary inline-flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
+                        </svg>
+                        Edit Player
+                    </a>
+                @endcan
+                @can('player.delete')
+                    <form action="{{ route('admin.players.destroy', $player->id) }}" method="POST"
+                        onsubmit="return confirm('Are you sure you want to delete this player? This action cannot be undone.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete
+                        </button>
+                    </form>
+                @endcan
+            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -86,6 +102,7 @@
                         'email' => 'Email Address',
                         'mobile_number_full' => 'Mobile Number',
                         'cricheroes_number_full' => 'Cricheroes Number',
+                        'country_display' => 'Country',
                         'location.name' => 'Player Location',
                         'team.name' => 'Current Team',
                         'team_name_ref' => 'If Others',
@@ -111,14 +128,21 @@
                         <h3 class="font-semibold text-lg text-gray-800 dark:text-white">Personal Details</h3>
                     </div>
                     <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        @php $personalFields = ['email', 'mobile_number_full', 'cricheroes_number_full', 'location.name']; @endphp
+                        @php $personalFields = ['email', 'mobile_number_full', 'cricheroes_number_full', 'country_display', 'location.name']; @endphp
                         @foreach ($personalFields as $field)
                             <div>
                                 <label
                                     class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $fields[$field] }}</label>
                                 <p class="mt-1 text-md font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                    {{ data_get($player, $field, 'N/A') }}
-                                    @if ($player->{'verified_' . str_replace('.', '_', $field)})
+                                    @if ($field === 'country_display')
+                                        {{ $player->country ? config('countries.list.' . $player->country, $player->country) : 'N/A' }}
+                                    @else
+                                        {{ data_get($player, $field, 'N/A') }}
+                                    @endif
+                                    @php
+                                        $verifiedKey = $field === 'country_display' ? 'verified_country' : 'verified_' . str_replace('.', '_', $field);
+                                    @endphp
+                                    @if ($player->$verifiedKey ?? false)
                                         <span class="text-green-500" title="Verified"><svg class="w-4 h-4"
                                                 fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd"
