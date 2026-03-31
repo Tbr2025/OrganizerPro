@@ -38,9 +38,6 @@
                                 $fields = [
                                     'name' => 'Player Name',
                                     'email' => 'Email',
-
-                                    'mobile_number_full' => 'Full Mobile Number',
-                                    'cricheroes_number_full' => 'Full Cricheroes Number',
                                     'jersey_name' => 'Jersey Name',
                                     'jersey_number' => 'Jersey Number',
                                 ];
@@ -77,6 +74,102 @@
                                     </label>
                                 </div>
                                 @error('country')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Mobile Number with Country Code Dropdown --}}
+                            <div class="space-y-1">
+                                <label for="mobile_number_full" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Mobile Number') }}
+                                </label>
+                                <div class="flex items-center space-x-2">
+                                    <div class="flex items-start gap-2 flex-1">
+                                        <div class="w-2/5">
+                                            <select name="mobile_country_code_display" id="mobile_country_code_display"
+                                                class="form-control"
+                                                onchange="updateMobileFullNumber()">
+                                                @foreach (config('countries.dial_codes', []) as $code => $dial)
+                                                    <option value="{{ $dial }}"
+                                                        {{ old('mobile_country_code', $player->mobile_country_code ?? '') == $dial ? 'selected' : '' }}>
+                                                        {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="w-3/5">
+                                            <input type="text" id="mobile_national_display"
+                                                value="{{ old('mobile_national_number', $player->mobile_national_number ?? $player->mobile_number_full) }}"
+                                                placeholder="Enter Mobile Number"
+                                                class="form-control"
+                                                oninput="updateMobileFullNumber()">
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="mobile_number_full" id="mobile_number_full"
+                                        value="{{ old('mobile_number_full', $player->mobile_number_full) }}">
+
+                                    @php $canVerify = auth()->user()->hasAnyRole(['Superadmin', 'Admin']); @endphp
+                                    <label class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+                                        <input type="checkbox" name="verified_mobile_number_full" value="1"
+                                            class="sr-only peer"
+                                            {{ old('verified_mobile_number_full', $player->verified_mobile_number_full ?? false) ? 'checked' : '' }}
+                                            @unless ($canVerify) disabled @endunless>
+                                        <div class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
+                dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300"></div>
+                                        <div class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full
+                transition-transform duration-300 peer-checked:translate-x-full"></div>
+                                        <span class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
+                                    </label>
+                                </div>
+                                @error('mobile_number_full')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Cricheroes Number with Country Code Dropdown --}}
+                            <div class="space-y-1">
+                                <label for="cricheroes_number_full" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('Cricheroes Number') }}
+                                </label>
+                                <div class="flex items-center space-x-2">
+                                    <div class="flex items-start gap-2 flex-1">
+                                        <div class="w-2/5">
+                                            <select name="cricheroes_country_code_display" id="cricheroes_country_code_display"
+                                                class="form-control"
+                                                onchange="updateCricheroesFullNumber()">
+                                                @foreach (config('countries.dial_codes', []) as $code => $dial)
+                                                    <option value="{{ $dial }}"
+                                                        {{ old('cricheroes_country_code', $player->cricheroes_country_code ?? '') == $dial ? 'selected' : '' }}>
+                                                        {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="w-3/5">
+                                            <input type="text" id="cricheroes_national_display"
+                                                value="{{ old('cricheroes_national_number', $player->cricheroes_national_number ?? $player->cricheroes_number_full) }}"
+                                                placeholder="Enter Cricheroes Number"
+                                                class="form-control"
+                                                oninput="updateCricheroesFullNumber()">
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="cricheroes_number_full" id="cricheroes_number_full"
+                                        value="{{ old('cricheroes_number_full', $player->cricheroes_number_full) }}">
+
+                                    @php $canVerify = auth()->user()->hasAnyRole(['Superadmin', 'Admin']); @endphp
+                                    <label class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+                                        <input type="checkbox" name="verified_cricheroes_number_full" value="1"
+                                            class="sr-only peer"
+                                            {{ old('verified_cricheroes_number_full', $player->verified_cricheroes_number_full ?? false) ? 'checked' : '' }}
+                                            @unless ($canVerify) disabled @endunless>
+                                        <div class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
+                dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300"></div>
+                                        <div class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full
+                transition-transform duration-300 peer-checked:translate-x-full"></div>
+                                        <span class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
+                                    </label>
+                                </div>
+                                @error('cricheroes_number_full')
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
                             </div>
@@ -531,3 +624,23 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    function updateMobileFullNumber() {
+        const code = document.getElementById('mobile_country_code_display').value.replace('+', '');
+        const number = document.getElementById('mobile_national_display').value.replace(/\D/g, '');
+        document.getElementById('mobile_number_full').value = code + number;
+    }
+    function updateCricheroesFullNumber() {
+        const code = document.getElementById('cricheroes_country_code_display').value.replace('+', '');
+        const number = document.getElementById('cricheroes_national_display').value.replace(/\D/g, '');
+        document.getElementById('cricheroes_number_full').value = code + number;
+    }
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateMobileFullNumber();
+        updateCricheroesFullNumber();
+    });
+</script>
+@endpush

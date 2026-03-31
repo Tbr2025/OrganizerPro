@@ -10,403 +10,468 @@
 
         <div class="space-y-6">
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-                <div class="p-5 space-y-6 border-t border-gray-100 dark:border-gray-800 sm:p-6">
-                    {{-- Added enctype="multipart/form-data" for file upload --}}
-                    <form action="{{ route('admin.players.store') }}" method="POST" enctype="multipart/form-data">
+                <div class="p-5 space-y-6 sm:p-6">
+                    <form action="{{ route('admin.players.store') }}" method="POST" enctype="multipart/form-data"
+                        x-data="{
+                            noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }},
+                            travelFrom: '{{ old('travel_date_from') }}',
+                            previewUrl: '',
+                            handleFileChange(event) {
+                                const file = event.target.files[0];
+                                if (file && file.type.startsWith('image/')) {
+                                    this.previewUrl = URL.createObjectURL(file);
+                                } else {
+                                    this.previewUrl = '';
+                                }
+                            },
+                            dropHandler(event) {
+                                event.preventDefault();
+                                const file = event.dataTransfer.files[0];
+                                if (file && file.type.startsWith('image/')) {
+                                    this.$refs.fileInput.files = event.dataTransfer.files;
+                                    this.previewUrl = URL.createObjectURL(file);
+                                }
+                            }
+                        }">
                         @csrf
-                        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                            {{-- Player Name --}}
-                            <div class="space-y-1">
-                                <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Player Name') }} <span class="text-red-500">*</span>
-                                </label>
-                                <input type="text" name="name" id="name" required value="{{ old('name') }}"
-                                    placeholder="Enter Player Name"
-                                    class="form-control @error('name') border-red-500 @enderror">
-                                @error('name')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
 
-                            {{-- Country --}}
-                            <div class="space-y-1">
-                                <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Country') }}
-                                </label>
-                                <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror"
-                                    onchange="updateDialCode(this.value)">
-                                    <option value="">-- Select Country --</option>
-                                    @foreach (config('countries.list', []) as $code => $name)
-                                        <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
-                                            {{ $name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('country')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Location --}}
-                            <div>
-                                <label for="location_id" class="block font-semibold mb-1">Location <span
-                                        class="text-red-500">*</span></label>
-                                <select name="location_id" id="location_id" class="form-control" required>
-                                    <option value="">Select Location</option>
-                                    @foreach ($locations as $location)
-                                        <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
-                                            {{ $location->name }}</option>
-                                    @endforeach
-                                </select>
-                                @error('location_id')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-                            {{-- Leather Ball Stats --}}
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                @foreach ([
-            'total_matches' => 'Total Matches',
-            'total_runs' => 'Total Runs',
-            'total_wickets' => 'Total Wickets',
-        ] as $field => $label)
+                        {{-- ===== SECTION 1: Basic Information ===== --}}
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Basic Information</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Player identity and contact details</p>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                    {{-- Player Name --}}
                                     <div class="space-y-1">
-                                        <label for="{{ $field }}"
-                                            class="block font-semibold">{{ $label }}</label>
-                                        <input type="number" name="{{ $field }}" id="{{ $field }}"
-                                            min="0" value="{{ old($field, 0) }}" class="form-control">
-                                        @error($field)
+                                        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Player Name') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" name="name" id="name" required value="{{ old('name') }}"
+                                            placeholder="Enter Player Name"
+                                            class="form-control @error('name') border-red-500 @enderror">
+                                        @error('name')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
-                                @endforeach
-                            </div>
-                            {{-- Player Email --}}
-                            <div class="space-y-1">
-                                <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Email Address') }} <span class="text-red-500">*</span>
-                                </label>
-                                <input type="email" name="email" id="email" required value="{{ old('email') }}"
-                                    placeholder="Enter Player Email"
-                                    class="form-control @error('email') border-red-500 @enderror">
-                                @error('email')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
 
-                            {{-- Mobile No --}}
-                            <div class="space-y-1 sm:col-span-2">
-                                <label for="mobile_national_number"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Mobile Number') }} <span class="text-red-500">*</span>
-                                </label>
-                                <div class="flex items-center space-x-2">
-                                    {{-- Country Code Dropdown --}}
-                                    <div class="w-2/5">
-                                        <select name="mobile_country_code" id="mobile_country_code" required
-                                            class="form-control @error('mobile_country_code') border-red-500 @enderror">
-                                            @foreach (config('countries.dial_codes', []) as $code => $dial)
-                                                <option value="{{ $dial }}"
-                                                    {{ old('mobile_country_code', $defaultDialCode ?? '+971') == $dial ? 'selected' : '' }}>
-                                                    {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                    {{-- Player Email --}}
+                                    <div class="space-y-1">
+                                        <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Email Address') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="email" name="email" id="email" required value="{{ old('email') }}"
+                                            placeholder="Enter Player Email"
+                                            class="form-control @error('email') border-red-500 @enderror">
+                                        @error('email')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Country --}}
+                                    <div class="space-y-1">
+                                        <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Country') }}
+                                        </label>
+                                        <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror"
+                                            onchange="updateDialCode(this.value)">
+                                            <option value="">-- Select Country --</option>
+                                            @foreach (config('countries.list', []) as $code => $name)
+                                                <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
+                                                    {{ $name }}
                                                 </option>
                                             @endforeach
                                         </select>
-                                        @error('mobile_country_code')
+                                        @error('country')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
-                                    {{-- National Number --}}
-                                    <div class="w-3/5">
-                                        <input type="text" name="mobile_national_number" id="mobile_national_number"
-                                            required value="{{ old('mobile_national_number') }}"
-                                            placeholder="Enter Mobile Number"
-                                            class="form-control @error('mobile_national_number') border-red-500 @enderror">
-                                        @error('mobile_national_number')
-                                            <p class="text-sm text-red-500">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
 
-                            {{-- Cricheroes Number --}}
-                            <div class="space-y-1 sm:col-span-2">
-                                <label for="cricheroes_national_number"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Cricheroes Number') }}
-                                </label>
-                                <div class="flex items-center space-x-2">
-                                    {{-- Country Code Dropdown --}}
-                                    <div class="w-2/5">
-                                        <select name="cricheroes_country_code" id="cricheroes_country_code"
-                                            class="form-control @error('cricheroes_country_code') border-red-500 @enderror">
-                                            @foreach (config('countries.dial_codes', []) as $code => $dial)
-                                                <option value="{{ $dial }}"
-                                                    {{ old('cricheroes_country_code', $defaultDialCode ?? '+971') == $dial ? 'selected' : '' }}>
-                                                    {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                    {{-- Location --}}
+                                    <div class="space-y-1">
+                                        <label for="location_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Location') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <select name="location_id" id="location_id" class="form-control" required>
+                                            <option value="">-- Select Location --</option>
+                                            @foreach ($locations as $location)
+                                                <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
+                                                    {{ $location->name }}
                                                 </option>
                                             @endforeach
                                         </select>
-                                        @error('cricheroes_country_code')
+                                        @error('location_id')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
-                                    {{-- National Number --}}
-                                    <div class="w-3/5">
-                                        <input type="text" name="cricheroes_national_number"
-                                            id="cricheroes_national_number" value="{{ old('cricheroes_national_number') }}"
-                                            placeholder="Enter Cricheroes Number"
-                                            class="form-control @error('cricheroes_national_number') border-red-500 @enderror">
-                                        @error('cricheroes_national_number')
-                                            <p class="text-sm text-red-500">{{ $message }}</p>
-                                        @enderror
+
+                                    {{-- Mobile Number --}}
+                                    <div class="space-y-1">
+                                        <label for="mobile_national_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Mobile Number') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <div class="flex items-start gap-2">
+                                            <div class="w-2/5">
+                                                <select name="mobile_country_code" id="mobile_country_code" required
+                                                    class="form-control @error('mobile_country_code') border-red-500 @enderror">
+                                                    @foreach (config('countries.dial_codes', []) as $code => $dial)
+                                                        <option value="{{ $dial }}"
+                                                            {{ old('mobile_country_code', $defaultDialCode ?? '+971') == $dial ? 'selected' : '' }}>
+                                                            {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('mobile_country_code')
+                                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                                @enderror
+                                            </div>
+                                            <div class="w-3/5">
+                                                <input type="text" name="mobile_national_number" id="mobile_national_number"
+                                                    required value="{{ old('mobile_national_number') }}"
+                                                    placeholder="Enter Mobile Number"
+                                                    class="form-control @error('mobile_national_number') border-red-500 @enderror">
+                                                @error('mobile_national_number')
+                                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                                @enderror
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {{-- Cricheroes Number --}}
+                                    <div class="space-y-1">
+                                        <label for="cricheroes_national_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Cricheroes Number') }}
+                                        </label>
+                                        <div class="flex items-start gap-2">
+                                            <div class="w-2/5">
+                                                <select name="cricheroes_country_code" id="cricheroes_country_code"
+                                                    class="form-control @error('cricheroes_country_code') border-red-500 @enderror">
+                                                    @foreach (config('countries.dial_codes', []) as $code => $dial)
+                                                        <option value="{{ $dial }}"
+                                                            {{ old('cricheroes_country_code', $defaultDialCode ?? '+971') == $dial ? 'selected' : '' }}>
+                                                            {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                @error('cricheroes_country_code')
+                                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                                @enderror
+                                            </div>
+                                            <div class="w-3/5">
+                                                <input type="text" name="cricheroes_national_number" id="cricheroes_national_number"
+                                                    value="{{ old('cricheroes_national_number') }}"
+                                                    placeholder="Enter Cricheroes Number"
+                                                    class="form-control @error('cricheroes_national_number') border-red-500 @enderror">
+                                                @error('cricheroes_national_number')
+                                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                                @enderror
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            {{-- Registration Team (Old Teams) --}}
-                            <div class="space-y-1">
-                                <label for="team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Registration Team') }}
-                                    <span class="text-xs text-gray-500">(Original team)</span>
-                                </label>
-                                <div class="flex items-center space-x-2">
-                                    <select name="team_id" id="team_id"
-                                        class="form-control @error('team_id') border-red-500 @enderror">
-                                        <option value="">-- Select Registration Team --</option>
-                                        @foreach ($teams as $team)
-                                            <option value="{{ $team->id }}"
-                                                {{ old('team_id') == $team->id ? 'selected' : '' }}>
-                                                {{ $team->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <input type="text" name="team_name_ref" id="team_name_ref"
-                                        placeholder="Enter Team Name (if Others)"
-                                        value="{{ old('team_name_ref') }}"
-                                        class="form-control w-48">
-                                </div>
-                                @error('team_id')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Actual Team (Current Playing Team) --}}
-                            <div class="space-y-1">
-                                <label for="actual_team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Playing Team') }}
-                                    <span class="text-xs text-gray-500">(Current team)</span>
-                                </label>
-                                <select name="actual_team_id" id="actual_team_id"
-                                    class="form-control @error('actual_team_id') border-red-500 @enderror">
-                                    <option value="">-- Select Playing Team --</option>
-                                    @foreach ($actualTeams as $team)
-                                        <option value="{{ $team->id }}"
-                                            {{ old('actual_team_id') == $team->id ? 'selected' : '' }}>
-                                            {{ $team->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('actual_team_id')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Jersey Name --}}
-                            <div class="space-y-1">
-                                <label for="jersey_name"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Jersey Name') }}
-                                </label>
-                                <input type="text" name="jersey_name" id="jersey_name"
-                                    value="{{ old('jersey_name') }}" placeholder="Enter Jersey Name"
-                                    class="form-control @error('jersey_name') border-red-500 @enderror">
-                                @error('jersey_name')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-                              <div class="space-y-1">
-                                <label for="jersey_number"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Jersey Number') }}
-                                </label>
-                                <input type="number" name="jersey_number" id="jersey_number"
-                                    value="{{ old('jersey_number') }}" placeholder="Enter Jersey Number"
-                                    class="form-control @error('jersey_number') border-red-500 @enderror">
-                                @error('jersey_number')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Jersey Size --}}
-                            <div class="space-y-1">
-                                <label for="kit_size_id"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Jersey Size') }}
-                                </label>
-                                <select name="kit_size_id" id="kit_size_id"
-                                    class="form-control @error('kit_size_id') border-red-500 @enderror">
-                                    <option value="">-- Select KJersey Size --</option>
-                                    @foreach ($kitSizes as $kit)
-                                        <option value="{{ $kit->id }}"
-                                            {{ old('kit_size_id') == $kit->id ? 'selected' : '' }}>
-                                            {{ $kit->size }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('kit_size_id')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Batting Profile --}}
-                            <div class="space-y-1">
-                                <label for="batting_profile_id"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Batting Profile') }}
-                                </label>
-                                <select name="batting_profile_id" id="batting_profile_id"
-                                    class="form-control @error('batting_profile_id') border-red-500 @enderror">
-                                    <option value="">-- Select Batting Profile --</option>
-                                    @foreach ($battingProfiles as $profile)
-                                        <option value="{{ $profile->id }}"
-                                            {{ old('batting_profile_id') == $profile->id ? 'selected' : '' }}>
-                                            {{ $profile->style }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('batting_profile_id')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Bowling Profile --}}
-                            <div class="space-y-1">
-                                <label for="bowling_profile_id"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Bowling Profile') }}
-                                </label>
-                                <select name="bowling_profile_id" id="bowling_profile_id"
-                                    class="form-control @error('bowling_profile_id') border-red-500 @enderror">
-                                    <option value="">-- Select Bowling Profile --</option>
-                                    @foreach ($bowlingProfiles as $profile)
-                                        <option value="{{ $profile->id }}"
-                                            {{ old('bowling_profile_id') == $profile->id ? 'selected' : '' }}>
-                                            {{ $profile->style }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('bowling_profile_id')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Player Type --}}
-                            <div class="space-y-1">
-                                <label for="player_type_id"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Player Type') }}
-                                </label>
-                                <select name="player_type_id" id="player_type_id"
-                                    class="form-control @error('player_type_id') border-red-500 @enderror">
-                                    <option value="">-- Select Player Type --</option>
-                                    @foreach ($playerTypes as $type)
-                                        <option value="{{ $type->id }}"
-                                            {{ old('player_type_id') == $type->id ? 'selected' : '' }}>
-                                            {{ $type->type }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('player_type_id')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Player Image Upload --}}
-                            <div class="space-y-1 sm:col-span-2"> {{-- Occupy full width if needed --}}
-                                <label for="image_path"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Player Image') }}
-                                </label>
-                                <input type="file" name="image_path" id="image_path"
-                                    class="form-control @error('image_path') border-red-500 @enderror">
-                                @error('image_path')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-                            <!-- Travel Plan Section -->
-                            <div x-data="{ noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }}, travelFrom: '{{ old('travel_date_from') }}' }" class="sm:col-span-2 space-y-4 mt-6">
-
-                                {{-- No Travel Plan Checkbox --}}
-                                <label class="inline-flex items-center">
-                                    <input type="checkbox" name="no_travel_plan" value="1" x-model="noTravel"
-                                        class="accent-yellow-500 mr-2" />
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">No Travel
-                                        Plan</span>
-                                </label>
-                                @error('no_travel_plan')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-
-                                {{-- Travel Dates (conditional) --}}
-                                <div x-show="!noTravel" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {{-- Travel Date From --}}
-                                    <div>
-                                        <label for="travel_date_from" class="block font-semibold mb-1">Travel Date
-                                            From</label>
-                                        <input type="date" name="travel_date_from" id="travel_date_from"
-                                            x-model="travelFrom" :min="new Date().toISOString().split('T')[0]"
-                                            value="{{ old('travel_date_from') }}"
-                                            class="form-control text-black @error('travel_date_from') border-red-500 @enderror">
-                                        @error('travel_date_from')
-                                            <p class="text-sm text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-
-                                    {{-- Travel Date To --}}
-                                    <div>
-                                        <label for="travel_date_to" class="block font-semibold mb-1">Travel Date
-                                            To</label>
-                                        <input type="date" name="travel_date_to" id="travel_date_to"
-                                            :min="travelFrom || new Date().toISOString().split('T')[0]"
-                                            value="{{ old('travel_date_to') }}"
-                                            class="form-control text-black @error('travel_date_to') border-red-500 @enderror">
-                                        @error('travel_date_to')
-                                            <p class="text-sm text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Wicket Keeper Checkbox --}}
-                            <div class="space-y-1">
-                                <label for="is_wicket_keeper"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <input type="checkbox" name="is_wicket_keeper" id="is_wicket_keeper" value="1"
-                                        class="mr-2" {{ old('is_wicket_keeper') ? 'checked' : '' }}>
-                                    {{ __('Is Wicket Keeper?') }}
-                                </label>
-                                @error('is_wicket_keeper')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            {{-- Transportation Required Checkbox --}}
-                            <div class="space-y-1">
-                                <label for="transportation_required"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <input type="checkbox" name="transportation_required" id="transportation_required"
-                                        value="1" class="mr-2"
-                                        {{ old('transportation_required') ? 'checked' : '' }}>
-                                    {{ __('Transportation Required?') }}
-                                </label>
-                                @error('transportation_required')
-                                    <p class="text-sm text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-
                         </div>
 
-                        <div class="mt-6">
+                        {{-- ===== SECTION 2: Team Assignment ===== --}}
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Team Assignment</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Assign to registration and playing teams</p>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                    {{-- Registration Team --}}
+                                    <div class="space-y-1">
+                                        <label for="team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Registration Team') }}
+                                            <span class="text-xs text-gray-500">(Original team)</span>
+                                        </label>
+                                        <div class="flex items-center gap-2">
+                                            <select name="team_id" id="team_id"
+                                                class="form-control @error('team_id') border-red-500 @enderror">
+                                                <option value="">-- Select Registration Team --</option>
+                                                @foreach ($teams as $team)
+                                                    <option value="{{ $team->id }}"
+                                                        {{ old('team_id') == $team->id ? 'selected' : '' }}>
+                                                        {{ $team->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <input type="text" name="team_name_ref" id="team_name_ref"
+                                                placeholder="Team Name (if Others)"
+                                                value="{{ old('team_name_ref') }}"
+                                                class="form-control w-48">
+                                        </div>
+                                        @error('team_id')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Playing Team --}}
+                                    <div class="space-y-1">
+                                        <label for="actual_team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Playing Team') }}
+                                            <span class="text-xs text-gray-500">(Current team)</span>
+                                        </label>
+                                        <select name="actual_team_id" id="actual_team_id"
+                                            class="form-control @error('actual_team_id') border-red-500 @enderror">
+                                            <option value="">-- Select Playing Team --</option>
+                                            @foreach ($actualTeams as $team)
+                                                <option value="{{ $team->id }}"
+                                                    {{ old('actual_team_id') == $team->id ? 'selected' : '' }}>
+                                                    {{ $team->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('actual_team_id')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- ===== SECTION 3: Jersey & Profile ===== --}}
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Jersey & Profile</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Jersey details and playing style</p>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                                    {{-- Jersey Name --}}
+                                    <div class="space-y-1">
+                                        <label for="jersey_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Jersey Name') }}
+                                        </label>
+                                        <input type="text" name="jersey_name" id="jersey_name"
+                                            value="{{ old('jersey_name') }}" placeholder="Name on jersey"
+                                            class="form-control @error('jersey_name') border-red-500 @enderror">
+                                        @error('jersey_name')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Jersey Number --}}
+                                    <div class="space-y-1">
+                                        <label for="jersey_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Jersey Number') }}
+                                        </label>
+                                        <input type="number" name="jersey_number" id="jersey_number"
+                                            value="{{ old('jersey_number') }}" placeholder="e.g. 7"
+                                            class="form-control @error('jersey_number') border-red-500 @enderror">
+                                        @error('jersey_number')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Jersey Size --}}
+                                    <div class="space-y-1">
+                                        <label for="kit_size_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Jersey Size') }}
+                                        </label>
+                                        <select name="kit_size_id" id="kit_size_id"
+                                            class="form-control @error('kit_size_id') border-red-500 @enderror">
+                                            <option value="">-- Select Jersey Size --</option>
+                                            @foreach ($kitSizes as $kit)
+                                                <option value="{{ $kit->id }}"
+                                                    {{ old('kit_size_id') == $kit->id ? 'selected' : '' }}>
+                                                    {{ $kit->size }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('kit_size_id')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Batting Profile --}}
+                                    <div class="space-y-1">
+                                        <label for="batting_profile_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Batting Profile') }}
+                                        </label>
+                                        <select name="batting_profile_id" id="batting_profile_id"
+                                            class="form-control @error('batting_profile_id') border-red-500 @enderror">
+                                            <option value="">-- Select Batting Profile --</option>
+                                            @foreach ($battingProfiles as $profile)
+                                                <option value="{{ $profile->id }}"
+                                                    {{ old('batting_profile_id') == $profile->id ? 'selected' : '' }}>
+                                                    {{ $profile->style }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('batting_profile_id')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Bowling Profile --}}
+                                    <div class="space-y-1">
+                                        <label for="bowling_profile_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Bowling Profile') }}
+                                        </label>
+                                        <select name="bowling_profile_id" id="bowling_profile_id"
+                                            class="form-control @error('bowling_profile_id') border-red-500 @enderror">
+                                            <option value="">-- Select Bowling Profile --</option>
+                                            @foreach ($bowlingProfiles as $profile)
+                                                <option value="{{ $profile->id }}"
+                                                    {{ old('bowling_profile_id') == $profile->id ? 'selected' : '' }}>
+                                                    {{ $profile->style }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('bowling_profile_id')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Player Type --}}
+                                    <div class="space-y-1">
+                                        <label for="player_type_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Player Type') }}
+                                        </label>
+                                        <select name="player_type_id" id="player_type_id"
+                                            class="form-control @error('player_type_id') border-red-500 @enderror">
+                                            <option value="">-- Select Player Type --</option>
+                                            @foreach ($playerTypes as $type)
+                                                <option value="{{ $type->id }}"
+                                                    {{ old('player_type_id') == $type->id ? 'selected' : '' }}>
+                                                    {{ $type->type }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('player_type_id')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                </div>
+
+                                {{-- Wicket Keeper --}}
+                                <div class="mt-4">
+                                    <label class="inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="is_wicket_keeper" id="is_wicket_keeper" value="1"
+                                            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                                            {{ old('is_wicket_keeper') ? 'checked' : '' }}>
+                                        <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Is Wicket Keeper?') }}</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- ===== SECTION 4: Leather Ball Experience ===== --}}
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Leather Ball Experience</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Career stats (leather ball)</p>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                                    @foreach ([
+                                        'total_matches' => 'Total Matches',
+                                        'total_runs' => 'Total Runs',
+                                        'total_wickets' => 'Total Wickets',
+                                    ] as $field => $label)
+                                        <div class="space-y-1">
+                                            <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                {{ $label }}
+                                            </label>
+                                            <input type="number" name="{{ $field }}" id="{{ $field }}"
+                                                min="0" value="{{ old($field, 0) }}" class="form-control">
+                                            @error($field)
+                                                <p class="text-sm text-red-500">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- ===== SECTION 5: Player Image ===== --}}
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Player Photo</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload player profile image</p>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="max-w-md">
+                                    <div @drop.prevent="dropHandler($event)" @dragover.prevent
+                                        class="border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-lg text-center cursor-pointer transition-colors"
+                                        @click="$refs.fileInput.click()">
+                                        <input type="file" name="image_path" id="image_path" accept="image/png,image/jpeg"
+                                            class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
+
+                                        <template x-if="previewUrl">
+                                            <img :src="previewUrl" class="mx-auto mb-3 h-48 object-contain rounded-lg border border-gray-300 dark:border-gray-600" />
+                                        </template>
+
+                                        <div x-show="!previewUrl" class="text-gray-500 dark:text-gray-400">
+                                            <svg class="w-10 h-10 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                            </svg>
+                                            <p class="text-sm font-medium">Drag & drop or click to upload</p>
+                                            <p class="text-xs mt-1">PNG or JPG (max 6MB)</p>
+                                        </div>
+                                    </div>
+                                    @error('image_path')
+                                        <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- ===== SECTION 6: Travel & Transportation ===== --}}
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Travel & Transportation</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Availability and transport needs</p>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="space-y-4">
+                                    {{-- Transportation Required --}}
+                                    <label class="inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="transportation_required" id="transportation_required"
+                                            value="1"
+                                            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                                            {{ old('transportation_required') ? 'checked' : '' }}>
+                                        <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Transportation Required?') }}</span>
+                                    </label>
+
+                                    {{-- No Travel Plan --}}
+                                    <div>
+                                        <label class="inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" name="no_travel_plan" value="1" x-model="noTravel"
+                                                class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800" />
+                                            <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">No Travel Plan (available throughout)</span>
+                                        </label>
+                                        @error('no_travel_plan')
+                                            <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Travel Dates --}}
+                                    <div x-show="!noTravel" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
+                                        <div class="space-y-1">
+                                            <label for="travel_date_from" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                Travel Date From
+                                            </label>
+                                            <input type="date" name="travel_date_from" id="travel_date_from"
+                                                x-model="travelFrom" :min="new Date().toISOString().split('T')[0]"
+                                                value="{{ old('travel_date_from') }}"
+                                                class="form-control @error('travel_date_from') border-red-500 @enderror">
+                                            @error('travel_date_from')
+                                                <p class="text-sm text-red-500">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <div class="space-y-1">
+                                            <label for="travel_date_to" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                Travel Date To
+                                            </label>
+                                            <input type="date" name="travel_date_to" id="travel_date_to"
+                                                :min="travelFrom || new Date().toISOString().split('T')[0]"
+                                                value="{{ old('travel_date_to') }}"
+                                                class="form-control @error('travel_date_to') border-red-500 @enderror">
+                                            @error('travel_date_to')
+                                                <p class="text-sm text-red-500">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- ===== Submit ===== --}}
+                        <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                             <x-buttons.submit-buttons cancelUrl="{{ route('admin.players.index') }}" />
                         </div>
                     </form>
