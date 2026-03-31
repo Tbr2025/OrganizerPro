@@ -339,9 +339,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         ->name('auctions.clear');
 
     Route::resource('actual-teams', ActualTeamController::class);
-    Route::post('actual-teams/{actualTeam}/remove-member', [ActualTeamController::class, 'removeMember'])
-        ->name('actual-teams.remove-member');
-
     // Route to add a member to a team
     Route::post('actual-teams/{actualTeam}/members', [ActualTeamController::class, 'addMember'])->name('actual-teams.add-member');
 

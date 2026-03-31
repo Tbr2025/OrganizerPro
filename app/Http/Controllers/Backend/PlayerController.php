@@ -137,6 +137,10 @@ class PlayerController extends Controller
             'bowlingProfile'
 
         ]);
+
+        // Filter out orphaned player records (no associated user)
+        $query->whereNotNull('user_id');
+
         // 3. Apply role-based data scoping
         if ($user->hasRole('Superadmin')) {
             // Superadmins see all players. No initial scope is applied.

@@ -789,9 +789,7 @@
 
                 /** Create a member card (supports MULTIPLE roles) */
                 function createMemberCardHtml(memberData) {
-                    const isPlayer = memberData.roles.includes('Player');
-                    const container = isPlayer ? document.getElementById('current-squad-container') :
-                        document.getElementById('current-staff-container');
+                    const container = document.getElementById('current-squad-container');
 
                     const retainedTag = memberData.player_mode === 'retained' ?
                         `<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
@@ -1006,7 +1004,7 @@
 
                         try {
                             const url =
-                                `{{ route('admin.actual-teams.remove-member', [$actualTeam->id, 'USER_ID']) }}`
+                                `{{ route('admin.actual-teams.delete-member', [$actualTeam->id, 'USER_ID']) }}`
                                 .replace('USER_ID', id);
 
                             await request(url, 'DELETE');

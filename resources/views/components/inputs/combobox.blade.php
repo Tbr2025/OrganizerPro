@@ -221,6 +221,7 @@
         </template>
 
         <input x-show="!multiple"
+            x-bind:disabled="multiple"
             name="{{ $name }}"
             type="hidden"
             x-ref="hiddenTextField"
