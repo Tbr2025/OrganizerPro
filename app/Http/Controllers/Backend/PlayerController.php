@@ -435,21 +435,28 @@ class PlayerController extends Controller
         $validated['created_by'] = Auth::id();
 
 
-        // Create user first
-        $username = Str::slug(Str::before($validated['email'], '@'), '_');
-        if (User::where('username', $username)->exists()) {
-            $username .= '_' . Str::random(5);
-        }
-        $password = Str::random(12);
+        // Create or reuse existing user
+        $existingUser = User::where('email', $validated['email'])->first();
+        $password = null;
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'organization_id' => Auth::user()->organization_id,
-            'username' => $username,
-            'email' => $validated['email'],
-            'password' => Hash::make($password),
-            'email_verified_at' => null,
-        ]);
+        if ($existingUser) {
+            $user = $existingUser;
+        } else {
+            $username = Str::slug(Str::before($validated['email'], '@'), '_');
+            if (User::where('username', $username)->exists()) {
+                $username .= '_' . Str::random(5);
+            }
+            $password = Str::random(12);
+
+            $user = User::create([
+                'name' => $validated['name'],
+                'organization_id' => Auth::user()->organization_id,
+                'username' => $username,
+                'email' => $validated['email'],
+                'password' => Hash::make($password),
+                'email_verified_at' => null,
+            ]);
+        }
 
         // Add user_id to validated data before creating player
         $validated['user_id'] = $user->id;
@@ -463,8 +470,10 @@ class PlayerController extends Controller
             $user->assignRole($playerRole);
         }
 
-        // Send welcome email with credentials
-        $user->notify(new CustomVerifyEmail($password));
+        // Send welcome email with credentials (only for new users)
+        if ($password) {
+            $user->notify(new CustomVerifyEmail($password));
+        }
 
 
 
