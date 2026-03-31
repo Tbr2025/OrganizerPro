@@ -35,6 +35,28 @@
                         }">
                         @csrf
 
+                        {{-- ===== Tournament Selector (controls field visibility) ===== --}}
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Tournament Context</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Select a tournament to apply its registration form field config</p>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="max-w-md">
+                                    <label for="tournament_selector" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tournament</label>
+                                    <select id="tournament_selector"
+                                        class="form-control"
+                                        onchange="window.location.href='{{ route('admin.players.create') }}' + (this.value ? '?tournament_id=' + this.value : '')">
+                                        <option value="">-- All Fields (No Tournament) --</option>
+                                        @foreach($tournaments as $t)
+                                            <option value="{{ $t->id }}" {{ ($selectedTournamentId ?? null) == $t->id ? 'selected' : '' }}>
+                                                {{ $t->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Changing this reloads the page with the tournament's field visibility settings</p>
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- ===== SECTION 1: Basic Information ===== --}}
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Basic Information</h3>

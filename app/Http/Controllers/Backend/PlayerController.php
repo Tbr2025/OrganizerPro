@@ -226,15 +226,24 @@ class PlayerController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         $this->checkAuthorization(Auth::user(), ['player.create']);
 
         $defaultCountry = config('settings.default_country', '');
         $defaultDialCode = $defaultCountry ? config('countries.dial_codes.' . $defaultCountry, '+971') : '+971';
 
-        // Admin create uses defaults (all fields visible) since not tournament-specific
+        $tournaments = Tournament::orderBy('name')->get();
+
+        // If tournament is selected, use its field config; otherwise use defaults
+        $selectedTournament = null;
         $fieldConfig = PlayerFormConfig::defaultFormFields();
+        if ($request->filled('tournament_id')) {
+            $selectedTournament = Tournament::with('settings')->find($request->tournament_id);
+            if ($selectedTournament?->settings) {
+                $fieldConfig = PlayerFormConfig::getFieldConfig($selectedTournament->settings);
+            }
+        }
 
         return view('backend.pages.players.create', [
             'teams' => Team::all(),
@@ -247,6 +256,8 @@ class PlayerController extends Controller
             'defaultCountry' => $defaultCountry,
             'defaultDialCode' => $defaultDialCode,
             'fieldConfig' => $fieldConfig,
+            'tournaments' => $tournaments,
+            'selectedTournamentId' => $selectedTournament?->id,
             'breadcrumbs' => [
                 'title' => __('New Player'),
                 'items' => [['label' => __('Players'), 'url' => route('admin.players.index')]],
