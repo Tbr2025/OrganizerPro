@@ -94,24 +94,29 @@
                             </div>
 
                             {{-- Mobile No --}}
-                            <div class="space-y-1 sm:col-span-2"> {{-- Occupy full width --}}
+                            <div class="space-y-1 sm:col-span-2">
                                 <label for="mobile_national_number"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     {{ __('Mobile Number') }} <span class="text-red-500">*</span>
                                 </label>
                                 <div class="flex items-center space-x-2">
-                                    {{-- Country Code --}}
-                                    <div class="w-1/4">
-                                        <input type="text" name="mobile_country_code" id="mobile_country_code" required
-                                            value="{{ old('mobile_country_code', $defaultDialCode ?? '+971') }}"
-                                            placeholder="{{ $defaultDialCode ?? '+971' }}"
+                                    {{-- Country Code Dropdown --}}
+                                    <div class="w-2/5">
+                                        <select name="mobile_country_code" id="mobile_country_code" required
                                             class="form-control @error('mobile_country_code') border-red-500 @enderror">
+                                            @foreach (config('countries.dial_codes', []) as $code => $dial)
+                                                <option value="{{ $dial }}"
+                                                    {{ old('mobile_country_code', $defaultDialCode ?? '+971') == $dial ? 'selected' : '' }}>
+                                                    {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                                </option>
+                                            @endforeach
+                                        </select>
                                         @error('mobile_country_code')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
                                     {{-- National Number --}}
-                                    <div class="w-3/4">
+                                    <div class="w-3/5">
                                         <input type="text" name="mobile_national_number" id="mobile_national_number"
                                             required value="{{ old('mobile_national_number') }}"
                                             placeholder="Enter Mobile Number"
@@ -124,24 +129,29 @@
                             </div>
 
                             {{-- Cricheroes Number --}}
-                            <div class="space-y-1 sm:col-span-2"> {{-- Occupy full width --}}
+                            <div class="space-y-1 sm:col-span-2">
                                 <label for="cricheroes_national_number"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     {{ __('Cricheroes Number') }}
                                 </label>
                                 <div class="flex items-center space-x-2">
-                                    {{-- Country Code --}}
-                                    <div class="w-1/4">
-                                        <input type="text" name="cricheroes_country_code" id="cricheroes_country_code"
-                                            value="{{ old('cricheroes_country_code', $defaultDialCode ?? '+971') }}"
-                                            placeholder="{{ $defaultDialCode ?? '+971' }}"
+                                    {{-- Country Code Dropdown --}}
+                                    <div class="w-2/5">
+                                        <select name="cricheroes_country_code" id="cricheroes_country_code"
                                             class="form-control @error('cricheroes_country_code') border-red-500 @enderror">
+                                            @foreach (config('countries.dial_codes', []) as $code => $dial)
+                                                <option value="{{ $dial }}"
+                                                    {{ old('cricheroes_country_code', $defaultDialCode ?? '+971') == $dial ? 'selected' : '' }}>
+                                                    {{ config('countries.list.' . $code) }} ({{ $dial }})
+                                                </option>
+                                            @endforeach
+                                        </select>
                                         @error('cricheroes_country_code')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
                                     {{-- National Number --}}
-                                    <div class="w-3/4">
+                                    <div class="w-3/5">
                                         <input type="text" name="cricheroes_national_number"
                                             id="cricheroes_national_number" value="{{ old('cricheroes_national_number') }}"
                                             placeholder="Enter Cricheroes Number"
@@ -411,8 +421,11 @@
     const dialCodes = @json(config('countries.dial_codes', []));
     function updateDialCode(countryCode) {
         if (dialCodes[countryCode]) {
-            document.getElementById('mobile_country_code').value = dialCodes[countryCode];
-            document.getElementById('cricheroes_country_code').value = dialCodes[countryCode];
+            const dialCode = dialCodes[countryCode];
+            const mobileSelect = document.getElementById('mobile_country_code');
+            const cricSelect = document.getElementById('cricheroes_country_code');
+            if (mobileSelect) mobileSelect.value = dialCode;
+            if (cricSelect) cricSelect.value = dialCode;
         }
     }
 </script>
