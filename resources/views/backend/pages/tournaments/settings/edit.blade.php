@@ -167,6 +167,63 @@
                     </div>
                 </div>
 
+                {{-- Registration Form Fields Configuration --}}
+                <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{
+                    fields: @js($fieldConfig),
+                    lockedFields: ['name', 'email'],
+                    toggleRequired(key) {
+                        if (!this.fields[key].visible) {
+                            this.fields[key].required = false;
+                        }
+                    }
+                }">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Registration Form Fields</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure which fields appear on the player registration form and which are required.</p>
+
+                    @php
+                        $groups = \App\Helpers\PlayerFormConfig::fieldGroups();
+                        $labels = \App\Helpers\PlayerFormConfig::fieldLabels();
+                    @endphp
+
+                    <div class="space-y-4">
+                        @foreach($groups as $groupName => $groupFields)
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded">{{ $groupName }}</h4>
+                            <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach($groupFields as $fieldKey)
+                                <div class="flex items-center justify-between px-3 py-2">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ $labels[$fieldKey] ?? $fieldKey }}</span>
+                                    <div class="flex items-center gap-6">
+                                        {{-- Visible toggle --}}
+                                        <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                            <span>Visible</span>
+                                            <input type="checkbox"
+                                                :name="'form_fields[' + '{{ $fieldKey }}' + '][visible]'"
+                                                x-model="fields['{{ $fieldKey }}'].visible"
+                                                @change="toggleRequired('{{ $fieldKey }}')"
+                                                :disabled="lockedFields.includes('{{ $fieldKey }}')"
+                                                class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                :class="lockedFields.includes('{{ $fieldKey }}') ? 'opacity-50 cursor-not-allowed' : ''">
+                                        </label>
+                                        {{-- Required toggle --}}
+                                        <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                            <span>Required</span>
+                                            <input type="checkbox"
+                                                :name="'form_fields[' + '{{ $fieldKey }}' + '][required]'"
+                                                x-model="fields['{{ $fieldKey }}'].required"
+                                                :disabled="!fields['{{ $fieldKey }}'].visible || lockedFields.includes('{{ $fieldKey }}')"
+                                                class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                                                :class="(!fields['{{ $fieldKey }}'].visible || lockedFields.includes('{{ $fieldKey }}')) ? 'opacity-50 cursor-not-allowed' : ''">
+                                        </label>
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+
                 {{-- Match Settings --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Match Settings</h3>

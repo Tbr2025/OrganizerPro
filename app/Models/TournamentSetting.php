@@ -63,6 +63,8 @@ class TournamentSetting extends Model
         // Calendar scheduling
         'available_days',
         'default_time_slots',
+        // Registration form fields config
+        'registration_form_fields',
     ];
 
     protected $casts = [
@@ -80,6 +82,7 @@ class TournamentSetting extends Model
         'social_links' => 'array',
         'available_days' => 'array',
         'default_time_slots' => 'array',
+        'registration_form_fields' => 'array',
     ];
 
     public function tournament(): BelongsTo

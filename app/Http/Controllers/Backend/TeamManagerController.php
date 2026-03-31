@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
@@ -138,8 +139,11 @@ class TeamManagerController extends Controller
 
         $defaultCountry = config('settings.default_country', '');
 
+        // Get field config from the team's tournament settings
+        $fieldConfig = PlayerFormConfig::getFieldConfig($team->tournament?->settings);
+
         return view('backend.pages.team-manager.create-player', compact(
-            'team', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry'
+            'team', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry', 'fieldConfig'
         ));
     }
 
@@ -156,29 +160,19 @@ class TeamManagerController extends Controller
                 ->with('error', 'You are not assigned to any team.');
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'country' => 'nullable|string|max:2',
-            'email' => 'nullable|email|unique:players,email',
-            'mobile_number_full' => 'nullable|string|max:20',
-            'cricheroes_number_full' => 'nullable|string|max:20',
-            'location_id' => 'nullable|exists:player_locations,id',
-            'jersey_name' => 'nullable|string|max:50',
-            'jersey_number' => 'nullable|integer|min:0|max:999',
-            'kit_size_id' => 'nullable|exists:kit_sizes,id',
-            'player_type_id' => 'nullable|exists:player_types,id',
-            'batting_profile_id' => 'nullable|exists:batting_profiles,id',
-            'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
-            'is_wicket_keeper' => 'nullable|boolean',
-            'total_matches' => 'nullable|integer|min:0',
-            'total_runs' => 'nullable|integer|min:0',
-            'total_wickets' => 'nullable|integer|min:0',
-            'transportation_required' => 'nullable|boolean',
-            'no_travel_plan' => 'nullable|boolean',
-            'travel_date_from' => 'nullable|date',
-            'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
-            'image_path' => 'nullable|image|mimes:jpeg,png,jpg|max:6144',
-        ]);
+        $fieldConfig = PlayerFormConfig::getFieldConfig($team->tournament?->settings);
+        $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'team_manager');
+        // Override email to allow nullable + unique for team manager context
+        $rules['email'] = 'nullable|email|unique:players,email';
+        // Image field name is image_path in team manager form
+        if (isset($rules['image'])) {
+            $rules['image_path'] = str_replace('image|', 'image|', $rules['image']);
+            unset($rules['image']);
+        } else {
+            $rules['image_path'] = 'nullable|image|mimes:jpeg,png,jpg|max:6144';
+        }
+
+        $validated = $request->validate($rules);
 
         $data = [
             'name' => $validated['name'],
@@ -186,6 +180,7 @@ class TeamManagerController extends Controller
             'email' => $validated['email'] ?? null,
             'mobile_number_full' => $validated['mobile_number_full'] ?? null,
             'cricheroes_number_full' => $validated['cricheroes_number_full'] ?? null,
+            'cricheroes_profile_url' => $validated['cricheroes_profile_url'] ?? null,
             'location_id' => $validated['location_id'] ?? null,
             'jersey_name' => $validated['jersey_name'] ?? null,
             'jersey_number' => $validated['jersey_number'] ?? null,

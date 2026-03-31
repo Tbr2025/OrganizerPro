@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Public;
 
+use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\BattingProfile;
 use App\Models\BowlingProfile;
@@ -36,9 +37,12 @@ class RegistrationController extends Controller
             ]);
         }
 
+        $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
+
         return view('public.registration.player', [
             'tournament' => $tournament,
             'settings' => $settings,
+            'fieldConfig' => $fieldConfig,
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
@@ -62,32 +66,10 @@ class RegistrationController extends Controller
             return redirect()->back()->with('error', __('Player registration is closed.'));
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'country' => 'nullable|string|max:2',
-            'email' => 'required|email|max:255',
-            'mobile_number_full' => 'required|string|max:20',
-            'cricheroes_number_full' => 'nullable|string|max:20',
-            'cricheroes_profile_url' => 'nullable|url|max:500',
-            'jersey_name' => 'nullable|string|max:50',
-            'jersey_number' => 'nullable|integer|min:0|max:999',
-            'batting_profile_id' => 'nullable|exists:batting_profiles,id',
-            'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
-            'player_type_id' => 'nullable|exists:player_types,id',
-            'kit_size_id' => 'nullable|exists:kit_sizes,id',
-            'location_id' => 'nullable|exists:player_locations,id',
-            'team_id' => 'nullable|exists:teams,id',
-            'team_name_ref' => 'nullable|string|max:100',
-            'is_wicket_keeper' => 'boolean',
-            'transportation_required' => 'boolean',
-            'no_travel_plan' => 'boolean',
-            'travel_date_from' => 'nullable|date',
-            'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
-            'image' => 'nullable|image|mimes:png,jpg,jpeg|max:6144',
-            'total_matches' => 'nullable|integer|min:0',
-            'total_runs' => 'nullable|integer|min:0',
-            'total_wickets' => 'nullable|integer|min:0',
-        ]);
+        $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
+        $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'public');
+
+        $validated = $request->validate($rules);
 
         $validated['is_wicket_keeper'] = $request->boolean('is_wicket_keeper');
         $validated['transportation_required'] = $request->boolean('transportation_required');

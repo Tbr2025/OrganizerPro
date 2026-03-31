@@ -174,6 +174,35 @@
                                 @enderror
                             </div>
 
+                            {{-- CricHeroes Profile URL --}}
+                            <div class="space-y-1 sm:col-span-2">
+                                <label for="cricheroes_profile_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ __('CricHeroes Profile URL') }}
+                                </label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="url" name="cricheroes_profile_url" id="cricheroes_profile_url"
+                                        value="{{ old('cricheroes_profile_url', $player->cricheroes_profile_url) }}"
+                                        placeholder="https://cricheroes.com/player-profile/..."
+                                        class="form-control @error('cricheroes_profile_url') border-red-500 @enderror">
+
+                                    @php $canVerify = auth()->user()->hasAnyRole(['Superadmin', 'Admin']); @endphp
+                                    <label class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+                                        <input type="checkbox" name="verified_cricheroes_profile_url" value="1"
+                                            class="sr-only peer"
+                                            {{ old('verified_cricheroes_profile_url', $player->verified_cricheroes_profile_url ?? false) ? 'checked' : '' }}
+                                            @unless ($canVerify) disabled @endunless>
+                                        <div class="w-11 h-6 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400
+                dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300"></div>
+                                        <div class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full
+                transition-transform duration-300 peer-checked:translate-x-full"></div>
+                                        <span class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
+                                    </label>
+                                </div>
+                                @error('cricheroes_profile_url')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
                             {{-- Basic Inputs --}}
                             @foreach ($fields as $field => $label)
                                 <div class="space-y-1">

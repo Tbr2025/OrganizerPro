@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Backend\Tournament;
 
+use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentSetting;
@@ -23,10 +24,12 @@ class TournamentSettingsController extends Controller
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
         $settings = $tournament->settings ?? $tournament->settings()->create([]);
+        $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
 
         return view('backend.pages.tournaments.settings.edit', [
             'tournament' => $tournament,
             'settings' => $settings,
+            'fieldConfig' => $fieldConfig,
             'breadcrumbs' => [
                 'title' => __('Tournament Settings'),
                 'items' => [
@@ -88,6 +91,23 @@ class TournamentSettingsController extends Controller
         ]);
 
         $settings = $tournament->settings ?? $tournament->settings()->create([]);
+
+        // Build registration form fields config from checkboxes
+        if ($request->has('form_fields')) {
+            $formFields = [];
+            $defaults = PlayerFormConfig::defaultFormFields();
+            foreach ($defaults as $key => $default) {
+                $formFields[$key] = [
+                    'visible' => $request->has("form_fields.{$key}.visible"),
+                    'required' => $request->has("form_fields.{$key}.required"),
+                ];
+            }
+            // Force name and email always visible+required
+            $formFields['name'] = ['visible' => true, 'required' => true];
+            $formFields['email'] = ['visible' => true, 'required' => true];
+
+            $settings->update(['registration_form_fields' => $formFields]);
+        }
 
         // Handle file uploads
         if ($request->hasFile('logo')) {

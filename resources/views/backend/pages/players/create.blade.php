@@ -41,7 +41,7 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Player identity and contact details</p>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                    {{-- Player Name --}}
+                                    {{-- Player Name (always visible) --}}
                                     <div class="space-y-1">
                                         <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Player Name') }} <span class="text-red-500">*</span>
@@ -54,7 +54,7 @@
                                         @enderror
                                     </div>
 
-                                    {{-- Player Email --}}
+                                    {{-- Player Email (always visible) --}}
                                     <div class="space-y-1">
                                         <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Email Address') }} <span class="text-red-500">*</span>
@@ -68,9 +68,10 @@
                                     </div>
 
                                     {{-- Country --}}
+                                    @if($fieldConfig['country']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Country') }}
+                                            {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror"
                                             onchange="updateDialCode(this.value)">
@@ -85,13 +86,15 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
                                     {{-- Location --}}
+                                    @if($fieldConfig['location']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="location_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Location') }} <span class="text-red-500">*</span>
+                                            {{ __('Location') }} @if($fieldConfig['location']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
-                                        <select name="location_id" id="location_id" class="form-control" required>
+                                        <select name="location_id" id="location_id" class="form-control" {{ ($fieldConfig['location']['required'] ?? false) ? 'required' : '' }}>
                                             <option value="">-- Select Location --</option>
                                             @foreach ($locations as $location)
                                                 <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
@@ -103,15 +106,17 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
                                     {{-- Mobile Number --}}
+                                    @if($fieldConfig['mobile_number']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="mobile_national_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Mobile Number') }} <span class="text-red-500">*</span>
+                                            {{ __('Mobile Number') }} @if($fieldConfig['mobile_number']['required'] ?? true)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <div class="flex items-start gap-2">
                                             <div class="w-2/5">
-                                                <select name="mobile_country_code" id="mobile_country_code" required
+                                                <select name="mobile_country_code" id="mobile_country_code" {{ ($fieldConfig['mobile_number']['required'] ?? true) ? 'required' : '' }}
                                                     class="form-control @error('mobile_country_code') border-red-500 @enderror">
                                                     @foreach (config('countries.dial_codes', []) as $code => $dial)
                                                         <option value="{{ $dial }}"
@@ -126,7 +131,7 @@
                                             </div>
                                             <div class="w-3/5">
                                                 <input type="text" name="mobile_national_number" id="mobile_national_number"
-                                                    required value="{{ old('mobile_national_number') }}"
+                                                    {{ ($fieldConfig['mobile_number']['required'] ?? true) ? 'required' : '' }} value="{{ old('mobile_national_number') }}"
                                                     placeholder="Enter Mobile Number"
                                                     class="form-control @error('mobile_national_number') border-red-500 @enderror">
                                                 @error('mobile_national_number')
@@ -135,11 +140,13 @@
                                             </div>
                                         </div>
                                     </div>
+                                    @endif
 
                                     {{-- Cricheroes Number --}}
+                                    @if($fieldConfig['cricheroes_number']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="cricheroes_national_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Cricheroes Number') }}
+                                            {{ __('Cricheroes Number') }} @if($fieldConfig['cricheroes_number']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <div class="flex items-start gap-2">
                                             <div class="w-2/5">
@@ -167,6 +174,23 @@
                                             </div>
                                         </div>
                                     </div>
+                                    @endif
+
+                                    {{-- CricHeroes Profile URL --}}
+                                    @if($fieldConfig['cricheroes_profile_url']['visible'] ?? true)
+                                    <div class="space-y-1 sm:col-span-2">
+                                        <label for="cricheroes_profile_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('CricHeroes Profile URL') }} @if($fieldConfig['cricheroes_profile_url']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                        </label>
+                                        <input type="url" name="cricheroes_profile_url" id="cricheroes_profile_url"
+                                            value="{{ old('cricheroes_profile_url') }}"
+                                            placeholder="https://cricheroes.com/player-profile/..."
+                                            class="form-control @error('cricheroes_profile_url') border-red-500 @enderror">
+                                        @error('cricheroes_profile_url')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -235,9 +259,10 @@
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                                     {{-- Jersey Name --}}
+                                    @if($fieldConfig['jersey_name']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="jersey_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Jersey Name') }}
+                                            {{ __('Jersey Name') }} @if($fieldConfig['jersey_name']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <input type="text" name="jersey_name" id="jersey_name"
                                             value="{{ old('jersey_name') }}" placeholder="Name on jersey"
@@ -246,11 +271,13 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
                                     {{-- Jersey Number --}}
+                                    @if($fieldConfig['jersey_number']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="jersey_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Jersey Number') }}
+                                            {{ __('Jersey Number') }} @if($fieldConfig['jersey_number']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <input type="number" name="jersey_number" id="jersey_number"
                                             value="{{ old('jersey_number') }}" placeholder="e.g. 7"
@@ -259,11 +286,13 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
                                     {{-- Jersey Size --}}
+                                    @if($fieldConfig['kit_size']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="kit_size_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Jersey Size') }}
+                                            {{ __('Jersey Size') }} @if($fieldConfig['kit_size']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="kit_size_id" id="kit_size_id"
                                             class="form-control @error('kit_size_id') border-red-500 @enderror">
@@ -279,11 +308,13 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
                                     {{-- Batting Profile --}}
+                                    @if($fieldConfig['batting_profile']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="batting_profile_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Batting Profile') }}
+                                            {{ __('Batting Profile') }} @if($fieldConfig['batting_profile']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="batting_profile_id" id="batting_profile_id"
                                             class="form-control @error('batting_profile_id') border-red-500 @enderror">
@@ -299,11 +330,13 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
                                     {{-- Bowling Profile --}}
+                                    @if($fieldConfig['bowling_profile']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="bowling_profile_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Bowling Profile') }}
+                                            {{ __('Bowling Profile') }} @if($fieldConfig['bowling_profile']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="bowling_profile_id" id="bowling_profile_id"
                                             class="form-control @error('bowling_profile_id') border-red-500 @enderror">
@@ -319,11 +352,13 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
                                     {{-- Player Type --}}
+                                    @if($fieldConfig['player_type']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="player_type_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Player Type') }}
+                                            {{ __('Player Type') }} @if($fieldConfig['player_type']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="player_type_id" id="player_type_id"
                                             class="form-control @error('player_type_id') border-red-500 @enderror">
@@ -339,9 +374,11 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
                                 </div>
 
                                 {{-- Wicket Keeper --}}
+                                @if($fieldConfig['is_wicket_keeper']['visible'] ?? true)
                                 <div class="mt-4">
                                     <label class="inline-flex items-center cursor-pointer">
                                         <input type="checkbox" name="is_wicket_keeper" id="is_wicket_keeper" value="1"
@@ -350,10 +387,12 @@
                                         <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Is Wicket Keeper?') }}</span>
                                     </label>
                                 </div>
+                                @endif
                             </div>
                         </div>
 
                         {{-- ===== SECTION 4: Leather Ball Experience ===== --}}
+                        @if(($fieldConfig['total_matches']['visible'] ?? true) || ($fieldConfig['total_runs']['visible'] ?? true) || ($fieldConfig['total_wickets']['visible'] ?? true))
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Leather Ball Experience</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Career stats (leather ball)</p>
@@ -364,9 +403,10 @@
                                         'total_runs' => 'Total Runs',
                                         'total_wickets' => 'Total Wickets',
                                     ] as $field => $label)
+                                        @if($fieldConfig[$field]['visible'] ?? true)
                                         <div class="space-y-1">
                                             <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                {{ $label }}
+                                                {{ $label }} @if($fieldConfig[$field]['required'] ?? false)<span class="text-red-500">*</span>@endif
                                             </label>
                                             <input type="number" name="{{ $field }}" id="{{ $field }}"
                                                 min="0" value="{{ old($field, 0) }}" class="form-control">
@@ -374,12 +414,15 @@
                                                 <p class="text-sm text-red-500">{{ $message }}</p>
                                             @enderror
                                         </div>
+                                        @endif
                                     @endforeach
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         {{-- ===== SECTION 5: Player Image ===== --}}
+                        @if($fieldConfig['image']['visible'] ?? true)
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Player Photo</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload player profile image</p>
@@ -410,14 +453,17 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         {{-- ===== SECTION 6: Travel & Transportation ===== --}}
+                        @if(($fieldConfig['transportation']['visible'] ?? true) || ($fieldConfig['travel_plan']['visible'] ?? true))
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Travel & Transportation</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Availability and transport needs</p>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="space-y-4">
                                     {{-- Transportation Required --}}
+                                    @if($fieldConfig['transportation']['visible'] ?? true)
                                     <label class="inline-flex items-center cursor-pointer">
                                         <input type="checkbox" name="transportation_required" id="transportation_required"
                                             value="1"
@@ -425,8 +471,10 @@
                                             {{ old('transportation_required') ? 'checked' : '' }}>
                                         <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Transportation Required?') }}</span>
                                     </label>
+                                    @endif
 
                                     {{-- No Travel Plan --}}
+                                    @if($fieldConfig['travel_plan']['visible'] ?? true)
                                     <div>
                                         <label class="inline-flex items-center cursor-pointer">
                                             <input type="checkbox" name="no_travel_plan" value="1" x-model="noTravel"
@@ -466,9 +514,11 @@
                                             @enderror
                                         </div>
                                     </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         {{-- ===== Submit ===== --}}
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-5">

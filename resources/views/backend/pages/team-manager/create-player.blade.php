@@ -40,40 +40,106 @@
 
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 
-                            @php
-                                $fields = [
-                                    'name' => 'Player Name',
-                                    'email' => 'Email',
-                                    'mobile_number_full' => 'Full Mobile Number',
-                                    'cricheroes_number_full' => 'Full Cricheroes Number',
-                                    'jersey_name' => 'Jersey Name',
-                                    'jersey_number' => 'Jersey Number',
-                                ];
-                            @endphp
+                            {{-- Player Name (always visible) --}}
+                            <div class="space-y-1">
+                                <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Player Name <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" id="name" name="name" value="{{ old('name') }}"
+                                    class="form-control @error('name') border-red-500 @enderror" required>
+                                @error('name')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
 
-                            {{-- Basic Inputs --}}
-                            @foreach ($fields as $field => $label)
-                                <div class="space-y-1">
-                                    <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {{ $label }}
-                                        @if ($field === 'name')
-                                            <span class="text-red-500">*</span>
-                                        @endif
-                                    </label>
-                                    <input type="text" id="{{ $field }}" name="{{ $field }}"
-                                        value="{{ old($field) }}"
-                                        class="form-control @error($field) border-red-500 @enderror"
-                                        @if($field === 'name') required @endif>
-                                    @error($field)
-                                        <p class="text-sm text-red-500">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            @endforeach
+                            {{-- Email (always visible) --}}
+                            <div class="space-y-1">
+                                <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Email <span class="text-red-500">*</span>
+                                </label>
+                                <input type="email" id="email" name="email" value="{{ old('email') }}"
+                                    class="form-control @error('email') border-red-500 @enderror">
+                                @error('email')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Mobile Number --}}
+                            @if($fieldConfig['mobile_number']['visible'] ?? true)
+                            <div class="space-y-1">
+                                <label for="mobile_number_full" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Full Mobile Number @if($fieldConfig['mobile_number']['required'] ?? true)<span class="text-red-500">*</span>@endif
+                                </label>
+                                <input type="text" id="mobile_number_full" name="mobile_number_full" value="{{ old('mobile_number_full') }}"
+                                    class="form-control @error('mobile_number_full') border-red-500 @enderror">
+                                @error('mobile_number_full')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            @endif
+
+                            {{-- CricHeroes Number --}}
+                            @if($fieldConfig['cricheroes_number']['visible'] ?? true)
+                            <div class="space-y-1">
+                                <label for="cricheroes_number_full" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Full Cricheroes Number @if($fieldConfig['cricheroes_number']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                </label>
+                                <input type="text" id="cricheroes_number_full" name="cricheroes_number_full" value="{{ old('cricheroes_number_full') }}"
+                                    class="form-control @error('cricheroes_number_full') border-red-500 @enderror">
+                                @error('cricheroes_number_full')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            @endif
+
+                            {{-- CricHeroes Profile URL --}}
+                            @if($fieldConfig['cricheroes_profile_url']['visible'] ?? true)
+                            <div class="space-y-1 sm:col-span-2">
+                                <label for="cricheroes_profile_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    CricHeroes Profile URL @if($fieldConfig['cricheroes_profile_url']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                </label>
+                                <input type="url" id="cricheroes_profile_url" name="cricheroes_profile_url" value="{{ old('cricheroes_profile_url') }}"
+                                    placeholder="https://cricheroes.com/player-profile/..."
+                                    class="form-control @error('cricheroes_profile_url') border-red-500 @enderror">
+                                @error('cricheroes_profile_url')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            @endif
+
+                            {{-- Jersey Name --}}
+                            @if($fieldConfig['jersey_name']['visible'] ?? true)
+                            <div class="space-y-1">
+                                <label for="jersey_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Jersey Name @if($fieldConfig['jersey_name']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                </label>
+                                <input type="text" id="jersey_name" name="jersey_name" value="{{ old('jersey_name') }}"
+                                    class="form-control @error('jersey_name') border-red-500 @enderror">
+                                @error('jersey_name')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            @endif
+
+                            {{-- Jersey Number --}}
+                            @if($fieldConfig['jersey_number']['visible'] ?? true)
+                            <div class="space-y-1">
+                                <label for="jersey_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Jersey Number @if($fieldConfig['jersey_number']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                </label>
+                                <input type="text" id="jersey_number" name="jersey_number" value="{{ old('jersey_number') }}"
+                                    class="form-control @error('jersey_number') border-red-500 @enderror">
+                                @error('jersey_number')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            @endif
 
                             {{-- Country --}}
+                            @if($fieldConfig['country']['visible'] ?? true)
                             <div class="space-y-1">
                                 <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Country') }}
+                                    {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror">
                                     <option value="">-- Select Country --</option>
@@ -87,37 +153,60 @@
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
                             </div>
+                            @endif
 
                             {{-- Leather Ball Profile Stats --}}
+                            @if(($fieldConfig['total_matches']['visible'] ?? true) || ($fieldConfig['total_runs']['visible'] ?? true) || ($fieldConfig['total_wickets']['visible'] ?? true))
                             <div class="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-                                @php
-                                    $stats = [
-                                        'total_matches' => 'Total Matches',
-                                        'total_runs' => 'Total Runs',
-                                        'total_wickets' => 'Total Wickets',
-                                    ];
-                                @endphp
+                                @if($fieldConfig['total_matches']['visible'] ?? true)
+                                <div class="space-y-1">
+                                    <label for="total_matches" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Total Matches @if($fieldConfig['total_matches']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                    </label>
+                                    <input type="number" name="total_matches" id="total_matches"
+                                        value="{{ old('total_matches', 0) }}"
+                                        class="form-control @error('total_matches') border-red-500 @enderror" min="0">
+                                    @error('total_matches')
+                                        <p class="text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                @endif
 
-                                @foreach ($stats as $field => $label)
-                                    <div class="space-y-1">
-                                        <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ $label }}
-                                        </label>
-                                        <input type="number" name="{{ $field }}" id="{{ $field }}"
-                                            value="{{ old($field, 0) }}"
-                                            class="form-control @error($field) border-red-500 @enderror" min="0">
-                                        @error($field)
-                                            <p class="text-sm text-red-500">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                @endforeach
+                                @if($fieldConfig['total_runs']['visible'] ?? true)
+                                <div class="space-y-1">
+                                    <label for="total_runs" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Total Runs @if($fieldConfig['total_runs']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                    </label>
+                                    <input type="number" name="total_runs" id="total_runs"
+                                        value="{{ old('total_runs', 0) }}"
+                                        class="form-control @error('total_runs') border-red-500 @enderror" min="0">
+                                    @error('total_runs')
+                                        <p class="text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                @endif
+
+                                @if($fieldConfig['total_wickets']['visible'] ?? true)
+                                <div class="space-y-1">
+                                    <label for="total_wickets" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Total Wickets @if($fieldConfig['total_wickets']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                    </label>
+                                    <input type="number" name="total_wickets" id="total_wickets"
+                                        value="{{ old('total_wickets', 0) }}"
+                                        class="form-control @error('total_wickets') border-red-500 @enderror" min="0">
+                                    @error('total_wickets')
+                                        <p class="text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                @endif
                             </div>
+                            @endif
 
                             {{-- Player Location --}}
-                            @if($locations->count() > 0)
+                            @if(($fieldConfig['location']['visible'] ?? true) && $locations->count() > 0)
                             <div class="space-y-1">
                                 <label for="location_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Player Location
+                                    Player Location @if($fieldConfig['location']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <select name="location_id" id="location_id" class="form-control">
                                     <option value="">-- Select Location --</option>
@@ -141,30 +230,34 @@
                                         'label' => 'Jersey Size',
                                         'options' => $kitSizes,
                                         'optionField' => 'size',
+                                        'configKey' => 'kit_size',
                                     ],
                                     'batting_profile_id' => [
                                         'label' => 'Batting Profile',
                                         'options' => $battingProfiles,
                                         'optionField' => 'style',
+                                        'configKey' => 'batting_profile',
                                     ],
                                     'bowling_profile_id' => [
                                         'label' => 'Bowling Profile',
                                         'options' => $bowlingProfiles,
                                         'optionField' => 'style',
+                                        'configKey' => 'bowling_profile',
                                     ],
                                     'player_type_id' => [
                                         'label' => 'Player Type',
                                         'options' => $playerTypes,
                                         'optionField' => 'type',
+                                        'configKey' => 'player_type',
                                     ],
                                 ];
                             @endphp
 
                             @foreach ($dropdowns as $field => $config)
-                                @if($config['options']->count() > 0)
+                                @if(($fieldConfig[$config['configKey']]['visible'] ?? true) && $config['options']->count() > 0)
                                 <div class="space-y-1">
                                     <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {{ $config['label'] }}
+                                        {{ $config['label'] }} @if($fieldConfig[$config['configKey']]['required'] ?? false)<span class="text-red-500">*</span>@endif
                                     </label>
                                     <select name="{{ $field }}" id="{{ $field }}" class="form-control">
                                         <option value="">-- Select {{ $config['label'] }} --</option>
@@ -183,9 +276,10 @@
                             @endforeach
 
                             {{-- Player Image Upload --}}
+                            @if($fieldConfig['image']['visible'] ?? true)
                             <div class="sm:col-span-2">
                                 <label for="image_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Player Image
+                                    Player Image @if($fieldConfig['image']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
 
                                 <div x-data="{
@@ -227,44 +321,57 @@
                                     <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                                 @enderror
                             </div>
+                            @endif
 
-                            {{-- Boolean Fields --}}
-                            @php
-                                $checkboxes = [
-                                    'is_wicket_keeper' => 'Is Wicket Keeper?',
-                                    'transportation_required' => 'Transportation Required?',
-                                    'no_travel_plan' => 'No Travel Plan',
-                                ];
-                            @endphp
+                            {{-- Wicket Keeper --}}
+                            @if($fieldConfig['is_wicket_keeper']['visible'] ?? true)
+                            <div class="space-y-1">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="checkbox" name="is_wicket_keeper" value="1"
+                                        {{ old('is_wicket_keeper') ? 'checked' : '' }} class="mr-2">
+                                    Is Wicket Keeper?
+                                </label>
+                            </div>
+                            @endif
 
-                            @foreach ($checkboxes as $field => $label)
-                                <div class="space-y-1">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        <input type="checkbox" name="{{ $field }}" value="1"
-                                            {{ old($field) ? 'checked' : '' }} class="mr-2">
-                                        {{ $label }}
-                                    </label>
+                            {{-- Transportation --}}
+                            @if($fieldConfig['transportation']['visible'] ?? true)
+                            <div class="space-y-1">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="checkbox" name="transportation_required" value="1"
+                                        {{ old('transportation_required') ? 'checked' : '' }} class="mr-2">
+                                    Transportation Required?
+                                </label>
+                            </div>
+                            @endif
 
-                                    @if ($field === 'no_travel_plan')
-                                        <div class="mt-4 grid grid-cols-2 gap-2">
-                                            <div>
-                                                <label class="text-xs text-gray-500">From Date</label>
-                                                <input type="date" id="travel_date_from" name="travel_date_from"
-                                                    value="{{ old('travel_date_from') }}"
-                                                    class="border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-md shadow-sm w-full"
-                                                    placeholder="YYYY-MM-DD">
-                                            </div>
-                                            <div>
-                                                <label class="text-xs text-gray-500">To Date</label>
-                                                <input type="date" id="travel_date_to" name="travel_date_to"
-                                                    value="{{ old('travel_date_to') }}"
-                                                    class="border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-md shadow-sm w-full"
-                                                    placeholder="YYYY-MM-DD">
-                                            </div>
-                                        </div>
-                                    @endif
+                            {{-- Travel Plan --}}
+                            @if($fieldConfig['travel_plan']['visible'] ?? true)
+                            <div class="space-y-1">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="checkbox" name="no_travel_plan" value="1"
+                                        {{ old('no_travel_plan') ? 'checked' : '' }} class="mr-2">
+                                    No Travel Plan
+                                </label>
+
+                                <div class="mt-4 grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-xs text-gray-500">From Date</label>
+                                        <input type="date" id="travel_date_from" name="travel_date_from"
+                                            value="{{ old('travel_date_from') }}"
+                                            class="border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-md shadow-sm w-full"
+                                            placeholder="YYYY-MM-DD">
+                                    </div>
+                                    <div>
+                                        <label class="text-xs text-gray-500">To Date</label>
+                                        <input type="date" id="travel_date_to" name="travel_date_to"
+                                            value="{{ old('travel_date_to') }}"
+                                            class="border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-md shadow-sm w-full"
+                                            placeholder="YYYY-MM-DD">
+                                    </div>
                                 </div>
-                            @endforeach
+                            </div>
+                            @endif
 
                         </div>
 

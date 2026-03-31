@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Mail\PlayerVerificationStatusMail;
 use App\Mail\PlayerWelcomeMail;
@@ -232,6 +233,9 @@ class PlayerController extends Controller
         $defaultCountry = config('settings.default_country', '');
         $defaultDialCode = $defaultCountry ? config('countries.dial_codes.' . $defaultCountry, '+971') : '+971';
 
+        // Admin create uses defaults (all fields visible) since not tournament-specific
+        $fieldConfig = PlayerFormConfig::defaultFormFields();
+
         return view('backend.pages.players.create', [
             'teams' => Team::all(),
             'actualTeams' => ActualTeam::all(),
@@ -242,6 +246,7 @@ class PlayerController extends Controller
             'playerTypes' => PlayerType::all(),
             'defaultCountry' => $defaultCountry,
             'defaultDialCode' => $defaultDialCode,
+            'fieldConfig' => $fieldConfig,
             'breadcrumbs' => [
                 'title' => __('New Player'),
                 'items' => [['label' => __('Players'), 'url' => route('admin.players.index')]],
@@ -609,6 +614,9 @@ class PlayerController extends Controller
             'image_path' => (bool) $player->verified_image_path,
         ];
 
+        // Admin edit uses defaults (all fields visible) since admin should see everything
+        $fieldConfig = PlayerFormConfig::defaultFormFields();
+
         return view('backend.pages.players.edit', [
             'player' => $player,
             'teams' => Team::all(),
@@ -620,6 +628,7 @@ class PlayerController extends Controller
             'playerTypes' => PlayerType::all(),
             'templates' => ImageTemplate::all(),
             'defaultCountry' => config('settings.default_country', ''),
+            'fieldConfig' => $fieldConfig,
             'breadcrumbs' => [
                 'title' => __('Edit Player'),
                 'items' => [
@@ -907,6 +916,7 @@ class PlayerController extends Controller
             'email' => 'required|email|unique:players,email,' . $player->id,
             'mobile_number_full' => 'required|string|max:20',
             'cricheroes_number_full' => 'required|string|max:20',
+            'cricheroes_profile_url' => 'nullable|url|max:500',
             'jersey_number' => 'nullable',
 
             'team_id' => 'nullable|exists:teams,id',
@@ -1050,6 +1060,7 @@ class PlayerController extends Controller
 
             'mobile_number_full' => $validated['mobile_number_full'],
             'cricheroes_number_full' => $validated['cricheroes_number_full'],
+            'cricheroes_profile_url' => $validated['cricheroes_profile_url'] ?? null,
             'team_id' => $validated['team_id'] ?? null,
             'actual_team_id' => $validated['actual_team_id'] ?? null,
             'jersey_name' => $validated['jersey_name'] ?? null,
@@ -1074,6 +1085,7 @@ class PlayerController extends Controller
         $player->verified_mobile_number_full = $request->boolean('verified_mobile_number_full');
         $player->verified_image_path = $request->boolean('verified_image_path');
         $player->verified_cricheroes_number_full = $request->boolean('verified_cricheroes_number_full');
+        $player->verified_cricheroes_profile_url = $request->boolean('verified_cricheroes_profile_url');
         $player->verified_team_id = $request->boolean('verified_team_id');
         $player->verified_jersey_name = $request->boolean('verified_jersey_name');
         $player->verified_kit_size_id = $request->boolean('verified_kit_size_id');

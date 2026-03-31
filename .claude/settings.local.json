@@ -24,7 +24,9 @@
       "Bash(git remote:*)",
       "Bash(curl:*)",
       "Bash(npx md-to-pdf:*)",
-      "Bash(which python3 2>&1 && python3 -c \"import rembg; print\\('rembg available'\\)\" 2>&1)"
+      "Bash(which python3 2>&1 && python3 -c \"import rembg; print\\('rembg available'\\)\" 2>&1)",
+      "Bash(grep -r \"point_table\\\\|point-table\" /Users/navasfazil/OrganizerPro/routes --include=\"*.php\" 2>/dev/null | head -20)",
+      "Bash(grep -n \"country\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)"
     ]
   }
 }
