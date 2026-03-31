@@ -429,9 +429,68 @@ class PlayerController extends Controller
             'travel_date_to.after_or_equal' => 'The travel end date must be after or equal to the start date.',
         ]);
 
-        // 🖼️ Handle image upload
+        // 🖼️ Handle image upload with background removal
         if ($request->hasFile('image_path')) {
-            $validated['image_path'] = $request->file('image_path')->store('player_images', 'public');
+            $imageFile = $request->file('image_path');
+
+            $originalFilename = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
+            $imageFile->storeAs('public/player_images', $originalFilename);
+            $inputPath = storage_path('app/public/player_images/' . $originalFilename);
+
+            $outputFilename = 'processed-' . Str::random(10) . '.png';
+            $outputPath = storage_path('app/public/player_images/' . $outputFilename);
+
+            $pythonBinary = base_path('rembg-env/bin/python');
+            $pythonScript = resource_path('scripts/remove_bg.py');
+
+            if (app()->environment('production')) {
+                $cachePath = storage_path('app/rembg_cache');
+                File::ensureDirectoryExists($cachePath);
+                $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
+                    escapeshellcmd($pythonBinary) . ' ' .
+                    escapeshellarg($pythonScript) . ' ' .
+                    escapeshellarg($inputPath) . ' ' .
+                    escapeshellarg($outputPath) . ' 2>&1';
+            } else {
+                $pythonBinary = PHP_OS_FAMILY === 'Windows'
+                    ? base_path('venv/Scripts/python.exe')
+                    : 'python3';
+                $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
+            }
+
+            try {
+                set_time_limit(300);
+                $output = shell_exec($command);
+
+                if (File::exists($outputPath)) {
+                    File::delete($inputPath);
+
+                    $sourceImage = imagecreatefrompng($outputPath);
+                    $origWidth = imagesx($sourceImage);
+                    $origHeight = imagesy($sourceImage);
+
+                    $targetWidth = 425;
+                    $scale = $targetWidth / $origWidth;
+                    $newWidth = $targetWidth;
+                    $newHeight = (int)($origHeight * $scale);
+
+                    $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
+                    imagealphablending($resizedImage, false);
+                    imagesavealpha($resizedImage, true);
+                    imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+                    imagepng($resizedImage, $outputPath);
+
+                    imagedestroy($sourceImage);
+                    imagedestroy($resizedImage);
+
+                    $validated['image_path'] = 'player_images/' . $outputFilename;
+                } else {
+                    throw new \Exception('Background removal failed. Output: ' . $output);
+                }
+            } catch (\Exception $e) {
+                Log::warning("Background removal failed, using original image: " . $e->getMessage());
+                $validated['image_path'] = 'player_images/' . $originalFilename;
+            }
         }
 
         // ✅ Boolean Flags
