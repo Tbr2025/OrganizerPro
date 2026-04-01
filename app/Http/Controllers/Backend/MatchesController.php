@@ -17,14 +17,14 @@ use Illuminate\View\View; // ✅ Correct import
 
 class MatchesController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $user = auth()->user();
-        $query = Matches::with(['tournament', 'teamA', 'teamB', 'winner']);
+        $query = Matches::with(['tournament', 'teamA', 'teamB', 'winner', 'ground']);
 
+        // Role-based access
         if (!$user->hasRole('Superadmin')) {
             if (!$user->hasRole('Admin') && !$user->hasRole('Organizer')) {
-                // Team Managers / Owners / Captains: only matches for the selected team's tournament
                 $selectedTeamId = session('selected_team_id');
                 $selectedTeam = $selectedTeamId
                     ? $user->actualTeams->firstWhere('id', $selectedTeamId)
@@ -40,7 +40,6 @@ class MatchesController extends Controller
                     $query->whereRaw('1 = 0');
                 }
             } elseif ($user->organization_id) {
-                // Admins / Organizers: matches from their organization's tournaments
                 $tournamentIds = Tournament::where('organization_id', $user->organization_id)->pluck('id');
                 $query->whereIn('tournament_id', $tournamentIds);
             } else {
@@ -48,9 +47,90 @@ class MatchesController extends Controller
             }
         }
 
-        $matches = $query->latest()->paginate(20);
+        // Filters
+        if ($request->filled('status')) {
+            if ($request->status === 'cancelled') {
+                $query->where('is_cancelled', true);
+            } else {
+                $query->where('is_cancelled', false)->where('status', $request->status);
+            }
+        }
 
-        return view('backend.pages.matches.index', compact('matches'));
+        if ($request->filled('tournament_id')) {
+            $query->where('tournament_id', $request->tournament_id);
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('match_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('match_date', '<=', $request->date_to);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('teamA', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                  ->orWhereHas('teamB', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                  ->orWhereHas('tournament', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                  ->orWhere('venue', 'like', "%{$search}%");
+            });
+        }
+
+        // Sorting
+        $sort = $request->get('sort', 'date_desc');
+        match ($sort) {
+            'date_asc' => $query->orderBy('match_date')->orderBy('start_time'),
+            'date_desc' => $query->orderByDesc('match_date')->orderByDesc('start_time'),
+            'number_asc' => $query->orderBy('match_number'),
+            'number_desc' => $query->orderByDesc('match_number'),
+            'created_asc' => $query->orderBy('created_at'),
+            'created_desc' => $query->orderByDesc('created_at'),
+            default => $query->orderByDesc('match_date'),
+        };
+
+        // Get tournaments for filter dropdown
+        $tournaments = Tournament::select('id', 'name')->orderBy('name')->get();
+
+        // Stats
+        $statsQuery = Matches::query();
+        if ($request->filled('tournament_id')) {
+            $statsQuery->where('tournament_id', $request->tournament_id);
+        }
+
+        $matches = $query->paginate(25)->withQueryString();
+
+        return view('backend.pages.matches.index', [
+            'matches' => $matches,
+            'tournaments' => $tournaments,
+            'filters' => $request->only(['status', 'tournament_id', 'date_from', 'date_to', 'search', 'sort']),
+        ]);
+    }
+
+    /**
+     * Bulk delete matches
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'integer']);
+
+        $deleted = Matches::whereIn('id', $request->ids)->delete();
+
+        return response()->json(['success' => true, 'deleted' => $deleted]);
+    }
+
+    /**
+     * Reorder match numbers
+     */
+    public function reorder(Request $request)
+    {
+        $request->validate(['order' => 'required|array', 'order.*' => 'integer']);
+
+        foreach ($request->order as $position => $matchId) {
+            Matches::where('id', $matchId)->update(['match_number' => $position + 1]);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function create(): View

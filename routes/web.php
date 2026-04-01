@@ -422,6 +422,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('/matches/live-ticker', [MatchesController::class, 'liveTickerIndex'])->name('matches.live-ticker-index');
 
     Route::resource('matches', MatchesController::class);
+    Route::post('/matches/bulk-delete', [MatchesController::class, 'bulkDelete'])->name('matches.bulkDelete');
+    Route::post('/matches/reorder', [MatchesController::class, 'reorder'])->name('matches.reorder');
     Route::get('/matches/{match}/state', [MatchesController::class, 'getState'])->name('matches.state');
     Route::post('/matches/{match}/switch-innings', [MatchesController::class, 'switchInnings'])->name('matches.switchInnings');
     Route::post('/matches/{match}/toss', [MatchesController::class, 'saveToss'])->name('matches.saveToss');
