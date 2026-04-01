@@ -81,8 +81,6 @@ class TournamentTemplateController extends Controller
             ->orderBy('match_date')
             ->get();
 
-        $completedMatches = $matches->where('status', 'completed');
-
         // Load players belonging to tournament's actual teams
         $players = Player::whereIn('actual_team_id', $tournament->actualTeams()->pluck('id'))
             ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
@@ -97,7 +95,6 @@ class TournamentTemplateController extends Controller
             'type',
             'templates',
             'matches',
-            'completedMatches',
             'players',
             'groups'
         ));
@@ -182,7 +179,7 @@ class TournamentTemplateController extends Controller
      */
     public function getMatchAwards(Tournament $tournament, Matches $match)
     {
-        $match->load(['teamA', 'teamB']);
+        $match->load(['teamA', 'teamB', 'result']);
 
         $awards = $match->matchAwards()
             ->with(['player.actualTeam', 'tournamentAward'])
@@ -196,14 +193,24 @@ class TournamentTemplateController extends Controller
                 'team_logo' => $award->player->actualTeam?->team_logo ?? null,
             ]);
 
+        $matchData = [
+            'team_a_name' => $match->teamA?->name ?? '',
+            'team_a_logo' => $match->teamA?->team_logo_url ?? '',
+            'team_b_name' => $match->teamB?->name ?? '',
+            'team_b_logo' => $match->teamB?->team_logo_url ?? '',
+            'status' => $match->status,
+        ];
+
+        // Include score data if match result exists
+        if ($match->result) {
+            $matchData['team_a_score'] = $match->result->team_a_score_display;
+            $matchData['team_b_score'] = $match->result->team_b_score_display;
+            $matchData['result_summary'] = $match->result->result_summary ?: $match->result->generateResultSummary();
+        }
+
         return response()->json([
             'awards' => $awards,
-            'match' => [
-                'team_a_name' => $match->teamA?->name ?? '',
-                'team_a_logo' => $match->teamA?->team_logo_url ?? '',
-                'team_b_name' => $match->teamB?->name ?? '',
-                'team_b_logo' => $match->teamB?->team_logo_url ?? '',
-            ],
+            'match' => $matchData,
         ]);
     }
 

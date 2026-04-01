@@ -152,19 +152,34 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Match</label>
                             <select id="awardMatchSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700" onchange="loadMatchAwards(this.value)">
-                                <option value="">-- Select a completed match --</option>
-                                @foreach($completedMatches as $match)
+                                <option value="">-- Select a match --</option>
+                                @foreach($matches as $match)
                                     <option value="{{ $match->id }}"
                                         data-team-a="{{ $match->teamA?->name ?? 'TBD' }}"
                                         data-team-b="{{ $match->teamB?->name ?? 'TBD' }}"
+                                        data-team-a-logo="{{ $match->teamA?->team_logo_url ?? '' }}"
+                                        data-team-b-logo="{{ $match->teamB?->team_logo_url ?? '' }}"
                                         data-date="{{ $match->match_date ? $match->match_date->format('d M Y') : '' }}"
                                         data-venue="{{ $match->ground?->name ?? '' }}"
-                                        data-result="{{ $match->result?->result_summary ?? '' }}">
+                                        data-result="{{ $match->result?->result_summary ?? '' }}"
+                                        data-status="{{ $match->status }}">
                                         Match #{{ $match->match_number ?? $match->id }}: {{ $match->teamA?->name ?? 'TBD' }} vs {{ $match->teamB?->name ?? 'TBD' }}
                                         @if($match->match_date) - {{ $match->match_date->format('M d') }} @endif
+                                        @if($match->status === 'completed') (Completed)
+                                        @elseif($match->status === 'live') (Live)
+                                        @else (Upcoming)
+                                        @endif
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        {{-- Warning for non-completed matches --}}
+                        <div id="awardMatchWarning" class="hidden rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-3">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                <p class="text-sm text-amber-700 dark:text-amber-300">Match not completed yet. Scores and result will need to be entered manually.</p>
+                            </div>
                         </div>
 
                         <div id="awardPlayerSection" class="hidden">
@@ -684,8 +699,22 @@ function loadMatchAwards(matchId) {
     if (!matchId) {
         document.getElementById('awardPlayerSection').classList.add('hidden');
         document.getElementById('awardStatsSection').classList.add('hidden');
+        document.getElementById('awardMatchWarning').classList.add('hidden');
         return;
     }
+
+    // Show/hide warning based on match status
+    const matchOpt = document.getElementById('awardMatchSelect').options[document.getElementById('awardMatchSelect').selectedIndex];
+    const matchStatus = matchOpt?.dataset?.status || '';
+    const warningEl = document.getElementById('awardMatchWarning');
+    if (matchStatus !== 'completed') {
+        warningEl.classList.remove('hidden');
+    } else {
+        warningEl.classList.add('hidden');
+    }
+
+    // Always show stats section on match select so user can fill manually
+    document.getElementById('awardStatsSection').classList.remove('hidden');
 
     fetch(`{{ url('admin/tournaments/' . $tournament->id . '/matches') }}/${matchId}/awards`)
         .then(response => response.json())
@@ -695,7 +724,6 @@ function loadMatchAwards(matchId) {
 
             // Store match-level data (team logos) on the match select option
             if (data.match) {
-                const matchOpt = document.getElementById('awardMatchSelect').options[document.getElementById('awardMatchSelect').selectedIndex];
                 if (matchOpt) {
                     matchOpt.dataset.teamALogo = data.match.team_a_logo || '';
                     matchOpt.dataset.teamBLogo = data.match.team_b_logo || '';
@@ -705,6 +733,23 @@ function loadMatchAwards(matchId) {
                 const teamB = matchOpt?.dataset?.teamB || 'Team B';
                 document.getElementById('teamAScoreLabel').textContent = teamA + ' Score';
                 document.getElementById('teamBScoreLabel').textContent = teamB + ' Score';
+
+                // Auto-populate scores from match result data
+                if (data.match.team_a_score) {
+                    document.getElementById('awardTeamAScore').value = data.match.team_a_score;
+                } else {
+                    document.getElementById('awardTeamAScore').value = '';
+                }
+                if (data.match.team_b_score) {
+                    document.getElementById('awardTeamBScore').value = data.match.team_b_score;
+                } else {
+                    document.getElementById('awardTeamBScore').value = '';
+                }
+                if (data.match.result_summary) {
+                    document.getElementById('awardResultSummary').value = data.match.result_summary;
+                } else {
+                    document.getElementById('awardResultSummary').value = '';
+                }
             }
 
             if (data.awards && data.awards.length > 0) {
@@ -725,7 +770,6 @@ function loadMatchAwards(matchId) {
             }
 
             document.getElementById('awardPlayerSection').classList.remove('hidden');
-            document.getElementById('awardStatsSection').classList.remove('hidden');
         })
         .catch(err => console.error('Error loading awards:', err));
 }
