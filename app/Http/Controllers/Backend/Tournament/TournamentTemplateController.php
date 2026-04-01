@@ -213,16 +213,46 @@ class TournamentTemplateController extends Controller
     {
         $match->load(['teamA', 'teamB', 'result']);
 
+        // Get awards for this match
         $awards = $match->matchAwards()
             ->with(['player.actualTeam', 'tournamentAward'])
             ->get()
             ->map(fn($award) => [
                 'id' => $award->id,
                 'award_name' => $award->tournamentAward->name ?? 'Award',
+                'player_id' => $award->player_id,
                 'player_name' => $award->player->jersey_name ?? $award->player->name ?? 'Unknown',
                 'player_image' => $award->player->image_path ?? null,
                 'team_name' => $award->player->actualTeam?->name ?? '',
                 'team_logo' => $award->player->actualTeam?->team_logo ?? null,
+            ]);
+
+        // Build set of player IDs that have awards
+        $awardPlayerIds = $awards->pluck('player_id')->filter()->toArray();
+
+        // Get all players from both teams
+        $teamAPlayers = Player::where('actual_team_id', $match->team_a_id)
+            ->where('status', 'approved')
+            ->get()
+            ->map(fn($p) => [
+                'id' => $p->id,
+                'name' => $p->jersey_name ?: $p->name ?: 'Player #' . $p->id,
+                'image' => $p->image_path ?? null,
+                'team_name' => $match->teamA?->name ?? '',
+                'team_logo' => $match->teamA?->team_logo ?? null,
+                'has_award' => in_array($p->id, $awardPlayerIds),
+            ]);
+
+        $teamBPlayers = Player::where('actual_team_id', $match->team_b_id)
+            ->where('status', 'approved')
+            ->get()
+            ->map(fn($p) => [
+                'id' => $p->id,
+                'name' => $p->jersey_name ?: $p->name ?: 'Player #' . $p->id,
+                'image' => $p->image_path ?? null,
+                'team_name' => $match->teamB?->name ?? '',
+                'team_logo' => $match->teamB?->team_logo ?? null,
+                'has_award' => in_array($p->id, $awardPlayerIds),
             ]);
 
         $matchData = [
@@ -242,6 +272,10 @@ class TournamentTemplateController extends Controller
 
         return response()->json([
             'awards' => $awards,
+            'players' => [
+                'team_a' => $teamAPlayers,
+                'team_b' => $teamBPlayers,
+            ],
             'match' => $matchData,
         ]);
     }

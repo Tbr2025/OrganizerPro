@@ -183,10 +183,18 @@
                         </div>
 
                         <div id="awardPlayerSection" class="hidden">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Award Winner</label>
-                            <select id="awardPlayerSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
-                                <option value="">-- Select award --</option>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Player</label>
+                            <div class="relative">
+                                <input type="text" id="awardPlayerSearch" placeholder="Search player..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm mb-2 pl-9">
+                                <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </div>
+                            <select id="awardPlayerSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700" size="6">
+                                <option value="">-- Select a player --</option>
                             </select>
+                            <div id="awardNameInput" class="mt-2">
+                                <label class="block text-xs text-gray-500 mb-1">Award Name</label>
+                                <input type="text" id="awardNameOverride" placeholder="e.g. Man of the Match" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            </div>
                         </div>
 
                         {{-- Player Override Section --}}
@@ -523,12 +531,18 @@ function getSelectedData() {
             data.venue = matchOpt.dataset.venue || '';
             data.result_summary = matchOpt.dataset.result || '';
         }
-        // Get award/player data
+        // Get player data from select
         const awardSelect = document.getElementById('awardPlayerSelect');
         const selected = awardSelect.options[awardSelect.selectedIndex];
         if (selected && selected.value) {
-            const awardData = JSON.parse(selected.dataset.award || '{}');
-            Object.assign(data, awardData);
+            const playerData = JSON.parse(selected.dataset.player || '{}');
+            Object.assign(data, playerData);
+        }
+
+        // Override award name if custom value entered
+        const customAwardName = document.getElementById('awardNameOverride')?.value?.trim();
+        if (customAwardName) {
+            data.award_name = customAwardName;
         }
 
         // Override player name if custom value entered
@@ -794,54 +808,62 @@ function loadMatchAwards(matchId) {
         .then(response => response.json())
         .then(data => {
             const select = document.getElementById('awardPlayerSelect');
-            select.innerHTML = '<option value="">-- Select award --</option>';
+            select.innerHTML = '<option value="">-- Select a player --</option>';
+            document.getElementById('awardPlayerSearch').value = '';
 
-            // Store match-level data (team logos) on the match select option
+            // Store match-level data on the match select option
             if (data.match) {
                 if (matchOpt) {
                     matchOpt.dataset.teamALogo = data.match.team_a_logo || '';
                     matchOpt.dataset.teamBLogo = data.match.team_b_logo || '';
                 }
-                // Update score labels with team names
                 const teamA = matchOpt?.dataset?.teamA || 'Team A';
                 const teamB = matchOpt?.dataset?.teamB || 'Team B';
                 document.getElementById('teamAScoreLabel').textContent = teamA + ' Score';
                 document.getElementById('teamBScoreLabel').textContent = teamB + ' Score';
 
-                // Auto-populate scores from match result data
-                if (data.match.team_a_score) {
-                    document.getElementById('awardTeamAScore').value = data.match.team_a_score;
-                } else {
-                    document.getElementById('awardTeamAScore').value = '';
-                }
-                if (data.match.team_b_score) {
-                    document.getElementById('awardTeamBScore').value = data.match.team_b_score;
-                } else {
-                    document.getElementById('awardTeamBScore').value = '';
-                }
-                if (data.match.result_summary) {
-                    document.getElementById('awardResultSummary').value = data.match.result_summary;
-                } else {
-                    document.getElementById('awardResultSummary').value = '';
-                }
+                // Auto-populate scores
+                document.getElementById('awardTeamAScore').value = data.match.team_a_score || '';
+                document.getElementById('awardTeamBScore').value = data.match.team_b_score || '';
+                document.getElementById('awardResultSummary').value = data.match.result_summary || '';
             }
 
-            if (data.awards && data.awards.length > 0) {
-                data.awards.forEach(award => {
+            // Build award lookup by player_id
+            const awardMap = {};
+            if (data.awards) {
+                data.awards.forEach(a => { awardMap[a.player_id] = a; });
+            }
+
+            // Helper to add player options to a group
+            function addPlayerGroup(players, teamName) {
+                if (!players || players.length === 0) return;
+                const group = document.createElement('optgroup');
+                group.label = teamName;
+                players.forEach(p => {
                     const opt = document.createElement('option');
-                    opt.value = award.id;
-                    opt.textContent = `${award.award_name}: ${award.player_name}`;
-                    opt.dataset.award = JSON.stringify({
-                        award_name: award.award_name,
-                        player_name: award.player_name,
-                        player_image: award.player_image,
-                        team_name: award.team_name,
-                        team_logo: award.team_logo,
+                    opt.value = 'player_' + p.id;
+                    const award = awardMap[p.id];
+                    let label = p.name;
+                    if (award) label += ` ★ ${award.award_name}`;
+                    if (p.image) label += ' 📷';
+                    opt.textContent = label;
+                    opt.dataset.player = JSON.stringify({
+                        player_name: p.name,
+                        player_image: p.image,
+                        team_name: p.team_name,
+                        team_logo: p.team_logo,
+                        award_name: award ? award.award_name : '',
                         match_id: matchId
                     });
-                    select.appendChild(opt);
+                    group.appendChild(opt);
                 });
+                select.appendChild(group);
             }
+
+            const teamAName = matchOpt?.dataset?.teamA || 'Team A';
+            const teamBName = matchOpt?.dataset?.teamB || 'Team B';
+            addPlayerGroup(data.players?.team_a || [], teamAName);
+            addPlayerGroup(data.players?.team_b || [], teamBName);
 
             document.getElementById('awardPlayerSection').classList.remove('hidden');
         })
@@ -865,23 +887,31 @@ document.getElementById('awardPlayerSelect')?.addEventListener('change', functio
     const imageThumb = document.getElementById('awardPlayerImageThumb');
     const imageLabel = document.getElementById('awardPlayerImageLabel');
     const imageUpload = document.getElementById('awardPlayerImageUpload');
+    const awardNameInput = document.getElementById('awardNameOverride');
 
     if (this.value) {
-        const awardData = JSON.parse(this.options[this.selectedIndex].dataset.award || '{}');
+        const playerData = JSON.parse(this.options[this.selectedIndex].dataset.player || '{}');
 
-        // Pre-fill player name (user can override)
-        nameInput.value = awardData.player_name || '';
-        nameInput.placeholder = awardData.player_name || 'Enter player name';
+        // Pre-fill player name
+        nameInput.value = playerData.player_name || '';
+        nameInput.placeholder = playerData.player_name || 'Enter player name';
+
+        // Pre-fill award name if player has one
+        if (playerData.award_name) {
+            awardNameInput.value = playerData.award_name;
+        } else {
+            awardNameInput.value = '';
+        }
 
         // Show player image preview from DB
-        if (awardData.player_image) {
-            imageThumb.src = '/storage/' + awardData.player_image;
+        if (playerData.player_image) {
+            imageThumb.src = '/storage/' + playerData.player_image;
             imageLabel.textContent = 'From database';
             imageLabel.className = 'text-xs text-green-600 ml-2 align-middle';
             imagePreview.classList.remove('hidden');
         } else {
             imageThumb.src = '';
-            imageLabel.textContent = 'No image in database';
+            imageLabel.textContent = 'No image — upload or use default';
             imageLabel.className = 'text-xs text-amber-500 ml-2 align-middle';
             imagePreview.classList.remove('hidden');
         }
@@ -911,6 +941,27 @@ document.getElementById('awardPlayerImageUpload')?.addEventListener('change', fu
         };
         reader.readAsDataURL(this.files[0]);
     }
+});
+
+// Player search filter
+document.getElementById('awardPlayerSearch')?.addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    const select = document.getElementById('awardPlayerSelect');
+    const groups = select.querySelectorAll('optgroup');
+
+    groups.forEach(group => {
+        let visibleCount = 0;
+        Array.from(group.options).forEach(opt => {
+            const match = opt.textContent.toLowerCase().includes(query);
+            opt.style.display = match ? '' : 'none';
+            if (match) visibleCount++;
+        });
+        group.style.display = visibleCount > 0 ? '' : 'none';
+    });
+
+    // Also check the default option
+    const defaultOpt = select.querySelector('option:not([data-player])');
+    if (defaultOpt) defaultOpt.style.display = query ? 'none' : '';
 });
 </script>
 @endpush
