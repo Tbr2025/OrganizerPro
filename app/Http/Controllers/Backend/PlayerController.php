@@ -469,10 +469,10 @@ class PlayerController extends Controller
             $outputFilename = 'processed-' . Str::random(10) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            $pythonBinary = base_path('rembg-env/bin/python');
             $pythonScript = resource_path('scripts/remove_bg.py');
 
             if (app()->environment('production')) {
+                $pythonBinary = '/usr/bin/python3';
                 $cachePath = storage_path('app/rembg_cache');
                 File::ensureDirectoryExists($cachePath);
                 $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
@@ -989,12 +989,10 @@ class PlayerController extends Controller
             $outputFilename = 'processed-' . Str::random(10) . '.png';
             $outputPath = storage_path('app/public/player_images/' . $outputFilename);
 
-            // Use Laravel helpers for robust path definitions
-            $pythonBinary = base_path('rembg-env/bin/python');
             $pythonScript = resource_path('scripts/remove_bg.py');
             if (app()->environment('production')) {
                 // === PRODUCTION ENVIRONMENT ===
-                $pythonBinary = base_path('rembg-env/bin/python');
+                $pythonBinary = '/usr/bin/python3';
                 $cachePath = storage_path('app/rembg_cache');
                 File::ensureDirectoryExists($cachePath);
 
