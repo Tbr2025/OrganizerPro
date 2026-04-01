@@ -413,7 +413,7 @@ class PlayerController extends Controller
                 'unique:players,mobile_number_full',
             ],
 
-            'team_id' => 'nullable|exists:teams,id',
+            'team_id' => $req('team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
             'actual_team_id' => 'nullable|exists:actual_teams,id',
             'jersey_number' => 'nullable',
             'team_name_ref' => 'nullable|string|max:100',
@@ -949,7 +949,7 @@ class PlayerController extends Controller
             'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',
             'jersey_number' => 'nullable',
 
-            'team_id' => 'nullable|exists:teams,id',
+            'team_id' => $req('team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
             'actual_team_id' => 'nullable|exists:actual_teams,id',
             'location_id' => $req('location') ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',

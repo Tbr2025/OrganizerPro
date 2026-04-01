@@ -223,6 +223,7 @@
                         </div>
 
                         {{-- ===== SECTION 2: Team Assignment ===== --}}
+                        @if($fieldConfig['team']['visible'] ?? true)
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Team Assignment</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Assign to registration and playing teams</p>
@@ -233,9 +234,11 @@
                                         <label for="team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Registration Team') }}
                                             <span class="text-xs text-gray-500">(Original team)</span>
+                                            @if($fieldConfig['team']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <div class="flex items-center gap-2">
                                             <select name="team_id" id="team_id"
+                                                {{ ($fieldConfig['team']['required'] ?? false) ? 'required' : '' }}
                                                 class="form-control @error('team_id') border-red-500 @enderror">
                                                 <option value="">-- Select Registration Team --</option>
                                                 @foreach ($teams as $team)
@@ -278,6 +281,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         {{-- ===== SECTION 3: Jersey & Profile ===== --}}
                         <div class="mb-8">
