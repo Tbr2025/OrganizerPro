@@ -225,22 +225,23 @@
                         </div>
 
                         {{-- ===== SECTION 2: Team Assignment ===== --}}
+                        @if(($fieldConfig['registration_team']['visible'] ?? true) || ($fieldConfig['playing_team']['visible'] ?? true))
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Team Assignment</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Assign to registration and playing teams</p>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                    {{-- Registration Team (controlled by tournament "Team" setting) --}}
-                                    @if($fieldConfig['team']['visible'] ?? true)
+                                    {{-- Registration Team --}}
+                                    @if($fieldConfig['registration_team']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Registration Team') }}
                                             <span class="text-xs text-gray-500">(Original team)</span>
-                                            @if($fieldConfig['team']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                            @if($fieldConfig['registration_team']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <div class="flex items-center gap-2">
                                             <select name="team_id" id="team_id"
-                                                {{ ($fieldConfig['team']['required'] ?? false) ? 'required' : '' }}
+                                                {{ ($fieldConfig['registration_team']['required'] ?? false) ? 'required' : '' }}
                                                 class="form-control @error('team_id') border-red-500 @enderror">
                                                 <option value="">-- Select Registration Team --</option>
                                                 @foreach ($teams as $team)
@@ -261,13 +262,16 @@
                                     </div>
                                     @endif
 
-                                    {{-- Playing Team (admin-only, always visible) --}}
+                                    {{-- Playing Team --}}
+                                    @if($fieldConfig['playing_team']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="actual_team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Playing Team') }}
                                             <span class="text-xs text-gray-500">(Current team)</span>
+                                            @if($fieldConfig['playing_team']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="actual_team_id" id="actual_team_id"
+                                            {{ ($fieldConfig['playing_team']['required'] ?? false) ? 'required' : '' }}
                                             class="form-control @error('actual_team_id') border-red-500 @enderror">
                                             <option value="">-- Select Playing Team --</option>
                                             @foreach ($actualTeams as $team)
@@ -281,9 +285,11 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>
+                        @endif
 
                         {{-- ===== SECTION 3: Jersey & Profile ===== --}}
                         <div class="mb-8">

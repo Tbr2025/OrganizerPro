@@ -315,7 +315,7 @@
 
                             @php
                                 $fieldConfigMap = [
-                                    'team_id' => 'team',
+                                    'team_id' => 'registration_team',
                                     'kit_size_id' => 'kit_size',
                                     'batting_profile_id' => 'batting_profile',
                                     'bowling_profile_id' => 'bowling_profile',

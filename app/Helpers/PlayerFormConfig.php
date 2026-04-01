@@ -16,7 +16,8 @@ class PlayerFormConfig
             'cricheroes_number'      => ['visible' => true, 'required' => false],
             'cricheroes_profile_url' => ['visible' => true, 'required' => false],
             'location'               => ['visible' => true, 'required' => false],
-            'team'                   => ['visible' => true, 'required' => false],
+            'registration_team'      => ['visible' => true, 'required' => false],
+            'playing_team'           => ['visible' => true, 'required' => false],
             'jersey_name'            => ['visible' => true, 'required' => false],
             'jersey_number'          => ['visible' => true, 'required' => false],
             'kit_size'               => ['visible' => true, 'required' => false],
@@ -70,7 +71,8 @@ class PlayerFormConfig
             'cricheroes_number'      => 'CricHeroes Number',
             'cricheroes_profile_url' => 'CricHeroes Profile URL',
             'location'               => 'Location',
-            'team'                   => 'Team',
+            'registration_team'      => 'Registration Team',
+            'playing_team'           => 'Playing Team',
             'jersey_name'            => 'Jersey Name',
             'jersey_number'          => 'Jersey Number',
             'kit_size'               => 'Kit Size',
@@ -91,7 +93,7 @@ class PlayerFormConfig
     {
         return [
             'Basic Info' => ['name', 'email', 'country', 'mobile_number', 'cricheroes_number', 'cricheroes_profile_url', 'location'],
-            'Team' => ['team'],
+            'Team' => ['registration_team', 'playing_team'],
             'Jersey & Profile' => ['jersey_name', 'jersey_number', 'kit_size', 'batting_profile', 'bowling_profile', 'player_type', 'is_wicket_keeper'],
             'Stats' => ['total_matches', 'total_runs', 'total_wickets'],
             'Other' => ['image', 'transportation', 'travel_plan'],
@@ -143,9 +145,9 @@ class PlayerFormConfig
             $rules['location_id'] = ($fieldConfig['location']['required'] ?? false) ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id';
         }
 
-        // Team
-        if ($fieldConfig['team']['visible'] ?? true) {
-            $rules['team_id'] = 'nullable|exists:teams,id';
+        // Registration Team
+        if ($fieldConfig['registration_team']['visible'] ?? true) {
+            $rules['team_id'] = ($fieldConfig['registration_team']['required'] ?? false) ? 'required|exists:teams,id' : 'nullable|exists:teams,id';
             $rules['team_name_ref'] = 'nullable|string|max:100';
         }
 

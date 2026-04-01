@@ -134,9 +134,9 @@
                         @endif
 
                         {{-- Team Selection --}}
-                        @if(($fieldConfig['team']['visible'] ?? true) && $teams->count() > 0)
+                        @if(($fieldConfig['registration_team']['visible'] ?? true) && $teams->count() > 0)
                         <div>
-                            <label for="team_id" class="block text-sm font-medium mb-2">Team @if($fieldConfig['team']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
+                            <label for="team_id" class="block text-sm font-medium mb-2">Team @if($fieldConfig['registration_team']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
                             <select name="team_id" id="team_id" x-model="selectedTeam"
                                     class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
                                 <option value="">Select your team</option>

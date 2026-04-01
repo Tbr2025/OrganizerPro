@@ -413,8 +413,8 @@ class PlayerController extends Controller
                 'unique:players,mobile_number_full',
             ],
 
-            'team_id' => $req('team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
-            'actual_team_id' => 'nullable|exists:actual_teams,id',
+            'team_id' => $req('registration_team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
+            'actual_team_id' => $req('playing_team') ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id',
             'jersey_number' => 'nullable',
             'team_name_ref' => 'nullable|string|max:100',
             'jersey_name' => $req('jersey_name') ? 'required|string|max:50' : 'nullable|string|max:50',
@@ -949,8 +949,8 @@ class PlayerController extends Controller
             'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',
             'jersey_number' => 'nullable',
 
-            'team_id' => $req('team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
-            'actual_team_id' => 'nullable|exists:actual_teams,id',
+            'team_id' => $req('registration_team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
+            'actual_team_id' => $req('playing_team') ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id',
             'location_id' => $req('location') ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',
             'total_runs' => 'nullable|integer|min:0',
