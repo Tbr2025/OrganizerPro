@@ -173,6 +173,76 @@
                                 <option value="">-- Select award --</option>
                             </select>
                         </div>
+
+                        {{-- Manual Stats Input (shown after award selected) --}}
+                        <div id="awardStatsSection" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            {{-- Score Summary --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Score Summary</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1" id="teamAScoreLabel">Team A Score</label>
+                                        <input type="text" id="awardTeamAScore" placeholder="e.g. 198/4 (20 Ov)" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1" id="teamBScoreLabel">Team B Score</label>
+                                        <input type="text" id="awardTeamBScore" placeholder="e.g. 200/6 (18.4 Ov)" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Result Summary --}}
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Result Summary</label>
+                                <input type="text" id="awardResultSummary" placeholder="e.g. Team Beta won by 4 wkts" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            </div>
+
+                            {{-- Batting Performance --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Batting Performance</label>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Runs</label>
+                                        <input type="number" id="batRuns" placeholder="59" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Balls</label>
+                                        <input type="number" id="batBalls" placeholder="36" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">4s</label>
+                                        <input type="number" id="batFours" placeholder="9" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">6s</label>
+                                        <input type="number" id="batSixes" placeholder="1" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Bowling Performance --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bowling Performance</label>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Overs</label>
+                                        <input type="text" id="bowlOvers" placeholder="4" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Maidens</label>
+                                        <input type="number" id="bowlMaidens" placeholder="0" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Runs</label>
+                                        <input type="number" id="bowlRuns" placeholder="25" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 mb-1">Wickets</label>
+                                        <input type="number" id="bowlWickets" placeholder="2" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -398,6 +468,8 @@ function getSelectedData() {
             data.match_details = (matchOpt.dataset.teamA || 'TBD') + ' vs ' + (matchOpt.dataset.teamB || 'TBD');
             data.team_a_name = matchOpt.dataset.teamA || '';
             data.team_b_name = matchOpt.dataset.teamB || '';
+            data.team_a_logo = matchOpt.dataset.teamALogo || '';
+            data.team_b_logo = matchOpt.dataset.teamBLogo || '';
             data.match_date = matchOpt.dataset.date || '';
             data.venue = matchOpt.dataset.venue || '';
             data.result_summary = matchOpt.dataset.result || '';
@@ -408,6 +480,36 @@ function getSelectedData() {
         if (selected && selected.value) {
             const awardData = JSON.parse(selected.dataset.award || '{}');
             Object.assign(data, awardData);
+        }
+
+        // Manual stat fields
+        const teamAScore = document.getElementById('awardTeamAScore')?.value?.trim();
+        const teamBScore = document.getElementById('awardTeamBScore')?.value?.trim();
+        const resultSummary = document.getElementById('awardResultSummary')?.value?.trim();
+        if (teamAScore) data.team_a_score = teamAScore;
+        if (teamBScore) data.team_b_score = teamBScore;
+        if (resultSummary) data.result_summary = resultSummary;
+
+        // Build batting_figures: "59 (36) 9x4 1x6"
+        const batRuns = document.getElementById('batRuns')?.value?.trim();
+        const batBalls = document.getElementById('batBalls')?.value?.trim();
+        const batFours = document.getElementById('batFours')?.value?.trim();
+        const batSixes = document.getElementById('batSixes')?.value?.trim();
+        if (batRuns) {
+            let bf = batRuns;
+            if (batBalls) bf += ` (${batBalls})`;
+            if (batFours) bf += ` ${batFours}x4`;
+            if (batSixes) bf += ` ${batSixes}x6`;
+            data.batting_figures = bf;
+        }
+
+        // Build bowling_figures: "4 - 0 - 25 - 2"
+        const bowlOvers = document.getElementById('bowlOvers')?.value?.trim();
+        const bowlMaidens = document.getElementById('bowlMaidens')?.value?.trim();
+        const bowlRuns = document.getElementById('bowlRuns')?.value?.trim();
+        const bowlWickets = document.getElementById('bowlWickets')?.value?.trim();
+        if (bowlOvers) {
+            data.bowling_figures = `${bowlOvers} - ${bowlMaidens || '0'} - ${bowlRuns || '0'} - ${bowlWickets || '0'}`;
         }
     } else if (currentType === 'point_table') {
         const groupSelect = document.getElementById('groupSelect');
@@ -581,6 +683,7 @@ function downloadPoster() {
 function loadMatchAwards(matchId) {
     if (!matchId) {
         document.getElementById('awardPlayerSection').classList.add('hidden');
+        document.getElementById('awardStatsSection').classList.add('hidden');
         return;
     }
 
@@ -589,6 +692,20 @@ function loadMatchAwards(matchId) {
         .then(data => {
             const select = document.getElementById('awardPlayerSelect');
             select.innerHTML = '<option value="">-- Select award --</option>';
+
+            // Store match-level data (team logos) on the match select option
+            if (data.match) {
+                const matchOpt = document.getElementById('awardMatchSelect').options[document.getElementById('awardMatchSelect').selectedIndex];
+                if (matchOpt) {
+                    matchOpt.dataset.teamALogo = data.match.team_a_logo || '';
+                    matchOpt.dataset.teamBLogo = data.match.team_b_logo || '';
+                }
+                // Update score labels with team names
+                const teamA = matchOpt?.dataset?.teamA || 'Team A';
+                const teamB = matchOpt?.dataset?.teamB || 'Team B';
+                document.getElementById('teamAScoreLabel').textContent = teamA + ' Score';
+                document.getElementById('teamBScoreLabel').textContent = teamB + ' Score';
+            }
 
             if (data.awards && data.awards.length > 0) {
                 data.awards.forEach(award => {
@@ -608,6 +725,7 @@ function loadMatchAwards(matchId) {
             }
 
             document.getElementById('awardPlayerSection').classList.remove('hidden');
+            document.getElementById('awardStatsSection').classList.remove('hidden');
         })
         .catch(err => console.error('Error loading awards:', err));
 }

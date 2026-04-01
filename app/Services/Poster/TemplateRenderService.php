@@ -999,6 +999,8 @@ class TemplateRenderService extends PosterGeneratorService
             'bowling_style' => 'Right Arm Medium',
             'award_name' => 'Player of the Match',
             'achievement_text' => '75 runs off 45 balls',
+            'batting_figures' => '59 (36) 9x4 1x6',
+            'bowling_figures' => '4 - 0 - 25 - 2',
             // Tournament info
             'description' => 'Cricket Tournament',
             'start_date' => date('M d, Y'),

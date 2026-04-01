@@ -127,7 +127,8 @@ class TournamentTemplateController extends Controller
                 'team_a_score', 'team_b_score', 'winner_name',
                 'match_date', 'match_time', 'venue', 'ground_name', 'match_stage', 'match_number',
                 'award_name', 'achievement_text', 'match_details',
-                'man_of_the_match_name', 'man_of_the_match_image'
+                'man_of_the_match_name', 'man_of_the_match_image',
+                'result_summary', 'batting_figures', 'bowling_figures'
             ]);
 
             // Add tournament info
@@ -181,6 +182,8 @@ class TournamentTemplateController extends Controller
      */
     public function getMatchAwards(Tournament $tournament, Matches $match)
     {
+        $match->load(['teamA', 'teamB']);
+
         $awards = $match->matchAwards()
             ->with(['player.actualTeam', 'tournamentAward'])
             ->get()
@@ -193,7 +196,15 @@ class TournamentTemplateController extends Controller
                 'team_logo' => $award->player->actualTeam?->team_logo ?? null,
             ]);
 
-        return response()->json(['awards' => $awards]);
+        return response()->json([
+            'awards' => $awards,
+            'match' => [
+                'team_a_name' => $match->teamA?->name ?? '',
+                'team_a_logo' => $match->teamA?->team_logo_url ?? '',
+                'team_b_name' => $match->teamB?->name ?? '',
+                'team_b_logo' => $match->teamB?->team_logo_url ?? '',
+            ],
+        ]);
     }
 
     /**
