@@ -105,6 +105,7 @@ class TournamentTemplateController extends Controller
      */
     public function generatePreview(Tournament $tournament, Request $request)
     {
+        $tempFiles = [];
         try {
             $templateId = $request->input('template_id');
             $template = TournamentTemplate::findOrFail($templateId);
@@ -134,8 +135,16 @@ class TournamentTemplateController extends Controller
                 $data['tournament_logo'] = $tournament->settings->logo;
             }
 
-            // Award poster: set defaults for missing player data
+            // Award poster: handle uploaded player image and set defaults
             if ($template->type === TournamentTemplate::TYPE_AWARD_POSTER) {
+                // Handle custom player image upload
+                if ($request->hasFile('player_image_file')) {
+                    $uploadedPath = $request->file('player_image_file')
+                        ->store('temp_previews', 'public');
+                    $data['player_image'] = $uploadedPath;
+                    $tempFiles[] = $uploadedPath;
+                }
+
                 if (empty($data['player_name'])) {
                     $data['player_name'] = 'Player Name';
                 }
@@ -176,11 +185,20 @@ class TournamentTemplateController extends Controller
             // Render to base64
             $base64Image = $renderService->renderToBase64($template, $data);
 
+            // Clean up temp uploaded files
+            foreach ($tempFiles as $tempPath) {
+                Storage::disk('public')->delete($tempPath);
+            }
+
             return response()->json([
                 'success' => true,
                 'image' => $base64Image,
             ]);
         } catch (\Exception $e) {
+            // Clean up temp files on error too
+            foreach ($tempFiles as $tempPath) {
+                Storage::disk('public')->delete($tempPath);
+            }
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to generate: ' . $e->getMessage(),

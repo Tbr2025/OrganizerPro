@@ -189,6 +189,27 @@
                             </select>
                         </div>
 
+                        {{-- Player Override Section --}}
+                        <div id="awardPlayerOverride" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Player Details</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Player Name</label>
+                                    <input type="text" id="awardPlayerName" placeholder="Auto from award" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    <p class="text-xs text-gray-400 mt-1">Leave empty to use award data</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Player Image</label>
+                                    <div id="awardPlayerImagePreview" class="hidden mb-2">
+                                        <img id="awardPlayerImageThumb" src="" alt="Player" class="w-12 h-12 rounded-full object-cover border-2 border-purple-300 inline-block align-middle">
+                                        <span id="awardPlayerImageLabel" class="text-xs text-green-600 ml-2 align-middle">From database</span>
+                                    </div>
+                                    <input type="file" id="awardPlayerImageUpload" accept="image/*" class="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100 dark:file:bg-purple-900/30 dark:file:text-purple-300">
+                                    <p class="text-xs text-gray-400 mt-1">Upload to override. BG auto-removed.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- Manual Stats Input (shown after award selected) --}}
                         <div id="awardStatsSection" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                             {{-- Score Summary --}}
@@ -510,6 +531,18 @@ function getSelectedData() {
             Object.assign(data, awardData);
         }
 
+        // Override player name if custom value entered
+        const customPlayerName = document.getElementById('awardPlayerName')?.value?.trim();
+        if (customPlayerName) {
+            data.player_name = customPlayerName;
+        }
+
+        // Flag if custom image was uploaded (handled in generatePreview via FormData)
+        const customImageFile = document.getElementById('awardPlayerImageUpload')?.files?.[0];
+        if (customImageFile) {
+            data._hasCustomPlayerImage = true;
+        }
+
         // Manual stat fields
         const teamAScore = document.getElementById('awardTeamAScore')?.value?.trim();
         const teamBScore = document.getElementById('awardTeamBScore')?.value?.trim();
@@ -632,17 +665,44 @@ function generatePreview() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 180000);
 
+    // Build request body — use FormData if custom image uploaded, else JSON
+    const customImageFile = document.getElementById('awardPlayerImageUpload')?.files?.[0];
+    let fetchOptions = {};
+
+    if (customImageFile && currentType === 'award_poster') {
+        const formData = new FormData();
+        for (const [key, value] of Object.entries(data)) {
+            if (key !== '_hasCustomPlayerImage' && value !== null && value !== undefined) {
+                formData.append(key, value);
+            }
+        }
+        formData.append('player_image_file', customImageFile);
+        fetchOptions = {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
+            body: formData,
+            signal: controller.signal
+        };
+    } else {
+        // Remove internal flag before sending
+        delete data._hasCustomPlayerImage;
+        fetchOptions = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify(data),
+            signal: controller.signal
+        };
+    }
+
     // Call API to generate preview
-    fetch(`{{ route('admin.tournaments.templates.generate-preview', $tournament) }}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify(data),
-        signal: controller.signal
-    })
+    fetch(`{{ route('admin.tournaments.templates.generate-preview', $tournament) }}`, fetchOptions)
     .then(response => {
         clearTimeout(timeoutId);
         if (!response.ok) {
@@ -713,6 +773,7 @@ function loadMatchAwards(matchId) {
         document.getElementById('awardPlayerSection').classList.add('hidden');
         document.getElementById('awardStatsSection').classList.add('hidden');
         document.getElementById('awardMatchWarning').classList.add('hidden');
+        document.getElementById('awardPlayerOverride').classList.add('hidden');
         return;
     }
 
@@ -798,7 +859,58 @@ document.getElementById('groupSelect')?.addEventListener('change', function() {
     if (this.value) showDataSummary(getSelectedData());
 });
 document.getElementById('awardPlayerSelect')?.addEventListener('change', function() {
-    if (this.value) showDataSummary(getSelectedData());
+    const overrideSection = document.getElementById('awardPlayerOverride');
+    const nameInput = document.getElementById('awardPlayerName');
+    const imagePreview = document.getElementById('awardPlayerImagePreview');
+    const imageThumb = document.getElementById('awardPlayerImageThumb');
+    const imageLabel = document.getElementById('awardPlayerImageLabel');
+    const imageUpload = document.getElementById('awardPlayerImageUpload');
+
+    if (this.value) {
+        const awardData = JSON.parse(this.options[this.selectedIndex].dataset.award || '{}');
+
+        // Pre-fill player name (user can override)
+        nameInput.value = awardData.player_name || '';
+        nameInput.placeholder = awardData.player_name || 'Enter player name';
+
+        // Show player image preview from DB
+        if (awardData.player_image) {
+            imageThumb.src = '/storage/' + awardData.player_image;
+            imageLabel.textContent = 'From database';
+            imageLabel.className = 'text-xs text-green-600 ml-2 align-middle';
+            imagePreview.classList.remove('hidden');
+        } else {
+            imageThumb.src = '';
+            imageLabel.textContent = 'No image in database';
+            imageLabel.className = 'text-xs text-amber-500 ml-2 align-middle';
+            imagePreview.classList.remove('hidden');
+        }
+
+        // Reset file upload
+        imageUpload.value = '';
+
+        overrideSection.classList.remove('hidden');
+        showDataSummary(getSelectedData());
+    } else {
+        overrideSection.classList.add('hidden');
+    }
+});
+
+// Update preview label when user uploads a custom image
+document.getElementById('awardPlayerImageUpload')?.addEventListener('change', function() {
+    const imagePreview = document.getElementById('awardPlayerImagePreview');
+    const imageThumb = document.getElementById('awardPlayerImageThumb');
+    const imageLabel = document.getElementById('awardPlayerImageLabel');
+    if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imageThumb.src = e.target.result;
+            imageLabel.textContent = 'Custom upload';
+            imageLabel.className = 'text-xs text-purple-600 ml-2 align-middle';
+            imagePreview.classList.remove('hidden');
+        };
+        reader.readAsDataURL(this.files[0]);
+    }
 });
 </script>
 @endpush
