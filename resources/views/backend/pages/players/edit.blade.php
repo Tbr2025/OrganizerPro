@@ -46,7 +46,7 @@
                             {{-- Country --}}
                             <div class="space-y-1">
                                 <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Country') }}
+                                    {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <div class="flex items-center space-x-2">
                                     <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror">
@@ -81,7 +81,7 @@
                             {{-- Mobile Number with Country Code Dropdown --}}
                             <div class="space-y-1">
                                 <label for="mobile_number_full" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Mobile Number') }}
+                                    {{ __('Mobile Number') }} @if($fieldConfig['mobile_number']['required'] ?? true)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <div class="flex items-center space-x-2">
                                     <div class="flex items-start gap-2 flex-1">
@@ -129,7 +129,7 @@
                             {{-- Cricheroes Number with Country Code Dropdown --}}
                             <div class="space-y-1">
                                 <label for="cricheroes_number_full" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Cricheroes Number') }}
+                                    {{ __('Cricheroes Number') }} @if($fieldConfig['cricheroes_number']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <div class="flex items-center space-x-2">
                                     <div class="flex items-start gap-2 flex-1">
@@ -177,7 +177,7 @@
                             {{-- CricHeroes Profile URL --}}
                             <div class="space-y-1 sm:col-span-2">
                                 <label for="cricheroes_profile_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('CricHeroes Profile URL') }}
+                                    {{ __('CricHeroes Profile URL') }} @if($fieldConfig['cricheroes_profile_url']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <div class="flex items-center space-x-2">
                                     <input type="url" name="cricheroes_profile_url" id="cricheroes_profile_url"
@@ -208,9 +208,7 @@
                                 <div class="space-y-1">
                                     <label for="{{ $field }}"
                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {{ $label }} @if (str_contains($field, 'name'))
-                                            <span class="text-red-500">*</span>
-                                        @endif
+                                        {{ $label }} @if($fieldConfig[$field]['required'] ?? false)<span class="text-red-500">*</span>@endif
                                     </label>
                                     <div class="flex items-center space-x-2">
                                         <input type="text" id="{{ $field }}" name="{{ $field }}"
@@ -272,7 +270,7 @@
                             </div>
                             <div class="space-y-1">
                                 <label for="location_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Player Location <span class="text-red-500">*</span>
+                                    Player Location @if($fieldConfig['location']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <select name="location_id" id="location_id" class="form-control">
                                     <option value="">-- Select Location --</option>
@@ -315,6 +313,16 @@
                                 ];
                             @endphp
 
+                            @php
+                                $fieldConfigMap = [
+                                    'team_id' => 'team',
+                                    'kit_size_id' => 'kit_size',
+                                    'batting_profile_id' => 'batting_profile',
+                                    'bowling_profile_id' => 'bowling_profile',
+                                    'player_type_id' => 'player_type',
+                                ];
+                            @endphp
+
                             @foreach ($dropdowns as $field => $config)
                                 <div class="space-y-1">
 
@@ -324,6 +332,7 @@
                                         @if ($field === 'team_id')
                                             <span class="text-xs text-gray-500">(Original team)</span>
                                         @endif
+                                        @if($fieldConfig[$fieldConfigMap[$field] ?? $field]['required'] ?? false)<span class="text-red-500">*</span>@endif
                                     </label>
                                     <div class="flex items-center space-x-2">
                                         <select name="{{ $field }}" id="{{ $field }}" class="form-control">
