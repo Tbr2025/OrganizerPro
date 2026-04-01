@@ -165,9 +165,21 @@
         @forelse ($tournaments as $tournament)
             @php
                 $logo = $tournament->settings?->logo ? Storage::url($tournament->settings->logo) : null;
+
+                // Compute effective display status
+                $displayStatus = $tournament->status;
+                if ($displayStatus === 'registration') {
+                    $regOpen = $tournament->settings?->isRegistrationOpen() ?? false;
+                    if (!$regOpen) {
+                        // Registration closed but status not updated — show as "ongoing"
+                        $displayStatus = 'ongoing';
+                    }
+                }
+
                 $statusColors = [
                     'draft' => 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
                     'registration' => 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+                    'reg_closed' => 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
                     'ongoing' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
                     'active' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
                     'completed' => 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
@@ -175,6 +187,7 @@
                 $statusLabels = [
                     'draft' => 'Draft',
                     'registration' => 'Registration Open',
+                    'reg_closed' => 'Registration Closed',
                     'ongoing' => 'Live',
                     'active' => 'Live',
                     'completed' => 'Completed',
@@ -197,23 +210,23 @@
 
                     {{-- Status Badge --}}
                     <div class="absolute top-3 right-3">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusColors[$tournament->status] ?? $statusColors['draft'] }}">
-                            @if($tournament->status === 'registration')
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusColors[$displayStatus] ?? $statusColors['draft'] }}">
+                            @if($displayStatus === 'registration')
                                 <span class="relative flex h-2 w-2">
                                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                     <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                                 </span>
-                            @elseif(in_array($tournament->status, ['ongoing', 'active']))
+                            @elseif(in_array($displayStatus, ['ongoing', 'active']))
                                 <span class="relative flex h-2 w-2">
                                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
                                     <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
                                 </span>
-                            @elseif($tournament->status === 'completed')
+                            @elseif($displayStatus === 'completed')
                                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"/>
                                 </svg>
                             @endif
-                            {{ $statusLabels[$tournament->status] ?? 'Unknown' }}
+                            {{ $statusLabels[$displayStatus] ?? 'Unknown' }}
                         </span>
                     </div>
 
