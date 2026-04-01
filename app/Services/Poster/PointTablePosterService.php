@@ -23,75 +23,141 @@ class PointTablePosterService extends PosterGeneratorService
         $entries = $group->pointTableEntries()->with('team')->ranked()->get();
 
         $width = 1080;
-        $rowHeight = 80;
-        $headerHeight = 250;
-        $tableHeaderHeight = 60;
-        $height = $headerHeight + $tableHeaderHeight + ($entries->count() * $rowHeight) + 100;
+        $teamCount = $entries->count();
+        $headerHeight = 180;
+        $tableHeaderHeight = 48;
+        $rowHeight = max(52, min(70, (int) (600 / max($teamCount, 1))));
+        $legendHeight = 50;
+        $bottomPadding = 50;
+        $height = $headerHeight + $tableHeaderHeight + ($teamCount * $rowHeight) + $legendHeight + $bottomPadding;
 
         // Create canvas
         $canvas = $this->createCanvas($width, $height, '#0f172a');
 
         // Tournament logo
         if ($settings?->logo) {
-            $this->addCircularImage($canvas, $settings->logo, 80, 80, 100);
+            $this->addCircularImage($canvas, $settings->logo, 80, 65, 80);
         }
 
         // Tournament name
-        $this->addText(
-            $canvas,
-            $tournament->name,
-            $width / 2,
-            60,
-            32,
-            '#FFFFFF',
-            'Montserrat-Bold.ttf',
-            'center'
-        );
+        $this->addText($canvas, $tournament->name, $width / 2, 50, 28, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
 
         // Group name
-        $this->addText(
-            $canvas,
-            $group->name . ' - Point Table',
-            $width / 2,
-            110,
-            28,
-            '#FFD700',
-            'Montserrat-Medium.ttf',
-            'center'
-        );
+        $this->addText($canvas, $group->name . ' - Point Table', $width / 2, 95, 22, '#FFD700', 'Montserrat-Medium.ttf', 'center');
 
-        // Table header
+        // Subtle separator line below header
+        $sepY = $headerHeight - 20;
+        $lineColor = imagecolorallocatealpha($canvas, 255, 215, 0, 90);
+        imageline($canvas, 40, $sepY, $width - 40, $sepY, $lineColor);
+
+        // --- Table header ---
         $tableY = $headerHeight;
-        $this->drawTableHeader($canvas, $tableY, $width);
+        $headerBg = $this->hexToRgb('#1e40af');
+        $headerColor = imagecolorallocate($canvas, $headerBg['r'], $headerBg['g'], $headerBg['b']);
+        imagefilledrectangle($canvas, 30, $tableY, $width - 30, $tableY + $tableHeaderHeight, $headerColor);
 
-        // Table rows
+        // Accent line under header
+        $accentRgb = $this->hexToRgb('#FFD700');
+        $accentColor = imagecolorallocate($canvas, $accentRgb['r'], $accentRgb['g'], $accentRgb['b']);
+        imagefilledrectangle($canvas, 30, $tableY + $tableHeaderHeight - 2, $width - 30, $tableY + $tableHeaderHeight, $accentColor);
+
+        // Column positions (center-aligned for stats)
+        $cols = [
+            'pos' => 60,
+            'logoCenter' => 110,
+            'teamName' => 140,
+            'played' => 460,
+            'won' => 540,
+            'lost' => 620,
+            'tied' => 700,
+            'nrr' => 790,
+            'pts' => 970,
+        ];
+        $statW = 60;
+        $nrrW = 120;
+        $ptsW = 80;
+
+        $hFontSize = 14;
+        $hTextY = $tableY + (int) ($tableHeaderHeight * 0.65);
+
+        $this->addText($canvas, '#', $cols['pos'], $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+        $this->addText($canvas, 'Team', $cols['teamName'], $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'left');
+        $this->addText($canvas, 'P', $cols['played'] + $statW / 2, $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+        $this->addText($canvas, 'W', $cols['won'] + $statW / 2, $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+        $this->addText($canvas, 'L', $cols['lost'] + $statW / 2, $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+        $this->addText($canvas, 'T', $cols['tied'] + $statW / 2, $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+        $this->addText($canvas, 'NRR', $cols['nrr'] + $nrrW / 2, $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+        $this->addText($canvas, 'Pts', $cols['pts'] + $ptsW / 2, $hTextY, $hFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+
+        // --- Table rows ---
         $currentY = $tableY + $tableHeaderHeight;
+        $bodyFontSize = min(15, (int) ($rowHeight * 0.30));
+        $logoDiameter = min((int) ($rowHeight * 0.55), 34);
+        $dividerColor = imagecolorallocatealpha($canvas, 255, 255, 255, 100);
+
         foreach ($entries as $index => $entry) {
             $isQualified = $entry->qualified;
-            $bgColor = $index % 2 === 0 ? '#1e293b' : '#334155';
+            $bgHex = $isQualified ? '#064e3b' : ($index % 2 === 0 ? '#1e293b' : '#293548');
 
-            if ($isQualified) {
-                $bgColor = '#064e3b'; // Green tint for qualified teams
+            $rgb = $this->hexToRgb($bgHex);
+            $rowBg = imagecolorallocate($canvas, $rgb['r'], $rgb['g'], $rgb['b']);
+            imagefilledrectangle($canvas, 30, $currentY, $width - 30, $currentY + $rowHeight, $rowBg);
+
+            // Subtle divider line
+            if ($index < $teamCount - 1) {
+                imageline($canvas, 40, $currentY + $rowHeight - 1, $width - 40, $currentY + $rowHeight - 1, $dividerColor);
             }
 
-            $this->drawTableRow($canvas, $entry, $currentY, $width, $bgColor);
+            $textY = $currentY + (int) ($rowHeight * 0.62);
+
+            // Position — centered
+            $this->addText($canvas, (string) $entry->position, $cols['pos'], $textY, $bodyFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+
+            // Team logo
+            $teamNameX = $cols['teamName'];
+            if ($entry->team?->team_logo) {
+                $logoCenterY = $currentY + (int) ($rowHeight / 2);
+                $this->addCircularImage($canvas, $entry->team->team_logo, $cols['logoCenter'], $logoCenterY, $logoDiameter);
+                $teamNameX = $cols['logoCenter'] + (int) ($logoDiameter / 2) + 10;
+            }
+
+            // Team name
+            $teamName = mb_substr($entry->team?->name ?? 'Unknown', 0, 22);
+            $this->addText($canvas, $teamName, $teamNameX, $textY, $bodyFontSize, '#FFFFFF', 'Montserrat-Medium.ttf', 'left');
+
+            // Stats — center-aligned
+            $this->addText($canvas, (string) $entry->matches_played, $cols['played'] + $statW / 2, $textY, $bodyFontSize, '#FFFFFF', 'Montserrat-Bold.ttf', 'center');
+            $this->addText($canvas, (string) $entry->won, $cols['won'] + $statW / 2, $textY, $bodyFontSize, '#4ADE80', 'Montserrat-Bold.ttf', 'center');
+            $this->addText($canvas, (string) $entry->lost, $cols['lost'] + $statW / 2, $textY, $bodyFontSize, '#F87171', 'Montserrat-Bold.ttf', 'center');
+            $this->addText($canvas, (string) $entry->tied, $cols['tied'] + $statW / 2, $textY, $bodyFontSize, '#FBBF24', 'Montserrat-Bold.ttf', 'center');
+
+            // NRR — centered
+            $nrr = $entry->net_run_rate;
+            $nrrText = ($nrr >= 0 ? '+' : '') . number_format($nrr, 3);
+            $nrrColor = $nrr >= 0 ? '#4ADE80' : '#F87171';
+            $this->addText($canvas, $nrrText, $cols['nrr'] + $nrrW / 2, $textY, $bodyFontSize, $nrrColor, 'Montserrat-Medium.ttf', 'center');
+
+            // Points — bold, larger
+            $ptsFontSize = (int) ($bodyFontSize * 1.25);
+            $this->addText($canvas, (string) $entry->points, $cols['pts'] + $ptsW / 2, $textY, $ptsFontSize, '#FFD700', 'Montserrat-Bold.ttf', 'center');
+
             $currentY += $rowHeight;
         }
 
         // Legend
-        $legendY = $currentY + 30;
-        $rgb = $this->hexToRgb('#064e3b');
-        $qualifiedColor = imagecolorallocate($canvas, $rgb['r'], $rgb['g'], $rgb['b']);
-        imagefilledrectangle($canvas, 50, $legendY, 70, $legendY + 20, $qualifiedColor);
-        $this->addText($canvas, '= Qualified for next round', 80, $legendY + 15, 14, '#AAAAAA', 'Montserrat-Medium.ttf', 'left');
+        $legendY = $currentY + 15;
+        $qualifiedRgb = $this->hexToRgb('#064e3b');
+        $qualifiedColor = imagecolorallocate($canvas, $qualifiedRgb['r'], $qualifiedRgb['g'], $qualifiedRgb['b']);
+        imagefilledrectangle($canvas, 40, $legendY, 58, $legendY + 16, $qualifiedColor);
+        $this->addText($canvas, '= Qualified for next round', 68, $legendY + 13, 12, '#AAAAAA', 'Montserrat-Medium.ttf', 'left');
 
-        // Date
+        // Updated timestamp
         $this->addText(
             $canvas,
             'Updated: ' . now()->format('d M Y, h:i A'),
-            $width - 50,
-            $height - 30,
-            12,
+            $width - 40,
+            $height - 20,
+            11,
             '#666666',
             'Montserrat-Medium.ttf',
             'right'
@@ -99,78 +165,6 @@ class PointTablePosterService extends PosterGeneratorService
 
         $filename = $this->generateFilename('points-' . $group->id);
         return $this->saveImage($canvas, $filename);
-    }
-
-    /**
-     * Draw table header
-     */
-    protected function drawTableHeader(\GdImage $canvas, int $y, int $width): void
-    {
-        // Header background
-        $rgb = $this->hexToRgb('#1e40af');
-        $headerBg = imagecolorallocate($canvas, $rgb['r'], $rgb['g'], $rgb['b']);
-        imagefilledrectangle($canvas, 0, $y, $width, $y + 60, $headerBg);
-
-        // Column headers
-        $columns = [
-            ['text' => '#', 'x' => 40, 'width' => 40],
-            ['text' => 'Team', 'x' => 80, 'width' => 300],
-            ['text' => 'P', 'x' => 420, 'width' => 60],
-            ['text' => 'W', 'x' => 490, 'width' => 60],
-            ['text' => 'L', 'x' => 560, 'width' => 60],
-            ['text' => 'T', 'x' => 630, 'width' => 60],
-            ['text' => 'NRR', 'x' => 720, 'width' => 100],
-            ['text' => 'Pts', 'x' => 850, 'width' => 80],
-        ];
-
-        foreach ($columns as $col) {
-            $this->addText(
-                $canvas,
-                $col['text'],
-                $col['x'],
-                $y + 40,
-                16,
-                '#FFFFFF',
-                'Montserrat-Bold.ttf',
-                'left'
-            );
-        }
-    }
-
-    /**
-     * Draw table row
-     */
-    protected function drawTableRow(\GdImage $canvas, $entry, int $y, int $width, string $bgColor): void
-    {
-        // Row background
-        $rgb = $this->hexToRgb($bgColor);
-        $rowBg = imagecolorallocate($canvas, $rgb['r'], $rgb['g'], $rgb['b']);
-        imagefilledrectangle($canvas, 0, $y, $width, $y + 80, $rowBg);
-
-        // Position
-        $this->addText($canvas, (string) $entry->position, 40, $y + 50, 18, '#FFFFFF', 'Montserrat-Bold.ttf', 'left');
-
-        // Team logo and name
-        if ($entry->team?->team_logo) {
-            $this->addCircularImage($canvas, $entry->team->team_logo, 110, $y + 40, 50);
-        }
-        $teamName = substr($entry->team?->name ?? 'Unknown', 0, 20);
-        $this->addText($canvas, $teamName, 150, $y + 50, 16, '#FFFFFF', 'Montserrat-Medium.ttf', 'left');
-
-        // Stats
-        $this->addText($canvas, (string) $entry->matches_played, 420, $y + 50, 16, '#FFFFFF', 'Montserrat-Medium.ttf', 'left');
-        $this->addText($canvas, (string) $entry->won, 490, $y + 50, 16, '#4ADE80', 'Montserrat-Medium.ttf', 'left');
-        $this->addText($canvas, (string) $entry->lost, 560, $y + 50, 16, '#F87171', 'Montserrat-Medium.ttf', 'left');
-        $this->addText($canvas, (string) $entry->tied, 630, $y + 50, 16, '#FBBF24', 'Montserrat-Medium.ttf', 'left');
-
-        // NRR with sign
-        $nrr = $entry->net_run_rate;
-        $nrrText = ($nrr >= 0 ? '+' : '') . number_format($nrr, 3);
-        $nrrColor = $nrr >= 0 ? '#4ADE80' : '#F87171';
-        $this->addText($canvas, $nrrText, 720, $y + 50, 16, $nrrColor, 'Montserrat-Medium.ttf', 'left');
-
-        // Points
-        $this->addText($canvas, (string) $entry->points, 850, $y + 50, 20, '#FFD700', 'Montserrat-Bold.ttf', 'left');
     }
 
     /**

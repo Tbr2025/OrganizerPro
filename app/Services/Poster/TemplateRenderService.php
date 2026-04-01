@@ -430,99 +430,126 @@ class TemplateRenderService extends PosterGeneratorService
         $areaX = (int) ($centerX - $areaWidth / 2);
         $areaY = (int) ($centerY - $areaHeight / 2);
 
-        // Header row height
-        $headerRowHeight = (int) ($configRowHeight * 0.75);
-        $legendHeight = $showLegend ? 40 : 0;
+        // Header row height — taller for breathing room
+        $headerRowHeight = max(44, (int) ($configRowHeight * 0.65));
+        $legendHeight = $showLegend ? 36 : 0;
         $availableHeight = $areaHeight - $headerRowHeight - $legendHeight;
         $teamCount = count($tableData);
         $rowHeight = min($configRowHeight, (int) ($availableHeight / max($teamCount, 1)));
+        // Enforce minimum row height for readability
+        $rowHeight = max(36, $rowHeight);
 
-        // Calculate column positions
+        // Adaptive font size based on row height
+        $bodyFontSize = min($fontSize, (int) ($rowHeight * 0.38));
+        $headerFontSize = (int) ($bodyFontSize * 0.95);
+        $logoDiameter = min((int) ($rowHeight * 0.55), 36);
+
+        // Calculate column positions (center-aligned for stats)
         $columns = $this->calculateTableColumns($areaWidth, $showNRR, $showTeamLogo);
+        // Width of each stat column for center alignment
+        $statColWidth = (int) ($areaWidth * 0.075);
 
-        // Draw header row
+        // --- Draw header row ---
         $headerColor = $this->parseColor($canvas, $headerBg);
         imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + $headerRowHeight, $headerColor);
 
+        // Header bottom accent line
+        $accentColor = $this->parseColor($canvas, $pointsColor);
+        imagefilledrectangle($canvas, $areaX, $areaY + $headerRowHeight - 2, $areaX + $areaWidth, $areaY + $headerRowHeight, $accentColor);
+
         $headerFont = 'Montserrat-Bold.ttf';
-        $headerFontSize = (int) ($fontSize * 0.9);
-        $headerY = $areaY + (int) ($headerRowHeight * 0.65);
+        $headerTextY = $areaY + (int) ($headerRowHeight * 0.62);
 
-        $this->addText($canvas, '#', $areaX + $columns['pos'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
-        $this->addText($canvas, 'Team', $areaX + $columns['team'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
-        $this->addText($canvas, 'P', $areaX + $columns['played'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
-        $this->addText($canvas, 'W', $areaX + $columns['won'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
-        $this->addText($canvas, 'L', $areaX + $columns['lost'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
-        $this->addText($canvas, 'T', $areaX + $columns['tied'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        $this->addText($canvas, '#', $areaX + $columns['pos'] + 10, $headerTextY, $headerFontSize, $headerText, $headerFont, 'center');
+        $this->addText($canvas, 'Team', $areaX + $columns['teamLabel'], $headerTextY, $headerFontSize, $headerText, $headerFont, 'left');
+        $this->addText($canvas, 'P', $areaX + $columns['played'] + (int) ($statColWidth / 2), $headerTextY, $headerFontSize, $headerText, $headerFont, 'center');
+        $this->addText($canvas, 'W', $areaX + $columns['won'] + (int) ($statColWidth / 2), $headerTextY, $headerFontSize, $headerText, $headerFont, 'center');
+        $this->addText($canvas, 'L', $areaX + $columns['lost'] + (int) ($statColWidth / 2), $headerTextY, $headerFontSize, $headerText, $headerFont, 'center');
+        $this->addText($canvas, 'T', $areaX + $columns['tied'] + (int) ($statColWidth / 2), $headerTextY, $headerFontSize, $headerText, $headerFont, 'center');
         if ($showNRR) {
-            $this->addText($canvas, 'NRR', $areaX + $columns['nrr'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+            $nrrColWidth = (int) ($areaWidth * 0.13);
+            $this->addText($canvas, 'NRR', $areaX + $columns['nrr'] + (int) ($nrrColWidth / 2), $headerTextY, $headerFontSize, $headerText, $headerFont, 'center');
         }
-        $this->addText($canvas, 'Pts', $areaX + $columns['pts'], $headerY, $headerFontSize, $headerText, $headerFont, 'left');
+        $ptsColWidth = (int) ($areaWidth * 0.09);
+        $this->addText($canvas, 'Pts', $areaX + $columns['pts'] + (int) ($ptsColWidth / 2), $headerTextY, $headerFontSize, $headerText, $headerFont, 'center');
 
-        // Draw team rows
+        // --- Draw team rows ---
         $currentY = $areaY + $headerRowHeight;
         $bodyFont = 'Montserrat-Medium.ttf';
+        $dividerColor = imagecolorallocatealpha($canvas, 255, 255, 255, 100);
 
         foreach ($tableData as $index => $team) {
             $isQualified = !empty($team['qualified']);
-            if ($isQualified) {
-                $rowBg = $qualifiedBg;
-            } else {
-                $rowBg = ($index % 2 === 0) ? $evenRowBg : $oddRowBg;
-            }
+            $rowBg = $isQualified ? $qualifiedBg : (($index % 2 === 0) ? $evenRowBg : $oddRowBg);
 
             $rowColor = $this->parseColor($canvas, $rowBg);
             imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowColor);
 
-            $textY = $currentY + (int) ($rowHeight * 0.6);
+            // Subtle divider line at bottom of row
+            if ($index < $teamCount - 1) {
+                $this->drawHorizontalLine($canvas, $areaX + 8, $areaX + $areaWidth - 8, $currentY + $rowHeight - 1, $dividerColor);
+            }
 
-            // Position number
-            $this->addText($canvas, (string) ($team['position'] ?? ($index + 1)), $areaX + $columns['pos'], $textY, $fontSize, $textColor, 'Montserrat-Bold.ttf', 'left');
+            $textY = $currentY + (int) ($rowHeight * 0.62);
 
-            // Team logo (circular)
-            $teamNameX = $areaX + $columns['team'];
+            // Position number — center-aligned
+            $this->addText($canvas, (string) ($team['position'] ?? ($index + 1)), $areaX + $columns['pos'] + 10, $textY, $bodyFontSize, $textColor, 'Montserrat-Bold.ttf', 'center');
+
+            // Team logo (circular) — properly sized and spaced
+            $teamNameX = $areaX + $columns['teamLabel'];
             if ($showTeamLogo && !empty($team['team_logo'])) {
                 $logoPath = $this->extractStoragePath($team['team_logo']);
                 if (!empty($logoPath) && \Illuminate\Support\Facades\Storage::disk('public')->exists($logoPath)) {
-                    $logoDiameter = (int) ($rowHeight * 0.6);
-                    $logoCenterX = $areaX + $columns['team'];
+                    $logoCenterX = $areaX + $columns['logoCenter'];
                     $logoCenterY = $currentY + (int) ($rowHeight / 2);
                     $this->addCircularImage($canvas, $logoPath, $logoCenterX, $logoCenterY, $logoDiameter);
-                    $teamNameX = $areaX + $columns['team'] + (int) ($logoDiameter * 0.7);
+                    $teamNameX = $logoCenterX + (int) ($logoDiameter / 2) + 8;
                 }
             }
 
-            // Team name (truncated)
-            $teamName = substr($team['team_name'] ?? 'Unknown', 0, 22);
-            $this->addText($canvas, $teamName, $teamNameX, $textY, $fontSize, $textColor, $bodyFont, 'left');
+            // Team name
+            $maxTeamNameLen = $showNRR ? 20 : 24;
+            $teamName = mb_substr($team['team_name'] ?? 'Unknown', 0, $maxTeamNameLen);
+            $this->addText($canvas, $teamName, $teamNameX, $textY, $bodyFontSize, $textColor, $bodyFont, 'left');
 
-            // Stats
-            $this->addText($canvas, (string) ($team['matches_played'] ?? 0), $areaX + $columns['played'], $textY, $fontSize, $textColor, $bodyFont, 'left');
-            $this->addText($canvas, (string) ($team['won'] ?? 0), $areaX + $columns['won'], $textY, $fontSize, '#4ADE80', $bodyFont, 'left');
-            $this->addText($canvas, (string) ($team['lost'] ?? 0), $areaX + $columns['lost'], $textY, $fontSize, '#F87171', $bodyFont, 'left');
-            $this->addText($canvas, (string) ($team['tied'] ?? 0), $areaX + $columns['tied'], $textY, $fontSize, '#FBBF24', $bodyFont, 'left');
+            // Stats — center-aligned in their columns
+            $this->addText($canvas, (string) ($team['matches_played'] ?? 0), $areaX + $columns['played'] + (int) ($statColWidth / 2), $textY, $bodyFontSize, $textColor, 'Montserrat-Bold.ttf', 'center');
+            $this->addText($canvas, (string) ($team['won'] ?? 0), $areaX + $columns['won'] + (int) ($statColWidth / 2), $textY, $bodyFontSize, '#4ADE80', 'Montserrat-Bold.ttf', 'center');
+            $this->addText($canvas, (string) ($team['lost'] ?? 0), $areaX + $columns['lost'] + (int) ($statColWidth / 2), $textY, $bodyFontSize, '#F87171', 'Montserrat-Bold.ttf', 'center');
+            $this->addText($canvas, (string) ($team['tied'] ?? 0), $areaX + $columns['tied'] + (int) ($statColWidth / 2), $textY, $bodyFontSize, '#FBBF24', 'Montserrat-Bold.ttf', 'center');
 
-            // NRR
+            // NRR — center-aligned
             if ($showNRR) {
                 $nrr = (float) ($team['net_run_rate'] ?? 0);
                 $nrrText = ($nrr >= 0 ? '+' : '') . number_format($nrr, 3);
                 $nrrColor = $nrr >= 0 ? '#4ADE80' : '#F87171';
-                $this->addText($canvas, $nrrText, $areaX + $columns['nrr'], $textY, $fontSize, $nrrColor, $bodyFont, 'left');
+                $nrrColWidth = (int) ($areaWidth * 0.13);
+                $this->addText($canvas, $nrrText, $areaX + $columns['nrr'] + (int) ($nrrColWidth / 2), $textY, $bodyFontSize, $nrrColor, $bodyFont, 'center');
             }
 
-            // Points
-            $this->addText($canvas, (string) ($team['points'] ?? 0), $areaX + $columns['pts'], $textY, (int) ($fontSize * 1.15), $pointsColor, 'Montserrat-Bold.ttf', 'left');
+            // Points — bold, center-aligned, slightly larger
+            $ptsColWidth = (int) ($areaWidth * 0.09);
+            $ptsFontSize = (int) ($bodyFontSize * 1.2);
+            $this->addText($canvas, (string) ($team['points'] ?? 0), $areaX + $columns['pts'] + (int) ($ptsColWidth / 2), $textY, $ptsFontSize, $pointsColor, 'Montserrat-Bold.ttf', 'center');
 
             $currentY += $rowHeight;
         }
 
         // Legend
         if ($showLegend) {
-            $legendY = $currentY + 10;
+            $legendY = $currentY + 8;
             $qualifiedLegendColor = $this->parseColor($canvas, $qualifiedBg);
-            imagefilledrectangle($canvas, $areaX + 10, $legendY, $areaX + 30, $legendY + 20, $qualifiedLegendColor);
-            $this->addText($canvas, '= Qualified for next round', $areaX + 40, $legendY + 16, (int) ($fontSize * 0.8), '#AAAAAA', 'Montserrat-Medium.ttf', 'left');
+            imagefilledrectangle($canvas, $areaX + 10, $legendY, $areaX + 28, $legendY + 16, $qualifiedLegendColor);
+            $this->addText($canvas, '= Qualified for next round', $areaX + 36, $legendY + 13, (int) ($bodyFontSize * 0.8), '#AAAAAA', 'Montserrat-Medium.ttf', 'left');
         }
+    }
+
+    /**
+     * Draw a horizontal divider line
+     */
+    protected function drawHorizontalLine(\GdImage $canvas, int $x1, int $x2, int $y, int $color): void
+    {
+        imageline($canvas, $x1, $y, $x2, $y, $color);
     }
 
     /**
@@ -530,30 +557,34 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function calculateTableColumns(int $areaWidth, bool $showNRR, bool $showTeamLogo): array
     {
-        $padding = (int) ($areaWidth * 0.02);
+        $padding = (int) ($areaWidth * 0.015);
 
         if ($showNRR) {
             return [
                 'pos' => $padding,
-                'team' => (int) ($areaWidth * 0.05),
-                'played' => (int) ($areaWidth * 0.42),
-                'won' => (int) ($areaWidth * 0.50),
-                'lost' => (int) ($areaWidth * 0.58),
-                'tied' => (int) ($areaWidth * 0.66),
-                'nrr' => (int) ($areaWidth * 0.72),
-                'pts' => (int) ($areaWidth * 0.88),
+                'logoCenter' => (int) ($areaWidth * 0.065),
+                'teamLabel' => (int) ($areaWidth * 0.10),
+                'team' => (int) ($areaWidth * 0.04),
+                'played' => (int) ($areaWidth * 0.40),
+                'won' => (int) ($areaWidth * 0.48),
+                'lost' => (int) ($areaWidth * 0.555),
+                'tied' => (int) ($areaWidth * 0.63),
+                'nrr' => (int) ($areaWidth * 0.705),
+                'pts' => (int) ($areaWidth * 0.86),
             ];
         }
 
         return [
             'pos' => $padding,
-            'team' => (int) ($areaWidth * 0.05),
-            'played' => (int) ($areaWidth * 0.50),
-            'won' => (int) ($areaWidth * 0.58),
-            'lost' => (int) ($areaWidth * 0.66),
-            'tied' => (int) ($areaWidth * 0.74),
+            'logoCenter' => (int) ($areaWidth * 0.065),
+            'teamLabel' => (int) ($areaWidth * 0.10),
+            'team' => (int) ($areaWidth * 0.04),
+            'played' => (int) ($areaWidth * 0.48),
+            'won' => (int) ($areaWidth * 0.56),
+            'lost' => (int) ($areaWidth * 0.64),
+            'tied' => (int) ($areaWidth * 0.72),
             'nrr' => 0,
-            'pts' => (int) ($areaWidth * 0.85),
+            'pts' => (int) ($areaWidth * 0.82),
         ];
     }
 
