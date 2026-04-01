@@ -352,6 +352,20 @@
             </div>
         </div>
 
+            {{-- Field Visibility Toggles --}}
+            <div id="fieldTogglesSection" class="hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center cursor-pointer" onclick="document.getElementById('togglesBody').classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                    <span class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 flex items-center justify-center mr-3 text-sm font-bold">4</span>
+                    Field Visibility
+                    <svg class="w-4 h-4 ml-auto text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </h3>
+                <p class="text-xs text-gray-500 mb-3">Toggle off fields you don't want on the poster</p>
+                <div id="togglesBody" class="grid grid-cols-2 gap-x-4 gap-y-2 max-h-[300px] overflow-y-auto">
+                    {{-- Populated by JS --}}
+                </div>
+            </div>
+        </div>
+
         {{-- Right: Preview & Actions --}}
         <div class="lg:col-span-1">
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 sticky top-4">
@@ -609,6 +623,86 @@ function getSelectedData() {
     return data;
 }
 
+// Field visibility toggles
+let hiddenFields = [];
+
+const fieldLabels = {
+    'tournament_name': 'Tournament Name', 'tournament_logo': 'Tournament Logo',
+    'team_a_name': 'Team A Name', 'team_a_short_name': 'Team A Short', 'team_a_logo': 'Team A Logo',
+    'team_a_score': 'Team A Score (Full)', 'team_a_score_wickets': 'Team A Score (R/W)',
+    'team_a_runs': 'Team A Runs', 'team_a_wickets': 'Team A Wickets', 'team_a_overs': 'Team A Overs',
+    'team_b_name': 'Team B Name', 'team_b_short_name': 'Team B Short', 'team_b_logo': 'Team B Logo',
+    'team_b_score': 'Team B Score (Full)', 'team_b_score_wickets': 'Team B Score (R/W)',
+    'team_b_runs': 'Team B Runs', 'team_b_wickets': 'Team B Wickets', 'team_b_overs': 'Team B Overs',
+    'result_summary': 'Result Summary', 'winner_name': 'Winner Name', 'winner_logo': 'Winner Logo',
+    'win_margin': 'Win Margin', 'toss_result': 'Toss Result',
+    'match_date': 'Match Date', 'match_time': 'Match Time', 'venue': 'Venue',
+    'match_stage': 'Match Stage', 'match_number': 'Match Number',
+    'man_of_the_match_name': 'MOTM Name', 'man_of_the_match_image': 'MOTM Image',
+    'best_batsman_name': 'Best Batsman', 'best_bowler_name': 'Best Bowler',
+    'player_name': 'Player Name', 'player_image': 'Player Image',
+    'award_name': 'Award Name', 'achievement_text': 'Achievement',
+    'match_details': 'Match Details', 'batting_figures': 'Batting Figures', 'bowling_figures': 'Bowling Figures',
+    'jersey_number': 'Jersey Number', 'team_name': 'Team Name', 'team_logo': 'Team Logo',
+};
+
+function buildFieldToggles() {
+    const section = document.getElementById('fieldTogglesSection');
+    const container = document.getElementById('togglesBody');
+    const templateInput = document.querySelector('input[name="template_id"]:checked');
+
+    if (!templateInput) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    // Fetch template layout to get used placeholders
+    fetch(`{{ url('admin/tournaments/' . $tournament->id . '/templates') }}/${templateInput.value}/edit?ajax_layout=1`)
+        .then(r => r.json())
+        .then(result => {
+            const usedFields = (result.layout || []).map(el => el.placeholder).filter(Boolean);
+            if (usedFields.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+
+            hiddenFields = [];
+            container.innerHTML = usedFields.map(field => {
+                const label = fieldLabels[field] || field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                return `<label class="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                    <input type="checkbox" checked data-field="${field}" onchange="toggleField('${field}', this.checked)"
+                           class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate">${label}</span>
+                </label>`;
+            }).join('');
+
+            section.classList.remove('hidden');
+        })
+        .catch(() => {
+            section.classList.add('hidden');
+        });
+}
+
+function toggleField(field, checked) {
+    if (checked) {
+        hiddenFields = hiddenFields.filter(f => f !== field);
+    } else {
+        if (!hiddenFields.includes(field)) hiddenFields.push(field);
+    }
+}
+
+// Build toggles when template changes
+document.addEventListener('change', function(e) {
+    if (e.target.name === 'template_id') buildFieldToggles();
+});
+
+// Build toggles when match/player changes
+document.addEventListener('change', function(e) {
+    if (['matchSelect', 'awardMatchSelect', 'playerSelect', 'groupSelect'].includes(e.target.id)) {
+        buildFieldToggles();
+    }
+});
+
 function showDataSummary(data) {
     const summary = document.getElementById('dataSummary');
     const content = document.getElementById('summaryContent');
@@ -680,6 +774,11 @@ function generatePreview() {
 
     showDataSummary(data);
 
+    // Add hidden fields to data
+    if (hiddenFields.length > 0) {
+        data.hidden_fields = hiddenFields;
+    }
+
     // Create abort controller with 3 minute timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 180000);
@@ -692,7 +791,11 @@ function generatePreview() {
         const formData = new FormData();
         for (const [key, value] of Object.entries(data)) {
             if (key !== '_hasCustomPlayerImage' && value !== null && value !== undefined) {
-                formData.append(key, value);
+                if (key === 'hidden_fields' && Array.isArray(value)) {
+                    value.forEach((f, i) => formData.append(`hidden_fields[${i}]`, f));
+                } else {
+                    formData.append(key, value);
+                }
             }
         }
         formData.append('player_image_file', customImageFile);
@@ -968,6 +1071,9 @@ document.getElementById('awardPlayerSearch')?.addEventListener('input', function
     const defaultOpt = select.querySelector('option:not([data-player])');
     if (defaultOpt) defaultOpt.style.display = query ? 'none' : '';
 });
+
+// Init: build field toggles if template already selected
+setTimeout(() => { buildFieldToggles(); }, 500);
 </script>
 @endpush
 @endsection

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 class TemplateRenderService extends PosterGeneratorService
 {
     protected string $outputDirectory = 'generated_templates';
+    protected bool $skipBlanks = false;
 
     /**
      * Generate poster from template model (required by abstract)
@@ -24,8 +25,9 @@ class TemplateRenderService extends PosterGeneratorService
     /**
      * Render a template with given data
      */
-    public function renderTemplate(TournamentTemplate $template, array $data, bool $preview = false): string
+    public function renderTemplate(TournamentTemplate $template, array $data, bool $preview = false, bool $skipBlanks = false): string
     {
+        $this->skipBlanks = $skipBlanks;
         // Get template dimensions from saved values (scaled up from editor canvas)
         // Editor uses 540px base, we render at 2x for HD output
         $editorWidth = $template->canvas_width ?? 1080;
@@ -104,7 +106,14 @@ class TemplateRenderService extends PosterGeneratorService
         $y = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
 
         // Get value from data or use placeholder display
-        $value = $data[$placeholder] ?? $this->getDisplayValue($placeholder);
+        if ($this->skipBlanks) {
+            $value = $data[$placeholder] ?? '';
+            if ($placeholder && ($value === '' || $value === null)) {
+                return; // Skip blank fields
+            }
+        } else {
+            $value = $data[$placeholder] ?? $this->getDisplayValue($placeholder);
+        }
 
         if ($type === 'tableArea') {
             $this->renderTableArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
@@ -1101,9 +1110,9 @@ class TemplateRenderService extends PosterGeneratorService
      * Render template and return as base64 for preview
      * @param bool $optimizeForWeb Compress output for faster transfer
      */
-    public function renderToBase64(TournamentTemplate $template, array $data = [], bool $optimizeForWeb = true): string
+    public function renderToBase64(TournamentTemplate $template, array $data = [], bool $optimizeForWeb = true, bool $skipBlanks = false): string
     {
-        $path = $this->renderTemplate($template, $data, true);
+        $path = $this->renderTemplate($template, $data, true, $skipBlanks);
         $fullPath = Storage::disk('public')->path($path);
 
         if ($optimizeForWeb) {

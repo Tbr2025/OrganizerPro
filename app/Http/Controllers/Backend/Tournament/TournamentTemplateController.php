@@ -257,11 +257,20 @@ class TournamentTemplateController extends Controller
                 }
             }
 
+            // Remove hidden fields (toggled off by user)
+            $hiddenFields = $request->input('hidden_fields', []);
+            if (is_array($hiddenFields)) {
+                foreach ($hiddenFields as $field) {
+                    unset($data[$field]);
+                }
+            }
+
             // Filter empty values (but keep table_data array)
             $data = array_filter($data, fn($v) => is_array($v) ? !empty($v) : ($v !== null && $v !== ''));
 
-            // Render to base64
-            $base64Image = $renderService->renderToBase64($template, $data);
+            // Skip blank placeholders when generating from actual data (not editor preview)
+            $hasMatchData = $request->input('match_id') || $request->input('player_id') || $request->input('group_id');
+            $base64Image = $renderService->renderToBase64($template, $data, true, (bool) $hasMatchData);
 
             // Clean up temp uploaded files
             foreach ($tempFiles as $tempPath) {
@@ -435,9 +444,16 @@ class TournamentTemplateController extends Controller
     /**
      * Show edit template form
      */
-    public function edit(Tournament $tournament, TournamentTemplate $template)
+    public function edit(Tournament $tournament, TournamentTemplate $template, Request $request)
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
+
+        // AJAX: return layout placeholders for field toggle UI
+        if ($request->has('ajax_layout')) {
+            return response()->json([
+                'layout' => $template->layout_json ?? [],
+            ]);
+        }
 
         $type = $template->type;
         $placeholders = TournamentTemplate::getDefaultPlaceholders($template->type);
