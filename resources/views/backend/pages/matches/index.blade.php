@@ -13,7 +13,7 @@
     .filter-pill.active { background: #3b82f6; color: white; border-color: #3b82f6; }
     .team-logo-sm { width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.05); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
     .dark .team-logo-sm { background: rgba(255,255,255,0.08); }
-    .team-logo-sm img { width: 22px; height: 22px; object-fit: contain; }
+    .team-logo-sm img { width: 22px; height: 22px; max-width: 22px; max-height: 22px; object-fit: contain; }
     .bulk-bar { transform: translateY(100%); transition: transform 0.2s ease; }
     .bulk-bar.show { transform: translateY(0); }
 </style>
@@ -153,7 +153,7 @@
                                     <div class="flex items-center gap-1.5 min-w-0">
                                         <div class="team-logo-sm">
                                             @if($match->teamA?->team_logo)
-                                                <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="">
+                                                <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="" width="22" height="22" style="max-width:22px;max-height:22px;">
                                             @else
                                                 <span class="text-[9px] font-bold text-gray-400">{{ strtoupper(substr($match->teamA?->short_name ?? $match->teamA?->name ?? '?', 0, 2)) }}</span>
                                             @endif
@@ -166,7 +166,7 @@
                                     <div class="flex items-center gap-1.5 min-w-0">
                                         <div class="team-logo-sm">
                                             @if($match->teamB?->team_logo)
-                                                <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="">
+                                                <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="" width="22" height="22" style="max-width:22px;max-height:22px;">
                                             @else
                                                 <span class="text-[9px] font-bold text-gray-400">{{ strtoupper(substr($match->teamB?->short_name ?? $match->teamB?->name ?? '?', 0, 2)) }}</span>
                                             @endif
