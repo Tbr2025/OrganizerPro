@@ -9,6 +9,7 @@ use App\Models\Tournament;
 use App\Models\TournamentTemplate;
 use App\Services\ImageBackgroundRemovalService;
 use App\Services\Poster\TemplateRenderService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -133,6 +134,48 @@ class TournamentTemplateController extends Controller
             $data['tournament_name'] = $tournament->name;
             if ($tournament->settings?->logo) {
                 $data['tournament_logo'] = $tournament->settings->logo;
+            }
+
+            // For match-based types, fetch actual data from DB (avoids ConvertEmptyStringsToNull losing values)
+            if ($request->input('match_id') && in_array($template->type, [
+                TournamentTemplate::TYPE_MATCH_POSTER,
+                TournamentTemplate::TYPE_MATCH_SUMMARY,
+            ])) {
+                $match = Matches::with(['teamA', 'teamB', 'winner', 'result', 'ground'])->find($request->input('match_id'));
+                if ($match) {
+                    $matchData = [
+                        'team_a_name' => $match->teamA?->name,
+                        'team_b_name' => $match->teamB?->name,
+                        'team_a_short_name' => $match->teamA?->short_name ?? $match->teamA?->name,
+                        'team_b_short_name' => $match->teamB?->short_name ?? $match->teamB?->name,
+                        'team_a_logo' => $match->teamA?->team_logo,
+                        'team_b_logo' => $match->teamB?->team_logo,
+                        'match_date' => $match->match_date?->format('M d, Y'),
+                        'match_time' => $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : null,
+                        'venue' => $match->ground?->name ?? $match->venue,
+                        'ground_name' => $match->ground?->name ?? $match->venue,
+                        'match_number' => (string) ($match->match_number ?? $match->id),
+                        'match_stage' => $match->stage_display,
+                    ];
+
+                    if ($match->result) {
+                        $matchData['team_a_score'] = $match->result->team_a_score_display;
+                        $matchData['team_b_score'] = $match->result->team_b_score_display;
+                        $matchData['result_summary'] = $match->result->result_summary;
+                    }
+
+                    if ($match->winner) {
+                        $matchData['winner_name'] = $match->winner->name;
+                        $matchData['winner_logo'] = $match->winner->team_logo;
+                    }
+
+                    // DB data fills in any null/empty values from the request
+                    foreach ($matchData as $key => $value) {
+                        if ($value !== null && empty($data[$key])) {
+                            $data[$key] = $value;
+                        }
+                    }
+                }
             }
 
             // Award poster: handle uploaded player image and set defaults
