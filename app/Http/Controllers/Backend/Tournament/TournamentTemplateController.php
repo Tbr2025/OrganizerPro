@@ -130,6 +130,7 @@ class TournamentTemplateController extends Controller
                 'match_date', 'match_time', 'venue', 'ground_name', 'match_stage', 'match_number',
                 'award_name', 'achievement_text', 'match_details',
                 'man_of_the_match_name', 'man_of_the_match_image',
+                'best_batsman_name', 'best_bowler_name',
                 'result_summary', 'batting_figures', 'bowling_figures'
             ]);
 
@@ -204,9 +205,9 @@ class TournamentTemplateController extends Controller
                         }
                     }
 
-                    // DB data fills in any null/empty values from the request
+                    // DB data always overrides JS data (DB is authoritative for match data)
                     foreach ($matchData as $key => $value) {
-                        if ($value !== null && empty($data[$key])) {
+                        if ($value !== null) {
                             $data[$key] = $value;
                         }
                     }
@@ -712,14 +713,47 @@ class TournamentTemplateController extends Controller
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
 
+        // Find next copy number
+        $baseName = preg_replace('/\s*\(Copy(?:\s+\d+)?\)\s*$/', '', $template->name);
+        $existingCopies = TournamentTemplate::where('tournament_id', $tournament->id)
+            ->where('name', 'like', $baseName . ' (Copy%')
+            ->count();
+        $copyNum = $existingCopies + 1;
+        $newName = $baseName . ' (Copy ' . $copyNum . ')';
+
         $newTemplate = $template->replicate();
-        $newTemplate->name = $template->name . ' (Copy)';
+        $newTemplate->name = $newName;
         $newTemplate->is_default = false;
+
+        // Copy background image if exists
+        if ($template->background_image && Storage::disk('public')->exists($template->background_image)) {
+            $ext = pathinfo($template->background_image, PATHINFO_EXTENSION);
+            $newPath = 'tournament_templates/' . uniqid('bg_') . '.' . $ext;
+            Storage::disk('public')->copy($template->background_image, $newPath);
+            $newTemplate->background_image = $newPath;
+        }
+
+        // Copy overlay images if exist
+        if ($template->overlay_images && is_array($template->overlay_images)) {
+            $newOverlays = [];
+            foreach ($template->overlay_images as $overlay) {
+                if (is_string($overlay) && Storage::disk('public')->exists($overlay)) {
+                    $ext = pathinfo($overlay, PATHINFO_EXTENSION);
+                    $newPath = 'tournament_templates/overlays/' . uniqid('ov_') . '.' . $ext;
+                    Storage::disk('public')->copy($overlay, $newPath);
+                    $newOverlays[] = $newPath;
+                } else {
+                    $newOverlays[] = $overlay;
+                }
+            }
+            $newTemplate->overlay_images = $newOverlays;
+        }
+
         $newTemplate->save();
 
         return redirect()
             ->route('admin.tournaments.templates.edit', [$tournament, $newTemplate])
-            ->with('success', 'Template duplicated successfully.');
+            ->with('success', 'Template duplicated as "' . $newName . '".');
     }
 
     /**

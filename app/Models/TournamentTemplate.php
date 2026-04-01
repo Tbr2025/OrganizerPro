@@ -139,6 +139,9 @@ class TournamentTemplate extends Model
                 'man_of_the_match_image',
                 'best_batsman_name',
                 'best_bowler_name',
+                // Performance Figures
+                'batting_figures',
+                'bowling_figures',
             ],
             self::TYPE_AWARD_POSTER => [
                 'tournament_name',

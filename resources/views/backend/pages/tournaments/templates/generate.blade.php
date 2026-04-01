@@ -105,8 +105,8 @@
                                     data-stage="{{ $match->stage }}"
                                     data-stage-display="{{ $match->stage_display }}"
                                     data-status="{{ $match->status }}"
-                                    data-team-a-score="{{ $match->result?->team_a_score ?? '' }}"
-                                    data-team-b-score="{{ $match->result?->team_b_score ?? '' }}"
+                                    data-team-a-score="{{ $match->result?->team_a_score_display ?? '' }}"
+                                    data-team-b-score="{{ $match->result?->team_b_score_display ?? '' }}"
                                     data-winner="{{ $match->winner?->name }}"
                                     data-winner-logo="{{ $match->winner?->team_logo ?? '' }}"
                                     data-result-summary="{{ $match->result?->result_summary ?? '' }}"
@@ -121,6 +121,101 @@
                     @if($matches->isEmpty())
                         <p class="text-sm text-gray-500 mt-2">No matches found. <a href="{{ route('admin.tournaments.fixtures.index', $tournament) }}" class="text-purple-600 hover:underline">Create fixtures first</a>.</p>
                     @endif
+
+                    {{-- Match Summary Stats (shown when match selected for match_summary type) --}}
+                    <div id="matchSummaryStats" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        {{-- Score Summary --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Score Summary</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1" id="summaryTeamALabel">Team A Score</label>
+                                    <input type="text" id="summaryTeamAScore" placeholder="e.g. 198/4 (20.0)" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1" id="summaryTeamBLabel">Team B Score</label>
+                                    <input type="text" id="summaryTeamBScore" placeholder="e.g. 200/6 (18.4)" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Result & Winner --}}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Result Summary</label>
+                                <input type="text" id="summaryResultSummary" placeholder="e.g. Team Beta won by 4 wkts" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Winner</label>
+                                <input type="text" id="summaryWinnerName" placeholder="Auto from match" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm" readonly>
+                            </div>
+                        </div>
+
+                        {{-- MOTM & Awards --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Awards</label>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Man of the Match</label>
+                                    <input type="text" id="summaryMotmName" placeholder="Auto from match" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Best Batsman</label>
+                                    <input type="text" id="summaryBestBatsman" placeholder="Auto from match" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Best Bowler</label>
+                                    <input type="text" id="summaryBestBowler" placeholder="Auto from match" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Batting Performance --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Batting Figures (MOTM)</label>
+                            <div class="grid grid-cols-4 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Runs</label>
+                                    <input type="number" id="summaryBatRuns" placeholder="59" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Balls</label>
+                                    <input type="number" id="summaryBatBalls" placeholder="36" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">4s</label>
+                                    <input type="number" id="summaryBatFours" placeholder="9" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">6s</label>
+                                    <input type="number" id="summaryBatSixes" placeholder="1" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Bowling Performance --}}
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bowling Figures (MOTM)</label>
+                            <div class="grid grid-cols-4 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Overs</label>
+                                    <input type="text" id="summaryBowlOvers" placeholder="4" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Maidens</label>
+                                    <input type="number" id="summaryBowlMaidens" placeholder="0" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Runs</label>
+                                    <input type="number" id="summaryBowlRuns" placeholder="25" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">Wickets</label>
+                                    <input type="number" id="summaryBowlWickets" placeholder="2" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Player Selection (for welcome_card) --}}
@@ -513,11 +608,42 @@ function getSelectedData() {
             data.match_stage = selected.dataset.stageDisplay || selected.dataset.stage;
             data.match_number = selected.dataset.matchNumber;
             if (currentType === 'match_summary') {
-                data.team_a_score = selected.dataset.teamAScore;
-                data.team_b_score = selected.dataset.teamBScore;
-                data.winner_name = selected.dataset.winner;
+                // Read from editable input fields (pre-filled from data attrs)
+                data.team_a_score = document.getElementById('summaryTeamAScore')?.value?.trim() || selected.dataset.teamAScore;
+                data.team_b_score = document.getElementById('summaryTeamBScore')?.value?.trim() || selected.dataset.teamBScore;
+                data.result_summary = document.getElementById('summaryResultSummary')?.value?.trim() || selected.dataset.resultSummary;
+                data.winner_name = document.getElementById('summaryWinnerName')?.value?.trim() || selected.dataset.winner;
                 data.winner_logo = selected.dataset.winnerLogo;
-                data.result_summary = selected.dataset.resultSummary;
+
+                // Awards
+                const motm = document.getElementById('summaryMotmName')?.value?.trim();
+                const bestBat = document.getElementById('summaryBestBatsman')?.value?.trim();
+                const bestBowl = document.getElementById('summaryBestBowler')?.value?.trim();
+                if (motm) data.man_of_the_match_name = motm;
+                if (bestBat) data.best_batsman_name = bestBat;
+                if (bestBowl) data.best_bowler_name = bestBowl;
+
+                // Batting figures
+                const batRuns = document.getElementById('summaryBatRuns')?.value?.trim();
+                const batBalls = document.getElementById('summaryBatBalls')?.value?.trim();
+                const batFours = document.getElementById('summaryBatFours')?.value?.trim();
+                const batSixes = document.getElementById('summaryBatSixes')?.value?.trim();
+                if (batRuns) {
+                    let bf = batRuns;
+                    if (batBalls) bf += ` (${batBalls})`;
+                    if (batFours) bf += ` ${batFours}x4`;
+                    if (batSixes) bf += ` ${batSixes}x6`;
+                    data.batting_figures = bf;
+                }
+
+                // Bowling figures
+                const bowlOvers = document.getElementById('summaryBowlOvers')?.value?.trim();
+                const bowlMaidens = document.getElementById('summaryBowlMaidens')?.value?.trim();
+                const bowlRuns = document.getElementById('summaryBowlRuns')?.value?.trim();
+                const bowlWickets = document.getElementById('summaryBowlWickets')?.value?.trim();
+                if (bowlOvers) {
+                    data.bowling_figures = `${bowlOvers} - ${bowlMaidens || '0'} - ${bowlRuns || '0'} - ${bowlWickets || '0'}`;
+                }
             }
         }
     } else if (currentType === 'welcome_card') {
@@ -979,6 +1105,39 @@ function loadMatchAwards(matchId) {
 
 // Event listeners
 document.getElementById('matchSelect')?.addEventListener('change', function() {
+    const statsSection = document.getElementById('matchSummaryStats');
+    if (this.value && currentType === 'match_summary') {
+        const selected = this.options[this.selectedIndex];
+        const teamA = selected.dataset.teamA || 'Team A';
+        const teamB = selected.dataset.teamB || 'Team B';
+
+        // Update labels
+        document.getElementById('summaryTeamALabel').textContent = teamA + ' Score';
+        document.getElementById('summaryTeamBLabel').textContent = teamB + ' Score';
+
+        // Auto-fill scores from data attributes
+        document.getElementById('summaryTeamAScore').value = selected.dataset.teamAScore || '';
+        document.getElementById('summaryTeamBScore').value = selected.dataset.teamBScore || '';
+        document.getElementById('summaryResultSummary').value = selected.dataset.resultSummary || '';
+        document.getElementById('summaryWinnerName').value = selected.dataset.winner || '';
+
+        // Clear manual fields
+        document.getElementById('summaryMotmName').value = '';
+        document.getElementById('summaryBestBatsman').value = '';
+        document.getElementById('summaryBestBowler').value = '';
+        document.getElementById('summaryBatRuns').value = '';
+        document.getElementById('summaryBatBalls').value = '';
+        document.getElementById('summaryBatFours').value = '';
+        document.getElementById('summaryBatSixes').value = '';
+        document.getElementById('summaryBowlOvers').value = '';
+        document.getElementById('summaryBowlMaidens').value = '';
+        document.getElementById('summaryBowlRuns').value = '';
+        document.getElementById('summaryBowlWickets').value = '';
+
+        statsSection.classList.remove('hidden');
+    } else {
+        statsSection?.classList.add('hidden');
+    }
     if (this.value) showDataSummary(getSelectedData());
 });
 document.getElementById('playerSelect')?.addEventListener('change', function() {

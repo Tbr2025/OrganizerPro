@@ -178,6 +178,14 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
                                         </a>
+                                        <form action="{{ route('admin.tournaments.templates.duplicate', [$tournament, $template]) }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" class="p-2 bg-white rounded-lg hover:bg-blue-50 transition" title="Duplicate">
+                                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                </svg>
+                                            </button>
+                                        </form>
                                         <form action="{{ route('admin.tournaments.templates.destroy', [$tournament, $template]) }}" method="POST" class="inline"
                                               onsubmit="return confirm('Delete this template?')">
                                             @csrf
