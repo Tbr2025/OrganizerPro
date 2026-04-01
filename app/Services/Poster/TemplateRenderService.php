@@ -195,9 +195,15 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Check if it's a path or placeholder
         if (str_starts_with($imagePath, '[') || empty($storagePath) || !Storage::disk('public')->exists($storagePath)) {
-            // Draw placeholder box
-            $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, $element['placeholder'] ?? 'Image');
-            return;
+            // For player/person images, fall back to default silhouette instead of placeholder box
+            $placeholder = $element['placeholder'] ?? '';
+            $defaultImagePath = 'defaults/default-player.png';
+            if ($this->shouldRemoveBackground($placeholder) && Storage::disk('public')->exists($defaultImagePath)) {
+                $storagePath = $defaultImagePath;
+            } else {
+                $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, $placeholder ?: 'Image');
+                return;
+            }
         }
 
         // Only remove background from player/captain photos, not logos

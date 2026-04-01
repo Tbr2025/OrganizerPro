@@ -134,6 +134,20 @@ class TournamentTemplateController extends Controller
                 $data['tournament_logo'] = $tournament->settings->logo;
             }
 
+            // Award poster: set defaults for missing player data
+            if ($template->type === TournamentTemplate::TYPE_AWARD_POSTER) {
+                if (empty($data['player_name'])) {
+                    $data['player_name'] = 'Player Name';
+                }
+                if (empty($data['award_name'])) {
+                    $data['award_name'] = 'Award';
+                }
+                // Default player image if not provided
+                if (empty($data['player_image'])) {
+                    $data['player_image'] = 'defaults/default-player.png';
+                }
+            }
+
             // Handle point_table type — build table_data from group entries
             if ($template->type === TournamentTemplate::TYPE_POINT_TABLE && $request->input('group_id')) {
                 $group = $tournament->groups()->find($request->input('group_id'));
