@@ -70,6 +70,9 @@ class PointTableController extends Controller
 
         $groupId = $request->get('group_id');
 
+        // Recalculate point table to ensure latest scores
+        $this->pointTableService->recalculatePointTable($tournament);
+
         // Check for active point_table template
         $template = $tournament->templates()
             ->where('type', TournamentTemplate::TYPE_POINT_TABLE)
