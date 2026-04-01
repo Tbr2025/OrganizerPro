@@ -25,8 +25,8 @@
                     Registration Open
                 </span>
             @elseif($tournament->status === 'registration' && !$regActuallyOpen)
-                <span class="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                    Registration Closed
+                <span class="bg-yellow-500 text-gray-900 px-3 py-1 rounded-full text-xs font-semibold">
+                    Live
                 </span>
             @elseif(in_array($tournament->status, ['ongoing', 'active']))
                 <span class="bg-yellow-500 text-gray-900 px-3 py-1 rounded-full text-xs font-semibold">
