@@ -112,6 +112,7 @@ class TournamentTemplate extends Model
                 'team_b_score',
                 'result_summary',
                 'winner_name',
+                'winner_logo',
                 'match_date',
                 'venue',
                 'man_of_the_match_name',

@@ -122,7 +122,7 @@ class TournamentTemplateController extends Controller
                 'team_a_logo', 'team_b_logo',
                 'team_a_captain_image', 'team_b_captain_image',
                 'team_a_captain_name', 'team_b_captain_name',
-                'team_a_score', 'team_b_score', 'winner_name',
+                'team_a_score', 'team_b_score', 'winner_name', 'winner_logo',
                 'match_date', 'match_time', 'venue', 'ground_name', 'match_stage', 'match_number',
                 'award_name', 'achievement_text', 'match_details',
                 'man_of_the_match_name', 'man_of_the_match_image',
