@@ -15,240 +15,246 @@
 
 @push('styles')
 <style>
-    .hero-gradient {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 25%, #0d1b2a 50%, #1b263b 75%, #0f0f23 100%);
+    .hero-section {
+        background: linear-gradient(160deg, #0a0e1a 0%, #111827 40%, #0f172a 100%);
+        position: relative;
+        overflow: hidden;
     }
-    .hero-pattern {
-        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23fbbf24' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    }
-    .glass-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .glow-yellow {
-        box-shadow: 0 0 40px rgba(251, 191, 36, 0.3);
-    }
-    .glow-green {
-        box-shadow: 0 0 30px rgba(34, 197, 94, 0.4);
-    }
-    .animate-float {
-        animation: float 6s ease-in-out infinite;
-    }
-    .animate-float-delayed {
-        animation: float 6s ease-in-out infinite 2s;
-    }
-    .animate-pulse-slow {
-        animation: pulse 3s ease-in-out infinite;
-    }
-    @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-20px); }
-    }
-    .stat-card {
-        background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease;
-    }
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        border-color: rgba(251, 191, 36, 0.3);
-    }
-    .match-card {
-        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-        transition: all 0.3s ease;
-    }
-    .match-card:hover {
-        transform: scale(1.02);
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-    }
-    .team-logo-container {
-        background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
-    }
-    .countdown-digit {
-        background: linear-gradient(145deg, #fbbf24 0%, #f59e0b 100%);
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    .nav-link-active::after {
+    .hero-section::before {
         content: '';
         position: absolute;
-        bottom: -4px;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, #fbbf24, #f59e0b);
-        border-radius: 2px;
+        top: -50%;
+        left: -20%;
+        width: 70%;
+        height: 200%;
+        background: radial-gradient(ellipse, rgba(251,191,36,0.06) 0%, transparent 60%);
+        pointer-events: none;
     }
-    .scroll-indicator {
-        animation: bounce 2s infinite;
-    }
-    @keyframes bounce {
-        0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-        40% { transform: translateY(-10px); }
-        60% { transform: translateY(-5px); }
+    .hero-section::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        right: -10%;
+        width: 50%;
+        height: 150%;
+        background: radial-gradient(ellipse, rgba(59,130,246,0.04) 0%, transparent 60%);
+        pointer-events: none;
     }
     .gradient-text {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #fbbf24 100%);
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 40%, #fbbf24 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+    }
+    .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .glass-card:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(251, 191, 36, 0.2);
+    }
+    .stat-card {
+        background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(251, 191, 36, 0.3);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+    }
+    .match-card {
+        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .match-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        border-color: rgba(251, 191, 36, 0.25);
+    }
+    .team-logo-box {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .score-text {
+        font-variant-numeric: tabular-nums;
     }
     .live-indicator {
         animation: live-pulse 1.5s ease-in-out infinite;
     }
     @keyframes live-pulse {
         0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        50% { opacity: 0.4; }
+    }
+    .live-glow {
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+    }
+    .nav-card {
+        background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: all 0.3s ease;
+    }
+    .nav-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    .section-title {
+        position: relative;
+        display: inline-block;
+    }
+    .section-title::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: 48px;
+        height: 3px;
+        background: linear-gradient(90deg, #fbbf24, transparent);
+        border-radius: 2px;
+    }
+    .section-title.center::after {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    /* Mobile team stacking */
+    @media (max-width: 640px) {
+        .result-teams-row {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+        .result-teams-row .team-block {
+            flex-direction: row !important;
+            text-align: left !important;
+            width: 100%;
+            justify-content: space-between;
+        }
+        .result-teams-row .team-block.team-b {
+            flex-direction: row !important;
+        }
+        .result-teams-row .vs-block {
+            display: none;
+        }
     }
 </style>
 @endpush
 
 @section('content')
+    @php
+        $regActuallyOpen = $tournament->status === 'registration' && ($settings?->isRegistrationOpen() ?? false);
+        $isLive = in_array($tournament->status, ['active', 'ongoing']) || ($tournament->status === 'registration' && !$regActuallyOpen);
+        $totalMatches = $tournament->matches()->where('is_cancelled', false)->count();
+        $completedMatches = $tournament->matches()->where('status', 'completed')->count();
+        $teamCount = $tournament->actualTeams()->count();
+    @endphp
+
     {{-- Hero Section --}}
-    <section class="relative min-h-screen hero-gradient hero-pattern overflow-hidden">
-        {{-- Background Elements --}}
-        @if($settings?->background_image)
-            <div class="absolute inset-0 bg-cover bg-center opacity-30" style="background-image: url('{{ Storage::url($settings->background_image) }}');"></div>
-        @endif
-        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/50 to-gray-900"></div>
-
-        {{-- Decorative Elements --}}
-        <div class="absolute top-20 left-10 w-72 h-72 bg-yellow-500/10 rounded-full blur-3xl animate-float"></div>
-        <div class="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float-delayed"></div>
-
-        {{-- Content --}}
-        <div class="relative z-10 max-w-7xl mx-auto px-4 pt-20 pb-32 min-h-screen flex flex-col justify-center">
+    <section class="hero-section pt-16 pb-20 md:pt-24 md:pb-28">
+        <div class="relative z-10 max-w-5xl mx-auto px-4">
             <div class="text-center">
-                {{-- Tournament Logo --}}
+                {{-- Logo --}}
                 @if($settings?->logo)
-                    <div class="mb-8 animate-float">
-                        <div class="inline-block p-2 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 glow-yellow">
+                    <div class="mb-6">
+                        <div class="inline-block p-1.5 rounded-2xl bg-gradient-to-br from-yellow-400/20 to-orange-500/10 shadow-lg shadow-yellow-500/10">
                             <img src="{{ Storage::url($settings->logo) }}"
                                  alt="{{ $tournament->name }}"
-                                 class="h-32 md:h-40 w-auto object-contain rounded-full">
+                                 class="h-24 md:h-32 w-auto object-contain rounded-xl">
                         </div>
                     </div>
                 @endif
 
                 {{-- Tournament Name --}}
-                <h1 class="text-5xl md:text-7xl lg:text-8xl font-bold text-white mb-6 tracking-tight">
+                <h1 class="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white mb-4 tracking-tight leading-tight">
                     <span class="gradient-text">{{ $tournament->name }}</span>
                 </h1>
 
                 {{-- Description --}}
                 @if($tournament->description)
-                    <p class="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-8 leading-relaxed">
+                    <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-6 leading-relaxed">
                         {{ $tournament->description }}
                     </p>
                 @endif
 
                 {{-- Status Badge --}}
-                @php
-                    $regActuallyOpen = $tournament->status === 'registration' && ($settings?->isRegistrationOpen() ?? false);
-                @endphp
-                <div class="mb-10">
+                <div class="mb-8 flex items-center justify-center gap-3 flex-wrap">
                     @if($regActuallyOpen)
-                        <span class="inline-flex items-center px-6 py-3 rounded-full text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg glow-green">
-                            <span class="w-3 h-3 bg-white rounded-full mr-3 animate-pulse"></span>
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                            <span class="w-2.5 h-2.5 bg-green-400 rounded-full mr-2.5 animate-pulse"></span>
                             Registration Open
                         </span>
-                    @elseif($tournament->status === 'registration' && !$regActuallyOpen)
-                        <span class="inline-flex items-center px-6 py-3 rounded-full text-lg font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 shadow-lg glow-yellow">
-                            <span class="w-3 h-3 bg-red-600 rounded-full mr-3 live-indicator"></span>
-                            Tournament Live
-                        </span>
-                    @elseif($tournament->status === 'active')
-                        <span class="inline-flex items-center px-6 py-3 rounded-full text-lg font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 shadow-lg glow-yellow">
-                            <span class="w-3 h-3 bg-red-600 rounded-full mr-3 live-indicator"></span>
+                    @elseif($isLive)
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                            <span class="w-2.5 h-2.5 bg-red-500 rounded-full mr-2.5 live-indicator"></span>
                             Tournament Live
                         </span>
                     @elseif($tournament->status === 'completed')
-                        <span class="inline-flex items-center px-6 py-3 rounded-full text-lg font-bold bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-lg">
-                            <i class="fas fa-trophy mr-2"></i>
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
+                            <i class="fas fa-trophy text-yellow-400 mr-2"></i>
                             Completed
+                        </span>
+                    @endif
+
+                    {{-- Quick stats inline --}}
+                    @if($totalMatches > 0)
+                        <span class="text-sm text-gray-500">
+                            {{ $completedMatches }}/{{ $totalMatches }} matches played
                         </span>
                     @endif
                 </div>
 
-                {{-- Register Now Button with Dropdown --}}
-                @if($tournament->status !== 'completed')
-                    <div class="mb-10" x-data="{ open: false }">
-                        @if($regActuallyOpen)
-                            {{-- Registration Open --}}
-                            @php
-                                $playerOpen = $settings?->player_registration_open ?? false;
-                                $teamOpen = $settings?->team_registration_open ?? false;
-                            @endphp
-
+                {{-- Register / Share Row --}}
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    @if($regActuallyOpen)
+                        @php
+                            $playerOpen = $settings?->player_registration_open ?? false;
+                            $teamOpen = $settings?->team_registration_open ?? false;
+                        @endphp
+                        <div x-data="{ open: false }" class="relative">
                             @if($playerOpen && $teamOpen)
-                                {{-- Both open - Show dropdown --}}
-                                <div class="relative inline-block">
-                                    <button @click="open = !open"
-                                            class="group px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center gap-3 glow-green">
-                                        <i class="fas fa-clipboard-check text-2xl"></i>
-                                        Register Now
-                                        <i class="fas fa-chevron-down transition-transform" :class="{ 'rotate-180': open }"></i>
-                                    </button>
-
-                                    <div x-show="open"
-                                         x-transition:enter="transition ease-out duration-200"
-                                         x-transition:enter-start="opacity-0 transform scale-95"
-                                         x-transition:enter-end="opacity-100 transform scale-100"
-                                         x-transition:leave="transition ease-in duration-150"
-                                         x-transition:leave-start="opacity-100 transform scale-100"
-                                         x-transition:leave-end="opacity-0 transform scale-95"
-                                         @click.away="open = false"
-                                         class="absolute left-1/2 transform -translate-x-1/2 mt-4 w-72 bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden z-50">
-                                        <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
-                                           class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors border-b border-gray-700">
-                                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                                <i class="fas fa-user text-xl text-white"></i>
-                                            </div>
-                                            <div class="text-left">
-                                                <p class="font-bold text-white">Register as Player</p>
-                                                <p class="text-sm text-gray-400">Join a team as individual</p>
-                                            </div>
-                                        </a>
-                                        <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
-                                           class="flex items-center gap-4 px-6 py-5 hover:bg-gray-700 transition-colors">
-                                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                                                <i class="fas fa-users text-xl text-white"></i>
-                                            </div>
-                                            <div class="text-left">
-                                                <p class="font-bold text-white">Register as Team</p>
-                                                <p class="text-sm text-gray-400">Register your entire team</p>
-                                            </div>
-                                        </a>
-                                    </div>
+                                <button @click="open = !open"
+                                        class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg rounded-xl transition-all hover:shadow-xl hover:shadow-green-500/20 flex items-center gap-2">
+                                    <i class="fas fa-clipboard-check"></i>
+                                    Register Now
+                                    <i class="fas fa-chevron-down text-sm transition-transform" :class="{ 'rotate-180': open }"></i>
+                                </button>
+                                <div x-show="open" x-transition @click.away="open = false"
+                                     class="absolute left-1/2 -translate-x-1/2 mt-3 w-64 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50">
+                                    <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
+                                       class="flex items-center gap-3 px-5 py-4 hover:bg-gray-700 transition-colors border-b border-gray-700">
+                                        <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                            <i class="fas fa-user text-blue-400"></i>
+                                        </div>
+                                        <div class="text-left">
+                                            <p class="font-semibold text-white text-sm">As Player</p>
+                                            <p class="text-xs text-gray-400">Join individually</p>
+                                        </div>
+                                    </a>
+                                    <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
+                                       class="flex items-center gap-3 px-5 py-4 hover:bg-gray-700 transition-colors">
+                                        <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                            <i class="fas fa-users text-purple-400"></i>
+                                        </div>
+                                        <div class="text-left">
+                                            <p class="font-semibold text-white text-sm">As Team</p>
+                                            <p class="text-xs text-gray-400">Register your squad</p>
+                                        </div>
+                                    </a>
                                 </div>
                             @elseif($teamOpen)
-                                {{-- Only team registration - Direct button --}}
                                 <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
-                                   class="group px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl transition-all transform hover:scale-105 hover:shadow-2xl inline-flex items-center gap-3 glow-green">
-                                    <i class="fas fa-users text-2xl"></i>
-                                    Register Your Team
+                                   class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg rounded-xl transition-all hover:shadow-xl hover:shadow-green-500/20 inline-flex items-center gap-2">
+                                    <i class="fas fa-users"></i> Register Your Team
                                 </a>
                             @elseif($playerOpen)
-                                {{-- Only player registration - Direct button --}}
                                 <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
-                                   class="group px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-xl rounded-2xl transition-all transform hover:scale-105 hover:shadow-2xl inline-flex items-center gap-3 glow-green">
-                                    <i class="fas fa-user text-2xl"></i>
-                                    Register as Player
+                                   class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg rounded-xl transition-all hover:shadow-xl hover:shadow-green-500/20 inline-flex items-center gap-2">
+                                    <i class="fas fa-user"></i> Register as Player
                                 </a>
                             @endif
-                        @else
-                            {{-- Registration Closed --}}
-                            <div class="inline-flex items-center gap-3 px-8 py-4 bg-gray-800/50 backdrop-blur border border-gray-700 text-gray-400 font-semibold text-lg rounded-xl">
-                                <i class="fas fa-lock"></i>
-                                Registration {{ $tournament->status === 'draft' ? 'Coming Soon' : 'Closed' }}
-                            </div>
-                        @endif
-                    </div>
-                @endif
+                        </div>
+                    @endif
 
-                {{-- Share Buttons --}}
-                <div class="flex justify-center">
                     @php
                         $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
                         $shareMessage = $whatsappService->getTournamentShareMessage($tournament);
@@ -263,203 +269,143 @@
                     />
                 </div>
             </div>
+        </div>
+    </section>
 
-            {{-- Scroll Indicator --}}
-            <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 scroll-indicator">
-                <div class="flex flex-col items-center text-gray-400">
-                    <span class="text-sm mb-2">Scroll Down</span>
-                    <i class="fas fa-chevron-down text-xl"></i>
+    {{-- Quick Stats Strip --}}
+    <section class="py-1 bg-gray-900 border-t border-b border-gray-800">
+        <div class="max-w-5xl mx-auto px-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-800">
+                <div class="py-6 text-center">
+                    <p class="text-2xl md:text-3xl font-extrabold text-white">{{ $teamCount }}</p>
+                    <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Teams</p>
+                </div>
+                <div class="py-6 text-center">
+                    <p class="text-2xl md:text-3xl font-extrabold text-white">{{ $totalMatches }}</p>
+                    <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Matches</p>
+                </div>
+                <div class="py-6 text-center">
+                    <p class="text-2xl md:text-3xl font-extrabold text-white">{{ $tournament->groups->count() ?: '-' }}</p>
+                    <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Groups</p>
+                </div>
+                <div class="py-6 text-center">
+                    <p class="text-2xl md:text-3xl font-extrabold text-white">
+                        @if($settings?->overs_per_match)
+                            {{ $settings->overs_per_match }}
+                        @else
+                            20
+                        @endif
+                    </p>
+                    <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Overs</p>
                 </div>
             </div>
         </div>
     </section>
 
-    {{-- Champion Section (if completed) --}}
+    {{-- Champion Section --}}
     @if($tournament->status === 'completed' && $tournament->champion)
-        <section class="py-20 bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 relative overflow-hidden">
-            <div class="absolute inset-0 bg-black/10"></div>
-            <div class="absolute -top-20 -left-20 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-            <div class="absolute -bottom-20 -right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-
-            <div class="relative max-w-5xl mx-auto px-4 text-center">
-                <div class="mb-8">
-                    <i class="fas fa-crown text-6xl text-yellow-900/60 mb-4 animate-float"></i>
-                    <h2 class="text-4xl md:text-5xl font-bold text-gray-900">Champions</h2>
-                </div>
-
-                <div class="bg-white rounded-3xl p-10 shadow-2xl inline-block transform hover:scale-105 transition-all duration-300">
+        <section class="py-16 bg-gradient-to-r from-yellow-600/90 via-amber-500/90 to-yellow-600/90 relative overflow-hidden">
+            <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22%23000%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%2210%22%20r%3D%221%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E')] opacity-50"></div>
+            <div class="relative max-w-4xl mx-auto px-4 text-center">
+                <p class="text-yellow-900/60 font-bold text-sm uppercase tracking-widest mb-3">Champions</p>
+                <div class="inline-flex items-center gap-5 bg-white/95 rounded-2xl px-8 py-6 shadow-2xl">
                     @if($tournament->champion->logo)
                         <img src="{{ Storage::url($tournament->champion->logo) }}"
                              alt="{{ $tournament->champion->name }}"
-                             class="h-32 w-32 object-contain mx-auto mb-6 rounded-full border-4 border-yellow-400 shadow-lg">
+                             class="h-16 w-16 object-contain rounded-full border-2 border-yellow-400">
                     @else
-                        <div class="h-32 w-32 mx-auto mb-6 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-                            <i class="fas fa-trophy text-5xl text-white"></i>
+                        <div class="h-16 w-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-trophy text-2xl text-white"></i>
                         </div>
                     @endif
-                    <h3 class="text-3xl md:text-4xl font-bold text-gray-900">{{ $tournament->champion->name }}</h3>
-                </div>
-
-                @if($tournament->runnerUp)
-                    <div class="mt-10 flex items-center justify-center gap-3">
-                        <i class="fas fa-medal text-2xl text-gray-700"></i>
-                        <span class="text-xl text-gray-800">
-                            Runner-up: <strong>{{ $tournament->runnerUp->name }}</strong>
-                        </span>
+                    <div class="text-left">
+                        <h3 class="text-2xl md:text-3xl font-extrabold text-gray-900">{{ $tournament->champion->name }}</h3>
+                        @if($tournament->runnerUp)
+                            <p class="text-sm text-gray-600 mt-1">
+                                <i class="fas fa-medal text-gray-400 mr-1"></i>
+                                Runner-up: {{ $tournament->runnerUp->name }}
+                            </p>
+                        @endif
                     </div>
-                @endif
+                </div>
             </div>
         </section>
     @endif
 
-    {{-- Tournament Stats Bar --}}
-    <section class="py-16 bg-gray-900 relative">
-        <div class="absolute inset-0 bg-gradient-to-b from-gray-900 to-gray-800"></div>
-        <div class="relative max-w-6xl mx-auto px-4">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                {{-- Dates --}}
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                        <i class="fas fa-calendar-alt text-2xl text-white"></i>
-                    </div>
-                    <h3 class="text-sm uppercase tracking-wider text-gray-400 mb-2">Tournament Dates</h3>
-                    <p class="text-lg font-bold text-white">
-                        @if($tournament->start_date && $tournament->end_date)
-                            {{ $tournament->start_date->format('M d') }} - {{ $tournament->end_date->format('M d') }}
-                        @else
-                            TBA
-                        @endif
-                    </p>
-                </div>
-
-                {{-- Format --}}
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                        <i class="fas fa-trophy text-2xl text-white"></i>
-                    </div>
-                    <h3 class="text-sm uppercase tracking-wider text-gray-400 mb-2">Format</h3>
-                    <p class="text-lg font-bold text-white">
-                        @if($settings?->overs_per_match)
-                            {{ $settings->overs_per_match }} Overs
-                        @else
-                            T20
-                        @endif
-                    </p>
-                </div>
-
-                {{-- Teams --}}
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                        <i class="fas fa-users text-2xl text-white"></i>
-                    </div>
-                    <h3 class="text-sm uppercase tracking-wider text-gray-400 mb-2">Teams</h3>
-                    <p class="text-lg font-bold text-white">{{ $tournament->actualTeams()->count() }} Teams</p>
-                </div>
-
-                {{-- Groups --}}
-                <div class="stat-card rounded-2xl p-6 text-center">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-                        <i class="fas fa-layer-group text-2xl text-white"></i>
-                    </div>
-                    <h3 class="text-sm uppercase tracking-wider text-gray-400 mb-2">Groups</h3>
-                    <p class="text-lg font-bold text-white">{{ $tournament->groups->count() ?: 1 }} Groups</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
     {{-- Upcoming Matches --}}
     @if($upcomingMatches->count() > 0)
-        <section class="py-20 bg-gradient-to-b from-gray-800 to-gray-900">
-            <div class="max-w-6xl mx-auto px-4">
-                <div class="text-center mb-12">
-                    <span class="inline-block px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-semibold mb-4">
-                        <i class="fas fa-clock mr-2"></i>Coming Up
-                    </span>
-                    <h2 class="text-4xl md:text-5xl font-bold text-white">Upcoming Matches</h2>
+        <section class="py-14 bg-gray-900">
+            <div class="max-w-5xl mx-auto px-4">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="section-title text-2xl font-bold text-white">Upcoming</h2>
+                    </div>
+                    <a href="{{ route('public.tournament.fixtures', $tournament->slug) }}"
+                       class="text-sm text-yellow-400 hover:text-yellow-300 font-medium transition">
+                        View All <i class="fas fa-arrow-right ml-1"></i>
+                    </a>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    @foreach($upcomingMatches as $index => $match)
-                        <a href="{{ route('public.match.show', $match->slug) }}"
-                           class="match-card rounded-2xl overflow-hidden border border-gray-700/50 {{ $index === 0 ? 'md:col-span-2 lg:col-span-1' : '' }}">
-                            {{-- Match Header --}}
-                            <div class="bg-gradient-to-r from-gray-700/50 to-gray-800/50 px-6 py-3 flex items-center justify-between">
-                                <span class="text-sm text-gray-400">
-                                    <i class="far fa-calendar mr-2"></i>
-                                    {{ $match->match_date->format('D, M d') }}
-                                </span>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    @foreach($upcomingMatches->take(4) as $match)
+                        <a href="{{ route('public.match.show', $match->slug) }}" class="block match-card rounded-xl overflow-hidden">
+                            {{-- Header --}}
+                            <div class="px-4 py-2.5 flex items-center justify-between border-b border-white/5 bg-white/[0.02]">
+                                <div class="flex items-center gap-2 text-xs text-gray-400">
+                                    @if($match->match_number)
+                                        <span>Match {{ $match->match_number }}</span>
+                                    @endif
+                                    @if($match->group)
+                                        <span class="text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">{{ $match->group->name }}</span>
+                                    @endif
+                                </div>
                                 @if($match->start_time)
-                                    <span class="text-sm text-yellow-400 font-semibold">
-                                        <i class="far fa-clock mr-1"></i>
+                                    <span class="text-xs font-semibold text-yellow-400">
                                         {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
                                     </span>
                                 @endif
                             </div>
 
                             {{-- Teams --}}
-                            <div class="p-6">
-                                <div class="flex items-center justify-between">
-                                    {{-- Team A --}}
-                                    <div class="text-center flex-1">
-                                        <div class="team-logo-container w-20 h-20 mx-auto mb-3 rounded-full flex items-center justify-center overflow-hidden">
+                            <div class="p-4">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                                        <div class="team-logo-box w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
                                             @if($match->teamA?->team_logo)
-                                                <img src="{{ Storage::url($match->teamA->team_logo) }}"
-                                                     alt="{{ $match->teamA->name }}"
-                                                     class="w-16 h-16 object-contain">
+                                                <img src="{{ Storage::url($match->teamA->team_logo) }}" class="w-8 h-8 object-contain">
                                             @else
-                                                <span class="text-2xl font-bold text-gray-400">
-                                                    {{ substr($match->teamA?->display_name ?? 'TBA', 0, 3) }}
-                                                </span>
+                                                <span class="text-xs font-bold text-gray-500">{{ substr($match->teamA?->display_name ?? 'TBA', 0, 3) }}</span>
                                             @endif
                                         </div>
-                                        <p class="font-bold text-white text-sm leading-tight">{{ $match->teamA?->name ?? 'TBA' }}</p>
+                                        <p class="font-semibold text-white text-sm truncate">{{ $match->teamA?->name ?? 'TBA' }}</p>
                                     </div>
 
-                                    {{-- VS Badge --}}
-                                    <div class="px-4">
-                                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-                                            <span class="text-sm font-black text-gray-900">VS</span>
-                                        </div>
+                                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                                        <span class="text-[9px] font-black text-gray-900">VS</span>
                                     </div>
 
-                                    {{-- Team B --}}
-                                    <div class="text-center flex-1">
-                                        <div class="team-logo-container w-20 h-20 mx-auto mb-3 rounded-full flex items-center justify-center overflow-hidden">
+                                    <div class="flex items-center gap-3 flex-1 flex-row-reverse min-w-0">
+                                        <div class="team-logo-box w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
                                             @if($match->teamB?->team_logo)
-                                                <img src="{{ Storage::url($match->teamB->team_logo) }}"
-                                                     alt="{{ $match->teamB->name }}"
-                                                     class="w-16 h-16 object-contain">
+                                                <img src="{{ Storage::url($match->teamB->team_logo) }}" class="w-8 h-8 object-contain">
                                             @else
-                                                <span class="text-2xl font-bold text-gray-400">
-                                                    {{ substr($match->teamB?->display_name ?? 'TBA', 0, 3) }}
-                                                </span>
+                                                <span class="text-xs font-bold text-gray-500">{{ substr($match->teamB?->display_name ?? 'TBA', 0, 3) }}</span>
                                             @endif
                                         </div>
-                                        <p class="font-bold text-white text-sm leading-tight">{{ $match->teamB?->name ?? 'TBA' }}</p>
+                                        <p class="font-semibold text-white text-sm truncate text-right">{{ $match->teamB?->name ?? 'TBA' }}</p>
                                     </div>
                                 </div>
 
-                                {{-- Venue --}}
-                                @if($match->ground)
-                                    <div class="mt-4 pt-4 border-t border-gray-700/50 text-center">
-                                        <span class="text-sm text-gray-400">
-                                            <i class="fas fa-map-marker-alt mr-2 text-red-400"></i>
-                                            {{ $match->ground->name }}
-                                        </span>
-                                    </div>
-                                @endif
+                                {{-- Date & Venue --}}
+                                <div class="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-xs text-gray-500">
+                                    <span><i class="far fa-calendar mr-1"></i>{{ $match->match_date->format('D, d M') }}</span>
+                                    @if($match->ground)
+                                        <span><i class="fas fa-map-marker-alt mr-1 text-red-400/50"></i>{{ $match->ground->name }}</span>
+                                    @endif
+                                </div>
                             </div>
                         </a>
                     @endforeach
-                </div>
-
-                <div class="text-center mt-10">
-                    <a href="{{ route('public.tournament.fixtures', $tournament->slug) }}"
-                       class="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-bold rounded-xl hover:shadow-2xl transition-all transform hover:scale-105">
-                        View All Fixtures
-                        <i class="fas fa-arrow-right ml-3"></i>
-                    </a>
                 </div>
             </div>
         </section>
@@ -467,85 +413,90 @@
 
     {{-- Recent Results --}}
     @if($recentResults->count() > 0)
-        <section class="py-20 bg-gray-900">
-            <div class="max-w-6xl mx-auto px-4">
-                <div class="text-center mb-12">
-                    <span class="inline-block px-4 py-2 bg-green-500/20 text-green-400 rounded-full text-sm font-semibold mb-4">
-                        <i class="fas fa-check-circle mr-2"></i>Completed
-                    </span>
-                    <h2 class="text-4xl md:text-5xl font-bold text-white">Recent Results</h2>
+        <section class="py-14 bg-gray-900 {{ $upcomingMatches->count() > 0 ? 'border-t border-gray-800' : '' }}">
+            <div class="max-w-5xl mx-auto px-4">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="section-title text-2xl font-bold text-white">Recent Results</h2>
+                    </div>
+                    <a href="{{ route('public.tournament.fixtures', $tournament->slug) }}"
+                       class="text-sm text-yellow-400 hover:text-yellow-300 font-medium transition">
+                        All Results <i class="fas fa-arrow-right ml-1"></i>
+                    </a>
                 </div>
 
-                <div class="space-y-4">
+                <div class="space-y-3">
                     @foreach($recentResults as $match)
+                        @php
+                            $teamAWon = $match->winner_team_id === $match->team_a_id;
+                            $teamBWon = $match->winner_team_id === $match->team_b_id;
+                        @endphp
                         <a href="{{ route('public.match.show', $match->slug) }}"
-                           class="block bg-gradient-to-r from-gray-800 to-gray-800/50 rounded-2xl p-6 border border-gray-700/50 hover:border-yellow-500/50 transition-all hover:shadow-xl">
-                            <div class="flex flex-col md:flex-row md:items-center gap-4">
-                                {{-- Team A --}}
-                                <div class="flex items-center gap-4 flex-1">
-                                    <div class="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                        @if($match->teamA?->team_logo)
-                                            <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}" class="w-10 h-10 object-contain">
-                                        @else
-                                            <span class="text-lg font-bold">{{ substr($match->teamA?->display_name ?? 'A', 0, 3) }}</span>
-                                        @endif
-                                    </div>
-                                    <div>
-                                        <p class="font-bold text-lg {{ $match->winner_team_id === $match->team_a_id ? 'text-green-400' : 'text-white' }}">
-                                            {{ $match->teamA?->name ?? 'TBA' }}
-                                            @if($match->winner_team_id === $match->team_a_id)
-                                                <i class="fas fa-trophy text-yellow-400 ml-2"></i>
+                           class="block match-card rounded-xl overflow-hidden border-l-3 border-l-green-500">
+                            <div class="p-4 md:p-5">
+                                <div class="result-teams-row flex items-center justify-between gap-4">
+                                    {{-- Team A --}}
+                                    <div class="team-block flex items-center gap-3 flex-1 min-w-0">
+                                        <div class="team-logo-box w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                            @if($match->teamA?->team_logo)
+                                                <img src="{{ Storage::url($match->teamA->team_logo) }}" class="w-8 h-8 md:w-9 md:h-9 object-contain">
+                                            @else
+                                                <span class="text-xs font-bold text-gray-500">{{ substr($match->teamA?->display_name ?? 'A', 0, 3) }}</span>
                                             @endif
-                                        </p>
-                                        @if($match->result)
-                                            <p class="text-2xl font-black text-white">
-                                                {{ $match->result->team_a_score }}/{{ $match->result->team_a_wickets }}
-                                                <span class="text-sm text-gray-400 font-normal">({{ $match->result->team_a_overs }})</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="font-bold text-sm truncate {{ $teamAWon ? 'text-green-400' : 'text-white' }}">
+                                                {{ $match->teamA?->name ?? 'TBA' }}
+                                                @if($teamAWon) <i class="fas fa-trophy text-yellow-400 text-[10px] ml-1"></i> @endif
                                             </p>
-                                        @endif
+                                            @if($match->result)
+                                                <p class="score-text text-base md:text-lg font-black {{ $teamAWon ? 'text-white' : 'text-gray-400' }}">
+                                                    {{ $match->result->team_a_score }}/{{ $match->result->team_a_wickets }}
+                                                    <span class="text-[10px] font-normal text-gray-500">({{ $match->result->team_a_overs }} ov)</span>
+                                                </p>
+                                            @endif
+                                        </div>
+                                    </div>
+
+                                    {{-- VS --}}
+                                    <div class="vs-block flex-shrink-0 px-3">
+                                        <span class="text-gray-600 text-xs font-semibold">VS</span>
+                                    </div>
+
+                                    {{-- Team B --}}
+                                    <div class="team-block team-b flex items-center gap-3 flex-1 flex-row-reverse text-right min-w-0">
+                                        <div class="team-logo-box w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                            @if($match->teamB?->team_logo)
+                                                <img src="{{ Storage::url($match->teamB->team_logo) }}" class="w-8 h-8 md:w-9 md:h-9 object-contain">
+                                            @else
+                                                <span class="text-xs font-bold text-gray-500">{{ substr($match->teamB?->display_name ?? 'B', 0, 3) }}</span>
+                                            @endif
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="font-bold text-sm truncate {{ $teamBWon ? 'text-green-400' : 'text-white' }}">
+                                                {{ $match->teamB?->name ?? 'TBA' }}
+                                                @if($teamBWon) <i class="fas fa-trophy text-yellow-400 text-[10px] ml-1"></i> @endif
+                                            </p>
+                                            @if($match->result)
+                                                <p class="score-text text-base md:text-lg font-black {{ $teamBWon ? 'text-white' : 'text-gray-400' }}">
+                                                    {{ $match->result->team_b_score }}/{{ $match->result->team_b_wickets }}
+                                                    <span class="text-[10px] font-normal text-gray-500">({{ $match->result->team_b_overs }} ov)</span>
+                                                </p>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
 
-                                {{-- VS --}}
-                                <div class="hidden md:flex items-center justify-center px-6">
-                                    <span class="text-gray-500 text-lg font-semibold">vs</span>
-                                </div>
-
-                                {{-- Team B --}}
-                                <div class="flex items-center gap-4 flex-1 md:flex-row-reverse md:text-right">
-                                    <div class="w-14 h-14 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                        @if($match->teamB?->team_logo)
-                                            <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}" class="w-10 h-10 object-contain">
-                                        @else
-                                            <span class="text-lg font-bold">{{ substr($match->teamB?->display_name ?? 'B', 0, 3) }}</span>
-                                        @endif
-                                    </div>
-                                    <div>
-                                        <p class="font-bold text-lg {{ $match->winner_team_id === $match->team_b_id ? 'text-green-400' : 'text-white' }}">
-                                            {{ $match->teamB?->name ?? 'TBA' }}
-                                            @if($match->winner_team_id === $match->team_b_id)
-                                                <i class="fas fa-trophy text-yellow-400 ml-2"></i>
-                                            @endif
+                                {{-- Result Summary --}}
+                                @if($match->result?->result_summary)
+                                    <div class="mt-3 pt-3 border-t border-white/5">
+                                        <p class="text-xs text-yellow-400/80 font-medium">
+                                            <i class="fas fa-star text-yellow-500/50 mr-1"></i>
+                                            {{ $match->result->result_summary }}
                                         </p>
-                                        @if($match->result)
-                                            <p class="text-2xl font-black text-white">
-                                                {{ $match->result->team_b_score }}/{{ $match->result->team_b_wickets }}
-                                                <span class="text-sm text-gray-400 font-normal">({{ $match->result->team_b_overs }})</span>
-                                            </p>
-                                        @endif
                                     </div>
-                                </div>
+                                @endif
                             </div>
-
-                            {{-- Result Summary --}}
-                            @if($match->result?->result_summary)
-                                <div class="mt-4 pt-4 border-t border-gray-700/50 text-center">
-                                    <span class="inline-flex items-center px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-semibold">
-                                        <i class="fas fa-star mr-2"></i>
-                                        {{ $match->result->result_summary }}
-                                    </span>
-                                </div>
-                            @endif
                         </a>
                     @endforeach
                 </div>
@@ -553,50 +504,81 @@
         </section>
     @endif
 
-    {{-- Quick Links / Navigation Cards --}}
-    <section class="py-20 bg-gradient-to-b from-gray-900 to-gray-800">
+    {{-- Explore Tournament Navigation --}}
+    <section class="py-14 bg-gray-900 border-t border-gray-800">
         <div class="max-w-5xl mx-auto px-4">
-            <div class="text-center mb-12">
-                <h2 class="text-4xl font-bold text-white">Explore Tournament</h2>
+            <div class="text-center mb-10">
+                <h2 class="text-2xl font-bold text-white">Explore</h2>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <a href="{{ route('public.tournament.fixtures', $tournament->slug) }}"
-                   class="group stat-card rounded-2xl p-8 text-center hover:bg-gradient-to-br hover:from-blue-600/20 hover:to-blue-800/20">
-                    <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center transform group-hover:scale-110 transition-all">
-                        <i class="fas fa-calendar-alt text-3xl text-white"></i>
+                   class="nav-card rounded-xl p-6 text-center group hover:border-blue-500/30 hover:bg-blue-500/5">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i class="fas fa-calendar-alt text-xl text-white"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-1">Fixtures</h3>
-                    <p class="text-sm text-gray-400">Match Schedule</p>
+                    <h3 class="font-bold text-white text-sm">Fixtures</h3>
+                    <p class="text-[11px] text-gray-500 mt-0.5">Schedule & Results</p>
                 </a>
 
                 <a href="{{ route('public.tournament.point-table', $tournament->slug) }}"
-                   class="group stat-card rounded-2xl p-8 text-center hover:bg-gradient-to-br hover:from-green-600/20 hover:to-green-800/20">
-                    <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center transform group-hover:scale-110 transition-all">
-                        <i class="fas fa-table text-3xl text-white"></i>
+                   class="nav-card rounded-xl p-6 text-center group hover:border-green-500/30 hover:bg-green-500/5">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i class="fas fa-table text-xl text-white"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-1">Point Table</h3>
-                    <p class="text-sm text-gray-400">Team Standings</p>
+                    <h3 class="font-bold text-white text-sm">Points Table</h3>
+                    <p class="text-[11px] text-gray-500 mt-0.5">Team Standings</p>
                 </a>
 
                 <a href="{{ route('public.tournament.statistics', $tournament->slug) }}"
-                   class="group stat-card rounded-2xl p-8 text-center hover:bg-gradient-to-br hover:from-purple-600/20 hover:to-purple-800/20">
-                    <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center transform group-hover:scale-110 transition-all">
-                        <i class="fas fa-chart-bar text-3xl text-white"></i>
+                   class="nav-card rounded-xl p-6 text-center group hover:border-purple-500/30 hover:bg-purple-500/5">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i class="fas fa-chart-bar text-xl text-white"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-1">Statistics</h3>
-                    <p class="text-sm text-gray-400">Player Stats</p>
+                    <h3 class="font-bold text-white text-sm">Statistics</h3>
+                    <p class="text-[11px] text-gray-500 mt-0.5">Player Stats</p>
                 </a>
 
                 <a href="{{ route('public.tournament.teams', $tournament->slug) }}"
-                   class="group stat-card rounded-2xl p-8 text-center hover:bg-gradient-to-br hover:from-orange-600/20 hover:to-orange-800/20">
-                    <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center transform group-hover:scale-110 transition-all">
-                        <i class="fas fa-users text-3xl text-white"></i>
+                   class="nav-card rounded-xl p-6 text-center group hover:border-orange-500/30 hover:bg-orange-500/5">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i class="fas fa-users text-xl text-white"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-1">Teams</h3>
-                    <p class="text-sm text-gray-400">All Squads</p>
+                    <h3 class="font-bold text-white text-sm">Teams</h3>
+                    <p class="text-[11px] text-gray-500 mt-0.5">All Squads</p>
                 </a>
             </div>
         </div>
     </section>
+
+    {{-- Tournament Info Footer --}}
+    @if($tournament->start_date || $tournament->location)
+        <section class="py-10 bg-gray-900 border-t border-gray-800">
+            <div class="max-w-5xl mx-auto px-4">
+                <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500">
+                    @if($tournament->start_date)
+                        <span class="flex items-center gap-2">
+                            <i class="far fa-calendar text-gray-600"></i>
+                            {{ $tournament->start_date->format('M d, Y') }}
+                            @if($tournament->end_date)
+                                — {{ $tournament->end_date->format('M d, Y') }}
+                            @endif
+                        </span>
+                    @endif
+                    @if($tournament->location)
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-map-marker-alt text-gray-600"></i>
+                            {{ $tournament->location }}
+                        </span>
+                    @endif
+                    @if($settings?->overs_per_match)
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-cricket-bat-ball text-gray-600"></i>
+                            {{ $settings->overs_per_match }} Overs Format
+                        </span>
+                    @endif
+                </div>
+            </div>
+        </section>
+    @endif
 @endsection
