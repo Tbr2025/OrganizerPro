@@ -148,7 +148,7 @@ class Matches extends Model
 
     public function scopeGroupStage($query)
     {
-        return $query->where('stage', 'group');
+        return $query->whereIn('stage', ['group', 'league']);
     }
 
     public function scopeKnockoutStage($query)
@@ -188,7 +188,7 @@ class Matches extends Model
 
     public function isGroupStage(): bool
     {
-        return $this->stage === 'group';
+        return $this->tournament_group_id !== null || in_array($this->stage, ['group', 'league']);
     }
 
     public function isKnockoutStage(): bool
