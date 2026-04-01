@@ -400,7 +400,7 @@ class PlayerController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
-            'country' => 'nullable|string|max:2',
+            'country' => $req('country') ? 'required|string|max:2' : 'nullable|string|max:2',
             'email' => 'required|email|unique:players,email',
             'mobile_country_code' => $req('mobile_number') ? 'required|string|max:10' : 'nullable|string|max:10',
             'mobile_national_number' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',

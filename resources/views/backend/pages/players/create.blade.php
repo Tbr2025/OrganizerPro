@@ -35,6 +35,11 @@
                         }">
                         @csrf
 
+                        {{-- Hidden tournament_id so it's included in POST --}}
+                        @if($selectedTournamentId ?? null)
+                            <input type="hidden" name="tournament_id" value="{{ $selectedTournamentId }}">
+                        @endif
+
                         {{-- ===== Tournament Selector (controls field visibility) ===== --}}
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Tournament Context</h3>
