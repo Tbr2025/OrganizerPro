@@ -144,7 +144,7 @@ class TournamentTemplateController extends Controller
                 TournamentTemplate::TYPE_MATCH_POSTER,
                 TournamentTemplate::TYPE_MATCH_SUMMARY,
             ])) {
-                $match = Matches::with(['teamA', 'teamB', 'winner', 'result', 'ground'])->find($request->input('match_id'));
+                $match = Matches::with(['teamA', 'teamB', 'winner', 'result', 'ground', 'matchAwards.player', 'matchAwards.tournamentAward'])->find($request->input('match_id'));
                 if ($match) {
                     $matchData = [
                         'team_a_name' => $match->teamA?->name,
@@ -185,6 +185,22 @@ class TournamentTemplateController extends Controller
                     if ($match->winner) {
                         $matchData['winner_name'] = $match->winner->name;
                         $matchData['winner_logo'] = $match->winner->team_logo;
+                    }
+
+                    // Awards: MOTM, Best Batsman, Best Bowler
+                    foreach ($match->matchAwards as $award) {
+                        $awardSlug = $award->tournamentAward?->slug;
+                        $playerName = $award->player?->name;
+                        $playerImage = $award->player?->image_path;
+
+                        if (in_array($awardSlug, ['man-of-the-match', 'player-of-the-match'])) {
+                            if ($playerName) $matchData['man_of_the_match_name'] = $playerName;
+                            if ($playerImage) $matchData['man_of_the_match_image'] = $playerImage;
+                        } elseif ($awardSlug === 'best-batsman') {
+                            if ($playerName) $matchData['best_batsman_name'] = $playerName;
+                        } elseif ($awardSlug === 'best-bowler') {
+                            if ($playerName) $matchData['best_bowler_name'] = $playerName;
+                        }
                     }
 
                     // DB data fills in any null/empty values from the request
