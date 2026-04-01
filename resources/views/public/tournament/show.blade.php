@@ -151,6 +151,10 @@
 
     {{-- Hero Section --}}
     <section class="hero-section pt-16 pb-20 md:pt-24 md:pb-28">
+        @if($settings?->background_image)
+            <div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image: url('{{ Storage::url($settings->background_image) }}');"></div>
+            <div class="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/60 to-gray-900"></div>
+        @endif
         <div class="relative z-10 max-w-5xl mx-auto px-4">
             <div class="text-center">
                 {{-- Logo --}}
