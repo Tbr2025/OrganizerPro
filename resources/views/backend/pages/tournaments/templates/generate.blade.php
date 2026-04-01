@@ -561,6 +561,8 @@ function loadTemplates(type) {
                         </a>
                     </div>
                 `).join('');
+                // Auto-show preview of first template
+                setTimeout(() => showTemplatePreview(), 100);
             } else {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-8 text-gray-500">
@@ -582,6 +584,51 @@ function resetPreview() {
     document.getElementById('downloadBtn').disabled = true;
     generatedImageUrl = null;
 }
+
+// Show selected template's rendered preview in preview area
+function showTemplatePreview() {
+    const templateInput = document.querySelector('input[name="template_id"]:checked');
+    if (!templateInput) return;
+
+    const previewImage = document.getElementById('previewImage');
+    const previewPlaceholder = document.getElementById('previewPlaceholder');
+    const previewLoading = document.getElementById('previewLoading');
+
+    previewPlaceholder.classList.add('hidden');
+    previewImage.classList.add('hidden');
+    previewLoading.classList.remove('hidden');
+
+    fetch(`{{ url('admin/tournaments/' . $tournament->id . '/templates') }}/${templateInput.value}/render-preview`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+            'Accept': 'application/json',
+        },
+        body: JSON.stringify({ data: {} })
+    })
+    .then(r => r.json())
+    .then(result => {
+        previewLoading.classList.add('hidden');
+        if (result.success && result.image) {
+            previewImage.src = result.image;
+            previewImage.classList.remove('hidden');
+        } else {
+            previewPlaceholder.classList.remove('hidden');
+        }
+    })
+    .catch(() => {
+        previewLoading.classList.add('hidden');
+        previewPlaceholder.classList.remove('hidden');
+    });
+}
+
+// Listen for template selection changes
+document.addEventListener('change', function(e) {
+    if (e.target.name === 'template_id') {
+        showTemplatePreview();
+    }
+});
 
 function getSelectedData() {
     const data = { type: currentType };
@@ -1230,8 +1277,11 @@ document.getElementById('awardPlayerSearch')?.addEventListener('input', function
     if (defaultOpt) defaultOpt.style.display = query ? 'none' : '';
 });
 
-// Init: build field toggles if template already selected
-setTimeout(() => { buildFieldToggles(); }, 500);
+// Init: build field toggles and show template preview on page load
+setTimeout(() => {
+    buildFieldToggles();
+    showTemplatePreview();
+}, 500);
 </script>
 @endpush
 @endsection
