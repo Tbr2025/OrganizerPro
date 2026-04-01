@@ -7,287 +7,427 @@
     .page-header {
         background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d1b2a 100%);
     }
-    .filter-btn {
-        transition: all 0.3s ease;
-    }
-    .filter-btn.active {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-        color: #1f2937;
-        box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
-    }
     .match-card {
         background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-        transition: all 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(255, 255, 255, 0.06);
     }
     .match-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        transform: translateY(-3px);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
         border-color: rgba(251, 191, 36, 0.3);
     }
+    .match-card.completed-card {
+        border-left: 3px solid #22c55e;
+    }
+    .match-card.live-card {
+        border-left: 3px solid #ef4444;
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+    }
+    .match-card.upcoming-card {
+        border-left: 3px solid #3b82f6;
+    }
     .date-header {
-        background: linear-gradient(90deg, rgba(251, 191, 36, 0.2) 0%, transparent 100%);
-        border-left: 4px solid #fbbf24;
+        position: relative;
     }
-    .team-logo-container {
-        background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
+    .date-header::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 60%;
+        background: linear-gradient(180deg, #fbbf24, #f59e0b);
+        border-radius: 2px;
     }
-    .vs-badge {
+    .team-logo-box {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(4px);
+    }
+    .score-text {
+        font-variant-numeric: tabular-nums;
+    }
+    .vs-circle {
         background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
     }
-    .live-badge {
-        animation: pulse-live 1.5s ease-in-out infinite;
+    .live-pulse {
+        animation: livePulse 2s ease-in-out infinite;
     }
-    @keyframes pulse-live {
-        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-        50% { opacity: 0.8; box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    @keyframes livePulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+        50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
     }
-    .stage-badge {
-        background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(139, 92, 246, 0.1) 100%);
-        border: 1px solid rgba(139, 92, 246, 0.5);
+    .filter-pill {
+        transition: all 0.2s ease;
     }
-    .group-badge {
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.1) 100%);
-        border: 1px solid rgba(59, 130, 246, 0.5);
+    .filter-pill:hover {
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
     }
-    .winner-glow {
-        text-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+    .filter-pill.active {
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        color: #111827;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+    }
+    .winner-highlight {
+        position: relative;
+    }
+    .winner-highlight::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #22c55e, transparent);
+        border-radius: 1px;
+    }
+    .stat-chip {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(4px);
+    }
+    /* Mobile responsive score layout */
+    @media (max-width: 640px) {
+        .match-teams-row {
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+        }
+        .match-teams-row .team-section {
+            flex-direction: row !important;
+            text-align: left !important;
+            width: 100%;
+            justify-content: space-between;
+        }
+        .match-teams-row .team-section.team-b {
+            flex-direction: row !important;
+        }
+        .match-teams-row .vs-section {
+            display: none;
+        }
+        .mobile-vs {
+            display: flex !important;
+        }
+        .match-teams-row .team-info {
+            text-align: left !important;
+        }
+        .match-teams-row .score-block {
+            text-align: right !important;
+        }
     }
 </style>
 @endpush
 
 @section('content')
     {{-- Page Header --}}
-    <section class="page-header py-16 relative overflow-hidden">
-        <div class="absolute inset-0 opacity-30">
-            <div class="absolute top-0 left-1/4 w-96 h-96 bg-yellow-500/20 rounded-full blur-3xl"></div>
-            <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
+    <section class="page-header py-12 md:py-16 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-20">
+            <div class="absolute top-0 left-1/4 w-72 h-72 bg-yellow-500/30 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 right-1/4 w-72 h-72 bg-blue-500/30 rounded-full blur-3xl"></div>
         </div>
-        <div class="relative max-w-6xl mx-auto px-4">
+        <div class="relative max-w-5xl mx-auto px-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                <div>
-                    <span class="inline-block px-4 py-2 bg-blue-500/20 text-blue-400 rounded-full text-sm font-semibold mb-4">
-                        <i class="fas fa-calendar-alt mr-2"></i>Match Schedule
-                    </span>
-                    <h1 class="text-4xl md:text-5xl font-bold text-white">Fixtures & Results</h1>
+                <div class="flex items-center gap-5">
+                    @if($tournament->settings?->logo)
+                        <img src="{{ Storage::url($tournament->settings->logo) }}" alt="{{ $tournament->name }}"
+                             class="w-16 h-16 md:w-20 md:h-20 rounded-xl object-contain bg-white/10 p-2">
+                    @endif
+                    <div>
+                        <p class="text-yellow-400 text-sm font-semibold tracking-wide uppercase mb-1">{{ $tournament->name }}</p>
+                        <h1 class="text-3xl md:text-4xl font-extrabold text-white">Fixtures & Results</h1>
+                    </div>
                 </div>
-                <div>
+                <div class="flex items-center gap-3">
                     @php
-                        $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
-                        $shareMessage = "Fixtures & Results - {$tournament->name}\n\n" . request()->url();
+                        $completedCount = $matches->where('status', 'completed')->count();
+                        $liveCount = $matches->where('status', 'live')->count();
+                        $upcomingCount = $matches->whereNotIn('status', ['completed', 'live'])->count();
                     @endphp
-                    <x-share-buttons
-                        :title="'Fixtures - ' . $tournament->name"
-                        :description="$tournament->name . ' match schedule'"
-                        :whatsappMessage="$shareMessage"
-                        variant="compact"
-                        :showLabel="false"
-                    />
+                    @if($liveCount > 0)
+                        <span class="stat-chip inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-red-400 border border-red-500/30">
+                            <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            {{ $liveCount }} Live
+                        </span>
+                    @endif
+                    <span class="stat-chip inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm text-green-400 border border-green-500/20">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        {{ $completedCount }} Done
+                    </span>
+                    <span class="stat-chip inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm text-blue-400 border border-blue-500/20">
+                        <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        {{ $upcomingCount }} Upcoming
+                    </span>
                 </div>
             </div>
         </div>
     </section>
 
     {{-- Filters --}}
-    <section class="py-8 bg-gray-900 sticky top-16 z-40 border-b border-gray-800">
-        <div class="max-w-6xl mx-auto px-4">
-            <form method="GET" class="flex flex-wrap gap-4 items-center justify-center">
-                {{-- Stage Filter --}}
-                <div class="relative">
-                    <select name="stage" onchange="this.form.submit()"
-                            class="appearance-none bg-gray-800 border border-gray-700 rounded-xl px-6 py-3 pr-10 text-white font-medium focus:ring-2 focus:ring-yellow-500 focus:border-transparent cursor-pointer">
-                        <option value="">All Stages</option>
-                        <option value="group" {{ $selectedStage === 'group' ? 'selected' : '' }}>Group Stage</option>
-                        <option value="quarter_final" {{ $selectedStage === 'quarter_final' ? 'selected' : '' }}>Quarter Finals</option>
-                        <option value="semi_final" {{ $selectedStage === 'semi_final' ? 'selected' : '' }}>Semi Finals</option>
-                        <option value="final" {{ $selectedStage === 'final' ? 'selected' : '' }}>Final</option>
-                    </select>
-                    <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+    @php
+        $stages = $matches->pluck('stage')->unique()->filter()->values();
+    @endphp
+    @if($stages->count() > 1 || $groups->count() > 0)
+    <section class="py-4 bg-gray-900/95 sticky top-16 z-40 border-b border-gray-800 backdrop-blur-sm">
+        <div class="max-w-5xl mx-auto px-4">
+            <div class="flex flex-wrap items-center gap-3">
+                {{-- Stage Pills --}}
+                <div class="flex items-center gap-2 overflow-x-auto pb-1">
+                    <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'group_id' => $selectedGroupId]) }}"
+                       class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ !$selectedStage ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                        All Matches
+                    </a>
+                    @foreach($stages as $stage)
+                        <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'stage' => $stage, 'group_id' => $selectedGroupId]) }}"
+                           class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ $selectedStage === $stage ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                            {{ ucwords(str_replace('_', ' ', $stage)) }}
+                        </a>
+                    @endforeach
                 </div>
 
                 {{-- Group Filter --}}
                 @if($groups->count() > 0)
-                    <div class="relative">
-                        <select name="group_id" onchange="this.form.submit()"
-                                class="appearance-none bg-gray-800 border border-gray-700 rounded-xl px-6 py-3 pr-10 text-white font-medium focus:ring-2 focus:ring-yellow-500 focus:border-transparent cursor-pointer">
-                            <option value="">All Groups</option>
-                            @foreach($groups as $group)
-                                <option value="{{ $group->id }}" {{ $selectedGroupId == $group->id ? 'selected' : '' }}>
-                                    {{ $group->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    <div class="h-6 w-px bg-gray-700 hidden md:block"></div>
+                    <div class="flex items-center gap-2 overflow-x-auto pb-1">
+                        <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'stage' => $selectedStage]) }}"
+                           class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ !$selectedGroupId ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                            All Groups
+                        </a>
+                        @foreach($groups as $group)
+                            <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'stage' => $selectedStage, 'group_id' => $group->id]) }}"
+                               class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ $selectedGroupId == $group->id ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                                {{ $group->name }}
+                            </a>
+                        @endforeach
                     </div>
                 @endif
-
-                {{-- Quick Stats --}}
-                <div class="hidden md:flex items-center gap-6 ml-auto text-sm">
-                    <div class="flex items-center gap-2 text-gray-400">
-                        <span class="w-3 h-3 rounded-full bg-green-500"></span>
-                        <span>{{ $matches->where('status', 'completed')->count() }} Completed</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-gray-400">
-                        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
-                        <span>{{ $matches->where('status', 'upcoming')->count() }} Upcoming</span>
-                    </div>
-                </div>
-            </form>
+            </div>
         </div>
     </section>
+    @endif
 
     {{-- Matches by Date --}}
-    <section class="py-12 bg-gray-900 min-h-screen">
-        <div class="max-w-6xl mx-auto px-4">
+    <section class="py-10 bg-gray-900 min-h-screen">
+        <div class="max-w-5xl mx-auto px-4">
             @forelse($matchesByDate as $date => $dayMatches)
                 {{-- Date Header --}}
-                <div class="date-header rounded-r-xl px-6 py-4 mb-6">
-                    <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-3">
-                        <i class="far fa-calendar text-yellow-400"></i>
-                        {{ \Carbon\Carbon::parse($date)->format('l, F d, Y') }}
-                        <span class="text-sm font-normal text-gray-400 ml-2">
-                            ({{ $dayMatches->count() }} {{ Str::plural('match', $dayMatches->count()) }})
+                <div class="date-header pl-5 mb-5 {{ !$loop->first ? 'mt-10' : '' }}">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-lg md:text-xl font-bold text-white">
+                            {{ \Carbon\Carbon::parse($date)->format('D, d M Y') }}
+                        </h2>
+                        <span class="text-xs text-gray-500 bg-gray-800 px-2.5 py-1 rounded-full">
+                            {{ $dayMatches->count() }} {{ Str::plural('match', $dayMatches->count()) }}
                         </span>
-                    </h2>
+                        @if(\Carbon\Carbon::parse($date)->isToday())
+                            <span class="text-xs font-bold text-yellow-400 bg-yellow-500/20 px-2.5 py-1 rounded-full">
+                                TODAY
+                            </span>
+                        @endif
+                    </div>
                 </div>
 
-                {{-- Matches --}}
-                <div class="space-y-4 mb-12">
+                {{-- Match Cards --}}
+                <div class="space-y-3 mb-6">
                     @foreach($dayMatches as $match)
-                        <a href="{{ route('public.match.show', $match->slug) }}" class="block match-card rounded-2xl overflow-hidden">
-                            {{-- Match Header --}}
-                            <div class="bg-gray-800/50 px-6 py-3 flex flex-wrap items-center gap-3">
-                                @if($match->match_number)
-                                    <span class="text-sm font-semibold text-gray-300 bg-gray-700 px-3 py-1 rounded-lg">
-                                        Match #{{ $match->match_number }}
-                                    </span>
-                                @endif
-                                @if($match->stage)
-                                    <span class="stage-badge text-purple-300 text-xs font-semibold px-3 py-1 rounded-lg uppercase tracking-wide">
-                                        {{ ucwords(str_replace('_', ' ', $match->stage)) }}
-                                    </span>
-                                @endif
-                                @if($match->group)
-                                    <span class="group-badge text-blue-300 text-xs font-semibold px-3 py-1 rounded-lg">
-                                        {{ $match->group->name }}
-                                    </span>
-                                @endif
+                        @php
+                            $isCompleted = $match->status === 'completed';
+                            $isLive = $match->status === 'live';
+                            $cardClass = $isLive ? 'live-card' : ($isCompleted ? 'completed-card' : 'upcoming-card');
+                            $teamAWon = $match->winner_team_id === $match->team_a_id;
+                            $teamBWon = $match->winner_team_id === $match->team_b_id;
+                        @endphp
+                        <a href="{{ route('public.match.show', $match->slug) }}" class="block match-card {{ $cardClass }} rounded-xl">
+                            {{-- Top bar: match info --}}
+                            <div class="px-4 md:px-5 py-2.5 flex flex-wrap items-center gap-2 border-b border-white/5">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    @if($match->match_number)
+                                        <span class="text-xs font-medium text-gray-400">
+                                            Match {{ $match->match_number }}
+                                        </span>
+                                    @endif
+                                    @if($match->group)
+                                        <span class="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">
+                                            {{ $match->group->name }}
+                                        </span>
+                                    @endif
+                                    @if($match->stage && !in_array($match->stage, ['group', 'league']))
+                                        <span class="text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded uppercase">
+                                            {{ ucwords(str_replace('_', ' ', $match->stage)) }}
+                                        </span>
+                                    @endif
+                                </div>
 
-                                <div class="ml-auto flex items-center gap-3">
-                                    @if($match->status === 'live')
-                                        <span class="live-badge bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2">
-                                            <span class="w-2 h-2 bg-white rounded-full"></span>
+                                <div class="ml-auto flex items-center gap-2">
+                                    @if($match->ground)
+                                        <span class="text-xs text-gray-500 hidden md:inline">
+                                            <i class="fas fa-map-marker-alt mr-1"></i>{{ $match->ground->name }}
+                                        </span>
+                                    @endif
+                                    @if($isLive)
+                                        <span class="live-pulse bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                                            <span class="w-1.5 h-1.5 bg-white rounded-full"></span>
                                             LIVE
                                         </span>
-                                    @elseif($match->status === 'completed')
-                                        <span class="bg-green-600/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-lg">
-                                            <i class="fas fa-check-circle mr-1"></i>Completed
+                                    @elseif($isCompleted)
+                                        <span class="text-[10px] font-semibold text-green-400 bg-green-500/10 px-2.5 py-1 rounded-full">
+                                            COMPLETED
                                         </span>
                                     @elseif($match->start_time)
-                                        <span class="text-yellow-400 text-sm font-semibold">
-                                            <i class="far fa-clock mr-1"></i>{{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
+                                        <span class="text-xs font-semibold text-yellow-400">
+                                            {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
                                         </span>
                                     @endif
                                 </div>
                             </div>
 
-                            {{-- Match Content --}}
-                            <div class="p-6">
-                                <div class="flex items-center justify-between gap-4">
+                            {{-- Teams & Scores --}}
+                            <div class="px-4 md:px-5 py-4">
+                                {{-- Desktop: Side-by-side --}}
+                                <div class="match-teams-row flex items-center justify-between gap-4">
                                     {{-- Team A --}}
-                                    <div class="flex items-center gap-4 flex-1">
-                                        <div class="team-logo-container w-16 h-16 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    <div class="team-section flex items-center gap-3 flex-1 min-w-0">
+                                        <div class="team-logo-box w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
                                             @if($match->teamA?->team_logo)
-                                                <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}" class="w-12 h-12 object-contain">
+                                                <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}"
+                                                     class="w-9 h-9 md:w-10 md:h-10 object-contain">
                                             @else
-                                                <span class="text-xl font-bold text-gray-400">{{ substr($match->teamA?->display_name ?? 'TBA', 0, 3) }}</span>
+                                                <span class="text-base font-bold text-gray-500">{{ substr($match->teamA?->display_name ?? 'TBA', 0, 3) }}</span>
                                             @endif
                                         </div>
-                                        <div>
-                                            <p class="font-bold text-lg {{ $match->winner_team_id === $match->team_a_id ? 'text-green-400 winner-glow' : 'text-white' }}">
+                                        <div class="team-info min-w-0">
+                                            <p class="font-bold text-sm md:text-base truncate {{ $teamAWon ? 'text-green-400' : 'text-white' }}">
                                                 {{ $match->teamA?->name ?? 'TBA' }}
-                                                @if($match->winner_team_id === $match->team_a_id)
-                                                    <i class="fas fa-trophy text-yellow-400 ml-2 text-sm"></i>
+                                                @if($teamAWon)
+                                                    <i class="fas fa-trophy text-yellow-400 text-xs ml-1"></i>
                                                 @endif
                                             </p>
                                             @if($match->result)
-                                                <p class="text-2xl font-black text-white mt-1">
+                                                <p class="score-text text-lg md:text-xl font-black {{ $teamAWon ? 'text-white' : 'text-gray-300' }} mt-0.5">
                                                     {{ $match->result->team_a_score }}/{{ $match->result->team_a_wickets }}
-                                                    <span class="text-sm text-gray-400 font-normal">({{ $match->result->team_a_overs }} ov)</span>
+                                                    <span class="text-xs font-normal text-gray-500">({{ $match->result->team_a_overs }} ov)</span>
                                                 </p>
+                                            @elseif($match->teamA?->short_name)
+                                                <p class="text-xs text-gray-500">{{ $match->teamA->short_name }}</p>
                                             @endif
                                         </div>
                                     </div>
 
-                                    {{-- VS / Time --}}
-                                    <div class="flex-shrink-0 text-center px-4">
-                                        @if($match->status === 'completed')
-                                            <span class="text-gray-500 text-lg font-semibold">vs</span>
-                                        @elseif($match->status === 'live')
-                                            <div class="vs-badge w-14 h-14 rounded-full flex items-center justify-center">
-                                                <span class="text-sm font-black text-gray-900">LIVE</span>
+                                    {{-- VS Badge (desktop) --}}
+                                    <div class="vs-section flex-shrink-0">
+                                        @if($isCompleted)
+                                            <span class="text-gray-600 text-xs font-bold">VS</span>
+                                        @elseif($isLive)
+                                            <div class="vs-circle w-10 h-10 rounded-full flex items-center justify-center">
+                                                <span class="text-[10px] font-black text-gray-900">LIVE</span>
                                             </div>
                                         @else
-                                            <div class="vs-badge w-14 h-14 rounded-full flex items-center justify-center">
-                                                <span class="text-sm font-black text-gray-900">VS</span>
+                                            <div class="vs-circle w-10 h-10 rounded-full flex items-center justify-center">
+                                                <span class="text-xs font-black text-gray-900">VS</span>
                                             </div>
                                         @endif
                                     </div>
 
+                                    {{-- Mobile VS divider --}}
+                                    <div class="mobile-vs hidden items-center gap-3 w-full">
+                                        <div class="flex-1 h-px bg-gray-700"></div>
+                                        <span class="text-xs font-bold text-gray-500">VS</span>
+                                        <div class="flex-1 h-px bg-gray-700"></div>
+                                    </div>
+
                                     {{-- Team B --}}
-                                    <div class="flex items-center gap-4 flex-1 flex-row-reverse text-right">
-                                        <div class="team-logo-container w-16 h-16 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    <div class="team-section team-b flex items-center gap-3 flex-1 flex-row-reverse text-right min-w-0">
+                                        <div class="team-logo-box w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
                                             @if($match->teamB?->team_logo)
-                                                <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}" class="w-12 h-12 object-contain">
+                                                <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}"
+                                                     class="w-9 h-9 md:w-10 md:h-10 object-contain">
                                             @else
-                                                <span class="text-xl font-bold text-gray-400">{{ substr($match->teamB?->display_name ?? 'TBA', 0, 3) }}</span>
+                                                <span class="text-base font-bold text-gray-500">{{ substr($match->teamB?->display_name ?? 'TBA', 0, 3) }}</span>
                                             @endif
                                         </div>
-                                        <div>
-                                            <p class="font-bold text-lg {{ $match->winner_team_id === $match->team_b_id ? 'text-green-400 winner-glow' : 'text-white' }}">
+                                        <div class="team-info min-w-0">
+                                            <p class="font-bold text-sm md:text-base truncate {{ $teamBWon ? 'text-green-400' : 'text-white' }}">
                                                 {{ $match->teamB?->name ?? 'TBA' }}
-                                                @if($match->winner_team_id === $match->team_b_id)
-                                                    <i class="fas fa-trophy text-yellow-400 ml-2 text-sm"></i>
+                                                @if($teamBWon)
+                                                    <i class="fas fa-trophy text-yellow-400 text-xs ml-1"></i>
                                                 @endif
                                             </p>
                                             @if($match->result)
-                                                <p class="text-2xl font-black text-white mt-1">
+                                                <p class="score-text text-lg md:text-xl font-black {{ $teamBWon ? 'text-white' : 'text-gray-300' }} mt-0.5">
                                                     {{ $match->result->team_b_score }}/{{ $match->result->team_b_wickets }}
-                                                    <span class="text-sm text-gray-400 font-normal">({{ $match->result->team_b_overs }} ov)</span>
+                                                    <span class="text-xs font-normal text-gray-500">({{ $match->result->team_b_overs }} ov)</span>
                                                 </p>
+                                            @elseif($match->teamB?->short_name)
+                                                <p class="text-xs text-gray-500">{{ $match->teamB->short_name }}</p>
                                             @endif
                                         </div>
                                     </div>
                                 </div>
 
-                                {{-- Result Summary & Venue --}}
-                                <div class="mt-4 pt-4 border-t border-gray-700/50 flex flex-wrap items-center justify-between gap-3">
-                                    @if($match->result?->result_summary)
-                                        <span class="inline-flex items-center px-4 py-2 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-semibold">
-                                            <i class="fas fa-star mr-2"></i>
+                                {{-- Result Summary --}}
+                                @if($match->result?->result_summary)
+                                    <div class="mt-3 pt-3 border-t border-white/5">
+                                        <p class="text-xs md:text-sm text-yellow-400/90 font-medium">
+                                            <i class="fas fa-star text-yellow-500/60 mr-1.5"></i>
                                             {{ $match->result->result_summary }}
+                                        </p>
+                                    </div>
+                                @endif
+
+                                {{-- Venue (mobile only) --}}
+                                @if($match->ground)
+                                    <div class="mt-2 md:hidden">
+                                        <span class="text-[11px] text-gray-500">
+                                            <i class="fas fa-map-marker-alt mr-1"></i>{{ $match->ground->name }}
                                         </span>
-                                    @endif
-                                    @if($match->ground)
-                                        <span class="text-sm text-gray-400 ml-auto">
-                                            <i class="fas fa-map-marker-alt mr-2 text-red-400"></i>
-                                            {{ $match->ground->name }}
-                                        </span>
-                                    @endif
-                                </div>
+                                    </div>
+                                @endif
                             </div>
                         </a>
                     @endforeach
                 </div>
             @empty
-                <div class="text-center py-20">
-                    <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-800 flex items-center justify-center">
-                        <i class="fas fa-calendar-times text-4xl text-gray-600"></i>
+                <div class="text-center py-24">
+                    <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-800 flex items-center justify-center">
+                        <i class="fas fa-calendar-times text-3xl text-gray-600"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-2">No Fixtures Yet</h3>
-                    <p class="text-gray-400">Match fixtures will be available soon.</p>
+                    <h3 class="text-xl font-bold text-white mb-2">No Fixtures Yet</h3>
+                    <p class="text-gray-500 text-sm">Match fixtures will be available soon.</p>
                 </div>
             @endforelse
         </div>
     </section>
+
+    {{-- Share FAB --}}
+    <div class="fixed bottom-6 right-6 z-50">
+        @php
+            $shareMessage = "Fixtures & Results - {$tournament->name}\n" . request()->url();
+        @endphp
+        <button onclick="shareFixtures()" class="w-14 h-14 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center text-gray-900 hover:scale-110">
+            <i class="fas fa-share-alt text-lg"></i>
+        </button>
+    </div>
+
+    @push('scripts')
+    <script>
+        function shareFixtures() {
+            const title = '{{ $tournament->name }} - Fixtures & Results';
+            const text = @json($shareMessage);
+            const url = window.location.href;
+
+            if (navigator.share) {
+                navigator.share({ title, text, url });
+            } else {
+                navigator.clipboard.writeText(url).then(() => {
+                    // Brief toast
+                    const toast = document.createElement('div');
+                    toast.className = 'fixed bottom-24 right-6 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-lg z-50';
+                    toast.textContent = 'Link copied!';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2000);
+                });
+            }
+        }
+    </script>
+    @endpush
 @endsection
