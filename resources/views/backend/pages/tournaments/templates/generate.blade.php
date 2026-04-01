@@ -154,7 +154,12 @@
                             <select id="awardMatchSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700" onchange="loadMatchAwards(this.value)">
                                 <option value="">-- Select a completed match --</option>
                                 @foreach($completedMatches as $match)
-                                    <option value="{{ $match->id }}">
+                                    <option value="{{ $match->id }}"
+                                        data-team-a="{{ $match->teamA?->name ?? 'TBD' }}"
+                                        data-team-b="{{ $match->teamB?->name ?? 'TBD' }}"
+                                        data-date="{{ $match->match_date ? $match->match_date->format('d M Y') : '' }}"
+                                        data-venue="{{ $match->ground?->name ?? '' }}"
+                                        data-result="{{ $match->result?->result_summary ?? '' }}">
                                         Match #{{ $match->match_number ?? $match->id }}: {{ $match->teamA?->name ?? 'TBD' }} vs {{ $match->teamB?->name ?? 'TBD' }}
                                         @if($match->match_date) - {{ $match->match_date->format('M d') }} @endif
                                     </option>
@@ -386,10 +391,21 @@ function getSelectedData() {
             data.bowling_style = selected.dataset.bowling;
         }
     } else if (currentType === 'award_poster') {
+        // Get match details
+        const matchSelect = document.getElementById('awardMatchSelect');
+        const matchOpt = matchSelect.options[matchSelect.selectedIndex];
+        if (matchOpt && matchOpt.value) {
+            data.match_details = (matchOpt.dataset.teamA || 'TBD') + ' vs ' + (matchOpt.dataset.teamB || 'TBD');
+            data.team_a_name = matchOpt.dataset.teamA || '';
+            data.team_b_name = matchOpt.dataset.teamB || '';
+            data.match_date = matchOpt.dataset.date || '';
+            data.venue = matchOpt.dataset.venue || '';
+            data.result_summary = matchOpt.dataset.result || '';
+        }
+        // Get award/player data
         const awardSelect = document.getElementById('awardPlayerSelect');
         const selected = awardSelect.options[awardSelect.selectedIndex];
         if (selected && selected.value) {
-            // Parse award data from option
             const awardData = JSON.parse(selected.dataset.award || '{}');
             Object.assign(data, awardData);
         }
@@ -604,6 +620,9 @@ document.getElementById('playerSelect')?.addEventListener('change', function() {
     if (this.value) showDataSummary(getSelectedData());
 });
 document.getElementById('groupSelect')?.addEventListener('change', function() {
+    if (this.value) showDataSummary(getSelectedData());
+});
+document.getElementById('awardPlayerSelect')?.addEventListener('change', function() {
     if (this.value) showDataSummary(getSelectedData());
 });
 </script>

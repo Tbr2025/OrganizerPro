@@ -655,12 +655,12 @@
                     </svg>
                     Match Summary & Poster
                 </a>
-                <a href="{{ route('admin.matches.appreciations.create', $match) }}"
+                <a href="{{ route('admin.tournaments.templates.generate', $match->tournament) }}?type=award_poster"
                    class="w-full flex items-center justify-center px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-xl transition">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
                     </svg>
-                    Add Appreciation
+                    Generate Award Poster
                 </a>
                 <a href="{{ route('admin.matches.edit', $match) }}"
                    class="w-full flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-semibold rounded-xl transition">
@@ -702,6 +702,34 @@
                 </div>
             </div>
         </div>
+
+        <!-- Match Awards -->
+        @if($match->matchAwards->count() > 0)
+        <div class="card rounded-2xl overflow-hidden">
+            <div class="bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-3">
+                <h3 class="text-white font-bold">Match Awards</h3>
+            </div>
+            <div class="p-4 space-y-3">
+                @foreach($match->matchAwards as $award)
+                    <div class="flex items-center gap-3">
+                        @if($award->player?->image_path)
+                            <img src="{{ asset('storage/' . $award->player->image_path) }}" class="w-10 h-10 rounded-full object-cover">
+                        @else
+                            <div class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            </div>
+                        @endif
+                        <div>
+                            <p class="text-xs font-bold text-yellow-600 uppercase">{{ $award->tournamentAward->name ?? 'Award' }}</p>
+                            <p class="text-sm font-medium">{{ $award->player->name ?? 'Unknown' }}
+                                @if($award->player?->actualTeam) <span class="text-gray-500">({{ $award->player->actualTeam->name }})</span> @endif
+                            </p>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         <!-- Batting Team Players -->
         <div class="card rounded-2xl overflow-hidden">

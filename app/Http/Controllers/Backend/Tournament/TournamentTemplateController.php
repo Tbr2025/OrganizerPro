@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Http\Controllers\Controller;
+use App\Models\Matches;
 use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
@@ -125,7 +126,8 @@ class TournamentTemplateController extends Controller
                 'team_a_captain_name', 'team_b_captain_name',
                 'team_a_score', 'team_b_score', 'winner_name',
                 'match_date', 'match_time', 'venue', 'ground_name', 'match_stage', 'match_number',
-                'award_name', 'man_of_the_match_name', 'man_of_the_match_image'
+                'award_name', 'achievement_text', 'match_details',
+                'man_of_the_match_name', 'man_of_the_match_image'
             ]);
 
             // Add tournament info
@@ -172,6 +174,26 @@ class TournamentTemplateController extends Controller
                 'error' => 'Failed to generate: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get match awards for award poster generation (AJAX)
+     */
+    public function getMatchAwards(Tournament $tournament, Matches $match)
+    {
+        $awards = $match->matchAwards()
+            ->with(['player.actualTeam', 'tournamentAward'])
+            ->get()
+            ->map(fn($award) => [
+                'id' => $award->id,
+                'award_name' => $award->tournamentAward->name ?? 'Award',
+                'player_name' => $award->player->jersey_name ?? $award->player->name ?? 'Unknown',
+                'player_image' => $award->player->image_path ?? null,
+                'team_name' => $award->player->actualTeam?->name ?? '',
+                'team_logo' => $award->player->actualTeam?->team_logo ?? null,
+            ]);
+
+        return response()->json(['awards' => $awards]);
     }
 
     /**

@@ -97,7 +97,8 @@ class MatchesController extends Controller
             'teamB.players.player',
             'winner',
             'tossWinner',
-            'appreciations.player'
+            'matchAwards.player.actualTeam',
+            'matchAwards.tournamentAward'
         ]);
 
         // Get current innings from session or default to 1

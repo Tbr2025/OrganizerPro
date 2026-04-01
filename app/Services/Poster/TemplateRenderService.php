@@ -991,7 +991,8 @@ class TemplateRenderService extends PosterGeneratorService
             // Results
             'result_summary' => 'Team Alpha won by 5 runs',
             'winner_name' => 'Team Alpha',
-            'man_of_the_match_name' => 'John Doe',
+            'man_of_the_match_name' => 'Player Name',
+            'match_details' => 'Team A vs Team B',
             // Player info
             'player_type' => 'All Rounder',
             'batting_style' => 'Right Handed',

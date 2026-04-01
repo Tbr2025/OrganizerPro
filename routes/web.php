@@ -782,6 +782,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/templates/delete-overlay', [TournamentTemplateController::class, 'deleteOverlay'])->name('templates.delete-overlay');
         Route::get('/templates/generate', [TournamentTemplateController::class, 'generate'])->name('templates.generate');
         Route::post('/templates/generate-preview', [TournamentTemplateController::class, 'generatePreview'])->name('templates.generate-preview');
+        Route::get('/matches/{match}/awards', [TournamentTemplateController::class, 'getMatchAwards'])->name('matches.get-awards');
 
         // Tournament Calendar (Calendar-based fixture scheduling)
         Route::get('/calendar', [TournamentCalendarController::class, 'index'])->name('calendar.index');

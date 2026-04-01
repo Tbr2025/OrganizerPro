@@ -77,9 +77,9 @@
                                     :label="__('Edit')"
                                 />
                                 <x-buttons.action-item
-                                    :href="route('admin.matches.appreciations.create', $match)"
+                                    :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=award_poster'"
                                     icon="star"
-                                    :label="__('Add Appreciation')"
+                                    :label="__('Award Poster')"
                                 />
                                 <x-buttons.action-item
                                     :href="route('admin.matches.summary.edit', $match)"

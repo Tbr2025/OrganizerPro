@@ -7,7 +7,7 @@ use App\Models\ActualTeamUser;
 use App\Models\Ball;
 use App\Models\Matches;
 use App\Models\Player;
-use App\Models\PlayerAppreciation;
+use App\Models\MatchAward;
 use Illuminate\Http\Request;
 
 class ScorecardController extends Controller
@@ -47,18 +47,16 @@ public function show(Matches $match)
         'teamA.players.player',   // ActualTeam -> ActualTeamUser -> Player (user table)
         'teamB.players.player',
         'winner',
-        'appreciations.player'
+        'matchAwards.player.actualTeam',
+        'matchAwards.tournamentAward'
     ]);
 
     // Split players team-wise
     $teamAPlayers = $match->teamA->players;
     $teamBPlayers = $match->teamB->players;
 
-    // Appreciations grouped by type
-    $appreciations = PlayerAppreciation::with('player.team')
-        ->where('match_id', $match->id)
-        ->get()
-        ->groupBy('type');
+    // Match awards grouped by award name
+    $matchAwards = $match->matchAwards;
 
     // Get all balls for this match
     $balls = Ball::where('match_id', $match->id)->get();
@@ -102,7 +100,7 @@ public function show(Matches $match)
         'match',
         'teamAPlayers',
         'teamBPlayers',
-        'appreciations',
+        'matchAwards',
         'battingStats',
         'bowlingStats',
         'summary',

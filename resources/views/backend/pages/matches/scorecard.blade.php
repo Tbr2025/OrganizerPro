@@ -130,21 +130,35 @@
                 </div>
             </div>
 
-            {{-- Appreciations --}}
-            <h3 class="text-xl font-semibold mt-10 text-yellow-500">Appreciations</h3>
+            {{-- Match Awards --}}
+            @if($matchAwards->count() > 0)
+            <h3 class="text-xl font-semibold mt-10 text-yellow-500">Match Awards</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                @foreach ($appreciations as $type => $items)
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow border">
-                        <h4 class="text-lg font-bold uppercase mb-2 text-indigo-600">{{ str_replace('_', ' ', $type) }}
-                        </h4>
-                        @foreach ($items as $item)
+                @foreach ($matchAwards as $award)
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow border flex items-center gap-4">
+                        @if($award->player?->image_path)
+                            <img src="{{ asset('storage/' . $award->player->image_path) }}" alt="{{ $award->player->name }}" class="w-12 h-12 rounded-full object-cover">
+                        @else
+                            <div class="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            </div>
+                        @endif
+                        <div>
+                            <h4 class="text-sm font-bold uppercase text-indigo-600">{{ $award->tournamentAward->name ?? 'Award' }}</h4>
                             <p class="text-sm text-gray-700 dark:text-gray-300">
-                                {{ $item->player->name }} ({{ $item->player->team->name }})
+                                {{ $award->player->name ?? 'Unknown' }}
+                                @if($award->player?->actualTeam)
+                                    ({{ $award->player->actualTeam->name }})
+                                @endif
                             </p>
-                        @endforeach
+                            @if($award->remarks)
+                                <p class="text-xs text-gray-500">{{ $award->remarks }}</p>
+                            @endif
+                        </div>
                     </div>
                 @endforeach
             </div>
+            @endif
         </div>
     </div>
 @endsection
