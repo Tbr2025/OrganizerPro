@@ -94,48 +94,6 @@
                                         @enderror
                                     </div>
 
-                                    {{-- Country --}}
-                                    @if($fieldConfig['country']['visible'] ?? true)
-                                    <div class="space-y-1">
-                                        <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
-                                        </label>
-                                        <select name="country" id="country" {{ ($fieldConfig['country']['required'] ?? false) ? 'required' : '' }}
-                                            class="form-control @error('country') border-red-500 @enderror"
-                                            onchange="updateDialCode(this.value)">
-                                            <option value="">-- Select Country --</option>
-                                            @foreach (config('countries.list', []) as $code => $name)
-                                                <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
-                                                    {{ $name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        @error('country')
-                                            <p class="text-sm text-red-500">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                    @endif
-
-                                    {{-- Location --}}
-                                    @if($fieldConfig['location']['visible'] ?? true)
-                                    <div class="space-y-1">
-                                        <label for="location_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Location') }} @if($fieldConfig['location']['required'] ?? false)<span class="text-red-500">*</span>@endif
-                                        </label>
-                                        <select name="location_id" id="location_id" class="form-control" {{ ($fieldConfig['location']['required'] ?? false) ? 'required' : '' }}>
-                                            <option value="">-- Select Location --</option>
-                                            @foreach ($locations as $location)
-                                                <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
-                                                    {{ $location->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        @error('location_id')
-                                            <p class="text-sm text-red-500">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                    @endif
-
                                     {{-- Mobile Number --}}
                                     @if($fieldConfig['mobile_number']['visible'] ?? true)
                                     <div class="space-y-1">
@@ -216,6 +174,48 @@
                                             placeholder="https://cricheroes.com/player-profile/..."
                                             class="form-control @error('cricheroes_profile_url') border-red-500 @enderror">
                                         @error('cricheroes_profile_url')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    @endif
+
+                                    {{-- Country --}}
+                                    @if($fieldConfig['country']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                        </label>
+                                        <select name="country" id="country" {{ ($fieldConfig['country']['required'] ?? false) ? 'required' : '' }}
+                                            class="form-control @error('country') border-red-500 @enderror"
+                                            onchange="updateDialCode(this.value)">
+                                            <option value="">-- Select Country --</option>
+                                            @foreach (config('countries.list', []) as $code => $name)
+                                                <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
+                                                    {{ $name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('country')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    @endif
+
+                                    {{-- Location --}}
+                                    @if($fieldConfig['location']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="location_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Location') }} @if($fieldConfig['location']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                        </label>
+                                        <select name="location_id" id="location_id" class="form-control" {{ ($fieldConfig['location']['required'] ?? false) ? 'required' : '' }}>
+                                            <option value="">-- Select Location --</option>
+                                            @foreach ($locations as $location)
+                                                <option value="{{ $location->id }}" @selected(old('location_id') == $location->id)>
+                                                    {{ $location->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('location_id')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
