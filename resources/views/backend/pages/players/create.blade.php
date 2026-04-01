@@ -100,7 +100,8 @@
                                         <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
-                                        <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror"
+                                        <select name="country" id="country" {{ ($fieldConfig['country']['required'] ?? false) ? 'required' : '' }}
+                                            class="form-control @error('country') border-red-500 @enderror"
                                             onchange="updateDialCode(this.value)">
                                             <option value="">-- Select Country --</option>
                                             @foreach (config('countries.list', []) as $code => $name)
@@ -210,6 +211,7 @@
                                             {{ __('CricHeroes Profile URL') }} @if($fieldConfig['cricheroes_profile_url']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <input type="url" name="cricheroes_profile_url" id="cricheroes_profile_url"
+                                            {{ ($fieldConfig['cricheroes_profile_url']['required'] ?? false) ? 'required' : '' }}
                                             value="{{ old('cricheroes_profile_url') }}"
                                             placeholder="https://cricheroes.com/player-profile/..."
                                             class="form-control @error('cricheroes_profile_url') border-red-500 @enderror">
@@ -223,13 +225,13 @@
                         </div>
 
                         {{-- ===== SECTION 2: Team Assignment ===== --}}
-                        @if($fieldConfig['team']['visible'] ?? true)
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Team Assignment</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Assign to registration and playing teams</p>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                    {{-- Registration Team --}}
+                                    {{-- Registration Team (controlled by tournament "Team" setting) --}}
+                                    @if($fieldConfig['team']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Registration Team') }}
@@ -257,8 +259,9 @@
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    @endif
 
-                                    {{-- Playing Team --}}
+                                    {{-- Playing Team (admin-only, always visible) --}}
                                     <div class="space-y-1">
                                         <label for="actual_team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {{ __('Playing Team') }}
@@ -281,7 +284,6 @@
                                 </div>
                             </div>
                         </div>
-                        @endif
 
                         {{-- ===== SECTION 3: Jersey & Profile ===== --}}
                         <div class="mb-8">
@@ -296,6 +298,7 @@
                                             {{ __('Jersey Name') }} @if($fieldConfig['jersey_name']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <input type="text" name="jersey_name" id="jersey_name"
+                                            {{ ($fieldConfig['jersey_name']['required'] ?? false) ? 'required' : '' }}
                                             value="{{ old('jersey_name') }}" placeholder="Name on jersey"
                                             class="form-control @error('jersey_name') border-red-500 @enderror">
                                         @error('jersey_name')
@@ -311,6 +314,7 @@
                                             {{ __('Jersey Number') }} @if($fieldConfig['jersey_number']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <input type="number" name="jersey_number" id="jersey_number"
+                                            {{ ($fieldConfig['jersey_number']['required'] ?? false) ? 'required' : '' }}
                                             value="{{ old('jersey_number') }}" placeholder="e.g. 7"
                                             class="form-control @error('jersey_number') border-red-500 @enderror">
                                         @error('jersey_number')
@@ -326,6 +330,7 @@
                                             {{ __('Jersey Size') }} @if($fieldConfig['kit_size']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="kit_size_id" id="kit_size_id"
+                                            {{ ($fieldConfig['kit_size']['required'] ?? false) ? 'required' : '' }}
                                             class="form-control @error('kit_size_id') border-red-500 @enderror">
                                             <option value="">-- Select Jersey Size --</option>
                                             @foreach ($kitSizes as $kit)
@@ -348,6 +353,7 @@
                                             {{ __('Batting Profile') }} @if($fieldConfig['batting_profile']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="batting_profile_id" id="batting_profile_id"
+                                            {{ ($fieldConfig['batting_profile']['required'] ?? false) ? 'required' : '' }}
                                             class="form-control @error('batting_profile_id') border-red-500 @enderror">
                                             <option value="">-- Select Batting Profile --</option>
                                             @foreach ($battingProfiles as $profile)
@@ -370,6 +376,7 @@
                                             {{ __('Bowling Profile') }} @if($fieldConfig['bowling_profile']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="bowling_profile_id" id="bowling_profile_id"
+                                            {{ ($fieldConfig['bowling_profile']['required'] ?? false) ? 'required' : '' }}
                                             class="form-control @error('bowling_profile_id') border-red-500 @enderror">
                                             <option value="">-- Select Bowling Profile --</option>
                                             @foreach ($bowlingProfiles as $profile)
@@ -392,6 +399,7 @@
                                             {{ __('Player Type') }} @if($fieldConfig['player_type']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="player_type_id" id="player_type_id"
+                                            {{ ($fieldConfig['player_type']['required'] ?? false) ? 'required' : '' }}
                                             class="form-control @error('player_type_id') border-red-500 @enderror">
                                             <option value="">-- Select Player Type --</option>
                                             @foreach ($playerTypes as $type)
