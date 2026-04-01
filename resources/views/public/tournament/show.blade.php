@@ -144,11 +144,18 @@
                 @endif
 
                 {{-- Status Badge --}}
+                @php
+                    $regActuallyOpen = $tournament->status === 'registration' && ($settings?->isRegistrationOpen() ?? false);
+                @endphp
                 <div class="mb-10">
-                    @if($tournament->status === 'registration')
+                    @if($regActuallyOpen)
                         <span class="inline-flex items-center px-6 py-3 rounded-full text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg glow-green">
                             <span class="w-3 h-3 bg-white rounded-full mr-3 animate-pulse"></span>
                             Registration Open
+                        </span>
+                    @elseif($tournament->status === 'registration' && !$regActuallyOpen)
+                        <span class="inline-flex items-center px-6 py-3 rounded-full text-lg font-bold bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg">
+                            Registration Closed
                         </span>
                     @elseif($tournament->status === 'active')
                         <span class="inline-flex items-center px-6 py-3 rounded-full text-lg font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-gray-900 shadow-lg glow-yellow">
@@ -166,7 +173,7 @@
                 {{-- Register Now Button with Dropdown --}}
                 @if($tournament->status !== 'completed')
                     <div class="mb-10" x-data="{ open: false }">
-                        @if($tournament->status === 'registration')
+                        @if($regActuallyOpen)
                             {{-- Registration Open --}}
                             @php
                                 $playerOpen = $settings?->player_registration_open ?? false;

@@ -1,6 +1,7 @@
 @php
     $settings = $tournament->settings;
     $logo = $settings?->logo ? Storage::url($settings->logo) : null;
+    $regActuallyOpen = $tournament->status === 'registration' && ($settings?->isRegistrationOpen() ?? false);
 @endphp
 
 <a href="{{ route('public.tournament.show', $tournament->slug) }}"
@@ -18,16 +19,20 @@
 
         {{-- Status Badge --}}
         <div class="absolute top-3 right-3">
-            @if($tournament->status === 'registration')
+            @if($regActuallyOpen)
                 <span class="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
                     <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
                     Registration Open
                 </span>
-            @elseif($tournament->status === 'ongoing')
+            @elseif($tournament->status === 'registration' && !$regActuallyOpen)
+                <span class="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                    Registration Closed
+                </span>
+            @elseif(in_array($tournament->status, ['ongoing', 'active']))
                 <span class="bg-yellow-500 text-gray-900 px-3 py-1 rounded-full text-xs font-semibold">
                     Live
                 </span>
-            @else
+            @elseif($tournament->status === 'completed')
                 <span class="bg-gray-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
                     Completed
                 </span>
@@ -68,7 +73,7 @@
         </div>
 
         {{-- Registration Buttons --}}
-        @if($showRegister && $tournament->status === 'registration')
+        @if($showRegister && $regActuallyOpen)
             <div class="mt-4 pt-4 border-t border-white/10 flex gap-2">
                 @if($settings?->player_registration_enabled)
                     <span class="flex-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-semibold py-2 px-4 rounded-lg text-center text-sm group-hover:shadow-lg transition-shadow">

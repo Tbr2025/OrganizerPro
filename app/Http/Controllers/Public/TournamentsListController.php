@@ -19,9 +19,9 @@ class TournamentsListController extends Controller
             ->orderByDesc('start_date')
             ->get();
 
-        // Group by status
-        $registrationOpen = $tournaments->filter(fn($t) => $t->status === 'registration');
-        $ongoing = $tournaments->filter(fn($t) => $t->status === 'ongoing');
+        // Group by status (check if registration is actually open, not just DB status)
+        $registrationOpen = $tournaments->filter(fn($t) => $t->status === 'registration' && ($t->settings?->isRegistrationOpen() ?? false));
+        $ongoing = $tournaments->filter(fn($t) => $t->status === 'ongoing' || ($t->status === 'registration' && !($t->settings?->isRegistrationOpen() ?? false)));
         $completed = $tournaments->filter(fn($t) => $t->status === 'completed');
 
         return view('public.tournaments.index', [
