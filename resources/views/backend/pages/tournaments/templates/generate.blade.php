@@ -109,6 +109,7 @@
                                     data-team-b-score="{{ $match->result?->team_b_score ?? '' }}"
                                     data-winner="{{ $match->winner?->name }}"
                                     data-winner-logo="{{ $match->winner?->team_logo ?? '' }}"
+                                    data-result-summary="{{ $match->result?->result_summary ?? '' }}"
                                     data-match-number="{{ $match->match_number ?? $match->id }}">
                                 Match #{{ $match->match_number ?? $match->id }}: {{ $match->teamA?->name ?? 'TBD' }} vs {{ $match->teamB?->name ?? 'TBD' }}
                                 @if($match->match_date) - {{ $match->match_date->format('M d') }} @endif
@@ -503,6 +504,7 @@ function getSelectedData() {
                 data.team_b_score = selected.dataset.teamBScore;
                 data.winner_name = selected.dataset.winner;
                 data.winner_logo = selected.dataset.winnerLogo;
+                data.result_summary = selected.dataset.resultSummary;
             }
         }
     } else if (currentType === 'welcome_card') {
