@@ -375,6 +375,18 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.create']);
 
+        // Get field config from selected tournament
+        $fieldConfig = PlayerFormConfig::defaultFormFields();
+        if ($request->filled('tournament_id')) {
+            $tournament = Tournament::with('settings')->find($request->tournament_id);
+            if ($tournament?->settings) {
+                $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
+            }
+        }
+
+        // Helper: check if a field is visible AND required
+        $req = fn($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
+
         // Sanitize and combine phone numbers
         $mobileFull = preg_replace('/\D+/', '', (string) $request->input('mobile_country_code') . (string) $request->input('mobile_national_number'));
         $cricheroesFull = $request->filled(['cricheroes_country_code', 'cricheroes_national_number'])
@@ -390,10 +402,10 @@ class PlayerController extends Controller
             'name' => 'required|string|max:100',
             'country' => 'nullable|string|max:2',
             'email' => 'required|email|unique:players,email',
-            'mobile_country_code' => 'required|string|max:10',
-            'mobile_national_number' => 'required|string|max:20',
+            'mobile_country_code' => $req('mobile_number') ? 'required|string|max:10' : 'nullable|string|max:10',
+            'mobile_national_number' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
             'mobile_number_full' => [
-                'required',
+                $req('mobile_number') ? 'required' : 'nullable',
                 'numeric',
                 'digits_between:7,15',
                 'unique:players,mobile_number_full',
@@ -403,12 +415,12 @@ class PlayerController extends Controller
             'actual_team_id' => 'nullable|exists:actual_teams,id',
             'jersey_number' => 'nullable',
             'team_name_ref' => 'nullable|string|max:100',
-            'jersey_name' => 'required|string|max:50',
-            'kit_size_id' => 'required|exists:kit_sizes,id',
-            'batting_profile_id' => 'required|exists:batting_profiles,id',
-            'bowling_profile_id' => 'required|exists:bowling_profiles,id',
-            'player_type_id' => 'required|exists:player_types,id',
-            'location_id' => 'required|exists:player_locations,id',
+            'jersey_name' => $req('jersey_name') ? 'required|string|max:50' : 'nullable|string|max:50',
+            'kit_size_id' => $req('kit_size') ? 'required|exists:kit_sizes,id' : 'nullable|exists:kit_sizes,id',
+            'batting_profile_id' => $req('batting_profile') ? 'required|exists:batting_profiles,id' : 'nullable|exists:batting_profiles,id',
+            'bowling_profile_id' => $req('bowling_profile') ? 'required|exists:bowling_profiles,id' : 'nullable|exists:bowling_profiles,id',
+            'player_type_id' => $req('player_type') ? 'required|exists:player_types,id' : 'nullable|exists:player_types,id',
+            'location_id' => $req('location') ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',
             'total_runs' => 'nullable|integer|min:0',
             'total_wickets' => 'nullable|integer|min:0',
@@ -420,19 +432,18 @@ class PlayerController extends Controller
                 'digits_between:7,15',
                 Rule::unique('players', 'cricheroes_number_full')->whereNotNull('cricheroes_number_full'),
             ],
+            'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',
 
             'image_path' => [
-                'nullable',
+                $req('image') ? 'required' : 'nullable',
                 'image',
                 'mimes:png,jpg,jpeg',
                 'max:6144',
-
             ],
 
             'wicket_keeper' => 'nullable|boolean',
             'need_transportation' => 'nullable|boolean',
 
-            // 🧳 Travel Plan Validation
             'no_travel_plan' => 'nullable|boolean',
             'travel_date_from' => 'nullable|date|after_or_equal:today|required_if:no_travel_plan,false',
             'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from|required_if:no_travel_plan,false',
@@ -921,27 +932,33 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.edit']);
 
+        // Admin edit uses defaults (all visible, only name/email/mobile required)
+        $fieldConfig = PlayerFormConfig::defaultFormFields();
+
+        // Helper: check if a field is visible AND required per config
+        $req = fn($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
+
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'country' => 'nullable|string|max:2',
             'email' => 'required|email|unique:players,email,' . $player->id,
-            'mobile_number_full' => 'required|string|max:20',
-            'cricheroes_number_full' => 'required|string|max:20',
-            'cricheroes_profile_url' => 'nullable|url|max:500',
+            'mobile_number_full' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
+            'cricheroes_number_full' => $req('cricheroes_number') ? 'required|string|max:20' : 'nullable|string|max:20',
+            'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',
             'jersey_number' => 'nullable',
 
             'team_id' => 'nullable|exists:teams,id',
             'actual_team_id' => 'nullable|exists:actual_teams,id',
-            'location_id' => 'required|exists:player_locations,id',
+            'location_id' => $req('location') ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',
             'total_runs' => 'nullable|integer|min:0',
             'total_wickets' => 'nullable|integer|min:0',
             'team_name_ref' => 'nullable|string|max:100',
-            'jersey_name' => 'nullable|string|max:50',
-            'kit_size_id' => 'nullable|exists:kit_sizes,id',
-            'batting_profile_id' => 'nullable|exists:batting_profiles,id',
-            'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
-            'player_type_id' => 'nullable|exists:player_types,id',
+            'jersey_name' => $req('jersey_name') ? 'required|string|max:50' : 'nullable|string|max:50',
+            'kit_size_id' => $req('kit_size') ? 'required|exists:kit_sizes,id' : 'nullable|exists:kit_sizes,id',
+            'batting_profile_id' => $req('batting_profile') ? 'required|exists:batting_profiles,id' : 'nullable|exists:batting_profiles,id',
+            'bowling_profile_id' => $req('bowling_profile') ? 'required|exists:bowling_profiles,id' : 'nullable|exists:bowling_profiles,id',
+            'player_type_id' => $req('player_type') ? 'required|exists:player_types,id' : 'nullable|exists:player_types,id',
             'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:6144',
             'is_wicket_keeper' => 'sometimes|boolean',
             'is_transportation_required' => 'sometimes|boolean',
@@ -1063,14 +1080,14 @@ class PlayerController extends Controller
             'name' => $validated['name'],
             'country' => $validated['country'] ?? null,
             'email' => $validated['email'],
-            'total_matches' => $validated['total_matches'],
-            'total_runs' => $validated['total_runs'],
-            'total_wickets' => $validated['total_wickets'],
-            'location_id' => $validated['location_id'],
-            'team_name_ref' => $validated['team_name_ref'],
+            'total_matches' => $validated['total_matches'] ?? null,
+            'total_runs' => $validated['total_runs'] ?? null,
+            'total_wickets' => $validated['total_wickets'] ?? null,
+            'location_id' => $validated['location_id'] ?? null,
+            'team_name_ref' => $validated['team_name_ref'] ?? null,
 
-            'mobile_number_full' => $validated['mobile_number_full'],
-            'cricheroes_number_full' => $validated['cricheroes_number_full'],
+            'mobile_number_full' => $validated['mobile_number_full'] ?? null,
+            'cricheroes_number_full' => $validated['cricheroes_number_full'] ?? null,
             'cricheroes_profile_url' => $validated['cricheroes_profile_url'] ?? null,
             'team_id' => $validated['team_id'] ?? null,
             'actual_team_id' => $validated['actual_team_id'] ?? null,
