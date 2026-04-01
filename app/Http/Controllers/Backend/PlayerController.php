@@ -387,9 +387,11 @@ class PlayerController extends Controller
         // Helper: check if a field is visible AND required
         $req = fn($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
 
-        // Sanitize and combine phone numbers
-        $mobileFull = preg_replace('/\D+/', '', (string) $request->input('mobile_country_code') . (string) $request->input('mobile_national_number'));
-        $cricheroesFull = $request->filled(['cricheroes_country_code', 'cricheroes_national_number'])
+        // Sanitize and combine phone numbers (null if national number is empty)
+        $mobileFull = $request->filled('mobile_national_number')
+            ? preg_replace('/\D+/', '', (string) $request->input('mobile_country_code') . (string) $request->input('mobile_national_number'))
+            : null;
+        $cricheroesFull = $request->filled('cricheroes_national_number')
             ? preg_replace('/\D+/', '', (string) $request->input('cricheroes_country_code') . (string) $request->input('cricheroes_national_number'))
             : null;
 
