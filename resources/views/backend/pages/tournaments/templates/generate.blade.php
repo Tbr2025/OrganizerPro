@@ -287,22 +287,29 @@
 
                 <div id="templatesList" class="grid grid-cols-2 md:grid-cols-3 gap-4">
                     @forelse($templates as $template)
-                        <label class="cursor-pointer">
-                            <input type="radio" name="template_id" value="{{ $template->id }}" class="hidden peer" {{ $loop->first ? 'checked' : '' }}>
-                            <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3 transition peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 hover:border-purple-300">
-                                @if($template->background_image)
-                                    <img src="{{ $template->background_image_url }}" alt="{{ $template->name }}" class="w-full h-24 object-cover rounded-lg mb-2">
-                                @else
-                                    <div class="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center">
-                                        <span class="text-gray-400 text-xs">No preview</span>
-                                    </div>
-                                @endif
-                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ $template->name }}</p>
-                                @if($template->is_default)
-                                    <span class="text-xs text-purple-600">Default</span>
-                                @endif
-                            </div>
-                        </label>
+                        <div class="relative">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="template_id" value="{{ $template->id }}" class="hidden peer" {{ $loop->first ? 'checked' : '' }}>
+                                <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3 transition peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 hover:border-purple-300">
+                                    @if($template->background_image)
+                                        <img src="{{ $template->background_image_url }}" alt="{{ $template->name }}" class="w-full h-24 object-cover rounded-lg mb-2">
+                                    @else
+                                        <div class="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center">
+                                            <span class="text-gray-400 text-xs">No preview</span>
+                                        </div>
+                                    @endif
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ $template->name }}</p>
+                                    @if($template->is_default)
+                                        <span class="text-xs text-purple-600">Default</span>
+                                    @endif
+                                </div>
+                            </label>
+                            <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
+                               class="absolute top-1 right-1 p-1.5 rounded-lg bg-white/90 dark:bg-gray-800/90 text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 shadow-sm transition z-10"
+                               title="Edit Template">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </a>
+                        </div>
                     @empty
                         <div class="col-span-full text-center py-8 text-gray-500">
                             <p>No templates found for this type.</p>
@@ -396,18 +403,24 @@ function loadTemplates(type) {
         .then(data => {
             const container = document.getElementById('templatesList');
             if (data.templates && data.templates.length > 0) {
+                const editBaseUrl = `{{ url('admin/tournaments/' . $tournament->id . '/templates') }}`;
                 container.innerHTML = data.templates.map((t, i) => `
-                    <label class="cursor-pointer">
-                        <input type="radio" name="template_id" value="${t.id}" class="hidden peer" ${i === 0 ? 'checked' : ''}>
-                        <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3 transition peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 hover:border-purple-300">
-                            ${t.background_image_url ?
-                                `<img src="${t.background_image_url}" alt="${t.name}" class="w-full h-24 object-cover rounded-lg mb-2">` :
-                                `<div class="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center"><span class="text-gray-400 text-xs">No preview</span></div>`
-                            }
-                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${t.name}</p>
-                            ${t.is_default ? '<span class="text-xs text-purple-600">Default</span>' : ''}
-                        </div>
-                    </label>
+                    <div class="relative">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="template_id" value="${t.id}" class="hidden peer" ${i === 0 ? 'checked' : ''}>
+                            <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3 transition peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 hover:border-purple-300">
+                                ${t.background_image_url ?
+                                    `<img src="${t.background_image_url}" alt="${t.name}" class="w-full h-24 object-cover rounded-lg mb-2">` :
+                                    `<div class="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center"><span class="text-gray-400 text-xs">No preview</span></div>`
+                                }
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${t.name}</p>
+                                ${t.is_default ? '<span class="text-xs text-purple-600">Default</span>' : ''}
+                            </div>
+                        </label>
+                        <a href="${editBaseUrl}/${t.id}/edit" class="absolute top-1 right-1 p-1.5 rounded-lg bg-white/90 dark:bg-gray-800/90 text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 shadow-sm transition z-10" title="Edit Template">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </a>
+                    </div>
                 `).join('');
             } else {
                 container.innerHTML = `
