@@ -124,6 +124,9 @@ class TournamentTemplateController extends Controller
                 'team_a_captain_image', 'team_b_captain_image',
                 'team_a_captain_name', 'team_b_captain_name',
                 'team_a_score', 'team_b_score', 'winner_name', 'winner_logo',
+                'team_a_score_wickets', 'team_b_score_wickets',
+                'team_a_runs', 'team_b_runs', 'team_a_wickets', 'team_b_wickets',
+                'team_a_overs', 'team_b_overs', 'win_margin', 'toss_result',
                 'match_date', 'match_time', 'venue', 'ground_name', 'match_stage', 'match_number',
                 'award_name', 'achievement_text', 'match_details',
                 'man_of_the_match_name', 'man_of_the_match_image',
@@ -159,9 +162,24 @@ class TournamentTemplateController extends Controller
                     ];
 
                     if ($match->result) {
-                        $matchData['team_a_score'] = $match->result->team_a_score_display;
-                        $matchData['team_b_score'] = $match->result->team_b_score_display;
-                        $matchData['result_summary'] = $match->result->result_summary;
+                        $r = $match->result;
+                        $matchData['team_a_score'] = $r->team_a_score_display;
+                        $matchData['team_b_score'] = $r->team_b_score_display;
+                        $matchData['team_a_score_wickets'] = $r->team_a_score . '/' . $r->team_a_wickets;
+                        $matchData['team_b_score_wickets'] = $r->team_b_score . '/' . $r->team_b_wickets;
+                        $matchData['team_a_runs'] = (string) $r->team_a_score;
+                        $matchData['team_b_runs'] = (string) $r->team_b_score;
+                        $matchData['team_a_wickets'] = (string) $r->team_a_wickets;
+                        $matchData['team_b_wickets'] = (string) $r->team_b_wickets;
+                        $matchData['team_a_overs'] = (string) $r->team_a_overs;
+                        $matchData['team_b_overs'] = (string) $r->team_b_overs;
+                        $matchData['result_summary'] = $r->result_summary ?: $r->generateResultSummary();
+                        $matchData['win_margin'] = $r->margin ? 'Won by ' . $r->margin . ' ' . $r->result_type : '';
+                        // Toss
+                        if ($r->toss_won_by) {
+                            $tossWinner = $r->toss_won_by == $match->team_a_id ? $match->teamA?->name : $match->teamB?->name;
+                            $matchData['toss_result'] = $tossWinner . ' won toss, chose to ' . ($r->toss_decision ?? 'bat');
+                        }
                     }
 
                     if ($match->winner) {
@@ -611,8 +629,16 @@ class TournamentTemplateController extends Controller
             'team_a_name', 'team_a_short_name' => 'Team Alpha',
             'team_b_name', 'team_b_short_name' => 'Team Beta',
             'team_a_logo', 'team_b_logo' => '[Team Logo]',
-            'team_a_score' => '150/6 (20 ov)',
-            'team_b_score' => '145/8 (20 ov)',
+            'team_a_score' => '150/6 (20.0)',
+            'team_b_score' => '145/8 (20.0)',
+            'team_a_score_wickets' => '150/6',
+            'team_b_score_wickets' => '145/8',
+            'team_a_runs' => '150',
+            'team_b_runs' => '145',
+            'team_a_wickets' => '6',
+            'team_b_wickets' => '8',
+            'team_a_overs' => '20.0',
+            'team_b_overs' => '20.0',
             'match_date' => now()->format('M d, Y'),
             'match_time' => '3:00 PM',
             'match_day' => now()->format('l'),
@@ -621,6 +647,8 @@ class TournamentTemplateController extends Controller
             'match_number' => '1',
             'result_summary' => 'Team Alpha won by 5 runs',
             'winner_name' => 'Team Alpha',
+            'win_margin' => 'Won by 5 runs',
+            'toss_result' => 'Team Alpha won toss, chose to bat',
             'man_of_the_match_name' => 'John Doe',
             'player_image', 'man_of_the_match_image' => '[Player Image]',
             'player_type' => 'All Rounder',

@@ -104,17 +104,37 @@ class TournamentTemplate extends Model
             self::TYPE_MATCH_SUMMARY => [
                 'tournament_name',
                 'tournament_logo',
+                // Team A
                 'team_a_name',
+                'team_a_short_name',
                 'team_a_logo',
                 'team_a_score',
+                'team_a_score_wickets',
+                'team_a_runs',
+                'team_a_wickets',
+                'team_a_overs',
+                // Team B
                 'team_b_name',
+                'team_b_short_name',
                 'team_b_logo',
                 'team_b_score',
+                'team_b_score_wickets',
+                'team_b_runs',
+                'team_b_wickets',
+                'team_b_overs',
+                // Result
                 'result_summary',
                 'winner_name',
                 'winner_logo',
+                'win_margin',
+                'toss_result',
+                // Match Info
                 'match_date',
+                'match_time',
                 'venue',
+                'match_stage',
+                'match_number',
+                // Awards
                 'man_of_the_match_name',
                 'man_of_the_match_image',
                 'best_batsman_name',

@@ -1011,8 +1011,16 @@ class TemplateRenderService extends PosterGeneratorService
             'team_b_location' => 'Kottayam',
             'team_b_captain_name' => 'Captain Beta',
             // Scores
-            'team_a_score' => '150/6',
-            'team_b_score' => '145/8',
+            'team_a_score' => '150/6 (20.0)',
+            'team_b_score' => '145/8 (20.0)',
+            'team_a_score_wickets' => '150/6',
+            'team_b_score_wickets' => '145/8',
+            'team_a_runs' => '150',
+            'team_b_runs' => '145',
+            'team_a_wickets' => '6',
+            'team_b_wickets' => '8',
+            'team_a_overs' => '20.0',
+            'team_b_overs' => '20.0',
             // Match date variants
             'match_date' => date('M d, Y'),
             'match_date_day' => date('d'),
@@ -1026,8 +1034,10 @@ class TemplateRenderService extends PosterGeneratorService
             'match_stage' => 'Group Stage',
             'match_number' => '1',
             // Results
-            'result_summary' => 'Team Alpha won by 5 runs',
-            'winner_name' => 'Team Alpha',
+            'result_summary' => 'MCC won by 5 runs',
+            'winner_name' => 'MCC',
+            'win_margin' => 'Won by 5 runs',
+            'toss_result' => 'MCC won toss, chose to bat',
             'man_of_the_match_name' => 'Player Name',
             'match_details' => 'Team A vs Team B',
             // Player info
