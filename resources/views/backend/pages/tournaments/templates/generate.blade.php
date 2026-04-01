@@ -526,6 +526,7 @@ function getSelectedData() {
         const matchSelect = document.getElementById('awardMatchSelect');
         const matchOpt = matchSelect.options[matchSelect.selectedIndex];
         if (matchOpt && matchOpt.value) {
+            data.match_id = matchOpt.value;
             data.match_details = (matchOpt.dataset.teamA || 'TBD') + ' vs ' + (matchOpt.dataset.teamB || 'TBD');
             data.team_a_name = matchOpt.dataset.teamA || '';
             data.team_b_name = matchOpt.dataset.teamB || '';

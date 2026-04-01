@@ -143,6 +143,7 @@ class TournamentTemplateController extends Controller
             if ($request->input('match_id') && in_array($template->type, [
                 TournamentTemplate::TYPE_MATCH_POSTER,
                 TournamentTemplate::TYPE_MATCH_SUMMARY,
+                TournamentTemplate::TYPE_AWARD_POSTER,
             ])) {
                 $match = Matches::with(['teamA', 'teamB', 'winner', 'result', 'ground', 'matchAwards.player', 'matchAwards.tournamentAward'])->find($request->input('match_id'));
                 if ($match) {
