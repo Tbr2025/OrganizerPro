@@ -106,6 +106,8 @@ class TournamentTemplateController extends Controller
      */
     public function generatePreview(Tournament $tournament, Request $request)
     {
+        ini_set('memory_limit', '512M');
+
         $tempFiles = [];
         try {
             $templateId = $request->input('template_id');
@@ -571,6 +573,7 @@ class TournamentTemplateController extends Controller
      */
     public function preview(Tournament $tournament, TournamentTemplate $template, Request $request)
     {
+        ini_set('memory_limit', '512M');
         abort_if($template->tournament_id !== $tournament->id, 404);
 
         $previewUrl = null;
@@ -761,6 +764,7 @@ class TournamentTemplateController extends Controller
      */
     public function renderPreview(Tournament $tournament, TournamentTemplate $template, Request $request)
     {
+        ini_set('memory_limit', '512M');
         abort_if($template->tournament_id !== $tournament->id, 404);
 
         try {

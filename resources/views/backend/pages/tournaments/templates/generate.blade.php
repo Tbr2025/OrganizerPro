@@ -561,8 +561,8 @@ function loadTemplates(type) {
                         </a>
                     </div>
                 `).join('');
-                // Auto-show preview of first template
-                setTimeout(() => showTemplatePreview(), 100);
+                // Show first template's background as preview
+                setTimeout(() => showTemplatePreview(), 50);
             } else {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-8 text-gray-500">
@@ -585,42 +585,26 @@ function resetPreview() {
     generatedImageUrl = null;
 }
 
-// Show selected template's rendered preview in preview area
+// Show selected template's background image as preview
 function showTemplatePreview() {
     const templateInput = document.querySelector('input[name="template_id"]:checked');
     if (!templateInput) return;
 
     const previewImage = document.getElementById('previewImage');
     const previewPlaceholder = document.getElementById('previewPlaceholder');
-    const previewLoading = document.getElementById('previewLoading');
 
-    previewPlaceholder.classList.add('hidden');
-    previewImage.classList.add('hidden');
-    previewLoading.classList.remove('hidden');
+    // Find the template's background image from the thumbnail
+    const label = templateInput.closest('label') || templateInput.parentElement;
+    const thumb = label?.querySelector('img');
 
-    fetch(`{{ url('admin/tournaments/' . $tournament->id . '/templates') }}/${templateInput.value}/render-preview`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
-            'Accept': 'application/json',
-        },
-        body: JSON.stringify({ data: {} })
-    })
-    .then(r => r.json())
-    .then(result => {
-        previewLoading.classList.add('hidden');
-        if (result.success && result.image) {
-            previewImage.src = result.image;
-            previewImage.classList.remove('hidden');
-        } else {
-            previewPlaceholder.classList.remove('hidden');
-        }
-    })
-    .catch(() => {
-        previewLoading.classList.add('hidden');
+    if (thumb && thumb.src) {
+        previewImage.src = thumb.src;
+        previewImage.classList.remove('hidden');
+        previewPlaceholder.classList.add('hidden');
+    } else {
+        previewImage.classList.add('hidden');
         previewPlaceholder.classList.remove('hidden');
-    });
+    }
 }
 
 // Listen for template selection changes
