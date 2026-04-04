@@ -395,45 +395,48 @@
             </div>
             <div class="p-6">
                 @if($awards->count() > 0)
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="space-y-3 mb-6">
                         @foreach($awards as $award)
-                            <div class="relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4 border border-gray-200 dark:border-gray-600 hover:shadow-lg transition">
-                                <!-- Delete Button -->
-                                <form action="{{ route('admin.matches.summary.remove-award', [$match, $award]) }}" method="POST" class="absolute top-2 right-2">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                        </svg>
-                                    </button>
-                                </form>
-
-                                <div class="text-center">
-                                    <!-- Player Image -->
+                            <div class="relative flex items-center gap-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4 border border-gray-200 dark:border-gray-600 hover:shadow-lg transition">
+                                <!-- Player Image -->
+                                <div class="flex-shrink-0">
                                     @if($award->player?->image_path)
                                         <img src="{{ Storage::url($award->player->image_path) }}"
                                              alt="{{ $award->player->name }}"
-                                             class="w-16 h-16 mx-auto rounded-full object-cover border-3 border-yellow-400 shadow-md">
+                                             class="w-14 h-14 rounded-full object-cover border-2 border-yellow-400 shadow-md">
                                     @else
-                                        <div class="w-16 h-16 mx-auto rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-xl font-bold text-gray-600 dark:text-gray-300">
+                                        <div class="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-lg font-bold text-gray-600 dark:text-gray-300">
                                             {{ substr($award->player?->name ?? '?', 0, 1) }}
                                         </div>
                                     @endif
+                                </div>
 
-                                    <!-- Award Icon & Name -->
-                                    <div class="mt-3">
-                                        <span class="text-2xl">{{ $award->tournamentAward?->icon ?? '🏆' }}</span>
-                                        <div class="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mt-1">
+                                <!-- Award Info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-0.5">
+                                        <span class="text-lg">{{ $award->tournamentAward?->icon ?? '🏆' }}</span>
+                                        <span class="text-sm font-semibold text-yellow-600 dark:text-yellow-400">
                                             {{ $award->tournamentAward?->name ?? 'Award' }}
-                                        </div>
+                                        </span>
                                     </div>
-
-                                    <!-- Player Name -->
-                                    <div class="mt-2 font-medium text-gray-800 dark:text-gray-200">
+                                    <div class="font-medium text-gray-800 dark:text-gray-200">
                                         {{ $award->player?->name ?? 'Unknown' }}
                                     </div>
+                                    @if($award->remarks)
+                                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ $award->remarks }}</p>
+                                    @endif
                                 </div>
+
+                                <!-- Delete Button -->
+                                <form action="{{ route('admin.matches.summary.remove-award', [$match, $award]) }}" method="POST" class="flex-shrink-0">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                        </svg>
+                                    </button>
+                                </form>
                             </div>
                         @endforeach
                     </div>
@@ -473,36 +476,54 @@
                         </div>
                     @else
                         <!-- Awards Form -->
-                        <form action="{{ route('admin.matches.summary.assign-award', $match) }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <form action="{{ route('admin.matches.summary.assign-award', $match) }}" method="POST">
                             @csrf
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Award</label>
+                                    <select name="tournament_award_id" required class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-yellow-500 focus:border-yellow-500">
+                                        <option value="">Select Award</option>
+                                        @foreach($tournamentAwards as $award)
+                                            <option value="{{ $award->id }}">{{ $award->icon ?? '' }} {{ $award->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
 
-                            <select name="tournament_award_id" required class="rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select Award</option>
-                                @foreach($tournamentAwards as $award)
-                                    <option value="{{ $award->id }}">{{ $award->icon ?? '' }} {{ $award->name }}</option>
-                                @endforeach
-                            </select>
+                                <div>
+                                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Player</label>
+                                    <select name="player_id" required class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-yellow-500 focus:border-yellow-500">
+                                        <option value="">Select Player</option>
+                                        @if($teamAPlayers->count() > 0)
+                                            <optgroup label="{{ $match->teamA?->name ?? 'Team A' }}">
+                                                @foreach($teamAPlayers as $player)
+                                                    <option value="{{ $player->id }}">{{ $player->name }}</option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endif
+                                        @if($teamBPlayers->count() > 0)
+                                            <optgroup label="{{ $match->teamB?->name ?? 'Team B' }}">
+                                                @foreach($teamBPlayers as $player)
+                                                    <option value="{{ $player->id }}">{{ $player->name }}</option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endif
+                                    </select>
+                                </div>
+                            </div>
 
-                            <select name="player_id" required class="rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select Player{{ $winnerTeam ? ' (' . $winnerTeam->name . ')' : '' }}</option>
-                                @foreach($players as $player)
-                                    @if($player)
-                                        <option value="{{ $player->id }}">{{ $player->name }}</option>
-                                    @endif
-                                @endforeach
-                            </select>
+                            <div class="flex gap-3">
+                                <input type="text"
+                                       name="remarks"
+                                       placeholder="Performance remarks (e.g., 65 runs off 40 balls)"
+                                       class="flex-1 rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-yellow-500 focus:border-yellow-500">
 
-                            <input type="text"
-                                   name="remarks"
-                                   placeholder="Remarks (optional)"
-                                   class="rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-yellow-500 focus:border-yellow-500">
-
-                            <button type="submit" class="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-xl transition flex items-center justify-center">
-                                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                                </svg>
-                                Assign
-                            </button>
+                                <button type="submit" class="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold rounded-xl transition flex items-center justify-center whitespace-nowrap">
+                                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                    </svg>
+                                    Assign Award
+                                </button>
+                            </div>
                         </form>
 
                         <!-- Tournament Templates Link -->

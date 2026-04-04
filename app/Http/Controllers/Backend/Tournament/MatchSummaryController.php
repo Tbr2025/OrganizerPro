@@ -53,29 +53,15 @@ class MatchSummaryController extends Controller
         $awards = $match->matchAwards()->with('player', 'tournamentAward')->get();
         $tournamentAwards = $tournament->awards()->matchLevel()->active()->get();
 
-        // Get players from winning team only for award assignment
-        $players = collect();
-        $winnerTeam = null;
+        // Get players from BOTH teams for award assignment (any player can win an award)
+        $teamAPlayers = collect();
+        $teamBPlayers = collect();
 
-        if ($match->winner_team_id) {
-            // Only show winning team players
-            if ($match->winner_team_id === $match->team_a_id && $match->teamA) {
-                $winnerTeam = $match->teamA;
-            } elseif ($match->winner_team_id === $match->team_b_id && $match->teamB) {
-                $winnerTeam = $match->teamB;
-            }
-
-            if ($winnerTeam) {
-                $players = $winnerTeam->users->pluck('player')->filter();
-            }
-        } else {
-            // If no winner yet (tie or incomplete), show all players
-            if ($match->teamA) {
-                $players = $players->merge($match->teamA->users->pluck('player')->filter());
-            }
-            if ($match->teamB) {
-                $players = $players->merge($match->teamB->users->pluck('player')->filter());
-            }
+        if ($match->teamA) {
+            $teamAPlayers = $match->teamA->players->pluck('player')->filter()->values();
+        }
+        if ($match->teamB) {
+            $teamBPlayers = $match->teamB->players->pluck('player')->filter()->values();
         }
 
         return view('backend.pages.matches.summary-editor', compact(
@@ -84,8 +70,8 @@ class MatchSummaryController extends Controller
             'tournament',
             'awards',
             'tournamentAwards',
-            'players',
-            'winnerTeam'
+            'teamAPlayers',
+            'teamBPlayers'
         ));
     }
 
