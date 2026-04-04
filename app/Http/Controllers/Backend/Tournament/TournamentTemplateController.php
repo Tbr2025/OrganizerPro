@@ -207,6 +207,22 @@ class TournamentTemplateController extends Controller
                         }
                     }
 
+                    // Swap team data if team B batted first (so "team_a" placeholders = first batting team)
+                    if ($match->result && $match->result->team_a_batting_first === false) {
+                        $swapKeys = [
+                            'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
+                            'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',
+                            'team_a_score_wickets' => 'team_b_score_wickets',
+                            'team_a_runs' => 'team_b_runs', 'team_a_wickets' => 'team_b_wickets',
+                            'team_a_overs' => 'team_b_overs',
+                        ];
+                        foreach ($swapKeys as $keyA => $keyB) {
+                            $tmp = $matchData[$keyA] ?? null;
+                            $matchData[$keyA] = $matchData[$keyB] ?? null;
+                            $matchData[$keyB] = $tmp;
+                        }
+                    }
+
                     // DB data always overrides JS data (DB is authoritative for match data)
                     foreach ($matchData as $key => $value) {
                         if ($value !== null) {
@@ -355,9 +371,20 @@ class TournamentTemplateController extends Controller
 
         // Include score data if match result exists
         if ($match->result) {
-            $matchData['team_a_score'] = $match->result->team_a_score_display;
-            $matchData['team_b_score'] = $match->result->team_b_score_display;
-            $matchData['result_summary'] = $match->result->result_summary ?: $match->result->generateResultSummary();
+            $r = $match->result;
+            // Swap teams if team B batted first
+            if ($r->team_a_batting_first === false) {
+                $matchData['team_a_name'] = $match->teamB?->name ?? '';
+                $matchData['team_a_logo'] = $match->teamB?->team_logo_url ?? '';
+                $matchData['team_b_name'] = $match->teamA?->name ?? '';
+                $matchData['team_b_logo'] = $match->teamA?->team_logo_url ?? '';
+                $matchData['team_a_score'] = $r->team_b_score_display;
+                $matchData['team_b_score'] = $r->team_a_score_display;
+            } else {
+                $matchData['team_a_score'] = $r->team_a_score_display;
+                $matchData['team_b_score'] = $r->team_b_score_display;
+            }
+            $matchData['result_summary'] = $r->result_summary ?: $r->generateResultSummary();
         }
 
         return response()->json([

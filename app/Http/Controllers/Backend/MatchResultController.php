@@ -192,6 +192,13 @@ class MatchResultController extends Controller
             }
         }
 
+        // Auto-derive batting order from toss data
+        $validated['team_a_batting_first'] = MatchResult::deriveTeamABattingFirst(
+            $validated['toss_won_by'] ?? null,
+            $validated['toss_decision'] ?? null,
+            $match->team_a_id
+        );
+
         // Create or update result
         $result = MatchResult::updateOrCreate(
             ['match_id' => $match->id],

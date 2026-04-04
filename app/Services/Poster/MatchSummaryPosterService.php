@@ -184,18 +184,25 @@ class MatchSummaryPosterService extends PosterGeneratorService
         imageline($image, 340, 330, 480, 330, $lineColorAllocated);
         imageline($image, 600, 330, 740, 330, $lineColorAllocated);
 
-        // Team A section (left side)
-        $teamA = $match->teamA;
-        $teamAWinner = $match->winner_team_id === $match->team_a_id;
-        $this->renderTeamSection($image, $teamA, $result, 'A', 270, 500, $teamAWinner, $settings);
+        // Determine batting order: first batting team on left
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+        $leftSide = $teamABatsFirst ? 'A' : 'B';
+        $rightSide = $teamABatsFirst ? 'B' : 'A';
+        $leftTeamId = $teamABatsFirst ? $match->team_a_id : $match->team_b_id;
+        $rightTeamId = $teamABatsFirst ? $match->team_b_id : $match->team_a_id;
+
+        // Left team section (first batting)
+        $leftWinner = $match->winner_team_id === $leftTeamId;
+        $this->renderTeamSection($image, $leftTeam, $result, $leftSide, 270, 500, $leftWinner, $settings);
 
         // VS badge in center
         $this->addVSBadge($image, 540, 500);
 
-        // Team B section (right side)
-        $teamB = $match->teamB;
-        $teamBWinner = $match->winner_team_id === $match->team_b_id;
-        $this->renderTeamSection($image, $teamB, $result, 'B', 810, 500, $teamBWinner, $settings);
+        // Right team section (second batting)
+        $rightWinner = $match->winner_team_id === $rightTeamId;
+        $this->renderTeamSection($image, $rightTeam, $result, $rightSide, 810, 500, $rightWinner, $settings);
 
         // Result summary with background
         if ($result && $result->result_summary) {
