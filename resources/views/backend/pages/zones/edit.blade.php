@@ -3,6 +3,7 @@
 @section('title', 'Edit Zone')
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[['name' => 'Dashboard', 'route' => route('admin.dashboard')], ['name' => 'Zones', 'route' => route('admin.zones.index')], ['name' => 'Edit']]" />
     <div class="p-4 mx-auto max-w-2xl md:p-6">
         <div class="mb-6">
             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Edit Zone</h1>

@@ -3,6 +3,12 @@
 @section('title', 'Edit Team | ' . config('app.name'))
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[
+        ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
+        ['name' => 'Teams'],
+        ['name' => 'Edit']
+    ]" />
+
     <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
         {{-- Header --}}
         <div class="flex flex-col sm:flex-col md:flex-row md:justify-between md:items-center mb-8">

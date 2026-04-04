@@ -3,6 +3,12 @@
 @section('title', 'Live Scoring')
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[
+        ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
+        ['name' => 'Image Templates', 'route' => route('admin.image-templates.index')],
+        ['name' => 'Edit']
+    ]" />
+
     <x-backend.card>
         <x-slot name="header">Edit Welcome Template</x-slot>
 

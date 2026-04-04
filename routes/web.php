@@ -760,6 +760,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/fixtures/{match}/reschedule', [TournamentFixtureController::class, 'reschedule'])->name('fixtures.reschedule');
         Route::post('/fixtures/{match}/cancel', [TournamentFixtureController::class, 'cancel'])->name('fixtures.cancel');
         Route::post('/fixtures/{match}/generate-poster', [TournamentFixtureController::class, 'generatePoster'])->name('fixtures.generate-poster');
+        Route::get('/fixtures/export-csv', [TournamentFixtureController::class, 'exportCsv'])->name('fixtures.export-csv');
 
         // Point Table
         Route::get('/point-table', [PointTableController::class, 'index'])->name('point-table.index');

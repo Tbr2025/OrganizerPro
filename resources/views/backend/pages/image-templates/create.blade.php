@@ -3,6 +3,12 @@
 @section('title', 'Create Template')
 
 @section('admin-content')
+<x-breadcrumbs :breadcrumbs="[
+    ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
+    ['name' => 'Image Templates', 'route' => route('admin.image-templates.index')],
+    ['name' => 'Create']
+]" />
+
 <div class="max-w-3xl mx-auto p-6">
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Create Template</h1>

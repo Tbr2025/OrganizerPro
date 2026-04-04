@@ -3,6 +3,7 @@
 @section('title', 'Players | ' . config('app.name'))
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[['name' => 'Dashboard', 'route' => route('admin.dashboard')], ['name' => 'Players']]" />
     <div class="p-4 mx-auto  md:p-6 lg:p-8" x-data="{ selectedPlayers: [], selectAll: false }">
 
         {{-- Header --}}

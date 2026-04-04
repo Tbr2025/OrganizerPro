@@ -3,6 +3,12 @@
 @section('title', 'Point Table | ' . $tournament->name)
 
 @section('admin-content')
+<x-breadcrumbs :breadcrumbs="[
+    ['name' => 'Tournaments', 'route' => route('admin.tournaments.index')],
+    ['name' => $tournament->name, 'route' => route('admin.tournaments.dashboard', $tournament)],
+    ['name' => 'Point Table']
+]" />
+
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
 
     {{-- Header --}}

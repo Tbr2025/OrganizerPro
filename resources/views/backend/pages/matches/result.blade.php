@@ -3,6 +3,11 @@
 @section('title', 'Match Result | ' . config('app.name'))
 
 @section('admin-content')
+<x-breadcrumbs :breadcrumbs="[
+    ['name' => 'Matches', 'route' => route('admin.matches.index')],
+    ['name' => 'Match Result']
+]" />
+
 <div class="p-4 mx-auto max-w-4xl md:p-6 lg:p-8">
 
     {{-- Header --}}

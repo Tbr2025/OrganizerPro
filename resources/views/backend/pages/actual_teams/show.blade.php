@@ -3,6 +3,12 @@
 @section('title', $actualTeam->name . ' | Team Details')
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[
+        ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
+        ['name' => 'Teams'],
+        ['name' => 'Team Details']
+    ]" />
+
     <div class="p-4 mx-auto  md:p-6 lg:p-8">
 
         {{-- HEADER / HERO SECTION --}}

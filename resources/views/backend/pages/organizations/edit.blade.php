@@ -3,6 +3,7 @@
 @section('title', 'Edit Organization')
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[['name' => 'Dashboard', 'route' => route('admin.dashboard')], ['name' => 'Organizations', 'route' => route('admin.organizations.index')], ['name' => 'Edit']]" />
     <div class="p-4 mx-auto  md:p-6">
         <h1 class="text-xl font-semibold mb-4">Edit Organization</h1>
         <form action="{{ route('admin.organizations.update', $organization->id) }}" method="POST">

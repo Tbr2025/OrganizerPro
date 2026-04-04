@@ -3,6 +3,7 @@
 @section('title', 'Zones')
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[['name' => 'Dashboard', 'route' => route('admin.dashboard')], ['name' => 'Zones']]" />
     <div class="p-4 mx-auto md:p-6">
         <div class="flex justify-between items-center">
             <div>

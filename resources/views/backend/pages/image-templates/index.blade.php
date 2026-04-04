@@ -3,6 +3,11 @@
 @section('title', 'Live Scoring')
 
 @section('admin-content')
+    <x-breadcrumbs :breadcrumbs="[
+        ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
+        ['name' => 'Image Templates']
+    ]" />
+
     <x-backend.card>
         <x-slot name="header">All Templates</x-slot>
         @if (session('success'))

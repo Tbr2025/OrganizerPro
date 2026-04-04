@@ -3,6 +3,11 @@
 @section('title', 'Team Manager Dashboard')
 
 @section('admin-content')
+<x-breadcrumbs :breadcrumbs="[
+    ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
+    ['name' => 'Team Manager']
+]" />
+
 <div class="p-4 mx-auto max-w-7xl md:p-6">
     {{-- Header --}}
     <div class="mb-6">

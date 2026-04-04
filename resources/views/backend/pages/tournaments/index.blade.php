@@ -3,6 +3,7 @@
 @section('title', 'Tournaments | ' . config('app.name'))
 
 @section('admin-content')
+<x-breadcrumbs :breadcrumbs="[['name' => 'Dashboard', 'route' => route('admin.dashboard')], ['name' => 'Tournaments']]" />
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
 
     {{-- Header Section --}}

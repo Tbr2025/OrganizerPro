@@ -375,4 +375,50 @@ class TournamentFixtureController extends Controller
             return redirect()->back()->with('error', __('Failed to generate IPL playoffs: ') . $e->getMessage());
         }
     }
+
+    /**
+     * Export fixtures as CSV
+     */
+    public function exportCsv(Tournament $tournament)
+    {
+        $matches = $tournament->matches()
+            ->with(['teamA', 'teamB', 'ground', 'winner', 'result'])
+            ->orderBy('match_date')
+            ->orderBy('start_time')
+            ->get();
+
+        $filename = str_replace(' ', '_', $tournament->name) . '_fixtures.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($matches) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['#', 'Match', 'Team A', 'Team B', 'Date', 'Time', 'Venue', 'Stage', 'Status', 'Team A Score', 'Team B Score', 'Winner', 'Result']);
+
+            foreach ($matches as $match) {
+                fputcsv($file, [
+                    $match->match_number ?? $match->id,
+                    'Match #' . ($match->match_number ?? $match->id),
+                    $match->teamA?->name ?? 'TBD',
+                    $match->teamB?->name ?? 'TBD',
+                    $match->match_date?->format('d M Y') ?? '',
+                    $match->start_time ? Carbon::parse($match->start_time)->format('h:i A') : '',
+                    $match->ground?->name ?? $match->venue ?? '',
+                    $match->stage_display ?? $match->stage ?? '',
+                    ucfirst($match->status ?? 'upcoming'),
+                    $match->result?->team_a_score_display ?? '',
+                    $match->result?->team_b_score_display ?? '',
+                    $match->winner?->name ?? '',
+                    $match->result?->result_summary ?? '',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }
