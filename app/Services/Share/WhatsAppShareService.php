@@ -140,17 +140,26 @@ class WhatsAppShareService
         $message .= "*{$tournament->name}*\n";
         $message .= "{$match->stage_display}\n\n";
 
-        // Scores
-        if ($teamA) {
-            $scoreA = $result ? $this->formatScore($result->team_a_score, $result->team_a_wickets, $result->team_a_overs) : '-';
-            $winner = $match->winner_team_id === $teamA->id ? ' 🏆' : '';
-            $message .= "*{$teamA->name}*: {$scoreA}{$winner}\n";
+        // Determine batting order: first batting team shows first
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $firstTeam = $teamABatsFirst ? $teamA : $teamB;
+        $secondTeam = $teamABatsFirst ? $teamB : $teamA;
+        $firstScore = $result ? ($teamABatsFirst
+            ? $this->formatScore($result->team_a_score, $result->team_a_wickets, $result->team_a_overs)
+            : $this->formatScore($result->team_b_score, $result->team_b_wickets, $result->team_b_overs)) : '-';
+        $secondScore = $result ? ($teamABatsFirst
+            ? $this->formatScore($result->team_b_score, $result->team_b_wickets, $result->team_b_overs)
+            : $this->formatScore($result->team_a_score, $result->team_a_wickets, $result->team_a_overs)) : '-';
+
+        // Scores (first batting team first)
+        if ($firstTeam) {
+            $winner = $match->winner_team_id === $firstTeam->id ? ' 🏆' : '';
+            $message .= "*{$firstTeam->name}*: {$firstScore}{$winner}\n";
         }
 
-        if ($teamB) {
-            $scoreB = $result ? $this->formatScore($result->team_b_score, $result->team_b_wickets, $result->team_b_overs) : '-';
-            $winner = $match->winner_team_id === $teamB->id ? ' 🏆' : '';
-            $message .= "*{$teamB->name}*: {$scoreB}{$winner}\n";
+        if ($secondTeam) {
+            $winner = $match->winner_team_id === $secondTeam->id ? ' 🏆' : '';
+            $message .= "*{$secondTeam->name}*: {$secondScore}{$winner}\n";
         }
 
         // Result summary
