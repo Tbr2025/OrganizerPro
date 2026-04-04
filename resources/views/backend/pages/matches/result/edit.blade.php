@@ -9,6 +9,14 @@
     ['name' => 'Record Result']
 ]" />
 
+@php
+    $teamABatsFirst = $result->team_a_batting_first ?? true;
+    $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+    $secondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+    $firstSide = $teamABatsFirst ? 'a' : 'b';
+    $secondSide = $teamABatsFirst ? 'b' : 'a';
+@endphp
+
 <div class="max-w-4xl mx-auto">
     <!-- Match Header -->
     <div class="card rounded-2xl overflow-hidden mb-6">
@@ -29,27 +37,27 @@
             <!-- Teams Display -->
             <div class="mt-6 flex items-center justify-center gap-8">
                 <div class="text-center">
-                    @if($match->teamA?->team_logo)
-                        <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}"
+                    @if($firstTeam?->team_logo)
+                        <img src="{{ Storage::url($firstTeam->team_logo) }}" alt="{{ $firstTeam->name }}"
                              class="w-16 h-16 mx-auto rounded-full object-cover border-2 border-white/30">
                     @else
                         <div class="w-16 h-16 mx-auto rounded-full bg-white/20 flex items-center justify-center text-xl font-bold">
-                            {{ substr($match->teamA?->name ?? 'A', 0, 2) }}
+                            {{ substr($firstTeam?->name ?? 'A', 0, 2) }}
                         </div>
                     @endif
-                    <div class="mt-2 font-semibold">{{ $match->teamA?->name ?? 'Team A' }}</div>
+                    <div class="mt-2 font-semibold">{{ $firstTeam?->name ?? 'Team A' }}</div>
                 </div>
                 <div class="text-2xl font-bold text-blue-200">VS</div>
                 <div class="text-center">
-                    @if($match->teamB?->team_logo)
-                        <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}"
+                    @if($secondTeam?->team_logo)
+                        <img src="{{ Storage::url($secondTeam->team_logo) }}" alt="{{ $secondTeam->name }}"
                              class="w-16 h-16 mx-auto rounded-full object-cover border-2 border-white/30">
                     @else
                         <div class="w-16 h-16 mx-auto rounded-full bg-white/20 flex items-center justify-center text-xl font-bold">
-                            {{ substr($match->teamB?->name ?? 'B', 0, 2) }}
+                            {{ substr($secondTeam?->name ?? 'B', 0, 2) }}
                         </div>
                     @endif
-                    <div class="mt-2 font-semibold">{{ $match->teamB?->name ?? 'Team B' }}</div>
+                    <div class="mt-2 font-semibold">{{ $secondTeam?->name ?? 'Team B' }}</div>
                 </div>
             </div>
         </div>
@@ -127,14 +135,15 @@
         @csrf
         @method('PUT')
 
-        <!-- Team A Score Card -->
+        <!-- First Batting Team Score Card -->
         <div class="card rounded-2xl overflow-hidden mb-6">
             <div class="bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-4">
                 <h3 class="text-white font-bold text-lg flex items-center">
-                    @if($match->teamA?->team_logo)
-                        <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="" class="w-8 h-8 rounded-full mr-3 object-cover">
+                    @if($firstTeam?->team_logo)
+                        <img src="{{ Storage::url($firstTeam->team_logo) }}" alt="" class="w-8 h-8 rounded-full mr-3 object-cover">
                     @endif
-                    {{ $match->teamA?->name ?? 'Team A' }} - Score
+                    {{ $firstTeam?->name ?? 'Team A' }} - Score
+                    <span class="ml-2 text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full">1st Innings</span>
                 </h3>
             </div>
             <div class="p-6">
@@ -143,11 +152,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Runs <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" name="team_a_score" id="team_a_score"
-                               value="{{ old('team_a_score', $result->team_a_score) }}"
-                               class="form-control text-2xl font-bold text-center @error('team_a_score') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $firstSide }}_score" id="team_{{ $firstSide }}_score"
+                               value="{{ old('team_' . $firstSide . '_score', $result->{'team_' . $firstSide . '_score'}) }}"
+                               class="form-control text-2xl font-bold text-center @error('team_' . $firstSide . '_score') border-red-500 @enderror"
                                min="0" required placeholder="0">
-                        @error('team_a_score')
+                        @error('team_' . $firstSide . '_score')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -155,11 +164,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Wickets <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" name="team_a_wickets" id="team_a_wickets"
-                               value="{{ old('team_a_wickets', $result->team_a_wickets) }}"
-                               class="form-control text-2xl font-bold text-center @error('team_a_wickets') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $firstSide }}_wickets" id="team_{{ $firstSide }}_wickets"
+                               value="{{ old('team_' . $firstSide . '_wickets', $result->{'team_' . $firstSide . '_wickets'}) }}"
+                               class="form-control text-2xl font-bold text-center @error('team_' . $firstSide . '_wickets') border-red-500 @enderror"
                                min="0" max="10" required placeholder="0">
-                        @error('team_a_wickets')
+                        @error('team_' . $firstSide . '_wickets')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -167,11 +176,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Overs <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" name="team_a_overs" id="team_a_overs"
-                               value="{{ old('team_a_overs', $result->team_a_overs) }}"
-                               class="form-control text-2xl font-bold text-center @error('team_a_overs') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $firstSide }}_overs" id="team_{{ $firstSide }}_overs"
+                               value="{{ old('team_' . $firstSide . '_overs', $result->{'team_' . $firstSide . '_overs'}) }}"
+                               class="form-control text-2xl font-bold text-center @error('team_' . $firstSide . '_overs') border-red-500 @enderror"
                                min="0" step="0.1" required placeholder="0.0">
-                        @error('team_a_overs')
+                        @error('team_' . $firstSide . '_overs')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -179,11 +188,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Extras
                         </label>
-                        <input type="number" name="team_a_extras" id="team_a_extras"
-                               value="{{ old('team_a_extras', $result->team_a_extras) }}"
-                               class="form-control text-center @error('team_a_extras') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $firstSide }}_extras" id="team_{{ $firstSide }}_extras"
+                               value="{{ old('team_' . $firstSide . '_extras', $result->{'team_' . $firstSide . '_extras'}) }}"
+                               class="form-control text-center @error('team_' . $firstSide . '_extras') border-red-500 @enderror"
                                min="0" placeholder="0">
-                        @error('team_a_extras')
+                        @error('team_' . $firstSide . '_extras')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -191,14 +200,15 @@
             </div>
         </div>
 
-        <!-- Team B Score Card -->
+        <!-- Second Batting Team Score Card -->
         <div class="card rounded-2xl overflow-hidden mb-6">
             <div class="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
                 <h3 class="text-white font-bold text-lg flex items-center">
-                    @if($match->teamB?->team_logo)
-                        <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="" class="w-8 h-8 rounded-full mr-3 object-cover">
+                    @if($secondTeam?->team_logo)
+                        <img src="{{ Storage::url($secondTeam->team_logo) }}" alt="" class="w-8 h-8 rounded-full mr-3 object-cover">
                     @endif
-                    {{ $match->teamB?->name ?? 'Team B' }} - Score
+                    {{ $secondTeam?->name ?? 'Team B' }} - Score
+                    <span class="ml-2 text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full">2nd Innings</span>
                 </h3>
             </div>
             <div class="p-6">
@@ -207,11 +217,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Runs <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" name="team_b_score" id="team_b_score"
-                               value="{{ old('team_b_score', $result->team_b_score) }}"
-                               class="form-control text-2xl font-bold text-center @error('team_b_score') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $secondSide }}_score" id="team_{{ $secondSide }}_score"
+                               value="{{ old('team_' . $secondSide . '_score', $result->{'team_' . $secondSide . '_score'}) }}"
+                               class="form-control text-2xl font-bold text-center @error('team_' . $secondSide . '_score') border-red-500 @enderror"
                                min="0" required placeholder="0">
-                        @error('team_b_score')
+                        @error('team_' . $secondSide . '_score')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -219,11 +229,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Wickets <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" name="team_b_wickets" id="team_b_wickets"
-                               value="{{ old('team_b_wickets', $result->team_b_wickets) }}"
-                               class="form-control text-2xl font-bold text-center @error('team_b_wickets') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $secondSide }}_wickets" id="team_{{ $secondSide }}_wickets"
+                               value="{{ old('team_' . $secondSide . '_wickets', $result->{'team_' . $secondSide . '_wickets'}) }}"
+                               class="form-control text-2xl font-bold text-center @error('team_' . $secondSide . '_wickets') border-red-500 @enderror"
                                min="0" max="10" required placeholder="0">
-                        @error('team_b_wickets')
+                        @error('team_' . $secondSide . '_wickets')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -231,11 +241,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Overs <span class="text-red-500">*</span>
                         </label>
-                        <input type="number" name="team_b_overs" id="team_b_overs"
-                               value="{{ old('team_b_overs', $result->team_b_overs) }}"
-                               class="form-control text-2xl font-bold text-center @error('team_b_overs') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $secondSide }}_overs" id="team_{{ $secondSide }}_overs"
+                               value="{{ old('team_' . $secondSide . '_overs', $result->{'team_' . $secondSide . '_overs'}) }}"
+                               class="form-control text-2xl font-bold text-center @error('team_' . $secondSide . '_overs') border-red-500 @enderror"
                                min="0" step="0.1" required placeholder="0.0">
-                        @error('team_b_overs')
+                        @error('team_' . $secondSide . '_overs')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -243,11 +253,11 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Extras
                         </label>
-                        <input type="number" name="team_b_extras" id="team_b_extras"
-                               value="{{ old('team_b_extras', $result->team_b_extras) }}"
-                               class="form-control text-center @error('team_b_extras') border-red-500 @enderror"
+                        <input type="number" name="team_{{ $secondSide }}_extras" id="team_{{ $secondSide }}_extras"
+                               value="{{ old('team_' . $secondSide . '_extras', $result->{'team_' . $secondSide . '_extras'}) }}"
+                               class="form-control text-center @error('team_' . $secondSide . '_extras') border-red-500 @enderror"
                                min="0" placeholder="0">
-                        @error('team_b_extras')
+                        @error('team_' . $secondSide . '_extras')
                             <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
                         @enderror
                     </div>

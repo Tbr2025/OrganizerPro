@@ -106,31 +106,41 @@
                 </span>
             </div>
 
+            @php
+                $teamABatsFirst = $match->result?->team_a_batting_first ?? true;
+                $firstTeamId = $teamABatsFirst ? $match->team_a_id : $match->team_b_id;
+                $secondTeamId = $teamABatsFirst ? $match->team_b_id : $match->team_a_id;
+                $sFirstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+                $sSecondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+                $firstSideKey = $teamABatsFirst ? 'a' : 'b';
+                $secondSideKey = $teamABatsFirst ? 'b' : 'a';
+            @endphp
+
             <!-- Teams Score Display -->
             @if($match->result)
                 <div class="relative flex items-center justify-between gap-4">
-                    <!-- Team A -->
-                    <div class="flex-1 text-center team-card p-4 rounded-xl {{ $match->winner_team_id === $match->team_a_id ? 'bg-green-500/20 winner-glow' : 'bg-white/5' }}">
-                        @if($match->teamA?->team_logo)
-                            <img src="{{ Storage::url($match->teamA->team_logo) }}"
-                                 alt="{{ $match->teamA->name }}"
-                                 class="w-20 h-20 mx-auto mb-3 rounded-full object-cover border-3 {{ $match->winner_team_id === $match->team_a_id ? 'border-green-400' : 'border-white/30' }}">
+                    <!-- First Batting Team -->
+                    <div class="flex-1 text-center team-card p-4 rounded-xl {{ $match->winner_team_id === $firstTeamId ? 'bg-green-500/20 winner-glow' : 'bg-white/5' }}">
+                        @if($sFirstTeam?->team_logo)
+                            <img src="{{ Storage::url($sFirstTeam->team_logo) }}"
+                                 alt="{{ $sFirstTeam->name }}"
+                                 class="w-20 h-20 mx-auto mb-3 rounded-full object-cover border-3 {{ $match->winner_team_id === $firstTeamId ? 'border-green-400' : 'border-white/30' }}">
                         @else
                             <div class="w-20 h-20 mx-auto mb-3 rounded-full bg-gray-600 flex items-center justify-center text-2xl font-bold">
-                                {{ substr($match->teamA?->name ?? 'A', 0, 2) }}
+                                {{ substr($sFirstTeam?->name ?? 'A', 0, 2) }}
                             </div>
                         @endif
-                        <h4 class="font-bold text-lg mb-2">{{ $match->teamA?->short_name ?? $match->teamA?->name ?? 'Team A' }}</h4>
-                        <div class="text-4xl font-black {{ $match->winner_team_id === $match->team_a_id ? 'text-green-400' : 'text-white' }}">
-                            {{ $match->result->team_a_score ?? 0 }}/{{ $match->result->team_a_wickets ?? 0 }}
+                        <h4 class="font-bold text-lg mb-2">{{ $sFirstTeam?->short_name ?? $sFirstTeam?->name ?? 'Team A' }}</h4>
+                        <div class="text-4xl font-black {{ $match->winner_team_id === $firstTeamId ? 'text-green-400' : 'text-white' }}">
+                            {{ $match->result->{'team_' . $firstSideKey . '_score'} ?? 0 }}/{{ $match->result->{'team_' . $firstSideKey . '_wickets'} ?? 0 }}
                         </div>
                         <div class="text-sm text-gray-400 mt-1">
-                            ({{ number_format($match->result->team_a_overs ?? 0, 1) }} overs)
+                            ({{ number_format($match->result->{'team_' . $firstSideKey . '_overs'} ?? 0, 1) }} overs)
                         </div>
-                        @if($match->result->team_a_extras)
-                            <div class="text-xs text-gray-500 mt-1">Extras: {{ $match->result->team_a_extras }}</div>
+                        @if($match->result->{'team_' . $firstSideKey . '_extras'})
+                            <div class="text-xs text-gray-500 mt-1">Extras: {{ $match->result->{'team_' . $firstSideKey . '_extras'} }}</div>
                         @endif
-                        @if($match->winner_team_id === $match->team_a_id)
+                        @if($match->winner_team_id === $firstTeamId)
                             <span class="inline-flex items-center px-2 py-1 mt-2 bg-green-500 text-white text-xs font-bold rounded-full">
                                 WINNER
                             </span>
@@ -144,28 +154,28 @@
                         </div>
                     </div>
 
-                    <!-- Team B -->
-                    <div class="flex-1 text-center team-card p-4 rounded-xl {{ $match->winner_team_id === $match->team_b_id ? 'bg-green-500/20 winner-glow' : 'bg-white/5' }}">
-                        @if($match->teamB?->team_logo)
-                            <img src="{{ Storage::url($match->teamB->team_logo) }}"
-                                 alt="{{ $match->teamB->name }}"
-                                 class="w-20 h-20 mx-auto mb-3 rounded-full object-cover border-3 {{ $match->winner_team_id === $match->team_b_id ? 'border-green-400' : 'border-white/30' }}">
+                    <!-- Second Batting Team -->
+                    <div class="flex-1 text-center team-card p-4 rounded-xl {{ $match->winner_team_id === $secondTeamId ? 'bg-green-500/20 winner-glow' : 'bg-white/5' }}">
+                        @if($sSecondTeam?->team_logo)
+                            <img src="{{ Storage::url($sSecondTeam->team_logo) }}"
+                                 alt="{{ $sSecondTeam->name }}"
+                                 class="w-20 h-20 mx-auto mb-3 rounded-full object-cover border-3 {{ $match->winner_team_id === $secondTeamId ? 'border-green-400' : 'border-white/30' }}">
                         @else
                             <div class="w-20 h-20 mx-auto mb-3 rounded-full bg-gray-600 flex items-center justify-center text-2xl font-bold">
-                                {{ substr($match->teamB?->name ?? 'B', 0, 2) }}
+                                {{ substr($sSecondTeam?->name ?? 'B', 0, 2) }}
                             </div>
                         @endif
-                        <h4 class="font-bold text-lg mb-2">{{ $match->teamB?->short_name ?? $match->teamB?->name ?? 'Team B' }}</h4>
-                        <div class="text-4xl font-black {{ $match->winner_team_id === $match->team_b_id ? 'text-green-400' : 'text-white' }}">
-                            {{ $match->result->team_b_score ?? 0 }}/{{ $match->result->team_b_wickets ?? 0 }}
+                        <h4 class="font-bold text-lg mb-2">{{ $sSecondTeam?->short_name ?? $sSecondTeam?->name ?? 'Team B' }}</h4>
+                        <div class="text-4xl font-black {{ $match->winner_team_id === $secondTeamId ? 'text-green-400' : 'text-white' }}">
+                            {{ $match->result->{'team_' . $secondSideKey . '_score'} ?? 0 }}/{{ $match->result->{'team_' . $secondSideKey . '_wickets'} ?? 0 }}
                         </div>
                         <div class="text-sm text-gray-400 mt-1">
-                            ({{ number_format($match->result->team_b_overs ?? 0, 1) }} overs)
+                            ({{ number_format($match->result->{'team_' . $secondSideKey . '_overs'} ?? 0, 1) }} overs)
                         </div>
-                        @if($match->result->team_b_extras)
-                            <div class="text-xs text-gray-500 mt-1">Extras: {{ $match->result->team_b_extras }}</div>
+                        @if($match->result->{'team_' . $secondSideKey . '_extras'})
+                            <div class="text-xs text-gray-500 mt-1">Extras: {{ $match->result->{'team_' . $secondSideKey . '_extras'} }}</div>
                         @endif
-                        @if($match->winner_team_id === $match->team_b_id)
+                        @if($match->winner_team_id === $secondTeamId)
                             <span class="inline-flex items-center px-2 py-1 mt-2 bg-green-500 text-white text-xs font-bold rounded-full">
                                 WINNER
                             </span>
