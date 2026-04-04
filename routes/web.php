@@ -811,17 +811,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/summary/recalculate-statistics', [MatchSummaryController::class, 'recalculateStatistics'])->name('summary.recalculate-statistics');
     });
 
-    // Award Template Editor
-    Route::prefix('awards')->name('awards.')->group(function () {
-        Route::get('/{award}/template', [AwardTemplateController::class, 'edit'])->name('template.edit');
-        Route::put('/{award}/template', [AwardTemplateController::class, 'update'])->name('template.update');
-        Route::post('/{award}/template/ajax', [AwardTemplateController::class, 'updateAjax'])->name('template.update-ajax');
-        Route::post('/{award}/template/background', [AwardTemplateController::class, 'uploadBackground'])->name('template.upload-background');
-        Route::post('/{award}/template/icon', [AwardTemplateController::class, 'uploadIcon'])->name('template.upload-icon');
-        Route::post('/{award}/template/reset', [AwardTemplateController::class, 'resetToDefaults'])->name('template.reset');
-    });
-
-    // Tournament Awards Management (Award types, not templates)
+    // Tournament Awards Management
     Route::prefix('tournaments/{tournament}/awards')->name('tournaments.awards.')->group(function () {
         Route::get('/', [AwardTemplateController::class, 'index'])->name('index');
         Route::post('/', [AwardTemplateController::class, 'store'])->name('store');
