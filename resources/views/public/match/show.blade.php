@@ -403,7 +403,7 @@
                     <div class="inline-flex items-center gap-3 px-6 py-3 glass-card rounded-full">
                         <i class="fas fa-coins text-yellow-400"></i>
                         <span class="text-gray-300">
-                            <strong class="text-white">{{ $match->result->toss_won_by == $match->team_a_id ? $match->teamA?->name : $match->teamB?->name }}</strong>
+                            <strong class="text-white">{{ $match->result->toss_won_by == $match->team_a_id ? ($match->teamA?->short_name ?: $match->teamA?->name) : ($match->teamB?->short_name ?: $match->teamB?->name) }}</strong>
                             won the toss and elected to <strong class="text-yellow-400">{{ $match->result->toss_decision }}</strong>
                         </span>
                     </div>

@@ -296,7 +296,7 @@
                     <div class="inline-flex items-center gap-2 px-5 py-2 stat-pill rounded-full text-gray-400">
                         <i class="fas fa-coins text-yellow-400"></i>
                         <span>
-                            {{ $result->toss_won_by == $match->team_a_id ? $match->teamA?->short_name : $match->teamB?->short_name }}
+                            {{ $result->toss_won_by == $match->team_a_id ? ($match->teamA?->short_name ?: $match->teamA?->name) : ($match->teamB?->short_name ?: $match->teamB?->name) }}
                             won the toss and elected to {{ $result->toss_decision }}
                         </span>
                     </div>

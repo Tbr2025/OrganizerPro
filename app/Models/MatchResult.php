@@ -95,6 +95,10 @@ class MatchResult extends Model
         $winnerName = $this->winner->name;
         $margin = $this->margin;
 
+        if (!$margin && in_array($this->result_type, ['runs', 'wickets', 'dls'])) {
+            return "{$winnerName} won";
+        }
+
         return match ($this->result_type) {
             'runs' => "{$winnerName} won by {$margin} runs",
             'wickets' => "{$winnerName} won by {$margin} wickets",
