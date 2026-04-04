@@ -1261,10 +1261,74 @@ document.getElementById('awardPlayerSearch')?.addEventListener('input', function
     if (defaultOpt) defaultOpt.style.display = query ? 'none' : '';
 });
 
-// Init: build field toggles and show template preview on page load
+// Init: build field toggles, show template preview, and handle query param pre-selection
 setTimeout(() => {
     buildFieldToggles();
     showTemplatePreview();
+
+    // Auto-select match and player from query params (e.g., coming from summary editor)
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramMatchId = urlParams.get('match_id');
+    const paramPlayerId = urlParams.get('player_id');
+    const paramAwardName = urlParams.get('award_name');
+
+    if (paramMatchId && currentType === 'award_poster') {
+        const matchSelect = document.getElementById('awardMatchSelect');
+        if (matchSelect) {
+            // Select the match
+            for (let i = 0; i < matchSelect.options.length; i++) {
+                if (matchSelect.options[i].value === paramMatchId) {
+                    matchSelect.selectedIndex = i;
+                    break;
+                }
+            }
+            // Load awards, then auto-select player after data loads
+            const origFn = window.loadMatchAwards;
+            loadMatchAwards(paramMatchId);
+
+            if (paramPlayerId) {
+                // Wait for AJAX to complete, then select the player
+                const checkInterval = setInterval(() => {
+                    const playerSelect = document.getElementById('awardPlayerSelect');
+                    if (playerSelect && playerSelect.options.length > 1) {
+                        clearInterval(checkInterval);
+                        const targetValue = 'player_' + paramPlayerId;
+                        for (let i = 0; i < playerSelect.options.length; i++) {
+                            if (playerSelect.options[i].value === targetValue) {
+                                playerSelect.selectedIndex = i;
+                                playerSelect.dispatchEvent(new Event('change'));
+                                break;
+                            }
+                        }
+                        // Set award name override
+                        if (paramAwardName) {
+                            const awardInput = document.getElementById('awardNameOverride');
+                            if (awardInput) awardInput.value = paramAwardName;
+                        }
+                    }
+                }, 200);
+                // Safety: clear interval after 5s
+                setTimeout(() => clearInterval(checkInterval), 5000);
+            } else if (paramAwardName) {
+                // No player but award name provided
+                setTimeout(() => {
+                    const awardInput = document.getElementById('awardNameOverride');
+                    if (awardInput) awardInput.value = paramAwardName;
+                }, 1000);
+            }
+        }
+    } else if (paramMatchId && ['match_poster', 'match_summary'].includes(currentType)) {
+        const matchSelect = document.getElementById('matchSelect');
+        if (matchSelect) {
+            for (let i = 0; i < matchSelect.options.length; i++) {
+                if (matchSelect.options[i].value === paramMatchId) {
+                    matchSelect.selectedIndex = i;
+                    matchSelect.dispatchEvent(new Event('change'));
+                    break;
+                }
+            }
+        }
+    }
 }, 500);
 </script>
 @endpush
