@@ -491,8 +491,8 @@
                                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Award</label>
                                     <select name="tournament_award_id" required class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-yellow-500 focus:border-yellow-500">
                                         <option value="">Select Award</option>
-                                        @foreach($tournamentAwards as $award)
-                                            <option value="{{ $award->id }}">{{ $award->icon ?? '' }} {{ $award->name }}</option>
+                                        @foreach($tournamentAwards as $tAward)
+                                            <option value="{{ $tAward->id }}">{{ $tAward->icon ?? '' }} {{ $tAward->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -533,27 +533,163 @@
                                 </button>
                             </div>
                         </form>
+                    @endif
+                </div>
 
-                        <!-- Generate Award Poster Link -->
-                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <div class="flex flex-wrap gap-2">
-                                <a href="{{ route('admin.tournaments.templates.generate', $tournament) }}?type=award_poster&match_id={{ $match->id }}"
-                                   class="inline-flex items-center px-4 py-2 text-sm bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-medium rounded-lg transition shadow">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                    </svg>
-                                    Generate Award Poster
-                                </a>
-                                <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
-                                   class="inline-flex items-center px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg transition">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
-                                    </svg>
-                                    Manage Templates
-                                </a>
+                <!-- Inline Award Poster Generator -->
+                <div class="mt-6 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                    <h4 class="font-semibold mb-4 text-purple-700 dark:text-purple-300 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Generate Award Poster
+                    </h4>
+
+                    {{-- Player Selection --}}
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Award Name</label>
+                                <input type="text" id="apAwardName" placeholder="e.g. Man of the Match" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Player</label>
+                                <select id="apPlayerSelect" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="">Select Player</option>
+                                    @if($teamAPlayers->count() > 0)
+                                        <optgroup label="{{ $match->teamA?->name ?? 'Team A' }}">
+                                            @foreach($teamAPlayers as $player)
+                                                <option value="{{ $player->id }}"
+                                                    data-name="{{ $player->jersey_name ?: $player->name }}"
+                                                    data-image="{{ $player->image_path ?? '' }}"
+                                                    data-team="{{ $match->teamA?->name ?? '' }}"
+                                                    data-team-logo="{{ $match->teamA?->team_logo ?? '' }}">
+                                                    {{ $player->name }}
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                    @if($teamBPlayers->count() > 0)
+                                        <optgroup label="{{ $match->teamB?->name ?? 'Team B' }}">
+                                            @foreach($teamBPlayers as $player)
+                                                <option value="{{ $player->id }}"
+                                                    data-name="{{ $player->jersey_name ?: $player->name }}"
+                                                    data-image="{{ $player->image_path ?? '' }}"
+                                                    data-team="{{ $match->teamB?->name ?? '' }}"
+                                                    data-team-logo="{{ $match->teamB?->team_logo ?? '' }}">
+                                                    {{ $player->name }}
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                </select>
                             </div>
                         </div>
-                    @endif
+
+                        {{-- Player Image --}}
+                        <div id="apPlayerImageSection" class="hidden">
+                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Player Image</label>
+                            <div class="flex items-center gap-3">
+                                <div id="apPlayerImagePreview" class="hidden">
+                                    <img id="apPlayerImageThumb" src="" alt="Player" class="w-12 h-12 rounded-full object-cover border-2 border-purple-300">
+                                </div>
+                                <input type="file" id="apPlayerImageUpload" accept="image/*" class="flex-1 text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100 dark:file:bg-purple-900/30 dark:file:text-purple-300">
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">Upload to override DB image. BG auto-removed.</p>
+                        </div>
+
+                        {{-- Score Summary (auto-filled from match result) --}}
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Score Summary</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" id="apTeamAScore" placeholder="{{ $match->teamA?->name ?? 'Team A' }} Score"
+                                       value="{{ $match->result ? $match->result->team_a_score_display : '' }}"
+                                       class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                                <input type="text" id="apTeamBScore" placeholder="{{ $match->teamB?->name ?? 'Team B' }} Score"
+                                       value="{{ $match->result ? $match->result->team_b_score_display : '' }}"
+                                       class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Result Summary</label>
+                            <input type="text" id="apResultSummary" placeholder="e.g. Team A won by 5 runs"
+                                   value="{{ $match->result?->result_summary ?? '' }}"
+                                   class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                        </div>
+
+                        {{-- Batting & Bowling Performance --}}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Batting Figures</label>
+                                <div class="grid grid-cols-4 gap-1">
+                                    <input type="number" id="apBatRuns" placeholder="R" title="Runs" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                    <input type="number" id="apBatBalls" placeholder="B" title="Balls" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                    <input type="number" id="apBatFours" placeholder="4s" title="Fours" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                    <input type="number" id="apBatSixes" placeholder="6s" title="Sixes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Bowling Figures</label>
+                                <div class="grid grid-cols-4 gap-1">
+                                    <input type="text" id="apBowlOvers" placeholder="Ov" title="Overs" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                    <input type="number" id="apBowlMaidens" placeholder="M" title="Maidens" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                    <input type="number" id="apBowlRuns" placeholder="R" title="Runs" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                    <input type="number" id="apBowlWickets" placeholder="W" title="Wickets" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Template Selection --}}
+                        <div>
+                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Template</label>
+                            <div id="apTemplatesList" class="grid grid-cols-3 gap-2">
+                                <p class="col-span-3 text-xs text-gray-400">Loading templates...</p>
+                            </div>
+                        </div>
+
+                        {{-- Preview & Actions --}}
+                        <div class="flex gap-2">
+                            <button type="button" onclick="generateAwardPoster()" id="apPreviewBtn"
+                                    class="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition flex items-center justify-center text-sm">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                                Generate Preview
+                            </button>
+                            <button type="button" onclick="downloadAwardPoster()" id="apDownloadBtn" disabled
+                                    class="px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition flex items-center justify-center text-sm">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Download
+                            </button>
+                        </div>
+
+                        {{-- Preview Image --}}
+                        <div id="apPreviewContainer" class="hidden">
+                            <div id="apPreviewLoading" class="hidden text-center py-6">
+                                <svg class="animate-spin h-8 w-8 mx-auto text-purple-600" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p class="text-xs text-gray-500 mt-2">Generating poster...</p>
+                            </div>
+                            <img id="apPreviewImage" src="" alt="Award Poster Preview" class="hidden w-full rounded-xl border border-purple-200 dark:border-purple-700 shadow-lg">
+                        </div>
+
+                        {{-- Edit Template Link --}}
+                        <div class="text-center">
+                            <a href="{{ route('admin.tournaments.templates.index', $tournament) }}?type=award_poster"
+                               class="inline-flex items-center text-xs text-purple-500 hover:text-purple-700 dark:text-purple-400">
+                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                                Edit Award Templates
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -983,6 +1119,184 @@ function showToast(message, type = 'info') {
     `;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
+}
+
+// ===== Inline Award Poster Generator =====
+let apSelectedTemplateId = null;
+let apGeneratedImageBase64 = null;
+
+// Load award_poster templates on page load
+(function loadAwardTemplates() {
+    fetch(`{{ url('admin/tournaments/' . $tournament->id . '/templates') }}?type=award_poster&ajax=1`)
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById('apTemplatesList');
+            if (data.templates && data.templates.length > 0) {
+                container.innerHTML = data.templates.map((t, i) => `
+                    <label class="cursor-pointer">
+                        <input type="radio" name="ap_template_id" value="${t.id}" class="hidden peer" ${i === 0 ? 'checked' : ''}>
+                        <div class="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-1.5 transition peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 hover:border-purple-300">
+                            ${t.background_image_url ?
+                                `<img src="${t.background_image_url}" alt="${t.name}" class="w-full h-16 object-cover rounded mb-1">` :
+                                `<div class="w-full h-16 bg-gray-100 dark:bg-gray-700 rounded mb-1 flex items-center justify-center"><span class="text-gray-400 text-[10px]">No preview</span></div>`
+                            }
+                            <p class="text-[10px] font-medium text-gray-600 dark:text-gray-400 truncate text-center">${t.name}</p>
+                        </div>
+                    </label>
+                `).join('');
+                apSelectedTemplateId = data.templates[0].id;
+
+                // Track template selection
+                container.addEventListener('change', function(e) {
+                    if (e.target.name === 'ap_template_id') {
+                        apSelectedTemplateId = e.target.value;
+                    }
+                });
+            } else {
+                container.innerHTML = `<p class="col-span-3 text-xs text-gray-400">No award poster templates found. <a href="{{ route('admin.tournaments.templates.create', $tournament) }}?type=award_poster" class="text-purple-500 hover:underline">Create one</a></p>`;
+            }
+        })
+        .catch(() => {
+            document.getElementById('apTemplatesList').innerHTML = '<p class="col-span-3 text-xs text-red-400">Failed to load templates.</p>';
+        });
+})();
+
+// Show player image when player is selected
+document.getElementById('apPlayerSelect')?.addEventListener('change', function() {
+    const section = document.getElementById('apPlayerImageSection');
+    const preview = document.getElementById('apPlayerImagePreview');
+    const thumb = document.getElementById('apPlayerImageThumb');
+
+    if (this.value) {
+        section.classList.remove('hidden');
+        const opt = this.options[this.selectedIndex];
+        const imagePath = opt.dataset.image;
+        if (imagePath) {
+            thumb.src = '/storage/' + imagePath;
+            preview.classList.remove('hidden');
+        } else {
+            preview.classList.add('hidden');
+        }
+    } else {
+        section.classList.add('hidden');
+    }
+});
+
+// Generate award poster preview
+async function generateAwardPoster() {
+    const templateInput = document.querySelector('input[name="ap_template_id"]:checked');
+    if (!templateInput) {
+        showToast('Please select a template.', 'error');
+        return;
+    }
+
+    const playerSelect = document.getElementById('apPlayerSelect');
+    const playerOpt = playerSelect.options[playerSelect.selectedIndex];
+
+    // Build form data
+    const formData = new FormData();
+    formData.append('template_id', templateInput.value);
+    formData.append('type', 'award_poster');
+    formData.append('match_id', '{{ $match->id }}');
+
+    // Award name
+    const awardName = document.getElementById('apAwardName')?.value?.trim();
+    if (awardName) formData.append('award_name', awardName);
+
+    // Player data
+    if (playerOpt && playerOpt.value) {
+        formData.append('player_name', playerOpt.dataset.name || '');
+        if (playerOpt.dataset.image) formData.append('player_image', playerOpt.dataset.image);
+        if (playerOpt.dataset.team) formData.append('team_name', playerOpt.dataset.team);
+        if (playerOpt.dataset.teamLogo) formData.append('team_logo', playerOpt.dataset.teamLogo);
+    }
+
+    // Scores
+    const teamAScore = document.getElementById('apTeamAScore')?.value?.trim();
+    const teamBScore = document.getElementById('apTeamBScore')?.value?.trim();
+    const resultSummary = document.getElementById('apResultSummary')?.value?.trim();
+    if (teamAScore) formData.append('team_a_score', teamAScore);
+    if (teamBScore) formData.append('team_b_score', teamBScore);
+    if (resultSummary) formData.append('result_summary', resultSummary);
+
+    // Batting figures
+    const batRuns = document.getElementById('apBatRuns')?.value?.trim();
+    const batBalls = document.getElementById('apBatBalls')?.value?.trim();
+    const batFours = document.getElementById('apBatFours')?.value?.trim();
+    const batSixes = document.getElementById('apBatSixes')?.value?.trim();
+    if (batRuns) {
+        let bf = batRuns;
+        if (batBalls) bf += ` (${batBalls})`;
+        if (batFours) bf += ` ${batFours}x4`;
+        if (batSixes) bf += ` ${batSixes}x6`;
+        formData.append('batting_figures', bf);
+    }
+
+    // Bowling figures
+    const bowlOvers = document.getElementById('apBowlOvers')?.value?.trim();
+    const bowlMaidens = document.getElementById('apBowlMaidens')?.value?.trim();
+    const bowlRuns = document.getElementById('apBowlRuns')?.value?.trim();
+    const bowlWickets = document.getElementById('apBowlWickets')?.value?.trim();
+    if (bowlOvers) {
+        formData.append('bowling_figures', `${bowlOvers} - ${bowlMaidens || '0'} - ${bowlRuns || '0'} - ${bowlWickets || '0'}`);
+    }
+
+    // Custom player image upload
+    const customImage = document.getElementById('apPlayerImageUpload')?.files?.[0];
+    if (customImage) {
+        formData.append('player_image_file', customImage);
+    }
+
+    // Show loading
+    const container = document.getElementById('apPreviewContainer');
+    const loading = document.getElementById('apPreviewLoading');
+    const previewImg = document.getElementById('apPreviewImage');
+    const btn = document.getElementById('apPreviewBtn');
+    container.classList.remove('hidden');
+    loading.classList.remove('hidden');
+    previewImg.classList.add('hidden');
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...';
+
+    try {
+        const response = await fetch('{{ route("admin.tournaments.templates.generate-preview", $tournament) }}', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success && result.image) {
+            previewImg.src = result.image;
+            previewImg.classList.remove('hidden');
+            loading.classList.add('hidden');
+            apGeneratedImageBase64 = result.image;
+            document.getElementById('apDownloadBtn').disabled = false;
+            showToast('Award poster generated!', 'success');
+        } else {
+            throw new Error(result.error || 'Generation failed');
+        }
+    } catch (err) {
+        loading.classList.add('hidden');
+        container.classList.add('hidden');
+        showToast('Failed: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Generate Preview';
+    }
+}
+
+// Download generated award poster
+function downloadAwardPoster() {
+    if (!apGeneratedImageBase64) return;
+
+    const link = document.createElement('a');
+    link.href = apGeneratedImageBase64;
+    link.download = `award-poster-{{ $match->id }}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Award poster downloaded!', 'success');
 }
 </script>
 @endpush
