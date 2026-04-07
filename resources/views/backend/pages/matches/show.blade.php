@@ -237,6 +237,8 @@
                         <span class="text-xs text-green-400">BATTING</span>
                     @elseif(!$leftHasBatted)
                         <span class="text-xs text-gray-500 italic">Yet to bat</span>
+                    @else
+                        <span class="text-xs text-yellow-400/70">1st Innings</span>
                     @endif
                     <div class="text-3xl font-black mt-2" id="{{ $leftId }}Score">
                         @if($leftHasBatted || ($leftStats['runs'] ?? 0) > 0)
@@ -274,6 +276,8 @@
                         <span class="text-xs text-green-400">BATTING</span>
                     @elseif(!$rightHasBatted)
                         <span class="text-xs text-gray-500 italic">Yet to bat</span>
+                    @else
+                        <span class="text-xs text-blue-400/70">2nd Innings</span>
                     @endif
                     <div class="text-3xl font-black mt-2" id="{{ $rightId }}Score">
                         @if($rightHasBatted || ($rightStats['runs'] ?? 0) > 0)
@@ -290,9 +294,18 @@
                 </div>
             </div>
 
+            {{-- Result Summary --}}
+            @if($match->result?->result_summary && $match->status === 'completed')
+                <div class="mt-4 pt-3 border-t border-white/10 text-center">
+                    <p class="text-yellow-400 font-semibold text-sm">
+                        {{ $match->result->result_summary }}
+                    </p>
+                </div>
+            @endif
+
             {{-- Score Source Badge --}}
             @if(isset($scoreSource) && $scoreSource !== 'live')
-                <div class="mt-4 text-center">
+                <div class="mt-3 text-center">
                     @if($scoreSource === 'cricheroes')
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-teal-500/20 text-teal-300 border border-teal-500/30">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
