@@ -148,7 +148,7 @@
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Scorecard Text</label>
                 <textarea id="cricheroes_paste" rows="5"
                           class="form-control text-sm"
-                          placeholder="Paste CricHeroes share text / scorecard here, e.g.:&#10;&#10;Thunder XI 156/7 (20.0 Ov)&#10;Storm CC 154/9 (20.0 Ov)&#10;Thunder XI won the toss and opted to bat&#10;Thunder XI won by 2 runs"></textarea>
+                          placeholder="Paste text from CricHeroes scorecard page, e.g.:&#10;&#10;ASIAN ROYALS CC 156/8 (20.0 Ov)&#10;EVEXIA ALL STARS 139/9 (20.0 Ov)&#10;Toss: Evexia All Stars opt to field&#10;Asian ROYALS CC won by 17 runs"></textarea>
                 <div class="mt-2 flex items-center gap-3">
                     <button type="button" id="cricheroes-parse-btn"
                             class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition flex items-center">
@@ -798,50 +798,105 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function parseScorecardText(text) {
-        const scorePattern = /(.+?)\s+(\d+)\/(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
-        const scores = [];
-        let m;
+        // Normalize: collapse multiple spaces/tabs, keep newlines
+        const normalized = text.replace(/[^\S\n]+/g, ' ').trim();
+        const lines = normalized.split(/\n/).map(l => l.trim()).filter(l => l);
 
-        while ((m = scorePattern.exec(text)) !== null) {
-            scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: parseInt(m[3]), overs: parseFloat(m[4]) });
+        const scores = [];
+
+        // Strategy 1: Score on same line as team name
+        // Handles: "ASIAN ROYALS CC 156/8 (20.0 Ov)" or "Team Name 150/6 (20.0)"
+        const inlinePattern = /^(.+?)\s+(\d{1,4})\/(\d{1,2})\s*\(?([\d.]+)\s*(?:Ov(?:ers?)?|ov(?:ers?)?)?\)?$/i;
+
+        // Strategy 2: Score line alone like "156/8 (20.0 Ov)" preceded by a team name line
+        const scoreOnlyPattern = /^(\d{1,4})\/(\d{1,2})\s*\(?([\d.]+)\s*(?:Ov(?:ers?)?|ov(?:ers?)?)?\)?$/i;
+        const teamNamePattern = /^[A-Za-z][A-Za-z0-9\s&\-'\.]+$/;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // Try inline match first
+            const inlineM = line.match(inlinePattern);
+            if (inlineM) {
+                const name = inlineM[1].trim();
+                // Skip if it looks like a toss/result line
+                if (/toss|won by|opt to|elected/i.test(name)) continue;
+                scores.push({ name, runs: parseInt(inlineM[2]), wickets: parseInt(inlineM[3]), overs: parseFloat(inlineM[4]) });
+                continue;
+            }
+
+            // Try score-only line with team name on previous line
+            const scoreM = line.match(scoreOnlyPattern);
+            if (scoreM && i > 0 && teamNamePattern.test(lines[i-1]) && !/toss|won|opt/i.test(lines[i-1])) {
+                scores.push({ name: lines[i-1].trim(), runs: parseInt(scoreM[1]), wickets: parseInt(scoreM[2]), overs: parseFloat(scoreM[3]) });
+                continue;
+            }
         }
 
+        // Strategy 3: Find all score patterns anywhere in full text (fallback)
         if (scores.length < 2) {
-            const altPattern = /(.+?)\s+(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
-            while ((m = altPattern.exec(text)) !== null) {
-                scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: 10, overs: parseFloat(m[3]) });
+            const globalPattern = /(\d{1,4})\/(\d{1,2})\s*\(?([\d.]+)\s*(?:Ov(?:ers?)?|ov(?:ers?)?)?\)?/g;
+            const foundScores = [];
+            let gm;
+            while ((gm = globalPattern.exec(normalized)) !== null) {
+                foundScores.push({ runs: parseInt(gm[1]), wickets: parseInt(gm[2]), overs: parseFloat(gm[3]), pos: gm.index });
+            }
+
+            // For each found score, look backwards in the text for the team name
+            for (const fs of foundScores) {
+                const before = normalized.substring(0, fs.pos).trim();
+                // Get the last "word group" before the score (the team name)
+                const nameMatch = before.match(/([A-Za-z][A-Za-z0-9\s&\-'\.]*?)\s*$/);
+                if (nameMatch) {
+                    let name = nameMatch[1].trim();
+                    // Clean up: remove leading junk from previous lines
+                    const lastNewline = name.lastIndexOf('\n');
+                    if (lastNewline >= 0) name = name.substring(lastNewline + 1).trim();
+                    if (name && !/toss|won by|opt to|elected/i.test(name)) {
+                        scores.push({ name, ...fs });
+                    }
+                }
             }
         }
 
         if (scores.length < 2) {
-            showModalError('Could not parse scorecard. Expected format: "Team Name 150/6 (20.0)"');
+            showModalError('Could not parse scorecard. Paste the text including team names and scores like "Team 156/8 (20.0 Ov)"');
             return;
         }
 
-        const mapping = mapTeams(scores, teamAName, teamBName);
+        // Take only first 2 scores (first innings, second innings)
+        const teamScores = scores.slice(0, 2);
+
+        const mapping = mapTeams(teamScores, teamAName, teamBName);
         const changes = [];
         const parsed = { teamA: null, teamB: null, toss: null, result: null };
 
         if (mapping.a !== null) {
-            const s = scores[mapping.a];
+            const s = teamScores[mapping.a];
             parsed.teamA = s;
             changes.push({ type: 'score', label: teamAName, value: `${s.runs}/${s.wickets} (${s.overs} ov)` });
         }
         if (mapping.b !== null) {
-            const s = scores[mapping.b];
+            const s = teamScores[mapping.b];
             parsed.teamB = s;
             changes.push({ type: 'score', label: teamBName, value: `${s.runs}/${s.wickets} (${s.overs} ov)` });
         }
 
-        const tossM = text.match(/(.+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i);
+        // Parse toss - multiple CricHeroes formats:
+        // "Toss: Team opt to field/bat" or "Toss: Team elected to bat"
+        // "Team won the toss and opted to bat/bowl/field"
+        let tossM = normalized.match(/Toss\s*:\s*(.+?)\s+(?:opt|elected|chose)\s+to\s+(bat|bowl|field)/i);
+        if (!tossM) tossM = normalized.match(/(.+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i);
         if (tossM) {
             const tossTeam = tossM[1].trim();
             const tossChoice = tossM[2].toLowerCase();
-            parsed.toss = { team: tossTeam, decision: tossChoice === 'field' ? 'bowl' : tossChoice };
+            const decision = (tossChoice === 'field' || tossChoice === 'bowl') ? 'bowl' : 'bat';
+            parsed.toss = { team: tossTeam, decision };
             changes.push({ type: 'toss', label: 'Toss', value: `${tossTeam} won, elected to ${tossChoice}` });
         }
 
-        const resultM = text.match(/(.+?)\s+won\s+by\s+(\d+)\s+(runs?|wickets?)/i);
+        // Parse result
+        const resultM = normalized.match(/(.+?)\s+won\s+by\s+(\d+)\s+(runs?|wickets?)/i);
         if (resultM) {
             parsed.result = { winner: resultM[1].trim(), margin: parseInt(resultM[2]), type: resultM[3].toLowerCase().startsWith('run') ? 'runs' : 'wickets' };
             changes.push({ type: 'result', label: 'Result', value: `${resultM[1].trim()} won by ${resultM[2]} ${resultM[3]}` });

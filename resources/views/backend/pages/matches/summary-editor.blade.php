@@ -73,7 +73,7 @@
         <div class="p-4 space-y-3">
             <textarea id="ch-paste-text" rows="4"
                       class="form-control text-sm w-full"
-                      placeholder="Paste CricHeroes scorecard text here, e.g.:&#10;&#10;Thunder XI 156/7 (20.0 Ov)&#10;Storm CC 154/9 (20.0 Ov)&#10;Thunder XI won the toss and opted to bat&#10;Thunder XI won by 2 runs"></textarea>
+                      placeholder="Paste text from CricHeroes scorecard page, e.g.:&#10;&#10;ASIAN ROYALS CC 156/8 (20.0 Ov)&#10;EVEXIA ALL STARS 139/9 (20.0 Ov)&#10;Toss: Evexia All Stars opt to field&#10;Asian ROYALS CC won by 17 runs"></textarea>
             <div class="flex items-center gap-3">
                 <button type="button" id="ch-import-btn"
                         class="inline-flex items-center px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition text-sm">
@@ -1383,36 +1383,70 @@ function downloadAwardPoster() {
 
         statusEl.innerHTML = '<span class="text-blue-500">Parsing...</span>';
 
-        const scorePattern = /(.+?)\s+(\d+)\/(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
+        // Normalize whitespace
+        const normalized = text.replace(/[^\S\n]+/g, ' ').trim();
+        const lines = normalized.split(/\n/).map(l => l.trim()).filter(l => l);
+
         const scores = [];
-        let m;
-        while ((m = scorePattern.exec(text)) !== null) {
-            scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: parseInt(m[3]), overs: parseFloat(m[4]) });
+
+        // Strategy 1: Score on same line as team name
+        const inlinePattern = /^(.+?)\s+(\d{1,4})\/(\d{1,2})\s*\(?([\d.]+)\s*(?:Ov(?:ers?)?|ov(?:ers?)?)?\)?$/i;
+        // Strategy 2: Score line alone preceded by team name line
+        const scoreOnlyPattern = /^(\d{1,4})\/(\d{1,2})\s*\(?([\d.]+)\s*(?:Ov(?:ers?)?|ov(?:ers?)?)?\)?$/i;
+        const teamNamePattern = /^[A-Za-z][A-Za-z0-9\s&\-'\.]+$/;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const inlineM = line.match(inlinePattern);
+            if (inlineM) {
+                const name = inlineM[1].trim();
+                if (/toss|won by|opt to|elected/i.test(name)) continue;
+                scores.push({ name, runs: parseInt(inlineM[2]), wickets: parseInt(inlineM[3]), overs: parseFloat(inlineM[4]) });
+                continue;
+            }
+            const scoreM = line.match(scoreOnlyPattern);
+            if (scoreM && i > 0 && teamNamePattern.test(lines[i-1]) && !/toss|won|opt/i.test(lines[i-1])) {
+                scores.push({ name: lines[i-1].trim(), runs: parseInt(scoreM[1]), wickets: parseInt(scoreM[2]), overs: parseFloat(scoreM[3]) });
+                continue;
+            }
         }
 
+        // Strategy 3: Find all score patterns anywhere in text
         if (scores.length < 2) {
-            const altPattern = /(.+?)\s+(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
-            while ((m = altPattern.exec(text)) !== null) {
-                scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: 10, overs: parseFloat(m[3]) });
+            const globalPattern = /(\d{1,4})\/(\d{1,2})\s*\(?([\d.]+)\s*(?:Ov(?:ers?)?|ov(?:ers?)?)?\)?/g;
+            let gm;
+            while ((gm = globalPattern.exec(normalized)) !== null) {
+                const before = normalized.substring(0, gm.index).trim();
+                const nameMatch = before.match(/([A-Za-z][A-Za-z0-9\s&\-'\.]*?)\s*$/);
+                if (nameMatch) {
+                    let name = nameMatch[1].trim();
+                    const nl = name.lastIndexOf('\n');
+                    if (nl >= 0) name = name.substring(nl + 1).trim();
+                    if (name && !/toss|won by|opt to|elected/i.test(name)) {
+                        scores.push({ name, runs: parseInt(gm[1]), wickets: parseInt(gm[2]), overs: parseFloat(gm[3]) });
+                    }
+                }
             }
         }
 
         if (scores.length < 2) {
-            statusEl.innerHTML = '<span class="text-red-500">Could not parse. Expected: "Team Name 150/6 (20.0)"</span>';
+            statusEl.innerHTML = '<span class="text-red-500">Could not parse. Paste text with scores like "Team 156/8 (20.0 Ov)"</span>';
             return;
         }
 
+        const teamScores = scores.slice(0, 2);
+
         // Map teams
         let aIdx = null, bIdx = null;
-        for (let i = 0; i < scores.length; i++) {
-            if (fuzzy(scores[i].name, teamAName)) aIdx = i;
-            if (fuzzy(scores[i].name, teamBName)) bIdx = i;
+        for (let i = 0; i < teamScores.length; i++) {
+            if (fuzzy(teamScores[i].name, teamAName)) aIdx = i;
+            if (fuzzy(teamScores[i].name, teamBName)) bIdx = i;
         }
         if (aIdx === null && bIdx === null) { aIdx = 0; bIdx = 1; }
         else if (aIdx === null) aIdx = bIdx === 0 ? 1 : 0;
         else if (bIdx === null) bIdx = aIdx === 0 ? 1 : 0;
 
-        const teamA = scores[aIdx], teamB = scores[bIdx];
+        const teamA = teamScores[aIdx], teamB = teamScores[bIdx];
 
         // Build pending data
         pendingData = {
@@ -1420,11 +1454,13 @@ function downloadAwardPoster() {
             team_b_score: teamB.runs, team_b_wickets: teamB.wickets, team_b_overs: teamB.overs,
         };
 
-        // Toss
-        const tossM = text.match(/(.+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i);
+        // Toss - CricHeroes formats: "Toss: Team opt to field" or "Team won the toss and opted to bat"
+        let tossM = normalized.match(/Toss\s*:\s*(.+?)\s+(?:opt|elected|chose)\s+to\s+(bat|bowl|field)/i);
+        if (!tossM) tossM = normalized.match(/(.+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i);
         if (tossM) {
+            const decision = (tossM[2].toLowerCase() === 'field' || tossM[2].toLowerCase() === 'bowl') ? 'bowl' : 'bat';
             pendingData.toss_won_by = fuzzy(tossM[1].trim(), teamAName) ? teamAId : teamBId;
-            pendingData.toss_decision = tossM[2].toLowerCase() === 'field' ? 'bowl' : tossM[2].toLowerCase();
+            pendingData.toss_decision = decision;
         }
 
         // Result
