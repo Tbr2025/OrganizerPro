@@ -177,6 +177,10 @@
                 $hasBallData = ($teamAStats['runs'] ?? 0) > 0 || ($teamBStats['runs'] ?? 0) > 0;
                 $scoreSource = 'live'; // default: ball-by-ball
                 if (!$hasBallData && $match->result) {
+                    // Use result's batting order if available
+                    if ($match->result->team_a_batting_first !== null) {
+                        $teamABatsFirst = (bool) $match->result->team_a_batting_first;
+                    }
                     $teamAStats = [
                         'runs' => $match->result->team_a_score ?? 0,
                         'wickets' => $match->result->team_a_wickets ?? 0,
@@ -187,56 +191,63 @@
                         'wickets' => $match->result->team_b_wickets ?? 0,
                         'overs' => $match->result->team_b_overs ?? '0.0',
                     ];
-                    $teamAHasStartedBatting = ($teamAStats['runs'] > 0 || $teamAStats['wickets'] > 0);
-                    $teamBHasStartedBatting = ($teamBStats['runs'] > 0 || $teamBStats['wickets'] > 0);
                     $scoreSource = $match->result->scorecard_data ? 'cricheroes' : 'manual';
                 }
 
-                // Determine which team is currently batting
+                // Build display order: first batting team on LEFT, second on RIGHT
+                $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+                $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+                $leftStats = $teamABatsFirst ? $teamAStats : $teamBStats;
+                $rightStats = $teamABatsFirst ? $teamBStats : $teamAStats;
+                $leftId = $teamABatsFirst ? 'teamA' : 'teamB';
+                $rightId = $teamABatsFirst ? 'teamB' : 'teamA';
+
+                // Determine which team is currently batting (for live scoring highlight)
                 $currentBattingTeamId = ($currentInnings ?? 1) == 1
                     ? $firstBattingTeamId
                     : (($firstBattingTeamId == $match->team_a_id) ? $match->team_b_id : $match->team_a_id);
 
-                $isTeamABatting = $currentBattingTeamId == $match->team_a_id;
-                $isTeamBBatting = $currentBattingTeamId == $match->team_b_id;
+                $isLeftBatting = $currentBattingTeamId == $leftTeam?->id;
+                $isRightBatting = $currentBattingTeamId == $rightTeam?->id;
 
-                // Check if team has batted yet (for "Yet to bat" display)
-                $teamAHasStartedBatting = $teamABatsFirst
-                    ? (($currentInnings ?? 1) >= 1)
-                    : (($currentInnings ?? 1) >= 2);
-                $teamBHasStartedBatting = !$teamABatsFirst
-                    ? (($currentInnings ?? 1) >= 1)
-                    : (($currentInnings ?? 1) >= 2);
+                // Check if team has batted yet
+                if ($hasBallData) {
+                    $leftHasBatted = ($currentInnings ?? 1) >= 1;
+                    $rightHasBatted = ($currentInnings ?? 1) >= 2;
+                } else {
+                    $leftHasBatted = ($leftStats['runs'] ?? 0) > 0 || ($leftStats['wickets'] ?? 0) > 0;
+                    $rightHasBatted = ($rightStats['runs'] ?? 0) > 0 || ($rightStats['wickets'] ?? 0) > 0;
+                }
             @endphp
 
-            <!-- Teams & Score -->
+            <!-- Teams & Score (First Batting on Left) -->
             <div class="flex items-center justify-between mt-6">
-                <!-- Team A -->
-                <div class="flex-1 text-center {{ $isTeamABatting ? 'ring-2 ring-green-400 rounded-xl p-2' : '' }}">
-                    @if($match->teamA?->team_logo)
-                        <img src="{{ Storage::url($match->teamA->team_logo) }}" alt=""
-                             class="w-16 h-16 mx-auto rounded-full object-cover border-2 {{ $isTeamABatting ? 'border-green-400' : 'border-white/30' }} mb-2">
+                <!-- First Batting Team -->
+                <div class="flex-1 text-center {{ $isLeftBatting ? 'ring-2 ring-green-400 rounded-xl p-2' : '' }}">
+                    @if($leftTeam?->team_logo)
+                        <img src="{{ Storage::url($leftTeam->team_logo) }}" alt=""
+                             class="w-16 h-16 mx-auto rounded-full object-cover border-2 {{ $isLeftBatting ? 'border-green-400' : 'border-white/30' }} mb-2">
                     @else
                         <div class="w-16 h-16 mx-auto rounded-full bg-gray-600 flex items-center justify-center text-xl font-bold mb-2">
-                            {{ substr($match->teamA?->name ?? 'A', 0, 2) }}
+                            {{ substr($leftTeam?->name ?? 'A', 0, 2) }}
                         </div>
                     @endif
-                    <h3 class="font-bold">{{ $match->teamA?->short_name ?? $match->teamA?->name ?? 'Team A' }}</h3>
-                    @if($isTeamABatting)
+                    <h3 class="font-bold">{{ $leftTeam?->short_name ?? $leftTeam?->name ?? 'Team A' }}</h3>
+                    @if($isLeftBatting)
                         <span class="text-xs text-green-400">BATTING</span>
-                    @elseif(!$teamAHasStartedBatting)
+                    @elseif(!$leftHasBatted)
                         <span class="text-xs text-gray-500 italic">Yet to bat</span>
                     @endif
-                    <div class="text-3xl font-black mt-2" id="teamAScore">
-                        @if($teamAHasStartedBatting || ($teamAStats['runs'] ?? 0) > 0)
-                            {{ $teamAStats['runs'] ?? 0 }}/{{ $teamAStats['wickets'] ?? 0 }}
+                    <div class="text-3xl font-black mt-2" id="{{ $leftId }}Score">
+                        @if($leftHasBatted || ($leftStats['runs'] ?? 0) > 0)
+                            {{ $leftStats['runs'] ?? 0 }}/{{ $leftStats['wickets'] ?? 0 }}
                         @else
                             <span class="text-gray-500">-</span>
                         @endif
                     </div>
-                    <div class="text-sm text-gray-400" id="teamAOvers">
-                        @if($teamAHasStartedBatting || ($teamAStats['runs'] ?? 0) > 0)
-                            ({{ $teamAStats['overs'] ?? '0.0' }} ov)
+                    <div class="text-sm text-gray-400" id="{{ $leftId }}Overs">
+                        @if($leftHasBatted || ($leftStats['runs'] ?? 0) > 0)
+                            ({{ $leftStats['overs'] ?? '0.0' }} ov)
                         @endif
                     </div>
                 </div>
@@ -248,32 +259,32 @@
                     </div>
                 </div>
 
-                <!-- Team B -->
-                <div class="flex-1 text-center {{ $isTeamBBatting ? 'ring-2 ring-green-400 rounded-xl p-2' : '' }}">
-                    @if($match->teamB?->team_logo)
-                        <img src="{{ Storage::url($match->teamB->team_logo) }}" alt=""
-                             class="w-16 h-16 mx-auto rounded-full object-cover border-2 {{ $isTeamBBatting ? 'border-green-400' : 'border-white/30' }} mb-2">
+                <!-- Second Batting Team -->
+                <div class="flex-1 text-center {{ $isRightBatting ? 'ring-2 ring-green-400 rounded-xl p-2' : '' }}">
+                    @if($rightTeam?->team_logo)
+                        <img src="{{ Storage::url($rightTeam->team_logo) }}" alt=""
+                             class="w-16 h-16 mx-auto rounded-full object-cover border-2 {{ $isRightBatting ? 'border-green-400' : 'border-white/30' }} mb-2">
                     @else
                         <div class="w-16 h-16 mx-auto rounded-full bg-gray-600 flex items-center justify-center text-xl font-bold mb-2">
-                            {{ substr($match->teamB?->name ?? 'B', 0, 2) }}
+                            {{ substr($rightTeam?->name ?? 'B', 0, 2) }}
                         </div>
                     @endif
-                    <h3 class="font-bold">{{ $match->teamB?->short_name ?? $match->teamB?->name ?? 'Team B' }}</h3>
-                    @if($isTeamBBatting)
+                    <h3 class="font-bold">{{ $rightTeam?->short_name ?? $rightTeam?->name ?? 'Team B' }}</h3>
+                    @if($isRightBatting)
                         <span class="text-xs text-green-400">BATTING</span>
-                    @elseif(!$teamBHasStartedBatting)
+                    @elseif(!$rightHasBatted)
                         <span class="text-xs text-gray-500 italic">Yet to bat</span>
                     @endif
-                    <div class="text-3xl font-black mt-2" id="teamBScore">
-                        @if($teamBHasStartedBatting || ($teamBStats['runs'] ?? 0) > 0)
-                            {{ $teamBStats['runs'] ?? 0 }}/{{ $teamBStats['wickets'] ?? 0 }}
+                    <div class="text-3xl font-black mt-2" id="{{ $rightId }}Score">
+                        @if($rightHasBatted || ($rightStats['runs'] ?? 0) > 0)
+                            {{ $rightStats['runs'] ?? 0 }}/{{ $rightStats['wickets'] ?? 0 }}
                         @else
                             <span class="text-gray-500">-</span>
                         @endif
                     </div>
-                    <div class="text-sm text-gray-400" id="teamBOvers">
-                        @if($teamBHasStartedBatting || ($teamBStats['runs'] ?? 0) > 0)
-                            ({{ $teamBStats['overs'] ?? '0.0' }} ov)
+                    <div class="text-sm text-gray-400" id="{{ $rightId }}Overs">
+                        @if($rightHasBatted || ($rightStats['runs'] ?? 0) > 0)
+                            ({{ $rightStats['overs'] ?? '0.0' }} ov)
                         @endif
                     </div>
                 </div>
