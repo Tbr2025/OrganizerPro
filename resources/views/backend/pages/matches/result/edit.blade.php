@@ -139,47 +139,47 @@
             </h3>
         </div>
         <div class="p-6 space-y-4">
-            <p class="text-sm text-gray-500 dark:text-gray-400">
-                Paste the scorecard text from CricHeroes to auto-fill scores, toss, and result below.
-            </p>
-
-            <!-- Paste scorecard (primary method) -->
+            <!-- Fetch from URL (primary) -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Scorecard Text</label>
-                <textarea id="cricheroes_paste" rows="5"
-                          class="form-control text-sm"
-                          placeholder="Paste text from CricHeroes scorecard page, e.g.:&#10;&#10;ASIAN ROYALS CC 156/8 (20.0 Ov)&#10;EVEXIA ALL STARS 139/9 (20.0 Ov)&#10;Toss: Evexia All Stars opt to field&#10;Asian ROYALS CC won by 17 runs"></textarea>
-                <div class="mt-2 flex items-center gap-3">
-                    <button type="button" id="cricheroes-parse-btn"
-                            class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition flex items-center">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CricHeroes Match URL</label>
+                <div class="flex gap-2">
+                    <input type="text" id="cricheroes_url"
+                           value="{{ $match->cricheroes_match_url ?? '' }}"
+                           class="form-control flex-1"
+                           placeholder="https://cricheroes.com/scorecard/...">
+                    <button type="button" id="cricheroes-fetch-btn"
+                            class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition flex items-center whitespace-nowrap">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Import Scorecard
+                        Fetch Scorecard
                     </button>
-                    <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <input type="checkbox" id="cricheroes-override" class="rounded border-gray-300" checked>
-                        Override existing values
-                    </label>
                 </div>
             </div>
 
-            <!-- CricHeroes URL (for reference/linking) -->
+            <!-- Paste fallback -->
             <details class="group">
                 <summary class="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
                     <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                     </svg>
-                    Save CricHeroes match link
+                    Or paste scorecard text manually
                 </summary>
-                <div class="mt-3">
-                    <input type="text" id="cricheroes_url"
-                           value="{{ $match->cricheroes_match_url ?? '' }}"
-                           class="form-control text-sm"
-                           placeholder="https://cricheroes.com/scorecard/...">
-                    <p class="text-xs text-gray-400 mt-1">This URL is saved with the match for reference. Auto-fetch is not available due to CricHeroes security restrictions.</p>
+                <div class="mt-3 space-y-2">
+                    <textarea id="cricheroes_paste" rows="4"
+                              class="form-control text-sm"
+                              placeholder="Paste text from CricHeroes scorecard page, e.g.:&#10;ASIAN ROYALS CC 156/8 (20.0 Ov)&#10;EVEXIA ALL STARS 139/9 (20.0 Ov)&#10;Toss: Evexia All Stars opt to field&#10;Asian ROYALS CC won by 17 runs"></textarea>
+                    <button type="button" id="cricheroes-parse-btn"
+                            class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-sm">
+                        Parse Scorecard
+                    </button>
                 </div>
             </details>
+
+            <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <input type="checkbox" id="cricheroes-override" class="rounded border-gray-300" checked>
+                Override existing values
+            </label>
 
             <!-- Status message -->
             <div id="cricheroes-status" class="text-sm"></div>
@@ -797,6 +797,92 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Fetch from CricHeroes URL (primary method)
+    const fetchBtn = document.getElementById('cricheroes-fetch-btn');
+    if (fetchBtn) {
+        fetchBtn.addEventListener('click', function() {
+            const url = document.getElementById('cricheroes_url').value.trim();
+            if (!url) {
+                statusEl.innerHTML = '<span class="text-red-500">Please enter a CricHeroes URL</span>';
+                return;
+            }
+
+            if (hasExistingData() && !overrideCheckbox.checked) {
+                statusEl.innerHTML = '<span class="text-yellow-600">Existing data found. Check "Override existing values" to replace it.</span>';
+                return;
+            }
+
+            statusEl.innerHTML = '';
+            showModal();
+            modalTitleText.textContent = 'Fetching from CricHeroes...';
+
+            fetch('{{ route("admin.matches.result.cricheroes", $match) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ url: url }),
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    showModalError(data.message || 'Failed to fetch data from CricHeroes.');
+                    return;
+                }
+
+                const chData = data.data;
+                const changes = [];
+                const parsed = { teamA: null, teamB: null, toss: null, result: null };
+
+                // Map CricHeroes teams to our teams
+                if (chData.teams && chData.teams.length >= 2) {
+                    let aIdx = null, bIdx = null;
+                    for (let i = 0; i < chData.teams.length; i++) {
+                        if (fuzzyMatch(chData.teams[i].name, teamAName)) aIdx = i;
+                        if (fuzzyMatch(chData.teams[i].name, teamBName)) bIdx = i;
+                    }
+                    if (aIdx === null && bIdx === null) { aIdx = 0; bIdx = 1; }
+                    else if (aIdx === null) aIdx = bIdx === 0 ? 1 : 0;
+                    else if (bIdx === null) bIdx = aIdx === 0 ? 1 : 0;
+
+                    const ta = chData.teams[aIdx];
+                    const tb = chData.teams[bIdx];
+
+                    parsed.teamA = { runs: ta.runs, wickets: ta.wickets, overs: ta.overs, extras: ta.extras || 0 };
+                    parsed.teamB = { runs: tb.runs, wickets: tb.wickets, overs: tb.overs, extras: tb.extras || 0 };
+
+                    changes.push({ type: 'score', label: teamAName, value: `${ta.runs}/${ta.wickets} (${ta.overs} ov)` + (ta.extras ? ` [Extras: ${ta.extras}]` : '') });
+                    changes.push({ type: 'score', label: teamBName, value: `${tb.runs}/${tb.wickets} (${tb.overs} ov)` + (tb.extras ? ` [Extras: ${tb.extras}]` : '') });
+                }
+
+                // Toss
+                if (chData.toss) {
+                    parsed.toss = { team: chData.toss.winner, decision: chData.toss.decision };
+                    changes.push({ type: 'toss', label: 'Toss', value: `${chData.toss.winner} won, elected to ${chData.toss.decision}` });
+                }
+
+                // Result
+                if (chData.result) {
+                    parsed.result = { winner: chData.result.winner, margin: chData.result.margin, type: chData.result.type };
+                    changes.push({ type: 'result', label: 'Result', value: chData.result.summary || `${chData.result.winner} won by ${chData.result.margin} ${chData.result.type}` });
+                }
+
+                if (changes.length === 0) {
+                    showModalError('No data could be extracted from the CricHeroes page.');
+                    return;
+                }
+
+                pendingChanges = parsed;
+                showModalResults(changes);
+            })
+            .catch(err => {
+                showModalError('Network error: ' + err.message);
+            });
+        });
+    }
+
     function parseScorecardText(text) {
         // Normalize: collapse multiple spaces/tabs, keep newlines
         const normalized = text.replace(/[^\S\n]+/g, ' ').trim();
@@ -911,11 +997,13 @@ document.addEventListener('DOMContentLoaded', function() {
             teamAScore.value = data.teamA.runs;
             document.getElementById('team_a_wickets').value = data.teamA.wickets;
             document.getElementById('team_a_overs').value = data.teamA.overs;
+            if (data.teamA.extras !== undefined) document.getElementById('team_a_extras').value = data.teamA.extras;
         }
         if (data.teamB) {
             teamBScore.value = data.teamB.runs;
             document.getElementById('team_b_wickets').value = data.teamB.wickets;
             document.getElementById('team_b_overs').value = data.teamB.overs;
+            if (data.teamB.extras !== undefined) document.getElementById('team_b_extras').value = data.teamB.extras;
         }
         if (data.toss) {
             const tossTeamId = fuzzyMatch(data.toss.team, teamAName) ? teamAId : teamBId;

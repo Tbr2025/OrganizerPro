@@ -71,19 +71,43 @@
     {{-- Expandable import panel --}}
     <div id="ch-import-panel" class="hidden border-t border-gray-200 dark:border-gray-700">
         <div class="p-4 space-y-3">
-            <textarea id="ch-paste-text" rows="4"
-                      class="form-control text-sm w-full"
-                      placeholder="Paste text from CricHeroes scorecard page, e.g.:&#10;&#10;ASIAN ROYALS CC 156/8 (20.0 Ov)&#10;EVEXIA ALL STARS 139/9 (20.0 Ov)&#10;Toss: Evexia All Stars opt to field&#10;Asian ROYALS CC won by 17 runs"></textarea>
-            <div class="flex items-center gap-3">
-                <button type="button" id="ch-import-btn"
-                        class="inline-flex items-center px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition text-sm">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                    </svg>
-                    Import & Save
-                </button>
-                <span id="ch-import-status" class="text-sm"></span>
+            {{-- URL Fetch (primary) --}}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CricHeroes Match URL</label>
+                <div class="flex gap-2">
+                    <input type="text" id="ch-fetch-url"
+                           value="{{ $match->cricheroes_match_url ?? '' }}"
+                           class="form-control flex-1 text-sm"
+                           placeholder="https://cricheroes.com/scorecard/...">
+                    <button type="button" id="ch-fetch-btn"
+                            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition text-sm flex items-center whitespace-nowrap">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Fetch
+                    </button>
+                </div>
             </div>
+
+            {{-- Paste fallback --}}
+            <details class="group">
+                <summary class="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
+                    <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    Or paste scorecard text manually
+                </summary>
+                <div class="mt-2 space-y-2">
+                    <textarea id="ch-paste-text" rows="4"
+                              class="form-control text-sm w-full"
+                              placeholder="Paste text from CricHeroes scorecard page, e.g.:&#10;&#10;ASIAN ROYALS CC 156/8 (20.0 Ov)&#10;EVEXIA ALL STARS 139/9 (20.0 Ov)&#10;Toss: Evexia All Stars opt to field&#10;Asian ROYALS CC won by 17 runs"></textarea>
+                    <button type="button" id="ch-import-btn"
+                            class="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-sm">
+                        Parse & Import
+                    </button>
+                </div>
+            </details>
+            <span id="ch-import-status" class="text-sm"></span>
         </div>
 
         {{-- Preview card (shown after parsing, before save) --}}
@@ -1377,6 +1401,126 @@ function downloadAwardPoster() {
         return x === y || x.includes(y) || y.includes(x);
     }
 
+    function showPreviewFromData(teamA, teamB, resultText, tossText) {
+        document.getElementById('ch-preview-a-score').textContent = `${teamA.runs}/${teamA.wickets}`;
+        document.getElementById('ch-preview-a-overs').textContent = `(${teamA.overs} ov)`;
+        document.getElementById('ch-preview-b-score').textContent = `${teamB.runs}/${teamB.wickets}`;
+        document.getElementById('ch-preview-b-overs').textContent = `(${teamB.overs} ov)`;
+
+        const resultEl = document.getElementById('ch-preview-result');
+        const resultTextEl = document.getElementById('ch-preview-result-text');
+        if (resultText) {
+            resultTextEl.textContent = resultText;
+            resultEl.classList.remove('hidden');
+        } else {
+            resultEl.classList.add('hidden');
+        }
+
+        const tossEl = document.getElementById('ch-preview-toss');
+        if (tossText) {
+            tossEl.textContent = tossText;
+            tossEl.classList.remove('hidden');
+        } else {
+            tossEl.classList.add('hidden');
+        }
+
+        preview.classList.remove('hidden');
+    }
+
+    // Fetch from CricHeroes URL (primary method)
+    const fetchUrlInput = document.getElementById('ch-fetch-url');
+    const fetchBtnEl = document.getElementById('ch-fetch-btn');
+    if (fetchBtnEl) {
+        fetchBtnEl.addEventListener('click', async () => {
+            const url = fetchUrlInput.value.trim();
+            if (!url) { statusEl.innerHTML = '<span class="text-red-500">Enter a CricHeroes URL</span>'; return; }
+
+            statusEl.innerHTML = '<span class="text-blue-500">Fetching from CricHeroes...</span>';
+            fetchBtnEl.disabled = true;
+            fetchBtnEl.innerHTML = '<svg class="w-4 h-4 mr-1.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Fetching...';
+
+            try {
+                const res = await fetch('{{ route("admin.matches.result.cricheroes", $match) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ url: url }),
+                });
+                const data = await res.json();
+
+                if (!data.success) {
+                    statusEl.innerHTML = `<span class="text-red-500">${data.message || 'Failed to fetch'}</span>`;
+                    return;
+                }
+
+                const chData = data.data;
+
+                // Map teams
+                let aIdx = null, bIdx = null;
+                if (chData.teams && chData.teams.length >= 2) {
+                    for (let i = 0; i < chData.teams.length; i++) {
+                        if (fuzzy(chData.teams[i].name, teamAName)) aIdx = i;
+                        if (fuzzy(chData.teams[i].name, teamBName)) bIdx = i;
+                    }
+                    if (aIdx === null && bIdx === null) { aIdx = 0; bIdx = 1; }
+                    else if (aIdx === null) aIdx = bIdx === 0 ? 1 : 0;
+                    else if (bIdx === null) bIdx = aIdx === 0 ? 1 : 0;
+
+                    const ta = chData.teams[aIdx], tb = chData.teams[bIdx];
+
+                    pendingData = {
+                        team_a_score: ta.runs, team_a_wickets: ta.wickets, team_a_overs: ta.overs,
+                        team_b_score: tb.runs, team_b_wickets: tb.wickets, team_b_overs: tb.overs,
+                    };
+
+                    // Toss
+                    let tossText = null;
+                    if (chData.toss) {
+                        const decision = chData.toss.decision;
+                        pendingData.toss_won_by = fuzzy(chData.toss.winner, teamAName) ? teamAId : teamBId;
+                        pendingData.toss_decision = decision;
+                        tossText = `Toss: ${chData.toss.winner} won, elected to ${decision}`;
+                    }
+
+                    // Result
+                    let resultText = null;
+                    if (chData.result && chData.result.winner) {
+                        pendingData.winner_team_id = fuzzy(chData.result.winner, teamAName) ? teamAId : teamBId;
+                        pendingData.result_type = chData.result.type;
+                        pendingData.margin = chData.result.margin;
+                        resultText = chData.result.summary || `${chData.result.winner} won by ${chData.result.margin} ${chData.result.type}`;
+                    } else if (chData.result && chData.result.type === 'tie') {
+                        pendingData.result_type = 'tie';
+                        resultText = 'Match Tied';
+                    } else if (ta.runs > tb.runs) {
+                        pendingData.winner_team_id = teamAId;
+                        pendingData.result_type = 'runs';
+                        pendingData.margin = ta.runs - tb.runs;
+                        resultText = `${teamAName} won by ${ta.runs - tb.runs} runs`;
+                    } else if (tb.runs > ta.runs) {
+                        pendingData.winner_team_id = teamBId;
+                        pendingData.result_type = 'wickets';
+                        pendingData.margin = 10 - tb.wickets;
+                        resultText = `${teamBName} won by ${10 - tb.wickets} wickets`;
+                    }
+
+                    showPreviewFromData(ta, tb, resultText, tossText);
+                    statusEl.innerHTML = '<span class="text-green-600">Fetched! Review preview below.</span>';
+                } else {
+                    statusEl.innerHTML = '<span class="text-red-500">No team data found in CricHeroes response.</span>';
+                }
+            } catch (err) {
+                statusEl.innerHTML = `<span class="text-red-500">Error: ${err.message}</span>`;
+            } finally {
+                fetchBtnEl.disabled = false;
+                fetchBtnEl.innerHTML = '<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Fetch';
+            }
+        });
+    }
+
     importBtn.addEventListener('click', () => {
         const text = document.getElementById('ch-paste-text').value.trim();
         if (!text) { statusEl.innerHTML = '<span class="text-red-500">Paste scorecard text first</span>'; return; }
@@ -1482,29 +1626,9 @@ function downloadAwardPoster() {
         }
 
         // Update preview card
-        document.getElementById('ch-preview-a-score').textContent = `${teamA.runs}/${teamA.wickets}`;
-        document.getElementById('ch-preview-a-overs').textContent = `(${teamA.overs} ov)`;
-        document.getElementById('ch-preview-b-score').textContent = `${teamB.runs}/${teamB.wickets}`;
-        document.getElementById('ch-preview-b-overs').textContent = `(${teamB.overs} ov)`;
-
-        const resultEl = document.getElementById('ch-preview-result');
-        const resultTextEl = document.getElementById('ch-preview-result-text');
-        if (resultM) {
-            resultTextEl.textContent = `${resultM[1].trim()} won by ${resultM[2]} ${resultM[3]}`;
-            resultEl.classList.remove('hidden');
-        } else {
-            resultEl.classList.add('hidden');
-        }
-
-        const tossEl = document.getElementById('ch-preview-toss');
-        if (tossM) {
-            tossEl.textContent = `Toss: ${tossM[1].trim()} won, elected to ${tossM[2].toLowerCase()}`;
-            tossEl.classList.remove('hidden');
-        } else {
-            tossEl.classList.add('hidden');
-        }
-
-        preview.classList.remove('hidden');
+        const resultText = resultM ? `${resultM[1].trim()} won by ${resultM[2]} ${resultM[3]}` : null;
+        const tossText = tossM ? `Toss: ${tossM[1].trim()} won, elected to ${tossM[2].toLowerCase()}` : null;
+        showPreviewFromData(teamA, teamB, resultText, tossText);
         statusEl.innerHTML = '<span class="text-green-600">Parsed! Review preview below.</span>';
     });
 

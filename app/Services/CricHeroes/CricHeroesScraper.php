@@ -2,114 +2,137 @@
 
 namespace App\Services\CricHeroes;
 
-use Spatie\Browsershot\Browsershot;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class CricHeroesScraper
 {
     /**
      * Fetch and parse scorecard data from a CricHeroes match URL.
+     * Uses simple HTTP GET — CricHeroes embeds all data as JSON in __NEXT_DATA__.
      */
     public function fetch(string $url): array
     {
         $this->validateUrl($url);
 
-        $html = $this->fetchPageHtml($url);
+        // Ensure URL ends with /scorecard
+        $url = rtrim($url, '/');
+        if (!str_ends_with($url, '/scorecard')) {
+            $url .= '/scorecard';
+        }
 
-        return $this->parseHtml($html);
+        $html = $this->fetchPage($url);
+        $data = $this->extractNextData($html);
+
+        return $this->parseData($data);
     }
 
     private function validateUrl(string $url): void
     {
-        if (!preg_match('#https?://(www\.)?cricheroes\.com/#i', $url)) {
-            throw new \InvalidArgumentException('Invalid CricHeroes URL.');
+        if (!preg_match('#https?://(www\.)?cricheroes\.com/(scorecard|match)/#i', $url)) {
+            throw new \InvalidArgumentException('Invalid CricHeroes URL. Expected: https://cricheroes.com/scorecard/...');
         }
     }
 
-    private function fetchPageHtml(string $url): string
+    private function fetchPage(string $url): string
     {
-        try {
-            return Browsershot::url($url)
-                ->setNodeBinary(config('browsershot.node_binary', '/usr/bin/node'))
-                ->setNpmBinary(config('browsershot.npm_binary', '/usr/bin/npm'))
-                ->setOption('args', ['--no-sandbox', '--disable-setuid-sandbox'])
-                ->waitUntilNetworkIdle()
-                ->timeout(30)
-                ->bodyHtml();
-        } catch (\Exception $e) {
-            Log::error('CricHeroes Browsershot error: ' . $e->getMessage());
-            throw new \RuntimeException('Failed to load CricHeroes page. The page may be unavailable or loading too slowly.');
+        $response = Http::timeout(15)
+            ->withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                'Accept' => 'text/html',
+                'Accept-Language' => 'en-US,en;q=0.9',
+            ])
+            ->get($url);
+
+        if (!$response->successful()) {
+            throw new \RuntimeException('Failed to fetch CricHeroes page (HTTP ' . $response->status() . ').');
         }
+
+        return $response->body();
     }
 
-    private function parseHtml(string $html): array
+    private function extractNextData(string $html): array
     {
+        if (!preg_match('/__NEXT_DATA__[^>]*>(.*?)<\/script>/s', $html, $match)) {
+            throw new \RuntimeException('Could not find match data on the CricHeroes page.');
+        }
+
+        $json = json_decode($match[1], true);
+
+        if (!$json || !isset($json['props']['pageProps'])) {
+            throw new \RuntimeException('Invalid data structure from CricHeroes.');
+        }
+
+        return $json['props']['pageProps'];
+    }
+
+    private function parseData(array $pageProps): array
+    {
+        $summary = $pageProps['summaryData']['data'] ?? null;
+
+        if (!$summary) {
+            throw new \RuntimeException('No match summary data found.');
+        }
+
         $teams = [];
+
+        // Team A
+        if ($teamA = $summary['team_a'] ?? null) {
+            $innings = $teamA['innings'][0] ?? null;
+            $teams[] = [
+                'name' => $teamA['name'],
+                'runs' => $innings ? (int) $innings['total_run'] : 0,
+                'wickets' => $innings ? (int) $innings['total_wicket'] : 0,
+                'overs' => $innings ? (float) $innings['overs_played'] : 0,
+                'extras' => $innings ? (int) $innings['total_extra'] : 0,
+            ];
+        }
+
+        // Team B
+        if ($teamB = $summary['team_b'] ?? null) {
+            $innings = $teamB['innings'][0] ?? null;
+            $teams[] = [
+                'name' => $teamB['name'],
+                'runs' => $innings ? (int) $innings['total_run'] : 0,
+                'wickets' => $innings ? (int) $innings['total_wicket'] : 0,
+                'overs' => $innings ? (float) $innings['overs_played'] : 0,
+                'extras' => $innings ? (int) $innings['total_extra'] : 0,
+            ];
+        }
+
+        // Toss
         $toss = null;
+        $tossDetails = $summary['toss_details'] ?? '';
+        // Format: "Toss: Evexia All Stars opt to field"
+        if (preg_match('/Toss:\s*(.+?)\s+(?:opt|elected|chose)\s+to\s+(bat|bowl|field)/i', $tossDetails, $tm)) {
+            $toss = [
+                'winner' => trim($tm[1]),
+                'decision' => strtolower($tm[2]) === 'field' ? 'bowl' : strtolower($tm[2]),
+            ];
+        }
+
+        // Result
         $result = null;
+        $winBy = $summary['win_by'] ?? '';
+        $winningTeam = $summary['winning_team'] ?? '';
 
-        // Parse team scores - patterns like "Team Name 150/6 (20.0 Ov)" or within elements
-        // CricHeroes renders scores in various formats, we try multiple patterns:
-
-        // Pattern 1: "TeamName\n150/6\n(20.0 Ov)" spread across elements
-        // Pattern 2: Inline "TeamName 150/6 (20.0)"
-        // Pattern 3: Structured data in script tags or JSON-LD
-
-        // Try to extract from visible text content
-        $text = strip_tags(
-            preg_replace('/<script[^>]*>.*?<\/script>/is', '', $html)
-        );
-        $text = preg_replace('/\s+/', ' ', $text);
-
-        // Look for score patterns: "Team Name 150/6 (20.0 Ov)"
-        if (preg_match_all('/([A-Za-z][A-Za-z0-9\s&\-\'\.]+?)\s+(\d{1,3}(?:\d)?)\/(\d{1,2})\s*\(([\d.]+)\s*(?:Ov(?:ers?)?|ov)?\)/i', $text, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $m) {
-                $teams[] = [
-                    'name' => trim($m[1]),
-                    'runs' => (int) $m[2],
-                    'wickets' => (int) $m[3],
-                    'overs' => (float) $m[4],
-                    'extras' => null,
+        if ($winningTeam && $winBy) {
+            // Parse "17 runs" or "5 wickets"
+            if (preg_match('/(\d+)\s+(runs?|wickets?)/i', $winBy, $rm)) {
+                $result = [
+                    'winner' => $winningTeam,
+                    'margin' => (int) $rm[1],
+                    'type' => str_starts_with(strtolower($rm[2]), 'run') ? 'runs' : 'wickets',
+                    'summary' => $winningTeam . ' won by ' . $winBy,
                 ];
             }
-        }
-
-        // Try extracting extras: "Extras: 12" or "Extras 12" or "E: 12"
-        if (preg_match_all('/Extras?\s*:?\s*(\d+)/i', $text, $extrasMatches)) {
-            foreach ($extrasMatches[1] as $i => $extras) {
-                if (isset($teams[$i])) {
-                    $teams[$i]['extras'] = (int) $extras;
-                }
-            }
-        }
-
-        // Parse toss info: "TeamName won the toss and opted to bat/bowl"
-        if (preg_match('/([A-Za-z][A-Za-z0-9\s&\-\'\.]+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i', $text, $tossMatch)) {
-            $toss = [
-                'winner' => trim($tossMatch[1]),
-                'decision' => strtolower($tossMatch[2]) === 'field' ? 'bowl' : strtolower($tossMatch[2]),
-            ];
-        }
-
-        // Parse result: "TeamName won by X runs/wickets"
-        if (preg_match('/([A-Za-z][A-Za-z0-9\s&\-\'\.]+?)\s+won\s+by\s+(\d+)\s+(runs?|wickets?)/i', $text, $resultMatch)) {
-            $result = [
-                'winner' => trim($resultMatch[1]),
-                'margin' => (int) $resultMatch[2],
-                'type' => str_starts_with(strtolower($resultMatch[3]), 'run') ? 'runs' : 'wickets',
-                'summary' => trim($resultMatch[0]),
-            ];
-        } elseif (preg_match('/match\s+tied/i', $text)) {
+        } elseif (($summary['match_result'] ?? '') === 'Tied') {
             $result = [
                 'winner' => null,
                 'margin' => null,
                 'type' => 'tie',
                 'summary' => 'Match Tied',
             ];
-        }
-
-        if (empty($teams)) {
-            throw new \RuntimeException('Could not parse scorecard data from the page. The page structure may have changed.');
         }
 
         return [
