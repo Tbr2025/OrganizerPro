@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Ball;
 use App\Models\Matches;
 use App\Models\MatchResult;
+use App\Services\CricHeroes\CricHeroesScraper;
 use App\Services\Tournament\PointTableService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -294,6 +296,39 @@ class MatchResultController extends Controller
         }
 
         return redirect()->back()->with('success', __('Match result saved.'));
+    }
+
+    /**
+     * Fetch scorecard data from CricHeroes via Browsershot scraping.
+     */
+    public function fetchCricHeroesData(Request $request, Matches $match): JsonResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['match.edit']);
+
+        $request->validate(['url' => 'required|url']);
+
+        // Save the URL to the match for future reference
+        $match->update(['cricheroes_match_url' => $request->url]);
+
+        try {
+            $scraper = new CricHeroesScraper();
+            $data = $scraper->fetch($request->url);
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
