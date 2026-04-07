@@ -173,6 +173,23 @@
                 $teamAStats = $teamABatsFirst ? ($innings1Stats ?? []) : ($innings2Stats ?? []);
                 $teamBStats = $teamABatsFirst ? ($innings2Stats ?? []) : ($innings1Stats ?? []);
 
+                // Fallback to match_results when no ball data exists
+                $hasBallData = ($teamAStats['runs'] ?? 0) > 0 || ($teamBStats['runs'] ?? 0) > 0;
+                if (!$hasBallData && $match->result) {
+                    $teamAStats = [
+                        'runs' => $match->result->team_a_score ?? 0,
+                        'wickets' => $match->result->team_a_wickets ?? 0,
+                        'overs' => $match->result->team_a_overs ?? '0.0',
+                    ];
+                    $teamBStats = [
+                        'runs' => $match->result->team_b_score ?? 0,
+                        'wickets' => $match->result->team_b_wickets ?? 0,
+                        'overs' => $match->result->team_b_overs ?? '0.0',
+                    ];
+                    $teamAHasStartedBatting = ($teamAStats['runs'] > 0 || $teamAStats['wickets'] > 0);
+                    $teamBHasStartedBatting = ($teamBStats['runs'] > 0 || $teamBStats['wickets'] > 0);
+                }
+
                 // Determine which team is currently batting
                 $currentBattingTeamId = ($currentInnings ?? 1) == 1
                     ? $firstBattingTeamId
