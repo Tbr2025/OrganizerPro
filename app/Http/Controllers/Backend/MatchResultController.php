@@ -218,19 +218,6 @@ class MatchResultController extends Controller
             $result->update(['result_summary' => $result->generateResultSummary()]);
         }
 
-        // Auto-fetch scorecard from CricHeroes if URL exists and no scorecard data yet
-        if (!$result->scorecard_data && $match->cricheroes_match_url) {
-            try {
-                $scraper = new CricHeroesScraper();
-                $scorecard = $scraper->fetchScorecard($match->cricheroes_match_url);
-                if ($scorecard) {
-                    $result->update(['scorecard_data' => $scorecard]);
-                }
-            } catch (\Throwable $e) {
-                // Silently skip — scorecard fetch is non-critical
-            }
-        }
-
         // Update match status and winner
         $match->update([
             'status' => 'completed',
