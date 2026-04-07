@@ -201,6 +201,12 @@ class MatchResultController extends Controller
             $match->team_a_id
         );
 
+        // Preserve existing scorecard_data when updating
+        $existing = MatchResult::where('match_id', $match->id)->first();
+        if ($existing?->scorecard_data) {
+            $validated['scorecard_data'] = $existing->scorecard_data;
+        }
+
         // Create or update result
         $result = MatchResult::updateOrCreate(
             ['match_id' => $match->id],
@@ -210,6 +216,19 @@ class MatchResultController extends Controller
         // Generate result summary if not provided
         if (empty($validated['result_summary'])) {
             $result->update(['result_summary' => $result->generateResultSummary()]);
+        }
+
+        // Auto-fetch scorecard from CricHeroes if URL exists and no scorecard data yet
+        if (!$result->scorecard_data && $match->cricheroes_match_url) {
+            try {
+                $scraper = new CricHeroesScraper();
+                $scorecard = $scraper->fetchScorecard($match->cricheroes_match_url);
+                if ($scorecard) {
+                    $result->update(['scorecard_data' => $scorecard]);
+                }
+            } catch (\Throwable $e) {
+                // Silently skip — scorecard fetch is non-critical
+            }
         }
 
         // Update match status and winner
@@ -314,10 +333,11 @@ class MatchResultController extends Controller
             $scraper = new CricHeroesScraper();
             $data = $scraper->fetch($request->url);
 
-            // Auto-save scorecard data if available
+            // Auto-save scorecard data if result already exists;
+            // otherwise it will be saved when the result form is submitted
             if (!empty($data['scorecard'])) {
-                $result = MatchResult::firstOrCreate(['match_id' => $match->id]);
-                $result->update(['scorecard_data' => $data['scorecard']]);
+                MatchResult::where('match_id', $match->id)
+                    ->update(['scorecard_data' => $data['scorecard']]);
             }
 
             return response()->json([
