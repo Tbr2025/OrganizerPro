@@ -43,34 +43,89 @@
     $summaryMode = $tournament->settings?->summary_update_mode ?? 'manual';
 @endphp
 
-{{-- Summary Mode & CricHeroes Info --}}
+{{-- Summary Mode & CricHeroes Import --}}
 @if($summaryMode === 'manual')
-<div class="mb-4 p-4 rounded-xl border {{ $match->cricheroes_match_url ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' }}">
-    <div class="flex items-center justify-between flex-wrap gap-3">
+<div class="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {{-- Header bar --}}
+    <div class="px-4 py-3 bg-gray-50 dark:bg-gray-800 flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-2">
-            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold {{ $summaryMode === 'manual' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' }}">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
                 {{ ucfirst($summaryMode) }} Mode
             </span>
-            <span class="text-sm text-gray-600 dark:text-gray-400">
-                @if($match->cricheroes_match_url)
-                    CricHeroes linked - update scores manually from the CricHeroes page
-                @else
-                    No CricHeroes link - enter scores manually or add a CricHeroes URL in match edit
-                @endif
-            </span>
+            @if($match->cricheroes_match_url)
+                <a href="{{ $match->cricheroes_match_url }}" target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    CricHeroes
+                </a>
+            @endif
         </div>
-        @if($match->cricheroes_match_url)
-            <a href="{{ $match->cricheroes_match_url }}" target="_blank" rel="noopener"
-               class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                Open in CricHeroes
-            </a>
-        @else
-            <a href="{{ route('admin.matches.edit', $match) }}"
-               class="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition">
-                Add CricHeroes URL
-            </a>
-        @endif
+        <button type="button" id="ch-toggle-import" class="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Import from CricHeroes
+        </button>
+    </div>
+
+    {{-- Expandable import panel --}}
+    <div id="ch-import-panel" class="hidden border-t border-gray-200 dark:border-gray-700">
+        <div class="p-4 space-y-3">
+            <textarea id="ch-paste-text" rows="4"
+                      class="form-control text-sm w-full"
+                      placeholder="Paste CricHeroes scorecard text here, e.g.:&#10;&#10;Thunder XI 156/7 (20.0 Ov)&#10;Storm CC 154/9 (20.0 Ov)&#10;Thunder XI won the toss and opted to bat&#10;Thunder XI won by 2 runs"></textarea>
+            <div class="flex items-center gap-3">
+                <button type="button" id="ch-import-btn"
+                        class="inline-flex items-center px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition text-sm">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Import & Save
+                </button>
+                <span id="ch-import-status" class="text-sm"></span>
+            </div>
+        </div>
+
+        {{-- Preview card (shown after parsing, before save) --}}
+        <div id="ch-preview" class="hidden border-t border-gray-200 dark:border-gray-700">
+            <div class="gradient-card p-5 text-white">
+                <div class="text-center mb-4">
+                    <span class="text-xs uppercase tracking-wider text-gray-400">Import Preview</span>
+                </div>
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex-1 text-center p-3 rounded-xl bg-white/5">
+                        <h4 class="font-bold text-sm mb-1">{{ $match->teamA?->short_name ?? $match->teamA?->name ?? 'Team A' }}</h4>
+                        <div class="text-2xl font-black" id="ch-preview-a-score">-</div>
+                        <div class="text-xs text-gray-400" id="ch-preview-a-overs">-</div>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow">
+                            <span class="text-white font-black text-xs">VS</span>
+                        </div>
+                    </div>
+                    <div class="flex-1 text-center p-3 rounded-xl bg-white/5">
+                        <h4 class="font-bold text-sm mb-1">{{ $match->teamB?->short_name ?? $match->teamB?->name ?? 'Team B' }}</h4>
+                        <div class="text-2xl font-black" id="ch-preview-b-score">-</div>
+                        <div class="text-xs text-gray-400" id="ch-preview-b-overs">-</div>
+                    </div>
+                </div>
+                <div id="ch-preview-result" class="mt-3 text-center hidden">
+                    <span class="inline-flex items-center px-4 py-1.5 bg-yellow-500/20 rounded-full border border-yellow-500/30 text-yellow-300 text-sm font-semibold" id="ch-preview-result-text"></span>
+                </div>
+                <div id="ch-preview-toss" class="mt-2 text-center text-xs text-gray-400 hidden" id="ch-preview-toss-text"></div>
+            </div>
+            <div class="p-4 flex justify-end gap-3">
+                <button type="button" id="ch-cancel-btn" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
+                    Cancel
+                </button>
+                <button type="button" id="ch-save-btn" class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition flex items-center">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Save Result
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 @endif
@@ -1293,6 +1348,168 @@ function downloadAwardPoster() {
     document.body.removeChild(link);
     showToast('Award poster downloaded!', 'success');
 }
+
+// --- CricHeroes Import ---
+(function() {
+    const toggleBtn = document.getElementById('ch-toggle-import');
+    const panel = document.getElementById('ch-import-panel');
+    const importBtn = document.getElementById('ch-import-btn');
+    const statusEl = document.getElementById('ch-import-status');
+    const preview = document.getElementById('ch-preview');
+    const cancelBtn = document.getElementById('ch-cancel-btn');
+    const saveBtn = document.getElementById('ch-save-btn');
+
+    if (!toggleBtn) return;
+
+    const teamAId = '{{ $match->team_a_id }}';
+    const teamBId = '{{ $match->team_b_id }}';
+    const teamAName = @json($match->teamA?->name ?? 'Team A');
+    const teamBName = @json($match->teamB?->name ?? 'Team B');
+    let pendingData = null;
+
+    toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('hidden');
+        preview.classList.add('hidden');
+    });
+
+    function fuzzy(a, b) {
+        const x = a.toLowerCase().trim(), y = b.toLowerCase().trim();
+        return x === y || x.includes(y) || y.includes(x);
+    }
+
+    importBtn.addEventListener('click', () => {
+        const text = document.getElementById('ch-paste-text').value.trim();
+        if (!text) { statusEl.innerHTML = '<span class="text-red-500">Paste scorecard text first</span>'; return; }
+
+        statusEl.innerHTML = '<span class="text-blue-500">Parsing...</span>';
+
+        const scorePattern = /(.+?)\s+(\d+)\/(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
+        const scores = [];
+        let m;
+        while ((m = scorePattern.exec(text)) !== null) {
+            scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: parseInt(m[3]), overs: parseFloat(m[4]) });
+        }
+
+        if (scores.length < 2) {
+            const altPattern = /(.+?)\s+(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
+            while ((m = altPattern.exec(text)) !== null) {
+                scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: 10, overs: parseFloat(m[3]) });
+            }
+        }
+
+        if (scores.length < 2) {
+            statusEl.innerHTML = '<span class="text-red-500">Could not parse. Expected: "Team Name 150/6 (20.0)"</span>';
+            return;
+        }
+
+        // Map teams
+        let aIdx = null, bIdx = null;
+        for (let i = 0; i < scores.length; i++) {
+            if (fuzzy(scores[i].name, teamAName)) aIdx = i;
+            if (fuzzy(scores[i].name, teamBName)) bIdx = i;
+        }
+        if (aIdx === null && bIdx === null) { aIdx = 0; bIdx = 1; }
+        else if (aIdx === null) aIdx = bIdx === 0 ? 1 : 0;
+        else if (bIdx === null) bIdx = aIdx === 0 ? 1 : 0;
+
+        const teamA = scores[aIdx], teamB = scores[bIdx];
+
+        // Build pending data
+        pendingData = {
+            team_a_score: teamA.runs, team_a_wickets: teamA.wickets, team_a_overs: teamA.overs,
+            team_b_score: teamB.runs, team_b_wickets: teamB.wickets, team_b_overs: teamB.overs,
+        };
+
+        // Toss
+        const tossM = text.match(/(.+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i);
+        if (tossM) {
+            pendingData.toss_won_by = fuzzy(tossM[1].trim(), teamAName) ? teamAId : teamBId;
+            pendingData.toss_decision = tossM[2].toLowerCase() === 'field' ? 'bowl' : tossM[2].toLowerCase();
+        }
+
+        // Result
+        const resultM = text.match(/(.+?)\s+won\s+by\s+(\d+)\s+(runs?|wickets?)/i);
+        if (resultM) {
+            pendingData.winner_team_id = fuzzy(resultM[1].trim(), teamAName) ? teamAId : teamBId;
+            pendingData.result_type = resultM[3].toLowerCase().startsWith('run') ? 'runs' : 'wickets';
+            pendingData.margin = parseInt(resultM[2]);
+        } else if (teamA.runs > teamB.runs) {
+            pendingData.winner_team_id = teamAId;
+            pendingData.result_type = 'runs';
+            pendingData.margin = teamA.runs - teamB.runs;
+        } else if (teamB.runs > teamA.runs) {
+            pendingData.winner_team_id = teamBId;
+            pendingData.result_type = 'wickets';
+            pendingData.margin = 10 - teamB.wickets;
+        } else {
+            pendingData.result_type = 'tie';
+        }
+
+        // Update preview card
+        document.getElementById('ch-preview-a-score').textContent = `${teamA.runs}/${teamA.wickets}`;
+        document.getElementById('ch-preview-a-overs').textContent = `(${teamA.overs} ov)`;
+        document.getElementById('ch-preview-b-score').textContent = `${teamB.runs}/${teamB.wickets}`;
+        document.getElementById('ch-preview-b-overs').textContent = `(${teamB.overs} ov)`;
+
+        const resultEl = document.getElementById('ch-preview-result');
+        const resultTextEl = document.getElementById('ch-preview-result-text');
+        if (resultM) {
+            resultTextEl.textContent = `${resultM[1].trim()} won by ${resultM[2]} ${resultM[3]}`;
+            resultEl.classList.remove('hidden');
+        } else {
+            resultEl.classList.add('hidden');
+        }
+
+        const tossEl = document.getElementById('ch-preview-toss');
+        if (tossM) {
+            tossEl.textContent = `Toss: ${tossM[1].trim()} won, elected to ${tossM[2].toLowerCase()}`;
+            tossEl.classList.remove('hidden');
+        } else {
+            tossEl.classList.add('hidden');
+        }
+
+        preview.classList.remove('hidden');
+        statusEl.innerHTML = '<span class="text-green-600">Parsed! Review preview below.</span>';
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        preview.classList.add('hidden');
+        pendingData = null;
+        statusEl.innerHTML = '';
+    });
+
+    saveBtn.addEventListener('click', async () => {
+        if (!pendingData) return;
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<svg class="w-4 h-4 mr-1.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving...';
+
+        try {
+            const formData = new URLSearchParams(pendingData);
+            formData.append('_token', '{{ csrf_token() }}');
+            formData.append('_method', 'PUT');
+
+            const res = await fetch('{{ route("admin.matches.result.update", $match) }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'text/html' },
+                body: formData.toString(),
+                redirect: 'follow'
+            });
+
+            if (res.ok || res.redirected) {
+                showToast('Match result saved from CricHeroes!', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                const text = await res.text();
+                throw new Error('Save failed');
+            }
+        } catch (err) {
+            showToast('Failed to save: ' + err.message, 'error');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Result';
+        }
+    });
+})();
 </script>
 @endpush
 @endsection

@@ -519,6 +519,57 @@
     </form>
 </div>
 
+<!-- Import Preview Modal -->
+<div id="import-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="import-modal-backdrop"></div>
+    <div class="relative flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <!-- Modal Header -->
+            <div class="bg-gradient-to-r from-teal-500 to-cyan-500 px-6 py-4">
+                <h3 class="text-white font-bold text-lg flex items-center" id="import-modal-title">
+                    <svg class="w-5 h-5 mr-2 animate-spin" id="import-spinner" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    <svg class="w-5 h-5 mr-2 hidden" id="import-check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span id="import-modal-title-text">Parsing scorecard...</span>
+                </h3>
+            </div>
+            <!-- Modal Body -->
+            <div class="p-6" id="import-modal-body">
+                <div class="flex items-center justify-center py-8" id="import-loading">
+                    <div class="text-center">
+                        <div class="w-12 h-12 mx-auto mb-3 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin"></div>
+                        <p class="text-gray-500">Reading scorecard data...</p>
+                    </div>
+                </div>
+                <div class="hidden space-y-3" id="import-results">
+                    <!-- Filled by JS -->
+                </div>
+                <div class="hidden text-center py-6" id="import-error">
+                    <svg class="w-12 h-12 mx-auto text-red-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-red-600 font-medium" id="import-error-text"></p>
+                </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex justify-end gap-3" id="import-modal-footer">
+                <button type="button" id="import-cancel-btn"
+                        class="px-5 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
+                    Cancel
+                </button>
+                <button type="button" id="import-apply-btn"
+                        class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition hidden">
+                    Apply Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -639,10 +690,87 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // CricHeroes Sync
+    // CricHeroes Sync with Preview Modal
     const parseBtn = document.getElementById('cricheroes-parse-btn');
     const statusEl = document.getElementById('cricheroes-status');
     const overrideCheckbox = document.getElementById('cricheroes-override');
+    const teamAName = @json($match->teamA?->name ?? 'Team A');
+    const teamBName = @json($match->teamB?->name ?? 'Team B');
+
+    // Modal elements
+    const modal = document.getElementById('import-modal');
+    const modalBackdrop = document.getElementById('import-modal-backdrop');
+    const modalLoading = document.getElementById('import-loading');
+    const modalResults = document.getElementById('import-results');
+    const modalError = document.getElementById('import-error');
+    const modalErrorText = document.getElementById('import-error-text');
+    const modalTitleText = document.getElementById('import-modal-title-text');
+    const modalSpinner = document.getElementById('import-spinner');
+    const modalCheckIcon = document.getElementById('import-check-icon');
+    const applyBtn = document.getElementById('import-apply-btn');
+    const cancelBtn = document.getElementById('import-cancel-btn');
+
+    let pendingChanges = null;
+
+    function showModal() {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        modalLoading.classList.remove('hidden');
+        modalResults.classList.add('hidden');
+        modalError.classList.add('hidden');
+        applyBtn.classList.add('hidden');
+        modalSpinner.classList.remove('hidden');
+        modalCheckIcon.classList.add('hidden');
+        modalTitleText.textContent = 'Parsing scorecard...';
+    }
+
+    function hideModal() {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    function showModalResults(changes) {
+        modalLoading.classList.add('hidden');
+        modalResults.classList.remove('hidden');
+        modalSpinner.classList.add('hidden');
+        modalCheckIcon.classList.remove('hidden');
+        modalTitleText.textContent = 'Import Preview';
+        applyBtn.classList.remove('hidden');
+
+        let html = '';
+        changes.forEach(c => {
+            const icon = c.type === 'score' ? '&#127951;' : c.type === 'toss' ? '&#129689;' : '&#127942;';
+            html += `<div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                <span class="text-lg">${icon}</span>
+                <div class="flex-1">
+                    <div class="font-medium text-gray-800 dark:text-gray-200 text-sm">${c.label}</div>
+                    <div class="text-teal-600 dark:text-teal-400 font-bold">${c.value}</div>
+                </div>
+                <svg class="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+            </div>`;
+        });
+        modalResults.innerHTML = html;
+    }
+
+    function showModalError(message) {
+        modalLoading.classList.add('hidden');
+        modalError.classList.remove('hidden');
+        modalSpinner.classList.add('hidden');
+        modalTitleText.textContent = 'Import Failed';
+        modalErrorText.textContent = message;
+    }
+
+    cancelBtn.addEventListener('click', hideModal);
+    modalBackdrop.addEventListener('click', hideModal);
+
+    applyBtn.addEventListener('click', function() {
+        if (!pendingChanges) return;
+        applyParsedData(pendingChanges);
+        hideModal();
+        statusEl.innerHTML = '<span class="text-green-600 font-semibold">Scorecard imported! Review the form and click Save.</span>';
+    });
 
     function hasExistingData() {
         return (parseInt(teamAScore.value) || 0) > 0 || (parseInt(teamBScore.value) || 0) > 0;
@@ -656,98 +784,98 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Check override
             if (hasExistingData() && !overrideCheckbox.checked) {
                 statusEl.innerHTML = '<span class="text-yellow-600">Existing data found. Check "Override existing values" to replace it.</span>';
                 return;
             }
 
-            if (hasExistingData() && overrideCheckbox.checked) {
-                if (!confirm('This will replace the existing scores, toss, and result data. Continue?')) {
-                    return;
-                }
-            }
+            statusEl.innerHTML = '';
+            showModal();
 
-            parseScorecardText(text);
+            // Small delay to show loading animation
+            setTimeout(() => parseScorecardText(text), 400);
         });
     }
 
     function parseScorecardText(text) {
-        const teamAName = @json($match->teamA?->name ?? 'Team A');
-        const teamBName = @json($match->teamB?->name ?? 'Team B');
-
-        // Match patterns like "Team Name 150/6 (20.0)" or "Team Name 150/6 (20)"
         const scorePattern = /(.+?)\s+(\d+)\/(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
         const scores = [];
-        let match;
+        let m;
 
-        while ((match = scorePattern.exec(text)) !== null) {
-            scores.push({
-                name: match[1].trim(),
-                runs: parseInt(match[2]),
-                wickets: parseInt(match[3]),
-                overs: parseFloat(match[4])
-            });
+        while ((m = scorePattern.exec(text)) !== null) {
+            scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: parseInt(m[3]), overs: parseFloat(m[4]) });
         }
 
         if (scores.length < 2) {
-            // Try alternate pattern: "Team Name 150 (20.0 Ov)" without wickets
             const altPattern = /(.+?)\s+(\d+)\s*\(([\d.]+)\s*(?:ov(?:ers?)?)?\)/gi;
-            while ((match = altPattern.exec(text)) !== null) {
-                scores.push({
-                    name: match[1].trim(),
-                    runs: parseInt(match[2]),
-                    wickets: 10,
-                    overs: parseFloat(match[3])
-                });
+            while ((m = altPattern.exec(text)) !== null) {
+                scores.push({ name: m[1].trim(), runs: parseInt(m[2]), wickets: 10, overs: parseFloat(m[3]) });
             }
         }
 
-        if (scores.length >= 2) {
-            // Match team names (fuzzy: check if CricHeroes name contains or is contained in our team name)
-            const mapping = mapTeams(scores, teamAName, teamBName);
+        if (scores.length < 2) {
+            showModalError('Could not parse scorecard. Expected format: "Team Name 150/6 (20.0)"');
+            return;
+        }
 
-            if (mapping.a !== null) {
-                teamAScore.value = scores[mapping.a].runs;
-                document.getElementById('team_a_wickets').value = scores[mapping.a].wickets;
-                document.getElementById('team_a_overs').value = scores[mapping.a].overs;
-            }
-            if (mapping.b !== null) {
-                teamBScore.value = scores[mapping.b].runs;
-                document.getElementById('team_b_wickets').value = scores[mapping.b].wickets;
-                document.getElementById('team_b_overs').value = scores[mapping.b].overs;
-            }
+        const mapping = mapTeams(scores, teamAName, teamBName);
+        const changes = [];
+        const parsed = { teamA: null, teamB: null, toss: null, result: null };
 
-            // Parse toss info
-            const tossMatch = text.match(/(.+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i);
-            if (tossMatch) {
-                const tossTeam = tossMatch[1].trim();
-                const tossChoice = tossMatch[2].toLowerCase();
-                const tossTeamId = fuzzyMatch(tossTeam, teamAName) ? teamAId : teamBId;
-                tossWonBy.value = tossTeamId;
-                tossDecision.value = (tossChoice === 'field') ? 'bowl' : tossChoice;
-                updateScoreCardOrder();
-            }
+        if (mapping.a !== null) {
+            const s = scores[mapping.a];
+            parsed.teamA = s;
+            changes.push({ type: 'score', label: teamAName, value: `${s.runs}/${s.wickets} (${s.overs} ov)` });
+        }
+        if (mapping.b !== null) {
+            const s = scores[mapping.b];
+            parsed.teamB = s;
+            changes.push({ type: 'score', label: teamBName, value: `${s.runs}/${s.wickets} (${s.overs} ov)` });
+        }
 
-            // Parse result
-            const resultMatch = text.match(/(.+?)\s+won\s+by\s+(\d+)\s+(runs?|wickets?)/i);
-            if (resultMatch) {
-                const winnerName = resultMatch[1].trim();
-                const margin = parseInt(resultMatch[2]);
-                const resultType = resultMatch[3].toLowerCase().startsWith('run') ? 'runs' : 'wickets';
-                const winnerId = fuzzyMatch(winnerName, teamAName) ? teamAId : teamBId;
+        const tossM = text.match(/(.+?)\s+won\s+the\s+toss\s+and\s+(?:opted|elected|chose)\s+to\s+(bat|bowl|field)/i);
+        if (tossM) {
+            const tossTeam = tossM[1].trim();
+            const tossChoice = tossM[2].toLowerCase();
+            parsed.toss = { team: tossTeam, decision: tossChoice === 'field' ? 'bowl' : tossChoice };
+            changes.push({ type: 'toss', label: 'Toss', value: `${tossTeam} won, elected to ${tossChoice}` });
+        }
 
-                const winnerRadio = document.querySelector(`input[name="winner_team_id"][value="${winnerId}"]`);
-                if (winnerRadio) winnerRadio.checked = true;
-                resultTypeSelect.value = resultType;
-                marginInput.value = margin;
-            } else {
-                autoCalculateResult();
-            }
+        const resultM = text.match(/(.+?)\s+won\s+by\s+(\d+)\s+(runs?|wickets?)/i);
+        if (resultM) {
+            parsed.result = { winner: resultM[1].trim(), margin: parseInt(resultM[2]), type: resultM[3].toLowerCase().startsWith('run') ? 'runs' : 'wickets' };
+            changes.push({ type: 'result', label: 'Result', value: `${resultM[1].trim()} won by ${resultM[2]} ${resultM[3]}` });
+        }
 
-            statusEl.innerHTML = '<span class="text-green-600 font-semibold">Scorecard parsed! Review the data below and save.</span>';
+        pendingChanges = parsed;
+        showModalResults(changes);
+    }
+
+    function applyParsedData(data) {
+        if (data.teamA) {
+            teamAScore.value = data.teamA.runs;
+            document.getElementById('team_a_wickets').value = data.teamA.wickets;
+            document.getElementById('team_a_overs').value = data.teamA.overs;
+        }
+        if (data.teamB) {
+            teamBScore.value = data.teamB.runs;
+            document.getElementById('team_b_wickets').value = data.teamB.wickets;
+            document.getElementById('team_b_overs').value = data.teamB.overs;
+        }
+        if (data.toss) {
+            const tossTeamId = fuzzyMatch(data.toss.team, teamAName) ? teamAId : teamBId;
+            tossWonBy.value = tossTeamId;
+            tossDecision.value = data.toss.decision;
+            updateScoreCardOrder();
+        }
+        if (data.result) {
+            const winnerId = fuzzyMatch(data.result.winner, teamAName) ? teamAId : teamBId;
+            const winnerRadio = document.querySelector(`input[name="winner_team_id"][value="${winnerId}"]`);
+            if (winnerRadio) winnerRadio.checked = true;
+            resultTypeSelect.value = data.result.type;
+            marginInput.value = data.result.margin;
         } else {
-            statusEl.innerHTML = '<span class="text-red-500">Could not parse scorecard. Expected format: "Team Name 150/6 (20.0)"</span>';
+            autoCalculateResult();
         }
     }
 
