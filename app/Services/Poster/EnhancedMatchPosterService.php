@@ -39,15 +39,22 @@ class EnhancedMatchPosterService extends PosterGeneratorService
         $width = 1080;
         $height = 1080;
 
+        // Determine batting order — first batting team on left
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+
+        $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+
         // Get team colors
-        $teamAColor = $match->teamA?->primary_color ?? $this->teamAColor;
-        $teamBColor = $match->teamB?->primary_color ?? $this->teamBColor;
+        $leftColor = $leftTeam?->primary_color ?? $this->teamAColor;
+        $rightColor = $rightTeam?->primary_color ?? $this->teamBColor;
 
         // Create base canvas with dark background
         $canvas = $this->createCanvas($width, $height, $this->backgroundColor);
 
         // Draw split background with diagonal colored shapes
-        $this->drawSplitBackground($canvas, $width, $height, $teamAColor, $teamBColor);
+        $this->drawSplitBackground($canvas, $width, $height, $leftColor, $rightColor);
 
         // Add decorative tribal patterns at bottom corners (optional)
         $this->drawDecorativePatterns($canvas, $width, $height);
@@ -58,11 +65,11 @@ class EnhancedMatchPosterService extends PosterGeneratorService
         // Add tournament logo at top right
         $this->drawTournamentLogo($canvas, $settings, $width);
 
-        // Draw Team A (left side) with captain image
-        $this->drawTeamSection($canvas, $match->teamA, 'left', $width, $height, $teamAColor);
+        // Draw first batting team (left side) with captain image
+        $this->drawTeamSection($canvas, $leftTeam, 'left', $width, $height, $leftColor);
 
-        // Draw Team B (right side) with captain image
-        $this->drawTeamSection($canvas, $match->teamB, 'right', $width, $height, $teamBColor);
+        // Draw second batting team (right side) with captain image
+        $this->drawTeamSection($canvas, $rightTeam, 'right', $width, $height, $rightColor);
 
         // Draw center date block
         $this->drawDateBlock($canvas, $match, $width, $height);

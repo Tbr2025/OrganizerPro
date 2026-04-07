@@ -733,6 +733,15 @@
                     </svg>
                     Edit Match
                 </a>
+                @if($match->slug)
+                <a href="{{ route('public.match.show', $match) }}" target="_blank"
+                   class="w-full flex items-center justify-center px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                    View Public Fixture
+                </a>
+                @endif
                 {{-- Poster Template Selector --}}
                 <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-3 space-y-2">
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Generate Poster</label>
@@ -744,15 +753,35 @@
                                 ->where('is_active', true)
                                 ->orderByDesc('is_default')
                                 ->get();
+                            $summaryTemplates = $match->status === 'completed'
+                                ? $match->tournament->templates()
+                                    ->where('type', 'match_summary')
+                                    ->where('is_active', true)
+                                    ->orderByDesc('is_default')
+                                    ->get()
+                                : collect();
                         @endphp
-                        @forelse($matchTemplates as $template)
-                            <option value="{{ $template->id }}" {{ $template->is_default ? 'selected' : '' }}>
-                                {{ $template->name }} {{ $template->is_default ? '(Default)' : '' }}
-                            </option>
-                        @empty
-                            <option value="enhanced" selected>Enhanced Poster (Built-in)</option>
-                        @endforelse
                         @if($matchTemplates->count() > 0)
+                            <optgroup label="Match Poster">
+                                @foreach($matchTemplates as $template)
+                                    <option value="{{ $template->id }}" {{ $template->is_default ? 'selected' : '' }}>
+                                        {{ $template->name }} {{ $template->is_default ? '(Default)' : '' }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @endif
+                        @if($summaryTemplates->count() > 0)
+                            <optgroup label="Match Summary">
+                                @foreach($summaryTemplates as $template)
+                                    <option value="{{ $template->id }}">
+                                        {{ $template->name }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                        @endif
+                        @if($matchTemplates->isEmpty() && $summaryTemplates->isEmpty())
+                            <option value="enhanced" selected>Enhanced Poster (Built-in)</option>
+                        @else
                             <option value="enhanced">Enhanced Poster (Built-in)</option>
                         @endif
                     </select>
