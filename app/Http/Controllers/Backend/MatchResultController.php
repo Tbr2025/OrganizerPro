@@ -338,6 +338,20 @@ class MatchResultController extends Controller
     }
 
     /**
+     * Clear imported CricHeroes scorecard data for a match.
+     */
+    public function clearScorecardData(Matches $match): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['match.edit']);
+
+        if ($match->result) {
+            $match->result->update(['scorecard_data' => null]);
+        }
+
+        return redirect()->back()->with('success', __('Scorecard data cleared successfully.'));
+    }
+
+    /**
      * Parse score string like "150/6 (18.2)" into components
      */
     private function parseScore(string $score): array

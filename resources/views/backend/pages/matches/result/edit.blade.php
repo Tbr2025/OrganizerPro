@@ -183,6 +183,25 @@
 
             <!-- Status message -->
             <div id="cricheroes-status" class="text-sm"></div>
+
+            @if($match->result?->scorecard_data)
+                <div class="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                    <div class="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Detailed scorecard data imported
+                    </div>
+                    <form action="{{ route('admin.matches.result.clear-scorecard', $match) }}" method="POST"
+                          onsubmit="return confirm('Clear imported scorecard data? The public scorecard page will show placeholders instead.')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="px-3 py-1 text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+                            Clear Scorecard Data
+                        </button>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
 
