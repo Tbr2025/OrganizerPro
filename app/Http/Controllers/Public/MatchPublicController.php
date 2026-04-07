@@ -91,22 +91,30 @@ class MatchPublicController extends Controller
      */
     public function scorecard(Matches $match): View
     {
-        $match->load([
-            'tournament.settings',
-            'teamA.players.player',
-            'teamB.players.player',
-            'result',
-            'balls.bowler.player',
-            'balls.batsman.player',
-        ]);
+        $scorecardData = null;
 
-        // Group balls by innings/team
-        $balls = $match->balls()->with(['bowler.player', 'batsman.player'])->get();
+        // Check for imported CricHeroes scorecard first
+        $match->load(['tournament.settings', 'teamA', 'teamB', 'result']);
+
+        if ($match->result?->scorecard_data) {
+            $scorecardData = $match->result->scorecard_data;
+            $balls = collect();
+        } else {
+            // Fall back to expensive ball-by-ball queries
+            $match->load([
+                'teamA.players.player',
+                'teamB.players.player',
+                'balls.bowler.player',
+                'balls.batsman.player',
+            ]);
+            $balls = $match->balls()->with(['bowler.player', 'batsman.player'])->get();
+        }
 
         return view('public.match.scorecard', [
             'match' => $match,
             'tournament' => $match->tournament,
             'balls' => $balls,
+            'scorecardData' => $scorecardData,
         ]);
     }
 

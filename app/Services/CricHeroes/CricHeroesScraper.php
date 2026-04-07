@@ -27,6 +27,24 @@ class CricHeroesScraper
         return $this->parseData($data);
     }
 
+    /**
+     * Fetch ONLY the detailed scorecard data (batting, bowling, FoW, DNB).
+     */
+    public function fetchScorecard(string $url): ?array
+    {
+        $this->validateUrl($url);
+
+        $url = rtrim($url, '/');
+        if (!str_ends_with($url, '/scorecard')) {
+            $url .= '/scorecard';
+        }
+
+        $html = $this->fetchPage($url);
+        $pageProps = $this->extractNextData($html);
+
+        return $this->parseScorecardData($pageProps);
+    }
+
     private function validateUrl(string $url): void
     {
         if (!preg_match('#https?://(www\.)?cricheroes\.com/(scorecard|match)/#i', $url)) {
@@ -139,6 +157,79 @@ class CricHeroesScraper
             'teams' => $teams,
             'toss' => $toss,
             'result' => $result,
+            'scorecard' => $this->parseScorecardData($pageProps),
         ];
+    }
+
+    /**
+     * Parse detailed scorecard data from pageProps['scorecard'].
+     */
+    private function parseScorecardData(array $pageProps): ?array
+    {
+        $scorecardInnings = $pageProps['scorecard'] ?? null;
+
+        if (!$scorecardInnings || !is_array($scorecardInnings) || count($scorecardInnings) === 0) {
+            return null;
+        }
+
+        $innings = [];
+
+        foreach ($scorecardInnings as $inn) {
+            $inningData = $inn['inning'] ?? [];
+
+            $batting = collect($inn['batting'] ?? [])->map(fn($b) => [
+                'name' => $b['name'] ?? '',
+                'runs' => (int) ($b['runs'] ?? 0),
+                'balls' => (int) ($b['balls'] ?? 0),
+                'fours' => (int) ($b['4s'] ?? 0),
+                'sixes' => (int) ($b['6s'] ?? 0),
+                'strike_rate' => $b['SR'] ?? '0.00',
+                'how_out' => $b['how_to_out'] ?? 'not out',
+            ])->toArray();
+
+            $bowling = collect($inn['bowling'] ?? [])->map(function ($bw) {
+                $overs = (int) ($bw['overs'] ?? 0);
+                $remainingBalls = (int) ($bw['balls'] ?? 0);
+                $oversDisplay = $remainingBalls > 0 ? "{$overs}.{$remainingBalls}" : (string) $overs;
+
+                return [
+                    'name' => $bw['name'] ?? '',
+                    'overs' => $oversDisplay,
+                    'maidens' => (int) ($bw['maidens'] ?? 0),
+                    'runs' => (int) ($bw['runs'] ?? 0),
+                    'wickets' => (int) ($bw['wickets'] ?? 0),
+                    'economy' => $bw['economy_rate'] ?? '0.00',
+                    'wides' => (int) ($bw['wide'] ?? 0),
+                    'no_balls' => (int) ($bw['noball'] ?? 0),
+                ];
+            })->toArray();
+
+            $fowData = $inn['fall_of_wicket']['data'] ?? [];
+            $fallOfWickets = collect($fowData)->map(fn($f) => [
+                'runs' => (int) ($f['run'] ?? 0),
+                'wicket' => (int) ($f['wicket'] ?? 0),
+                'over' => $f['over'] ?? 0,
+                'player_name' => $f['dismiss_player_name'] ?? '',
+            ])->toArray();
+
+            $didNotBat = collect($inn['to_be_bat'] ?? [])->pluck('name')->toArray();
+
+            $extras = $inn['extras'] ?? [];
+
+            $innings[] = [
+                'team_name' => $inn['teamName'] ?? '',
+                'total_runs' => (int) ($inningData['total_run'] ?? 0),
+                'total_wickets' => (int) ($inningData['total_wicket'] ?? 0),
+                'overs_played' => $inningData['overs_played'] ?? '0',
+                'total_extras' => (int) ($extras['total'] ?? 0),
+                'extras_summary' => $extras['summary'] ?? '',
+                'batting' => $batting,
+                'bowling' => $bowling,
+                'fall_of_wickets' => $fallOfWickets,
+                'did_not_bat' => $didNotBat,
+            ];
+        }
+
+        return $innings;
     }
 }

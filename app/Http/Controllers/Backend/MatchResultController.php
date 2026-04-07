@@ -314,6 +314,12 @@ class MatchResultController extends Controller
             $scraper = new CricHeroesScraper();
             $data = $scraper->fetch($request->url);
 
+            // Auto-save scorecard data if available
+            if (!empty($data['scorecard'])) {
+                $result = MatchResult::firstOrCreate(['match_id' => $match->id]);
+                $result->update(['scorecard_data' => $data['scorecard']]);
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $data,

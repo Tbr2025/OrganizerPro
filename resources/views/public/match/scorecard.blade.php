@@ -202,24 +202,68 @@
     <section class="py-10 bg-gray-900">
         <div class="max-w-5xl mx-auto px-4">
             @php
+                // Map imported innings to local teams via fuzzy name match, fallback to array order
+                $inn1 = null;
+                $inn2 = null;
+
+                if (!empty($scorecardData) && count($scorecardData) >= 2) {
+                    $teamAName = strtolower($match->teamA?->name ?? '');
+                    $teamBName = strtolower($match->teamB?->name ?? '');
+                    $inn0Name = strtolower($scorecardData[0]['team_name'] ?? '');
+                    $inn1Name = strtolower($scorecardData[1]['team_name'] ?? '');
+
+                    // Fuzzy match: check if CricHeroes team name contains local team name or vice versa
+                    $inn0IsTeamA = str_contains($inn0Name, $teamAName) || str_contains($teamAName, $inn0Name);
+                    $inn0IsTeamB = str_contains($inn0Name, $teamBName) || str_contains($teamBName, $inn0Name);
+
+                    if ($match->result?->team_a_batting_first) {
+                        $inn1 = $inn0IsTeamA ? $scorecardData[0] : ($inn0IsTeamB ? $scorecardData[1] : $scorecardData[0]);
+                        $inn2 = $inn0IsTeamA ? $scorecardData[1] : ($inn0IsTeamB ? $scorecardData[0] : $scorecardData[1]);
+                    } elseif ($match->result?->team_a_batting_first === false) {
+                        $inn1 = $inn0IsTeamB ? $scorecardData[0] : ($inn0IsTeamA ? $scorecardData[1] : $scorecardData[0]);
+                        $inn2 = $inn0IsTeamB ? $scorecardData[1] : ($inn0IsTeamA ? $scorecardData[0] : $scorecardData[1]);
+                    } else {
+                        // No batting order info — use CricHeroes order (1st innings = index 0)
+                        $inn1 = $scorecardData[0];
+                        $inn2 = $scorecardData[1];
+                    }
+                }
+
                 $firstBattingTeam = $match->result?->team_a_batting_first ? $match->teamA : $match->teamB;
                 $secondBattingTeam = $match->result?->team_a_batting_first ? $match->teamB : $match->teamA;
                 $firstBowlingTeam = $match->result?->team_a_batting_first ? $match->teamB : $match->teamA;
                 $secondBowlingTeam = $match->result?->team_a_batting_first ? $match->teamA : $match->teamB;
 
-                $firstBattingScore = $match->result?->team_a_batting_first
-                    ? "{$match->result->team_a_score}/{$match->result->team_a_wickets}"
-                    : "{$match->result->team_b_score}/{$match->result->team_b_wickets}";
-                $firstBattingOvers = $match->result?->team_a_batting_first
-                    ? $match->result->team_a_overs
-                    : $match->result->team_b_overs;
+                // If no batting order and we have imported data, use CricHeroes team names
+                if ($match->result?->team_a_batting_first === null && $inn1) {
+                    $firstBattingTeamName = $inn1['team_name'] ?? 'Team A';
+                    $secondBattingTeamName = $inn2['team_name'] ?? 'Team B';
+                } else {
+                    $firstBattingTeamName = $firstBattingTeam?->name ?? 'Team A';
+                    $secondBattingTeamName = $secondBattingTeam?->name ?? 'Team B';
+                }
 
-                $secondBattingScore = $match->result?->team_a_batting_first
-                    ? "{$match->result->team_b_score}/{$match->result->team_b_wickets}"
-                    : "{$match->result->team_a_score}/{$match->result->team_a_wickets}";
-                $secondBattingOvers = $match->result?->team_a_batting_first
-                    ? $match->result->team_b_overs
-                    : $match->result->team_a_overs;
+                $firstBattingScore = $inn1
+                    ? "{$inn1['total_runs']}/{$inn1['total_wickets']}"
+                    : ($match->result?->team_a_batting_first
+                        ? "{$match->result->team_a_score}/{$match->result->team_a_wickets}"
+                        : "{$match->result->team_b_score}/{$match->result->team_b_wickets}");
+                $firstBattingOvers = $inn1
+                    ? $inn1['overs_played']
+                    : ($match->result?->team_a_batting_first
+                        ? $match->result->team_a_overs
+                        : $match->result->team_b_overs);
+
+                $secondBattingScore = $inn2
+                    ? "{$inn2['total_runs']}/{$inn2['total_wickets']}"
+                    : ($match->result?->team_a_batting_first
+                        ? "{$match->result->team_b_score}/{$match->result->team_b_wickets}"
+                        : "{$match->result->team_a_score}/{$match->result->team_a_wickets}");
+                $secondBattingOvers = $inn2
+                    ? $inn2['overs_played']
+                    : ($match->result?->team_a_batting_first
+                        ? $match->result->team_b_overs
+                        : $match->result->team_a_overs);
             @endphp
 
             {{-- First Innings --}}
@@ -230,16 +274,16 @@
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 rounded-full bg-gray-800/50 overflow-hidden">
                                 @if($firstBattingTeam?->team_logo)
-                                    <img src="{{ Storage::url($firstBattingTeam->team_logo) }}" alt="{{ $firstBattingTeam->name }}" class="w-full h-full object-cover">
+                                    <img src="{{ Storage::url($firstBattingTeam->team_logo) }}" alt="{{ $firstBattingTeamName }}" class="w-full h-full object-cover">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-lg font-bold text-gray-400">
-                                        {{ substr($firstBattingTeam?->name ?? 'A', 0, 2) }}
+                                        {{ substr($firstBattingTeamName, 0, 2) }}
                                     </div>
                                 @endif
                             </div>
                             <div>
                                 <span class="text-xs text-yellow-400 uppercase tracking-wider font-semibold">1st Innings</span>
-                                <h2 class="text-xl font-bold text-white">{{ $firstBattingTeam?->name ?? 'Team A' }}</h2>
+                                <h2 class="text-xl font-bold text-white">{{ $firstBattingTeamName }}</h2>
                             </div>
                         </div>
                         <div class="text-right">
@@ -264,16 +308,59 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr>
-                                <td colspan="7" class="px-6 py-12 text-center">
-                                    <div class="flex flex-col items-center gap-3">
-                                        <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
-                                            <i class="fas fa-cricket-bat-ball text-2xl text-gray-600"></i>
+                            @if($inn1 && !empty($inn1['batting']))
+                                @php $topScorer1 = collect($inn1['batting'])->sortByDesc('runs')->first(); @endphp
+                                @foreach($inn1['batting'] as $bat)
+                                    <tr class="table-row {{ $bat['runs'] === $topScorer1['runs'] && $bat['name'] === $topScorer1['name'] ? 'top-scorer' : '' }}">
+                                        <td class="px-6 py-3 text-white font-medium whitespace-nowrap">
+                                            {{ $bat['name'] }}
+                                            @if($bat['runs'] === $topScorer1['runs'] && $bat['name'] === $topScorer1['name'])
+                                                <span class="ml-1 text-xs text-green-400">*</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 text-gray-400 text-sm max-w-[200px] truncate" title="{{ $bat['how_out'] }}">{{ $bat['how_out'] }}</td>
+                                        <td class="px-4 py-3 text-center font-bold {{ strtolower($bat['how_out']) === 'not out' ? 'text-green-400' : 'text-white' }}">
+                                            {{ $bat['runs'] }}{{ strtolower($bat['how_out']) === 'not out' ? '*' : '' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['balls'] }}</td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['fours'] }}</td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['sixes'] }}</td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['strike_rate'] }}</td>
+                                    </tr>
+                                @endforeach
+                                {{-- Extras --}}
+                                <tr class="extras-row">
+                                    <td class="px-6 py-3 text-gray-400 font-medium" colspan="2">Extras</td>
+                                    <td class="px-4 py-3 text-center text-yellow-400 font-bold">{{ $inn1['total_extras'] }}</td>
+                                    <td class="px-4 py-3 text-gray-500 text-sm" colspan="4">{{ $inn1['extras_summary'] }}</td>
+                                </tr>
+                                {{-- Total --}}
+                                <tr class="total-row">
+                                    <td class="px-6 py-3 text-white font-bold" colspan="2">Total</td>
+                                    <td class="px-4 py-3 text-center text-yellow-400 font-bold">{{ $inn1['total_runs'] }}/{{ $inn1['total_wickets'] }}</td>
+                                    <td class="px-4 py-3 text-gray-400 text-sm" colspan="4">({{ $inn1['overs_played'] }} overs)</td>
+                                </tr>
+                                {{-- Did Not Bat --}}
+                                @if(!empty($inn1['did_not_bat']))
+                                    <tr>
+                                        <td class="px-6 py-3 text-gray-500 text-sm" colspan="7">
+                                            <span class="font-medium text-gray-400">Did not bat:</span>
+                                            {{ implode(', ', $inn1['did_not_bat']) }}
+                                        </td>
+                                    </tr>
+                                @endif
+                            @else
+                                <tr>
+                                    <td colspan="7" class="px-6 py-12 text-center">
+                                        <div class="flex flex-col items-center gap-3">
+                                            <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
+                                                <i class="fas fa-cricket-bat-ball text-2xl text-gray-600"></i>
+                                            </div>
+                                            <p class="text-gray-500">Detailed batting scorecard will be available when ball-by-ball data is entered.</p>
                                         </div>
-                                        <p class="text-gray-500">Detailed batting scorecard will be available when ball-by-ball data is entered.</p>
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
@@ -299,12 +386,26 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">
-                                <tr>
-                                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                        <i class="fas fa-info-circle mr-2"></i>
-                                        Bowling figures will be available when ball-by-ball data is entered.
-                                    </td>
-                                </tr>
+                                @if($inn1 && !empty($inn1['bowling']))
+                                    @php $topWicket1 = collect($inn1['bowling'])->sortByDesc('wickets')->first(); @endphp
+                                    @foreach($inn1['bowling'] as $bowl)
+                                        <tr class="table-row {{ $bowl['wickets'] > 0 && $bowl['wickets'] === $topWicket1['wickets'] && $bowl['name'] === $topWicket1['name'] ? 'top-wicket' : '' }}">
+                                            <td class="px-6 py-3 text-white font-medium whitespace-nowrap">{{ $bowl['name'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['overs'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['maidens'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['runs'] }}</td>
+                                            <td class="px-4 py-3 text-center font-bold {{ $bowl['wickets'] > 0 ? 'text-purple-400' : 'text-gray-400' }}">{{ $bowl['wickets'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['economy'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                @else
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                            <i class="fas fa-info-circle mr-2"></i>
+                                            Bowling figures will be available when ball-by-ball data is entered.
+                                        </td>
+                                    </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>
@@ -319,16 +420,16 @@
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 rounded-full bg-gray-800/50 overflow-hidden">
                                 @if($secondBattingTeam?->team_logo)
-                                    <img src="{{ Storage::url($secondBattingTeam->team_logo) }}" alt="{{ $secondBattingTeam->name }}" class="w-full h-full object-cover">
+                                    <img src="{{ Storage::url($secondBattingTeam->team_logo) }}" alt="{{ $secondBattingTeamName }}" class="w-full h-full object-cover">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-lg font-bold text-gray-400">
-                                        {{ substr($secondBattingTeam?->name ?? 'B', 0, 2) }}
+                                        {{ substr($secondBattingTeamName, 0, 2) }}
                                     </div>
                                 @endif
                             </div>
                             <div>
                                 <span class="text-xs text-blue-400 uppercase tracking-wider font-semibold">2nd Innings</span>
-                                <h2 class="text-xl font-bold text-white">{{ $secondBattingTeam?->name ?? 'Team B' }}</h2>
+                                <h2 class="text-xl font-bold text-white">{{ $secondBattingTeamName }}</h2>
                             </div>
                         </div>
                         <div class="text-right">
@@ -353,16 +454,59 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr>
-                                <td colspan="7" class="px-6 py-12 text-center">
-                                    <div class="flex flex-col items-center gap-3">
-                                        <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
-                                            <i class="fas fa-cricket-bat-ball text-2xl text-gray-600"></i>
+                            @if($inn2 && !empty($inn2['batting']))
+                                @php $topScorer2 = collect($inn2['batting'])->sortByDesc('runs')->first(); @endphp
+                                @foreach($inn2['batting'] as $bat)
+                                    <tr class="table-row {{ $bat['runs'] === $topScorer2['runs'] && $bat['name'] === $topScorer2['name'] ? 'top-scorer' : '' }}">
+                                        <td class="px-6 py-3 text-white font-medium whitespace-nowrap">
+                                            {{ $bat['name'] }}
+                                            @if($bat['runs'] === $topScorer2['runs'] && $bat['name'] === $topScorer2['name'])
+                                                <span class="ml-1 text-xs text-green-400">*</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 text-gray-400 text-sm max-w-[200px] truncate" title="{{ $bat['how_out'] }}">{{ $bat['how_out'] }}</td>
+                                        <td class="px-4 py-3 text-center font-bold {{ strtolower($bat['how_out']) === 'not out' ? 'text-green-400' : 'text-white' }}">
+                                            {{ $bat['runs'] }}{{ strtolower($bat['how_out']) === 'not out' ? '*' : '' }}
+                                        </td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['balls'] }}</td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['fours'] }}</td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['sixes'] }}</td>
+                                        <td class="px-4 py-3 text-center text-gray-400">{{ $bat['strike_rate'] }}</td>
+                                    </tr>
+                                @endforeach
+                                {{-- Extras --}}
+                                <tr class="extras-row">
+                                    <td class="px-6 py-3 text-gray-400 font-medium" colspan="2">Extras</td>
+                                    <td class="px-4 py-3 text-center text-yellow-400 font-bold">{{ $inn2['total_extras'] }}</td>
+                                    <td class="px-4 py-3 text-gray-500 text-sm" colspan="4">{{ $inn2['extras_summary'] }}</td>
+                                </tr>
+                                {{-- Total --}}
+                                <tr class="total-row">
+                                    <td class="px-6 py-3 text-white font-bold" colspan="2">Total</td>
+                                    <td class="px-4 py-3 text-center text-yellow-400 font-bold">{{ $inn2['total_runs'] }}/{{ $inn2['total_wickets'] }}</td>
+                                    <td class="px-4 py-3 text-gray-400 text-sm" colspan="4">({{ $inn2['overs_played'] }} overs)</td>
+                                </tr>
+                                {{-- Did Not Bat --}}
+                                @if(!empty($inn2['did_not_bat']))
+                                    <tr>
+                                        <td class="px-6 py-3 text-gray-500 text-sm" colspan="7">
+                                            <span class="font-medium text-gray-400">Did not bat:</span>
+                                            {{ implode(', ', $inn2['did_not_bat']) }}
+                                        </td>
+                                    </tr>
+                                @endif
+                            @else
+                                <tr>
+                                    <td colspan="7" class="px-6 py-12 text-center">
+                                        <div class="flex flex-col items-center gap-3">
+                                            <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">
+                                                <i class="fas fa-cricket-bat-ball text-2xl text-gray-600"></i>
+                                            </div>
+                                            <p class="text-gray-500">Detailed batting scorecard will be available when ball-by-ball data is entered.</p>
                                         </div>
-                                        <p class="text-gray-500">Detailed batting scorecard will be available when ball-by-ball data is entered.</p>
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
@@ -388,12 +532,26 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">
-                                <tr>
-                                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                                        <i class="fas fa-info-circle mr-2"></i>
-                                        Bowling figures will be available when ball-by-ball data is entered.
-                                    </td>
-                                </tr>
+                                @if($inn2 && !empty($inn2['bowling']))
+                                    @php $topWicket2 = collect($inn2['bowling'])->sortByDesc('wickets')->first(); @endphp
+                                    @foreach($inn2['bowling'] as $bowl)
+                                        <tr class="table-row {{ $bowl['wickets'] > 0 && $bowl['wickets'] === $topWicket2['wickets'] && $bowl['name'] === $topWicket2['name'] ? 'top-wicket' : '' }}">
+                                            <td class="px-6 py-3 text-white font-medium whitespace-nowrap">{{ $bowl['name'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['overs'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['maidens'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['runs'] }}</td>
+                                            <td class="px-4 py-3 text-center font-bold {{ $bowl['wickets'] > 0 ? 'text-purple-400' : 'text-gray-400' }}">{{ $bowl['wickets'] }}</td>
+                                            <td class="px-4 py-3 text-center text-gray-400">{{ $bowl['economy'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                @else
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                            <i class="fas fa-info-circle mr-2"></i>
+                                            Bowling figures will be available when ball-by-ball data is entered.
+                                        </td>
+                                    </tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>
@@ -408,12 +566,43 @@
                     </div>
                     Fall of Wickets
                 </h3>
-                <div class="text-center py-8">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800 flex items-center justify-center">
-                        <i class="fas fa-layer-group text-2xl text-gray-600"></i>
+                @if(($inn1 && !empty($inn1['fall_of_wickets'])) || ($inn2 && !empty($inn2['fall_of_wickets'])))
+                    {{-- 1st Innings FoW --}}
+                    @if($inn1 && !empty($inn1['fall_of_wickets']))
+                        <div class="mb-4">
+                            <p class="text-sm font-semibold text-yellow-400 mb-2">{{ $firstBattingTeamName }}</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($inn1['fall_of_wickets'] as $fow)
+                                    <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300">
+                                        <span class="font-bold text-red-400">{{ $fow['runs'] }}-{{ $fow['wicket'] }}</span>
+                                        <span class="text-gray-500">({{ $fow['player_name'] }}, {{ $fow['over'] }} ov)</span>
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                    {{-- 2nd Innings FoW --}}
+                    @if($inn2 && !empty($inn2['fall_of_wickets']))
+                        <div>
+                            <p class="text-sm font-semibold text-blue-400 mb-2">{{ $secondBattingTeamName }}</p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($inn2['fall_of_wickets'] as $fow)
+                                    <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-gray-300">
+                                        <span class="font-bold text-red-400">{{ $fow['runs'] }}-{{ $fow['wicket'] }}</span>
+                                        <span class="text-gray-500">({{ $fow['player_name'] }}, {{ $fow['over'] }} ov)</span>
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                @else
+                    <div class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800 flex items-center justify-center">
+                            <i class="fas fa-layer-group text-2xl text-gray-600"></i>
+                        </div>
+                        <p class="text-gray-500">Fall of wickets data will be available when ball-by-ball scoring is enabled.</p>
                     </div>
-                    <p class="text-gray-500">Fall of wickets data will be available when ball-by-ball scoring is enabled.</p>
-                </div>
+                @endif
             </div>
 
             {{-- Match Info Card --}}

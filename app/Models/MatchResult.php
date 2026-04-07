@@ -36,6 +36,8 @@ class MatchResult extends Model
         'summary_image',
         'summary_sent',
         'summary_sent_at',
+        // Imported scorecard
+        'scorecard_data',
     ];
 
     protected $casts = [
@@ -44,6 +46,7 @@ class MatchResult extends Model
         'team_a_batting_first' => 'boolean',
         'summary_sent' => 'boolean',
         'summary_sent_at' => 'datetime',
+        'scorecard_data' => 'array',
     ];
 
     public function match(): BelongsTo
