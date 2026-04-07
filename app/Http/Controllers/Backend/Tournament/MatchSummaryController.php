@@ -285,15 +285,34 @@ class MatchSummaryController extends Controller
     public function generatePoster(Matches $match, Request $request)
     {
         try {
+            $templateId = $request->input('template_id');
             $template = $request->input('template', 'classic');
 
-            $posterPath = $this->posterService->generate($match, $template);
+            // If a specific tournament template ID is provided, use it
+            if ($templateId) {
+                $tournamentTemplate = $match->tournament->templates()->find($templateId);
+                if ($tournamentTemplate && $tournamentTemplate->background_image) {
+                    $posterPath = $this->posterService->generateFromTemplate($match, $tournamentTemplate);
+                } else {
+                    return redirect()->back()->with('error', 'Template not found or has no background image.');
+                }
+            } else {
+                $posterPath = $this->posterService->generate($match, $template);
+            }
 
             $summary = $match->getOrCreateSummary();
             $summary->update([
                 'summary_poster' => $posterPath,
-                'poster_template' => $template,
+                'poster_template' => $templateId ? 'tournament_' . $templateId : $template,
             ]);
+
+            // If template_id was sent via AJAX, return JSON for download
+            if ($request->expectsJson() || $request->input('download')) {
+                return response()->download(
+                    storage_path('app/public/' . $posterPath),
+                    "match-summary-{$match->id}.png"
+                );
+            }
 
             return redirect()
                 ->back()

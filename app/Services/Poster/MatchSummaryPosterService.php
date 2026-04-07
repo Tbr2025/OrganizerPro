@@ -39,7 +39,7 @@ class MatchSummaryPosterService extends PosterGeneratorService
     /**
      * Generate summary poster using Tournament Template
      */
-    protected function generateFromTemplate(Matches $match, TournamentTemplate $template): string
+    public function generateFromTemplate(Matches $match, TournamentTemplate $template): string
     {
         if (!$this->templateRenderService) {
             $this->templateRenderService = new TemplateRenderService();
