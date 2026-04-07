@@ -194,6 +194,16 @@
                         </p>
                     </div>
                 @endif
+
+                {{-- Data Source Badge --}}
+                @if(!empty($scorecardData))
+                    <div class="mt-4 text-center">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                            <i class="fas fa-sync-alt text-[10px]"></i>
+                            Scorecard synced from CricHeroes
+                        </span>
+                    </div>
+                @endif
             </div>
         </div>
     </section>

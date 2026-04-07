@@ -175,6 +175,7 @@
 
                 // Fallback to match_results when no ball data exists
                 $hasBallData = ($teamAStats['runs'] ?? 0) > 0 || ($teamBStats['runs'] ?? 0) > 0;
+                $scoreSource = 'live'; // default: ball-by-ball
                 if (!$hasBallData && $match->result) {
                     $teamAStats = [
                         'runs' => $match->result->team_a_score ?? 0,
@@ -188,6 +189,7 @@
                     ];
                     $teamAHasStartedBatting = ($teamAStats['runs'] > 0 || $teamAStats['wickets'] > 0);
                     $teamBHasStartedBatting = ($teamBStats['runs'] > 0 || $teamBStats['wickets'] > 0);
+                    $scoreSource = $match->result->scorecard_data ? 'cricheroes' : 'manual';
                 }
 
                 // Determine which team is currently batting
@@ -276,6 +278,27 @@
                     </div>
                 </div>
             </div>
+
+            {{-- Score Source Badge --}}
+            @if(isset($scoreSource) && $scoreSource !== 'live')
+                <div class="mt-4 text-center">
+                    @if($scoreSource === 'cricheroes')
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Synced from CricHeroes
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Manually Entered
+                        </span>
+                    @endif
+                </div>
+            @endif
 
             <!-- Target Info (2nd innings) -->
             @if(($currentInnings ?? 1) == 2 && ($innings1Stats['runs'] ?? 0) > 0)
