@@ -49,23 +49,30 @@ class MatchSummaryPosterService extends PosterGeneratorService
         $tournament = $match->tournament;
         $settings = $tournament?->settings;
 
+        // Determine batting order
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $secondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+        $firstKey = $teamABatsFirst ? 'a' : 'b';
+        $secondKey = $teamABatsFirst ? 'b' : 'a';
+
         // Prepare data for template placeholders
         $data = [
             // Tournament info
             'tournament_name' => $tournament->name ?? 'Tournament',
             'tournament_logo' => $settings?->logo ?? null,
 
-            // Team A info
-            'team_a_name' => $match->teamA?->name ?? 'Team A',
-            'team_a_short_name' => $match->teamA?->short_name ?? strtoupper(substr($match->teamA?->name ?? 'TMA', 0, 3)),
-            'team_a_logo' => $match->teamA?->team_logo ?? null,
-            'team_a_score' => $this->formatScore($result?->team_a_score, $result?->team_a_wickets, null),
+            // Team A info (raw, non-batting-order)
+            'team_a_name' => $firstTeam?->name ?? 'Team A',
+            'team_a_short_name' => $firstTeam?->short_name ?? strtoupper(substr($firstTeam?->name ?? 'TMA', 0, 3)),
+            'team_a_logo' => $firstTeam?->team_logo ?? null,
+            'team_a_score' => $this->formatScore($result?->{'team_' . $firstKey . '_score'}, $result?->{'team_' . $firstKey . '_wickets'}, null),
 
-            // Team B info
-            'team_b_name' => $match->teamB?->name ?? 'Team B',
-            'team_b_short_name' => $match->teamB?->short_name ?? strtoupper(substr($match->teamB?->name ?? 'TMB', 0, 3)),
-            'team_b_logo' => $match->teamB?->team_logo ?? null,
-            'team_b_score' => $this->formatScore($result?->team_b_score, $result?->team_b_wickets, null),
+            // Team B info (raw, non-batting-order)
+            'team_b_name' => $secondTeam?->name ?? 'Team B',
+            'team_b_short_name' => $secondTeam?->short_name ?? strtoupper(substr($secondTeam?->name ?? 'TMB', 0, 3)),
+            'team_b_logo' => $secondTeam?->team_logo ?? null,
+            'team_b_score' => $this->formatScore($result?->{'team_' . $secondKey . '_score'}, $result?->{'team_' . $secondKey . '_wickets'}, null),
 
             // Result info
             'result_summary' => $result?->result_summary ?? '',
