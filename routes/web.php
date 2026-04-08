@@ -805,6 +805,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/summary/award', [MatchSummaryController::class, 'assignAward'])->name('summary.assign-award');
         Route::delete('/summary/award/{award}', [MatchSummaryController::class, 'removeAward'])->name('summary.remove-award');
         Route::post('/summary/generate-poster', [MatchSummaryController::class, 'generatePoster'])->name('summary.generate-poster');
+        Route::post('/summary/generate-match-poster', [MatchSummaryController::class, 'generateMatchPoster'])->name('summary.generate-match-poster');
+        Route::post('/summary/generate-award-poster', [MatchSummaryController::class, 'generateAwardPoster'])->name('summary.generate-award-poster');
         Route::post('/summary/send', [MatchSummaryController::class, 'send'])->name('summary.send');
         Route::get('/summary/download-poster', [MatchSummaryController::class, 'downloadPoster'])->name('summary.download-poster');
         Route::get('/summary/preview-poster', [MatchSummaryController::class, 'previewPoster'])->name('summary.preview-poster');

@@ -493,9 +493,14 @@
 
                 {{-- Innings Selector --}}
                 <div id="inningsSelector" class="mb-4 hidden">
-                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Innings View</label>
+                    <label class="flex items-center text-sm font-semibold text-purple-700 dark:text-purple-300 mb-2">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                        Innings View
+                    </label>
                     <select id="inningsSelect" onchange="onInningsChange()"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+                            class="w-full rounded-lg border-2 border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                         <option value="1">1st Innings (Batting First on Left)</option>
                         <option value="2">2nd Innings (Chasing Team on Left)</option>
                     </select>

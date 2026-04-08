@@ -1080,6 +1080,220 @@
                 @endif
             </div>
         </div>
+
+        {{-- Match Poster Card --}}
+        @php
+            $matchPosterTemplates = $tournament->templates()
+                ->where('type', 'match_poster')
+                ->where('is_active', true)
+                ->orderByDesc('is_default')
+                ->get();
+        @endphp
+        @if($matchPosterTemplates->count() > 0)
+        <div class="card rounded-2xl overflow-hidden mt-4" x-data="{ open: false, selectedMatchTemplate: '{{ $matchPosterTemplates->first()->id }}', matchInnings: '1', matchGenerating: false }">
+            <button @click="open = !open" class="w-full bg-gradient-to-r from-blue-600 to-cyan-600 px-6 py-4 flex items-center justify-between cursor-pointer">
+                <h3 class="text-white font-bold text-lg flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/>
+                    </svg>
+                    Match Poster
+                </h3>
+                <svg class="w-5 h-5 text-white transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <div x-show="open" x-collapse class="p-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Template</label>
+                <div class="grid grid-cols-{{ min($matchPosterTemplates->count(), 3) }} gap-2 mb-4">
+                    @foreach($matchPosterTemplates as $tmpl)
+                        <button type="button"
+                                @click="selectedMatchTemplate = '{{ $tmpl->id }}'"
+                                :class="selectedMatchTemplate === '{{ $tmpl->id }}' ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800' : ''"
+                                class="relative aspect-[3/4] rounded-lg overflow-hidden transition-all hover:scale-105 focus:outline-none border border-gray-200 dark:border-gray-700">
+                            @if($tmpl->background_image)
+                                <img src="{{ asset('storage/' . $tmpl->background_image) }}" class="w-full h-full object-cover" alt="{{ $tmpl->name }}">
+                            @else
+                                <div class="w-full h-full bg-gradient-to-br from-blue-600 to-cyan-600"></div>
+                            @endif
+                            <span class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center text-xs py-1 font-medium truncate px-1">{{ $tmpl->name }}</span>
+                            @if($tmpl->is_default)
+                                <span class="absolute top-1 right-1 bg-yellow-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">Default</span>
+                            @endif
+                        </button>
+                    @endforeach
+                </div>
+
+                {{-- Innings Selector --}}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <svg class="w-4 h-4 mr-1.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                        Innings View
+                    </label>
+                    <select x-model="matchInnings" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="1">1st Innings (Batting First on Left)</option>
+                        <option value="2">2nd Innings (Chasing Team on Left)</option>
+                    </select>
+                </div>
+
+                <button type="button"
+                        @click="
+                            matchGenerating = true;
+                            const formData = new FormData();
+                            formData.append('_token', '{{ csrf_token() }}');
+                            formData.append('template_id', selectedMatchTemplate);
+                            formData.append('innings', matchInnings);
+                            fetch('{{ route('admin.matches.summary.generate-match-poster', $match) }}', { method: 'POST', body: formData })
+                                .then(r => { if (!r.ok) throw new Error('Failed'); return r.blob(); })
+                                .then(blob => {
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url; a.download = 'match-poster-{{ $match->id }}.png';
+                                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                    showToast('Match poster downloaded!', 'success');
+                                })
+                                .catch(e => showToast('Failed to generate poster', 'error'))
+                                .finally(() => matchGenerating = false);
+                        "
+                        :disabled="matchGenerating"
+                        class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 text-white font-semibold rounded-xl transition flex items-center justify-center shadow-lg">
+                    <template x-if="!matchGenerating">
+                        <span class="flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Generate & Download
+                        </span>
+                    </template>
+                    <template x-if="matchGenerating">
+                        <span class="flex items-center">
+                            <svg class="w-5 h-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                        </span>
+                    </template>
+                </button>
+            </div>
+        </div>
+        @endif
+
+        {{-- Award Poster Card --}}
+        @php
+            $awardPosterTemplates = $tournament->templates()
+                ->where('type', 'award_poster')
+                ->where('is_active', true)
+                ->orderByDesc('is_default')
+                ->get();
+        @endphp
+        @if($awardPosterTemplates->count() > 0 && $awards->count() > 0)
+        <div class="card rounded-2xl overflow-hidden mt-4" x-data="{ open: false, selectedAwardTemplate: '{{ $awardPosterTemplates->first()->id }}', selectedAwardId: '{{ $awards->first()->id }}', awardInnings: '1', awardGenerating: false }">
+            <button @click="open = !open" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 px-6 py-4 flex items-center justify-between cursor-pointer">
+                <h3 class="text-white font-bold text-lg flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 3.707a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L8.414 9H10a3 3 0 013 3v1a1 1 0 102 0v-1a5 5 0 00-5-5H8.414l1.293-1.293z" clip-rule="evenodd"/>
+                    </svg>
+                    Award Poster
+                </h3>
+                <svg class="w-5 h-5 text-white transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <div x-show="open" x-collapse class="p-4">
+                {{-- Award/Player Selector --}}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Award</label>
+                    <select x-model="selectedAwardId" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500">
+                        @foreach($awards as $award)
+                            <option value="{{ $award->id }}">{{ $award->tournamentAward?->icon }} {{ $award->tournamentAward?->name }} — {{ $award->player?->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Template Selector --}}
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Template</label>
+                <div class="grid grid-cols-{{ min($awardPosterTemplates->count(), 3) }} gap-2 mb-4">
+                    @foreach($awardPosterTemplates as $tmpl)
+                        <button type="button"
+                                @click="selectedAwardTemplate = '{{ $tmpl->id }}'"
+                                :class="selectedAwardTemplate === '{{ $tmpl->id }}' ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-gray-800' : ''"
+                                class="relative aspect-[3/4] rounded-lg overflow-hidden transition-all hover:scale-105 focus:outline-none border border-gray-200 dark:border-gray-700">
+                            @if($tmpl->background_image)
+                                <img src="{{ asset('storage/' . $tmpl->background_image) }}" class="w-full h-full object-cover" alt="{{ $tmpl->name }}">
+                            @else
+                                <div class="w-full h-full bg-gradient-to-br from-amber-500 to-yellow-500"></div>
+                            @endif
+                            <span class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center text-xs py-1 font-medium truncate px-1">{{ $tmpl->name }}</span>
+                            @if($tmpl->is_default)
+                                <span class="absolute top-1 right-1 bg-yellow-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">Default</span>
+                            @endif
+                        </button>
+                    @endforeach
+                </div>
+
+                {{-- Innings Selector --}}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <svg class="w-4 h-4 mr-1.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                        Innings View
+                    </label>
+                    <select x-model="awardInnings" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500">
+                        <option value="1">1st Innings (Batting First on Left)</option>
+                        <option value="2">2nd Innings (Chasing Team on Left)</option>
+                    </select>
+                </div>
+
+                <button type="button"
+                        @click="
+                            awardGenerating = true;
+                            const formData = new FormData();
+                            formData.append('_token', '{{ csrf_token() }}');
+                            formData.append('template_id', selectedAwardTemplate);
+                            formData.append('innings', awardInnings);
+                            formData.append('award_id', selectedAwardId);
+                            fetch('{{ route('admin.matches.summary.generate-award-poster', $match) }}', { method: 'POST', body: formData })
+                                .then(r => { if (!r.ok) throw new Error('Failed'); return r.blob(); })
+                                .then(blob => {
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url; a.download = 'award-poster-{{ $match->id }}.png';
+                                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                    showToast('Award poster downloaded!', 'success');
+                                })
+                                .catch(e => showToast('Failed to generate poster', 'error'))
+                                .finally(() => awardGenerating = false);
+                        "
+                        :disabled="awardGenerating"
+                        class="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 text-white font-semibold rounded-xl transition flex items-center justify-center shadow-lg">
+                    <template x-if="!awardGenerating">
+                        <span class="flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Generate & Download
+                        </span>
+                    </template>
+                    <template x-if="awardGenerating">
+                        <span class="flex items-center">
+                            <svg class="w-5 h-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Generating...
+                        </span>
+                    </template>
+                </button>
+            </div>
+        </div>
+        @endif
     </div>
 </div>
 

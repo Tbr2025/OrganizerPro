@@ -11,6 +11,7 @@ use App\Models\MatchAward;
 use App\Models\Player;
 use App\Models\TournamentAward;
 use App\Services\Poster\MatchSummaryPosterService;
+use App\Services\Poster\TemplateRenderService;
 use App\Services\Notification\TournamentNotificationService;
 use App\Services\Tournament\PlayerStatisticService;
 use App\Services\Tournament\PointTableService;
@@ -449,5 +450,174 @@ class MatchSummaryController extends Controller
         return redirect()
             ->back()
             ->with('success', 'Default awards created successfully. You can now assign awards to players.');
+    }
+
+    /**
+     * Generate match poster from summary page
+     */
+    public function generateMatchPoster(Matches $match, Request $request)
+    {
+        $request->validate([
+            'template_id' => 'required|integer',
+            'innings' => 'nullable|integer|in:1,2',
+        ]);
+
+        try {
+            $tournament = $match->tournament;
+            $template = $tournament->templates()->findOrFail($request->input('template_id'));
+            $match->load(['teamA', 'teamB', 'winner', 'result', 'ground', 'matchAwards.player', 'matchAwards.tournamentAward']);
+
+            $matchData = $this->buildMatchData($match, $tournament);
+
+            // Apply innings-based team swap
+            $innings = (int) $request->input('innings', 1);
+            $matchData = $this->applyInningsSwap($match, $matchData, $innings);
+
+            $renderService = app(TemplateRenderService::class);
+            $path = $renderService->renderAndSave($template, $matchData, 'match-poster-' . $match->id . '-' . time() . '.png');
+
+            return response()->download(
+                storage_path('app/public/' . $path),
+                "match-poster-{$match->id}.png"
+            );
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to generate poster: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Generate award poster from summary page
+     */
+    public function generateAwardPoster(Matches $match, Request $request)
+    {
+        $request->validate([
+            'template_id' => 'required|integer',
+            'innings' => 'nullable|integer|in:1,2',
+            'award_id' => 'required|integer',
+        ]);
+
+        try {
+            $tournament = $match->tournament;
+            $template = $tournament->templates()->findOrFail($request->input('template_id'));
+            $match->load(['teamA', 'teamB', 'winner', 'result', 'ground', 'matchAwards.player', 'matchAwards.tournamentAward']);
+
+            $matchData = $this->buildMatchData($match, $tournament);
+
+            // Apply innings-based team swap
+            $innings = (int) $request->input('innings', 1);
+            $matchData = $this->applyInningsSwap($match, $matchData, $innings);
+
+            // Add award-specific data
+            $matchAward = $match->matchAwards()->with('player', 'tournamentAward')->findOrFail($request->input('award_id'));
+            $matchData['award_name'] = $matchAward->tournamentAward?->name ?? 'Award';
+            $matchData['player_name'] = $matchAward->player?->name ?? 'Player';
+            $matchData['player_image'] = $matchAward->player?->image_path ?? 'defaults/default-player.png';
+
+            $renderService = app(TemplateRenderService::class);
+            $path = $renderService->renderAndSave($template, $matchData, 'award-poster-' . $match->id . '-' . time() . '.png');
+
+            return response()->download(
+                storage_path('app/public/' . $path),
+                "award-poster-{$match->id}.png"
+            );
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to generate poster: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Build match data array for template rendering
+     */
+    private function buildMatchData(Matches $match, $tournament): array
+    {
+        $data = [
+            'tournament_name' => $tournament->name,
+            'team_a_name' => $match->teamA?->name,
+            'team_b_name' => $match->teamB?->name,
+            'team_a_short_name' => $match->teamA?->short_name ?? $match->teamA?->name,
+            'team_b_short_name' => $match->teamB?->short_name ?? $match->teamB?->name,
+            'team_a_logo' => $match->teamA?->team_logo,
+            'team_b_logo' => $match->teamB?->team_logo,
+            'match_date' => $match->match_date?->format('M d, Y'),
+            'match_time' => $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : null,
+            'venue' => $match->ground?->name ?? $match->venue,
+            'ground_name' => $match->ground?->name ?? $match->venue,
+            'match_number' => (string) ($match->match_number ?? $match->id),
+            'match_stage' => $match->stage_display,
+        ];
+
+        if ($tournament->settings?->logo) {
+            $data['tournament_logo'] = $tournament->settings->logo;
+        }
+
+        if ($match->result) {
+            $r = $match->result;
+            $data['team_a_score'] = $r->team_a_score_display;
+            $data['team_b_score'] = $r->team_b_score_display;
+            $data['team_a_score_wickets'] = $r->team_a_score . '/' . $r->team_a_wickets;
+            $data['team_b_score_wickets'] = $r->team_b_score . '/' . $r->team_b_wickets;
+            $data['team_a_runs'] = (string) $r->team_a_score;
+            $data['team_b_runs'] = (string) $r->team_b_score;
+            $data['team_a_wickets'] = (string) $r->team_a_wickets;
+            $data['team_b_wickets'] = (string) $r->team_b_wickets;
+            $data['team_a_overs'] = (string) $r->team_a_overs;
+            $data['team_b_overs'] = (string) $r->team_b_overs;
+            $data['result_summary'] = $r->result_summary ?: $r->generateResultSummary();
+            $data['win_margin'] = $r->margin ? 'Won by ' . $r->margin . ' ' . $r->result_type : '';
+            if ($r->toss_won_by) {
+                $tossWinner = $r->toss_won_by == $match->team_a_id ? $match->teamA?->name : $match->teamB?->name;
+                $data['toss_result'] = $tossWinner . ' won toss, chose to ' . ($r->toss_decision ?? 'bat');
+            }
+        }
+
+        if ($match->winner) {
+            $data['winner_name'] = $match->winner->name;
+            $data['winner_logo'] = $match->winner->team_logo;
+        }
+
+        foreach ($match->matchAwards as $award) {
+            $awardSlug = $award->tournamentAward?->slug;
+            $playerName = $award->player?->name;
+            $playerImage = $award->player?->image_path;
+            if (in_array($awardSlug, ['man-of-the-match', 'player-of-the-match'])) {
+                if ($playerName) $data['man_of_the_match_name'] = $playerName;
+                if ($playerImage) $data['man_of_the_match_image'] = $playerImage;
+            } elseif ($awardSlug === 'best-batsman') {
+                if ($playerName) $data['best_batsman_name'] = $playerName;
+            } elseif ($awardSlug === 'best-bowler') {
+                if ($playerName) $data['best_bowler_name'] = $playerName;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Apply innings-based team data swap
+     */
+    private function applyInningsSwap(Matches $match, array $data, int $innings): array
+    {
+        $shouldSwap = $match->result && $match->result->team_a_batting_first === false;
+
+        if ($innings === 2) {
+            $shouldSwap = $match->result && $match->result->team_a_batting_first !== false;
+        }
+
+        if ($shouldSwap) {
+            $swapKeys = [
+                'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
+                'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',
+                'team_a_score_wickets' => 'team_b_score_wickets',
+                'team_a_runs' => 'team_b_runs', 'team_a_wickets' => 'team_b_wickets',
+                'team_a_overs' => 'team_b_overs',
+            ];
+            foreach ($swapKeys as $keyA => $keyB) {
+                $tmp = $data[$keyA] ?? null;
+                $data[$keyA] = $data[$keyB] ?? null;
+                $data[$keyB] = $tmp;
+            }
+        }
+
+        return $data;
     }
 }
