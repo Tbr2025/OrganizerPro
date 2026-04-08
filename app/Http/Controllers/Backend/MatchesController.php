@@ -963,6 +963,7 @@ class MatchesController extends Controller
     public function generatePoster(Request $request, Matches $match)
     {
         $templateId = $request->query('template');
+        $innings = (int) $request->query('innings', 1);
         $tournament = $match->tournament;
 
         if (!$tournament) {
@@ -970,7 +971,7 @@ class MatchesController extends Controller
         }
 
         $renderService = new \App\Services\Poster\TemplateRenderService();
-        $matchData = $this->prepareMatchDataForTemplate($match);
+        $matchData = $this->prepareMatchDataForTemplate($match, $innings);
 
         $teamAName = \Str::slug($match->teamA?->short_name ?? $match->teamA?->name ?? 'team-a');
         $teamBName = \Str::slug($match->teamB?->short_name ?? $match->teamB?->name ?? 'team-b');
@@ -980,7 +981,7 @@ class MatchesController extends Controller
         if ($templateId === 'enhanced') {
             try {
                 $posterService = new \App\Services\Poster\EnhancedMatchPosterService();
-                $posterPath = $posterService->generate($match);
+                $posterPath = $posterService->generate($match, $innings);
                 $match->refresh();
 
                 if ($match->poster_image && \Storage::disk('public')->exists($match->poster_image)) {
@@ -1031,37 +1032,59 @@ class MatchesController extends Controller
     /**
      * Prepare match data for template rendering
      */
-    protected function prepareMatchDataForTemplate(Matches $match): array
+    protected function prepareMatchDataForTemplate(Matches $match, int $innings = 1): array
     {
         $tournament = $match->tournament;
         $settings = $tournament?->settings;
 
+        // Determine batting order based on toss
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+
+        // For innings 1: first batting team on left (team_a placeholder)
+        // For innings 2: second batting team on left (swap)
+        $swapTeams = false;
+        if ($innings === 2) {
+            $swapTeams = true;
+        }
+
+        // Determine which team maps to team_a (left) and team_b (right) placeholders
+        if ($swapTeams) {
+            // Innings 2: second batting team on left
+            $leftTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+            $rightTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        } else {
+            // Innings 1 (default): first batting team on left
+            $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+            $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+        }
+
         // Get captain info for teams
-        $teamACaptain = $this->getTeamCaptain($match->teamA);
-        $teamBCaptain = $this->getTeamCaptain($match->teamB);
+        $leftCaptain = $this->getTeamCaptain($leftTeam);
+        $rightCaptain = $this->getTeamCaptain($rightTeam);
 
         $data = [
             // Tournament info
             'tournament_name' => $tournament?->name ?? 'Tournament',
             'tournament_logo' => $settings?->logo ?? null,
 
-            // Team A info
-            'team_a_name' => $match->teamA?->name ?? 'Team A',
-            'team_a_short_name' => $match->teamA?->short_name ?? strtoupper(substr($match->teamA?->name ?? 'TMA', 0, 3)),
-            'team_a_logo' => $match->teamA?->team_logo ?? null,
-            'team_a_location' => $match->teamA?->location ?? '',
-            'team_a_captain_name' => $teamACaptain['name'] ?? '',
-            'team_a_captain_image' => $match->teamA?->captain_image ?? $teamACaptain['image'] ?? null,
-            'team_a_sponsor_logo' => $match->teamA?->sponsor_logo ?? null,
+            // Team A = left side team (based on current innings view)
+            'team_a_name' => $leftTeam?->name ?? 'Team A',
+            'team_a_short_name' => $leftTeam?->short_name ?? strtoupper(substr($leftTeam?->name ?? 'TMA', 0, 3)),
+            'team_a_logo' => $leftTeam?->team_logo ?? null,
+            'team_a_location' => $leftTeam?->location ?? '',
+            'team_a_captain_name' => $leftCaptain['name'] ?? '',
+            'team_a_captain_image' => $leftTeam?->captain_image ?? $leftCaptain['image'] ?? null,
+            'team_a_sponsor_logo' => $leftTeam?->sponsor_logo ?? null,
 
-            // Team B info
-            'team_b_name' => $match->teamB?->name ?? 'Team B',
-            'team_b_short_name' => $match->teamB?->short_name ?? strtoupper(substr($match->teamB?->name ?? 'TMB', 0, 3)),
-            'team_b_logo' => $match->teamB?->team_logo ?? null,
-            'team_b_location' => $match->teamB?->location ?? '',
-            'team_b_captain_name' => $teamBCaptain['name'] ?? '',
-            'team_b_captain_image' => $match->teamB?->captain_image ?? $teamBCaptain['image'] ?? null,
-            'team_b_sponsor_logo' => $match->teamB?->sponsor_logo ?? null,
+            // Team B = right side team
+            'team_b_name' => $rightTeam?->name ?? 'Team B',
+            'team_b_short_name' => $rightTeam?->short_name ?? strtoupper(substr($rightTeam?->name ?? 'TMB', 0, 3)),
+            'team_b_logo' => $rightTeam?->team_logo ?? null,
+            'team_b_location' => $rightTeam?->location ?? '',
+            'team_b_captain_name' => $rightCaptain['name'] ?? '',
+            'team_b_captain_image' => $rightTeam?->captain_image ?? $rightCaptain['image'] ?? null,
+            'team_b_sponsor_logo' => $rightTeam?->sponsor_logo ?? null,
 
             // Match info
             'match_date' => $match->match_date ? $match->match_date->format('M d, Y') : 'TBA',
@@ -1078,10 +1101,13 @@ class MatchesController extends Controller
 
         // Add result data if match is completed
         if ($match->status === 'completed') {
-            $result = $match->result;
+            // Map scores to match left/right team order
+            $leftIsTeamA = $leftTeam?->id === $match->team_a_id;
+            $leftKey = $leftIsTeamA ? 'a' : 'b';
+            $rightKey = $leftIsTeamA ? 'b' : 'a';
 
-            $data['team_a_score'] = $result?->team_a_score ?? ($match->team_a_runs . '/' . $match->team_a_wickets);
-            $data['team_b_score'] = $result?->team_b_score ?? ($match->team_b_runs . '/' . $match->team_b_wickets);
+            $data['team_a_score'] = $result?->{"team_{$leftKey}_score"} ?? 0;
+            $data['team_b_score'] = $result?->{"team_{$rightKey}_score"} ?? 0;
             $data['result_summary'] = $result?->result_text ?? $match->result_text ?? '';
             $data['winner_name'] = $match->winner?->name ?? '';
 

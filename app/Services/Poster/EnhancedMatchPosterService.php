@@ -19,19 +19,19 @@ class EnhancedMatchPosterService extends PosterGeneratorService
     /**
      * Generate match poster matching the Kerala League design
      */
-    public function generate($match): string
+    public function generate($match, int $innings = 1): string
     {
         if (!$match instanceof Matches) {
             throw new \InvalidArgumentException('Expected Matches model');
         }
 
-        return $this->generateSplitDesign($match);
+        return $this->generateSplitDesign($match, $innings);
     }
 
     /**
      * Generate the split design poster (Kerala League style)
      */
-    public function generateSplitDesign(Matches $match): string
+    public function generateSplitDesign(Matches $match, int $innings = 1): string
     {
         $tournament = $match->tournament;
         $settings = $tournament->settings;
@@ -39,15 +39,27 @@ class EnhancedMatchPosterService extends PosterGeneratorService
         $width = 1080;
         $height = 1080;
 
-        // Get team colors
-        $teamAColor = $match->teamA?->primary_color ?? $this->teamAColor;
-        $teamBColor = $match->teamB?->primary_color ?? $this->teamBColor;
+        // Determine team positions based on batting order and current innings
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+
+        // Innings 1: first batting team on left; Innings 2: second batting team on left
+        if ($innings === 2) {
+            $leftTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+            $rightTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        } else {
+            $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+            $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+        }
+
+        $leftColor = $leftTeam?->primary_color ?? $this->teamAColor;
+        $rightColor = $rightTeam?->primary_color ?? $this->teamBColor;
 
         // Create base canvas with dark background
         $canvas = $this->createCanvas($width, $height, $this->backgroundColor);
 
         // Draw split background with diagonal colored shapes
-        $this->drawSplitBackground($canvas, $width, $height, $teamAColor, $teamBColor);
+        $this->drawSplitBackground($canvas, $width, $height, $leftColor, $rightColor);
 
         // Add decorative tribal patterns at bottom corners (optional)
         $this->drawDecorativePatterns($canvas, $width, $height);
@@ -58,11 +70,11 @@ class EnhancedMatchPosterService extends PosterGeneratorService
         // Add tournament logo at top right
         $this->drawTournamentLogo($canvas, $settings, $width);
 
-        // Draw Team A (left side) with captain image
-        $this->drawTeamSection($canvas, $match->teamA, 'left', $width, $height, $teamAColor);
+        // Draw left team with captain image
+        $this->drawTeamSection($canvas, $leftTeam, 'left', $width, $height, $leftColor);
 
-        // Draw Team B (right side) with captain image
-        $this->drawTeamSection($canvas, $match->teamB, 'right', $width, $height, $teamBColor);
+        // Draw right team with captain image
+        $this->drawTeamSection($canvas, $rightTeam, 'right', $width, $height, $rightColor);
 
         // Draw center date block
         $this->drawDateBlock($canvas, $match, $width, $height);

@@ -939,6 +939,7 @@
 const matchId = {{ $match->id }};
 const csrfToken = '{{ csrf_token() }}';
 const matchOversLimit = {{ $match->overs ?? 20 }};
+const currentInnings = {{ $currentInnings ?? 1 }};
 let currentCompletedOvers = {{ $totalOvers ?? 0 }};
 let isInningsComplete = false;
 
@@ -1501,8 +1502,8 @@ function generatePoster() {
     btn.innerHTML = '<svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Generating...';
     btn.disabled = true;
 
-    // Redirect to download with template parameter
-    const url = `/admin/matches/${matchId}/generate-poster?template=${templateId}`;
+    // Redirect to download with template and innings parameter
+    const url = `/admin/matches/${matchId}/generate-poster?template=${templateId}&innings=${currentInnings}`;
 
     // Create a temporary link to trigger download
     fetch(url, {
