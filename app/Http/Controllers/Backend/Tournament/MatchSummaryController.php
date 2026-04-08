@@ -287,27 +287,35 @@ class MatchSummaryController extends Controller
     {
         try {
             $templateId = $request->input('template_id');
-            $template = $request->input('template', 'classic');
 
-            // If a specific tournament template ID is provided, use it
-            if ($templateId) {
-                $tournamentTemplate = $match->tournament->templates()->find($templateId);
-                if ($tournamentTemplate && $tournamentTemplate->background_image) {
-                    $posterPath = $this->posterService->generateFromTemplate($match, $tournamentTemplate);
-                } else {
-                    return redirect()->back()->with('error', 'Template not found or has no background image.');
-                }
-            } else {
-                $posterPath = $this->posterService->generate($match, $template);
+            if (!$templateId) {
+                return redirect()->back()->with('error', 'Please select a template.');
             }
+
+            $tournament = $match->tournament;
+            $tournamentTemplate = $tournament->templates()->find($templateId);
+
+            if (!$tournamentTemplate || !$tournamentTemplate->background_image) {
+                return redirect()->back()->with('error', 'Template not found or has no background image.');
+            }
+
+            $match->load(['teamA', 'teamB', 'winner', 'result', 'ground', 'matchAwards.player', 'matchAwards.tournamentAward']);
+            $matchData = $this->buildMatchData($match, $tournament);
+
+            // Apply innings-based team swap
+            $innings = (int) $request->input('innings', 1);
+            $matchData = $this->applyInningsSwap($match, $matchData, $innings);
+
+            $renderService = app(TemplateRenderService::class);
+            $posterPath = $renderService->renderAndSave($tournamentTemplate, $matchData, 'match-summary-' . $match->id . '-' . time() . '.png');
 
             $summary = $match->getOrCreateSummary();
             $summary->update([
                 'summary_poster' => $posterPath,
-                'poster_template' => $templateId ? 'tournament_' . $templateId : $template,
+                'poster_template' => 'tournament_' . $templateId,
             ]);
 
-            // If template_id was sent via AJAX, return JSON for download
+            // If sent via AJAX, return file download
             if ($request->expectsJson() || $request->input('download')) {
                 return response()->download(
                     storage_path('app/public/' . $posterPath),

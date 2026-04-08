@@ -754,7 +754,8 @@
     <!-- Sidebar: Poster Preview & Actions -->
     <div class="lg:col-span-1" x-data="{
         selectedTemplate: '{{ $summary->poster_template ?? '' }}',
-        isCustomTemplate: true
+        isCustomTemplate: true,
+        summaryInnings: '1'
     }">
         <div class="card rounded-2xl overflow-hidden sticky top-4">
             <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
@@ -842,6 +843,22 @@
                     @endif
                 </div>
 
+                {{-- Innings Selector --}}
+                @if($match->result && $summaryTournamentTemplates->count() > 0)
+                <div class="mb-4">
+                    <label class="flex items-center text-sm font-semibold text-purple-700 dark:text-purple-300 mb-2">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                        Innings View
+                    </label>
+                    <select x-model="summaryInnings" class="w-full rounded-lg border-2 border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="1">1st Innings (Batting First on Left)</option>
+                        <option value="2">2nd Innings (Chasing Team on Left)</option>
+                    </select>
+                </div>
+                @endif
+
                 <!-- Status Badge -->
                 @if($summary->poster_sent)
                     <div class="mb-4 flex items-center justify-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-900/30 py-2 rounded-lg">
@@ -858,6 +875,7 @@
                         @csrf
                         <input type="hidden" name="template" :value="isCustomTemplate ? '' : selectedTemplate">
                         <input type="hidden" name="template_id" :value="isCustomTemplate ? selectedTemplate.replace('tournament_', '') : ''">
+                        <input type="hidden" name="innings" :value="summaryInnings">
                         <button type="submit" class="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition flex items-center justify-center shadow-lg">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -1208,6 +1226,7 @@ async function downloadPoster() {
     // Get selected template from Alpine
     const alpineData = Alpine.$data(btn.closest('[x-data]'));
     const selectedTemplate = alpineData.selectedTemplate || '';
+    const innings = alpineData.summaryInnings || '1';
 
     if (!selectedTemplate) {
         showToast('Please select a template first.', 'error');
@@ -1226,6 +1245,7 @@ async function downloadPoster() {
         formData.append('_token', '{{ csrf_token() }}');
         formData.append('template_id', templateId);
         formData.append('download', '1');
+        formData.append('innings', innings);
 
         const response = await fetch('{{ route("admin.matches.summary.generate-poster", $match) }}', {
             method: 'POST',
