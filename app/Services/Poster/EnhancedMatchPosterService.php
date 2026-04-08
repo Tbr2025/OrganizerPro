@@ -447,25 +447,31 @@ class EnhancedMatchPosterService extends PosterGeneratorService
         $tournament = $match->tournament;
         $settings = $tournament->settings;
 
+        // Determine batting order for completed matches
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+
         $data = [
             'tournament_name' => $tournament->name ?? '',
             'tournament_logo' => $settings?->logo ?? '',
 
-            'team_a_name' => $match->teamA?->name ?? 'TBD',
-            'team_a_short_name' => $match->teamA?->short_name ?? $match->teamA?->name ?? 'TBD',
-            'team_a_logo' => $match->teamA?->team_logo ?? '',
-            'team_a_location' => $match->teamA?->location ?? '',
-            'team_a_captain_image' => $match->teamA?->captain_image ?? '',
-            'team_a_sponsor_logo' => $match->teamA?->sponsor_logo ?? '',
-            'team_a_color' => $match->teamA?->primary_color ?? $this->teamAColor,
+            'team_a_name' => $leftTeam?->name ?? 'TBD',
+            'team_a_short_name' => $leftTeam?->short_name ?? $leftTeam?->name ?? 'TBD',
+            'team_a_logo' => $leftTeam?->team_logo ?? '',
+            'team_a_location' => $leftTeam?->location ?? '',
+            'team_a_captain_image' => $leftTeam?->captain_image ?? '',
+            'team_a_sponsor_logo' => $leftTeam?->sponsor_logo ?? '',
+            'team_a_color' => $leftTeam?->primary_color ?? $this->teamAColor,
 
-            'team_b_name' => $match->teamB?->name ?? 'TBD',
-            'team_b_short_name' => $match->teamB?->short_name ?? $match->teamB?->name ?? 'TBD',
-            'team_b_logo' => $match->teamB?->team_logo ?? '',
-            'team_b_location' => $match->teamB?->location ?? '',
-            'team_b_captain_image' => $match->teamB?->captain_image ?? '',
-            'team_b_sponsor_logo' => $match->teamB?->sponsor_logo ?? '',
-            'team_b_color' => $match->teamB?->primary_color ?? $this->teamBColor,
+            'team_b_name' => $rightTeam?->name ?? 'TBD',
+            'team_b_short_name' => $rightTeam?->short_name ?? $rightTeam?->name ?? 'TBD',
+            'team_b_logo' => $rightTeam?->team_logo ?? '',
+            'team_b_location' => $rightTeam?->location ?? '',
+            'team_b_captain_image' => $rightTeam?->captain_image ?? '',
+            'team_b_sponsor_logo' => $rightTeam?->sponsor_logo ?? '',
+            'team_b_color' => $rightTeam?->primary_color ?? $this->teamBColor,
 
             'match_stage' => $match->stage_display ?? '',
             'match_number' => $match->match_number ?? '',

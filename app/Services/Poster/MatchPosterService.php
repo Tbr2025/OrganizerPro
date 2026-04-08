@@ -65,18 +65,24 @@ class MatchPosterService extends PosterGeneratorService
             'center'
         );
 
-        // Team A (Left side)
+        // Determine team positions based on batting order (only for completed matches)
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+
+        // Left team
         $teamALogoX = 200;
         $teamALogoY = 450;
-        if ($match->teamA?->team_logo) {
-            $this->addCircularImage($canvas, $match->teamA->team_logo, $teamALogoX, $teamALogoY, 180);
+        if ($leftTeam?->team_logo) {
+            $this->addCircularImage($canvas, $leftTeam->team_logo, $teamALogoX, $teamALogoY, 180);
         } else {
             // Draw placeholder circle
             $this->drawPlaceholderCircle($canvas, $teamALogoX, $teamALogoY, 180, '#333333');
         }
         $this->addText(
             $canvas,
-            $match->teamA?->name ?? 'TBD',
+            $leftTeam?->name ?? 'TBD',
             $teamALogoX,
             $teamALogoY + 120,
             28,
@@ -97,17 +103,17 @@ class MatchPosterService extends PosterGeneratorService
             'center'
         );
 
-        // Team B (Right side)
+        // Right team
         $teamBLogoX = $width - 200;
         $teamBLogoY = 450;
-        if ($match->teamB?->team_logo) {
-            $this->addCircularImage($canvas, $match->teamB->team_logo, $teamBLogoX, $teamBLogoY, 180);
+        if ($rightTeam?->team_logo) {
+            $this->addCircularImage($canvas, $rightTeam->team_logo, $teamBLogoX, $teamBLogoY, 180);
         } else {
             $this->drawPlaceholderCircle($canvas, $teamBLogoX, $teamBLogoY, 180, '#333333');
         }
         $this->addText(
             $canvas,
-            $match->teamB?->name ?? 'TBD',
+            $rightTeam?->name ?? 'TBD',
             $teamBLogoX,
             $teamBLogoY + 120,
             28,
@@ -257,17 +263,23 @@ class MatchPosterService extends PosterGeneratorService
             'center'
         );
 
+        // Determine team positions based on batting order (only for completed matches)
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $leftTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $rightTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+
         // Team logos and names (larger for finals)
         $teamALogoX = 270;
         $teamBLogoX = $width - 270;
         $teamsY = 550;
 
-        if ($match->teamA?->team_logo) {
-            $this->addCircularImage($canvas, $match->teamA->team_logo, $teamALogoX, $teamsY, 220);
+        if ($leftTeam?->team_logo) {
+            $this->addCircularImage($canvas, $leftTeam->team_logo, $teamALogoX, $teamsY, 220);
         }
         $this->addText(
             $canvas,
-            $match->teamA?->name ?? 'TBD',
+            $leftTeam?->name ?? 'TBD',
             $teamALogoX,
             $teamsY + 150,
             26,
@@ -279,12 +291,12 @@ class MatchPosterService extends PosterGeneratorService
         // VS
         $this->addText($canvas, 'VS', $width / 2, $teamsY, 56, '#FFD700', 'Montserrat-Bold.ttf', 'center');
 
-        if ($match->teamB?->team_logo) {
-            $this->addCircularImage($canvas, $match->teamB->team_logo, $teamBLogoX, $teamsY, 220);
+        if ($rightTeam?->team_logo) {
+            $this->addCircularImage($canvas, $rightTeam->team_logo, $teamBLogoX, $teamsY, 220);
         }
         $this->addText(
             $canvas,
-            $match->teamB?->name ?? 'TBD',
+            $rightTeam?->name ?? 'TBD',
             $teamBLogoX,
             $teamsY + 150,
             26,

@@ -55,6 +55,14 @@ class AwardPosterService extends PosterGeneratorService
         $tournament = $match->tournament;
         $settings = $tournament->settings;
 
+        // Determine batting order
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $secondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+        $firstKey = $teamABatsFirst ? 'a' : 'b';
+        $secondKey = $teamABatsFirst ? 'b' : 'a';
+
         // Prepare data for template placeholders
         $data = [
             // Award info
@@ -75,12 +83,33 @@ class AwardPosterService extends PosterGeneratorService
             'tournament_name' => $tournament->name ?? 'Tournament',
             'tournament_logo' => $settings?->logo ?? null,
 
-            // Match info
-            'match_info' => ($match->teamA?->name ?? 'Team A') . ' vs ' . ($match->teamB?->name ?? 'Team B'),
-            'team_a_name' => $match->teamA?->name ?? 'Team A',
-            'team_b_name' => $match->teamB?->name ?? 'Team B',
+            // Match info (batting order: first batting team = team_a)
+            'match_info' => ($firstTeam?->name ?? 'Team A') . ' vs ' . ($secondTeam?->name ?? 'Team B'),
+            'team_a_name' => $firstTeam?->name ?? 'Team A',
+            'team_a_short_name' => $firstTeam?->short_name ?? strtoupper(substr($firstTeam?->name ?? 'TMA', 0, 3)),
+            'team_a_logo' => $firstTeam?->team_logo ?? null,
+            'team_b_name' => $secondTeam?->name ?? 'Team B',
+            'team_b_short_name' => $secondTeam?->short_name ?? strtoupper(substr($secondTeam?->name ?? 'TMB', 0, 3)),
+            'team_b_logo' => $secondTeam?->team_logo ?? null,
             'match_date' => $match->match_date ? Carbon::parse($match->match_date)->format('d M Y') : '',
             'venue' => $match->venue ?? $match->location ?? '',
+
+            // Score data (mapped via batting order)
+            'team_a_score' => $result ? ($result->{'team_' . $firstKey . '_score'} . '/' . $result->{'team_' . $firstKey . '_wickets'}) : '',
+            'team_b_score' => $result ? ($result->{'team_' . $secondKey . '_score'} . '/' . $result->{'team_' . $secondKey . '_wickets'}) : '',
+            'team_a_score_wickets' => $result ? ($result->{'team_' . $firstKey . '_score'} . '/' . $result->{'team_' . $firstKey . '_wickets'}) : '',
+            'team_b_score_wickets' => $result ? ($result->{'team_' . $secondKey . '_score'} . '/' . $result->{'team_' . $secondKey . '_wickets'}) : '',
+            'team_a_runs' => $result?->{'team_' . $firstKey . '_score'} ?? '',
+            'team_b_runs' => $result?->{'team_' . $secondKey . '_score'} ?? '',
+            'team_a_wickets' => $result?->{'team_' . $firstKey . '_wickets'} ?? '',
+            'team_b_wickets' => $result?->{'team_' . $secondKey . '_wickets'} ?? '',
+            'team_a_overs' => $result?->{'team_' . $firstKey . '_overs'} ?? '',
+            'team_b_overs' => $result?->{'team_' . $secondKey . '_overs'} ?? '',
+
+            // Result data
+            'result_summary' => $result?->result_summary ?? '',
+            'winner_name' => $match->winner?->name ?? '',
+            'winner_logo' => $match->winner?->team_logo ?? null,
 
             // Achievement/remarks
             'achievement_text' => $matchAward->remarks ?? '',
@@ -107,6 +136,12 @@ class AwardPosterService extends PosterGeneratorService
         $award = $matchAward->tournamentAward;
         $tournament = $match->tournament;
         $settings = $tournament->settings;
+
+        // Determine batting order
+        $result = $match->result;
+        $teamABatsFirst = $result?->team_a_batting_first ?? true;
+        $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $secondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
 
         $width = 1080;
         $height = 1350;
@@ -186,8 +221,8 @@ class AwardPosterService extends PosterGeneratorService
             );
         }
 
-        // Match info
-        $matchInfo = "{$match->teamA?->name} vs {$match->teamB?->name}";
+        // Match info (batting order)
+        $matchInfo = "{$firstTeam?->name} vs {$secondTeam?->name}";
         $this->addText(
             $canvas,
             $matchInfo,
