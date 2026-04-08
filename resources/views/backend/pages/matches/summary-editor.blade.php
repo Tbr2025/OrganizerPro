@@ -753,14 +753,8 @@
 
     <!-- Sidebar: Poster Preview & Actions -->
     <div class="lg:col-span-1" x-data="{
-        selectedTemplate: '{{ $summary->poster_template ?? 'classic' }}',
-        isCustomTemplate: {{ str_starts_with($summary->poster_template ?? '', 'tournament_') ? 'true' : 'false' }},
-        showCustomize: false,
-        customColors: {
-            primary: '{{ $tournament->settings?->primary_color ?? '#1a1a2e' }}',
-            secondary: '{{ $tournament->settings?->secondary_color ?? '#fbbf24' }}',
-            background: '{{ $tournament->settings?->primary_color ?? '#1a1a2e' }}'
-        }
+        selectedTemplate: '{{ $summary->poster_template ?? '' }}',
+        isCustomTemplate: true
     }">
         <div class="card rounded-2xl overflow-hidden sticky top-4">
             <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
@@ -773,7 +767,7 @@
             </div>
 
             <div class="p-4">
-                {{-- Custom Tournament Templates --}}
+                {{-- Match Summary Templates --}}
                 @php
                     $summaryTournamentTemplates = $tournament->templates()
                         ->where('type', 'match_summary')
@@ -783,115 +777,49 @@
                 @endphp
                 @if($summaryTournamentTemplates->count() > 0)
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Custom Templates</label>
-                    <div class="grid grid-cols-{{ min($summaryTournamentTemplates->count(), 3) }} gap-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Template</label>
+                    <div class="space-y-2">
                         @foreach($summaryTournamentTemplates as $tmpl)
                             <button type="button"
                                     @click="selectedTemplate = 'tournament_{{ $tmpl->id }}'; isCustomTemplate = true"
-                                    :class="selectedTemplate === 'tournament_{{ $tmpl->id }}' ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800' : ''"
-                                    class="relative aspect-[3/4] rounded-lg overflow-hidden transition-all hover:scale-105 focus:outline-none border border-gray-200 dark:border-gray-700">
-                                @if($tmpl->background_image)
-                                    <img src="{{ asset('storage/' . $tmpl->background_image) }}" class="w-full h-full object-cover" alt="{{ $tmpl->name }}">
-                                @else
-                                    <div class="w-full h-full bg-gradient-to-br from-purple-600 to-indigo-600"></div>
-                                @endif
-                                <span class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center text-xs py-1 font-medium truncate px-1">{{ $tmpl->name }}</span>
-                                @if($tmpl->is_default)
-                                    <span class="absolute top-1 right-1 bg-yellow-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">Default</span>
-                                @endif
+                                    :class="selectedTemplate === 'tournament_{{ $tmpl->id }}' ? 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                    class="w-full flex items-center gap-3 p-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-all">
+                                <div class="w-14 h-18 flex-shrink-0 rounded-md overflow-hidden border border-gray-200 dark:border-gray-600">
+                                    @if($tmpl->background_image)
+                                        <img src="{{ asset('storage/' . $tmpl->background_image) }}" class="w-full h-full object-cover" alt="{{ $tmpl->name }}">
+                                    @else
+                                        <div class="w-full h-full bg-gradient-to-br from-purple-600 to-indigo-600"></div>
+                                    @endif
+                                </div>
+                                <div class="flex-1 text-left">
+                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ $tmpl->name }}</p>
+                                    @if($tmpl->is_default)
+                                        <span class="inline-block text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 px-1.5 py-0.5 rounded-full font-semibold mt-0.5">Default</span>
+                                    @endif
+                                </div>
+                                <div x-show="selectedTemplate === 'tournament_{{ $tmpl->id }}'" class="flex-shrink-0">
+                                    <svg class="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
                             </button>
                         @endforeach
                     </div>
+                </div>
+                @else
+                <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-center">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">No summary templates found</p>
+                    <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
+                       class="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 font-medium">
+                        Create a Template
+                    </a>
                 </div>
                 @endif
 
-                <!-- Built-in Template Selector -->
-                <div class="mb-4">
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Built-in Templates</label>
-                        <button type="button"
-                                @click="showCustomize = !showCustomize"
-                                x-show="!isCustomTemplate"
-                                class="text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400 flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                            <span x-text="showCustomize ? 'Hide' : 'Customize'"></span>
-                        </button>
-                    </div>
-                    <div class="grid grid-cols-5 gap-2">
-                        @php
-                            $templates = [
-                                'classic' => ['name' => 'Classic', 'color' => 'from-blue-900 to-indigo-900'],
-                                'modern' => ['name' => 'Modern', 'color' => 'from-slate-800 to-slate-900'],
-                                'minimal' => ['name' => 'Light', 'color' => 'from-gray-100 to-white'],
-                                'gradient' => ['name' => 'Vibrant', 'color' => 'from-purple-500 to-pink-500'],
-                                'dark' => ['name' => 'Dark', 'color' => 'from-black to-gray-900'],
-                            ];
-                        @endphp
-                        @foreach($templates as $key => $template)
-                            <button type="button"
-                                    @click="selectedTemplate = '{{ $key }}'; isCustomTemplate = false"
-                                    :class="selectedTemplate === '{{ $key }}' ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-800' : ''"
-                                    class="relative aspect-[3/4] rounded-lg overflow-hidden transition-all hover:scale-105 focus:outline-none bg-gradient-to-br {{ $template['color'] }} {{ $key === 'minimal' ? 'border border-gray-300' : '' }}">
-                                <span class="absolute bottom-1 left-0 right-0 text-center text-xs font-medium {{ $key === 'minimal' ? 'text-gray-600' : 'text-white' }}">{{ $template['name'] }}</span>
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
-
-                <!-- Customization Panel -->
-                <div x-show="showCustomize" x-collapse class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Customize Colors</h4>
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Primary Color</label>
-                            <div class="flex items-center gap-2">
-                                <input type="color"
-                                       x-model="customColors.primary"
-                                       class="w-10 h-10 rounded-lg border-0 cursor-pointer">
-                                <input type="text"
-                                       x-model="customColors.primary"
-                                       class="flex-1 text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Accent Color</label>
-                            <div class="flex items-center gap-2">
-                                <input type="color"
-                                       x-model="customColors.secondary"
-                                       class="w-10 h-10 rounded-lg border-0 cursor-pointer">
-                                <input type="text"
-                                       x-model="customColors.secondary"
-                                       class="flex-1 text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                        <a href="{{ route('admin.tournaments.edit', $tournament) }}"
-                           class="flex items-center text-xs text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                            Edit Tournament Colors
-                        </a>
-                        <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
-                           class="flex items-center text-xs text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400">
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
-                            </svg>
-                            Manage All Templates
-                        </a>
-                    </div>
-                </div>
-
                 <!-- Poster Preview -->
                 <div class="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-xl overflow-hidden mb-4 shadow-inner" style="max-height: 600px; overflow-y: auto;">
-                    @if($match->result)
-                        {{-- Custom tournament template preview --}}
-                        <div x-show="isCustomTemplate" class="aspect-[3/4] flex items-center justify-center">
+                    @if($match->result && $summaryTournamentTemplates->count() > 0)
+                        <div class="aspect-[3/4] flex items-center justify-center">
                             @foreach($summaryTournamentTemplates as $tmpl)
                                 <div x-show="selectedTemplate === 'tournament_{{ $tmpl->id }}'" class="w-full">
                                     @if($tmpl->background_image)
@@ -901,57 +829,18 @@
                                 </div>
                             @endforeach
                         </div>
-                        {{-- Built-in template previews --}}
-                        <div id="poster-preview-container" x-show="!isCustomTemplate">
-                            <div x-show="selectedTemplate === 'classic'">
-                                <x-posters.summary-poster :match="$match" template="classic" :scale="0.35" />
-                            </div>
-                            <div x-show="selectedTemplate === 'modern'">
-                                <x-posters.summary-poster :match="$match" template="modern" :scale="0.35" />
-                            </div>
-                            <div x-show="selectedTemplate === 'minimal'">
-                                <x-posters.summary-poster :match="$match" template="minimal" :scale="0.35" />
-                            </div>
-                            <div x-show="selectedTemplate === 'gradient'">
-                                <x-posters.summary-poster :match="$match" template="gradient" :scale="0.35" />
-                            </div>
-                            <div x-show="selectedTemplate === 'dark'">
-                                <x-posters.summary-poster :match="$match" template="dark" :scale="0.35" />
-                            </div>
-                        </div>
                     @else
                         <div class="aspect-[3/4] flex items-center justify-center text-gray-400">
                             <div class="text-center p-4">
                                 <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2h-8a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                 </svg>
-                                <p class="text-sm">No result recorded yet</p>
-                                <p class="text-xs text-gray-400 mt-1">Record match result to preview poster</p>
+                                <p class="text-sm">{{ $match->result ? 'No templates available' : 'No result recorded yet' }}</p>
+                                <p class="text-xs text-gray-400 mt-1">{{ $match->result ? 'Create a match summary template first' : 'Record match result to preview poster' }}</p>
                             </div>
                         </div>
                     @endif
                 </div>
-
-                <!-- Hidden Full-Size Posters for Download -->
-                @if($match->result)
-                    <div id="poster-full-size" style="position: absolute; left: -9999px; top: 0; width: 1080px; overflow: visible;">
-                        <div id="poster-classic-full" style="width: 1080px; height: 1350px;">
-                            <x-posters.summary-poster :match="$match" template="classic" :scale="1" />
-                        </div>
-                        <div id="poster-modern-full" style="width: 1080px; height: 1350px; display: none;">
-                            <x-posters.summary-poster :match="$match" template="modern" :scale="1" />
-                        </div>
-                        <div id="poster-minimal-full" style="width: 1080px; height: 1350px; display: none;">
-                            <x-posters.summary-poster :match="$match" template="minimal" :scale="1" />
-                        </div>
-                        <div id="poster-gradient-full" style="width: 1080px; height: 1350px; display: none;">
-                            <x-posters.summary-poster :match="$match" template="gradient" :scale="1" />
-                        </div>
-                        <div id="poster-dark-full" style="width: 1080px; height: 1350px; display: none;">
-                            <x-posters.summary-poster :match="$match" template="dark" :scale="1" />
-                        </div>
-                    </div>
-                @endif
 
                 <!-- Status Badge -->
                 @if($summary->poster_sent)
@@ -1298,7 +1187,6 @@
 </div>
 
 @push('scripts')
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <script>
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
@@ -1319,8 +1207,12 @@ async function downloadPoster() {
 
     // Get selected template from Alpine
     const alpineData = Alpine.$data(btn.closest('[x-data]'));
-    const selectedTemplate = alpineData.selectedTemplate || 'classic';
-    const isCustomTemplate = alpineData.isCustomTemplate || false;
+    const selectedTemplate = alpineData.selectedTemplate || '';
+
+    if (!selectedTemplate) {
+        showToast('Please select a template first.', 'error');
+        return;
+    }
 
     // Show loading state
     btn.disabled = true;
@@ -1329,111 +1221,32 @@ async function downloadPoster() {
     text.textContent = 'Generating...';
 
     try {
-        // Custom tournament template: generate & download via server
-        if (isCustomTemplate) {
-            const templateId = selectedTemplate.replace('tournament_', '');
-            const formData = new FormData();
-            formData.append('_token', '{{ csrf_token() }}');
-            formData.append('template_id', templateId);
-            formData.append('download', '1');
+        const templateId = selectedTemplate.replace('tournament_', '');
+        const formData = new FormData();
+        formData.append('_token', '{{ csrf_token() }}');
+        formData.append('template_id', templateId);
+        formData.append('download', '1');
 
-            const response = await fetch('{{ route("admin.matches.summary.generate-poster", $match) }}', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) throw new Error('Failed to generate poster');
-
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `match-summary-{{ $match->id }}-custom.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('Poster downloaded successfully!', 'success');
-            return;
-        }
-
-        // Built-in template: use html2canvas
-        const fullSizeContainer = document.getElementById('poster-full-size');
-        const allPosters = fullSizeContainer.querySelectorAll('[id$="-full"]');
-        allPosters.forEach(p => p.style.display = 'none');
-
-        const targetPoster = document.getElementById(`poster-${selectedTemplate}-full`);
-        targetPoster.style.display = 'block';
-
-        // Move container to visible area temporarily for rendering
-        fullSizeContainer.style.left = '0';
-        fullSizeContainer.style.top = '0';
-        fullSizeContainer.style.position = 'fixed';
-        fullSizeContainer.style.zIndex = '9999';
-        fullSizeContainer.style.opacity = '0.01';
-        fullSizeContainer.style.pointerEvents = 'none';
-
-        const posterElement = targetPoster.querySelector('[class^="poster-"]');
-        if (!posterElement) throw new Error('Poster element not found');
-
-        // Wait for images to load
-        const images = posterElement.querySelectorAll('img');
-        if (images.length > 0) {
-            await Promise.all(Array.from(images).map(img => {
-                if (img.complete) return Promise.resolve();
-                return new Promise((resolve) => {
-                    img.onload = resolve;
-                    img.onerror = resolve;
-                });
-            }));
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        const canvas = await html2canvas(posterElement, {
-            scale: 1,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: null,
-            logging: false,
-            onclone: function(clonedDoc, element) {
-                element.style.display = 'block';
-                element.style.visibility = 'visible';
-            }
+        const response = await fetch('{{ route("admin.matches.summary.generate-poster", $match) }}', {
+            method: 'POST',
+            body: formData,
         });
 
-        fullSizeContainer.style.left = '-9999px';
-        fullSizeContainer.style.top = '0';
-        fullSizeContainer.style.position = 'absolute';
-        fullSizeContainer.style.zIndex = '-1';
-        fullSizeContainer.style.opacity = '1';
-        fullSizeContainer.style.pointerEvents = 'auto';
+        if (!response.ok) throw new Error('Failed to generate poster');
 
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                showToast('Failed to generate poster image.', 'error');
-                return;
-            }
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `match-summary-{{ $match->id }}-${selectedTemplate}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('Poster downloaded successfully!', 'success');
-        }, 'image/png', 1.0);
-
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `match-summary-{{ $match->id }}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Poster downloaded successfully!', 'success');
     } catch (error) {
         console.error('Error generating poster:', error);
         showToast('Failed to generate poster. Please try again.', 'error');
-
-        const fullSizeContainer = document.getElementById('poster-full-size');
-        if (fullSizeContainer) {
-            fullSizeContainer.style.left = '-9999px';
-            fullSizeContainer.style.position = 'absolute';
-        }
     } finally {
         btn.disabled = false;
         icon.classList.remove('hidden');
