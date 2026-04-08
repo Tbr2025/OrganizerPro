@@ -703,6 +703,21 @@
                                 </div>
                             </div>
 
+                            {{-- Innings Selector --}}
+                            <div>
+                                <label class="flex items-center text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1">
+                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                    </svg>
+                                    Innings View
+                                </label>
+                                <select id="apInningsSelect"
+                                        class="w-full rounded-lg border-2 border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="1">1st Innings (Batting First on Left)</option>
+                                    <option value="2">2nd Innings (Chasing Team on Left)</option>
+                                </select>
+                            </div>
+
                             {{-- Generate & Download --}}
                             <div class="flex gap-2">
                                 <button type="button" onclick="generateAwardPoster()" id="apPreviewBtn"
@@ -757,7 +772,7 @@
         isCustomTemplate: true,
         summaryInnings: '1'
     }">
-        <div class="card rounded-2xl overflow-hidden sticky top-4">
+        <div class="card rounded-2xl overflow-hidden sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
             <div class="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
                 <h3 class="text-white font-bold text-lg flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -1381,6 +1396,7 @@ async function generateAwardPoster() {
     formData.append('template_id', templateInput.value);
     formData.append('type', 'award_poster');
     formData.append('match_id', '{{ $match->id }}');
+    formData.append('innings', document.getElementById('apInningsSelect')?.value || '1');
 
     // Award name from shared dropdown
     const awardSelect = document.getElementById('apAwardSelect');
