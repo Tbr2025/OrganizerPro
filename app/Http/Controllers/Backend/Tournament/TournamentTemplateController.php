@@ -207,8 +207,18 @@ class TournamentTemplateController extends Controller
                         }
                     }
 
-                    // Swap team data if team B batted first (so "team_a" placeholders = first batting team)
-                    if ($match->result && $match->result->team_a_batting_first === false) {
+                    // Swap team data based on batting order and innings selection
+                    // Default (innings=1): team_a = first batting team
+                    // Innings 2: team_a = second batting (chasing) team
+                    $innings = (int) $request->input('innings', 1);
+                    $shouldSwap = $match->result && $match->result->team_a_batting_first === false;
+
+                    // For 2nd innings, reverse the logic: swap when team A batted first
+                    if ($innings === 2) {
+                        $shouldSwap = $match->result && $match->result->team_a_batting_first !== false;
+                    }
+
+                    if ($shouldSwap) {
                         $swapKeys = [
                             'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
                             'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',

@@ -491,6 +491,16 @@
                     </div>
                 </div>
 
+                {{-- Innings Selector --}}
+                <div id="inningsSelector" class="mb-4 hidden">
+                    <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Innings View</label>
+                    <select id="inningsSelect" onchange="onInningsChange()"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+                        <option value="1">1st Innings (Batting First on Left)</option>
+                        <option value="2">2nd Innings (Chasing Team on Left)</option>
+                    </select>
+                </div>
+
                 {{-- Action Buttons --}}
                 <div class="space-y-3">
                     <button type="button" onclick="generatePreview()" id="previewBtn"
@@ -528,6 +538,12 @@ function updateType(type) {
     document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card');
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
     document.getElementById('groupSelection').classList.toggle('hidden', type !== 'point_table');
+
+    // Show/hide innings selector
+    showInningsSelector();
+
+    // Reset innings to 1st
+    document.getElementById('inningsSelect').value = '1';
 
     // Reset preview
     resetPreview();
@@ -774,6 +790,12 @@ function getSelectedData() {
     const templateInput = document.querySelector('input[name="template_id"]:checked');
     if (templateInput) {
         data.template_id = templateInput.value;
+    }
+
+    // Include innings selection
+    const inningsSelect = document.getElementById('inningsSelect');
+    if (inningsSelect && !document.getElementById('inningsSelector').classList.contains('hidden')) {
+        data.innings = inningsSelect.value;
     }
 
     return data;
@@ -1038,12 +1060,28 @@ function resetPreviewBtn() {
 function downloadPoster() {
     if (!generatedImageUrl) return;
 
+    const innings = document.getElementById('inningsSelect')?.value || '1';
     const link = document.createElement('a');
     link.href = generatedImageUrl;
-    link.download = `poster-${currentType}-${Date.now()}.png`;
+    link.download = `poster-${currentType}-innings${innings}-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+function onInningsChange() {
+    // Reset preview when innings changes so user regenerates
+    resetPreview();
+}
+
+function showInningsSelector() {
+    const selector = document.getElementById('inningsSelector');
+    // Show for match-based poster types
+    if (['match_poster', 'match_summary', 'award_poster'].includes(currentType)) {
+        selector.classList.remove('hidden');
+    } else {
+        selector.classList.add('hidden');
+    }
 }
 
 function loadMatchAwards(matchId) {
@@ -1330,6 +1368,9 @@ setTimeout(() => {
         }
     }
 }, 500);
+
+// Show innings selector on initial load based on current type
+showInningsSelector();
 </script>
 @endpush
 @endsection
