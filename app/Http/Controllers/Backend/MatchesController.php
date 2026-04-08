@@ -1036,39 +1036,32 @@ class MatchesController extends Controller
         $tournament = $match->tournament;
         $settings = $tournament?->settings;
 
-        // Determine batting order — team_a in template = first batting team
-        $result = $match->result;
-        $teamABatsFirst = $result?->team_a_batting_first ?? true;
-
-        $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
-        $secondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
-
         // Get captain info for teams
-        $firstCaptain = $this->getTeamCaptain($firstTeam);
-        $secondCaptain = $this->getTeamCaptain($secondTeam);
+        $teamACaptain = $this->getTeamCaptain($match->teamA);
+        $teamBCaptain = $this->getTeamCaptain($match->teamB);
 
         $data = [
             // Tournament info
             'tournament_name' => $tournament?->name ?? 'Tournament',
             'tournament_logo' => $settings?->logo ?? null,
 
-            // Team A = first batting team
-            'team_a_name' => $firstTeam?->name ?? 'Team A',
-            'team_a_short_name' => $firstTeam?->short_name ?? strtoupper(substr($firstTeam?->name ?? 'TMA', 0, 3)),
-            'team_a_logo' => $firstTeam?->team_logo ?? null,
-            'team_a_location' => $firstTeam?->location ?? '',
-            'team_a_captain_name' => $firstCaptain['name'] ?? '',
-            'team_a_captain_image' => $firstTeam?->captain_image ?? $firstCaptain['image'] ?? null,
-            'team_a_sponsor_logo' => $firstTeam?->sponsor_logo ?? null,
+            // Team A info
+            'team_a_name' => $match->teamA?->name ?? 'Team A',
+            'team_a_short_name' => $match->teamA?->short_name ?? strtoupper(substr($match->teamA?->name ?? 'TMA', 0, 3)),
+            'team_a_logo' => $match->teamA?->team_logo ?? null,
+            'team_a_location' => $match->teamA?->location ?? '',
+            'team_a_captain_name' => $teamACaptain['name'] ?? '',
+            'team_a_captain_image' => $match->teamA?->captain_image ?? $teamACaptain['image'] ?? null,
+            'team_a_sponsor_logo' => $match->teamA?->sponsor_logo ?? null,
 
-            // Team B = second batting team
-            'team_b_name' => $secondTeam?->name ?? 'Team B',
-            'team_b_short_name' => $secondTeam?->short_name ?? strtoupper(substr($secondTeam?->name ?? 'TMB', 0, 3)),
-            'team_b_logo' => $secondTeam?->team_logo ?? null,
-            'team_b_location' => $secondTeam?->location ?? '',
-            'team_b_captain_name' => $secondCaptain['name'] ?? '',
-            'team_b_captain_image' => $secondTeam?->captain_image ?? $secondCaptain['image'] ?? null,
-            'team_b_sponsor_logo' => $secondTeam?->sponsor_logo ?? null,
+            // Team B info
+            'team_b_name' => $match->teamB?->name ?? 'Team B',
+            'team_b_short_name' => $match->teamB?->short_name ?? strtoupper(substr($match->teamB?->name ?? 'TMB', 0, 3)),
+            'team_b_logo' => $match->teamB?->team_logo ?? null,
+            'team_b_location' => $match->teamB?->location ?? '',
+            'team_b_captain_name' => $teamBCaptain['name'] ?? '',
+            'team_b_captain_image' => $match->teamB?->captain_image ?? $teamBCaptain['image'] ?? null,
+            'team_b_sponsor_logo' => $match->teamB?->sponsor_logo ?? null,
 
             // Match info
             'match_date' => $match->match_date ? $match->match_date->format('M d, Y') : 'TBA',
@@ -1085,17 +1078,10 @@ class MatchesController extends Controller
 
         // Add result data if match is completed
         if ($match->status === 'completed') {
-            // Map scores based on batting order
-            $firstKey = $teamABatsFirst ? 'a' : 'b';
-            $secondKey = $teamABatsFirst ? 'b' : 'a';
+            $result = $match->result;
 
-            $firstRuns = $result?->{"team_{$firstKey}_score"} ?? 0;
-            $firstWickets = $result?->{"team_{$firstKey}_wickets"};
-            $secondRuns = $result?->{"team_{$secondKey}_score"} ?? 0;
-            $secondWickets = $result?->{"team_{$secondKey}_wickets"};
-
-            $data['team_a_score'] = $firstRuns . ($firstWickets !== null ? '/' . $firstWickets : '');
-            $data['team_b_score'] = $secondRuns . ($secondWickets !== null ? '/' . $secondWickets : '');
+            $data['team_a_score'] = $result?->team_a_score ?? ($match->team_a_runs . '/' . $match->team_a_wickets);
+            $data['team_b_score'] = $result?->team_b_score ?? ($match->team_b_runs . '/' . $match->team_b_wickets);
             $data['result_summary'] = $result?->result_text ?? $match->result_text ?? '';
             $data['winner_name'] = $match->winner?->name ?? '';
 
