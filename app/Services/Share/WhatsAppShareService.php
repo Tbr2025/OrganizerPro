@@ -105,7 +105,7 @@ class WhatsAppShareService
         }
 
         if ($match->start_time) {
-            $message .= "🕐 *Time:* {$match->start_time}\n";
+            $message .= "🕐 *Time:* " . \Carbon\Carbon::parse($match->start_time)->format('h:i A') . "\n";
         }
 
         $venue = $match->ground?->name ?? $match->venue;

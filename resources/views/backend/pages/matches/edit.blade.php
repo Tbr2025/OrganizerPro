@@ -178,10 +178,10 @@
                                     <label for="start_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Start Time <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="time" name="start_time" id="start_time"
+                                    <input type="text" name="start_time" id="start_time"
                                         value="{{ old('start_time', $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('H:i') : '') }}"
-                                        required
-                                        class="block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        required placeholder="Select time"
+                                        class="flatpickr-time block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                     @error('start_time')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -192,10 +192,10 @@
                                     <label for="end_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         End Time <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="time" name="end_time" id="end_time"
+                                    <input type="text" name="end_time" id="end_time"
                                         value="{{ old('end_time', $match->end_time ? \Carbon\Carbon::parse($match->end_time)->format('H:i') : '') }}"
-                                        required
-                                        class="block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        required placeholder="Select time"
+                                        class="flatpickr-time block w-full rounded-md border-gray-300 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                     @error('end_time')
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
@@ -307,6 +307,26 @@
                 dateFormat: 'Y-m-d',
                 altInput: true,
                 altFormat: 'F j, Y',
+                disableMobile: true
+            });
+
+            // Initialize time pickers (12-hour display, 24-hour value)
+            flatpickr('#start_time', {
+                enableTime: true,
+                noCalendar: true,
+                dateFormat: 'H:i',
+                altInput: true,
+                altFormat: 'h:i K',
+                time_24hr: false,
+                disableMobile: true
+            });
+            flatpickr('#end_time', {
+                enableTime: true,
+                noCalendar: true,
+                dateFormat: 'H:i',
+                altInput: true,
+                altFormat: 'h:i K',
+                time_24hr: false,
                 disableMobile: true
             });
 

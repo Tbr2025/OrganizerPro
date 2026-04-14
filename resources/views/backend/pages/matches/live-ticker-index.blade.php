@@ -94,7 +94,7 @@
                         <td class="px-5 py-4 sm:px-6">
                             <div>
                                 <p class="text-gray-800 dark:text-white">{{ \Carbon\Carbon::parse($match->match_date)->format('d M Y') }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $match->start_time }} - {{ $match->end_time }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : '' }} - {{ $match->end_time ? \Carbon\Carbon::parse($match->end_time)->format('h:i A') : '' }}</p>
                             </div>
                         </td>
                         <td class="px-5 py-4 sm:px-6">

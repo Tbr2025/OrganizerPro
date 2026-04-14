@@ -1091,7 +1091,7 @@ class MatchesController extends Controller
             'match_date_day' => $match->match_date ? $match->match_date->format('d') : '',
             'match_date_month' => $match->match_date ? strtoupper($match->match_date->format('M')) : '',
             'match_date_weekday' => $match->match_date ? strtoupper($match->match_date->format('D')) : '',
-            'match_time' => $match->start_time ?? 'TBA',
+            'match_time' => $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : 'TBA',
             'match_day' => $match->match_date ? $match->match_date->format('l') : '',
             'venue' => $match->venue ?? $match->location ?? 'TBA',
             'ground_name' => $match->ground?->name ?? $match->venue ?? $match->location ?? 'TBA',

@@ -220,7 +220,7 @@
                                 <div class="flex items-center gap-4">
                                     <div class="text-center">
                                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ $match->match_date?->format('M d') }}</p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $match->start_time ?? 'TBD' }}</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : 'TBD' }}</p>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         @if($match->teamA?->team_logo)

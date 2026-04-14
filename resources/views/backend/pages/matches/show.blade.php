@@ -688,7 +688,7 @@
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">Time</span>
-                    <span class="font-medium">{{ $match->start_time ?? '-' }}</span>
+                    <span class="font-medium">{{ $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : '-' }}</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-500">Venue</span>
