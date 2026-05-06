@@ -506,6 +506,15 @@
                             <button id="propItalicBtn" class="prop-btn prop-btn-secondary w-full" onclick="editor.toggleItalic()" style="font-style:italic;">I</button>
                         </div>
                     </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Skew <span id="skewValue" class="text-xs text-gray-500">0°</span></label>
+                        <input type="range" id="propSkewX" class="prop-slider" min="-45" max="45" value="0" oninput="editor.updateSkew(parseInt(this.value))">
+                        <div class="flex justify-between mt-1">
+                            <button class="text-[10px] text-gray-500 hover:text-white" onclick="editor.updateSkew(-15)">-15°</button>
+                            <button class="text-[10px] text-gray-500 hover:text-white" onclick="editor.updateSkew(0)">Reset</button>
+                            <button class="text-[10px] text-gray-500 hover:text-white" onclick="editor.updateSkew(15)">+15°</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1277,6 +1286,9 @@ const editor = {
             document.getElementById('propFontWeight').value = obj.fontWeight || '400';
             document.getElementById('propTextColor').value = obj.fill || '#ffffff';
             document.getElementById('propTextTransform').value = obj.textTransform || 'none';
+            const skewVal = Math.round(obj.skewX || 0);
+            document.getElementById('propSkewX').value = skewVal;
+            document.getElementById('skewValue').textContent = skewVal + '°';
             const italicBtn = document.getElementById('propItalicBtn');
             if (obj.fontStyle === 'italic') {
                 italicBtn.classList.remove('prop-btn-secondary');
@@ -1385,6 +1397,16 @@ const editor = {
             btn.classList.remove('prop-btn-primary');
             btn.classList.add('prop-btn-secondary');
         }
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateSkew(value) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        obj.set('skewX', value);
+        document.getElementById('propSkewX').value = value;
+        document.getElementById('skewValue').textContent = value + '°';
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -1685,6 +1707,7 @@ const editor = {
                     fontFamily: item.fontFamily || 'Arial',
                     fontWeight: item.fontWeight || '400',
                     fontStyle: item.fontStyle || 'normal',
+                    skewX: item.skewX || 0,
                     fill: item.color || '#ffffff',
                     angle: item.rotation || 0,
                     opacity: (item.opacity ?? 100) / 100,
@@ -1875,7 +1898,7 @@ const editor = {
             } else if (obj.elementType === 'text' || obj.type === 'i-text') {
                 // Save the actual text content — needed for custom/static text that has no placeholder
                 const textContent = obj.text || '';
-                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null };
+                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null };
             } else if (obj.elementType === 'image') {
                 return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'shape') {

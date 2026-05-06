@@ -149,6 +149,7 @@ class TemplateRenderService extends PosterGeneratorService
         $textAlign = $element['textAlign'] ?? 'center';
         $textTransform = $element['textTransform'] ?? 'none';
         $rotation = (float) ($element['rotation'] ?? 0);
+        $skewX = (float) ($element['skewX'] ?? 0);
         $opacity = (int) ($element['opacity'] ?? 100);
         $shadow = $element['shadow'] ?? true;
         $shadowBlur = $element['shadowBlur'] ?? 4;
@@ -165,6 +166,12 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Map font weight + style to font file
         $fontFile = $this->getFontFile($fontWeight, $fontStyle);
+
+        // If skew is applied, render to temp canvas and apply affine shear
+        if ($skewX != 0) {
+            $this->renderSkewedText($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, $rotation, $skewX, $shadow, $shadowX, $shadowY);
+            return;
+        }
 
         // Draw shadow first if enabled
         if ($shadow) {
@@ -193,6 +200,90 @@ class TemplateRenderService extends PosterGeneratorService
             $textAlign,
             -$rotation
         );
+    }
+
+    /**
+     * Render text with skew (shear) transformation
+     */
+    protected function renderSkewedText(
+        \GdImage $canvas, string $text, int $x, int $y,
+        int $fontSize, string $color, string $fontFile, string $textAlign,
+        float $rotation, float $skewX, bool $shadow, int $shadowX, int $shadowY
+    ): void {
+        $fontPath = public_path('fonts/' . $fontFile);
+        if (!file_exists($fontPath)) {
+            $fontPath = public_path('fonts/Oswald-Bold.ttf');
+        }
+
+        // Measure text bounds
+        $bbox = imagettfbbox($fontSize, 0, $fontPath, $text);
+        $textWidth = abs($bbox[2] - $bbox[0]);
+        $textHeight = abs($bbox[7] - $bbox[1]);
+
+        // Create temp canvas with padding for skew overflow
+        $skewRadians = tan(deg2rad($skewX));
+        $skewOffset = (int) abs($textHeight * $skewRadians);
+        $padding = 40;
+        $tmpW = $textWidth + $skewOffset + $padding * 2;
+        $tmpH = $textHeight + $padding * 2;
+
+        $tmp = imagecreatetruecolor($tmpW, $tmpH);
+        imagealphablending($tmp, false);
+        imagesavealpha($tmp, true);
+        $transparent = imagecolorallocatealpha($tmp, 0, 0, 0, 127);
+        imagefill($tmp, 0, 0, $transparent);
+        imagealphablending($tmp, true);
+
+        // Position text in center of temp canvas
+        $drawX = $padding + ($skewOffset / 2);
+        $drawY = $padding + $textHeight;
+
+        // Adjust for alignment
+        if ($textAlign === 'center') {
+            // Already left-aligned on temp canvas, will center when compositing
+        } elseif ($textAlign === 'right') {
+            $drawX = $tmpW - $padding - ($skewOffset / 2) - $textWidth;
+        }
+
+        // Draw shadow
+        if ($shadow) {
+            $shadowColor = imagecolorallocate($tmp, 0, 0, 0);
+            imagettftext($tmp, $fontSize, 0, (int) ($drawX + $shadowX), (int) ($drawY + $shadowY), $shadowColor, $fontPath, $text);
+        }
+
+        // Draw main text
+        $rgb = $this->hexToRgb($color);
+        $textColor = imagecolorallocate($tmp, $rgb['r'], $rgb['g'], $rgb['b']);
+        imagettftext($tmp, $fontSize, 0, (int) $drawX, (int) $drawY, $textColor, $fontPath, $text);
+
+        // Apply affine skew transformation: [1, tan(skewX), 0, 0, 1, 0]
+        $affineMatrix = [1, 0, $skewRadians, 1, 0, 0];
+        $skewed = imageaffine($tmp, $affineMatrix);
+        imagedestroy($tmp);
+
+        if (!$skewed) return;
+
+        imagesavealpha($skewed, true);
+
+        // Apply rotation if needed
+        if ($rotation != 0) {
+            $transColor = imagecolorallocatealpha($skewed, 0, 0, 0, 127);
+            $rotated = imagerotate($skewed, $rotation, $transColor);
+            imagedestroy($skewed);
+            if (!$rotated) return;
+            imagesavealpha($rotated, true);
+            $skewed = $rotated;
+        }
+
+        // Composite onto main canvas, centered at (x, y)
+        $finalW = imagesx($skewed);
+        $finalH = imagesy($skewed);
+        $destX = $x - (int) ($finalW / 2);
+        $destY = $y - (int) ($finalH / 2);
+
+        imagealphablending($canvas, true);
+        imagecopy($canvas, $skewed, $destX, $destY, 0, 0, $finalW, $finalH);
+        imagedestroy($skewed);
     }
 
     /**
