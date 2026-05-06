@@ -462,6 +462,8 @@
                         <div class="prop-group">
                             <label class="prop-label">Weight</label>
                             <select id="propFontWeight" class="prop-input" onchange="editor.updateText('fontWeight', this.value)">
+                                <option value="100">Thin</option>
+                                <option value="300">Light</option>
                                 <option value="400">Regular</option>
                                 <option value="500">Medium</option>
                                 <option value="600">SemiBold</option>
@@ -503,7 +505,12 @@
                         </div>
                         <div class="prop-group">
                             <label class="prop-label">Style</label>
-                            <button id="propItalicBtn" class="prop-btn prop-btn-secondary w-full" onclick="editor.toggleItalic()" style="font-style:italic;">I</button>
+                            <div class="flex gap-1">
+                                <button id="propBoldBtn" class="prop-btn prop-btn-secondary flex-1 font-bold" onclick="editor.toggleBold()" title="Bold">B</button>
+                                <button id="propItalicBtn" class="prop-btn prop-btn-secondary flex-1" onclick="editor.toggleItalic()" style="font-style:italic;" title="Italic">I</button>
+                                <button id="propUnderlineBtn" class="prop-btn prop-btn-secondary flex-1" onclick="editor.toggleUnderline()" style="text-decoration:underline;" title="Underline">U</button>
+                                <button id="propLinethroughBtn" class="prop-btn prop-btn-secondary flex-1" onclick="editor.toggleLinethrough()" style="text-decoration:line-through;" title="Strikethrough">S</button>
+                            </div>
                         </div>
                     </div>
                     <div class="prop-group">
@@ -1289,14 +1296,16 @@ const editor = {
             const skewVal = Math.round(obj.skewX || 0);
             document.getElementById('propSkewX').value = skewVal;
             document.getElementById('skewValue').textContent = skewVal + '°';
-            const italicBtn = document.getElementById('propItalicBtn');
-            if (obj.fontStyle === 'italic') {
-                italicBtn.classList.remove('prop-btn-secondary');
-                italicBtn.classList.add('prop-btn-primary');
-            } else {
-                italicBtn.classList.remove('prop-btn-primary');
-                italicBtn.classList.add('prop-btn-secondary');
-            }
+            // Update style toggle buttons
+            const toggleState = (btnId, active) => {
+                const btn = document.getElementById(btnId);
+                if (active) { btn.classList.remove('prop-btn-secondary'); btn.classList.add('prop-btn-primary'); }
+                else { btn.classList.remove('prop-btn-primary'); btn.classList.add('prop-btn-secondary'); }
+            };
+            toggleState('propBoldBtn', parseInt(obj.fontWeight || '400') >= 700);
+            toggleState('propItalicBtn', obj.fontStyle === 'italic');
+            toggleState('propUnderlineBtn', obj.underline === true);
+            toggleState('propLinethroughBtn', obj.linethrough === true);
         }
         if (isShape) {
             this.updateShapePropertiesPanel(obj);
@@ -1384,19 +1393,52 @@ const editor = {
         this.saveHistory();
     },
 
+    toggleBold() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        const current = parseInt(obj.fontWeight || '400');
+        const newWeight = current >= 700 ? '400' : '700';
+        obj.set('fontWeight', newWeight);
+        document.getElementById('propFontWeight').value = newWeight;
+        const btn = document.getElementById('propBoldBtn');
+        if (newWeight === '700') { btn.classList.remove('prop-btn-secondary'); btn.classList.add('prop-btn-primary'); }
+        else { btn.classList.remove('prop-btn-primary'); btn.classList.add('prop-btn-secondary'); }
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
     toggleItalic() {
         const obj = this.canvas.getActiveObject();
         if (!obj) return;
         const newStyle = obj.fontStyle === 'italic' ? 'normal' : 'italic';
         obj.set('fontStyle', newStyle);
         const btn = document.getElementById('propItalicBtn');
-        if (newStyle === 'italic') {
-            btn.classList.remove('prop-btn-secondary');
-            btn.classList.add('prop-btn-primary');
-        } else {
-            btn.classList.remove('prop-btn-primary');
-            btn.classList.add('prop-btn-secondary');
-        }
+        if (newStyle === 'italic') { btn.classList.remove('prop-btn-secondary'); btn.classList.add('prop-btn-primary'); }
+        else { btn.classList.remove('prop-btn-primary'); btn.classList.add('prop-btn-secondary'); }
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    toggleUnderline() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        const newVal = !obj.underline;
+        obj.set('underline', newVal);
+        const btn = document.getElementById('propUnderlineBtn');
+        if (newVal) { btn.classList.remove('prop-btn-secondary'); btn.classList.add('prop-btn-primary'); }
+        else { btn.classList.remove('prop-btn-primary'); btn.classList.add('prop-btn-secondary'); }
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    toggleLinethrough() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        const newVal = !obj.linethrough;
+        obj.set('linethrough', newVal);
+        const btn = document.getElementById('propLinethroughBtn');
+        if (newVal) { btn.classList.remove('prop-btn-secondary'); btn.classList.add('prop-btn-primary'); }
+        else { btn.classList.remove('prop-btn-primary'); btn.classList.add('prop-btn-secondary'); }
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -1707,6 +1749,8 @@ const editor = {
                     fontFamily: item.fontFamily || 'Arial',
                     fontWeight: item.fontWeight || '400',
                     fontStyle: item.fontStyle || 'normal',
+                    underline: item.underline || false,
+                    linethrough: item.linethrough || false,
                     skewX: item.skewX || 0,
                     fill: item.color || '#ffffff',
                     angle: item.rotation || 0,
@@ -1898,7 +1942,7 @@ const editor = {
             } else if (obj.elementType === 'text' || obj.type === 'i-text') {
                 // Save the actual text content — needed for custom/static text that has no placeholder
                 const textContent = obj.text || '';
-                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null };
+                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', underline: obj.underline || false, linethrough: obj.linethrough || false, skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null };
             } else if (obj.elementType === 'image') {
                 return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'shape') {

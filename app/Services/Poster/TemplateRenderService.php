@@ -151,6 +151,8 @@ class TemplateRenderService extends PosterGeneratorService
         $rotation = (float) ($element['rotation'] ?? 0);
         $skewX = (float) ($element['skewX'] ?? 0);
         $opacity = (int) ($element['opacity'] ?? 100);
+        $underline = (bool) ($element['underline'] ?? false);
+        $linethrough = (bool) ($element['linethrough'] ?? false);
         $shadow = $element['shadow'] ?? true;
         $shadowBlur = $element['shadowBlur'] ?? 4;
         $shadowX = $element['shadowX'] ?? 2;
@@ -200,6 +202,11 @@ class TemplateRenderService extends PosterGeneratorService
             $textAlign,
             -$rotation
         );
+
+        // Draw underline / linethrough decorations
+        if ($underline || $linethrough) {
+            $this->renderTextDecoration($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, -$rotation, $underline, $linethrough);
+        }
     }
 
     /**
@@ -284,6 +291,49 @@ class TemplateRenderService extends PosterGeneratorService
         imagealphablending($canvas, true);
         imagecopy($canvas, $skewed, $destX, $destY, 0, 0, $finalW, $finalH);
         imagedestroy($skewed);
+    }
+
+    /**
+     * Render underline / linethrough decoration on text
+     */
+    protected function renderTextDecoration(
+        \GdImage $canvas, string $text, int $x, int $y,
+        int $fontSize, string $color, string $fontFile,
+        string $textAlign, float $angle, bool $underline, bool $linethrough
+    ): void {
+        $fontPath = public_path('fonts/' . $fontFile);
+        if (!file_exists($fontPath)) {
+            $fontPath = public_path('fonts/Oswald-Bold.ttf');
+        }
+
+        $bbox = imagettfbbox($fontSize, $angle, $fontPath, $text);
+        $textWidth = abs($bbox[2] - $bbox[0]);
+
+        $rgb = $this->hexToRgb($color);
+        $lineColor = imagecolorallocate($canvas, $rgb['r'], $rgb['g'], $rgb['b']);
+        $thickness = max(2, (int) ($fontSize / 14));
+
+        // Calculate start X based on alignment
+        $startX = match ($textAlign) {
+            'center' => $x - ($textWidth / 2),
+            'right' => $x - $textWidth,
+            default => $x,
+        };
+        $endX = $startX + $textWidth;
+
+        imagesetthickness($canvas, $thickness);
+
+        if ($underline) {
+            $lineY = $y + (int) ($fontSize * 0.15);
+            imageline($canvas, (int) $startX, $lineY, (int) $endX, $lineY, $lineColor);
+        }
+
+        if ($linethrough) {
+            $lineY = $y - (int) ($fontSize * 0.3);
+            imageline($canvas, (int) $startX, $lineY, (int) $endX, $lineY, $lineColor);
+        }
+
+        imagesetthickness($canvas, 1);
     }
 
     /**
@@ -1209,6 +1259,7 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Map weights to available fonts (Oswald + Montserrat-Medium available)
         return match ($weight) {
+            '100' => 'Oswald-Light.ttf',
             '300' => 'Oswald-Light.ttf',
             '400' => 'Oswald-Regular.ttf',
             '500' => 'Oswald-Medium.ttf',
