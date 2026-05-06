@@ -1010,18 +1010,18 @@ const editor = {
     },
 
     svgIconMap: {
-        cricket_bat: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="{{COLOR}}" d="M14 50l-4 4a2 2 0 002.83 2.83l4-4L14 50zm4-4l22-22c2-2 6-3 8-1s1 6-1 8L25 53l-7-7zm26-26l6-6a4 4 0 00-5.66-5.66l-6 6 5.66 5.66z"/></svg>',
-        cricket_ball: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="20" fill="none" stroke="{{COLOR}}" stroke-width="5"/><path d="M22 16c4 8 4 24 0 32M42 16c-4 8-4 24 0 32" fill="none" stroke="{{COLOR}}" stroke-width="3.5" stroke-linecap="round"/></svg>',
-        stumps: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="22" y="16" width="4" height="36" rx="1" fill="{{COLOR}}"/><rect x="30" y="16" width="4" height="36" rx="1" fill="{{COLOR}}"/><rect x="38" y="16" width="4" height="36" rx="1" fill="{{COLOR}}"/><rect x="20" y="18" width="24" height="3" rx="1" fill="{{COLOR}}"/><rect x="20" y="26" width="24" height="3" rx="1" fill="{{COLOR}}"/></svg>',
-        bat_ball: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="{{COLOR}}" d="M10 52l-3 3a1.5 1.5 0 002.12 2.12l3-3L10 52zm3-3l18-18c1.5-1.5 5-2.5 6.5-1s.5 5-1 6.5L18.5 54.5l-5.5-5.5zM35 31l5-5a3 3 0 00-4.24-4.24l-5 5L35 31z"/><circle cx="48" cy="16" r="8" fill="none" stroke="{{COLOR}}" stroke-width="3.5"/><path d="M44 10c1.5 3 1.5 9 0 12M52 10c-1.5 3-1.5 9 0 12" fill="none" stroke="{{COLOR}}" stroke-width="2" stroke-linecap="round"/></svg>',
-        wicket: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="18" y="14" width="4" height="40" rx="1" fill="{{COLOR}}"/><rect x="30" y="14" width="4" height="40" rx="1" fill="{{COLOR}}"/><rect x="42" y="14" width="4" height="40" rx="1" fill="{{COLOR}}"/><path d="M20 16 L26 10 L32 16" fill="none" stroke="{{COLOR}}" stroke-width="3" stroke-linecap="round"/><path d="M32 16 L38 10 L44 16" fill="none" stroke="{{COLOR}}" stroke-width="3" stroke-linecap="round"/></svg>',
+        cricket_bat: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="__COLOR__" d="M14 50l-4 4a2 2 0 002.83 2.83l4-4L14 50zm4-4l22-22c2-2 6-3 8-1s1 6-1 8L25 53l-7-7zm26-26l6-6a4 4 0 00-5.66-5.66l-6 6 5.66 5.66z"/></svg>',
+        cricket_ball: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="20" fill="none" stroke="__COLOR__" stroke-width="5"/><path d="M22 16c4 8 4 24 0 32M42 16c-4 8-4 24 0 32" fill="none" stroke="__COLOR__" stroke-width="3.5" stroke-linecap="round"/></svg>',
+        stumps: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="22" y="16" width="4" height="36" rx="1" fill="__COLOR__"/><rect x="30" y="16" width="4" height="36" rx="1" fill="__COLOR__"/><rect x="38" y="16" width="4" height="36" rx="1" fill="__COLOR__"/><rect x="20" y="18" width="24" height="3" rx="1" fill="__COLOR__"/><rect x="20" y="26" width="24" height="3" rx="1" fill="__COLOR__"/></svg>',
+        bat_ball: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="__COLOR__" d="M10 52l-3 3a1.5 1.5 0 002.12 2.12l3-3L10 52zm3-3l18-18c1.5-1.5 5-2.5 6.5-1s.5 5-1 6.5L18.5 54.5l-5.5-5.5zM35 31l5-5a3 3 0 00-4.24-4.24l-5 5L35 31z"/><circle cx="48" cy="16" r="8" fill="none" stroke="__COLOR__" stroke-width="3.5"/><path d="M44 10c1.5 3 1.5 9 0 12M52 10c-1.5 3-1.5 9 0 12" fill="none" stroke="__COLOR__" stroke-width="2" stroke-linecap="round"/></svg>',
+        wicket: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="18" y="14" width="4" height="40" rx="1" fill="__COLOR__"/><rect x="30" y="14" width="4" height="40" rx="1" fill="__COLOR__"/><rect x="42" y="14" width="4" height="40" rx="1" fill="__COLOR__"/><path d="M20 16 L26 10 L32 16" fill="none" stroke="__COLOR__" stroke-width="3" stroke-linecap="round"/><path d="M32 16 L38 10 L44 16" fill="none" stroke="__COLOR__" stroke-width="3" stroke-linecap="round"/></svg>',
     },
 
     addSvgIcon(name) {
         const svgTemplate = this.svgIconMap[name];
         if (!svgTemplate) return;
         const color = '#ffffff';
-        const svgString = svgTemplate.replace(/\{\{COLOR\}\}/g, color);
+        const svgString = svgTemplate.replace(/__COLOR__/g, color);
         const cx = this.canvasWidth / 2;
         const cy = this.canvasHeight / 2;
 
@@ -1737,7 +1737,7 @@ const editor = {
                     const svgTemplate = this.svgIconMap[savedItem.iconName];
                     if (!svgTemplate) return;
                     const color = savedItem.color || '#ffffff';
-                    const svgString = svgTemplate.replace(/\{\{COLOR\}\}/g, color);
+                    const svgString = svgTemplate.replace(/__COLOR__/g, color);
                     fabric.loadSVGFromString(svgString, (objects, options) => {
                         const group = fabric.util.groupSVGElements(objects, options);
                         const scaleX = (savedItem.width || 64) / (group.width || 64);
