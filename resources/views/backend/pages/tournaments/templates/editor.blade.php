@@ -4,6 +4,7 @@
 
 @push('styles')
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Open+Sans:wght@300;400;600;700&family=Montserrat:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&family=Oswald:wght@300;400;500;600;700&family=Bebas+Neue&family=Anton&family=Bangers&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 <style>
     .editor-container { height: calc(100vh - 64px); display: flex; flex-direction: column; background: #0f0f1a; overflow: hidden; }
     .editor-header { height: 56px; background: #1a1a2e; border-bottom: 1px solid #2d2d44; display: flex; align-items: center; padding: 0 16px; flex-shrink: 0; }
@@ -79,6 +80,9 @@
     .layer-info { flex: 1; min-width: 0; }
     .layer-name { font-size: 12px; color: #e2e2e2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .layer-type { font-size: 10px; color: #8b8ba7; }
+
+    .icon-item { display: flex; align-items: center; justify-content: center; padding: 8px; background: #252538; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+    .icon-item:hover { background: #2d2d4a; border-color: #4f46e5; }
 
     .no-selection { padding: 40px 20px; text-align: center; color: #8b8ba7; }
     .no-selection svg { width: 48px; height: 48px; margin: 0 auto 12px; opacity: 0.5; }
@@ -164,6 +168,15 @@
             <div class="sidebar-content">
                 {{-- Elements Tab --}}
                 <div id="tab-elements" class="tab-content">
+                    {{-- Quick Add --}}
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Quick Add</div>
+                        <div class="draggable-item" draggable="true" data-type="customText" style="cursor: pointer;" onclick="editor.addCustomText()">
+                            <div class="icon" style="background: linear-gradient(135deg, #6366f1, #a855f7);"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></div>
+                            <div class="info"><div class="name">Custom Text</div><div class="type">Editable text</div></div>
+                        </div>
+                    </div>
+
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Text Placeholders</div>
                         @foreach($placeholders as $placeholder)
@@ -221,6 +234,125 @@
                         <div class="draggable-item" draggable="true" data-type="shape" data-shape="diamond">
                             <div class="icon" style="background: linear-gradient(135deg, #06b6d4, #0e7490);"><svg fill="currentColor" viewBox="0 0 24 24"><polygon points="12,2 22,12 12,22 2,12"/></svg></div>
                             <div class="info"><div class="name">Diamond</div><div class="type">Shape</div></div>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Icons</div>
+                        <input type="text" id="iconSearch" class="prop-input mb-2" placeholder="Search icons..." oninput="filterIcons(this.value)" style="font-size:12px;">
+                        <div id="iconGrid" class="icon-grid-scroll" style="max-height:320px; overflow-y:auto;">
+                            {{-- Cricket --}}
+                            <div class="icon-category" data-category="cricket">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-1 px-1">Cricket</div>
+                                <div class="grid grid-cols-5 gap-1">
+                                    <div class="icon-item" title="Cricket Bat" onclick="editor.addSvgIcon('cricket_bat')">
+                                        <svg viewBox="0 0 64 64" fill="currentColor" class="w-5 h-5"><path d="M14 50l-4 4a2 2 0 002.83 2.83l4-4L14 50zm4-4l22-22c2-2 6-3 8-1s1 6-1 8L25 53l-7-7zm26-26l6-6a4 4 0 00-5.66-5.66l-6 6 5.66 5.66z"/></svg>
+                                    </div>
+                                    <div class="icon-item" title="Cricket Ball" onclick="editor.addSvgIcon('cricket_ball')">
+                                        <svg viewBox="0 0 64 64" class="w-5 h-5"><circle cx="32" cy="32" r="20" fill="none" stroke="currentColor" stroke-width="5"/><path d="M22 16c4 8 4 24 0 32M42 16c-4 8-4 24 0 32" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg>
+                                    </div>
+                                    <div class="icon-item" title="Stumps" onclick="editor.addSvgIcon('stumps')">
+                                        <svg viewBox="0 0 64 64" fill="currentColor" class="w-5 h-5"><rect x="22" y="16" width="4" height="36" rx="1"/><rect x="30" y="16" width="4" height="36" rx="1"/><rect x="38" y="16" width="4" height="36" rx="1"/><rect x="20" y="18" width="24" height="3" rx="1"/><rect x="20" y="26" width="24" height="3" rx="1"/></svg>
+                                    </div>
+                                    <div class="icon-item" title="Bat & Ball" onclick="editor.addSvgIcon('bat_ball')">
+                                        <svg viewBox="0 0 64 64" fill="currentColor" class="w-5 h-5"><path d="M10 52l-3 3a1.5 1.5 0 002.12 2.12l3-3L10 52zm3-3l18-18c1.5-1.5 5-2.5 6.5-1s.5 5-1 6.5L18.5 54.5l-5.5-5.5zM35 31l5-5a3 3 0 00-4.24-4.24l-5 5L35 31z"/><circle cx="48" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="3.5"/><path d="M44 10c1.5 3 1.5 9 0 12M52 10c-1.5 3-1.5 9 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                    </div>
+                                    <div class="icon-item" title="Wicket" onclick="editor.addSvgIcon('wicket')">
+                                        <svg viewBox="0 0 64 64" fill="currentColor" class="w-5 h-5"><rect x="18" y="14" width="4" height="40" rx="1"/><rect x="30" y="14" width="4" height="40" rx="1"/><rect x="42" y="14" width="4" height="40" rx="1"/><path d="M20 16 L26 10 L32 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M32 16 L38 10 L44 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                                    </div>
+                                </div>
+                            </div>
+                            {{-- Sports --}}
+                            <div class="icon-category" data-category="sports">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-2 px-1">Sports</div>
+                                <div class="grid grid-cols-5 gap-1">
+                                    <div class="icon-item" title="Baseball" onclick="editor.addIcon('\uf433','baseball')"><i class="fa-solid fa-baseball"></i></div>
+                                    <div class="icon-item" title="Table Tennis" onclick="editor.addIcon('\uf45d','table-tennis')"><i class="fa-solid fa-table-tennis-paddle-ball"></i></div>
+                                    <div class="icon-item" title="Bullseye" onclick="editor.addIcon('\uf140','bullseye')"><i class="fa-solid fa-bullseye"></i></div>
+                                    <div class="icon-item" title="Stopwatch" onclick="editor.addIcon('\uf2f2','stopwatch')"><i class="fa-solid fa-stopwatch"></i></div>
+                                    <div class="icon-item" title="Person Running" onclick="editor.addIcon('\uf70c','person-running')"><i class="fa-solid fa-person-running"></i></div>
+                                    <div class="icon-item" title="Flag" onclick="editor.addIcon('\uf024','flag')"><i class="fa-solid fa-flag"></i></div>
+                                    <div class="icon-item" title="Flag Checkered" onclick="editor.addIcon('\uf11e','flag-checkered')"><i class="fa-solid fa-flag-checkered"></i></div>
+                                    <div class="icon-item" title="Hand Fist" onclick="editor.addIcon('\uf6de','hand-fist')"><i class="fa-solid fa-hand-fist"></i></div>
+                                    <div class="icon-item" title="Ranking Star" onclick="editor.addIcon('\ue561','ranking-star')"><i class="fa-solid fa-ranking-star"></i></div>
+                                    <div class="icon-item" title="Volleyball" onclick="editor.addIcon('\uf45f','volleyball')"><i class="fa-solid fa-volleyball"></i></div>
+                                </div>
+                            </div>
+                            {{-- Awards & Trophies --}}
+                            <div class="icon-category" data-category="awards">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-2 px-1">Awards & Trophies</div>
+                                <div class="grid grid-cols-5 gap-1">
+                                    <div class="icon-item" title="Trophy" onclick="editor.addIcon('\uf091','trophy')"><i class="fa-solid fa-trophy"></i></div>
+                                    <div class="icon-item" title="Medal" onclick="editor.addIcon('\uf5a2','medal')"><i class="fa-solid fa-medal"></i></div>
+                                    <div class="icon-item" title="Award" onclick="editor.addIcon('\uf559','award')"><i class="fa-solid fa-award"></i></div>
+                                    <div class="icon-item" title="Star" onclick="editor.addIcon('\uf005','star')"><i class="fa-solid fa-star"></i></div>
+                                    <div class="icon-item" title="Crown" onclick="editor.addIcon('\uf521','crown')"><i class="fa-solid fa-crown"></i></div>
+                                    <div class="icon-item" title="Certificate" onclick="editor.addIcon('\uf0a3','certificate')"><i class="fa-solid fa-certificate"></i></div>
+                                    <div class="icon-item" title="Gem" onclick="editor.addIcon('\uf3a5','gem')"><i class="fa-solid fa-gem"></i></div>
+                                    <div class="icon-item" title="Shield" onclick="editor.addIcon('\uf132','shield')"><i class="fa-solid fa-shield"></i></div>
+                                    <div class="icon-item" title="Shield Halved" onclick="editor.addIcon('\uf3ed','shield-halved')"><i class="fa-solid fa-shield-halved"></i></div>
+                                    <div class="icon-item" title="Thumbs Up" onclick="editor.addIcon('\uf164','thumbs-up')"><i class="fa-solid fa-thumbs-up"></i></div>
+                                </div>
+                            </div>
+                            {{-- People & Teams --}}
+                            <div class="icon-category" data-category="people">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-2 px-1">People & Teams</div>
+                                <div class="grid grid-cols-5 gap-1">
+                                    <div class="icon-item" title="People Group" onclick="editor.addIcon('\ue533','people-group')"><i class="fa-solid fa-people-group"></i></div>
+                                    <div class="icon-item" title="Users" onclick="editor.addIcon('\uf0c0','users')"><i class="fa-solid fa-users"></i></div>
+                                    <div class="icon-item" title="User" onclick="editor.addIcon('\uf007','user')"><i class="fa-solid fa-user"></i></div>
+                                    <div class="icon-item" title="Hands Clapping" onclick="editor.addIcon('\ue1a8','hands-clapping')"><i class="fa-solid fa-hands-clapping"></i></div>
+                                    <div class="icon-item" title="Hand Fist" onclick="editor.addIcon('\uf6de','hand-fist-raised')"><i class="fa-solid fa-hand-back-fist"></i></div>
+                                </div>
+                            </div>
+                            {{-- Decorative --}}
+                            <div class="icon-category" data-category="decorative">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-2 px-1">Decorative</div>
+                                <div class="grid grid-cols-5 gap-1">
+                                    <div class="icon-item" title="Fire" onclick="editor.addIcon('\uf06d','fire')"><i class="fa-solid fa-fire"></i></div>
+                                    <div class="icon-item" title="Fire Flame" onclick="editor.addIcon('\uf7e4','fire-flame-curved')"><i class="fa-solid fa-fire-flame-curved"></i></div>
+                                    <div class="icon-item" title="Bolt" onclick="editor.addIcon('\uf0e7','bolt')"><i class="fa-solid fa-bolt"></i></div>
+                                    <div class="icon-item" title="Bolt Lightning" onclick="editor.addIcon('\ue0b7','bolt-lightning')"><i class="fa-solid fa-bolt-lightning"></i></div>
+                                    <div class="icon-item" title="Burst" onclick="editor.addIcon('\ue4dc','burst')"><i class="fa-solid fa-burst"></i></div>
+                                    <div class="icon-item" title="Explosion" onclick="editor.addIcon('\ue4e9','explosion')"><i class="fa-solid fa-explosion"></i></div>
+                                    <div class="icon-item" title="Wand Sparkles" onclick="editor.addIcon('\uf72b','wand-sparkles')"><i class="fa-solid fa-wand-sparkles"></i></div>
+                                    <div class="icon-item" title="Sun" onclick="editor.addIcon('\uf185','sun')"><i class="fa-solid fa-sun"></i></div>
+                                    <div class="icon-item" title="Moon" onclick="editor.addIcon('\uf186','moon')"><i class="fa-solid fa-moon"></i></div>
+                                    <div class="icon-item" title="Heart" onclick="editor.addIcon('\uf004','heart')"><i class="fa-solid fa-heart"></i></div>
+                                </div>
+                            </div>
+                            {{-- Arrows & Symbols --}}
+                            <div class="icon-category" data-category="symbols">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-2 px-1">Arrows & Symbols</div>
+                                <div class="grid grid-cols-5 gap-1">
+                                    <div class="icon-item" title="Arrow Right" onclick="editor.addIcon('\uf061','arrow-right')"><i class="fa-solid fa-arrow-right"></i></div>
+                                    <div class="icon-item" title="Arrow Left" onclick="editor.addIcon('\uf060','arrow-left')"><i class="fa-solid fa-arrow-left"></i></div>
+                                    <div class="icon-item" title="Arrows Rotate" onclick="editor.addIcon('\uf021','arrows-rotate')"><i class="fa-solid fa-arrows-rotate"></i></div>
+                                    <div class="icon-item" title="Angles Right" onclick="editor.addIcon('\uf101','angles-right')"><i class="fa-solid fa-angles-right"></i></div>
+                                    <div class="icon-item" title="Circle Check" onclick="editor.addIcon('\uf058','circle-check')"><i class="fa-solid fa-circle-check"></i></div>
+                                    <div class="icon-item" title="Circle Xmark" onclick="editor.addIcon('\uf057','circle-xmark')"><i class="fa-solid fa-circle-xmark"></i></div>
+                                    <div class="icon-item" title="Hashtag" onclick="editor.addIcon('\u0023','hashtag')"><i class="fa-solid fa-hashtag"></i></div>
+                                    <div class="icon-item" title="At" onclick="editor.addIcon('\u0040','at')"><i class="fa-solid fa-at"></i></div>
+                                    <div class="icon-item" title="Quote Left" onclick="editor.addIcon('\uf10d','quote-left')"><i class="fa-solid fa-quote-left"></i></div>
+                                    <div class="icon-item" title="Quote Right" onclick="editor.addIcon('\uf10e','quote-right')"><i class="fa-solid fa-quote-right"></i></div>
+                                </div>
+                            </div>
+                            {{-- Info & Schedule --}}
+                            <div class="icon-category" data-category="info">
+                                <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-2 px-1">Info & Schedule</div>
+                                <div class="grid grid-cols-5 gap-1">
+                                    <div class="icon-item" title="Calendar" onclick="editor.addIcon('\uf133','calendar')"><i class="fa-solid fa-calendar"></i></div>
+                                    <div class="icon-item" title="Calendar Days" onclick="editor.addIcon('\uf073','calendar-days')"><i class="fa-solid fa-calendar-days"></i></div>
+                                    <div class="icon-item" title="Clock" onclick="editor.addIcon('\uf017','clock')"><i class="fa-solid fa-clock"></i></div>
+                                    <div class="icon-item" title="Location" onclick="editor.addIcon('\uf3c5','location-dot')"><i class="fa-solid fa-location-dot"></i></div>
+                                    <div class="icon-item" title="Map Pin" onclick="editor.addIcon('\uf276','map-pin')"><i class="fa-solid fa-map-pin"></i></div>
+                                    <div class="icon-item" title="Phone" onclick="editor.addIcon('\uf095','phone')"><i class="fa-solid fa-phone"></i></div>
+                                    <div class="icon-item" title="Envelope" onclick="editor.addIcon('\uf0e0','envelope')"><i class="fa-solid fa-envelope"></i></div>
+                                    <div class="icon-item" title="Globe" onclick="editor.addIcon('\uf0ac','globe')"><i class="fa-solid fa-globe"></i></div>
+                                    <div class="icon-item" title="Info Circle" onclick="editor.addIcon('\uf05a','circle-info')"><i class="fa-solid fa-circle-info"></i></div>
+                                    <div class="icon-item" title="Camera" onclick="editor.addIcon('\uf030','camera')"><i class="fa-solid fa-camera"></i></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -358,6 +490,53 @@
                             <button class="align-btn" onclick="editor.updateText('textAlign','center')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M5 18h14"/></svg></button>
                             <button class="align-btn" onclick="editor.updateText('textAlign','right')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M10 12h10M6 18h14"/></svg></button>
                         </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Text Transform</label>
+                            <select id="propTextTransform" class="prop-input" onchange="editor.setTextTransform(this.value)">
+                                <option value="none">Normal</option>
+                                <option value="uppercase">UPPERCASE</option>
+                                <option value="capitalize">Capitalize</option>
+                                <option value="lowercase">lowercase</option>
+                            </select>
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Style</label>
+                            <button id="propItalicBtn" class="prop-btn prop-btn-secondary w-full" onclick="editor.toggleItalic()" style="font-style:italic;">I</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Icon Properties --}}
+            <div id="iconPropertiesPanel" class="hidden">
+                <div class="prop-section">
+                    <div class="prop-section-title">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                        Icon Properties
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="propIconColor" class="color-preview" onchange="editor.updateIcon('fill', this.value)">
+                            <div class="color-presets">
+                                <div class="color-preset" style="background:#fff" onclick="editor.updateIcon('fill','#ffffff')"></div>
+                                <div class="color-preset" style="background:#000" onclick="editor.updateIcon('fill','#000000')"></div>
+                                <div class="color-preset" style="background:#FFD700" onclick="editor.updateIcon('fill','#FFD700')"></div>
+                                <div class="color-preset" style="background:#EF4444" onclick="editor.updateIcon('fill','#EF4444')"></div>
+                                <div class="color-preset" style="background:#3B82F6" onclick="editor.updateIcon('fill','#3B82F6')"></div>
+                                <div class="color-preset" style="background:#10B981" onclick="editor.updateIcon('fill','#10B981')"></div>
+                                <div class="color-preset" style="background:#F59E0B" onclick="editor.updateIcon('fill','#F59E0B')"></div>
+                                <div class="color-preset" style="background:#8B5CF6" onclick="editor.updateIcon('fill','#8B5CF6')"></div>
+                                <div class="color-preset" style="background:#EC4899" onclick="editor.updateIcon('fill','#EC4899')"></div>
+                                <div class="color-preset" style="background:#06B6D4" onclick="editor.updateIcon('fill','#06B6D4')"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Size</label>
+                        <input type="number" id="propIconSize" class="prop-input" min="16" max="400" onchange="editor.updateIcon('fontSize', parseInt(this.value))">
                     </div>
                 </div>
             </div>
@@ -561,10 +740,37 @@
         <div class="flex items-center gap-4">
             <span class="text-xs text-gray-500">Canvas: <span id="canvasSizeDisplay">1080 x 1080</span></span>
             <select id="canvasSizeSelect" class="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300" onchange="editor.changeCanvasSize(this.value)">
-                <option value="1080x1080">Square (1080x1080)</option>
-                <option value="1080x1350">Portrait (1080x1350)</option>
-                <option value="1080x1920">Story (1080x1920)</option>
-                <option value="1920x1080">Landscape (1920x1080)</option>
+                <optgroup label="Instagram">
+                    <option value="1080x1080">Post Square (1080x1080)</option>
+                    <option value="1080x1350">Post Portrait 4:5 (1080x1350)</option>
+                    <option value="1080x566">Post Landscape 1.91:1 (1080x566)</option>
+                    <option value="1080x1920">Story / Reels 9:16 (1080x1920)</option>
+                </optgroup>
+                <optgroup label="WhatsApp">
+                    <option value="1080x1920">Status 9:16 (1080x1920)</option>
+                    <option value="800x800">DP / Group Icon (800x800)</option>
+                </optgroup>
+                <optgroup label="YouTube">
+                    <option value="1080x1920">Shorts 9:16 (1080x1920)</option>
+                    <option value="1280x720">Thumbnail HD 16:9 (1280x720)</option>
+                    <option value="2560x1440">Banner (2560x1440)</option>
+                </optgroup>
+                <optgroup label="Facebook">
+                    <option value="1200x630">Post Link 1.91:1 (1200x630)</option>
+                    <option value="1080x1080">Post Square (1080x1080)</option>
+                    <option value="820x312">Cover Photo (820x312)</option>
+                </optgroup>
+                <optgroup label="Standard">
+                    <option value="1920x1080">Full HD 16:9 (1920x1080)</option>
+                    <option value="1440x1080">HD 4:3 (1440x1080)</option>
+                    <option value="1080x1080">Square 1:1 (1080x1080)</option>
+                    <option value="1080x1350">Portrait 4:5 (1080x1350)</option>
+                    <option value="1080x1920">Portrait 9:16 (1080x1920)</option>
+                </optgroup>
+                <optgroup label="Print">
+                    <option value="2480x3508">A4 Portrait (2480x3508)</option>
+                    <option value="3508x2480">A4 Landscape (3508x2480)</option>
+                </optgroup>
             </select>
         </div>
     </div>
@@ -678,7 +884,8 @@ const editor = {
             const x = (e.clientX - rect.left) / this.zoom;
             const y = (e.clientY - rect.top) / this.zoom;
 
-            if (type === 'text') this.addText(placeholder, x, y);
+            if (type === 'customText') this.addCustomText();
+            else if (type === 'text') this.addText(placeholder, x, y);
             else if (type === 'image') this.addImagePlaceholder(placeholder, x, y);
             else if (type === 'shape') this.addShape(shape, x, y);
             else if (type === 'tableArea') this.addTableArea(x, y);
@@ -714,6 +921,118 @@ const editor = {
         this.canvas.add(text);
         this.canvas.setActiveObject(text);
         this.saveHistory();
+    },
+
+    addCustomText() {
+        const cx = this.canvasWidth / 2;
+        const cy = this.canvasHeight / 2;
+        const text = new fabric.IText('Your Text Here', {
+            left: cx, top: cy,
+            fontSize: 36,
+            fontFamily: 'Montserrat',
+            fontWeight: '700',
+            fill: '#ffffff',
+            originX: 'center', originY: 'center',
+            textAlign: 'center',
+            shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 5, offsetX: 2, offsetY: 2 }),
+        });
+        text.placeholder = '';
+        text.elementType = 'text';
+        this.canvas.add(text);
+        this.canvas.setActiveObject(text);
+        this.canvas.renderAll();
+        // Enter editing mode so user can type immediately
+        text.enterEditing();
+        text.selectAll();
+        this.saveHistory();
+    },
+
+    addIcon(unicode, name) {
+        const cx = this.canvasWidth / 2;
+        const cy = this.canvasHeight / 2;
+        const icon = new fabric.Text(unicode, {
+            left: cx, top: cy,
+            fontSize: 64,
+            fontFamily: 'Font Awesome 6 Free',
+            fontWeight: '900',
+            fill: '#ffffff',
+            originX: 'center', originY: 'center',
+            textAlign: 'center',
+        });
+        icon.elementType = 'icon';
+        icon.iconName = name || 'icon';
+        icon.iconUnicode = unicode;
+        icon.placeholder = '';
+        this.canvas.add(icon);
+        this.canvas.setActiveObject(icon);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateIcon(prop, value) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'icon') return;
+        if (obj.iconType === 'svg') {
+            if (prop === 'fill') {
+                // Set fill on all paths inside the group
+                if (obj._objects) {
+                    obj._objects.forEach(child => {
+                        child.set('fill', value);
+                        if (child.stroke && child.stroke !== 'none' && child.stroke !== 'transparent') {
+                            child.set('stroke', value);
+                        }
+                    });
+                } else {
+                    obj.set('fill', value);
+                    if (obj.stroke) obj.set('stroke', value);
+                }
+                obj.iconColor = value;
+            } else if (prop === 'fontSize') {
+                const scale = value / 64;
+                obj.set({ scaleX: scale, scaleY: scale });
+            }
+        } else {
+            obj.set(prop, value);
+        }
+        this.canvas.renderAll();
+        this.saveHistory();
+        if (prop === 'fill') document.getElementById('propIconColor').value = this.colorToHex(value);
+        if (prop === 'fontSize') document.getElementById('propIconSize').value = value;
+    },
+
+    svgIconMap: {
+        cricket_bat: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="{{COLOR}}" d="M14 50l-4 4a2 2 0 002.83 2.83l4-4L14 50zm4-4l22-22c2-2 6-3 8-1s1 6-1 8L25 53l-7-7zm26-26l6-6a4 4 0 00-5.66-5.66l-6 6 5.66 5.66z"/></svg>',
+        cricket_ball: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="20" fill="none" stroke="{{COLOR}}" stroke-width="5"/><path d="M22 16c4 8 4 24 0 32M42 16c-4 8-4 24 0 32" fill="none" stroke="{{COLOR}}" stroke-width="3.5" stroke-linecap="round"/></svg>',
+        stumps: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="22" y="16" width="4" height="36" rx="1" fill="{{COLOR}}"/><rect x="30" y="16" width="4" height="36" rx="1" fill="{{COLOR}}"/><rect x="38" y="16" width="4" height="36" rx="1" fill="{{COLOR}}"/><rect x="20" y="18" width="24" height="3" rx="1" fill="{{COLOR}}"/><rect x="20" y="26" width="24" height="3" rx="1" fill="{{COLOR}}"/></svg>',
+        bat_ball: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="{{COLOR}}" d="M10 52l-3 3a1.5 1.5 0 002.12 2.12l3-3L10 52zm3-3l18-18c1.5-1.5 5-2.5 6.5-1s.5 5-1 6.5L18.5 54.5l-5.5-5.5zM35 31l5-5a3 3 0 00-4.24-4.24l-5 5L35 31z"/><circle cx="48" cy="16" r="8" fill="none" stroke="{{COLOR}}" stroke-width="3.5"/><path d="M44 10c1.5 3 1.5 9 0 12M52 10c-1.5 3-1.5 9 0 12" fill="none" stroke="{{COLOR}}" stroke-width="2" stroke-linecap="round"/></svg>',
+        wicket: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="18" y="14" width="4" height="40" rx="1" fill="{{COLOR}}"/><rect x="30" y="14" width="4" height="40" rx="1" fill="{{COLOR}}"/><rect x="42" y="14" width="4" height="40" rx="1" fill="{{COLOR}}"/><path d="M20 16 L26 10 L32 16" fill="none" stroke="{{COLOR}}" stroke-width="3" stroke-linecap="round"/><path d="M32 16 L38 10 L44 16" fill="none" stroke="{{COLOR}}" stroke-width="3" stroke-linecap="round"/></svg>',
+    },
+
+    addSvgIcon(name) {
+        const svgTemplate = this.svgIconMap[name];
+        if (!svgTemplate) return;
+        const color = '#ffffff';
+        const svgString = svgTemplate.replace(/\{\{COLOR\}\}/g, color);
+        const cx = this.canvasWidth / 2;
+        const cy = this.canvasHeight / 2;
+
+        fabric.loadSVGFromString(svgString, (objects, options) => {
+            const group = fabric.util.groupSVGElements(objects, options);
+            group.set({
+                left: cx, top: cy,
+                originX: 'center', originY: 'center',
+                scaleX: 1.5, scaleY: 1.5,
+            });
+            group.elementType = 'icon';
+            group.iconType = 'svg';
+            group.iconName = name;
+            group.iconColor = color;
+            group.placeholder = '';
+            this.canvas.add(group);
+            this.canvas.setActiveObject(group);
+            this.canvas.renderAll();
+            this.saveHistory();
+        });
     },
 
     addImagePlaceholder(placeholder, x, y) {
@@ -937,18 +1256,35 @@ const editor = {
         document.getElementById('noSelectionPanel').classList.add('hidden');
         document.getElementById('commonPropertiesPanel').classList.remove('hidden');
 
-        const isText = obj.elementType === 'text' || obj.type === 'i-text';
-        const isShape = obj.elementType === 'shape';
+        const isIcon = obj.elementType === 'icon';
+        const isText = !isIcon && (obj.elementType === 'text' || obj.type === 'i-text');
+        const isShape = !isIcon && obj.elementType === 'shape';
         const isTable = obj.elementType === 'tableArea';
+        document.getElementById('iconPropertiesPanel').classList.toggle('hidden', !isIcon);
         document.getElementById('textPropertiesPanel').classList.toggle('hidden', !isText);
         document.getElementById('shapePropertiesPanel').classList.toggle('hidden', !isShape);
         document.getElementById('tablePropertiesPanel').classList.toggle('hidden', !isTable);
 
+        if (isIcon) {
+            const iconColor = obj.iconType === 'svg' ? (obj.iconColor || '#ffffff') : (obj.fill || '#ffffff');
+            const iconSize = obj.iconType === 'svg' ? Math.round((obj.width || 64) * (obj.scaleX || 1)) : Math.round(obj.fontSize || 64);
+            document.getElementById('propIconColor').value = this.colorToHex(iconColor);
+            document.getElementById('propIconSize').value = iconSize;
+        }
         if (isText) {
             document.getElementById('propFontFamily').value = obj.fontFamily || 'Arial';
             document.getElementById('propFontSize').value = Math.round(obj.fontSize || 24);
             document.getElementById('propFontWeight').value = obj.fontWeight || '400';
             document.getElementById('propTextColor').value = obj.fill || '#ffffff';
+            document.getElementById('propTextTransform').value = obj.textTransform || 'none';
+            const italicBtn = document.getElementById('propItalicBtn');
+            if (obj.fontStyle === 'italic') {
+                italicBtn.classList.remove('prop-btn-secondary');
+                italicBtn.classList.add('prop-btn-primary');
+            } else {
+                italicBtn.classList.remove('prop-btn-primary');
+                italicBtn.classList.add('prop-btn-secondary');
+            }
         }
         if (isShape) {
             this.updateShapePropertiesPanel(obj);
@@ -1025,6 +1361,30 @@ const editor = {
         const obj = this.canvas.getActiveObject();
         if (!obj) return;
         obj.set(prop, value);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    setTextTransform(value) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        obj.textTransform = value;
+        this.saveHistory();
+    },
+
+    toggleItalic() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        const newStyle = obj.fontStyle === 'italic' ? 'normal' : 'italic';
+        obj.set('fontStyle', newStyle);
+        const btn = document.getElementById('propItalicBtn');
+        if (newStyle === 'italic') {
+            btn.classList.remove('prop-btn-secondary');
+            btn.classList.add('prop-btn-primary');
+        } else {
+            btn.classList.remove('prop-btn-primary');
+            btn.classList.add('prop-btn-secondary');
+        }
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -1239,6 +1599,7 @@ const editor = {
             cloned.gradientFillConfig = obj.gradientFillConfig;
             cloned.placeholderWidth = obj.placeholderWidth;
             cloned.placeholderHeight = obj.placeholderHeight;
+            cloned.textTransform = obj.textTransform;
             if (obj.tableConfig) cloned.tableConfig = JSON.parse(JSON.stringify(obj.tableConfig));
             this.canvas.add(cloned);
             this.canvas.setActiveObject(cloned);
@@ -1253,7 +1614,7 @@ const editor = {
 
     // History
     saveHistory() {
-        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'tableConfig']);
+        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'tableConfig', 'textTransform', 'iconName', 'iconUnicode', 'iconType', 'iconColor']);
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(JSON.stringify(json));
         this.historyIndex++;
@@ -1318,11 +1679,12 @@ const editor = {
             const y = (item.y / 100) * this.canvasHeight;
 
             if (item.type === 'text' || item.type === 'i-text') {
-                const text = new fabric.IText(item.placeholder ? '{{' + item.placeholder + '}}' : 'Text', {
+                const text = new fabric.IText(item.placeholder ? '{{' + item.placeholder + '}}' : (item.text || 'Text'), {
                     left: x, top: y,
                     fontSize: item.fontSize || 24,
                     fontFamily: item.fontFamily || 'Arial',
                     fontWeight: item.fontWeight || '400',
+                    fontStyle: item.fontStyle || 'normal',
                     fill: item.color || '#ffffff',
                     angle: item.rotation || 0,
                     opacity: (item.opacity ?? 100) / 100,
@@ -1332,6 +1694,7 @@ const editor = {
                 if (item.shadow) text.shadow = new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: item.shadow.blur || 5, offsetX: item.shadow.offsetX || 2, offsetY: item.shadow.offsetY || 2 });
                 text.placeholder = item.placeholder;
                 text.elementType = 'text';
+                text.textTransform = item.textTransform || 'none';
                 text._layoutIndex = layoutIndex;
                 this.canvas.add(text);
             } else if (item.type === 'image') {
@@ -1345,6 +1708,46 @@ const editor = {
                 group.placeholderHeight = h;
                 group._layoutIndex = layoutIndex;
                 this.canvas.add(group);
+            } else if (item.type === 'icon' && item.iconType === 'svg') {
+                // Restore SVG-based icon (cricket icons)
+                ((savedItem, lx, ly, idx) => {
+                    const svgTemplate = this.svgIconMap[savedItem.iconName];
+                    if (!svgTemplate) return;
+                    const color = savedItem.color || '#ffffff';
+                    const svgString = svgTemplate.replace(/\{\{COLOR\}\}/g, color);
+                    fabric.loadSVGFromString(svgString, (objects, options) => {
+                        const group = fabric.util.groupSVGElements(objects, options);
+                        const scaleX = (savedItem.width || 64) / (group.width || 64);
+                        const scaleY = (savedItem.height || 64) / (group.height || 64);
+                        group.set({ left: lx, top: ly, originX: 'center', originY: 'center', scaleX, scaleY, angle: savedItem.rotation || 0, opacity: (savedItem.opacity ?? 100) / 100 });
+                        group.elementType = 'icon';
+                        group.iconType = 'svg';
+                        group.iconName = savedItem.iconName;
+                        group.iconColor = color;
+                        group.placeholder = '';
+                        group._layoutIndex = idx;
+                        this.canvas.add(group);
+                        this.canvas.renderAll();
+                    });
+                })(item, x, y, layoutIndex);
+            } else if (item.type === 'icon') {
+                const icon = new fabric.Text(item.iconUnicode || '\uf005', {
+                    left: x, top: y,
+                    fontSize: item.fontSize || 64,
+                    fontFamily: 'Font Awesome 6 Free',
+                    fontWeight: '900',
+                    fill: item.color || '#ffffff',
+                    angle: item.rotation || 0,
+                    opacity: (item.opacity ?? 100) / 100,
+                    originX: 'center', originY: 'center',
+                    textAlign: 'center',
+                });
+                icon.elementType = 'icon';
+                icon.iconName = item.iconName || 'icon';
+                icon.iconUnicode = item.iconUnicode || icon.text;
+                icon.placeholder = '';
+                icon._layoutIndex = layoutIndex;
+                this.canvas.add(icon);
             } else if (item.type === 'shape') {
                 let shape;
                 const solidFill = (typeof item.fill === 'string') ? item.fill : '#6366f1';
@@ -1465,8 +1868,14 @@ const editor = {
                 zIndex: i,
             };
 
-            if (obj.elementType === 'text' || obj.type === 'i-text') {
-                return { ...base, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, color: obj.fill, textAlign: obj.textAlign, shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null };
+            if (obj.elementType === 'icon' && obj.iconType === 'svg') {
+                return { ...base, type: 'icon', iconType: 'svg', iconName: obj.iconName, color: obj.iconColor || '#ffffff', width: (obj.width || 64) * (obj.scaleX || 1), height: (obj.height || 64) * (obj.scaleY || 1) };
+            } else if (obj.elementType === 'icon') {
+                return { ...base, type: 'icon', iconType: 'fa', iconUnicode: obj.iconUnicode || obj.text, iconName: obj.iconName || 'icon', fontSize: obj.fontSize, color: obj.fill };
+            } else if (obj.elementType === 'text' || obj.type === 'i-text') {
+                // Save the actual text content — needed for custom/static text that has no placeholder
+                const textContent = obj.text || '';
+                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null };
             } else if (obj.elementType === 'image') {
                 return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'shape') {
@@ -1478,7 +1887,7 @@ const editor = {
                     // Extract gradient info from fabric gradient object
                     fillData = { type: obj.fill.type, angle: obj.gradientAngle || 90, colorStops: obj.fill.colorStops };
                 }
-                return { ...base, shapeType: obj.shapeType, fill: fillData, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1), rx: obj.rx || 0, ry: obj.ry || 0 };
+                return { ...base, shapeType: obj.shapeType, iconName: obj.iconName || null, fill: fillData, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1), rx: obj.rx || 0, ry: obj.ry || 0 };
             } else if (obj.elementType === 'uploadedImage') {
                 return { ...base, type: 'uploadedImage', imagePath: obj.imagePath, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'tableArea') {
@@ -1509,6 +1918,18 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
     document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
     document.getElementById(`tab-${tab}`).classList.remove('hidden');
+}
+
+function filterIcons(query) {
+    const q = query.toLowerCase().trim();
+    document.querySelectorAll('#iconGrid .icon-item').forEach(item => {
+        const title = (item.getAttribute('title') || '').toLowerCase();
+        item.style.display = !q || title.includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('#iconGrid .icon-category').forEach(cat => {
+        const visibleItems = cat.querySelectorAll('.icon-item:not([style*="display: none"])');
+        cat.style.display = visibleItems.length > 0 ? '' : 'none';
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => editor.init());

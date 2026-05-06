@@ -105,17 +105,24 @@ class TemplateRenderService extends PosterGeneratorService
         $x = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
         $y = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
 
-        // Get value from data or use placeholder display
+        // Get value from data, element's static text, or placeholder display
+        $staticText = $element['text'] ?? '';
         if ($this->skipBlanks) {
             $value = $data[$placeholder] ?? '';
-            if ($placeholder && ($value === '' || $value === null)) {
+            if (!$placeholder && $staticText) {
+                // Custom/static text — use the text typed by the user in the editor
+                $value = $staticText;
+            } elseif ($placeholder && ($value === '' || $value === null)) {
                 return; // Skip blank fields
             }
         } else {
-            $value = $data[$placeholder] ?? $this->getDisplayValue($placeholder);
+            $value = $data[$placeholder] ?? ($staticText ?: $this->getDisplayValue($placeholder));
         }
 
-        if ($type === 'tableArea') {
+        if ($type === 'icon') {
+            $this->renderIconElement($canvas, $element, $x, $y);
+            return;
+        } elseif ($type === 'tableArea') {
             $this->renderTableArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
             return;
         } elseif ($type === 'image') {
@@ -138,6 +145,7 @@ class TemplateRenderService extends PosterGeneratorService
         $fontSize = (int) ($element['fontSize'] ?? 24);
         $color = $element['color'] ?? '#ffffff';
         $fontWeight = $element['fontWeight'] ?? '700';
+        $fontStyle = $element['fontStyle'] ?? 'normal';
         $textAlign = $element['textAlign'] ?? 'center';
         $textTransform = $element['textTransform'] ?? 'none';
         $rotation = (float) ($element['rotation'] ?? 0);
@@ -155,8 +163,8 @@ class TemplateRenderService extends PosterGeneratorService
             default => $text,
         };
 
-        // Map font weight to font file
-        $fontFile = $this->getFontFile($fontWeight);
+        // Map font weight + style to font file
+        $fontFile = $this->getFontFile($fontWeight, $fontStyle);
 
         // Draw shadow first if enabled
         if ($shadow) {
@@ -188,6 +196,63 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
+     * Render Font Awesome icon element
+     */
+    protected function renderIconElement(\GdImage $canvas, array $element, int $x, int $y): void
+    {
+        $unicode = $element['iconUnicode'] ?? '';
+        if (!$unicode) return;
+
+        $fontSize = (int) ($element['fontSize'] ?? 64);
+        $color = $element['color'] ?? '#ffffff';
+        $rotation = (float) ($element['rotation'] ?? 0);
+
+        $fontFile = public_path('fonts/fa-solid-900.ttf');
+        if (!file_exists($fontFile)) return;
+
+        $rgb = $this->hexToRgb($color);
+        $textColor = imagecolorallocate($canvas, $rgb[0], $rgb[1], $rgb[2]);
+
+        // Calculate bounding box for centering
+        $bbox = imagettfbbox($fontSize, 0, $fontFile, $unicode);
+        $textWidth = abs($bbox[2] - $bbox[0]);
+        $textHeight = abs($bbox[7] - $bbox[1]);
+        $drawX = $x - ($textWidth / 2);
+        $drawY = $y + ($textHeight / 2);
+
+        if ($rotation != 0) {
+            // Render rotated icon via temp canvas
+            $padding = 20;
+            $tmpSize = max($textWidth, $textHeight) + $padding * 2;
+            $tmp = imagecreatetruecolor($tmpSize, $tmpSize);
+            imagealphablending($tmp, false);
+            imagesavealpha($tmp, true);
+            $transparent = imagecolorallocatealpha($tmp, 0, 0, 0, 127);
+            imagefill($tmp, 0, 0, $transparent);
+            imagealphablending($tmp, true);
+
+            $tmpColor = imagecolorallocate($tmp, $rgb[0], $rgb[1], $rgb[2]);
+            $tmpBbox = imagettfbbox($fontSize, 0, $fontFile, $unicode);
+            $tmpX = ($tmpSize / 2) - (($tmpBbox[2] - $tmpBbox[0]) / 2);
+            $tmpY = ($tmpSize / 2) + (abs($tmpBbox[7] - $tmpBbox[1]) / 2);
+            imagettftext($tmp, $fontSize, 0, (int) $tmpX, (int) $tmpY, $tmpColor, $fontFile, $unicode);
+
+            $rotated = imagerotate($tmp, $rotation, $transparent);
+            imagesavealpha($rotated, true);
+
+            $rw = imagesx($rotated);
+            $rh = imagesy($rotated);
+            imagealphablending($canvas, true);
+            imagecopy($canvas, $rotated, $x - (int) ($rw / 2), $y - (int) ($rh / 2), 0, 0, $rw, $rh);
+            imagedestroy($tmp);
+            imagedestroy($rotated);
+        } else {
+            imagealphablending($canvas, true);
+            imagettftext($canvas, $fontSize, 0, (int) $drawX, (int) $drawY, $textColor, $fontFile, $unicode);
+        }
+    }
+
+    /**
      * Render image element (placeholder)
      */
     protected function renderImageElement(\GdImage $canvas, array $element, string $imagePath, int $x, int $y, int $canvasWidth): void
@@ -195,9 +260,7 @@ class TemplateRenderService extends PosterGeneratorService
         $width = (int) ($element['width'] ?? 100);
         $height = (int) ($element['height'] ?? 100);
         $borderRadius = (int) ($element['borderRadius'] ?? 0);
-
-        // Scale dimensions: element sizes are stored relative to 1080px canvas
-        // No additional scaling needed if canvas is already at target size
+        $opacity = (int) ($element['opacity'] ?? 100);
 
         // Convert URL to storage path if needed
         $storagePath = $this->extractStoragePath($imagePath);
@@ -236,27 +299,79 @@ class TemplateRenderService extends PosterGeneratorService
         $boxRatio = $width / $height;
 
         if ($srcRatio > $boxRatio) {
-            // Source is wider than box — fit by width
             $drawWidth = $width;
             $drawHeight = (int) ($width / $srcRatio);
         } else {
-            // Source is taller than box — fit by height
             $drawHeight = $height;
             $drawWidth = (int) ($height * $srcRatio);
         }
 
         // Center the image at x, y
-        $drawX = $x - ($drawWidth / 2);
-        $drawY = $y - ($drawHeight / 2);
+        $drawX = (int) ($x - $drawWidth / 2);
+        $drawY = (int) ($y - $drawHeight / 2);
 
-        if ($borderRadius >= 50) {
-            // Circular image
+        if ($opacity < 100) {
+            // Render with opacity using temp canvas approach
+            $this->renderImageWithOpacity($canvas, $storagePath, $drawX, $drawY, $drawWidth, $drawHeight, $opacity, $borderRadius >= 50 ? $x : null, $borderRadius >= 50 ? $y : null);
+        } elseif ($borderRadius >= 50) {
             $diameter = min($drawWidth, $drawHeight);
             $this->addCircularImage($canvas, $storagePath, $x, $y, $diameter);
         } else {
-            // Regular image — aspect ratio preserved
-            $this->addImage($canvas, $storagePath, (int) $drawX, (int) $drawY, $drawWidth, $drawHeight);
+            $this->addImage($canvas, $storagePath, $drawX, $drawY, $drawWidth, $drawHeight);
         }
+    }
+
+    /**
+     * Render an image with opacity using temp canvas + imagecopymerge
+     */
+    protected function renderImageWithOpacity(\GdImage $canvas, string $storagePath, int $drawX, int $drawY, int $width, int $height, int $opacity, ?int $circularCx = null, ?int $circularCy = null): void
+    {
+        $srcImage = $this->loadBackground($storagePath);
+        if (!$srcImage) return;
+
+        $srcWidth = imagesx($srcImage);
+        $srcHeight = imagesy($srcImage);
+
+        // Create resized image
+        $resized = imagecreatetruecolor($width, $height);
+        imagealphablending($resized, false);
+        imagesavealpha($resized, true);
+        $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
+        imagefill($resized, 0, 0, $transparent);
+        imagecopyresampled($resized, $srcImage, 0, 0, 0, 0, $width, $height, $srcWidth, $srcHeight);
+        imagedestroy($srcImage);
+
+        // Apply circular mask if needed
+        if ($circularCx !== null) {
+            $diameter = min($width, $height);
+            $mask = imagecreatetruecolor($width, $height);
+            $black = imagecolorallocate($mask, 0, 0, 0);
+            $white = imagecolorallocate($mask, 255, 255, 255);
+            imagefill($mask, 0, 0, $black);
+            imagefilledellipse($mask, (int)($width / 2), (int)($height / 2), $diameter, $diameter, $white);
+            for ($px = 0; $px < $width; $px++) {
+                for ($py = 0; $py < $height; $py++) {
+                    if ((imagecolorat($mask, $px, $py) & 0xFF) === 0) {
+                        imagesetpixel($resized, $px, $py, $transparent);
+                    }
+                }
+            }
+            imagedestroy($mask);
+        }
+
+        // Create temp canvas, copy the target region, overlay image, then merge back with opacity
+        $temp = imagecreatetruecolor($width, $height);
+        imagealphablending($temp, true);
+        imagesavealpha($temp, true);
+        // Copy current canvas region to temp
+        imagecopy($temp, $canvas, 0, 0, $drawX, $drawY, $width, $height);
+        // Copy resized image on top
+        imagecopy($temp, $resized, 0, 0, 0, 0, $width, $height);
+        // Merge temp back to canvas with opacity
+        imagecopymerge($canvas, $temp, $drawX, $drawY, 0, 0, $width, $height, $opacity);
+
+        imagedestroy($resized);
+        imagedestroy($temp);
     }
 
     /**
@@ -921,14 +1036,6 @@ class TemplateRenderService extends PosterGeneratorService
             $srcWidth, $srcHeight
         );
 
-        // Apply opacity if specified
-        $opacity = $overlay['opacity'] ?? 100;
-        if ($opacity < 100) {
-            // Note: GD doesn't have a direct opacity function, but we can use imagecopymerge
-            // For simplicity, we'll just copy with full opacity for now
-            // A more complex implementation would process each pixel
-        }
-
         // Handle rotation if specified
         $rotation = $overlay['rotation'] ?? 0;
         if ($rotation != 0) {
@@ -945,9 +1052,23 @@ class TemplateRenderService extends PosterGeneratorService
             }
         }
 
-        // Copy to canvas with alpha blending
-        imagealphablending($canvas, true);
-        imagecopy($canvas, $resized, $drawX, $drawY, 0, 0, imagesx($resized), imagesy($resized));
+        // Apply opacity if specified
+        $opacity = (int) ($overlay['opacity'] ?? 100);
+        if ($opacity < 100) {
+            $rw = imagesx($resized);
+            $rh = imagesy($resized);
+            $temp = imagecreatetruecolor($rw, $rh);
+            imagealphablending($temp, true);
+            imagesavealpha($temp, true);
+            imagecopy($temp, $canvas, 0, 0, $drawX, $drawY, $rw, $rh);
+            imagecopy($temp, $resized, 0, 0, 0, 0, $rw, $rh);
+            imagecopymerge($canvas, $temp, $drawX, $drawY, 0, 0, $rw, $rh, $opacity);
+            imagedestroy($temp);
+        } else {
+            // Copy to canvas with alpha blending
+            imagealphablending($canvas, true);
+            imagecopy($canvas, $resized, $drawX, $drawY, 0, 0, imagesx($resized), imagesy($resized));
+        }
 
         imagedestroy($overlayImage);
         imagedestroy($resized);
@@ -982,10 +1103,19 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
-     * Get font file based on weight
+     * Get font file based on weight and style
      */
-    protected function getFontFile(string $weight): string
+    protected function getFontFile(string $weight, string $fontStyle = 'normal'): string
     {
+        if ($fontStyle === 'italic') {
+            // Italic variants use Montserrat
+            $w = (int) $weight;
+            if ($w >= 600) {
+                return 'Montserrat-BoldItalic.ttf';
+            }
+            return 'Montserrat-Italic.ttf';
+        }
+
         // Map weights to available fonts (Oswald + Montserrat-Medium available)
         return match ($weight) {
             '300' => 'Oswald-Light.ttf',
@@ -1057,6 +1187,19 @@ class TemplateRenderService extends PosterGeneratorService
             'achievement_text' => '75 runs off 45 balls',
             'batting_figures' => '59 (36) 9x4 1x6',
             'bowling_figures' => '4 - 0 - 25 - 2',
+            // Individual batting stats
+            'batting_runs' => '59',
+            'batting_balls' => '36',
+            'batting_fours' => '9',
+            'batting_sixes' => '1',
+            // Individual bowling stats
+            'bowling_overs' => '4',
+            'bowling_runs' => '25',
+            'bowling_maidens' => '0',
+            'bowling_wickets' => '2',
+            // Combined score+overs
+            'team_a_score_overs' => '150/6 (20 Ov)',
+            'team_b_score_overs' => '145/8 (20 Ov)',
             // Tournament info
             'description' => 'Cricket Tournament',
             'start_date' => date('M d, Y'),

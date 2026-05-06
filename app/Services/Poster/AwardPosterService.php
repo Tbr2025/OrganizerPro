@@ -114,6 +114,14 @@ class AwardPosterService extends PosterGeneratorService
             // Achievement/remarks
             'achievement_text' => $matchAward->remarks ?? '',
             'remarks' => $matchAward->remarks ?? '',
+
+            // Combined score+overs format
+            'team_a_score_overs' => $result
+                ? ($result->{'team_' . $firstKey . '_score'} . '/' . $result->{'team_' . $firstKey . '_wickets'} . ' (' . $result->{'team_' . $firstKey . '_overs'} . ' Ov)')
+                : '',
+            'team_b_score_overs' => $result
+                ? ($result->{'team_' . $secondKey . '_score'} . '/' . $result->{'team_' . $secondKey . '_wickets'} . ' (' . $result->{'team_' . $secondKey . '_overs'} . ' Ov)')
+                : '',
         ];
 
         // Render using template

@@ -345,6 +345,165 @@ class MatchResultController extends Controller
     }
 
     /**
+     * One-click sync: fetch scores from CricHeroes and save the full result.
+     */
+    public function syncCricHeroesScore(Matches $match): JsonResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['match.edit']);
+
+        if (!$match->cricheroes_match_url) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No CricHeroes URL saved for this match.',
+            ], 422);
+        }
+
+        try {
+            $scraper = new CricHeroesScraper();
+            $data = $scraper->fetch($match->cricheroes_match_url);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch from CricHeroes: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        if (empty($data['teams']) || count($data['teams']) < 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not find team data on CricHeroes.',
+            ], 422);
+        }
+
+        $match->load(['teamA', 'teamB']);
+        $teamAName = $match->teamA->name ?? '';
+        $teamBName = $match->teamB->name ?? '';
+
+        // Map CricHeroes teams to our teams using fuzzy matching
+        $mapping = $this->mapCricHeroesTeams($data['teams'], $teamAName, $teamBName);
+        $teamAData = $data['teams'][$mapping['a']];
+        $teamBData = $data['teams'][$mapping['b']];
+
+        // Determine toss data
+        $tossWonBy = null;
+        $tossDecision = null;
+        if (!empty($data['toss'])) {
+            $tossDecision = $data['toss']['decision'] ?? null;
+            $tossWinnerName = $data['toss']['winner'] ?? '';
+            if ($this->fuzzyMatch($tossWinnerName, $teamAName)) {
+                $tossWonBy = $match->team_a_id;
+            } elseif ($this->fuzzyMatch($tossWinnerName, $teamBName)) {
+                $tossWonBy = $match->team_b_id;
+            }
+        }
+
+        // Determine result
+        $resultType = 'runs';
+        $margin = 0;
+        $winnerId = null;
+        $resultSummary = null;
+
+        if (!empty($data['result'])) {
+            $r = $data['result'];
+            $resultType = $r['type'] ?? 'runs';
+            $margin = $r['margin'] ?? 0;
+            $resultSummary = $r['summary'] ?? null;
+
+            if ($resultType === 'tie') {
+                $winnerId = null;
+            } elseif (!empty($r['winner'])) {
+                if ($this->fuzzyMatch($r['winner'], $teamAName)) {
+                    $winnerId = $match->team_a_id;
+                } elseif ($this->fuzzyMatch($r['winner'], $teamBName)) {
+                    $winnerId = $match->team_b_id;
+                }
+            }
+        }
+
+        $resultData = [
+            'team_a_score' => $teamAData['runs'],
+            'team_a_wickets' => $teamAData['wickets'],
+            'team_a_overs' => $teamAData['overs'],
+            'team_b_score' => $teamBData['runs'],
+            'team_b_wickets' => $teamBData['wickets'],
+            'team_b_overs' => $teamBData['overs'],
+            'toss_won_by' => $tossWonBy,
+            'toss_decision' => $tossDecision,
+            'team_a_batting_first' => MatchResult::deriveTeamABattingFirst($tossWonBy, $tossDecision, $match->team_a_id),
+            'result_type' => $resultType,
+            'winner_team_id' => $winnerId,
+            'margin' => $margin,
+            'result_summary' => $resultSummary,
+        ];
+
+        if (!empty($data['scorecard'])) {
+            $resultData['scorecard_data'] = $data['scorecard'];
+        }
+
+        $result = MatchResult::updateOrCreate(
+            ['match_id' => $match->id],
+            $resultData
+        );
+
+        // Generate summary if not provided by CricHeroes
+        if (empty($resultSummary)) {
+            $result->update(['result_summary' => $result->generateResultSummary()]);
+        }
+
+        // Update match status
+        if ($winnerId || $resultType === 'tie') {
+            $match->update([
+                'status' => 'completed',
+                'winner_team_id' => $winnerId,
+            ]);
+
+            if ($match->isGroupStage()) {
+                $this->pointTableService->updateFromMatchResult($match);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Scores synced successfully from CricHeroes!',
+            'data' => [
+                'team_a_score' => $teamAData['runs'] . '/' . $teamAData['wickets'] . ' (' . $teamAData['overs'] . ')',
+                'team_b_score' => $teamBData['runs'] . '/' . $teamBData['wickets'] . ' (' . $teamBData['overs'] . ')',
+                'result_summary' => $result->result_summary,
+            ],
+        ]);
+    }
+
+    private function mapCricHeroesTeams(array $teams, string $teamAName, string $teamBName): array
+    {
+        $aIdx = null;
+        $bIdx = null;
+
+        for ($i = 0; $i < count($teams); $i++) {
+            if ($this->fuzzyMatch($teams[$i]['name'], $teamAName)) $aIdx = $i;
+            if ($this->fuzzyMatch($teams[$i]['name'], $teamBName)) $bIdx = $i;
+        }
+
+        if ($aIdx === null && $bIdx === null) {
+            $aIdx = 0;
+            $bIdx = 1;
+        } elseif ($aIdx === null) {
+            $aIdx = $bIdx === 0 ? 1 : 0;
+        } elseif ($bIdx === null) {
+            $bIdx = $aIdx === 0 ? 1 : 0;
+        }
+
+        return ['a' => $aIdx, 'b' => $bIdx];
+    }
+
+    private function fuzzyMatch(string $str1, string $str2): bool
+    {
+        $a = strtolower(trim($str1));
+        $b = strtolower(trim($str2));
+
+        return $a === $b || str_contains($a, $b) || str_contains($b, $a);
+    }
+
+    /**
      * Clear imported CricHeroes scorecard data for a match.
      */
     public function clearScorecardData(Matches $match): RedirectResponse

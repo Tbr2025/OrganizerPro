@@ -129,12 +129,15 @@ class TournamentTemplateController extends Controller
                 'team_a_score_wickets', 'team_b_score_wickets',
                 'team_a_runs', 'team_b_runs', 'team_a_wickets', 'team_b_wickets',
                 'team_a_overs', 'team_b_overs', 'win_margin', 'toss_result',
+                'team_a_score_overs', 'team_b_score_overs',
                 'match_date', 'match_time', 'match_day', 'match_date_day', 'match_date_month', 'match_date_weekday',
                 'venue', 'ground_name', 'match_stage', 'match_number',
                 'award_name', 'achievement_text', 'match_details',
                 'man_of_the_match_name', 'man_of_the_match_image',
                 'best_batsman_name', 'best_bowler_name',
-                'result_summary', 'batting_figures', 'bowling_figures'
+                'result_summary', 'batting_figures', 'bowling_figures',
+                'batting_runs', 'batting_balls', 'batting_fours', 'batting_sixes',
+                'bowling_overs', 'bowling_runs', 'bowling_maidens', 'bowling_wickets',
             ]);
 
             // Add tournament info

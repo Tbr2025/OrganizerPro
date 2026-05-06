@@ -163,6 +163,7 @@ class TournamentTemplate extends Model
                 'team_a_runs',
                 'team_a_wickets',
                 'team_a_overs',
+                'team_a_score_overs',
                 // Team B
                 'team_b_name',
                 'team_b_short_name',
@@ -172,6 +173,7 @@ class TournamentTemplate extends Model
                 'team_b_runs',
                 'team_b_wickets',
                 'team_b_overs',
+                'team_b_score_overs',
                 // Result
                 'result_summary',
                 'winner_name',
@@ -179,6 +181,16 @@ class TournamentTemplate extends Model
                 'win_margin',
                 'batting_figures',
                 'bowling_figures',
+                // Individual batting stats
+                'batting_runs',
+                'batting_balls',
+                'batting_fours',
+                'batting_sixes',
+                // Individual bowling stats
+                'bowling_overs',
+                'bowling_runs',
+                'bowling_maidens',
+                'bowling_wickets',
             ],
             self::TYPE_FLYER => [
                 'tournament_name',

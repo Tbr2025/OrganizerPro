@@ -48,7 +48,7 @@ class LoginController extends Controller
 
         $this->demoAppService->maybeSetDemoLocaleToEnByDefault();
 
-        $email = app()->environment('local') ? 'superadmin@example.com' : '';
+        $email = app()->environment('local') ? 'superadmin@sportzley.com' : '';
         $password = app()->environment('local') ? '12345678' : '';
 
         return view('backend.auth.login')->with(compact('email', 'password'));

@@ -191,6 +191,10 @@
                                     <input type="number" id="summaryBatSixes" placeholder="1" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
                                 </div>
                             </div>
+                            <label class="flex items-center gap-2 mt-2 cursor-pointer">
+                                <input type="checkbox" id="summaryBatNotOut" class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                                <span class="text-xs text-gray-600 dark:text-gray-400">Not Out *</span>
+                            </label>
                         </div>
 
                         {{-- Bowling Performance --}}
@@ -359,6 +363,10 @@
                                         <input type="number" id="batSixes" placeholder="1" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
                                     </div>
                                 </div>
+                                <label class="flex items-center gap-2 mt-2 cursor-pointer">
+                                    <input type="checkbox" id="batNotOut" class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                                    <span class="text-xs text-gray-600 dark:text-gray-400">Not Out *</span>
+                                </label>
                             </div>
 
                             {{-- Bowling Performance --}}
@@ -680,8 +688,9 @@ function getSelectedData() {
                 const batBalls = document.getElementById('summaryBatBalls')?.value?.trim();
                 const batFours = document.getElementById('summaryBatFours')?.value?.trim();
                 const batSixes = document.getElementById('summaryBatSixes')?.value?.trim();
+                const batNotOut = document.getElementById('summaryBatNotOut')?.checked;
                 if (batRuns) {
-                    let bf = batRuns;
+                    let bf = batRuns + (batNotOut ? '*' : '');
                     if (batBalls) bf += ` (${batBalls})`;
                     if (batFours) bf += ` ${batFours}x4`;
                     if (batSixes) bf += ` ${batSixes}x6`;
@@ -766,12 +775,18 @@ function getSelectedData() {
         const batBalls = document.getElementById('batBalls')?.value?.trim();
         const batFours = document.getElementById('batFours')?.value?.trim();
         const batSixes = document.getElementById('batSixes')?.value?.trim();
+        const batNotOut = document.getElementById('batNotOut')?.checked;
         if (batRuns) {
-            let bf = batRuns;
+            let bf = batRuns + (batNotOut ? '*' : '');
             if (batBalls) bf += ` (${batBalls})`;
             if (batFours) bf += ` ${batFours}x4`;
             if (batSixes) bf += ` ${batSixes}x6`;
             data.batting_figures = bf;
+            // Individual stat placeholders
+            data.batting_runs = batRuns + (batNotOut ? '*' : '');
+            data.batting_balls = batBalls || '';
+            data.batting_fours = batFours || '';
+            data.batting_sixes = batSixes || '';
         }
 
         // Build bowling_figures: "4 - 0 - 25 - 2"
@@ -781,6 +796,19 @@ function getSelectedData() {
         const bowlWickets = document.getElementById('bowlWickets')?.value?.trim();
         if (bowlOvers) {
             data.bowling_figures = `${bowlOvers} - ${bowlMaidens || '0'} - ${bowlRuns || '0'} - ${bowlWickets || '0'}`;
+            // Individual stat placeholders
+            data.bowling_overs = bowlOvers;
+            data.bowling_runs = bowlRuns || '0';
+            data.bowling_maidens = bowlMaidens || '0';
+            data.bowling_wickets = bowlWickets || '0';
+        }
+
+        // Combined score+overs format
+        if (teamAScore) {
+            data.team_a_score_overs = teamAScore;
+        }
+        if (teamBScore) {
+            data.team_b_score_overs = teamBScore;
         }
     } else if (currentType === 'point_table') {
         const groupSelect = document.getElementById('groupSelect');

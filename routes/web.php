@@ -826,5 +826,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::put('/matches/{match}/result', [MatchResultController::class, 'update'])->name('matches.result.update');
     Route::post('/matches/{match}/result/quick', [MatchResultController::class, 'quickUpdate'])->name('matches.result.quick');
     Route::post('/matches/{match}/result/cricheroes', [MatchResultController::class, 'fetchCricHeroesData'])->name('matches.result.cricheroes');
+    Route::post('/matches/{match}/sync-cricheroes', [MatchResultController::class, 'syncCricHeroesScore'])->name('matches.sync-cricheroes');
     Route::delete('/matches/{match}/result/scorecard-data', [MatchResultController::class, 'clearScorecardData'])->name('matches.result.clear-scorecard');
 });

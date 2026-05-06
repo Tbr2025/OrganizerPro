@@ -712,6 +712,15 @@
                     </svg>
                     Record Final Result
                 </a>
+                @if($match->cricheroes_match_url)
+                <button type="button" onclick="showSyncConfirmation()" id="syncScoreBtn"
+                    class="w-full flex items-center justify-center px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Sync Score Now
+                </button>
+                @endif
                 <a href="{{ route('admin.matches.summary.edit', $match) }}"
                    class="w-full flex items-center justify-center px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -933,6 +942,29 @@
         </div>
     </div>
 </div>
+
+@if($match->cricheroes_match_url)
+<!-- Sync CricHeroes Confirmation Modal -->
+<div id="syncConfirmModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-2">Sync Score from CricHeroes?</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            This will fetch the latest scores and update the match result. Existing scores will be overwritten.
+        </p>
+        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">CricHeroes URL</p>
+            <a href="{{ $match->cricheroes_match_url }}" target="_blank"
+               class="text-sm text-teal-600 dark:text-teal-400 hover:underline break-all">
+                {{ Str::limit($match->cricheroes_match_url, 60) }}
+            </a>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="hideSyncConfirmation()" class="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition">Cancel</button>
+            <button onclick="syncScoreNow()" id="syncNowBtn" class="flex-1 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-semibold transition">Sync Now</button>
+        </div>
+    </div>
+</div>
+@endif
 
 @push('scripts')
 <script>
@@ -1541,6 +1573,58 @@ function generatePoster() {
         btn.innerHTML = originalContent;
         btn.disabled = false;
     });
+}
+
+// ============ CRICHEROES SYNC ============
+function showSyncConfirmation() {
+    const modal = document.getElementById('syncConfirmModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+function hideSyncConfirmation() {
+    const modal = document.getElementById('syncConfirmModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+async function syncScoreNow() {
+    const btn = document.getElementById('syncNowBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;
+
+    try {
+        const response = await fetch(`/admin/matches/${matchId}/sync-cricheroes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            hideSyncConfirmation();
+            alert(data.message + '\n\n' + (data.data.result_summary || data.data.team_a_score + ' vs ' + data.data.team_b_score));
+            location.reload();
+        } else {
+            alert('Sync failed: ' + (data.message || 'Unknown error'));
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    } catch (error) {
+        console.error('Sync error:', error);
+        alert('Failed to sync scores. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
 }
 </script>
 @endpush
