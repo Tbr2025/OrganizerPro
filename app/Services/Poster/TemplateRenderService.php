@@ -352,7 +352,7 @@ class TemplateRenderService extends PosterGeneratorService
         if (!file_exists($fontFile)) return;
 
         $rgb = $this->hexToRgb($color);
-        $textColor = imagecolorallocate($canvas, $rgb[0], $rgb[1], $rgb[2]);
+        $textColor = imagecolorallocate($canvas, $rgb['r'], $rgb['g'], $rgb['b']);
 
         // Calculate bounding box for centering
         $bbox = imagettfbbox($fontSize, 0, $fontFile, $unicode);
@@ -372,7 +372,7 @@ class TemplateRenderService extends PosterGeneratorService
             imagefill($tmp, 0, 0, $transparent);
             imagealphablending($tmp, true);
 
-            $tmpColor = imagecolorallocate($tmp, $rgb[0], $rgb[1], $rgb[2]);
+            $tmpColor = imagecolorallocate($tmp, $rgb['r'], $rgb['g'], $rgb['b']);
             $tmpBbox = imagettfbbox($fontSize, 0, $fontFile, $unicode);
             $tmpX = ($tmpSize / 2) - (($tmpBbox[2] - $tmpBbox[0]) / 2);
             $tmpY = ($tmpSize / 2) + (abs($tmpBbox[7] - $tmpBbox[1]) / 2);

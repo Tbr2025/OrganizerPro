@@ -84,7 +84,7 @@ class LoginController extends Controller
     {
         $user = Auth::guard('web')->user();
 
-        if ($user->hasRole('Team Manager') && !$user->hasAnyRole(['Super Admin', 'Admin', 'Organizer'])) {
+        if ($user->hasRole('Team Manager') && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
             return redirect()->route('team-manager.dashboard');
         }
 

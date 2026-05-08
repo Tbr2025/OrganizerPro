@@ -440,6 +440,10 @@
             <div id="textPropertiesPanel" class="hidden">
                 <div class="prop-section">
                     <div class="prop-section-title">Text Properties</div>
+                    <div id="propPlaceholderInfo" class="hidden mb-2 px-2 py-1.5 rounded bg-indigo-900/40 border border-indigo-700/50">
+                        <span class="text-[10px] uppercase tracking-wider text-indigo-400 font-semibold">Placeholder</span>
+                        <div id="propPlaceholderName" class="text-xs text-indigo-200 font-mono mt-0.5"></div>
+                    </div>
                     <div class="prop-group">
                         <label class="prop-label">Font Family</label>
                         <select id="propFontFamily" class="prop-input" onchange="editor.updateText('fontFamily', this.value)">
@@ -819,6 +823,76 @@
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 <script>
+const placeholderExamples = {
+    player_name: 'John Doe',
+    jersey_name: 'J. DOE',
+    jersey_number: '10',
+    team_name: 'Sample Team FC',
+    tournament_name: 'Tournament Name',
+    team_a_name: 'Royal Strikers',
+    team_a_short_name: 'RST',
+    team_a_location: 'Dubai',
+    team_a_captain_name: 'Captain Alpha',
+    team_b_name: 'Thunder Kings',
+    team_b_short_name: 'THK',
+    team_b_location: 'Abu Dhabi',
+    team_b_captain_name: 'Captain Beta',
+    team_a_score: '185/4 (20.0)',
+    team_b_score: '172/8 (20.0)',
+    team_a_score_wickets: '185/4',
+    team_b_score_wickets: '172/8',
+    team_a_runs: '185',
+    team_b_runs: '172',
+    team_a_wickets: '4',
+    team_b_wickets: '8',
+    team_a_overs: '20.0',
+    team_b_overs: '20.0',
+    team_a_score_overs: '185/4 (20 Ov)',
+    team_b_score_overs: '172/8 (20 Ov)',
+    match_date: 'May 08, 2026',
+    match_date_day: '08',
+    match_date_month: 'MAY',
+    match_date_weekday: 'FRI',
+    match_time: '07:00 PM',
+    match_day: 'Friday',
+    venue: 'Dubai International Cricket Ground',
+    ground_name: 'Ground-2',
+    match_stage: 'Group Stage',
+    match_number: '1',
+    result_summary: 'Royal Strikers won by 13 runs',
+    winner_name: 'Royal Strikers',
+    win_margin: 'Won by 13 runs',
+    toss_result: 'RST won toss, chose to bat',
+    man_of_the_match_name: 'Player Name',
+    match_details: 'Team A vs Team B',
+    player_type: 'All Rounder',
+    batting_style: 'Right Handed',
+    bowling_style: 'Right Arm Medium',
+    award_name: 'Player of the Match',
+    achievement_text: '75 runs off 45 balls',
+    batting_figures: '59 (36) 9x4 1x6',
+    bowling_figures: '4 - 0 - 25 - 2',
+    batting_runs: '59',
+    batting_balls: '36',
+    batting_fours: '9',
+    batting_sixes: '1',
+    bowling_overs: '4',
+    bowling_runs: '25',
+    bowling_maidens: '0',
+    bowling_wickets: '2',
+    description: 'Cricket Tournament',
+    location: 'City Sports Complex',
+    title: 'Champions',
+    season: 'Season 1',
+    group_name: 'Group A',
+    best_batsman_name: 'Best Batsman',
+    best_bowler_name: 'Best Bowler',
+};
+
+function getExampleText(placeholder) {
+    return placeholderExamples[placeholder] || placeholder.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 const editor = {
     canvas: null,
     history: [],
@@ -922,7 +996,7 @@ const editor = {
 
     // Add elements
     addText(placeholder, x, y) {
-        const text = new fabric.IText('{{' + placeholder + '}}', {
+        const text = new fabric.IText(getExampleText(placeholder), {
             left: x, top: y,
             fontSize: 36,
             fontFamily: 'Montserrat',
@@ -1060,7 +1134,7 @@ const editor = {
             rx: 8, ry: 8,
             originX: 'center', originY: 'center',
         });
-        const label = new fabric.Text(placeholder.replace(/_/g, '\n'), {
+        const label = new fabric.Text(placeholder.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), {
             fontSize: 14, fill: '#ffffff', fontFamily: 'Arial',
             originX: 'center', originY: 'center', textAlign: 'center',
         });
@@ -1288,6 +1362,14 @@ const editor = {
             document.getElementById('propIconSize').value = iconSize;
         }
         if (isText) {
+            const placeholderInfoEl = document.getElementById('propPlaceholderInfo');
+            const placeholderNameEl = document.getElementById('propPlaceholderName');
+            if (obj.placeholder) {
+                placeholderInfoEl.classList.remove('hidden');
+                placeholderNameEl.textContent = obj.placeholder.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + '  (' + obj.placeholder + ')';
+            } else {
+                placeholderInfoEl.classList.add('hidden');
+            }
             document.getElementById('propFontFamily').value = obj.fontFamily || 'Arial';
             document.getElementById('propFontSize').value = Math.round(obj.fontSize || 24);
             document.getElementById('propFontWeight').value = obj.fontWeight || '400';
@@ -1705,12 +1787,13 @@ const editor = {
         document.getElementById('layerCount').textContent = objects.length;
         const list = document.getElementById('layersList');
         list.innerHTML = [...objects].reverse().map((obj, i) => {
-            const name = obj.placeholder || obj.shapeType || obj.type || 'Element';
+            const rawName = obj.placeholder || obj.shapeType || obj.type || 'Element';
+            const name = rawName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const selected = obj === this.canvas.getActiveObject();
             const idx = objects.length - 1 - i;
             return `<div class="layer-item ${selected ? 'selected' : ''}" onclick="editor.selectLayer(${idx})">
                 <div class="layer-thumb"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg></div>
-                <div class="layer-info"><div class="layer-name">${name.replace(/_/g, ' ')}</div><div class="layer-type">${obj.elementType || obj.type}</div></div>
+                <div class="layer-info"><div class="layer-name">${name}</div><div class="layer-type">${obj.elementType || obj.type}</div></div>
             </div>`;
         }).join('');
     },
@@ -1743,7 +1826,7 @@ const editor = {
             const y = (item.y / 100) * this.canvasHeight;
 
             if (item.type === 'text' || item.type === 'i-text') {
-                const text = new fabric.IText(item.placeholder ? '{{' + item.placeholder + '}}' : (item.text || 'Text'), {
+                const text = new fabric.IText(item.placeholder ? getExampleText(item.placeholder) : (item.text || 'Text'), {
                     left: x, top: y,
                     fontSize: item.fontSize || 24,
                     fontFamily: item.fontFamily || 'Arial',
@@ -1767,7 +1850,7 @@ const editor = {
             } else if (item.type === 'image') {
                 const w = item.width || 150, h = item.height || 150;
                 const rect = new fabric.Rect({ width: w, height: h, fill: 'rgba(99, 102, 241, 0.3)', stroke: '#6366f1', strokeWidth: 2, strokeDashArray: [5, 5], rx: 8, ry: 8, originX: 'center', originY: 'center' });
-                const label = new fabric.Text((item.placeholder || 'image').replace(/_/g, '\n'), { fontSize: 14, fill: '#fff', fontFamily: 'Arial', originX: 'center', originY: 'center', textAlign: 'center' });
+                const label = new fabric.Text((item.placeholder || 'image').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), { fontSize: 14, fill: '#fff', fontFamily: 'Arial', originX: 'center', originY: 'center', textAlign: 'center' });
                 const group = new fabric.Group([rect, label], { left: x, top: y, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' });
                 group.placeholder = item.placeholder;
                 group.elementType = 'image';

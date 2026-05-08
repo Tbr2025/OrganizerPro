@@ -202,6 +202,30 @@
                                 {{-- Info --}}
                                 <div class="p-3">
                                     <h4 class="font-medium text-gray-900 dark:text-white text-sm truncate">{{ $template->name }}</h4>
+                                    <div class="flex items-center gap-2 mt-1 relative" x-data="{ showSizes: false }">
+                                        <button @click="showSizes = !showSizes" class="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-400 transition flex items-center gap-1 cursor-pointer" title="Change size">
+                                            <span id="sizeLabel-{{ $template->id }}">{{ $template->canvas_width ?? 1080 }} x {{ $template->canvas_height ?? 1080 }}</span>
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+                                        {{-- Size Dropdown --}}
+                                        <div x-show="showSizes" @click.away="showSizes = false" x-cloak
+                                             class="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl py-1 w-56 max-h-64 overflow-y-auto">
+                                            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Instagram</div>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 1080, 1080, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">Post Square (1080x1080)</button>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 1080, 1350, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">Post Portrait 4:5 (1080x1350)</button>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 1080, 566, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">Landscape 1.91:1 (1080x566)</button>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 1080, 1920, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">Story / Reels 9:16 (1080x1920)</button>
+                                            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold mt-1">WhatsApp</div>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 800, 800, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">DP / Group Icon (800x800)</button>
+                                            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold mt-1">Standard</div>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 1920, 1080, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">Full HD 16:9 (1920x1080)</button>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 1280, 720, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">HD 16:9 (1280x720)</button>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 1080, 1350, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">Portrait 4:5 (1080x1350)</button>
+                                            <div class="px-2 py-1 text-[10px] uppercase tracking-wider text-gray-400 font-semibold mt-1">Print</div>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 2480, 3508, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">A4 Portrait (2480x3508)</button>
+                                            <button onclick="updateTemplateSize({{ $template->id }}, 3508, 2480, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">A4 Landscape (3508x2480)</button>
+                                        </div>
+                                    </div>
                                     <div class="flex items-center justify-between mt-2">
                                         <span class="text-xs text-gray-500">{{ $template->created_at->diffForHumans() }}</span>
                                         @if(!$template->is_default)
@@ -238,4 +262,28 @@
         </div>
     @endif
 </div>
+
+@push('scripts')
+<script>
+function updateTemplateSize(templateId, width, height, btn) {
+    const url = '{{ url("admin/tournaments/" . $tournament->id . "/templates") }}/' + templateId + '/update-size';
+    fetch(url, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json',
+        },
+        body: JSON.stringify({ canvas_width: width, canvas_height: height }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('sizeLabel-' + templateId).textContent = width + ' x ' + height;
+        }
+    })
+    .catch(() => alert('Failed to update size'));
+}
+</script>
+@endpush
 @endsection

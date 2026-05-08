@@ -581,6 +581,23 @@ class TournamentTemplateController extends Controller
     }
 
     /**
+     * Quick update canvas size (AJAX from index page)
+     */
+    public function updateSize(Tournament $tournament, TournamentTemplate $template, Request $request)
+    {
+        abort_if($template->tournament_id !== $tournament->id, 404);
+
+        $validated = $request->validate([
+            'canvas_width' => 'required|integer|min:540|max:3840',
+            'canvas_height' => 'required|integer|min:540|max:3840',
+        ]);
+
+        $template->update($validated);
+
+        return response()->json(['success' => true, 'message' => 'Size updated.']);
+    }
+
+    /**
      * Delete a template
      */
     public function destroy(Tournament $tournament, TournamentTemplate $template)
