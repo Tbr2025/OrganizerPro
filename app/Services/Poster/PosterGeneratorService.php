@@ -67,6 +67,8 @@ abstract class PosterGeneratorService
         string $align = 'left',
         float $angle = 0
     ): void {
+        if ($text === '') return;
+
         $fontPath = public_path('fonts/' . $fontFile);
 
         if (!file_exists($fontPath)) {
@@ -74,6 +76,10 @@ abstract class PosterGeneratorService
             $fontPath = public_path('fonts/Oswald-Bold.ttf');
             if (!file_exists($fontPath)) {
                 $fontPath = public_path('fonts/Montserrat-Medium.ttf');
+                if (!file_exists($fontPath)) {
+                    \Log::warning("No font files found in public/fonts/ directory");
+                    return; // Skip text rendering if no fonts available
+                }
             }
         }
 
@@ -81,7 +87,11 @@ abstract class PosterGeneratorService
         $textColor = imagecolorallocate($image, $rgb['r'], $rgb['g'], $rgb['b']);
 
         // Calculate text bounds for alignment
-        $bbox = imagettfbbox($size, $angle, $fontPath, $text);
+        $bbox = @imagettfbbox($size, $angle, $fontPath, $text);
+        if (!$bbox) {
+            \Log::warning("Failed to calculate text bounds for: {$text}");
+            return;
+        }
         $textWidth = abs($bbox[4] - $bbox[0]);
 
         // Adjust x based on alignment
@@ -91,7 +101,7 @@ abstract class PosterGeneratorService
             default => $x,
         };
 
-        imagettftext($image, $size, $angle, (int) $adjustedX, $y, $textColor, $fontPath, $text);
+        @imagettftext($image, $size, $angle, (int) $adjustedX, $y, $textColor, $fontPath, $text);
     }
 
     /**

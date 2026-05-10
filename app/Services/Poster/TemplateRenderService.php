@@ -79,12 +79,16 @@ class TemplateRenderService extends PosterGeneratorService
         $allItems = array_merge($layout, $overlays);
         usort($allItems, fn($a, $b) => ($a['zIndex'] ?? 1) <=> ($b['zIndex'] ?? 1));
 
-        // Render each item
+        // Render each item (catch errors per-element so one broken element doesn't fail the poster)
         foreach ($allItems as $item) {
-            if (($item['_type'] ?? '') === 'overlay') {
-                $this->renderOverlayImage($canvas, $item, $width, $height);
-            } else {
-                $this->renderElement($canvas, $item, $data, $width, $height);
+            try {
+                if (($item['_type'] ?? '') === 'overlay') {
+                    $this->renderOverlayImage($canvas, $item, $width, $height);
+                } else {
+                    $this->renderElement($canvas, $item, $data, $width, $height);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Poster element render failed: ' . ($item['placeholder'] ?? $item['type'] ?? 'unknown') . ' - ' . $e->getMessage());
             }
         }
 
@@ -118,6 +122,9 @@ class TemplateRenderService extends PosterGeneratorService
         } else {
             $value = $data[$placeholder] ?? ($staticText ?: $this->getDisplayValue($placeholder));
         }
+
+        // Ensure value is always a string
+        $value = (string) ($value ?? '');
 
         if ($type === 'icon') {
             $this->renderIconElement($canvas, $element, $x, $y);
@@ -217,13 +224,17 @@ class TemplateRenderService extends PosterGeneratorService
         int $fontSize, string $color, string $fontFile, string $textAlign,
         float $rotation, float $skewX, bool $shadow, int $shadowX, int $shadowY
     ): void {
+        if ($text === '') return;
+
         $fontPath = public_path('fonts/' . $fontFile);
         if (!file_exists($fontPath)) {
             $fontPath = public_path('fonts/Oswald-Bold.ttf');
+            if (!file_exists($fontPath)) return;
         }
 
         // Measure text bounds
-        $bbox = imagettfbbox($fontSize, 0, $fontPath, $text);
+        $bbox = @imagettfbbox($fontSize, 0, $fontPath, $text);
+        if (!$bbox) return;
         $textWidth = abs($bbox[2] - $bbox[0]);
         $textHeight = abs($bbox[7] - $bbox[1]);
 
@@ -304,9 +315,11 @@ class TemplateRenderService extends PosterGeneratorService
         $fontPath = public_path('fonts/' . $fontFile);
         if (!file_exists($fontPath)) {
             $fontPath = public_path('fonts/Oswald-Bold.ttf');
+            if (!file_exists($fontPath)) return;
         }
 
-        $bbox = imagettfbbox($fontSize, $angle, $fontPath, $text);
+        $bbox = @imagettfbbox($fontSize, $angle, $fontPath, $text);
+        if (!$bbox) return;
         $textWidth = abs($bbox[2] - $bbox[0]);
 
         $rgb = $this->hexToRgb($color);
@@ -398,8 +411,8 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function renderImageElement(\GdImage $canvas, array $element, string $imagePath, int $x, int $y, int $canvasWidth): void
     {
-        $width = (int) ($element['width'] ?? 100);
-        $height = (int) ($element['height'] ?? 100);
+        $width = max(1, (int) ($element['width'] ?? 100));
+        $height = max(1, (int) ($element['height'] ?? 100));
         $borderRadius = (int) ($element['borderRadius'] ?? 0);
         $opacity = (int) ($element['opacity'] ?? 100);
 
@@ -1433,7 +1446,7 @@ class TemplateRenderService extends PosterGeneratorService
     {
         $path = $this->renderTemplate($template, $data, false);
 
-        if ($customFilename) {
+        if ($customFilename && Storage::disk('public')->exists($path)) {
             $newPath = $this->outputDirectory . '/' . $customFilename;
             Storage::disk('public')->move($path, $newPath);
             return $newPath;

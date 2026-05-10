@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class TournamentFixtureController extends Controller
@@ -179,11 +180,20 @@ class TournamentFixtureController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
+        // Pre-flight checks with helpful messages
+        $issues = $this->checkPosterRequirements($tournament, $match);
+        if (!empty($issues)) {
+            return redirect()->back()->with('error', 'Poster generation issue: ' . implode(' | ', $issues));
+        }
+
         try {
             // Use default match poster template if one is set
             $template = $tournament->getTemplate(TournamentTemplate::TYPE_MATCH_POSTER);
 
             if ($template) {
+                if (!$template->background_image || !Storage::disk('public')->exists($template->background_image)) {
+                    return redirect()->back()->with('error', 'Template "' . $template->name . '" has no background image. Please edit the template and upload a background image first.');
+                }
                 $enhancedService = new \App\Services\Poster\EnhancedMatchPosterService();
                 $path = $enhancedService->generateFromTemplate($match, $template);
             } elseif ($match->isHighStakes()) {
@@ -193,9 +203,56 @@ class TournamentFixtureController extends Controller
             }
 
             return redirect()->back()->with('success', __('Match poster generated successfully.'));
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', __('Failed to generate poster: ') . $e->getMessage());
+        } catch (\Throwable $e) {
+            \Log::error("Poster generation failed for match {$match->id}: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+            // Provide helpful error messages
+            $message = $e->getMessage();
+            if (str_contains($message, 'font') || str_contains($message, 'ttf')) {
+                $message = 'Font files not found on server. Please upload fonts to public/fonts/ directory.';
+            } elseif (str_contains($message, 'memory') || str_contains($message, 'allocat')) {
+                $message = 'Server ran out of memory. Try reducing image sizes in the template.';
+            } elseif (str_contains($message, 'permission') || str_contains($message, 'mkdir')) {
+                $message = 'Storage directory permission error. Check storage/app/public/ permissions.';
+            }
+
+            return redirect()->back()->with('error', __('Failed to generate poster: ') . $message);
         }
+    }
+
+    /**
+     * Check poster generation requirements and return list of issues
+     */
+    protected function checkPosterRequirements(Tournament $tournament, Matches $match): array
+    {
+        $issues = [];
+
+        // Check if teams are assigned
+        if (!$match->team_a_id || !$match->team_b_id) {
+            $issues[] = 'Both teams must be assigned to generate a poster (Team A or Team B is TBD).';
+        }
+
+        // Check if GD extension is available
+        if (!extension_loaded('gd')) {
+            $issues[] = 'PHP GD extension is not installed on the server.';
+        }
+
+        // Check if font files exist
+        $fontPath = public_path('fonts/Oswald-Bold.ttf');
+        if (!file_exists($fontPath)) {
+            $fontPath = public_path('fonts/Montserrat-Medium.ttf');
+            if (!file_exists($fontPath)) {
+                $issues[] = 'No font files found in public/fonts/. Upload Oswald-Bold.ttf or Montserrat-Medium.ttf.';
+            }
+        }
+
+        // Check storage directory is writable
+        $storageDir = storage_path('app/public');
+        if (!is_writable($storageDir)) {
+            $issues[] = 'Storage directory is not writable. Run: chmod -R 775 storage/';
+        }
+
+        return $issues;
     }
 
     public function deleteGroupStage(Tournament $tournament): RedirectResponse
@@ -246,7 +303,7 @@ class TournamentFixtureController extends Controller
                     $this->posterService->generate($match);
                 }
                 $generated++;
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $failed++;
                 \Log::error("Failed to generate poster for match {$match->id}: " . $e->getMessage());
             }

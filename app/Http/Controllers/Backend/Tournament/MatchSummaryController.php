@@ -326,7 +326,7 @@ class MatchSummaryController extends Controller
             return redirect()
                 ->back()
                 ->with('success', 'Summary poster generated successfully.');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return redirect()
                 ->back()
                 ->with('error', 'Failed to generate poster: ' . $e->getMessage());
@@ -393,7 +393,7 @@ class MatchSummaryController extends Controller
                 'success' => true,
                 'preview_url' => asset('storage/' . $posterPath),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -488,7 +488,7 @@ class MatchSummaryController extends Controller
                 storage_path('app/public/' . $path),
                 "match-poster-{$match->id}.png"
             );
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json(['error' => 'Failed to generate poster: ' . $e->getMessage()], 500);
         }
     }
@@ -528,7 +528,7 @@ class MatchSummaryController extends Controller
                 storage_path('app/public/' . $path),
                 "award-poster-{$match->id}.png"
             );
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json(['error' => 'Failed to generate poster: ' . $e->getMessage()], 500);
         }
     }

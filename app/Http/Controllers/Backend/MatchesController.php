@@ -825,7 +825,7 @@ class MatchesController extends Controller
                         'storage_path' => $posterPath,
                     ];
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 \Log::error('Failed to generate match poster from template: ' . $e->getMessage());
             }
         }
@@ -849,7 +849,7 @@ class MatchesController extends Controller
                             'storage_path' => $summaryPath,
                         ];
                     }
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     \Log::error('Failed to generate summary poster from template: ' . $e->getMessage());
                 }
             }
@@ -863,14 +863,14 @@ class MatchesController extends Controller
                     $posterService = new \App\Services\Poster\EnhancedMatchPosterService();
                     $posterService->generate($match);
                     $match->refresh();
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     \Log::error('Failed to generate enhanced fixture poster: ' . $e->getMessage());
                     // Fallback to legacy poster service
                     try {
                         $legacyService = new \App\Services\Poster\MatchPosterService();
                         $legacyService->generate($match);
                         $match->refresh();
-                    } catch (\Exception $e2) {
+                    } catch (\Throwable $e2) {
                         \Log::error('Failed to generate legacy fixture poster: ' . $e2->getMessage());
                     }
                 }
@@ -895,7 +895,7 @@ class MatchesController extends Controller
                         $summaryPosterService = new \App\Services\Poster\MatchSummaryPosterService();
                         $posterPath = $summaryPosterService->generate($match);
                         $summary->update(['summary_poster' => $posterPath]);
-                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
                         \Log::error('Failed to generate legacy summary poster: ' . $e->getMessage());
                     }
                 }
@@ -990,7 +990,7 @@ class MatchesController extends Controller
                         $matchName . '-match-poster.png'
                     );
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 \Log::error('Failed to generate enhanced poster: ' . $e->getMessage());
                 return response()->json(['message' => 'Failed to generate enhanced poster: ' . $e->getMessage()], 500);
             }
@@ -1023,7 +1023,7 @@ class MatchesController extends Controller
             }
 
             return response()->json(['message' => 'Failed to generate poster'], 500);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('Failed to generate poster from template: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to generate poster: ' . $e->getMessage()], 500);
         }
