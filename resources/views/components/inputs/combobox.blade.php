@@ -24,7 +24,7 @@
         options: {{ json_encode($options) }} ?? [],
         isOpen: false,
         openedWithKeyboard: false,
-        selectedOptions: {{ json_encode($selectedValues) }},
+        selectedOptions: ({{ json_encode($selectedValues) }} || []).map(v => String(v)),
         selectedOption: {{ $multiple ? 'null' : json_encode($selectedValues[0] ?? null) }},
         multiple: {{ $multiple ? 'true' : 'false' }},
         searchable: {{ $searchable ? 'true' : 'false' }},
@@ -94,12 +94,13 @@
         },
 
         handleOptionToggle(optionValue, checked) {
+            const strVal = String(optionValue);
             if (checked) {
-                if (!this.selectedOptions.includes(optionValue)) {
-                    this.selectedOptions.push(optionValue);
+                if (!this.selectedOptions.includes(strVal)) {
+                    this.selectedOptions.push(strVal);
                 }
             } else {
-                this.selectedOptions = this.selectedOptions.filter(val => val !== optionValue);
+                this.selectedOptions = this.selectedOptions.filter(val => val !== strVal);
             }
 
             // Handle URL update for multiple select
@@ -260,7 +261,7 @@
                                 class="form-checkbox combobox-option h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary dark:border-gray-700 dark:bg-gray-900"
                                 x-bind:value="item.value"
                                 x-bind:id="'option_' + index"
-                                x-bind:checked="selectedOptions.includes(item.value)"
+                                x-bind:checked="selectedOptions.includes(String(item.value))"
                                 x-on:change="handleOptionToggle(item.value, $el.checked)"
                                 tabindex="0" />
                             <span x-text="item.label"></span>
