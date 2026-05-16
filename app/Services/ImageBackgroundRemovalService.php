@@ -41,6 +41,38 @@ class ImageBackgroundRemovalService
     }
 
     /**
+     * Remove background via queue (uses rembg safely in background worker)
+     */
+    public function removeBackgroundQueued(string $imagePath): ?string
+    {
+        $fullPath = Storage::disk('public')->path($imagePath);
+
+        if (!file_exists($fullPath)) {
+            return null;
+        }
+
+        $pathInfo = pathinfo($imagePath);
+        $outputPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '-nobg.png';
+        $outputFullPath = Storage::disk('public')->path($outputPath);
+
+        // Try rembg (safe here since we're in a queue worker, not HTTP request)
+        if ($this->removeBackgroundWithRembg($fullPath, $outputFullPath)) {
+            Storage::disk('public')->delete($imagePath);
+            \Log::info("Background removed with rembg (queued): {$outputPath}");
+            return $outputPath;
+        }
+
+        // Fallback to GD
+        if ($this->removeBackgroundWithGD($fullPath, $outputFullPath)) {
+            Storage::disk('public')->delete($imagePath);
+            \Log::info("Background removed with GD (queued): {$outputPath}");
+            return $outputPath;
+        }
+
+        return null;
+    }
+
+    /**
      * Remove background using Python rembg library
      * Install: pip install rembg[cpu]
      */

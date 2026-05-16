@@ -553,18 +553,21 @@ class ActualTeamController extends Controller
             $validated['sponsor_logo'] = $request->file('sponsor_logo')->store('team-sponsors', 'public');
         }
 
-        // Handle Captain Image Upload with background removal
+        // Handle Captain Image Upload — background removal runs async via queue
         if ($request->hasFile('captain_image')) {
             if ($actualTeam->captain_image) {
                 Storage::disk('public')->delete($actualTeam->captain_image);
             }
             $captainImagePath = $request->file('captain_image')->store('team-captains', 'public');
+            $validated['captain_image'] = $captainImagePath;
 
-            // Try to remove background
-            $bgRemovalService = new ImageBackgroundRemovalService();
-            $processedPath = $bgRemovalService->removeBackground($captainImagePath);
-
-            $validated['captain_image'] = $processedPath ?? $captainImagePath;
+            // Dispatch background removal as a queued job (won't block the request)
+            \App\Jobs\RemoveImageBackground::dispatch(
+                $captainImagePath,
+                ActualTeam::class,
+                $actualTeam->id,
+                'captain_image'
+            );
         }
 
         // 4. Update the main team details based on scope
