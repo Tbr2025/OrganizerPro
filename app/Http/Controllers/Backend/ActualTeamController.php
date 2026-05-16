@@ -379,20 +379,11 @@ class ActualTeamController extends Controller
         });
 
 
-        // --- Logic to get AVAILABLE Users (as you had it) ---
+        // --- Logic to get AVAILABLE Users ---
 
-        // Find all user IDs assigned to ANY other team.
-        // Adjust table names if yours are different (e.g., 'team_user' instead of 'actual_team_users')
-        $assignedToOtherTeamIds = DB::table('actual_team_users')
-            ->where('actual_team_id', '!=', $actualTeam->id)
-            ->pluck('user_id')
-            ->toArray();
-
-        // Combine all user IDs that should be excluded from the 'available' list.
-        $currentTeamUserIds = $currentMembers->pluck('id')->toArray(); // Get IDs from already loaded current members
-
-
-        $allExcludedUserIds = array_unique(array_merge($currentTeamUserIds, $assignedToOtherTeamIds));
+        // Only exclude users already on THIS team (not other teams — a user can be on multiple teams)
+        $currentTeamUserIds = $currentMembers->pluck('id')->toArray();
+        $allExcludedUserIds = $currentTeamUserIds;
 
         // Start building the query for available users.
         $usersQuery = User::query();
@@ -705,7 +696,10 @@ class ActualTeamController extends Controller
 
                 if ($player) {
                     $player->player_mode = $isRetained ? 'retained' : 'normal';
-                    $player->actual_team_id = $actualTeam->id;
+                    // Only set home team if player doesn't already have one
+                    if (!$player->actual_team_id) {
+                        $player->actual_team_id = $actualTeam->id;
+                    }
                     $player->save();
                 } else {
                     Log::warning("User {$userId} added as Player to team {$actualTeam->id}, but no player record found.");
@@ -1039,8 +1033,10 @@ class ActualTeamController extends Controller
                 if ($request->filled('phone') && $player->mobile_number_full !== $request->phone) {
                     $player->mobile_number_full = $request->phone;
                 }
-                // Set home team and auto-approve since admin is adding
-                $player->actual_team_id = $actualTeam->id;
+                // Only set home team if player doesn't already have one
+                if (!$player->actual_team_id) {
+                    $player->actual_team_id = $actualTeam->id;
+                }
                 $player->status = 'approved';
                 $player->save();
             }

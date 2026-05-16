@@ -27,15 +27,8 @@ class ImageBackgroundRemovalService
         $outputPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '-nobg.png';
         $outputFullPath = Storage::disk('public')->path($outputPath);
 
-        // Try Python rembg first (best quality, free)
-        $result = $this->removeBackgroundWithRembg($fullPath, $outputFullPath);
-        if ($result) {
-            Storage::disk('public')->delete($imagePath);
-            \Log::info("Background removed with rembg: {$outputPath}");
-            return $outputPath;
-        }
-
-        // Fallback to GD-based removal (works for solid color backgrounds)
+        // Skip rembg — too heavy for small servers (loads ~500MB AI model)
+        // Use lightweight GD-based removal instead (works for solid color backgrounds)
         $result = $this->removeBackgroundWithGD($fullPath, $outputFullPath);
         if ($result) {
             Storage::disk('public')->delete($imagePath);
@@ -321,13 +314,8 @@ class ImageBackgroundRemovalService
 
         $outputFullPath = Storage::disk('public')->path($outputPath);
 
-        // Try rembg first (best quality, preserves faces/bodies)
-        if ($this->removeBackgroundWithRembg($fullPath, $outputFullPath)) {
-            \Log::info("Background removed (non-destructive) with rembg: {$outputPath}");
-            return $outputPath;
-        }
-
-        // Fallback: flood-fill from edges only (safe for faces/bodies)
+        // Skip rembg — too heavy for small servers
+        // Use flood-fill from edges (safe for faces/bodies)
         if ($this->removeBackgroundWithFloodFill($fullPath, $outputFullPath)) {
             \Log::info("Background removed (non-destructive) with flood fill: {$outputPath}");
             return $outputPath;
