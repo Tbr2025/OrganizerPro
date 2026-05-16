@@ -11,6 +11,7 @@ class ActualTeam extends Model
     protected $fillable = [
         'organization_id',
         'tournament_id',
+        'is_global',
         'name',
         'short_name',
         'location',
@@ -20,6 +21,10 @@ class ActualTeam extends Model
         'sponsor_logo',
         'captain_image',
         'invite_code',
+    ];
+
+    protected $casts = [
+        'is_global' => 'boolean',
     ];
 
     protected static function boot()
@@ -108,13 +113,21 @@ class ActualTeam extends Model
             $query->where('organization_id', $filters['organization_id']);
         }
 
-        // Apply Tournament filter — check both primary tournament_id and pivot table
+        // Apply Tournament filter — check primary tournament_id, pivot table, OR global teams in same org
         if (!empty($filters['tournament_id'])) {
             $tournamentId = $filters['tournament_id'];
             $query->where(function ($q) use ($tournamentId) {
                 $q->where('tournament_id', $tournamentId)
                   ->orWhereHas('tournaments', function ($sub) use ($tournamentId) {
                       $sub->where('tournaments.id', $tournamentId);
+                  })
+                  ->orWhere(function ($sub) use ($tournamentId) {
+                      // Global teams: match by organization of the filtered tournament
+                      $tournament = \App\Models\Tournament::find($tournamentId);
+                      if ($tournament) {
+                          $sub->where('is_global', true)
+                              ->where('organization_id', $tournament->organization_id);
+                      }
                   });
             });
         }
@@ -125,6 +138,44 @@ class ActualTeam extends Model
         }
 
         return $query;
+    }
+
+    /**
+     * Players assigned to this team via the per-tournament pivot
+     */
+    public function playersPerTournament()
+    {
+        return $this->belongsToMany(Player::class, 'player_actual_team_tournament')
+            ->withPivot('tournament_id', 'role')
+            ->withTimestamps();
+    }
+
+    /**
+     * Players for a specific tournament
+     */
+    public function playersForTournament($tournamentId)
+    {
+        return $this->belongsToMany(Player::class, 'player_actual_team_tournament')
+            ->withPivot('tournament_id', 'role')
+            ->withTimestamps()
+            ->wherePivot('tournament_id', $tournamentId);
+    }
+
+    /**
+     * For global teams, returns all org tournaments; otherwise returns pivot tournaments
+     */
+    public function getEffectiveTournamentsAttribute()
+    {
+        if ($this->is_global) {
+            return Tournament::where('organization_id', $this->organization_id)->get();
+        }
+
+        $tournaments = $this->tournaments;
+        if ($tournaments->isEmpty() && $this->tournament_id) {
+            return Tournament::where('id', $this->tournament_id)->get();
+        }
+
+        return $tournaments;
     }
     public function player()
     {

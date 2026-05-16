@@ -354,6 +354,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('actual-teams/{actualTeam}/team-manager/{user}/reset-password', [ActualTeamController::class, 'resetTeamManagerPassword'])->name('actual-teams.reset-team-manager-password');
     Route::post('actual-teams/{actualTeam}/team-manager/{user}/resend-credentials', [ActualTeamController::class, 'resendTeamManagerCredentials'])->name('actual-teams.resend-team-manager-credentials');
 
+    // Player management on teams
+    Route::post('actual-teams/{actualTeam}/players', [ActualTeamController::class, 'addPlayer'])->name('actual-teams.add-player');
+    Route::put('actual-teams/{actualTeam}/players/{player}', [ActualTeamController::class, 'updatePlayer'])->name('actual-teams.update-player');
+    Route::delete('actual-teams/{actualTeam}/players/{player}', [ActualTeamController::class, 'removePlayer'])->name('actual-teams.remove-player');
+
     // Auctions
     // Route::prefix('auctions')->as('auctions.')->group(function () {
     //     Route::get('/', [AuctionController::class, 'index'])->name('index');

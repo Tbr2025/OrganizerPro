@@ -310,6 +310,16 @@ class Player extends Model implements MustVerifyEmail
             ->withPivot('role');
     }
 
+    /**
+     * Per-tournament team assignments via the new pivot table
+     */
+    public function actualTeamAssignments()
+    {
+        return $this->belongsToMany(ActualTeam::class, 'player_actual_team_tournament')
+            ->withPivot('tournament_id', 'role')
+            ->withTimestamps();
+    }
+
     public function location()
     {
         // This line tells Laravel:

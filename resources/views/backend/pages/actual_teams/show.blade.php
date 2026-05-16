@@ -43,7 +43,14 @@
                 <div class="text-center md:text-left">
                     <h1 class="text-4xl font-extrabold tracking-tight">{{ $actualTeam->name }}</h1>
                     <p class="mt-1 text-lg text-gray-300">
-                        Playing in: <span class="font-semibold">{{ $actualTeam->tournament->name ?? 'N/A' }}</span>
+                        @if ($actualTeam->is_global)
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-200 border border-purple-400/30">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Global Team
+                            </span>
+                        @else
+                            Playing in: <span class="font-semibold">{{ $actualTeam->tournament->name ?? 'N/A' }}</span>
+                        @endif
                     </p>
                 </div>
                 {{-- Action Buttons --}}
@@ -121,7 +128,55 @@
         </div>
 
         {{-- ======================================================= --}}
-        {{-- START: PLAYER ROSTER --}}
+        {{-- START: PLAYER ROSTER (from pivot table) --}}
+        {{-- ======================================================= --}}
+        @php
+            $pivotPlayers = \Illuminate\Support\Facades\DB::table('player_actual_team_tournament')
+                ->where('actual_team_id', $actualTeam->id)
+                ->get();
+            $pivotPlayersByTournament = $pivotPlayers->groupBy('tournament_id');
+            $pivotPlayerIds = $pivotPlayers->pluck('player_id')->unique()->toArray();
+            $pivotPlayersMap = \App\Models\Player::whereIn('id', $pivotPlayerIds)->get()->keyBy('id');
+            $showEffectiveTournaments = $actualTeam->effective_tournaments;
+        @endphp
+
+        @if($pivotPlayers->count() > 0)
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-4">Player Roster</h2>
+            <div class="space-y-6 mb-8">
+                @foreach($showEffectiveTournaments as $showTournament)
+                    @php $tPlayers = $pivotPlayersByTournament->get($showTournament->id, collect()); @endphp
+                    @if($tPlayers->count() > 0)
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">{{ $showTournament->name }}</h3>
+                            <div class="space-y-2">
+                                @foreach($tPlayers as $tAssignment)
+                                    @php $tPlayer = $pivotPlayersMap->get($tAssignment->player_id); @endphp
+                                    @if($tPlayer)
+                                        <div class="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                                            <img class="h-10 w-10 rounded-full object-cover mr-3"
+                                                src="{{ $tPlayer->image_path ? \Illuminate\Support\Facades\Storage::url($tPlayer->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($tPlayer->name) . '&color=7F9CF5&background=EBF4FF' }}"
+                                                alt="{{ $tPlayer->name }}">
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ $tPlayer->name }}</p>
+                                                <p class="text-xs text-gray-500">{{ $tPlayer->mobile_number_full ?? '' }}</p>
+                                            </div>
+                                            @if($tAssignment->role)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                                    {{ ucfirst($tAssignment->role) }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+        @endif
+
+        {{-- ======================================================= --}}
+        {{-- START: LEGACY SQUAD (from actual_team_users) --}}
         {{-- ======================================================= --}}
         <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-4">The Squad</h2>
         <div class="space-y-3">

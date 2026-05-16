@@ -10,6 +10,7 @@ class TemplateRenderService extends PosterGeneratorService
 {
     protected string $outputDirectory = 'generated_templates';
     protected bool $skipBlanks = false;
+    protected int $renderScale = 1;
 
     /**
      * Generate poster from template model (required by abstract)
@@ -80,6 +81,8 @@ class TemplateRenderService extends PosterGeneratorService
         usort($allItems, fn($a, $b) => ($a['zIndex'] ?? 1) <=> ($b['zIndex'] ?? 1));
 
         // Render each item (catch errors per-element so one broken element doesn't fail the poster)
+        // Scale factor for font sizes and element dimensions (editor → render canvas)
+        $this->renderScale = $scale;
         foreach ($allItems as $item) {
             try {
                 if (($item['_type'] ?? '') === 'overlay') {
@@ -111,6 +114,10 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Get value from data, element's static text, or placeholder display
         $staticText = $element['text'] ?? '';
+        // Ignore broken JS interpolation text saved by template editor
+        if (str_contains($staticText, 'item.placeholder') || str_contains($staticText, 'item.text')) {
+            $staticText = '';
+        }
         if ($this->skipBlanks) {
             $value = $data[$placeholder] ?? '';
             if (!$placeholder && $staticText) {
@@ -149,7 +156,7 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function renderTextElement(\GdImage $canvas, array $element, string $text, int $x, int $y): void
     {
-        $fontSize = (int) ($element['fontSize'] ?? 24);
+        $fontSize = (int) (($element['fontSize'] ?? 24) * $this->renderScale);
         $color = $element['color'] ?? '#ffffff';
         $fontWeight = $element['fontWeight'] ?? '700';
         $fontStyle = $element['fontStyle'] ?? 'normal';
@@ -160,10 +167,12 @@ class TemplateRenderService extends PosterGeneratorService
         $opacity = (int) ($element['opacity'] ?? 100);
         $underline = (bool) ($element['underline'] ?? false);
         $linethrough = (bool) ($element['linethrough'] ?? false);
-        $shadow = $element['shadow'] ?? true;
-        $shadowBlur = $element['shadowBlur'] ?? 4;
-        $shadowX = $element['shadowX'] ?? 2;
-        $shadowY = $element['shadowY'] ?? 2;
+        // Shadow can be bool, array {blur, offsetX, offsetY} or {blur, x, y}, or null
+        $shadowRaw = $element['shadow'] ?? true;
+        $shadow = is_array($shadowRaw) ? !empty($shadowRaw) : (bool) $shadowRaw;
+        $shadowBlur = (int) ($element['shadowBlur'] ?? (is_array($shadowRaw) ? ($shadowRaw['blur'] ?? 4) : 4));
+        $shadowX = (int) ($element['shadowX'] ?? (is_array($shadowRaw) ? ($shadowRaw['offsetX'] ?? $shadowRaw['x'] ?? 2) : 2));
+        $shadowY = (int) ($element['shadowY'] ?? (is_array($shadowRaw) ? ($shadowRaw['offsetY'] ?? $shadowRaw['y'] ?? 2) : 2));
 
         // Apply text transform
         $text = match ($textTransform) {
@@ -218,6 +227,8 @@ class TemplateRenderService extends PosterGeneratorService
 
     /**
      * Render text with skew (shear) transformation
+     * Uses manual row-by-row horizontal shift instead of imageaffine()
+     * to properly preserve transparency (imageaffine fills empty areas with opaque black).
      */
     protected function renderSkewedText(
         \GdImage $canvas, string $text, int $x, int $y,
@@ -238,12 +249,10 @@ class TemplateRenderService extends PosterGeneratorService
         $textWidth = abs($bbox[2] - $bbox[0]);
         $textHeight = abs($bbox[7] - $bbox[1]);
 
-        // Create temp canvas with padding for skew overflow
-        $skewRadians = tan(deg2rad($skewX));
-        $skewOffset = (int) abs($textHeight * $skewRadians);
-        $padding = 40;
-        $tmpW = $textWidth + $skewOffset + $padding * 2;
-        $tmpH = $textHeight + $padding * 2;
+        // Create temp canvas with padding for text drawing
+        $padding = 20;
+        $tmpW = $textWidth + $padding * 2 + abs($shadowX) + 4;
+        $tmpH = $textHeight + $padding * 2 + abs($shadowY) + 4;
 
         $tmp = imagecreatetruecolor($tmpW, $tmpH);
         imagealphablending($tmp, false);
@@ -252,41 +261,56 @@ class TemplateRenderService extends PosterGeneratorService
         imagefill($tmp, 0, 0, $transparent);
         imagealphablending($tmp, true);
 
-        // Position text in center of temp canvas
-        $drawX = $padding + ($skewOffset / 2);
+        // Position text in temp canvas
+        $drawX = $padding;
         $drawY = $padding + $textHeight;
-
-        // Adjust for alignment
-        if ($textAlign === 'center') {
-            // Already left-aligned on temp canvas, will center when compositing
-        } elseif ($textAlign === 'right') {
-            $drawX = $tmpW - $padding - ($skewOffset / 2) - $textWidth;
-        }
 
         // Draw shadow
         if ($shadow) {
             $shadowColor = imagecolorallocate($tmp, 0, 0, 0);
-            imagettftext($tmp, $fontSize, 0, (int) ($drawX + $shadowX), (int) ($drawY + $shadowY), $shadowColor, $fontPath, $text);
+            @imagettftext($tmp, $fontSize, 0, (int) ($drawX + $shadowX), (int) ($drawY + $shadowY), $shadowColor, $fontPath, $text);
         }
 
         // Draw main text
         $rgb = $this->hexToRgb($color);
         $textColor = imagecolorallocate($tmp, $rgb['r'], $rgb['g'], $rgb['b']);
-        imagettftext($tmp, $fontSize, 0, (int) $drawX, (int) $drawY, $textColor, $fontPath, $text);
+        @imagettftext($tmp, $fontSize, 0, (int) $drawX, (int) $drawY, $textColor, $fontPath, $text);
 
-        // Apply affine skew transformation: [1, tan(skewX), 0, 0, 1, 0]
-        $affineMatrix = [1, 0, $skewRadians, 1, 0, 0];
-        $skewed = imageaffine($tmp, $affineMatrix);
+        // Apply skew manually: row-by-row horizontal shift (CSS skewX)
+        // For skewX, x' = x + tan(angle) * y
+        $skewTan = tan(deg2rad($skewX));
+
+        // Calculate horizontal offset range to size the output canvas
+        $minOffset = 0;
+        $maxOffset = 0;
+        for ($row = 0; $row < $tmpH; $row++) {
+            $offset = (int) round($row * $skewTan);
+            $minOffset = min($minOffset, $offset);
+            $maxOffset = max($maxOffset, $offset);
+        }
+
+        $shiftX = -$minOffset; // shift all offsets to positive
+        $skewedW = $tmpW + ($maxOffset - $minOffset);
+        $skewedH = $tmpH;
+
+        $skewed = imagecreatetruecolor($skewedW, $skewedH);
+        imagealphablending($skewed, false);
+        imagesavealpha($skewed, true);
+        $transSkewed = imagecolorallocatealpha($skewed, 0, 0, 0, 127);
+        imagefill($skewed, 0, 0, $transSkewed);
+
+        // Copy each row with horizontal offset (preserves transparency perfectly)
+        for ($row = 0; $row < $tmpH; $row++) {
+            $offset = (int) round($row * $skewTan) + $shiftX;
+            imagecopy($skewed, $tmp, $offset, $row, 0, $row, $tmpW, 1);
+        }
         imagedestroy($tmp);
 
-        if (!$skewed) return;
-
-        imagesavealpha($skewed, true);
-
-        // Apply rotation if needed
+        // Apply rotation if needed (negate to match Fabric.js CW-positive convention → imagerotate CCW-positive)
         if ($rotation != 0) {
+            imagealphablending($skewed, false);
             $transColor = imagecolorallocatealpha($skewed, 0, 0, 0, 127);
-            $rotated = imagerotate($skewed, $rotation, $transColor);
+            $rotated = @imagerotate($skewed, -$rotation, $transColor);
             imagedestroy($skewed);
             if (!$rotated) return;
             imagesavealpha($rotated, true);
@@ -296,7 +320,15 @@ class TemplateRenderService extends PosterGeneratorService
         // Composite onto main canvas, centered at (x, y)
         $finalW = imagesx($skewed);
         $finalH = imagesy($skewed);
-        $destX = $x - (int) ($finalW / 2);
+
+        // Adjust destination based on text alignment
+        if ($textAlign === 'center') {
+            $destX = $x - (int) ($finalW / 2);
+        } elseif ($textAlign === 'right') {
+            $destX = $x - $finalW;
+        } else {
+            $destX = $x;
+        }
         $destY = $y - (int) ($finalH / 2);
 
         imagealphablending($canvas, true);
@@ -411,8 +443,8 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function renderImageElement(\GdImage $canvas, array $element, string $imagePath, int $x, int $y, int $canvasWidth): void
     {
-        $width = max(1, (int) ($element['width'] ?? 100));
-        $height = max(1, (int) ($element['height'] ?? 100));
+        $width = max(1, (int) (($element['width'] ?? 100) * $this->renderScale));
+        $height = max(1, (int) (($element['height'] ?? 100) * $this->renderScale));
         $borderRadius = (int) ($element['borderRadius'] ?? 0);
         $opacity = (int) ($element['opacity'] ?? 100);
 

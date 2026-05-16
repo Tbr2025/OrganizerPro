@@ -76,27 +76,53 @@
                         @enderror
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {{-- Organization --}}
-                        <div>
-                            <label for="organization_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization <span
-                                    class="text-red-500">*</span></label>
-                            <select id="organization_id" name="organization_id" required class="form-control mt-1">
-                                <option value="">Select Organization</option>
-                                @foreach ($organizations as $org)
-                                    <option value="{{ $org->id }}"
-                                        {{ old('organization_id') == $org->id ? 'selected' : '' }}>{{ $org->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('organization_id')
-                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
-                            @enderror
+                    {{-- Organization --}}
+                    <div>
+                        <label for="organization_id"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization <span
+                                class="text-red-500">*</span></label>
+                        <select id="organization_id" name="organization_id" required class="form-control mt-1">
+                            <option value="">Select Organization</option>
+                            @foreach ($organizations as $org)
+                                <option value="{{ $org->id }}"
+                                    {{ old('organization_id') == $org->id ? 'selected' : '' }}>{{ $org->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('organization_id')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Team Scope Toggle --}}
+                    <div x-data="{ teamScope: '{{ old('team_scope', 'tournament') }}' }">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team Scope <span class="text-red-500">*</span></label>
+                        <div class="flex items-center gap-4">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="team_scope" value="tournament" x-model="teamScope"
+                                    class="form-radio text-blue-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Open Tournament</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="team_scope" value="global" x-model="teamScope"
+                                    class="form-radio text-purple-600">
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Global</span>
+                            </label>
                         </div>
 
-                        {{-- Tournaments (Multi-Select) --}}
-                        <div>
+                        {{-- Global info banner --}}
+                        <div x-show="teamScope === 'global'" x-cloak
+                            class="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <p class="text-sm text-purple-700 dark:text-purple-300">This team will be available in <strong>all tournaments</strong> within the selected organization.</p>
+                            </div>
+                        </div>
+
+                        {{-- Tournaments (only for Open Tournament) --}}
+                        <div x-show="teamScope === 'tournament'" x-cloak class="mt-4">
                             <x-inputs.combobox
                                 name="tournament_ids[]"
                                 label="Tournaments"
@@ -105,7 +131,7 @@
                                 :selected="old('tournament_ids', [])"
                                 :multiple="true"
                                 :searchable="true"
-                                :required="true"
+                                :required="false"
                             />
                             @error('tournament_ids')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>

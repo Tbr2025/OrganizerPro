@@ -177,29 +177,44 @@ class ActualTeamController extends Controller
     }
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $teamScope = $request->input('team_scope', 'tournament');
+
+        $rules = [
             'organization_id' => 'required|exists:organizations,id',
-            'tournament_ids'  => 'required|array|min:1',
-            'tournament_ids.*' => 'exists:tournaments,id',
             'name'            => 'required|string|max:255|unique:actual_teams,name',
             'team_logo'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
+            'team_scope'      => 'required|in:tournament,global',
+        ];
+
+        if ($teamScope === 'tournament') {
+            $rules['tournament_ids']   = 'required|array|min:1';
+            $rules['tournament_ids.*'] = 'exists:tournaments,id';
+        }
+
+        $validated = $request->validate($rules);
 
         // Handle the file upload
         if ($request->hasFile('team_logo')) {
             $validated['team_logo'] = $request->file('team_logo')->store('team-logos', 'public');
         }
 
-        // Set primary tournament_id as first selected tournament
-        $tournamentIds = $validated['tournament_ids'];
-        $validated['tournament_id'] = $tournamentIds[0];
-        unset($validated['tournament_ids']);
+        unset($validated['team_scope']);
 
-        // Create the team
-        $team = ActualTeam::create($validated);
+        if ($teamScope === 'global') {
+            $validated['is_global'] = true;
+            $validated['tournament_id'] = null;
+            unset($validated['tournament_ids']);
 
-        // Sync all selected tournaments to pivot table
-        $team->tournaments()->sync($tournamentIds);
+            $team = ActualTeam::create($validated);
+        } else {
+            $validated['is_global'] = false;
+            $tournamentIds = $validated['tournament_ids'];
+            $validated['tournament_id'] = $tournamentIds[0];
+            unset($validated['tournament_ids']);
+
+            $team = ActualTeam::create($validated);
+            $team->tournaments()->sync($tournamentIds);
+        }
 
         return redirect()->route('admin.actual-teams.index')->with('success', 'Team created successfully.');
     }
@@ -454,6 +469,32 @@ class ActualTeamController extends Controller
             $selectedTournamentIds[] = $actualTeam->tournament_id;
         }
 
+        // --- Player Roster (from new pivot table) ---
+        $effectiveTournaments = $actualTeam->effective_tournaments;
+
+        // Players grouped by tournament from the player_actual_team_tournament pivot
+        $teamPlayers = DB::table('player_actual_team_tournament')
+            ->where('actual_team_id', $actualTeam->id)
+            ->get();
+
+        $teamPlayersByTournament = $teamPlayers->groupBy('tournament_id');
+
+        // Get all player details
+        $playerIds = $teamPlayers->pluck('player_id')->unique()->toArray();
+        $playersMap = Player::whereIn('id', $playerIds)->get()->keyBy('id');
+
+        // Get all teams for each effective tournament (for the playing-team dropdown)
+        $allTeamsForTournaments = [];
+        foreach ($effectiveTournaments as $t) {
+            $allTeamsForTournaments[$t->id] = ActualTeam::where(function ($q) use ($t) {
+                $q->whereHas('tournaments', fn($sub) => $sub->where('tournaments.id', $t->id))
+                  ->orWhere('tournament_id', $t->id)
+                  ->orWhere(function ($sub) use ($t) {
+                      $sub->where('is_global', true)->where('organization_id', $t->organization_id);
+                  });
+            })->get();
+        }
+
         // --- Return the View ---
         return view('backend.pages.actual_teams.edit', compact(
             'actualTeam',
@@ -468,7 +509,11 @@ class ActualTeamController extends Controller
             'currentStaffMembers',
             'registeredPlayersForCaptain',
             'teamAuction',
-            'availableAuctions'
+            'availableAuctions',
+            'effectiveTournaments',
+            'teamPlayersByTournament',
+            'playersMap',
+            'allTeamsForTournaments'
         ));
     }
 
@@ -477,22 +522,29 @@ class ActualTeamController extends Controller
         // 1. Authorize the action
         $this->authorize('actual-team.edit');
 
+        $teamScope = $request->input('team_scope', 'tournament');
+
         // 2. Validate all incoming data
-        $validated = $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'short_name' => 'nullable|string|max:50',
             'location' => 'nullable|string|max:100',
             'organization_id' => 'required|exists:organizations,id',
-            'tournament_ids' => 'required|array|min:1',
-            'tournament_ids.*' => 'exists:tournaments,id',
+            'team_scope' => 'required|in:tournament,global',
             'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'sponsor_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'captain_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
             'primary_color' => 'nullable|string|max:7',
             'secondary_color' => 'nullable|string|max:7',
             'captain_user_id' => 'nullable|exists:users,id',
-        ]);
+        ];
 
+        if ($teamScope === 'tournament') {
+            $rules['tournament_ids']   = 'required|array|min:1';
+            $rules['tournament_ids.*'] = 'exists:tournaments,id';
+        }
+
+        $validated = $request->validate($rules);
 
         // 3. Handle the Team Logo Upload
         if ($request->hasFile('team_logo')) {
@@ -524,15 +576,23 @@ class ActualTeamController extends Controller
             $validated['captain_image'] = $processedPath ?? $captainImagePath;
         }
 
-        // 4. Update the main team details
-        $tournamentIds = $validated['tournament_ids'];
-        $teamData = collect($validated)->except(['captain_user_id', 'tournament_ids'])->toArray();
-        // Set primary tournament_id to first selected
-        $teamData['tournament_id'] = $tournamentIds[0];
-        $actualTeam->update($teamData);
+        // 4. Update the main team details based on scope
+        $teamData = collect($validated)->except(['captain_user_id', 'tournament_ids', 'team_scope'])->toArray();
 
-        // Sync multi-tournament pivot
-        $actualTeam->tournaments()->sync($tournamentIds);
+        if ($teamScope === 'global') {
+            $teamData['is_global'] = true;
+            $teamData['tournament_id'] = null;
+            $actualTeam->update($teamData);
+            // Clear tournament pivot for global teams
+            $actualTeam->tournaments()->detach();
+        } else {
+            $tournamentIds = $validated['tournament_ids'];
+            $teamData['is_global'] = false;
+            $teamData['tournament_id'] = $tournamentIds[0];
+            $actualTeam->update($teamData);
+            // Sync multi-tournament pivot
+            $actualTeam->tournaments()->sync($tournamentIds);
+        }
 
         // 5. Handle Captain Assignment
         if ($request->filled('captain_user_id')) {
@@ -927,5 +987,215 @@ class ActualTeamController extends Controller
                 'password' => $newPassword,
             ],
         ]);
+    }
+
+    /**
+     * Add a player to the team (AJAX) — creates player + user if needed
+     */
+    public function addPlayer(Request $request, ActualTeam $actualTeam)
+    {
+        $request->validate([
+            'name'                          => 'required|string|max:255',
+            'email'                         => 'required|email|max:255',
+            'phone'                         => 'required|string|max:20',
+            'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'tournament_assignments'        => 'nullable|array',
+            'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
+            'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $player = null;
+
+            // Look up existing player by phone number
+            if ($request->filled('phone')) {
+                $player = Player::where('mobile_number_full', $request->phone)->first();
+            }
+
+            // If no existing player, create new Player + User
+            if (!$player) {
+                // Check if a user with this email already exists
+                $existingUser = User::where('email', $request->email)->first();
+                $user = $existingUser ?? User::create([
+                    'name'              => $request->name,
+                    'email'             => strtolower($request->email),
+                    'username'          => Str::slug($request->name) . '_' . Str::random(4),
+                    'password'          => Hash::make(Str::random(16)),
+                    'organization_id'   => $actualTeam->organization_id,
+                    'email_verified_at' => now(),
+                ]);
+
+                $player = Player::create([
+                    'name'               => $request->name,
+                    'mobile_number_full' => $request->phone,
+                    'user_id'            => $user->id,
+                    'actual_team_id'     => $actualTeam->id,
+                    'status'             => 'approved',
+                ]);
+            } else {
+                // Update phone if different
+                if ($request->filled('phone') && $player->mobile_number_full !== $request->phone) {
+                    $player->mobile_number_full = $request->phone;
+                }
+                // Set home team and auto-approve since admin is adding
+                $player->actual_team_id = $actualTeam->id;
+                $player->status = 'approved';
+                $player->save();
+            }
+
+            // Handle image upload
+            if ($request->hasFile('player_image')) {
+                $imagePath = $request->file('player_image')->store('player-images', 'public');
+                $player->update(['image_path' => $imagePath]);
+            }
+
+            // Insert tournament-team assignments
+            $assignments = $request->input('tournament_assignments', []);
+            foreach ($assignments as $assignment) {
+                DB::table('player_actual_team_tournament')->updateOrInsert(
+                    [
+                        'player_id'     => $player->id,
+                        'tournament_id' => $assignment['tournament_id'],
+                    ],
+                    [
+                        'actual_team_id' => $assignment['team_id'],
+                        'role'           => $assignment['role'] ?? null,
+                        'updated_at'     => now(),
+                        'created_at'     => now(),
+                    ]
+                );
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Player added successfully.',
+                'player'  => [
+                    'id'    => $player->id,
+                    'name'  => $player->name,
+                    'phone' => $player->mobile_number_full,
+                    'image' => $player->image_path ? asset('storage/' . $player->image_path) : null,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Error adding player to team {$actualTeam->id}: {$e->getMessage()} \n {$e->getTraceAsString()}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to add player: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update a player's details and tournament assignments (AJAX)
+     */
+    public function updatePlayer(Request $request, ActualTeam $actualTeam, Player $player)
+    {
+        $request->validate([
+            'phone'                         => 'nullable|string|max:20',
+            'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'tournament_assignments'        => 'nullable|array',
+            'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
+            'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            if ($request->filled('phone')) {
+                $player->mobile_number_full = $request->phone;
+                $player->save();
+            }
+
+            if ($request->hasFile('player_image')) {
+                if ($player->image_path) {
+                    Storage::disk('public')->delete($player->image_path);
+                }
+                $imagePath = $request->file('player_image')->store('player-images', 'public');
+                $player->update(['image_path' => $imagePath]);
+            }
+
+            // Update tournament-team assignments
+            $assignments = $request->input('tournament_assignments', []);
+            if (!empty($assignments)) {
+                // Remove existing assignments for this player on this team
+                DB::table('player_actual_team_tournament')
+                    ->where('player_id', $player->id)
+                    ->where('actual_team_id', $actualTeam->id)
+                    ->delete();
+
+                foreach ($assignments as $assignment) {
+                    DB::table('player_actual_team_tournament')->updateOrInsert(
+                        [
+                            'player_id'     => $player->id,
+                            'tournament_id' => $assignment['tournament_id'],
+                        ],
+                        [
+                            'actual_team_id' => $assignment['team_id'],
+                            'role'           => $assignment['role'] ?? null,
+                            'updated_at'     => now(),
+                            'created_at'     => now(),
+                        ]
+                    );
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Player updated successfully.',
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Error updating player {$player->id} on team {$actualTeam->id}: {$e->getMessage()}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update player: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove a player's assignments from this team (AJAX)
+     */
+    public function removePlayer(ActualTeam $actualTeam, Player $player)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Remove all pivot assignments for this player on this team
+            DB::table('player_actual_team_tournament')
+                ->where('player_id', $player->id)
+                ->where('actual_team_id', $actualTeam->id)
+                ->delete();
+
+            // Reset home team if this was their home team
+            if ($player->actual_team_id === $actualTeam->id) {
+                $player->update(['actual_team_id' => null]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success'   => true,
+                'message'   => 'Player removed from team successfully.',
+                'player_id' => $player->id,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Error removing player {$player->id} from team {$actualTeam->id}: {$e->getMessage()}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to remove player: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

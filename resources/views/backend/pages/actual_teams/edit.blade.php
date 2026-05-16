@@ -256,23 +256,52 @@
                             @enderror
                         </div>
 
-                        <div>
-                            <x-inputs.combobox
-                                name="tournament_ids[]"
-                                label="Tournaments"
-                                placeholder="Select Tournaments"
-                                :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name])->toArray()"
-                                :selected="old('tournament_ids', array_map('strval', $selectedTournamentIds))"
-                                :multiple="true"
-                                :searchable="true"
-                                :required="true"
-                            />
-                            @error('tournament_ids')
-                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                            @error('tournament_ids.*')
-                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
-                            @enderror
+                        {{-- Team Scope Toggle --}}
+                        <div x-data="{ teamScope: '{{ old('team_scope', $actualTeam->is_global ? 'global' : 'tournament') }}' }">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team Scope</label>
+                            <div class="flex items-center gap-4">
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" name="team_scope" value="tournament" x-model="teamScope"
+                                        class="form-radio text-blue-600">
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Open Tournament</span>
+                                </label>
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="radio" name="team_scope" value="global" x-model="teamScope"
+                                        class="form-radio text-purple-600">
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Global</span>
+                                </label>
+                            </div>
+
+                            {{-- Global info banner --}}
+                            <div x-show="teamScope === 'global'" x-cloak
+                                class="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <p class="text-sm text-purple-700 dark:text-purple-300">This team will be available in <strong>all tournaments</strong> within the organization.</p>
+                                </div>
+                            </div>
+
+                            {{-- Tournaments (only for Open Tournament) --}}
+                            <div x-show="teamScope === 'tournament'" x-cloak class="mt-4">
+                                <x-inputs.combobox
+                                    name="tournament_ids[]"
+                                    label="Tournaments"
+                                    placeholder="Select Tournaments"
+                                    :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name])->toArray()"
+                                    :selected="old('tournament_ids', array_map('strval', $selectedTournamentIds))"
+                                    :multiple="true"
+                                    :searchable="true"
+                                    :required="false"
+                                />
+                                @error('tournament_ids')
+                                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                                @enderror
+                                @error('tournament_ids.*')
+                                    <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -482,6 +511,188 @@
             </div>
         </div>
 
+        {{-- ======================================================= --}}
+        {{-- Player Roster Section --}}
+        {{-- ======================================================= --}}
+        <div x-data="playerRosterHandler()" class="mb-8">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+                <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Player Roster</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Manage players and their tournament-team assignments</p>
+                    </div>
+                    <button type="button" @click="openAddDrawer()" class="btn btn-primary">
+                        <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+                        Add Player
+                    </button>
+                </div>
+
+                <div class="p-5">
+                    @if($effectiveTournaments->count() > 0)
+                        @foreach($effectiveTournaments as $tournament)
+                            <div class="mb-6 last:mb-0">
+                                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                    {{ $tournament->name }}
+                                </h3>
+                                @php
+                                    $tournamentPlayers = $teamPlayersByTournament->get($tournament->id, collect());
+                                @endphp
+                                @if($tournamentPlayers->count() > 0)
+                                    <div class="space-y-2">
+                                        @foreach($tournamentPlayers as $assignment)
+                                            @php $p = $playersMap->get($assignment->player_id); @endphp
+                                            @if($p)
+                                                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                    <div class="flex items-center gap-3">
+                                                        <img class="h-10 w-10 rounded-full object-cover"
+                                                            src="{{ $p->image_path ? asset('storage/' . $p->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($p->name) . '&color=7F9CF5&background=EBF4FF' }}"
+                                                            alt="{{ $p->name }}">
+                                                        <div>
+                                                            <p class="font-medium text-gray-800 dark:text-white text-sm">{{ $p->name }}</p>
+                                                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $p->mobile_number_full ?? 'No phone' }}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        @if($assignment->role)
+                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                                                {{ ucfirst($assignment->role) }}
+                                                            </span>
+                                                        @endif
+                                                        <button type="button"
+                                                            @click="removePlayer({{ $p->id }}, '{{ addslashes($p->name) }}')"
+                                                            class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
+                                                            title="Remove player">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <p class="text-sm text-gray-400 italic pl-4">No players assigned for this tournament.</p>
+                                @endif
+                            </div>
+                        @endforeach
+                    @else
+                        <p class="text-center text-gray-500 py-4">No tournaments configured. Set a team scope above to manage players.</p>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Add Player Drawer --}}
+            <div x-show="showDrawer" x-cloak class="fixed inset-0 z-50 overflow-hidden">
+                {{-- Overlay --}}
+                <div x-show="showDrawer" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                    class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showDrawer = false"></div>
+
+                {{-- Drawer panel --}}
+                <div class="fixed inset-y-0 right-0 flex max-w-full pl-10">
+                    <div x-show="showDrawer" x-transition:enter="transform transition ease-in-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transform transition ease-in-out duration-300" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+                        class="w-screen max-w-md" @click.stop>
+                        <div class="h-full flex flex-col bg-white dark:bg-gray-800 shadow-xl">
+                            {{-- Header --}}
+                            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add Player</h3>
+                                <button type="button" @click="showDrawer = false" class="text-gray-400 hover:text-gray-500">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+
+                            {{-- Content --}}
+                            <div class="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+                                {{-- Player Name --}}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Name <span class="text-red-500">*</span></label>
+                                    <input type="text" x-model="newPlayer.name" class="form-control mt-1" placeholder="Enter player name">
+                                </div>
+
+                                {{-- Email --}}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email Address <span class="text-red-500">*</span></label>
+                                    <input type="email" x-model="newPlayer.email" class="form-control mt-1" placeholder="e.g., player@example.com">
+                                </div>
+
+                                {{-- Phone --}}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number <span class="text-red-500">*</span></label>
+                                    <input type="text" x-model="newPlayer.phone" class="form-control mt-1" placeholder="e.g., +919876543210"
+                                        @blur="lookupPlayer()">
+                                    <p class="text-xs text-gray-500 mt-1">If an existing player is found by phone, they will be linked instead of creating a new one.</p>
+                                    <template x-if="lookupResult">
+                                        <div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-700 dark:text-green-300">
+                                            Found existing player: <strong x-text="lookupResult"></strong>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                {{-- Player Image --}}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Image</label>
+                                    <div class="mt-2 flex items-center gap-4">
+                                        <template x-if="imagePreview">
+                                            <img :src="imagePreview" class="h-16 w-16 rounded-full object-cover">
+                                        </template>
+                                        <template x-if="!imagePreview">
+                                            <div class="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                                <svg class="w-8 h-8 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                            </div>
+                                        </template>
+                                        <label class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                            <span>Upload</span>
+                                            <input type="file" class="sr-only" accept="image/*" @change="handleImageChange($event)">
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {{-- Home Team (read-only) --}}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Home Team</label>
+                                    <input type="text" value="{{ $actualTeam->name }}" class="form-control mt-1 bg-gray-50 dark:bg-gray-700" readonly>
+                                </div>
+
+                                {{-- Tournament Assignments --}}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament-Team Assignments</label>
+                                    <div class="space-y-3">
+                                        @foreach($effectiveTournaments as $idx => $tournament)
+                                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $tournament->name }}</p>
+                                                <input type="hidden" x-bind:name="'tournament_assignments[' + {{ $idx }} + '][tournament_id]'" value="{{ $tournament->id }}">
+                                                <select x-model="newPlayer.assignments[{{ $tournament->id }}]"
+                                                    class="form-control text-sm">
+                                                    @foreach($allTeamsForTournaments[$tournament->id] ?? [] as $t)
+                                                        <option value="{{ $t->id }}" {{ $t->id === $actualTeam->id ? 'selected' : '' }}>{{ $t->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                {{-- Error display --}}
+                                <div x-show="error" x-cloak class="p-3 bg-red-100 text-red-700 rounded">
+                                    <span x-text="error"></span>
+                                </div>
+                            </div>
+
+                            {{-- Footer --}}
+                            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                                <button type="button" @click="showDrawer = false" class="btn btn-secondary">Cancel</button>
+                                <button type="button" @click="savePlayer()" :disabled="saving" class="btn btn-primary">
+                                    <span x-show="saving"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></span>
+                                    Save Player
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Member Management Sections --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {{-- LEFT COLUMN (Members) --}}
@@ -602,6 +813,145 @@
                         form.appendChild(input);
                     }
                     form.submit();
+                }
+            }
+
+            // Player Roster Handler
+            function playerRosterHandler() {
+                return {
+                    showDrawer: false,
+                    saving: false,
+                    error: '',
+                    lookupResult: '',
+                    imagePreview: '',
+                    imageFile: null,
+                    newPlayer: {
+                        name: '',
+                        email: '',
+                        phone: '',
+                        assignments: {
+                            @foreach($effectiveTournaments as $tournament)
+                                {{ $tournament->id }}: '{{ $actualTeam->id }}',
+                            @endforeach
+                        }
+                    },
+
+                    openAddDrawer() {
+                        this.newPlayer = {
+                            name: '',
+                            email: '',
+                            phone: '',
+                            assignments: {
+                                @foreach($effectiveTournaments as $tournament)
+                                    {{ $tournament->id }}: '{{ $actualTeam->id }}',
+                                @endforeach
+                            }
+                        };
+                        this.error = '';
+                        this.lookupResult = '';
+                        this.imagePreview = '';
+                        this.imageFile = null;
+                        this.showDrawer = true;
+                    },
+
+                    handleImageChange(event) {
+                        const file = event.target.files[0];
+                        if (file && file.type.startsWith('image/')) {
+                            this.imageFile = file;
+                            this.imagePreview = URL.createObjectURL(file);
+                        }
+                    },
+
+                    async lookupPlayer() {
+                        this.lookupResult = '';
+                        if (!this.newPlayer.phone || this.newPlayer.phone.length < 5) return;
+
+                        // Simple lookup — the backend handles this during save
+                        // This is just a UX hint
+                    },
+
+                    async savePlayer() {
+                        if (!this.newPlayer.name.trim()) {
+                            this.error = 'Player name is required.';
+                            return;
+                        }
+                        if (!this.newPlayer.email.trim()) {
+                            this.error = 'Email address is required.';
+                            return;
+                        }
+                        if (!this.newPlayer.phone.trim()) {
+                            this.error = 'Phone number is required.';
+                            return;
+                        }
+
+                        this.saving = true;
+                        this.error = '';
+
+                        try {
+                            const formData = new FormData();
+                            formData.append('name', this.newPlayer.name);
+                            formData.append('email', this.newPlayer.email);
+                            formData.append('phone', this.newPlayer.phone);
+                            if (this.imageFile) {
+                                formData.append('player_image', this.imageFile);
+                            }
+
+                            // Build tournament assignments
+                            let idx = 0;
+                            for (const [tournamentId, teamId] of Object.entries(this.newPlayer.assignments)) {
+                                formData.append(`tournament_assignments[${idx}][tournament_id]`, tournamentId);
+                                formData.append(`tournament_assignments[${idx}][team_id]`, teamId);
+                                idx++;
+                            }
+
+                            const res = await fetch('{{ route("admin.actual-teams.add-player", $actualTeam->id) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                },
+                                body: formData
+                            });
+
+                            const data = await res.json();
+
+                            if (data.success) {
+                                this.showDrawer = false;
+                                window.location.reload();
+                            } else {
+                                this.error = data.message || 'Failed to add player.';
+                            }
+                        } catch (e) {
+                            this.error = 'An error occurred. Please try again.';
+                            console.error(e);
+                        }
+
+                        this.saving = false;
+                    },
+
+                    async removePlayer(playerId, playerName) {
+                        if (!confirm(`Remove ${playerName} from this team?`)) return;
+
+                        try {
+                            const res = await fetch(`/admin/actual-teams/{{ $actualTeam->id }}/players/${playerId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                }
+                            });
+
+                            const data = await res.json();
+
+                            if (data.success) {
+                                window.location.reload();
+                            } else {
+                                alert(data.message || 'Failed to remove player.');
+                            }
+                        } catch (e) {
+                            alert('An error occurred. Please try again.');
+                            console.error(e);
+                        }
+                    }
                 }
             }
 
