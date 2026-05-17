@@ -390,18 +390,14 @@ class ActualTeamController extends Controller
 
         // Apply the complex filtering logic for eligibility
         $usersQuery->where(function ($query) {
-            // Condition 1: Include users who ARE 'Player' role AND have a welcome email sent.
-            $query->whereHas('roles', function ($subQuery) {
-                $subQuery->where('name', 'Player');
-            })
-                // Assumes a 'player' relationship to a 'player_profiles' table or similar
-                ->whereHas('player', function ($subQuery) {
-                    $subQuery->whereNotNull('welcome_email_sent_at');
-                });
+            // Condition 1: Include users who have an approved player record
+            $query->whereHas('player', function ($subQuery) {
+                $subQuery->where('status', 'approved');
+            });
 
             // OR
 
-            // Condition 2: Include users who are NOT 'Player' role.
+            // Condition 2: Include users who are NOT 'Player' role (staff, managers, etc.)
             $query->orWhere(function ($subQuery) {
                 $subQuery->whereDoesntHave('roles', function ($roleQuery) {
                     $roleQuery->where('name', 'Player');
@@ -410,22 +406,23 @@ class ActualTeamController extends Controller
         });
 
         // Apply role-based scoping (Superadmin vs. regular user) for the 'available users' list
+        // Always exclude Superadmin and Admin users from the available list
+        $usersQuery->whereDoesntHave('roles', function ($query) {
+            $query->whereIn('name', ['Superadmin', 'Admin']);
+        });
+
         if (auth()->user()->hasRole('Superadmin')) {
-            // Superadmin sees all eligible users not on any team.
             $usersQuery->whereNotIn('id', $allExcludedUserIds);
         } else {
-            // Other users see eligible users from their org who aren't on a team or privileged.
             $authUser = auth()->user();
             $usersQuery->where('organization_id', $authUser->organization_id)
-                ->whereNotIn('id', $allExcludedUserIds)
-                ->whereDoesntHave('roles', function ($query) {
-                    $query->whereIn('name', ['Superadmin', 'Admin']); // Exclude admins/superadmins from non-superadmin views
-                });
+                ->whereNotIn('id', $allExcludedUserIds);
         }
 
         // Execute the query to get the final list of available users.
         $availableUsers = $usersQuery->get();
-        $allRolesForCombobox = Role::all(); // Fetch all roles for the dropdown
+        // Exclude admin roles from the roles dropdown
+        $allRolesForCombobox = Role::whereNotIn('name', ['Superadmin', 'Admin'])->get();
 
         // Get auction for this team's tournament (if exists)
         $teamAuction = Auction::where('tournament_id', $actualTeam->tournament_id)
@@ -685,13 +682,23 @@ class ActualTeamController extends Controller
             // Sync roles
             $user->syncRoles($roles);
 
-            // Attach to team
+            // Determine pivot role from the Spatie roles being assigned
+            $pivotRole = 'Player'; // default
+            if (in_array('owner', $roles)) {
+                $pivotRole = 'Owner';
+            } elseif (in_array('team manager', $roles) || in_array('manager', $roles)) {
+                $pivotRole = 'Manager';
+            } elseif (in_array('captain', $roles)) {
+                $pivotRole = 'captain';
+            }
+
+            // Attach to team with role
             DB::table('actual_team_users')->updateOrInsert(
                 [
                     'actual_team_id' => $actualTeam->id,
                     'user_id'        => $userId,
                 ],
-                ['updated_at' => now()]
+                ['role' => $pivotRole, 'updated_at' => now()]
             );
 
             if ($isPlayer) {

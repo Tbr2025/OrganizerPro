@@ -31,6 +31,7 @@ class PlayerFormConfig
             'image'                  => ['visible' => true, 'required' => false],
             'transportation'         => ['visible' => true, 'required' => false],
             'travel_plan'            => ['visible' => true, 'required' => false],
+            'terms_and_conditions'   => ['visible' => false, 'required' => false],
         ];
     }
 
@@ -86,6 +87,7 @@ class PlayerFormConfig
             'image'                  => 'Player Photo',
             'transportation'         => 'Transportation',
             'travel_plan'            => 'Travel Plan',
+            'terms_and_conditions'   => 'Terms & Conditions',
         ];
     }
 
@@ -96,7 +98,7 @@ class PlayerFormConfig
             'Team' => ['registration_team', 'playing_team'],
             'Jersey & Profile' => ['jersey_name', 'jersey_number', 'kit_size', 'batting_profile', 'bowling_profile', 'player_type', 'is_wicket_keeper'],
             'Stats' => ['total_matches', 'total_runs', 'total_wickets'],
-            'Other' => ['image', 'transportation', 'travel_plan'],
+            'Other' => ['image', 'transportation', 'travel_plan', 'terms_and_conditions'],
         ];
     }
 
@@ -212,6 +214,11 @@ class PlayerFormConfig
             $rules['no_travel_plan'] = 'boolean';
             $rules['travel_date_from'] = 'nullable|date';
             $rules['travel_date_to'] = 'nullable|date|after_or_equal:travel_date_from';
+        }
+
+        // Terms & Conditions
+        if ($fieldConfig['terms_and_conditions']['visible'] ?? false) {
+            $rules['terms_and_conditions'] = ($fieldConfig['terms_and_conditions']['required'] ?? false) ? 'accepted' : 'nullable|boolean';
         }
 
         return $rules;

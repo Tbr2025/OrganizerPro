@@ -65,6 +65,8 @@ class TournamentSetting extends Model
         'default_time_slots',
         // Registration form fields config
         'registration_form_fields',
+        // Terms & Conditions
+        'terms_and_conditions_content',
     ];
 
     protected $casts = [

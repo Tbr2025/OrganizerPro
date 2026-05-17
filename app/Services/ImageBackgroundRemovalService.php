@@ -79,77 +79,47 @@ class ImageBackgroundRemovalService
     protected function removeBackgroundWithRembg(string $inputPath, string $outputPath): bool
     {
         try {
+            // Use rembg as a Python library (avoids CLI import issues with gradio/aiohttp)
+            $pythonScript = <<<'PYTHON'
+import sys
+from rembg import remove
+from PIL import Image
+input_path = sys.argv[1]
+output_path = sys.argv[2]
+inp = Image.open(input_path)
+out = remove(inp)
+out.save(output_path)
+PYTHON;
+
             $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+            $pythonBins = $isWindows ? ['python', 'python3', 'py'] : ['python3', 'python'];
 
-            if ($isWindows) {
-                // Windows: Try rembg directly or via python -m
-                $pythonPaths = ['python', 'python3', 'py'];
-
-                foreach ($pythonPaths as $python) {
-                    // Try python -m rembg.cli
-                    $result = Process::timeout(180)->run([
-                        $python, '-m', 'rembg.cli', 'i', $inputPath, $outputPath
-                    ]);
-
-                    if ($result->successful() && file_exists($outputPath)) {
-                        \Log::info('rembg completed successfully (Windows)');
-                        return true;
-                    }
-                }
-
-                // Try rembg command directly
-                $result = Process::timeout(180)->run(['rembg', 'i', $inputPath, $outputPath]);
-                if ($result->successful() && file_exists($outputPath)) {
-                    \Log::info('rembg completed successfully (Windows direct)');
-                    return true;
-                }
-
-                \Log::warning('rembg failed on Windows: ' . ($result->errorOutput() ?? 'unknown error'));
-                return false;
-            }
-
-            // Linux/Mac: Set environment variables for www-data user
             $cachePath = storage_path('app/rembg_cache');
             if (!is_dir($cachePath)) {
                 @mkdir($cachePath, 0775, true);
             }
-            $env = [
-                'HOME' => '/var/www',
+
+            $env = $isWindows ? [] : [
+                'HOME' => php_uname('s') === 'Darwin' ? getenv('HOME') ?: '/tmp' : '/var/www',
                 'NUMBA_CACHE_DIR' => $cachePath,
                 'U2NET_HOME' => $cachePath,
-                'PATH' => '/usr/local/bin:/usr/bin:/bin',
+                'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
             ];
 
-            // Check if rembg is available
-            $checkResult = Process::env($env)->run('rembg --version 2>&1');
+            foreach ($pythonBins as $python) {
+                $result = Process::env($env)->timeout(180)->run([
+                    $python, '-c', $pythonScript, $inputPath, $outputPath
+                ]);
 
-            if (!$checkResult->successful() || !str_contains($checkResult->output(), 'rembg')) {
-                // Try with python3 -m
-                $checkResult = Process::env($env)->run('python3 -m rembg.cli --version 2>&1');
-
-                if (!$checkResult->successful()) {
-                    \Log::info('rembg not installed. Install with: pip3 install rembg[cpu]');
-                    return false;
+                if ($result->successful() && file_exists($outputPath)) {
+                    \Log::info('rembg completed successfully via Python library');
+                    return true;
                 }
 
-                // Use python3 -m format
-                $result = Process::env($env)->timeout(180)->run([
-                    'python3', '-m', 'rembg.cli', 'i', $inputPath, $outputPath
-                ]);
-            } else {
-                // Use rembg directly
-                \Log::info('Running rembg background removal...');
-                $result = Process::env($env)->timeout(180)->run([
-                    'rembg', 'i', $inputPath, $outputPath
-                ]);
+                \Log::debug("rembg attempt with {$python} failed: " . $result->errorOutput());
             }
 
-            if ($result->successful() && file_exists($outputPath)) {
-                \Log::info('rembg completed successfully');
-                return true;
-            }
-
-            \Log::warning('rembg failed: ' . $result->errorOutput());
+            \Log::info('rembg not available. Install with: pip3 install "rembg[cpu]" Pillow');
             return false;
         } catch (\Exception $e) {
             \Log::error('rembg error: ' . $e->getMessage());
@@ -346,9 +316,15 @@ class ImageBackgroundRemovalService
 
         $outputFullPath = Storage::disk('public')->path($outputPath);
 
-        // Skip rembg — too heavy for small servers
-        // Use flood-fill from edges (safe for faces/bodies)
-        if ($this->removeBackgroundWithFloodFill($fullPath, $outputFullPath)) {
+        // Try rembg first (best quality for poster generation — single admin action, safe for server)
+        if ($this->removeBackgroundWithRembg($fullPath, $outputFullPath)) {
+            \Log::info("Background removed (non-destructive) with rembg: {$outputPath}");
+            return $outputPath;
+        }
+
+        // Fallback to flood-fill from edges (safe for faces/bodies)
+        // Use tolerant mode for poster generation — accept any solid background color, not just white/grey
+        if ($this->removeBackgroundWithFloodFill($fullPath, $outputFullPath, tolerant: true)) {
             \Log::info("Background removed (non-destructive) with flood fill: {$outputPath}");
             return $outputPath;
         }
@@ -359,7 +335,7 @@ class ImageBackgroundRemovalService
     /**
      * Remove background using edge flood fill (safe for faces/bodies — only removes connected bg from edges)
      */
-    protected function removeBackgroundWithFloodFill(string $inputPath, string $outputPath): bool
+    protected function removeBackgroundWithFloodFill(string $inputPath, string $outputPath, bool $tolerant = false): bool
     {
         try {
             $imageInfo = @getimagesize($inputPath);
@@ -387,16 +363,20 @@ class ImageBackgroundRemovalService
 
             $bgColor = $this->detectBackgroundColor($srcImage, $width, $height);
 
-            $isLikelyBackground = (
-                ($bgColor['r'] > 200 && $bgColor['g'] > 200 && $bgColor['b'] > 200) ||
-                (abs($bgColor['r'] - $bgColor['g']) < 20 && abs($bgColor['g'] - $bgColor['b']) < 20)
-            );
+            if (!$tolerant) {
+                // Strict mode: only remove white/grey backgrounds
+                $isLikelyBackground = (
+                    ($bgColor['r'] > 200 && $bgColor['g'] > 200 && $bgColor['b'] > 200) ||
+                    (abs($bgColor['r'] - $bgColor['g']) < 20 && abs($bgColor['g'] - $bgColor['b']) < 20)
+                );
 
-            if (!$isLikelyBackground) {
-                imagedestroy($srcImage);
-                imagedestroy($newImage);
-                return false;
+                if (!$isLikelyBackground) {
+                    imagedestroy($srcImage);
+                    imagedestroy($newImage);
+                    return false;
+                }
             }
+            // Tolerant mode: attempt removal on any solid background color detected from corners
 
             $this->floodFillRemove($srcImage, $newImage, $width, $height, $bgColor);
 

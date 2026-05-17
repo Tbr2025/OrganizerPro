@@ -124,12 +124,20 @@ class TeamManagerController extends Controller
     public function createPlayer()
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->with('tournament.organization')->first();
+        $teams = $user->actualTeams()->with(['tournament.organization', 'tournaments.settings'])->get();
 
-        if (!$team) {
+        if ($teams->isEmpty()) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
+
+        // Default to selected team from session, or first team
+        $team = $teams->firstWhere('id', session('selected_team_id')) ?? $teams->first();
+
+        // Collect all effective tournaments across all manager's teams
+        $effectiveTournaments = $teams->flatMap(function ($t) {
+            return $t->effectiveTournaments;
+        })->unique('id')->values();
 
         $locations = PlayerLocation::orderBy('name')->get();
         $kitSizes = KitSize::all();
@@ -139,11 +147,13 @@ class TeamManagerController extends Controller
 
         $defaultCountry = config('settings.default_country', '');
 
-        // Get field config from the team's tournament settings
-        $fieldConfig = PlayerFormConfig::getFieldConfig($team->tournament?->settings);
+        // Get field config — use effective tournament settings (fallback for multi-tournament teams)
+        $tournamentSettings = $team->tournaments->first()?->settings
+            ?? $team->tournament?->settings;
+        $fieldConfig = PlayerFormConfig::getFieldConfig($tournamentSettings);
 
         return view('backend.pages.team-manager.create-player', compact(
-            'team', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry', 'fieldConfig'
+            'teams', 'team', 'effectiveTournaments', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry', 'fieldConfig'
         ));
     }
 
@@ -153,14 +163,22 @@ class TeamManagerController extends Controller
     public function storePlayer(Request $request)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->with('tournament.organization')->first();
+        $teams = $user->actualTeams()->with(['tournament.organization', 'tournaments.settings'])->get();
 
-        if (!$team) {
+        if ($teams->isEmpty()) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
 
-        $fieldConfig = PlayerFormConfig::getFieldConfig($team->tournament?->settings);
+        // Use selected team from form, or session, or first
+        $team = $teams->firstWhere('id', $request->input('team_id'))
+            ?? $teams->firstWhere('id', session('selected_team_id'))
+            ?? $teams->first();
+
+        // Get field config — use effective tournament settings (fallback for multi-tournament teams)
+        $tournamentSettings = $team->tournaments->first()?->settings
+            ?? $team->tournament?->settings;
+        $fieldConfig = PlayerFormConfig::getFieldConfig($tournamentSettings);
         $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'team_manager');
         // Override email to allow nullable + unique for team manager context
         $rules['email'] = 'nullable|email|unique:players,email';
@@ -171,6 +189,13 @@ class TeamManagerController extends Controller
         } else {
             $rules['image_path'] = 'nullable|image|mimes:jpeg,png,jpg|max:6144';
         }
+
+        // Additional validation for team/tournament selection
+        $request->validate([
+            'team_id' => 'nullable|exists:actual_teams,id',
+            'tournament_ids' => 'nullable|array',
+            'tournament_ids.*' => 'exists:tournaments,id',
+        ]);
 
         $validated = $request->validate($rules);
 
@@ -208,6 +233,20 @@ class TeamManagerController extends Controller
         }
 
         $player = Player::create($data);
+
+        // Create player_actual_team_tournament pivot entries for selected tournaments
+        $tournamentIds = $request->input('tournament_ids', []);
+        if (!empty($tournamentIds)) {
+            foreach ($tournamentIds as $tournamentId) {
+                DB::table('player_actual_team_tournament')->insert([
+                    'player_id' => $player->id,
+                    'actual_team_id' => $team->id,
+                    'tournament_id' => $tournamentId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
 
         // Send welcome email to player if they have an email address
         if ($player->email) {

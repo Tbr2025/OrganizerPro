@@ -421,6 +421,33 @@
                 </div>
                 @endif
 
+                {{-- Terms & Conditions --}}
+                @if($fieldConfig['terms_and_conditions']['visible'] ?? false)
+                <div class="border-b border-gray-700 pb-4 mb-4">
+                    @if(!empty($settings->terms_and_conditions_content ?? ''))
+                    <div x-data="{ showTC: false }">
+                        <button type="button" @click="showTC = !showTC" class="text-yellow-500 hover:text-yellow-400 text-sm underline mb-3">
+                            View Terms & Conditions
+                        </button>
+                        <div x-show="showTC" x-cloak class="mb-4 p-4 bg-gray-700 rounded-lg text-sm text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
+                    </div>
+                    @endif
+
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1"
+                               class="w-5 h-5 bg-gray-700 border-gray-600 rounded text-yellow-500 focus:ring-yellow-500"
+                               {{ old('terms_and_conditions') ? 'checked' : '' }}
+                               {{ ($fieldConfig['terms_and_conditions']['required'] ?? false) ? 'required' : '' }}>
+                        <span class="ml-3 text-sm">
+                            I agree to the Terms & Conditions @if($fieldConfig['terms_and_conditions']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                        </span>
+                    </label>
+                    @error('terms_and_conditions')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                @endif
+
                 {{-- Submit Button --}}
                 <div class="pt-4">
                     <button type="submit"

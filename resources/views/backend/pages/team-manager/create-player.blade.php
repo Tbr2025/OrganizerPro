@@ -40,6 +40,47 @@
 
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 
+                            {{-- Team Selector (if manager has multiple teams) --}}
+                            @if($teams->count() > 1)
+                            <div class="sm:col-span-2 space-y-1">
+                                <label for="team_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Select Team <span class="text-red-500">*</span>
+                                </label>
+                                <select name="team_id" id="team_id" class="form-control" required>
+                                    @foreach($teams as $t)
+                                        <option value="{{ $t->id }}" {{ $t->id == $team->id ? 'selected' : '' }}>
+                                            {{ $t->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @else
+                                <input type="hidden" name="team_id" value="{{ $team->id }}">
+                            @endif
+
+                            {{-- Tournament Checkboxes --}}
+                            @if($effectiveTournaments->count() > 0)
+                            <div class="sm:col-span-2 space-y-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Register for Tournaments
+                                </label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    @foreach($effectiveTournaments as $tournament)
+                                        <label class="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                                            <input type="checkbox" name="tournament_ids[]" value="{{ $tournament->id }}"
+                                                {{ in_array($tournament->id, old('tournament_ids', [])) ? 'checked' : '' }}
+                                                {{ $effectiveTournaments->count() === 1 ? 'checked' : '' }}
+                                                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                            <span class="text-sm text-gray-700 dark:text-gray-300">{{ $tournament->name }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                @error('tournament_ids')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            @endif
+
                             {{-- Player Name (always visible) --}}
                             <div class="space-y-1">
                                 <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -374,6 +415,38 @@
                             @endif
 
                         </div>
+
+                        {{-- Terms & Conditions --}}
+                        @if($fieldConfig['terms_and_conditions']['visible'] ?? false)
+                        <div class="sm:col-span-2 mt-4">
+                            @php
+                                $tcContent = ($team->tournaments->first()?->settings->terms_and_conditions_content
+                                    ?? $team->tournament?->settings?->terms_and_conditions_content) ?? '';
+                            @endphp
+                            @if(!empty($tcContent))
+                            <div x-data="{ showTC: false }">
+                                <button type="button" @click="showTC = !showTC"
+                                    class="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm underline mb-2">
+                                    View Terms & Conditions
+                                </button>
+                                <div x-show="showTC" x-cloak class="mb-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-700 dark:text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap border border-gray-200 dark:border-gray-700">{{ $tcContent }}</div>
+                            </div>
+                            @endif
+
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" name="terms_and_conditions" value="1"
+                                    {{ old('terms_and_conditions') ? 'checked' : '' }}
+                                    {{ ($fieldConfig['terms_and_conditions']['required'] ?? false) ? 'required' : '' }}
+                                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                    I agree to the Terms & Conditions @if($fieldConfig['terms_and_conditions']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                </span>
+                            </label>
+                            @error('terms_and_conditions')
+                                <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        @endif
 
                         {{-- Submit Buttons --}}
                         <div class="mt-6 flex justify-end space-x-4">

@@ -142,7 +142,7 @@
 
 @section('content')
     @php
-        $regActuallyOpen = $tournament->status === 'registration' && ($settings?->isRegistrationOpen() ?? false);
+        $regActuallyOpen = ($settings?->isRegistrationOpen() ?? false) || $tournament->status === 'registration';
         $isLive = in_array($tournament->status, ['active', 'ongoing']) || ($tournament->status === 'registration' && !$regActuallyOpen);
         $totalMatches = $tournament->matches()->where('is_cancelled', false)->count();
         $completedMatches = $tournament->matches()->where('status', 'completed')->count();

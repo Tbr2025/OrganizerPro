@@ -565,6 +565,37 @@
                         </div>
                         @endif
 
+                        {{-- ===== Terms & Conditions ===== --}}
+                        @if($fieldConfig['terms_and_conditions']['visible'] ?? false)
+                        <div class="mt-4">
+                            @php
+                                $tcContent = ($selectedTournament?->settings?->terms_and_conditions_content) ?? '';
+                            @endphp
+                            @if(!empty($tcContent))
+                            <div x-data="{ showTC: false }">
+                                <button type="button" @click="showTC = !showTC"
+                                    class="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm underline mb-2">
+                                    View Terms & Conditions
+                                </button>
+                                <div x-show="showTC" x-cloak class="mb-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-700 dark:text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap border border-gray-200 dark:border-gray-700">{{ $tcContent }}</div>
+                            </div>
+                            @endif
+
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" name="terms_and_conditions" value="1"
+                                    {{ old('terms_and_conditions') ? 'checked' : '' }}
+                                    {{ ($fieldConfig['terms_and_conditions']['required'] ?? false) ? 'required' : '' }}
+                                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                    I agree to the Terms & Conditions @if($fieldConfig['terms_and_conditions']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                </span>
+                            </label>
+                            @error('terms_and_conditions')
+                                <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        @endif
+
                         {{-- ===== Submit ===== --}}
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                             <x-buttons.submit-buttons cancelUrl="{{ route('admin.players.index') }}" />

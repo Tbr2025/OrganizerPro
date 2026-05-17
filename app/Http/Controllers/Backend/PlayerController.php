@@ -195,8 +195,9 @@ class PlayerController extends Controller
                 $q->whereHas('bowlingProfile', fn($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
             })
             ->when($filters['status'], function ($q) use ($filters) {
-                if ($filters['status'] === 'verified') $q->whereNotNull('welcome_email_sent_at');
-                elseif ($filters['status'] === 'pending') $q->whereNull('welcome_email_sent_at');
+                if ($filters['status'] === 'approved') $q->where('status', 'approved');
+                elseif ($filters['status'] === 'pending') $q->where(fn($q) => $q->where('status', 'pending')->orWhereNull('status'));
+                elseif ($filters['status'] === 'rejected') $q->where('status', 'rejected');
             })
             ->when($filters['updated_sort'], function ($q) use ($filters) {
                 if (in_array($filters['updated_sort'], ['asc', 'desc'])) $q->orderBy('updated_at', $filters['updated_sort']);
@@ -257,6 +258,7 @@ class PlayerController extends Controller
             'defaultDialCode' => $defaultDialCode,
             'fieldConfig' => $fieldConfig,
             'tournaments' => $tournaments,
+            'selectedTournament' => $selectedTournament,
             'selectedTournamentId' => $selectedTournament?->id,
             'breadcrumbs' => [
                 'title' => __('New Player'),

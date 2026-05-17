@@ -371,11 +371,11 @@ class RegistrationService
         }
 
         // Check if player registration is explicitly enabled in settings
-        if ($settings && !$settings->player_registration_open) {
-            return false;
+        if ($settings && $settings->player_registration_open) {
+            return true;
         }
 
-        // Tournament must be in registration status
+        // Also allow if tournament is in registration status (legacy behavior)
         return $tournament->status === 'registration';
     }
 
@@ -392,11 +392,11 @@ class RegistrationService
         }
 
         // Check if team registration is explicitly enabled in settings
-        if ($settings && !$settings->team_registration_open) {
-            return false;
+        if ($settings && $settings->team_registration_open) {
+            return true;
         }
 
-        // Tournament must be in registration status
+        // Also allow if tournament is in registration status (legacy behavior)
         return $tournament->status === 'registration';
     }
 

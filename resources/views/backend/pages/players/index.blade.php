@@ -90,8 +90,9 @@
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
                             <select name="status" id="status" class="form-control mt-1">
                                 <option value="">All Status</option>
-                                <option value="verified" @selected(request('status') == 'verified')>Verified</option>
+                                <option value="approved" @selected(request('status') == 'approved')>Approved</option>
                                 <option value="pending" @selected(request('status') == 'pending')>Pending</option>
+                                <option value="rejected" @selected(request('status') == 'rejected')>Rejected</option>
                             </select>
                         </div>
                     @endif
@@ -214,10 +215,10 @@
                                                     src="{{ $player->image_path ? Storage::url($player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($player->name) . '&background=EBF4FF&color=7F9CF5' }}"
                                                     alt="{{ $player->name }}">
 
-                                                @if (!is_null($player->welcome_email_sent_at))
+                                                @if ($player->status === 'approved')
                                                     <span
                                                         class="absolute -bottom-0.5 -right-0.5 block rounded-full bg-blue-600 border-2 border-white dark:border-gray-800"
-                                                        title="Verified Player">
+                                                        title="Approved Player">
                                                         <svg class="w-4 h-4 text-white" fill="currentColor"
                                                             viewBox="0 0 20 20">
                                                             <path fill-rule="evenodd"
@@ -311,9 +312,12 @@
                                         {{ $player->display_team_name ?? 'N/A' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        @if (!is_null($player->welcome_email_sent_at))
+                                        @if ($player->status === 'approved')
                                             <span
-                                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200">Verified</span>
+                                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200">Approved</span>
+                                        @elseif ($player->status === 'rejected')
+                                            <span
+                                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200">Rejected</span>
                                         @else
                                             <span
                                                 class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200">Pending</span>
@@ -401,10 +405,10 @@
                                                     src="{{ $player->image_path ? Storage::url($player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($player->name) . '&background=EBF4FF&color=7F9CF5' }}"
                                                     alt="{{ $player->name }}">
 
-                                                @if (!is_null($player->welcome_email_sent_at))
+                                                @if ($player->status === 'approved')
                                                     <span
                                                         class="absolute -bottom-0.5 -right-0.5 block rounded-full bg-blue-600 border-2 border-white dark:border-gray-800"
-                                                        title="Verified Player">
+                                                        title="Approved Player">
                                                         <svg class="w-4 h-4 text-white" fill="currentColor"
                                                             viewBox="0 0 20 20">
                                                             <path fill-rule="evenodd"

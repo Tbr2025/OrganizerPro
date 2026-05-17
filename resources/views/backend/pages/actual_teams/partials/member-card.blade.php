@@ -24,10 +24,20 @@
 
         <div class="text-xs text-gray-500 dark:text-gray-400">{{ $member->email }}</div>
 
-        {{-- Roles --}}
-        <div class="text-xs text-gray-400">
-            Roles: {{ $member->roles->pluck('name')->implode(', ') }}
-        </div>
+        {{-- Team Role --}}
+        @php
+            $pivotRole = $member->pivot?->role;
+            $roleLabel = $pivotRole ? ucfirst($pivotRole) : 'Player';
+            $roleColors = match(strtolower($roleLabel)) {
+                'owner' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+                'manager' => 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+                'captain' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                default => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+            };
+        @endphp
+        <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded {{ $roleColors }}">
+            {{ $roleLabel }}
+        </span>
     </div>
 
     {{-- Remove button --}}

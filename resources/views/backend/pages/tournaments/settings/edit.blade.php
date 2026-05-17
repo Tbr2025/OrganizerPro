@@ -224,6 +224,19 @@
                     </div>
                 </div>
 
+                {{-- Terms & Conditions Content --}}
+                <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Terms & Conditions</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Enter the terms & conditions content. Enable the "Terms & Conditions" field in the Registration Form Fields section above to show it on registration forms.</p>
+                    <div>
+                        <label for="terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">T&C Content</label>
+                        <textarea name="terms_and_conditions_content" id="terms_and_conditions_content" rows="6"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                            placeholder="Enter your tournament terms and conditions here...">{{ old('terms_and_conditions_content', $settings->terms_and_conditions_content) }}</textarea>
+                        @error('terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+
                 {{-- Match Settings --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Match Settings</h3>
