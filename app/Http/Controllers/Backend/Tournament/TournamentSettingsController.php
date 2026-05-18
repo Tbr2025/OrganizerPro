@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Helpers\PlayerFormConfig;
+use App\Helpers\TeamFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentSetting;
@@ -25,11 +26,13 @@ class TournamentSettingsController extends Controller
 
         $settings = $tournament->settings ?? $tournament->settings()->create([]);
         $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
+        $teamFieldConfig = TeamFormConfig::getFieldConfig($settings);
 
         return view('backend.pages.tournaments.settings.edit', [
             'tournament' => $tournament,
             'settings' => $settings,
             'fieldConfig' => $fieldConfig,
+            'teamFieldConfig' => $teamFieldConfig,
             'breadcrumbs' => [
                 'title' => __('Tournament Settings'),
                 'items' => [
@@ -110,6 +113,24 @@ class TournamentSettingsController extends Controller
             $formFields['email'] = ['visible' => true, 'required' => true];
 
             $settings->update(['registration_form_fields' => $formFields]);
+        }
+
+        // Build team registration form fields config from checkboxes
+        if ($request->has('team_form_fields')) {
+            $teamFormFields = [];
+            $teamDefaults = TeamFormConfig::defaultFormFields();
+            foreach ($teamDefaults as $key => $default) {
+                $teamFormFields[$key] = [
+                    'visible' => $request->has("team_form_fields.{$key}.visible"),
+                    'required' => $request->has("team_form_fields.{$key}.required"),
+                ];
+            }
+            // Force locked fields
+            $teamFormFields['team_name'] = ['visible' => true, 'required' => true];
+            $teamFormFields['captain_name'] = ['visible' => true, 'required' => true];
+            $teamFormFields['captain_email'] = ['visible' => true, 'required' => true];
+
+            $settings->update(['team_registration_form_fields' => $teamFormFields]);
         }
 
         // Handle file uploads

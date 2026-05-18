@@ -65,6 +65,7 @@ class TournamentSetting extends Model
         'default_time_slots',
         // Registration form fields config
         'registration_form_fields',
+        'team_registration_form_fields',
         // Terms & Conditions
         'terms_and_conditions_content',
     ];
@@ -85,6 +86,7 @@ class TournamentSetting extends Model
         'available_days' => 'array',
         'default_time_slots' => 'array',
         'registration_form_fields' => 'array',
+        'team_registration_form_fields' => 'array',
     ];
 
     public function tournament(): BelongsTo
