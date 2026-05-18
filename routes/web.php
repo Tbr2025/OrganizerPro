@@ -62,6 +62,7 @@ use App\Http\Controllers\Public\RegistrationController as PublicRegistrationCont
 use App\Http\Controllers\Public\MatchPublicController;
 use App\Http\Controllers\Public\TournamentsListController;
 use App\Http\Controllers\Public\PlayerDashboardController;
+use App\Http\Controllers\Backend\PlayerImageProcessController;
 use App\Models\Organization;
 use App\Models\Player;
 use App\Models\User;
@@ -100,8 +101,15 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
     Route::put('/edit', [PlayerProfileController::class, 'update'])->name('update');
 });
 
+// Player image AJAX processing (authenticated)
+Route::post('/player-image/process', [PlayerImageProcessController::class, 'process'])
+    ->middleware('auth')
+    ->name('player-image.process');
 
-
+// Player image AJAX processing (public, rate-limited)
+Route::post('/public/player-image/process', [PlayerImageProcessController::class, 'process'])
+    ->middleware('throttle:10,1')
+    ->name('public.player-image.process');
 
 // --- Main Admin Route Group for general pages ---
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager']], function () {

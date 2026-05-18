@@ -188,64 +188,15 @@
 
                             {{-- Player Image Upload --}}
                             <div class="sm:col-span-2">
-                                <label for="image_path"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Player Image
                                 </label>
 
-                                <div x-data="{
-                                    previewUrl: '{{ $player->image_path ? Storage::url($player->image_path) : '' }}',
-                                    isVerified: {{ $verifiedFields['image_path'] ? 'true' : 'false' }}, // Alpine variable for verification
-                                    handleFileChange(event) {
-                                        if (this.isVerified) return; // Prevent change if verified
-                                        const file = event.target.files[0];
-                                        if (file && file.type.startsWith('image/')) {
-                                            this.previewUrl = URL.createObjectURL(file);
-                                        } else {
-                                            this.previewUrl = '';
-                                        }
-                                    },
-                                    dropHandler(event) {
-                                        if (this.isVerified) return; // Prevent drop if verified
-                                        event.preventDefault();
-                                        const file = event.dataTransfer.files[0];
-                                        if (file && file.type.startsWith('image/')) {
-                                            this.$refs.fileInput.files = event.dataTransfer.files;
-                                            this.previewUrl = URL.createObjectURL(file);
-                                        }
-                                    }
-                                }" @drop.prevent="dropHandler($event)" @dragover.prevent
-                                    class="border-2 border-dashed border-gray-300 p-4 rounded-lg text-center relative"
-                                    :class="{
-                                        'hover:border-blue-500 bg-gray-50 cursor-pointer': !
-                                            isVerified,
-                                        'bg-gray-200 cursor-not-allowed': isVerified
-                                    }"
-                                    @click="!isVerified && $refs.fileInput.click()">
-                                    {{-- MODIFICATION: Added disabled attribute if field is verified --}}
-                                    <input type="file" name="image_path" id="image_path" accept="image/png,image/jpeg"
-                                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange"
-                                        {{ $verifiedFields['image_path'] ? 'disabled' : '' }}>
-
-                                    {{-- Image Preview --}}
-                                    <template x-if="previewUrl">
-                                        <img :src="previewUrl"
-                                            class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
-                                    </template>
-
-                                    <p x-show="!previewUrl" class="text-gray-600 text-sm">
-                                        Drag & drop or click to upload image (PNG/JPG, max 6MB)
-                                    </p>
-                                    <p x-show="isVerified" class="text-red-600 text-sm font-semibold">
-                                        Image is verified and cannot be changed.
-                                    </p>
-                                </div>
+                                <x-player-image-upload name="image_path" :existing-image="$player->image_path" :is-verified="$verifiedFields['image_path'] ?? false" />
 
                                 {{-- Remove Existing Image --}}
                                 @if ($player->image_path)
-                                    <label
-                                        class="inline-flex items-center mt-2 space-x-2 text-sm text-gray-600 dark:text-gray-300">
-                                        {{-- MODIFICATION: Added disabled attribute if field is verified --}}
+                                    <label class="inline-flex items-center mt-2 space-x-2 text-sm text-gray-600 dark:text-gray-300">
                                         <input type="checkbox" name="clear_image" value="1"
                                             class="form-checkbox text-red-600 border-gray-300 rounded focus:ring-red-500"
                                             {{ $verifiedFields['image_path'] ? 'disabled' : '' }}>
@@ -261,16 +212,13 @@
                                             {{ old('verified_image_path', $player->verified_image_path ?? false) ? 'checked' : '' }}>
 
                                         <span class="ml-3 text-sm font-bold flex items-center gap-1">
-                                            <span
-                                                class="{{ $verifiedFields[$field] ? 'text-green-500' : 'text-red-500' }}">
-                                                {{ $verifiedFields[$field] ? '✔' : '✖' }}
+                                            <span class="{{ ($verifiedFields['image_path'] ?? false) ? 'text-green-500' : 'text-red-500' }}">
+                                                {{ ($verifiedFields['image_path'] ?? false) ? '✔' : '✖' }}
                                             </span>
                                             <span class="text-gray-800 dark:text-gray-300">
-                                                {{ $verifiedFields[$field] ? 'Verified' : 'Not Verified' }}
+                                                {{ ($verifiedFields['image_path'] ?? false) ? 'Verified' : 'Not Verified' }}
                                             </span>
                                         </span>
-
-
                                     </label>
                                 </div>
                             </div>

@@ -182,13 +182,9 @@ class TeamManagerController extends Controller
         $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'team_manager');
         // Override email to allow nullable + unique for team manager context
         $rules['email'] = 'nullable|email|unique:players,email';
-        // Image field name is image_path in team manager form
-        if (isset($rules['image'])) {
-            $rules['image_path'] = str_replace('image|', 'image|', $rules['image']);
-            unset($rules['image']);
-        } else {
-            $rules['image_path'] = 'nullable|image|mimes:jpeg,png,jpg|max:6144';
-        }
+        // Image field name is image_path in team manager form (pre-processed string path)
+        unset($rules['image']);
+        $rules['image_path'] = 'nullable|string|max:500';
 
         // Additional validation for team/tournament selection
         $request->validate([
@@ -227,9 +223,10 @@ class TeamManagerController extends Controller
             'created_by' => $user->id,
         ];
 
-        // Handle image upload
-        if ($request->hasFile('image_path')) {
-            $data['image_path'] = $request->file('image_path')->store('player_images', 'public');
+        // Handle image — pre-processed path from AJAX upload
+        if (!empty($validated['image_path']) && is_string($validated['image_path'])
+            && Storage::disk('public')->exists($validated['image_path'])) {
+            $data['image_path'] = $validated['image_path'];
         }
 
         $player = Player::create($data);

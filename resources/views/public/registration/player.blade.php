@@ -16,13 +16,6 @@
                   enctype="multipart/form-data" class="p-6 space-y-6" x-data="{
                       noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }},
                       selectedTeam: '{{ old('team_id') }}',
-                      previewUrl: '',
-                      handleFileChange(event) {
-                          const file = event.target.files[0];
-                          if (file && file.type.startsWith('image/')) {
-                              this.previewUrl = URL.createObjectURL(file);
-                          }
-                      }
                   }">
                 @csrf
 
@@ -394,32 +387,7 @@
                 @endif
 
                 {{-- Player Image Section --}}
-                @if($fieldConfig['image']['visible'] ?? true)
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    <h3 class="text-lg font-semibold text-yellow-500 mb-4">Player Photo</h3>
-
-                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-yellow-500 transition cursor-pointer"
-                         @click="$refs.imageInput.click()">
-                        <input type="file" name="image" id="image" accept="image/png,image/jpeg" class="hidden"
-                               x-ref="imageInput" @change="handleFileChange">
-
-                        <template x-if="previewUrl">
-                            <img :src="previewUrl" class="mx-auto mb-4 h-48 object-contain rounded-lg border border-gray-600" />
-                        </template>
-
-                        <div x-show="!previewUrl" class="text-gray-400">
-                            <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                            </svg>
-                            <p class="text-sm">Click to upload your photo</p>
-                            <p class="text-xs mt-1">PNG or JPG (max 6MB)</p>
-                        </div>
-                    </div>
-                    @error('image')
-                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                @endif
+                @include('public.registration.partials.player-image-upload', ['fieldConfig' => $fieldConfig])
 
                 {{-- Terms & Conditions --}}
                 @if($fieldConfig['terms_and_conditions']['visible'] ?? false)

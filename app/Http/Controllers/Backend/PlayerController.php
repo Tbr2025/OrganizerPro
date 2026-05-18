@@ -440,9 +440,8 @@ class PlayerController extends Controller
 
             'image_path' => [
                 $req('image') ? 'required' : 'nullable',
-                'image',
-                'mimes:png,jpg,jpeg',
-                'max:6144',
+                'string',
+                'max:500',
             ],
 
             'wicket_keeper' => 'nullable|boolean',
@@ -460,67 +459,11 @@ class PlayerController extends Controller
             'travel_date_to.after_or_equal' => 'The travel end date must be after or equal to the start date.',
         ]);
 
-        // 🖼️ Handle image upload with background removal
-        if ($request->hasFile('image_path')) {
-            $imageFile = $request->file('image_path');
-
-            $originalFilename = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
-            $imageFile->storeAs('public/player_images', $originalFilename);
-            $inputPath = storage_path('app/public/player_images/' . $originalFilename);
-
-            $outputFilename = 'processed-' . Str::random(10) . '.png';
-            $outputPath = storage_path('app/public/player_images/' . $outputFilename);
-
-            $pythonScript = resource_path('scripts/remove_bg.py');
-
-            if (app()->environment('production')) {
-                $pythonBinary = '/usr/bin/python3';
-                $cachePath = storage_path('app/rembg_cache');
-                File::ensureDirectoryExists($cachePath);
-                $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
-                    escapeshellcmd($pythonBinary) . ' ' .
-                    escapeshellarg($pythonScript) . ' ' .
-                    escapeshellarg($inputPath) . ' ' .
-                    escapeshellarg($outputPath) . ' 2>&1';
-            } else {
-                $pythonBinary = PHP_OS_FAMILY === 'Windows'
-                    ? base_path('venv/Scripts/python.exe')
-                    : 'python3';
-                $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
-            }
-
-            try {
-                set_time_limit(300);
-                $output = shell_exec($command);
-
-                if (File::exists($outputPath)) {
-                    File::delete($inputPath);
-
-                    $sourceImage = imagecreatefrompng($outputPath);
-                    $origWidth = imagesx($sourceImage);
-                    $origHeight = imagesy($sourceImage);
-
-                    $targetWidth = 425;
-                    $scale = $targetWidth / $origWidth;
-                    $newWidth = $targetWidth;
-                    $newHeight = (int)($origHeight * $scale);
-
-                    $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
-                    imagealphablending($resizedImage, false);
-                    imagesavealpha($resizedImage, true);
-                    imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
-                    imagepng($resizedImage, $outputPath);
-
-                    imagedestroy($sourceImage);
-                    imagedestroy($resizedImage);
-
-                    $validated['image_path'] = 'player_images/' . $outputFilename;
-                } else {
-                    throw new \Exception('Background removal failed. Output: ' . $output);
-                }
-            } catch (\Exception $e) {
-                Log::warning("Background removal failed, using original image: " . $e->getMessage());
-                $validated['image_path'] = 'player_images/' . $originalFilename;
+        // Image path comes pre-processed from AJAX upload (string path)
+        // Validate the path exists in storage if provided
+        if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
+            if (!Storage::disk('public')->exists($validated['image_path'])) {
+                unset($validated['image_path']);
             }
         }
 
@@ -963,7 +906,7 @@ class PlayerController extends Controller
             'batting_profile_id' => $req('batting_profile') ? 'required|exists:batting_profiles,id' : 'nullable|exists:batting_profiles,id',
             'bowling_profile_id' => $req('bowling_profile') ? 'required|exists:bowling_profiles,id' : 'nullable|exists:bowling_profiles,id',
             'player_type_id' => $req('player_type') ? 'required|exists:player_types,id' : 'nullable|exists:player_types,id',
-            'image_path' => 'nullable|image|mimes:jpg,jpeg,png|max:6144',
+            'image_path' => 'nullable|string|max:500',
             'is_wicket_keeper' => 'sometimes|boolean',
             'is_transportation_required' => 'sometimes|boolean',
             'no_travel_plan' => 'nullable|boolean',
@@ -972,104 +915,22 @@ class PlayerController extends Controller
         ]);
 
 
-        if ($request->hasFile('image_path')) {
-
-            // 1. Delete the old image if it exists
-            if ($player->image_path && Storage::disk('public')->exists($player->image_path)) {
-                Storage::disk('public')->delete($player->image_path);
-            }
-
-            $imageFile = $request->file('image_path');
-
-            // 2. Save the newly uploaded image file
-            $originalFilename = 'original-' . Str::random(10) . '.' . $imageFile->getClientOriginalExtension();
-            // Use the Storage facade, it's cleaner
-            $imageFile->storeAs('public/player_images', $originalFilename);
-            $inputPath = storage_path('app/public/player_images/' . $originalFilename);
-
-            // 3. Define paths for the background removal script
-            $outputFilename = 'processed-' . Str::random(10) . '.png';
-            $outputPath = storage_path('app/public/player_images/' . $outputFilename);
-
-            $pythonScript = resource_path('scripts/remove_bg.py');
-            if (app()->environment('production')) {
-                // === PRODUCTION ENVIRONMENT ===
-                $pythonBinary = '/usr/bin/python3';
-                $cachePath = storage_path('app/rembg_cache');
-                File::ensureDirectoryExists($cachePath);
-
-                $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
-                    escapeshellcmd($pythonBinary) . ' ' .
-                    escapeshellarg($pythonScript) . ' ' .
-                    escapeshellarg($inputPath) . ' ' .
-                    escapeshellarg($outputPath) . ' 2>&1';
-            } else {
-                // === LOCAL ENVIRONMENT ===
-                $pythonBinary = PHP_OS_FAMILY === 'Windows'
-                    ? base_path('venv/Scripts/python.exe')
-                    : 'python3';
-
-                $command = "\"{$pythonBinary}\" \"{$pythonScript}\" \"{$inputPath}\" \"{$outputPath}\"";
-            }
-
-            try {
-                // 6. Execute the command
-                set_time_limit(300); // Allow up to 5 minutes for execution
-                $output = shell_exec($command);
-
-                // 7. Verify the result and update the model
-                if (File::exists($outputPath)) {
-                    // Delete the original uploaded file
-                    File::delete($inputPath);
-
-                    // Load the image (transparency supported)
-                    $sourceImage = imagecreatefrompng($outputPath);
-                    $origWidth = imagesx($sourceImage);
-                    $origHeight = imagesy($sourceImage);
-
-                    // Target width around 425 (average)
-                    $targetWidth = 425;
-                    $scale = $targetWidth / $origWidth;
-                    $newWidth = $targetWidth;
-                    $newHeight = (int)($origHeight * $scale);
-
-                    // Create a resized image canvas
-                    $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
-
-                    // Preserve transparency
-                    imagealphablending($resizedImage, false);
-                    imagesavealpha($resizedImage, true);
-
-                    // Copy and resize
-                    imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
-
-                    // Save resized image (overwrite original)
-                    imagepng($resizedImage, $outputPath);
-
-                    // Cleanup memory
-                    imagedestroy($sourceImage);
-                    imagedestroy($resizedImage);
-
-                    // Save relative path to DB
-                    $player->image_path = 'player_images/' . $outputFilename;
-                    $validated['image_path'] = $player->image_path;
-                } else {
-                    // Throw an exception if the file wasn't created, including the script's output
-                    throw new \Exception('Python script failed to create the output file. Output: ' . $output);
+        // Image path comes pre-processed from AJAX upload (string path)
+        if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
+            if (Storage::disk('public')->exists($validated['image_path'])) {
+                // Delete old image if different
+                if ($player->image_path && $player->image_path !== $validated['image_path']
+                    && Storage::disk('public')->exists($player->image_path)) {
+                    Storage::disk('public')->delete($player->image_path);
                 }
-            } catch (\Exception $e) {
-                Log::warning("Background removal failed, using original image: " . $e->getMessage());
-                // Fallback: use the original uploaded image
-                $player->image_path = 'player_images/' . $originalFilename;
-                $validated['image_path'] = $player->image_path;
+                $player->image_path = $validated['image_path'];
+            } else {
+                unset($validated['image_path']);
             }
         }
 
-
-
-
         // If clear image checkbox was checked
-        elseif ($request->input('clear_image')) {
+        if ($request->input('clear_image') && empty($validated['image_path'])) {
             if ($player->image_path) {
                 Storage::delete('public/' . $player->image_path);
             }

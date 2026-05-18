@@ -317,52 +317,12 @@
                             @endforeach
 
                             {{-- Player Image Upload --}}
-                            @if($fieldConfig['image']['visible'] ?? true)
                             <div class="sm:col-span-2">
-                                <label for="image_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Player Image @if($fieldConfig['image']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
-
-                                <div x-data="{
-                                    previewUrl: '',
-                                    handleFileChange(event) {
-                                        const file = event.target.files[0];
-                                        if (file && file.type.startsWith('image/')) {
-                                            this.previewUrl = URL.createObjectURL(file);
-                                        } else {
-                                            this.previewUrl = '';
-                                        }
-                                    },
-                                    dropHandler(event) {
-                                        event.preventDefault();
-                                        const file = event.dataTransfer.files[0];
-                                        if (file && file.type.startsWith('image/')) {
-                                            this.$refs.fileInput.files = event.dataTransfer.files;
-                                            this.previewUrl = URL.createObjectURL(file);
-                                        }
-                                    }
-                                }" @drop.prevent="dropHandler($event)" @dragover.prevent
-                                    class="border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-center cursor-pointer relative"
-                                    @click="$refs.fileInput.click()">
-                                    <input type="file" name="image_path" id="image_path" accept="image/png,image/jpeg"
-                                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
-
-                                    {{-- Image Preview --}}
-                                    <template x-if="previewUrl">
-                                        <img :src="previewUrl"
-                                            class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
-                                    </template>
-
-                                    <p x-show="!previewUrl" class="text-gray-600 dark:text-gray-400 text-sm">
-                                        Drag & drop or click to upload image (PNG/JPG, max 6MB)
-                                    </p>
-                                </div>
-
-                                @error('image_path')
-                                    <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
-                                @enderror
+                                <x-player-image-upload name="image_path" :required="$fieldConfig['image']['required'] ?? false" :field-config="$fieldConfig" />
                             </div>
-                            @endif
 
                             {{-- Wicket Keeper --}}
                             @if($fieldConfig['is_wicket_keeper']['visible'] ?? true)

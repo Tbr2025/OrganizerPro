@@ -15,23 +15,6 @@
                         x-data="{
                             noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }},
                             travelFrom: '{{ old('travel_date_from') }}',
-                            previewUrl: '',
-                            handleFileChange(event) {
-                                const file = event.target.files[0];
-                                if (file && file.type.startsWith('image/')) {
-                                    this.previewUrl = URL.createObjectURL(file);
-                                } else {
-                                    this.previewUrl = '';
-                                }
-                            },
-                            dropHandler(event) {
-                                event.preventDefault();
-                                const file = event.dataTransfer.files[0];
-                                if (file && file.type.startsWith('image/')) {
-                                    this.$refs.fileInput.files = event.dataTransfer.files;
-                                    this.previewUrl = URL.createObjectURL(file);
-                                }
-                            }
                         }">
                         @csrf
 
@@ -467,38 +450,15 @@
                         @endif
 
                         {{-- ===== SECTION 5: Player Image ===== --}}
-                        @if($fieldConfig['image']['visible'] ?? true)
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Player Photo</h3>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload player profile image</p>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="max-w-md">
-                                    <div @drop.prevent="dropHandler($event)" @dragover.prevent
-                                        class="border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-lg text-center cursor-pointer transition-colors"
-                                        @click="$refs.fileInput.click()">
-                                        <input type="file" name="image_path" id="image_path" accept="image/png,image/jpeg"
-                                            class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
-
-                                        <template x-if="previewUrl">
-                                            <img :src="previewUrl" class="mx-auto mb-3 h-48 object-contain rounded-lg border border-gray-300 dark:border-gray-600" />
-                                        </template>
-
-                                        <div x-show="!previewUrl" class="text-gray-500 dark:text-gray-400">
-                                            <svg class="w-10 h-10 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                            </svg>
-                                            <p class="text-sm font-medium">Drag & drop or click to upload</p>
-                                            <p class="text-xs mt-1">PNG or JPG (max 6MB)</p>
-                                        </div>
-                                    </div>
-                                    @error('image_path')
-                                        <p class="text-sm text-red-500 mt-1">{{ $message }}</p>
-                                    @enderror
+                                    <x-player-image-upload name="image_path" :required="$fieldConfig['image']['required'] ?? false" :field-config="$fieldConfig" />
                                 </div>
                             </div>
                         </div>
-                        @endif
 
                         {{-- ===== SECTION 6: Travel & Transportation ===== --}}
                         @if(($fieldConfig['transportation']['visible'] ?? true) || ($fieldConfig['travel_plan']['visible'] ?? true))

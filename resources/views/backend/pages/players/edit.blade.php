@@ -401,15 +401,12 @@
                                 @enderror
                             </div>
 
-                            {{-- Image Upload --}}
                             {{-- Player Image Upload --}}
-
                             <div class="sm:col-span-2">
-                                <label for="image_path"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Player Image
                                 </label>
-                                <div class="flex items-center gap-1">
+                                <div class="flex items-center gap-1 mb-2">
                                     <span>{{ $player->name }}</span>
                                     @if ($verifiedProfile)
                                         <svg class="w-4 h-4 text-blue-500" xmlns="http://www.w3.org/2000/svg"
@@ -421,45 +418,11 @@
                                     @endif
                                 </div>
 
-                                <div x-data="{
-                                    previewUrl: '{{ $player->image_path ? Storage::url($player->image_path) : '' }}',
-                                    handleFileChange(event) {
-                                        const file = event.target.files[0];
-                                        if (file && file.type.startsWith('image/')) {
-                                            this.previewUrl = URL.createObjectURL(file);
-                                        } else {
-                                            this.previewUrl = '';
-                                        }
-                                    },
-                                    dropHandler(event) {
-                                        event.preventDefault();
-                                        const file = event.dataTransfer.files[0];
-                                        if (file && file.type.startsWith('image/')) {
-                                            this.$refs.fileInput.files = event.dataTransfer.files;
-                                            this.previewUrl = URL.createObjectURL(file);
-                                        }
-                                    }
-                                }" @drop.prevent="dropHandler($event)" @dragover.prevent
-                                    class="border-2 border-dashed border-gray-300 hover:border-blue-500 bg-gray-50 p-4 rounded-lg text-center cursor-pointer relative"
-                                    @click="$refs.fileInput.click()">
-                                    <input type="file" name="image_path" id="image_path" accept="image/png,image/jpeg"
-                                        class="absolute w-0 h-0 opacity-0" x-ref="fileInput" @change="handleFileChange">
-
-                                    {{-- Image Preview --}}
-                                    <template x-if="previewUrl">
-                                        <img :src="previewUrl"
-                                            class="mx-auto mb-2 h-48 object-contain rounded border border-gray-300" />
-                                    </template>
-
-                                    <p x-show="!previewUrl" class="text-gray-600 text-sm">
-                                        Drag & drop or click to upload image (PNG/JPG, max 6MB)
-                                    </p>
-                                </div>
+                                <x-player-image-upload name="image_path" :existing-image="$player->image_path" />
 
                                 {{-- Remove Existing Image --}}
                                 @if ($player->image_path)
-                                    <label
-                                        class="inline-flex items-center mt-2 space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <label class="inline-flex items-center mt-2 space-x-2 text-sm text-gray-600 dark:text-gray-300">
                                         <input type="checkbox" name="clear_image" value="1"
                                             class="form-checkbox text-red-600 border-gray-300 rounded focus:ring-red-500">
                                         <span>Remove Existing Image</span>
@@ -491,7 +454,6 @@
                                         <span
                                             class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
                                     </label>
-
                                 </div>
                             </div>
 
