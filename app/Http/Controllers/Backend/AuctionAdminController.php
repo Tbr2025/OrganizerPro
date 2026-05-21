@@ -86,6 +86,9 @@ class AuctionAdminController extends Controller
             'bid_type' => 'required|in:open,closed',
             'bid_timer_seconds' => 'required|integer|min:5|max:300',
             'bid_timer_reset_seconds' => 'nullable|integer|min:5|max:300',
+            'online_bid_limit_from' => 'nullable|numeric|min:0',
+            'online_bid_limit_to' => 'nullable|numeric|min:0|gt:online_bid_limit_from',
+            'closed_bid_starts_at' => 'nullable|numeric|min:0',
 
             // Player pool data (optional at creation)
             'player_ids' => 'nullable|array',
@@ -117,6 +120,9 @@ class AuctionAdminController extends Controller
                 'bid_type' => $validated['bid_type'],
                 'bid_timer_seconds' => $validated['bid_timer_seconds'],
                 'bid_timer_reset_seconds' => $validated['bid_timer_reset_seconds'] ?? 15,
+                'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
+                'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
+                'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
             ]);
 
             // Add players to the auction pool (if provided)
@@ -347,6 +353,9 @@ class AuctionAdminController extends Controller
         $player->final_price = $newPrice;
         $player->save();
 
+        // Determine bid source based on current auction mode
+        $bidSource = $auction->isOfflineMode() ? 'offline' : 'online';
+
         // Create auction bid record
         AuctionBid::updateOrCreate(
             [
@@ -358,9 +367,25 @@ class AuctionAdminController extends Controller
             [
                 'player_id'         => $player->player_id,
                 'amount'            => $newPrice,
+                'bid_source'        => $bidSource,
             ]
         );
 
+        // Auto-transition: open → closed (if threshold configured and not manually overridden)
+        if ($auction->hasAutoPhaseTransition()
+            && !$auction->mode_manually_overridden
+            && $auction->bid_type === 'open'
+            && $newPrice >= (float) $auction->closed_bid_starts_at) {
+            $auction->update(['bid_type' => 'closed']);
+        }
+
+        // Auto-transition to offline if price exceeds online limit
+        $auction = $auction->fresh();
+        if ($auction->hasOnlineOfflineMode()
+            && !$auction->mode_manually_overridden
+            && $newPrice > (float) $auction->online_bid_limit_to) {
+            $auction->update(['open_bid_mode' => 'offline']);
+        }
 
         // Load relationships for frontend
         $player->load([
@@ -376,7 +401,8 @@ class AuctionAdminController extends Controller
         return response()->json([
             'success'        => true,
             'current_price'  => $newPrice,
-            'increment_used' => $increment
+            'increment_used' => $increment,
+            'open_bid_mode'  => $auction->fresh()->open_bid_mode,
         ]);
     }
 
@@ -620,6 +646,9 @@ class AuctionAdminController extends Controller
             'bid_type' => 'required|in:open,closed',
             'bid_timer_seconds' => 'required|integer|min:5|max:300',
             'bid_timer_reset_seconds' => 'nullable|integer|min:5|max:300',
+            'online_bid_limit_from' => 'nullable|numeric|min:0',
+            'online_bid_limit_to' => 'nullable|numeric|min:0|gt:online_bid_limit_from',
+            'closed_bid_starts_at' => 'nullable|numeric|min:0',
             // Player IDs and prices are handled via AJAX, not directly validated here,
             // but if they are part of the form submission (hidden fields), we need to ensure they are present.
             'player_ids' => 'nullable|array',
@@ -640,6 +669,9 @@ class AuctionAdminController extends Controller
                 'bid_type' => $validated['bid_type'],
                 'bid_timer_seconds' => $validated['bid_timer_seconds'],
                 'bid_timer_reset_seconds' => $validated['bid_timer_reset_seconds'] ?? 15,
+                'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
+                'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
+                'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
             ]);
 
             // The player_ids and player_base_prices are now primarily managed by AJAX.
@@ -914,6 +946,132 @@ class AuctionAdminController extends Controller
     }
 
 
+
+    /**
+     * Display the auction report with bid history, highlights, and team breakdown.
+     */
+    public function report(Auction $auction)
+    {
+        $this->authorize('auction.view');
+
+        $auction->load([
+            'organization',
+            'tournament',
+            'auctionPlayers.player.playerType',
+            'auctionPlayers.soldToTeam',
+            'auctionPlayers.bids' => function ($q) {
+                $q->with(['team', 'user'])->orderBy('created_at', 'asc');
+            },
+        ]);
+
+        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+            ->orderBy('name')
+            ->get();
+
+        // --- Build per-player bid data with gap calculation ---
+        $tieBidIds = [];
+        $closeBidIds = [];
+        $playerBidData = [];
+
+        foreach ($auction->auctionPlayers as $ap) {
+            $bids = $ap->bids->sortBy('created_at')->values();
+            $bidsWithGap = [];
+
+            foreach ($bids as $i => $bid) {
+                $gap = null;
+                if ($i > 0) {
+                    $gap = $bid->created_at->diffInSeconds($bids[$i - 1]->created_at);
+                }
+                $bidsWithGap[] = [
+                    'id' => $bid->id,
+                    'team_id' => $bid->team_id,
+                    'team_name' => $bid->team->name ?? 'N/A',
+                    'user_name' => $bid->user->name ?? 'N/A',
+                    'amount' => $bid->amount,
+                    'bid_source' => $bid->bid_source,
+                    'created_at' => $bid->created_at->format('h:i:s A'),
+                    'gap' => $gap,
+                ];
+            }
+
+            // Tie detection: group bids by amount → if 2+ distinct teams have same amount
+            $byAmount = $bids->groupBy('amount');
+            foreach ($byAmount as $amount => $group) {
+                $distinctTeams = $group->pluck('team_id')->unique()->filter()->count();
+                if ($distinctTeams >= 2) {
+                    foreach ($group as $bid) {
+                        $tieBidIds[] = $bid->id;
+                    }
+                }
+            }
+
+            // Close-time detection: consecutive bids within 2 seconds
+            for ($i = 1; $i < count($bids); $i++) {
+                $diff = $bids[$i]->created_at->diffInSeconds($bids[$i - 1]->created_at);
+                if ($diff <= 2) {
+                    $closeBidIds[] = $bids[$i]->id;
+                    $closeBidIds[] = $bids[$i - 1]->id;
+                }
+            }
+
+            $playerBidData[$ap->id] = $bidsWithGap;
+        }
+
+        $tieBidIds = array_unique($tieBidIds);
+        $closeBidIds = array_unique($closeBidIds);
+
+        // --- Summary stats ---
+        $soldPlayers = $auction->auctionPlayers->where('status', 'sold');
+        $unsoldPlayers = $auction->auctionPlayers->whereIn('status', ['unsold', 'waiting']);
+        $totalBids = $auction->auctionPlayers->sum(fn($ap) => $ap->bids->count());
+        $totalRevenue = $soldPlayers->sum('final_price');
+        $highestSale = $soldPlayers->max('final_price');
+        $avgPrice = $soldPlayers->count() > 0 ? $totalRevenue / $soldPlayers->count() : 0;
+        $mostExpensivePlayer = $soldPlayers->sortByDesc('final_price')->first();
+
+        $summary = [
+            'sold_count' => $soldPlayers->count(),
+            'unsold_count' => $unsoldPlayers->count(),
+            'total_bids' => $totalBids,
+            'total_players' => $auction->auctionPlayers->count(),
+            'total_revenue' => $totalRevenue,
+            'highest_sale' => $highestSale,
+            'avg_price' => $avgPrice,
+            'most_expensive_player' => $mostExpensivePlayer,
+        ];
+
+        // --- Team summaries ---
+        $teamSummaries = [];
+        foreach ($teams as $team) {
+            $teamPlayers = $soldPlayers->where('sold_to_team_id', $team->id);
+            $totalSpent = $teamPlayers->sum('final_price');
+            $teamBidsCount = $auction->auctionPlayers->sum(fn($ap) => $ap->bids->where('team_id', $team->id)->count());
+            $avgTeamPrice = $teamPlayers->count() > 0 ? $totalSpent / $teamPlayers->count() : 0;
+            $budget = (float) $auction->max_budget_per_team;
+            $utilization = $budget > 0 ? ($totalSpent / $budget) * 100 : 0;
+
+            $teamSummaries[] = [
+                'team' => $team,
+                'players_bought' => $teamPlayers->count(),
+                'total_spent' => $totalSpent,
+                'remaining_budget' => $budget - $totalSpent,
+                'total_bids' => $teamBidsCount,
+                'avg_price' => $avgTeamPrice,
+                'budget_utilization' => round($utilization, 1),
+                'acquired_players' => $teamPlayers->values(),
+            ];
+        }
+
+        return view('backend.pages.auctions.report', [
+            'auction' => $auction,
+            'teams' => $teams,
+            'playerBidData' => $playerBidData,
+            'tieBidIds' => $tieBidIds,
+            'closeBidIds' => $closeBidIds,
+            'summary' => $summary,
+            'teamSummaries' => $teamSummaries,
+        ]);
+    }
 
     // putBackInAuction
 

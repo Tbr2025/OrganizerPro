@@ -176,6 +176,36 @@
                                 <input type="hidden" name="bid_type" x-model="bid_type">
                             </div>
 
+                            {{-- Phase Transition Thresholds (only for Open Bid) --}}
+                            <div class="md:col-span-2" x-show="bid_type === 'open'" x-transition x-cloak>
+                                <label class="form-label">Auto Phase Transitions</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Configure automatic bidding phase changes as the price increases. Phases progress: Open (raise hand) → Closed (sealed bids) → Offline (admin manual).</p>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label for="online_bid_limit_from" class="form-label text-xs">Online Bid Starts From</label>
+                                        <input type="number" name="online_bid_limit_from" id="online_bid_limit_from"
+                                               x-model.number="online_bid_limit_from" value="{{ old('online_bid_limit_from') }}"
+                                               class="form-control" min="0" placeholder="e.g. 100000">
+                                        <p class="text-xs text-gray-400 mt-1">Informational — online range start.</p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
+                                        <input type="number" name="closed_bid_starts_at" id="closed_bid_starts_at"
+                                               x-model.number="closed_bid_starts_at" value="{{ old('closed_bid_starts_at') }}"
+                                               class="form-control" min="0" placeholder="e.g. 500000">
+                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, bidding switches to sealed mode.</p>
+                                    </div>
+                                    <div>
+                                        <label for="online_bid_limit_to" class="form-label text-xs">Offline Bid Starts At</label>
+                                        <input type="number" name="online_bid_limit_to" id="online_bid_limit_to"
+                                               x-model.number="online_bid_limit_to" value="{{ old('online_bid_limit_to') }}"
+                                               class="form-control" min="0" placeholder="e.g. 1000000">
+                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, admin handles bids manually.</p>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">Leave fields empty to skip that phase transition.</p>
+                            </div>
+
                             {{-- Timer Settings --}}
                             <div>
                                 <label for="bid_timer_seconds" class="form-label">Bid Timer (seconds) <span class="text-red-500">*</span></label>
@@ -207,7 +237,7 @@
                                 <label for="base_price" class="form-label">Default Player Base Price <span
                                         class="text-red-500">*</span></label>
                                 <input type="number" name="base_price" id="base_price"
-                                    value="{{ old('base_price', 500000) }}" class="form-control" required>
+                                    x-model.number="defaultBasePrice" class="form-control" required>
                             </div>
                         </div>
                     </div>
@@ -429,17 +459,20 @@ function auctionCreateForm() {
         bid_type: '{{ old('bid_type', 'open') }}',
         bid_timer_seconds: {{ old('bid_timer_seconds', 30) }},
         bid_timer_reset_seconds: {{ old('bid_timer_reset_seconds', 15) }},
+        online_bid_limit_from: {{ old('online_bid_limit_from', 'null') }},
+        online_bid_limit_to: {{ old('online_bid_limit_to', 'null') }},
+        closed_bid_starts_at: {{ old('closed_bid_starts_at', 'null') }},
         rules: [
-            { from: 1000000, to: 2000000, increment: 100000 },
-            { from: 2200000, to: 3000000, increment: 200000 },
-            { from: 3500000, to: 6000000, increment: 500000 },
-            { from: 6000000, to: 8000000, increment: 1000000 }
+            { from: 100000, to: 200000, increment: 10000 },
+            { from: 220000, to: 300000, increment: 20000 },
+            { from: 350000, to: 600000, increment: 500000 },
+            { from: 600000, to: 800000, increment: 1000000 }
         ],
         inPool: [],
         available: [],
         searchInPool: '',
         searchAvailable: '',
-        defaultBasePrice: {{ old('base_price', 500000) }},
+        defaultBasePrice: {{ old('base_price', 10000) }},
 
         init() {
             // Initialize available players from server data

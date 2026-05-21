@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class AuctionBid extends Model
 {
     use HasFactory;
-    protected $fillable = ['auction_id', 'auction_player_id', 'player_id', 'team_id', 'user_id', 'amount'];
+    protected $fillable = ['auction_id', 'auction_player_id', 'player_id', 'team_id', 'user_id', 'amount', 'bid_source'];
     protected $casts = ['amount' => 'decimal:2'];
     public function auction()
     {

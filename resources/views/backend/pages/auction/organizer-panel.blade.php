@@ -119,6 +119,26 @@
                 <span class="px-3 py-1 rounded-full text-xs font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">
                     Live Auction
                 </span>
+
+                {{-- Current Phase Badge --}}
+                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase transition-all"
+                      :class="{
+                          'bg-blue-500/20 text-blue-400 border border-blue-500/30': bidType === 'open' && openBidMode === 'online',
+                          'bg-purple-500/20 text-purple-400 border border-purple-500/30': bidType === 'closed' && openBidMode !== 'offline',
+                          'bg-orange-500/20 text-orange-400 border border-orange-500/30': openBidMode === 'offline'
+                      }"
+                      x-text="openBidMode === 'offline' ? 'OFFLINE' : (bidType === 'closed' ? 'CLOSED BID' : 'OPEN BID')">
+                </span>
+
+                {{-- Online/Offline Mode Badge --}}
+                <template x-if="hasOnlineOfflineMode">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase transition-all"
+                          :class="openBidMode === 'online'
+                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                              : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'"
+                          x-text="openBidMode === 'online' ? 'ONLINE MODE' : 'OFFLINE MODE'">
+                    </span>
+                </template>
             </div>
 
             {{-- Auction Status Badge --}}
@@ -137,6 +157,41 @@
 
                 {{-- Control Buttons --}}
                 <div class="flex gap-2">
+                    {{-- Switch Bid Phase Button --}}
+                    <template x-if="displayState === 'bidding'">
+                        <div class="flex gap-1">
+                            <button @click="switchBidPhase('open')"
+                                    :disabled="bidType === 'open' && openBidMode === 'online'"
+                                    class="px-3 py-2 rounded-lg text-xs font-medium transition"
+                                    :class="bidType === 'open' && openBidMode !== 'offline' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'">
+                                Open
+                            </button>
+                            <button @click="switchBidPhase('closed')"
+                                    :disabled="bidType === 'closed' && openBidMode !== 'offline'"
+                                    class="px-3 py-2 rounded-lg text-xs font-medium transition"
+                                    :class="bidType === 'closed' && openBidMode !== 'offline' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'">
+                                Closed
+                            </button>
+                            <button @click="switchBidPhase('offline')"
+                                    :disabled="openBidMode === 'offline'"
+                                    class="px-3 py-2 rounded-lg text-xs font-medium transition"
+                                    :class="openBidMode === 'offline' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'">
+                                Offline
+                            </button>
+                        </div>
+                    </template>
+
+                    {{-- Switch Mode Button (legacy) --}}
+                    <template x-if="hasOnlineOfflineMode && displayState === 'bidding'">
+                        <button @click="toggleBidMode()"
+                                class="px-4 py-2 rounded-lg text-sm font-medium transition"
+                                :class="openBidMode === 'online'
+                                    ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                                    : 'bg-green-600 hover:bg-green-700 text-white'"
+                                x-text="openBidMode === 'online' ? 'Switch to Offline' : 'Switch to Online'">
+                        </button>
+                    </template>
+
                     <button @click="togglePause()" x-show="auctionStatus === 'running'"
                             class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition">
                         Pause
@@ -260,10 +315,16 @@
                             <span class="text-lg font-bold text-white" x-text="formatCurrency(currentPlayer?.base_price)"></span>
                         </div>
 
-                        {{-- Timer --}}
-                        <div class="absolute top-4 right-4 bg-black/50 backdrop-blur px-4 py-2 rounded-full">
+                        {{-- Timer (hidden during offline mode) --}}
+                        <div class="absolute top-4 right-4 bg-black/50 backdrop-blur px-4 py-2 rounded-full"
+                             x-show="openBidMode === 'online' || !hasOnlineOfflineMode">
                             <span class="text-2xl font-bold" :class="biddingTimerSeconds <= 5 ? 'text-red-500 timer-critical' : 'text-white'"
                                   x-text="biddingTimerSeconds + 's'"></span>
+                        </div>
+                        {{-- Offline Mode Badge on player card --}}
+                        <div class="absolute top-4 right-4 bg-orange-500/80 backdrop-blur px-4 py-2 rounded-full"
+                             x-show="openBidMode === 'offline' && hasOnlineOfflineMode">
+                            <span class="text-lg font-bold text-white">OFFLINE</span>
                         </div>
                     </div>
 
@@ -283,6 +344,13 @@
                             <p class="text-lg text-gray-300 mt-2">
                                 <span class="text-green-300" x-text="sealedBids.length + ' bid(s) received'"></span>
                             </p>
+                        </div>
+
+                        {{-- Current Price Display (prominent in offline mode) --}}
+                        <div x-show="openBidMode === 'offline' && hasOnlineOfflineMode && currentPlayer?.current_price"
+                             class="bg-gradient-to-r from-orange-600/20 to-amber-600/20 rounded-2xl p-6 mb-6 border border-orange-500/30">
+                            <p class="text-orange-300 text-sm mb-1">CURRENT PRICE</p>
+                            <p class="text-5xl font-black text-orange-400" x-text="formatCurrency(currentPlayer?.current_price)"></p>
                         </div>
 
                         {{-- Timer Bar --}}
@@ -416,6 +484,63 @@
                 </div>
             </div>
 
+            {{-- Offline Bidding Panel (shown when in offline mode) --}}
+            <div x-show="openBidMode === 'offline' && hasOnlineOfflineMode && displayState === 'bidding'"
+                 class="border-t border-gray-700 p-4 space-y-3" x-cloak>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-orange-500 animate-pulse"></div>
+                    <h2 class="text-lg font-semibold text-white">Offline Bidding</h2>
+                </div>
+                <p class="text-xs text-gray-400">Select a team to add a bid (hand raise). Click "Sell" when bidding ends.</p>
+
+                {{-- Current Price Display --}}
+                <div class="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 text-center">
+                    <p class="text-orange-300 text-xs uppercase">Current Price</p>
+                    <p class="text-2xl font-bold text-orange-400" x-text="formatCurrency(currentPlayer?.current_price || currentPlayer?.base_price)"></p>
+                </div>
+
+                {{-- Team Dropdown --}}
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">Team (Hand Raise)</label>
+                    <select x-model="offlineSaleTeamId"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                        <option value="">Select Team...</option>
+                        <template x-for="team in teams" :key="team.id">
+                            <option :value="team.id" x-text="team.name + ' (' + formatCurrency(team.remaining_budget) + ' left)'"></option>
+                        </template>
+                    </select>
+                </div>
+
+                {{-- Add Bid (Increment) Button --}}
+                <button @click="executeOfflineBid()"
+                        :disabled="!offlineSaleTeamId"
+                        class="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold text-base transition-all">
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path>
+                        </svg>
+                        Add Bid (Hand Raise)
+                    </span>
+                </button>
+
+                <div class="border-t border-gray-600 my-1"></div>
+
+                {{-- Direct Sell Section --}}
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">Sale Amount (leave empty to use current price)</label>
+                    <input type="number" x-model.number="offlineSaleAmount"
+                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                           :placeholder="'Current: ' + formatCurrency(currentPlayer?.current_price || 0)" min="0">
+                </div>
+
+                {{-- Sell Button --}}
+                <button @click="executeOfflineSale()"
+                        :disabled="!offlineSaleTeamId"
+                        class="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg transition-all">
+                    Sell to Team
+                </button>
+            </div>
+
             {{-- Bids Panel (visible to admin only) --}}
             <div class="flex-1 border-t border-gray-700 flex flex-col">
                 <div class="p-4 border-b border-gray-700">
@@ -521,6 +646,15 @@ function auctionOrganizerPanel() {
         showSellModal: false,
         sellModalData: null,
 
+        // Online/Offline mode state
+        bidType: '{{ $auction->bid_type ?? 'open' }}',
+        openBidMode: '{{ $auction->open_bid_mode ?? 'online' }}',
+        hasOnlineOfflineMode: {{ ($auction->online_bid_limit_from !== null && $auction->online_bid_limit_to !== null) ? 'true' : 'false' }},
+        hasAutoPhaseTransition: {{ ($auction->closed_bid_starts_at !== null) ? 'true' : 'false' }},
+        modeManuallyOverridden: {{ $auction->mode_manually_overridden ? 'true' : 'false' }},
+        offlineSaleTeamId: '',
+        offlineSaleAmount: '',
+
         isTumbling: false,
         selectedPlayerId: null,
 
@@ -567,6 +701,19 @@ function auctionOrganizerPanel() {
 
                 // Update auction status
                 this.auctionStatus = data.auction_status;
+
+                // Update online/offline mode from server
+                if (data.open_bid_mode !== undefined) {
+                    this.openBidMode = data.open_bid_mode;
+                }
+                if (data.mode_manually_overridden !== undefined) {
+                    this.modeManuallyOverridden = data.mode_manually_overridden;
+                }
+                if (data.bid_type !== undefined) {
+                    this.bidType = data.bid_type;
+                    this.hasOnlineOfflineMode = data.online_bid_limit_from !== null && data.online_bid_limit_to !== null;
+                    this.hasAutoPhaseTransition = data.closed_bid_starts_at !== null;
+                }
 
                 // Update available players — normalize nested structure to flat
                 this.availablePlayers = (data.available_players || []).map(ap => ({
@@ -675,6 +822,113 @@ function auctionOrganizerPanel() {
                 await this.pollAuctionState();
             }
             this.sellModalData = null;
+        },
+
+        // Manual Phase Switch (open / closed / offline)
+        async switchBidPhase(phase) {
+            let confirmMsg = '';
+            if (phase === 'open') {
+                confirmMsg = 'Switch to OPEN bid mode? Teams will see live bids and use raise-hand.';
+            } else if (phase === 'closed') {
+                confirmMsg = 'Switch to CLOSED bid mode? Teams will submit sealed bids privately.';
+            } else if (phase === 'offline') {
+                confirmMsg = 'Switch to OFFLINE mode? You will handle bids manually.';
+            }
+            if (!confirm(confirmMsg)) return;
+
+            if (phase === 'offline') {
+                // Switch to offline mode
+                const result = await this.sendCommand('switch-mode', { mode: 'offline' });
+                if (result && result.success) {
+                    this.openBidMode = 'offline';
+                    this.modeManuallyOverridden = true;
+                }
+            } else {
+                // Switch bid type and ensure online mode
+                const modeResult = await this.sendCommand('switch-mode', { mode: 'online' });
+                if (modeResult && modeResult.success) {
+                    this.openBidMode = 'online';
+                    this.modeManuallyOverridden = true;
+                }
+                // Update bid_type via a separate call
+                const typeResult = await this.sendCommand('switch-bid-type', { bid_type: phase });
+                if (typeResult && typeResult.success) {
+                    this.bidType = phase;
+                }
+            }
+        },
+
+        // Online/Offline Mode Toggle
+        async toggleBidMode() {
+            const newMode = this.openBidMode === 'online' ? 'offline' : 'online';
+            const confirmMsg = newMode === 'offline'
+                ? 'Switch to OFFLINE mode? Teams will no longer be able to bid through the platform.'
+                : 'Switch back to ONLINE mode? Teams will be able to bid through the platform again.';
+
+            if (!confirm(confirmMsg)) return;
+
+            const result = await this.sendCommand('switch-mode', { mode: newMode });
+            if (result && result.success) {
+                this.openBidMode = result.open_bid_mode;
+                this.modeManuallyOverridden = result.mode_manually_overridden;
+            }
+        },
+
+        // Offline: Add bid for a team (hand raise — uses admin increment rules endpoint)
+        async executeOfflineBid() {
+            if (!this.offlineSaleTeamId || !this.currentPlayer) return;
+
+            try {
+                const response = await fetch('/admin/auctions/add-bid', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        auctionPlayerId: this.currentPlayer.id,
+                        teamId: this.offlineSaleTeamId
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Server error');
+
+                if (data.success) {
+                    await this.pollAuctionState();
+                }
+            } catch (e) {
+                console.error('Offline bid error:', e);
+                alert('Error: ' + e.message);
+            }
+        },
+
+        // Offline: Sell player to selected team
+        async executeOfflineSale() {
+            if (!this.offlineSaleTeamId || !this.currentPlayer) return;
+
+            // Default to current price if no amount entered
+            const saleAmount = this.offlineSaleAmount > 0
+                ? this.offlineSaleAmount
+                : (this.currentPlayer?.current_price || this.currentPlayer?.base_price);
+
+            const team = this.teams.find(t => t.id == this.offlineSaleTeamId);
+            const teamName = team ? team.name : 'selected team';
+
+            if (!confirm(`Sell ${this.currentPlayer?.player?.name} to ${teamName} for ${this.formatCurrency(saleAmount)}?`)) return;
+
+            const result = await this.sendCommand('sell-to-team', {
+                auction_player_id: this.currentPlayer.id,
+                team_id: this.offlineSaleTeamId,
+                amount: saleAmount
+            });
+
+            if (result && result.success) {
+                this.offlineSaleTeamId = '';
+                this.offlineSaleAmount = '';
+                await this.pollAuctionState();
+            }
         },
 
         // Tumbler Logic

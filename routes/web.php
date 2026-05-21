@@ -116,8 +116,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
-
-
+    Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
 
 
     Route::post('/auctions/{auction}/players/{player}', [AuctionAdminController::class, 'addPlayerToPool'])->name('auctions.players.add');
@@ -191,6 +190,8 @@ Route::middleware(['auth'])
             Route::post('/sell-to-team', [AuctionOrganizerController::class, 'sellToTeam'])->name('player.sell-to-team');
             Route::post('/close-bidding', [AuctionOrganizerController::class, 'closeBidding'])->name('player.close-bidding');
             Route::get('/sealed-bids', [AuctionOrganizerController::class, 'fetchSealedBids'])->name('sealed-bids');
+            Route::post('/switch-mode', [AuctionOrganizerController::class, 'switchMode'])->name('switch-mode');
+            Route::post('/switch-bid-type', [AuctionOrganizerController::class, 'switchBidType'])->name('switch-bid-type');
         });
 
         // API routes for the panel to call

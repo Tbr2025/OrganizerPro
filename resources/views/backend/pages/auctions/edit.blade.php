@@ -315,6 +315,36 @@
                                 <input type="hidden" name="bid_type" x-model="auctionData.bid_type">
                             </div>
 
+                            {{-- Phase Transition Thresholds (only for Open Bid) --}}
+                            <div class="md:col-span-2" x-show="auctionData.bid_type === 'open'" x-transition x-cloak>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Auto Phase Transitions</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Configure automatic bidding phase changes as the price increases. Phases progress: Open (raise hand) → Closed (sealed bids) → Offline (admin manual).</p>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label for="online_bid_limit_from" class="form-label text-xs">Online Bid Starts From</label>
+                                        <input type="number" name="online_bid_limit_from" id="online_bid_limit_from"
+                                               x-model.number="auctionData.online_bid_limit_from"
+                                               class="form-control" min="0" placeholder="e.g. 100000">
+                                        <p class="text-xs text-gray-400 mt-1">Informational — online range start.</p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
+                                        <input type="number" name="closed_bid_starts_at" id="closed_bid_starts_at"
+                                               x-model.number="auctionData.closed_bid_starts_at"
+                                               class="form-control" min="0" placeholder="e.g. 500000">
+                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, bidding switches to sealed mode.</p>
+                                    </div>
+                                    <div>
+                                        <label for="online_bid_limit_to" class="form-label text-xs">Offline Bid Starts At</label>
+                                        <input type="number" name="online_bid_limit_to" id="online_bid_limit_to"
+                                               x-model.number="auctionData.online_bid_limit_to"
+                                               class="form-control" min="0" placeholder="e.g. 1000000">
+                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, admin handles bids manually.</p>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">Leave fields empty to skip that phase transition.</p>
+                            </div>
+
                             {{-- Timer Settings --}}
                             <div>
                                 <label for="bid_timer_seconds" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

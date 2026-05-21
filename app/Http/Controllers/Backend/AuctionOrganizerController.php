@@ -129,13 +129,21 @@ class AuctionOrganizerController extends Controller
             'waiting_count' => $availablePlayers->count(),
         ];
 
+        $freshAuction = $auction->fresh();
+
         return response()->json([
-            'auction_status' => $auction->fresh()->status,
+            'auction_status' => $freshAuction->status,
             'available_players' => $availablePlayers,
             'current_player' => $currentPlayer,
             'sold_players' => $soldPlayers,
             'teams' => $teams,
             'stats' => $stats,
+            'open_bid_mode' => $freshAuction->open_bid_mode,
+            'mode_manually_overridden' => (bool) $freshAuction->mode_manually_overridden,
+            'online_bid_limit_from' => $freshAuction->online_bid_limit_from,
+            'online_bid_limit_to' => $freshAuction->online_bid_limit_to,
+            'bid_type' => $freshAuction->bid_type,
+            'closed_bid_starts_at' => $freshAuction->closed_bid_starts_at,
         ]);
     }
 
@@ -230,6 +238,20 @@ class AuctionOrganizerController extends Controller
             'current_price' => $auctionPlayer->base_price,
             'current_bid_team_id' => null,
         ]);
+
+        // Reset phase for new player
+        if ($auction->hasAutoPhaseTransition()) {
+            $auction->update([
+                'bid_type' => 'open',
+                'open_bid_mode' => 'online',
+                'mode_manually_overridden' => false,
+            ]);
+        } elseif ($auction->bid_type === 'open') {
+            $auction->update([
+                'open_bid_mode' => 'online',
+                'mode_manually_overridden' => false,
+            ]);
+        }
 
         // Eager-load relationships for broadcast
         $playerDataForBroadcast = $auctionPlayer->fresh([
@@ -365,6 +387,17 @@ class AuctionOrganizerController extends Controller
                 'current_bid_team_id' => $team->id,
             ]);
 
+            // Create an audit bid record for offline sale
+            AuctionBid::create([
+                'auction_id' => $auction->id,
+                'auction_player_id' => $auctionPlayer->id,
+                'player_id' => $auctionPlayer->player_id,
+                'team_id' => $team->id,
+                'user_id' => auth()->id(),
+                'amount' => $validated['amount'],
+                'bid_source' => 'offline',
+            ]);
+
             // Update the main player's mode (consistent with existing sellPlayer)
             Player::where('id', $auctionPlayer->player_id)->update(['player_mode' => 'retained']);
         });
@@ -394,6 +427,62 @@ class AuctionOrganizerController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Bidding closed for this player.',
+        ]);
+    }
+
+    /**
+     * Switch bid type (open/closed) manually.
+     */
+    public function switchBidType(Request $request, Auction $auction)
+    {
+        $validated = $request->validate([
+            'bid_type' => 'required|in:open,closed',
+        ]);
+
+        $auction->update([
+            'bid_type' => $validated['bid_type'],
+            'mode_manually_overridden' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Switched to ' . strtoupper($validated['bid_type']) . ' bid.',
+            'bid_type' => $validated['bid_type'],
+        ]);
+    }
+
+    /**
+     * Switch between online and offline mode for open bid auctions.
+     */
+    public function switchMode(Request $request, Auction $auction)
+    {
+        $validated = $request->validate([
+            'mode' => 'required|in:online,offline',
+        ]);
+
+        $newMode = $validated['mode'];
+
+        // Determine if this is a manual override (admin switching to offline while price is in online range)
+        $manualOverride = $auction->mode_manually_overridden;
+
+        if ($newMode === 'offline') {
+            // Admin is switching to offline — mark as manual override
+            $manualOverride = true;
+        } else {
+            // Admin is switching back to online — clear the override flag
+            $manualOverride = false;
+        }
+
+        $auction->update([
+            'open_bid_mode' => $newMode,
+            'mode_manually_overridden' => $manualOverride,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Switched to ' . strtoupper($newMode) . ' mode.',
+            'open_bid_mode' => $newMode,
+            'mode_manually_overridden' => $manualOverride,
         ]);
     }
 

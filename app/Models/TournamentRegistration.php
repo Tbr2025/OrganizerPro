@@ -99,6 +99,11 @@ class TournamentRegistration extends Model
         return $query->where('status', 'rejected');
     }
 
+    public function scopeCancelled($query)
+    {
+        return $query->where('status', 'cancelled');
+    }
+
     public function scopePlayers($query)
     {
         return $query->where('type', 'player');
@@ -122,6 +127,11 @@ class TournamentRegistration extends Model
     public function isRejected(): bool
     {
         return $this->status === 'rejected';
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
     }
 
     public function isPlayerRegistration(): bool

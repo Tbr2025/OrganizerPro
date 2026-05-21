@@ -164,13 +164,15 @@ class AuctionBiddingController extends Controller
 
 
     /**
-     * Handle a bid submission from a Team Manager.
+     * Handle a "Raise Hand" bid from a Team Manager (IPL-style).
+     * For open bid: auto-increments based on bid rules (no custom amount).
+     * For closed bid: accepts a custom amount.
      */
     public function placeBid(Request $request, Auction $auction)
     {
         $validated = $request->validate([
             'auction_player_id' => 'required|exists:auction_players,id',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'nullable|numeric|min:0', // Only used for closed bid
         ]);
 
         $userTeam = Auth::user()->actualTeams()->first();
@@ -178,9 +180,18 @@ class AuctionBiddingController extends Controller
             return response()->json(['error' => 'You are not assigned to a team.'], 403);
         }
 
-        // Use a database transaction for safety
+        // Reject bids when auction is in offline mode (applies to any bid_type)
+        $freshAuction = $auction->fresh();
+        if ($freshAuction->open_bid_mode === 'offline') {
+            return response()->json([
+                'error' => 'Bidding is currently in offline mode. The organizer is handling bids manually.'
+            ], 422);
+        }
+
+        $newPrice = null;
+
         try {
-            DB::transaction(function () use ($validated, $userTeam, $auction) {
+            DB::transaction(function () use ($validated, $userTeam, $auction, &$newPrice) {
                 $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
                     ->where('auction_id', $auction->id)
                     ->lockForUpdate()
@@ -190,6 +201,82 @@ class AuctionBiddingController extends Controller
                     throw new \Exception('Bidding is not active for this player.');
                 }
 
+                // For open bid: calculate next price from bid rules
+                if ($auction->bid_type === 'open') {
+                    $current = (float) $auctionPlayer->current_price;
+                    $rules = $auction->bid_rules;
+                    if (is_string($rules)) $rules = json_decode($rules, true);
+                    if (!is_array($rules)) $rules = [];
+
+                    $increment = 0;
+                    foreach ($rules as $r) {
+                        $from = isset($r['from']) ? (float) $r['from'] : 0;
+                        $to = isset($r['to']) ? (float) $r['to'] : PHP_FLOAT_MAX;
+                        $inc = isset($r['increment']) ? (float) $r['increment'] : 0;
+                        if ($current >= $from && $current <= $to) {
+                            $increment = $inc;
+                            break;
+                        }
+                    }
+
+                    // Fallback: find next applicable rule
+                    if ($increment == 0) {
+                        foreach ($rules as $r) {
+                            $from = isset($r['from']) ? (float) $r['from'] : 0;
+                            $inc = isset($r['increment']) ? (float) $r['increment'] : 0;
+                            if ($current < $from) {
+                                $increment = $inc;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($increment == 0) {
+                        throw new \Exception('Maximum bid reached. No further increments available.');
+                    }
+
+                    $bidAmount = $current + $increment;
+                } else {
+                    // Closed bid: use the amount provided
+                    if (!isset($validated['amount']) || $validated['amount'] <= 0) {
+                        throw new \Exception('Bid amount is required for closed bid.');
+                    }
+                    $bidAmount = (float) $validated['amount'];
+
+                    // Calculate minimum bid based on bid rules (same increment logic as open bid)
+                    $current = (float) $auctionPlayer->current_price;
+                    $rules = $auction->bid_rules;
+                    if (is_string($rules)) $rules = json_decode($rules, true);
+                    if (!is_array($rules)) $rules = [];
+
+                    $closedIncrement = 0;
+                    foreach ($rules as $r) {
+                        $from = isset($r['from']) ? (float) $r['from'] : 0;
+                        $to = isset($r['to']) ? (float) $r['to'] : PHP_FLOAT_MAX;
+                        $inc = isset($r['increment']) ? (float) $r['increment'] : 0;
+                        if ($current >= $from && $current <= $to) {
+                            $closedIncrement = $inc;
+                            break;
+                        }
+                    }
+                    if ($closedIncrement == 0) {
+                        foreach ($rules as $r) {
+                            $from = isset($r['from']) ? (float) $r['from'] : 0;
+                            $inc = isset($r['increment']) ? (float) $r['increment'] : 0;
+                            if ($current < $from) {
+                                $closedIncrement = $inc;
+                                break;
+                            }
+                        }
+                    }
+
+                    $minBid = $closedIncrement > 0 ? $current + $closedIncrement : $auctionPlayer->base_price;
+
+                    if ($bidAmount < $minBid) {
+                        throw new \Exception('Bid must be at least ' . number_format($minBid) . ' (current price + increment).');
+                    }
+                }
+
                 // Budget validation
                 $spentBudget = AuctionPlayer::where('auction_id', $auction->id)
                     ->where('sold_to_team_id', $userTeam->id)
@@ -197,36 +284,56 @@ class AuctionBiddingController extends Controller
                     ->sum('final_price');
                 $remainingBudget = $auction->max_budget_per_team - $spentBudget;
 
-                if ($validated['amount'] > $remainingBudget) {
-                    throw new \Exception('Bid exceeds your remaining budget.');
+                if ($bidAmount > $remainingBudget) {
+                    throw new \Exception('Bid exceeds your remaining budget of ' . number_format($remainingBudget) . '.');
                 }
 
-                if ($validated['amount'] < $auctionPlayer->base_price) {
-                    throw new \Exception('Bid must be at least the base price.');
-                }
-
-                // Create a new bid record each time
+                // Create a new bid record
                 AuctionBid::create([
                     'auction_id' => $auction->id,
                     'auction_player_id' => $auctionPlayer->id,
                     'team_id' => $userTeam->id,
                     'player_id' => $auctionPlayer->player_id,
                     'user_id' => auth()->id(),
-                    'amount' => $validated['amount'],
+                    'amount' => $bidAmount,
+                    'bid_source' => 'online',
                 ]);
 
-                // Track highest bid on the auction player
-                if ($validated['amount'] > $auctionPlayer->current_price) {
+                // Update highest bid on the auction player
+                if ($bidAmount > $auctionPlayer->current_price) {
                     $auctionPlayer->update([
-                        'current_price' => $validated['amount'],
+                        'current_price' => $bidAmount,
                         'current_bid_team_id' => $userTeam->id,
                     ]);
+                }
+
+                $newPrice = $bidAmount;
+
+                // Auto-transition: open → closed (if threshold configured and not manually overridden)
+                $freshAuction = Auction::find($auction->id);
+                if ($freshAuction->hasAutoPhaseTransition()
+                    && !$freshAuction->mode_manually_overridden
+                    && $freshAuction->bid_type === 'open'
+                    && $bidAmount >= (float) $freshAuction->closed_bid_starts_at) {
+                    $freshAuction->update(['bid_type' => 'closed']);
+                }
+
+                // Auto-transition to offline if price exceeds online limit
+                $freshAuction = $freshAuction->fresh();
+                if ($freshAuction->hasOnlineOfflineMode()
+                    && !$freshAuction->mode_manually_overridden
+                    && $bidAmount > (float) $freshAuction->online_bid_limit_to) {
+                    $freshAuction->update(['open_bid_mode' => 'offline']);
                 }
             });
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
 
-        return response()->json(['success' => 'Bid placed successfully.']);
+        return response()->json([
+            'success' => 'Bid placed successfully.',
+            'new_price' => $newPrice,
+            'team_name' => $userTeam->name,
+        ]);
     }
 }

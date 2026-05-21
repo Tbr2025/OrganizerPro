@@ -54,7 +54,7 @@
             </div>
 
             {{-- Stats Cards --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
@@ -96,6 +96,20 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelled</p>
+                            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $cancelledCount }}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {{-- Filter Tabs --}}
@@ -112,6 +126,10 @@
                     <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => 'rejected']) }}"
                         class="py-2 px-1 border-b-2 font-medium text-sm {{ request('status') == 'rejected' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
                         Rejected
+                    </a>
+                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => 'cancelled']) }}"
+                        class="py-2 px-1 border-b-2 font-medium text-sm {{ request('status') == 'cancelled' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
+                        Cancelled
                     </a>
                 </nav>
             </div>
@@ -232,6 +250,10 @@
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                                                     Approved
                                                 </span>
+                                            @elseif($registration->status == 'cancelled')
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                                                    Cancelled
+                                                </span>
                                             @else
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
                                                     Rejected
@@ -275,6 +297,15 @@
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                                             </svg>
                                                             Reject
+                                                        </button>
+                                                    </form>
+                                                    <form action="{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}" method="POST" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-gray-500 rounded hover:bg-gray-600">
+                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                                            </svg>
+                                                            Cancel
                                                         </button>
                                                     </form>
                                                 @endif

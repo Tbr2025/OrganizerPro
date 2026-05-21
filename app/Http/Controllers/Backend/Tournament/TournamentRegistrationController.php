@@ -44,6 +44,7 @@ class TournamentRegistrationController extends Controller
             'pendingCount' => $tournament->registrations()->pending()->count(),
             'approvedCount' => $tournament->registrations()->approved()->count(),
             'rejectedCount' => $tournament->registrations()->rejected()->count(),
+            'cancelledCount' => $tournament->registrations()->cancelled()->count(),
             'breadcrumbs' => [
                 'title' => __('Registrations'),
                 'items' => [
@@ -126,6 +127,23 @@ class TournamentRegistrationController extends Controller
         }
 
         return redirect()->back()->with('error', __('Failed to reject registration.'));
+    }
+
+    public function cancel(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        if (!$registration->isPending()) {
+            return redirect()->back()->with('error', __('Only pending registrations can be cancelled.'));
+        }
+
+        $registration->update([
+            'status' => 'cancelled',
+            'processed_at' => now(),
+            'processed_by' => Auth::id(),
+        ]);
+
+        return redirect()->back()->with('success', __('Registration cancelled.'));
     }
 
     public function forceDelete(Tournament $tournament, TournamentRegistration $registration): RedirectResponse

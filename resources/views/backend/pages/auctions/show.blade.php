@@ -36,6 +36,11 @@
                         <i class="fas fa-eye"></i>
                         Preview Bidding Page
                     </a>
+                    <a href="{{ route('admin.auctions.report', $auction) }}"
+                        class="btn btn-warning inline-flex items-center gap-2">
+                        <i class="fas fa-chart-bar"></i>
+                        View Report
+                    </a>
                     <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
                     <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
                         class="btn btn-success inline-flex items-center gap-2">

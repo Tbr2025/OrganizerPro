@@ -75,6 +75,7 @@ class PublicAuctionController extends Controller
                 'success' => true,
                 'auctionPlayer' => null,
                 'auction_status' => $auction->status,
+                'open_bid_mode' => $auction->open_bid_mode,
             ]);
         }
 
@@ -84,16 +85,30 @@ class PublicAuctionController extends Controller
         $playerData->batting_profile = $auctionPlayer->player->battingProfile;
         $playerData->bowling_profile = $auctionPlayer->player->bowlingProfile;
 
-        // Public API: only expose player info and base price — no bid amounts or teams
+        // Build response data
+        $responsePlayer = [
+            'id' => $auctionPlayer->id,
+            'player' => $playerData,
+            'base_price' => $auctionPlayer->base_price,
+            'status' => $auctionPlayer->status,
+        ];
+
+        // For open bid: include current price and bid team (IPL-style transparency)
+        if ($auction->bid_type === 'open') {
+            $responsePlayer['current_price'] = $auctionPlayer->current_price;
+            $responsePlayer['current_bid_team'] = $auctionPlayer->currentBidTeam ? [
+                'id' => $auctionPlayer->currentBidTeam->id,
+                'name' => $auctionPlayer->currentBidTeam->name,
+            ] : null;
+        }
+
         return response()->json([
             'success' => true,
-            'auctionPlayer' => [
-                'id' => $auctionPlayer->id,
-                'player' => $playerData,
-                'base_price' => $auctionPlayer->base_price,
-                'status' => $auctionPlayer->status,
-            ],
+            'auctionPlayer' => $responsePlayer,
             'auction_status' => $auction->status,
+            'open_bid_mode' => $auction->open_bid_mode,
+            'bid_type' => $auction->bid_type,
+            'bid_rules' => $auction->bid_rules,
         ]);
     }
 
