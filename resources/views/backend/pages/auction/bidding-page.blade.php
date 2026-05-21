@@ -211,22 +211,24 @@
     auctionId: {{ $auction->id }},
     userTeam: @json($userTeam),
     player: { id: null, name: "", image_url: "", base_price: 0, role: "", batting_style: "", bowling_style: "", is_wicket_keeper: false },
-    bidRules: @json($auction->bid_rules ?? []),
     soldPlayers: @json($soldPlayers ?? []),
     state: "waiting",
-    currentBid: 0,
+    auctionStatus: "{{ $auction->status }}",
     teamBudget: {{ $remainingBudget ?? 0 }},
-    winningTeamName: "Waiting for bids...",
-    winningTeamId: null,
-    finalPrice: 0,
     bidError: "",
+    bidSuccess: "",
     isSubmitting: false,
     lastPlayerId: null,
+    customAmount: "",
+    myBidAmount: {{ isset($myBid) && $myBid ? $myBid->amount : 0 }},
 
     init() {
-        console.log("[BiddingPanel] init() - auctionId:", this.auctionId);
-        const initialPlayer = @json($currentPlayer);
-        if (initialPlayer) this.setPlayerOnBid(initialPlayer);
+        if (this.auctionStatus === "completed") {
+            this.state = "completed";
+        } else {
+            const initialPlayer = @json($currentPlayer);
+            if (initialPlayer) this.setPlayerOnBid(initialPlayer);
+        }
         this.startPolling();
     },
 
@@ -242,16 +244,19 @@
         try {
             const res = await fetch("/auction/" + this.auctionId + "/active-player");
             const data = await res.json();
+            if (data.auction_status) this.auctionStatus = data.auction_status;
+            if (data.auction_status === "completed") {
+                this.state = "completed";
+                this.resetPlayer();
+                return;
+            }
             if (data.auctionPlayer) {
                 if (data.auctionPlayer.id !== this.lastPlayerId || this.state === "waiting") {
                     this.lastPlayerId = data.auctionPlayer.id;
                     this.setPlayerOnBid(data.auctionPlayer);
-                } else {
-                    this.currentBid = data.auctionPlayer.current_price || this.currentBid;
-                    if (data.auctionPlayer.current_bid_team) {
-                        this.winningTeamName = data.auctionPlayer.current_bid_team.name;
-                        this.winningTeamId = data.auctionPlayer.current_bid_team.id;
-                    }
+                    this.myBidAmount = 0;
+                    this.customAmount = "";
+                    this.bidSuccess = "";
                 }
             } else if (this.state === "bidding") {
                 this.state = "waiting";
@@ -282,86 +287,76 @@
             id: ap.id,
             name: p.name || "Unknown",
             image_url: img,
-            base_price: ap.base_price || 0,
+            base_price: Number(ap.base_price) || 0,
             role: (typeof pt === "object" ? (pt.name || pt.type) : pt) || "Player",
             batting_style: (typeof bp === "object" ? (bp.style || bp.name) : bp) || "N/A",
             bowling_style: (typeof bw === "object" ? (bw.style || bw.name) : bw) || "N/A",
             is_wicket_keeper: p.is_wicket_keeper || false
         };
-        this.currentBid = Number(ap.current_price) || Number(ap.base_price) || 0;
-        if (ap.current_bid_team) {
-            this.winningTeamName = ap.current_bid_team.name;
-            this.winningTeamId = ap.current_bid_team.id;
-        } else {
-            this.winningTeamName = "Waiting for bids...";
-            this.winningTeamId = null;
-        }
         this.state = "bidding";
     },
 
     resetPlayer() {
         this.player = { id: null, name: "", image_url: "", base_price: 0, role: "", batting_style: "", bowling_style: "", is_wicket_keeper: false };
+        this.myBidAmount = 0;
+        this.customAmount = "";
+        this.bidSuccess = "";
     },
 
-    get canBid() {
+    get quickBidAmounts() {
+        const base = this.player.base_price || 0;
+        if (base <= 0) return [];
+        const amounts = [];
+        for (let i = 0; i < 8; i++) {
+            amounts.push(base + (i * 10000));
+        }
+        return amounts;
+    },
+
+    get canBidCustom() {
         if (this.state !== "bidding" || this.isSubmitting) return false;
-        if (this.winningTeamId === this.userTeam?.id) return false;
-        if (this.nextBidAmount > this.teamBudget) return false;
+        const amt = Number(this.customAmount) || 0;
+        if (amt <= 0) return false;
+        if (amt > this.teamBudget) return false;
+        if (amt < this.player.base_price) return false;
         return true;
     },
 
-    get nextBidAmount() {
-        return Number(this.currentBid) + this.getIncrement(Number(this.currentBid));
-    },
-
-    get bidButtonText() {
-        if (this.isSubmitting) return "Placing Bid...";
-        if (this.winningTeamId === this.userTeam?.id) return "✓ You are winning!";
-        if (this.nextBidAmount > this.teamBudget) return "Insufficient Budget";
-        return "BID " + this.formatCurrency(this.nextBidAmount);
-    },
-
-    getIncrement(price) {
-        const numPrice = Number(price) || 0;
-        if (this.bidRules && this.bidRules.length > 0) {
-            for (let i = 0; i < this.bidRules.length; i++) {
-                const r = this.bidRules[i];
-                const from = Number(r.from) || 0;
-                const to = Number(r.to) || Infinity;
-                const increment = Number(r.increment) || 100000;
-                if (numPrice >= from && numPrice < to) return increment;
-            }
-        }
-        if (numPrice < 1000000) return 100000;
-        if (numPrice < 5000000) return 500000;
-        if (numPrice < 10000000) return 1000000;
-        return 2500000;
-    },
-
-    async placeBid() {
-        if (!this.canBid || !this.player.id) return;
+    async placeCustomBid() {
+        if (!this.canBidCustom || !this.player.id) return;
+        const amt = Number(this.customAmount);
         this.isSubmitting = true;
         this.bidError = "";
+        this.bidSuccess = "";
         try {
             const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/place-bid", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": "{{ csrf_token() }}", "Accept": "application/json" },
-                body: JSON.stringify({ auction_player_id: this.player.id, amount: this.nextBidAmount })
+                body: JSON.stringify({ auction_player_id: this.player.id, amount: amt })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Failed to place bid");
-            this.currentBid = this.nextBidAmount;
-            this.winningTeamName = this.userTeam.name;
-            this.winningTeamId = this.userTeam.id;
+            this.myBidAmount = amt;
+            this.bidSuccess = "Bid placed successfully!";
+            this.customAmount = "";
         } catch (e) { this.bidError = e.message; }
         finally { this.isSubmitting = false; }
     },
 
     formatCurrency(amt) {
         const n = Number(amt) || 0;
-        if (n >= 10000000) return (n / 10000000).toFixed(2) + " Cr";
-        if (n >= 100000) return (n / 100000).toFixed(2) + " L";
-        if (n >= 1000) return (n / 1000).toFixed(0) + "K";
+        if (n >= 10000000) {
+            const val = n / 10000000;
+            return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, "")) + " Cr";
+        }
+        if (n >= 100000) {
+            const val = n / 100000;
+            return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, "")) + " L";
+        }
+        if (n >= 1000) {
+            const val = n / 1000;
+            return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace(/\.?0+$/, "")) + "K";
+        }
         return n.toLocaleString();
     }
 }' class="auction-container flex">
@@ -395,7 +390,6 @@
                             <p class="text-white font-medium text-sm truncate" x-text="sp.player?.name"></p>
                             <p class="text-xs text-cyan-400 truncate" x-text="sp.sold_to_team?.name"></p>
                         </div>
-                        <span class="text-green-400 font-bold text-sm" x-text="formatCurrency(sp.final_price)"></span>
                     </div>
                 </div>
             </template>
@@ -413,7 +407,7 @@
                     </span>
                 @endif
             </div>
-            <div class="live-badge flex items-center gap-2">
+            <div x-show="state !== 'completed'" class="live-badge flex items-center gap-2">
                 <span class="live-dot"></span>
                 <span>LIVE</span>
             </div>
@@ -429,7 +423,14 @@
                 <div class="glow-dot"></div>
                 <div class="glow-dot"></div>
             </div>
-            <p class="text-gray-500">Next player coming up...</p>
+        </div>
+
+        <!-- Auction Completed State -->
+        <div x-show="state === 'completed'" x-transition.opacity x-cloak class="text-center">
+            <div class="text-8xl mb-6"><i class="fas fa-trophy text-yellow-400" style="text-shadow: 0 0 30px rgba(234,179,8,0.5);"></i></div>
+            <h1 class="text-5xl font-extrabold text-yellow-400 glow-yellow mb-6">AUCTION COMPLETED</h1>
+            <p class="text-xl text-gray-400 mb-2">{{ $auction->name }}</p>
+            <p class="text-gray-500">Thank you for participating!</p>
         </div>
 
         <!-- Bidding State -->
@@ -462,20 +463,71 @@
                     <span class="px-3 py-1 bg-white/10 rounded-full text-xs text-gray-300" x-text="player.bowling_style"></span>
                 </div>
 
-                <!-- Current Bid -->
-                <div class="bid-display text-center mb-6">
-                    <p class="text-green-200 text-sm uppercase tracking-widest mb-2">Current Bid</p>
-                    <p class="text-5xl font-bold text-white glow-green mb-2" x-text="formatCurrency(currentBid)"></p>
-                    <p class="text-green-200" x-text="winningTeamName"></p>
+                <!-- Bid Form (same sealed UI for both open & closed - no current bid shown to team managers) -->
+                <div>
+                    <!-- Your Current Bid Status -->
+                    <div x-show="myBidAmount > 0" class="mb-6 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-2xl p-6 text-center border border-green-500/30">
+                        <p class="text-green-200 text-sm uppercase tracking-widest mb-2">Your Current Bid</p>
+                        <p class="text-4xl font-bold text-green-400 glow-green" x-text="formatCurrency(myBidAmount)"></p>
+                        <p class="text-green-300 text-sm mt-2">You can update your bid below</p>
+                    </div>
+
+                    <div x-show="myBidAmount === 0" class="mb-6 bg-white/5 rounded-2xl p-6 text-center border border-white/10">
+                        <p class="text-gray-400 text-sm uppercase tracking-widest mb-2">No Bid Placed Yet</p>
+                        <p class="text-gray-500 text-sm">Enter your bid amount below</p>
+                    </div>
+
+                    <!-- Bid Input with Stepper -->
+                    <div class="bg-white/5 rounded-xl p-6 border border-white/10">
+                        <label class="text-gray-400 text-sm uppercase tracking-wide mb-3 block text-center">Your Bid Amount</label>
+
+                        <!-- Stepper Controls -->
+                        <div class="flex items-center gap-3 mb-4">
+                            <button @click="customAmount = Math.max(player.base_price, (Number(customAmount) || player.base_price) - 10000)"
+                                    class="w-14 h-14 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-2xl font-bold flex items-center justify-center hover:bg-red-500/30 transition shrink-0">
+                                &minus;
+                            </button>
+                            <div class="flex-1 text-center">
+                                <input type="number" x-model.number="customAmount"
+                                       :min="player.base_price"
+                                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-2xl text-center focus:outline-none focus:border-cyan-500"
+                                       :placeholder="'Min: ' + formatCurrency(player.base_price)">
+                                <p class="text-cyan-400 font-bold text-lg mt-1" x-show="Number(customAmount) > 0" x-text="formatCurrency(customAmount)"></p>
+                            </div>
+                            <button @click="customAmount = (Number(customAmount) || player.base_price) + 10000"
+                                    class="w-14 h-14 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-2xl font-bold flex items-center justify-center hover:bg-green-500/30 transition shrink-0">
+                                +
+                            </button>
+                        </div>
+
+                        <!-- Quick Bid Buttons -->
+                        <div class="grid grid-cols-4 gap-2 mb-4">
+                            <template x-for="amt in quickBidAmounts" :key="amt">
+                                <button @click="customAmount = amt"
+                                        class="py-2 px-1 rounded-lg text-sm font-bold transition"
+                                        :class="Number(customAmount) === amt ? 'bg-cyan-500 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'"
+                                        x-text="formatCurrency(amt)">
+                                </button>
+                            </template>
+                        </div>
+
+                        <p class="text-center text-gray-500 text-xs mb-4">
+                            Budget remaining: <span class="text-green-400 font-bold" x-text="formatCurrency(teamBudget)"></span>
+                        </p>
+                        <button @click="placeCustomBid()"
+                                :disabled="!canBidCustom"
+                                class="bid-button w-full"
+                                :class="{ 'winning': myBidAmount > 0 }">
+                            <span x-text="isSubmitting ? 'Submitting...' : (myBidAmount > 0 ? 'Update Bid' : 'Place Bid')"></span>
+                        </button>
+                    </div>
+
+                    <!-- Success/Error Messages -->
+                    <div x-show="bidSuccess" class="mt-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-center" x-cloak>
+                        <p class="text-green-400 text-sm font-medium" x-text="bidSuccess"></p>
+                    </div>
                 </div>
 
-                <!-- Bid Button -->
-                <button @click="placeBid()"
-                        :disabled="!canBid"
-                        class="bid-button w-full"
-                        :class="{ 'winning': winningTeamId === userTeam?.id }">
-                    <span x-text="bidButtonText"></span>
-                </button>
                 <p x-show="bidError" class="text-red-400 text-sm mt-3 text-center" x-text="bidError" x-cloak></p>
             </div>
         </div>
@@ -484,8 +536,7 @@
         <div x-show="state === 'sold'" x-transition.opacity x-cloak class="text-center sold-overlay">
             <div class="text-8xl mb-6">🎉</div>
             <h1 class="text-6xl font-extrabold text-green-400 glow-green mb-6">SOLD!</h1>
-            <p class="text-3xl text-white mb-2">to <strong class="text-cyan-400" x-text="winningTeamName"></strong></p>
-            <p class="text-2xl text-yellow-400 glow-yellow">for <strong x-text="formatCurrency(finalPrice)"></strong></p>
+            <p class="text-2xl text-gray-400">Player has been sold</p>
         </div>
     </div>
 

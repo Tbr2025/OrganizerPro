@@ -74,6 +74,7 @@ class PublicAuctionController extends Controller
             return response()->json([
                 'success' => true,
                 'auctionPlayer' => null,
+                'auction_status' => $auction->status,
             ]);
         }
 
@@ -83,29 +84,16 @@ class PublicAuctionController extends Controller
         $playerData->batting_profile = $auctionPlayer->player->battingProfile;
         $playerData->bowling_profile = $auctionPlayer->player->bowlingProfile;
 
+        // Public API: only expose player info and base price — no bid amounts or teams
         return response()->json([
             'success' => true,
             'auctionPlayer' => [
                 'id' => $auctionPlayer->id,
                 'player' => $playerData,
                 'base_price' => $auctionPlayer->base_price,
-                'current_price' => $auctionPlayer->current_price,
-                'current_bid_team' => $auctionPlayer->currentBidTeam ? [
-                    'id' => $auctionPlayer->currentBidTeam->id,
-                    'name' => $auctionPlayer->currentBidTeam->name,
-                ] : null,
-                'bids' => $auctionPlayer->bids->map(function($bid) {
-                    return [
-                        'id' => $bid->id,
-                        'amount' => $bid->amount,
-                        'team' => $bid->team ? [
-                            'id' => $bid->team->id,
-                            'name' => $bid->team->name,
-                        ] : null,
-                    ];
-                }),
                 'status' => $auctionPlayer->status,
             ],
+            'auction_status' => $auction->status,
         ]);
     }
 
@@ -127,14 +115,13 @@ class PublicAuctionController extends Controller
             ->orderBy('updated_at', 'desc') // optionally show 'on_auction' first
             ->first();
 
+        // Public API: no bid amounts exposed
         return response()->json([
             'success' => true,
             'auctionPlayer' => $player ? [
                 'id' => $player->id,
                 'player' => $player->player,
-                'current_price' => $player->final_price,
-                'current_bid_team' => $player->current_bid_team,
-                'bids' => $player->bids,
+                'base_price' => $player->base_price,
                 'status' => $player->status,
                 'sold_to_team' => $player->soldToTeam ? [
                     'name' => $player->soldToTeam->name,
@@ -143,6 +130,7 @@ class PublicAuctionController extends Controller
                         : null,
                 ] : null,
             ] : null,
+            'auction_status' => $auction->status,
         ]);
     }
 
@@ -163,7 +151,6 @@ class PublicAuctionController extends Controller
                         'id' => $ap->player->id,
                         'name' => $ap->player->name,
                     ] : null,
-                    'final_price' => $ap->final_price,
                     'sold_to_team' => $ap->soldToTeam ? [
                         'id' => $ap->soldToTeam->id,
                         'name' => $ap->soldToTeam->name,

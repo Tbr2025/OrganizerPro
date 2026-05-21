@@ -181,12 +181,16 @@ Route::middleware(['auth'])
 
 
         Route::prefix('api')->name('api.')->group(function () {
+            Route::get('/poll-state', [AuctionOrganizerController::class, 'pollState'])->name('poll-state');
             Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('start');
             Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('end');
             Route::post('/toggle-pause', [AuctionOrganizerController::class, 'togglePause'])->name('toggle-pause');
             Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('player.onbid');
             Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('player.sell');
             Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('player.pass');
+            Route::post('/sell-to-team', [AuctionOrganizerController::class, 'sellToTeam'])->name('player.sell-to-team');
+            Route::post('/close-bidding', [AuctionOrganizerController::class, 'closeBidding'])->name('player.close-bidding');
+            Route::get('/sealed-bids', [AuctionOrganizerController::class, 'fetchSealedBids'])->name('sealed-bids');
         });
 
         // API routes for the panel to call
@@ -747,6 +751,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::get('/registrations/{registration}', [TournamentRegistrationController::class, 'show'])->name('registrations.show');
         Route::post('/registrations/{registration}/approve', [TournamentRegistrationController::class, 'approve'])->name('registrations.approve');
         Route::post('/registrations/{registration}/reject', [TournamentRegistrationController::class, 'reject'])->name('registrations.reject');
+        Route::post('/registrations/{registration}/cancel', [TournamentRegistrationController::class, 'cancel'])->name('registrations.cancel');
         Route::post('/registrations/bulk-approve', [TournamentRegistrationController::class, 'bulkApprove'])->name('registrations.bulk-approve');
         Route::delete('/registrations/{registration}/force-delete', [TournamentRegistrationController::class, 'forceDelete'])->name('registrations.force-delete');
 

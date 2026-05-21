@@ -34,7 +34,7 @@ class ClosedBidController extends Controller
         $user = Auth::user();
 
         // Query closed bids
-        $query = AuctionPlayer::with(['player', 'soldToTeam', 'auction'])
+        $query = AuctionPlayer::with(['player', 'soldToTeam', 'auction', 'bids.team'])
             ->where('status', 'closed');
 
         if ($user->hasRole('TeamManager')) {

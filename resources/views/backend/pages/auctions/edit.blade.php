@@ -282,6 +282,57 @@
                                 </div>
                                 <input type="hidden" name="status" x-model="auctionData.status">
                             </div>
+
+                            {{-- Bid Type --}}
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bid Type <span class="text-red-500">*</span></label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <button type="button" @click="auctionData.bid_type = 'open'"
+                                            class="p-4 rounded-lg border-2 transition-all text-left"
+                                            :class="auctionData.bid_type === 'open' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                                                 :class="auctionData.bid_type === 'open' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                            </div>
+                                            <h4 class="font-semibold text-gray-900 dark:text-white">Open Bid</h4>
+                                        </div>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">Real-time bidding. All teams see each other's bids live.</p>
+                                    </button>
+                                    <button type="button" @click="auctionData.bid_type = 'closed'"
+                                            class="p-4 rounded-lg border-2 transition-all text-left"
+                                            :class="auctionData.bid_type === 'closed' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                                                 :class="auctionData.bid_type === 'closed' ? 'bg-purple-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path></svg>
+                                            </div>
+                                            <h4 class="font-semibold text-gray-900 dark:text-white">Closed Bid</h4>
+                                        </div>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">Sealed bidding. Only admin sees all bids and decides the winner.</p>
+                                    </button>
+                                </div>
+                                <input type="hidden" name="bid_type" x-model="auctionData.bid_type">
+                            </div>
+
+                            {{-- Timer Settings --}}
+                            <div>
+                                <label for="bid_timer_seconds" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Bid Timer (seconds) <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="bid_timer_seconds" id="bid_timer_seconds"
+                                       x-model.number="auctionData.bid_timer_seconds" class="form-control" min="5" max="300" required>
+                                <p class="text-xs text-gray-500 mt-1">Countdown per player during auction.</p>
+                            </div>
+
+                            <div x-show="auctionData.bid_type === 'open'" x-transition>
+                                <label for="bid_timer_reset_seconds" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Timer Reset on New Bid (seconds)
+                                </label>
+                                <input type="number" name="bid_timer_reset_seconds" id="bid_timer_reset_seconds"
+                                       x-model.number="auctionData.bid_timer_reset_seconds" class="form-control" min="5" max="300">
+                                <p class="text-xs text-gray-500 mt-1">Timer resets to this value when a new bid is placed.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -706,6 +757,11 @@ document.addEventListener('alpine:init', () => {
         ],
 
         init() {
+            // Ensure new fields have defaults for existing auctions
+            if (!this.auctionData.bid_type) this.auctionData.bid_type = 'open';
+            if (!this.auctionData.bid_timer_seconds) this.auctionData.bid_timer_seconds = 30;
+            if (!this.auctionData.bid_timer_reset_seconds) this.auctionData.bid_timer_reset_seconds = 15;
+
             // Initialize bid rules
             this.rules = auctionData.bid_rules && auctionData.bid_rules.length > 0
                 ? auctionData.bid_rules.map(rule => ({ ...rule }))

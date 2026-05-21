@@ -253,6 +253,29 @@
                             </div>
                         </template>
 
+                        {{-- Bid Details (Admin only) --}}
+                        @if(isset($isAdmin) && $isAdmin)
+                        <template x-if="player.bids && player.bids.length > 0">
+                            <div class="mt-2" x-data="{ showBids: false }">
+                                <button @click="showBids = !showBids"
+                                    class="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1">
+                                    <svg class="w-3 h-3 transition-transform" :class="showBids ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                    <span x-text="player.bids.length + ' bid(s)'"></span>
+                                </button>
+                                <div x-show="showBids" x-transition class="mt-2 space-y-1 max-h-32 overflow-y-auto" x-cloak>
+                                    <template x-for="bid in player.bids" :key="bid.id">
+                                        <div class="flex justify-between items-center text-xs bg-gray-50 dark:bg-gray-700/50 rounded px-2 py-1">
+                                            <span class="text-gray-600 dark:text-gray-300 truncate" x-text="bid.team?.name || 'N/A'"></span>
+                                            <span class="font-bold text-green-600 dark:text-green-400" x-text="formatCurrency(bid.amount)"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        @endif
+
                         {{-- Admin Actions --}}
                         @can('auctions.edit')
                             <template x-if="player.status !== 'sold'">

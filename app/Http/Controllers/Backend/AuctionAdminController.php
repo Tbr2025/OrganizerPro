@@ -43,7 +43,21 @@ class AuctionAdminController extends Controller
     {
         $organizations = Organization::orderBy('name')->get();
         $tournaments = Tournament::orderBy('name')->get();
-        return view('backend.pages.auctions.create', compact('organizations', 'tournaments'));
+
+        // Fetch available players (verified, not retained) for the player pool step
+        $orgId = Auth::user()->organization_id;
+        $query = Player::whereNotNull('welcome_email_sent_at')
+            ->where(function ($q) {
+                $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode');
+            });
+        if ($orgId) {
+            $query->whereHas('user', function ($q) use ($orgId) {
+                $q->where('organization_id', $orgId);
+            });
+        }
+        $availablePlayers = $query->orderBy('name')->get(['id', 'name']);
+
+        return view('backend.pages.auctions.create', compact('organizations', 'tournaments', 'availablePlayers'));
     }
 
     public function store(Request $request)
@@ -69,6 +83,9 @@ class AuctionAdminController extends Controller
             'bid_rules.*.from' => 'required|numeric|min:0',
             'bid_rules.*.to' => 'required|numeric|gt:bid_rules.*.from',
             'bid_rules.*.increment' => 'required|numeric|min:0',
+            'bid_type' => 'required|in:open,closed',
+            'bid_timer_seconds' => 'required|integer|min:5|max:300',
+            'bid_timer_reset_seconds' => 'nullable|integer|min:5|max:300',
 
             // Player pool data (optional at creation)
             'player_ids' => 'nullable|array',
@@ -97,6 +114,9 @@ class AuctionAdminController extends Controller
                 'start_at' => $validated['start_at'],
                 'end_at' => $validated['end_at'],
                 'bid_rules' => $validated['bid_rules'],
+                'bid_type' => $validated['bid_type'],
+                'bid_timer_seconds' => $validated['bid_timer_seconds'],
+                'bid_timer_reset_seconds' => $validated['bid_timer_reset_seconds'] ?? 15,
             ]);
 
             // Add players to the auction pool (if provided)
@@ -133,7 +153,8 @@ class AuctionAdminController extends Controller
             'auctionPlayers.player.playerType',
             'auctionPlayers.player.battingProfile',
             'auctionPlayers.player.bowlingProfile',
-            'auctionPlayers.soldToTeam'
+            'auctionPlayers.soldToTeam',
+            'auctionPlayers.bids.team',
         ]);
 
         // For non-admin users, filter to only show players sold to their team
@@ -596,6 +617,9 @@ class AuctionAdminController extends Controller
             'bid_rules.*.from' => 'required|numeric|min:0',
             'bid_rules.*.to' => 'required|numeric|gt:bid_rules.*.from',
             'bid_rules.*.increment' => 'required|numeric|min:0',
+            'bid_type' => 'required|in:open,closed',
+            'bid_timer_seconds' => 'required|integer|min:5|max:300',
+            'bid_timer_reset_seconds' => 'nullable|integer|min:5|max:300',
             // Player IDs and prices are handled via AJAX, not directly validated here,
             // but if they are part of the form submission (hidden fields), we need to ensure they are present.
             'player_ids' => 'nullable|array',
@@ -613,6 +637,9 @@ class AuctionAdminController extends Controller
                 'max_budget_per_team' => $validated['max_budget_per_team'],
                 'base_price' => $validated['base_price'],
                 'bid_rules' => $validated['bid_rules'],
+                'bid_type' => $validated['bid_type'],
+                'bid_timer_seconds' => $validated['bid_timer_seconds'],
+                'bid_timer_reset_seconds' => $validated['bid_timer_reset_seconds'] ?? 15,
             ]);
 
             // The player_ids and player_base_prices are now primarily managed by AJAX.

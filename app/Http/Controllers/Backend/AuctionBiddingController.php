@@ -7,7 +7,6 @@ use App\Models\Auction;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionBid;
 use App\Models\ActualTeam;
-use App\Events\NewBidPlaced;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -140,6 +139,16 @@ class AuctionBiddingController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
+        // Get user's latest bid for current player
+        $myBid = null;
+        if ($auctionPlayer) {
+            $myBid = AuctionBid::where('auction_id', $auction->id)
+                ->where('auction_player_id', $auctionPlayer->id)
+                ->where('team_id', $userTeam->id)
+                ->latest('amount')
+                ->first();
+        }
+
         // Return the view with all necessary data.
         return view('backend.pages.auction.bidding-page', compact(
             'auction',
@@ -148,7 +157,8 @@ class AuctionBiddingController extends Controller
             'isPreviewMode',
             'remainingBudget',
             'allTeams',
-            'soldPlayers'
+            'soldPlayers',
+            'myBid'
         ));
     }
 
@@ -173,36 +183,45 @@ class AuctionBiddingController extends Controller
             DB::transaction(function () use ($validated, $userTeam, $auction) {
                 $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
                     ->where('auction_id', $auction->id)
-                    ->lockForUpdate() // Lock the row to prevent race conditions
+                    ->lockForUpdate()
                     ->firstOrFail();
 
                 if ($auctionPlayer->status !== 'on_auction') {
                     throw new \Exception('Bidding is not active for this player.');
                 }
 
-                if ($validated['amount'] <= $auctionPlayer->current_price) {
-                    throw new \Exception('Your bid must be higher than the current bid.');
+                // Budget validation
+                $spentBudget = AuctionPlayer::where('auction_id', $auction->id)
+                    ->where('sold_to_team_id', $userTeam->id)
+                    ->where('status', 'sold')
+                    ->sum('final_price');
+                $remainingBudget = $auction->max_budget_per_team - $spentBudget;
+
+                if ($validated['amount'] > $remainingBudget) {
+                    throw new \Exception('Bid exceeds your remaining budget.');
                 }
 
-                // Add your budget and increment validation logic here...
-                // ...
+                if ($validated['amount'] < $auctionPlayer->base_price) {
+                    throw new \Exception('Bid must be at least the base price.');
+                }
 
-                $auctionPlayer->update([
-                    'current_price' => $validated['amount'],
-                    'current_bid_team_id' => $userTeam->id,
-                ]);
-
-                $newBid = AuctionBid::create([
+                // Create a new bid record each time
+                AuctionBid::create([
                     'auction_id' => $auction->id,
                     'auction_player_id' => $auctionPlayer->id,
-                    'player_id' => $auctionPlayer->player_id,
                     'team_id' => $userTeam->id,
+                    'player_id' => $auctionPlayer->player_id,
                     'user_id' => auth()->id(),
                     'amount' => $validated['amount'],
                 ]);
 
-                // Broadcast the new bid to everyone else
-                broadcast(new NewBidPlaced($newBid))->toOthers();
+                // Track highest bid on the auction player
+                if ($validated['amount'] > $auctionPlayer->current_price) {
+                    $auctionPlayer->update([
+                        'current_price' => $validated['amount'],
+                        'current_bid_team_id' => $userTeam->id,
+                    ]);
+                }
             });
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);

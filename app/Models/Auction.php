@@ -18,11 +18,16 @@ class Auction extends Model
         'max_bid_per_player',
         'max_budget_per_team',
         'bid_rules',
+        'bid_type',
+        'bid_timer_seconds',
+        'bid_timer_reset_seconds',
     ];
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
-        'bid_rules' => 'array'
+        'bid_rules' => 'array',
+        'bid_timer_seconds' => 'integer',
+        'bid_timer_reset_seconds' => 'integer',
     ];
 
     public function players()

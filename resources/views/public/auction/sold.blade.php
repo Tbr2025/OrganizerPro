@@ -239,9 +239,21 @@
     <script>
         // Format bid in millions (M) or lakhs (L) depending on value
        function formatMillions(amount) {
-    if (!amount && amount !== 0) return '0';
-    return `${(amount / 1_000_000).toFixed(1)}M Points`;
-}
+            const n = Number(amount) || 0;
+            if (n >= 10000000) {
+                const val = n / 10000000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' Cr';
+            }
+            if (n >= 100000) {
+                const val = n / 100000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' L';
+            }
+            if (n >= 1000) {
+                const val = n / 1000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace(/\.?0+$/, '')) + 'K';
+            }
+            return n.toLocaleString();
+        }
 
         // Use it here
 
@@ -249,6 +261,10 @@
             fetch(`/auction/{{ $auction->id }}/sold-player`)
                 .then(res => res.json())
                 .then(data => {
+                    if (data.auction_status === 'completed') {
+                        document.querySelector('.card-container').innerHTML = '<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(0,0,0,0.9);"><div style="font-size:100px;margin-bottom:20px;">🏆</div><h1 style="font-size:60px;color:#eab308;text-shadow:0 0 30px rgba(234,179,8,0.5);">AUCTION COMPLETED</h1><p style="color:#9ca3af;font-size:24px;margin-top:20px;">{{ $auction->name }}</p></div>';
+                        return;
+                    }
                     if (data.auctionPlayer) {
                         const p = data.auctionPlayer;
 
@@ -264,9 +280,9 @@
                         const soldText = document.getElementById('sold-text');
 
                         if (p.status === 'sold') {
-                            soldText.textContent = 'SOLD PRICE'; // SOLD PRICE
+                            soldText.textContent = 'SOLD';
                         } else {
-                            soldText.textContent = 'BASE VALUE'; // BASE VALUE
+                            soldText.textContent = 'BASE VALUE';
                         }
 
 
@@ -276,7 +292,8 @@
                             `${p.player.batting_profile?.style ?? 'N/A'}`;
                         document.getElementById('player-bowling').textContent =
                             `${p.player.bowling_profile?.style ?? 'N/A'}`;
-                        document.getElementById('current-bid').textContent = formatMillions(p.current_price);
+                        // Only show base price on public display — no bid/sold amounts
+                        document.getElementById('current-bid').textContent = formatMillions(p.player?.base_price || p.base_price || 0);
 
                         // Winning team
                         // document.getElementById('winning-team').textContent =

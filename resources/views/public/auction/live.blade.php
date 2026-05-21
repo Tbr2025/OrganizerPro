@@ -296,7 +296,14 @@
             <div class="glow-dot"></div>
             <div class="glow-dot"></div>
         </div>
-        <p class="text-xl text-gray-500 mt-8">Next player coming up...</p>
+    </div>
+
+    <!-- Auction Completed Screen -->
+    <div id="completed-screen" class="hidden" style="position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%);z-index:100;">
+        <div style="font-size:120px;margin-bottom:30px;">🏆</div>
+        <h1 style="font-size:72px;color:#eab308;text-shadow:0 0 30px rgba(234,179,8,0.5);">AUCTION COMPLETED</h1>
+        <p class="text-3xl text-gray-400 mt-6">{{ $auction->name }}</p>
+        <p class="text-xl text-gray-500 mt-4">Thank you for watching!</p>
     </div>
 
     <div id="card-container" class="card-container hidden">
@@ -355,8 +362,20 @@
         });
 
         function formatMillions(amount) {
-            if (!amount && amount !== 0) return '0';
-            return `${(amount / 1_000_000).toFixed(1)}M Points`;
+            const n = Number(amount) || 0;
+            if (n >= 10000000) {
+                const val = n / 10000000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' Cr';
+            }
+            if (n >= 100000) {
+                const val = n / 100000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' L';
+            }
+            if (n >= 1000) {
+                const val = n / 1000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace(/\.?0+$/, '')) + 'K';
+            }
+            return n.toLocaleString();
         }
 
         function showWaiting() {
@@ -412,8 +431,8 @@
                 ? bowlingStyle?.style || bowlingStyle?.name || 'N/A'
                 : bowlingStyle || 'N/A';
 
-            // Price display
-            const price = p.final_price || p.current_price || p.base_price || 0;
+            // Only show base price — no bid amounts on public display
+            const price = p.base_price || 0;
             document.getElementById('current-bid').textContent = formatMillions(price);
 
             // Status text and badges
@@ -422,10 +441,12 @@
             const teamLogo = document.getElementById('team-logo');
             const highestBidder = document.getElementById('highest-bidder');
 
+            // Always hide bid-related info on public display
+            highestBidder.classList.add('hidden');
+
             if (p.status === 'sold') {
-                soldText.textContent = 'SOLD PRICE';
+                soldText.textContent = 'SOLD';
                 soldBadge.classList.remove('hidden');
-                highestBidder.classList.add('hidden');
 
                 // Show team logo
                 if (p.sold_to_team && (p.sold_to_team.logo_path || p.sold_to_team.team_logo)) {
@@ -435,38 +456,28 @@
                     teamLogo.classList.add('hidden');
                 }
             } else if (p.status === 'on_auction') {
-                soldText.textContent = 'CURRENT BID';
+                soldText.textContent = 'BASE VALUE';
                 soldBadge.classList.add('hidden');
                 teamLogo.classList.add('hidden');
-
-                // Show highest bidder during live auction
-                const bids = p.bids || [];
-                if (bids.length > 0) {
-                    const highestBid = bids.sort((a, b) => b.amount - a.amount)[0];
-                    document.getElementById('bidder-name').textContent = highestBid.team?.name || 'Unknown';
-                    highestBidder.classList.remove('hidden');
-                } else {
-                    highestBidder.classList.add('hidden');
-                }
-
-                // Flash animation on bid update
-                const bidElement = document.getElementById('current-bid');
-                bidElement.classList.add('bid-flash');
-                setTimeout(() => bidElement.classList.remove('bid-flash'), 500);
             } else if (p.status === 'unsold') {
                 soldText.textContent = 'UNSOLD';
                 soldBadge.classList.add('hidden');
                 teamLogo.classList.add('hidden');
-                highestBidder.classList.add('hidden');
             } else {
                 soldText.textContent = 'BASE VALUE';
                 soldBadge.classList.add('hidden');
                 teamLogo.classList.add('hidden');
-                highestBidder.classList.add('hidden');
             }
 
             currentStatus = p.status;
             lastPlayerId = p.id;
+        }
+
+        function showCompleted() {
+            document.getElementById('waiting-screen').classList.add('hidden');
+            document.getElementById('card-container').classList.add('hidden');
+            document.getElementById('completed-screen').classList.remove('hidden');
+            document.getElementById('completed-screen').style.display = 'flex';
         }
 
         function fetchActivePlayer() {
@@ -475,6 +486,10 @@
                 .then(res => res.json())
                 .then(data => {
                     console.log('[Live] API response:', data);
+                    if (data?.auction_status === 'completed') {
+                        showCompleted();
+                        return;
+                    }
                     if (data?.auctionPlayer) {
                         console.log('[Live] Got active player:', data.auctionPlayer.player?.name);
                         updatePlayerCard(data.auctionPlayer);

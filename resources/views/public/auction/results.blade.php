@@ -171,7 +171,7 @@
                                 </template>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-xs text-gray-500 truncate" x-text="player.sold_to_team?.name || 'Team'"></p>
-                                    <p class="text-sm font-bold text-green-600" x-text="formatCurrency(player.final_price || player.current_price)"></p>
+                                    <p class="text-sm font-bold text-green-600">SOLD</p>
                                 </div>
                             </div>
                         </template>
@@ -189,8 +189,8 @@
                         {{-- Available/On Auction Info --}}
                         <template x-if="player.status === 'on_auction' || player.status === 'waiting'">
                             <div>
-                                <p class="text-xs text-gray-500">Current Bid</p>
-                                <p class="text-lg font-bold text-blue-600" x-text="formatCurrency(player.current_price)"></p>
+                                <p class="text-xs text-gray-500">Base Price</p>
+                                <p class="text-lg font-bold text-blue-600" x-text="formatCurrency(player.base_price)"></p>
                             </div>
                         </template>
                     </div>

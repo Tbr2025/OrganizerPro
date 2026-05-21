@@ -116,6 +116,9 @@
                     <h1 class="text-xl font-bold text-white">{{ $auction->name }}</h1>
                     <p class="text-sm text-gray-400">Live Auction Control Panel</p>
                 </div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    Live Auction
+                </span>
             </div>
 
             {{-- Auction Status Badge --}}
@@ -273,15 +276,12 @@
                             <span x-show="getBowlingStyle(currentPlayer)" class="px-3 py-1 bg-gray-700 rounded-full text-sm" x-text="getBowlingStyle(currentPlayer)"></span>
                         </div>
 
-                        {{-- Current Bid Display --}}
+                        {{-- Base Price & Bid Count Display --}}
                         <div class="bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-2xl p-6 mb-6">
-                            <p class="text-gray-400 text-sm mb-1">CURRENT BID</p>
-                            <p class="text-5xl font-black text-green-400 bid-flash" x-text="formatCurrency(currentBid)"></p>
+                            <p class="text-gray-400 text-sm mb-1">BASE PRICE</p>
+                            <p class="text-5xl font-black text-green-400 bid-flash" x-text="formatCurrency(currentPlayer?.base_price)"></p>
                             <p class="text-lg text-gray-300 mt-2">
-                                <span x-show="winningTeamName !== 'No Bids'">
-                                    Highest: <span class="font-bold text-white" x-text="winningTeamName"></span>
-                                </span>
-                                <span x-show="winningTeamName === 'No Bids'" class="text-gray-500">Waiting for bids...</span>
+                                <span class="text-green-300" x-text="sealedBids.length + ' bid(s) received'"></span>
                             </p>
                         </div>
 
@@ -292,22 +292,24 @@
                                  :style="`width: ${timerWidth}%`"></div>
                         </div>
 
-                        {{-- Action Buttons --}}
-                        <div class="flex gap-4 justify-center">
-                            <button @click="sellPlayer()"
-                                    class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30">
-                                <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                SELL
-                            </button>
-                            <button @click="passPlayer()"
-                                    class="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30">
-                                <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                                PASS
-                            </button>
+                        {{-- Action Buttons (same for both open & closed since all bids are sealed) --}}
+                        <div class="space-y-4">
+                            <div class="flex gap-4 justify-center">
+                                <button @click="sellPlayer()"
+                                        class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30">
+                                    <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    SELL
+                                </button>
+                                <button @click="passPlayer()"
+                                        class="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30">
+                                    <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                    PASS
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -414,31 +416,72 @@
                 </div>
             </div>
 
-            {{-- Live Bid History --}}
-            <div class="h-64 border-t border-gray-700 flex flex-col">
+            {{-- Bids Panel (visible to admin only) --}}
+            <div class="flex-1 border-t border-gray-700 flex flex-col">
                 <div class="p-4 border-b border-gray-700">
-                    <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-                        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                        </svg>
-                        Live Bids
-                    </h2>
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Bids
+                        </h2>
+                        <span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400" x-text="sealedBids.length + ' bids'"></span>
+                    </div>
                 </div>
                 <div class="flex-1 overflow-y-auto p-3 space-y-2">
-                    <template x-for="bid in bidLog.slice(0, 10)" :key="bid.id">
-                        <div class="bg-gray-700/50 rounded-lg p-3 bid-flash">
-                            <div class="flex justify-between items-center">
-                                <span class="font-medium text-white text-sm" x-text="bid.team.name"></span>
-                                <span class="font-bold text-green-400" x-text="formatCurrency(bid.amount)"></span>
+                    <template x-for="bid in sealedBids" :key="bid.id">
+                        <div class="bg-gray-700/50 rounded-xl p-4">
+                            <div class="flex items-center gap-3 mb-3">
+                                <template x-if="bid.team_logo">
+                                    <img :src="`/storage/${bid.team_logo}`" class="w-10 h-10 rounded-full object-cover">
+                                </template>
+                                <template x-if="!bid.team_logo">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm"
+                                         x-text="bid.team_name.charAt(0)"></div>
+                                </template>
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-semibold text-white text-sm truncate" x-text="bid.team_name"></p>
+                                    <p class="text-xs text-gray-400" x-text="bid.user_name"></p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-bold text-green-400 text-lg" x-text="formatCurrency(bid.amount)"></p>
+                                    <p class="text-xs text-gray-500" x-text="new Date(bid.created_at).toLocaleTimeString()"></p>
+                                </div>
                             </div>
-                            <div class="flex justify-between items-center mt-1">
-                                <span class="text-xs text-gray-500" x-text="bid.user.name"></span>
-                                <span class="text-xs text-gray-500" x-text="new Date(bid.created_at).toLocaleTimeString()"></span>
-                            </div>
+                            <button @click="confirmSellToTeam(bid)"
+                                    class="w-full py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg text-sm font-bold transition-all">
+                                Sold To This Team
+                            </button>
                         </div>
                     </template>
-                    <div x-show="bidLog.length === 0" class="text-center py-6 text-gray-500">
-                        <p class="text-sm">No bids yet</p>
+                    <div x-show="sealedBids.length === 0" class="text-center py-8 text-gray-500">
+                        <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-sm">Waiting for bids...</p>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Sell Confirmation Modal --}}
+            <div x-show="showSellModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" x-cloak>
+                <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-gray-700 shadow-2xl">
+                    <h3 class="text-xl font-bold text-white mb-4 text-center">Confirm Sale</h3>
+                    <div class="text-center mb-6">
+                        <p class="text-gray-300 mb-2">Sell <span class="font-bold text-white" x-text="currentPlayer?.player?.name"></span></p>
+                        <p class="text-gray-300">to <span class="font-bold text-green-400" x-text="sellModalData?.team_name"></span></p>
+                        <p class="text-gray-300">for <span class="font-bold text-yellow-400 text-2xl" x-text="formatCurrency(sellModalData?.amount)"></span>?</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <button @click="showSellModal = false"
+                                class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition">
+                            Cancel
+                        </button>
+                        <button @click="executeSellToTeam()"
+                                class="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold transition">
+                            Confirm Sale
+                        </button>
                     </div>
                 </div>
             </div>
@@ -449,9 +492,9 @@
 <script>
 function auctionOrganizerPanel() {
     return {
-        // Constants
-        BID_TIMER_DURATION: 30,
-        BID_TIMER_RESET_TO: 15,
+        // Constants from DB
+        BID_TIMER_DURATION: {{ $auction->bid_timer_seconds ?? 30 }},
+        BID_TIMER_RESET_TO: {{ $auction->bid_timer_reset_seconds ?? 15 }},
 
         // State
         auctionId: null,
@@ -470,6 +513,13 @@ function auctionOrganizerPanel() {
         currentBid: 0,
         winningTeamName: 'No Bids',
         bidLog: [],
+
+        // Closed bid state
+        sealedBids: [],
+        sealedBidPollInterval: null,
+        biddingClosed: false,
+        showSellModal: false,
+        sellModalData: null,
 
         isTumbling: false,
         selectedPlayerId: null,
@@ -491,106 +541,140 @@ function auctionOrganizerPanel() {
                 this.currentPlayer = currentPlayer;
                 this.currentBid = currentPlayer.current_price || currentPlayer.base_price;
                 this.displayState = 'bidding';
-                this.bidLog = currentPlayer.bids || [];
-                if (this.bidLog.length > 0) {
-                    this.winningTeamName = this.bidLog[0].team.name;
-                }
-                this.startBiddingTimer();
+                this.sealedBids = [];
             }
 
-            // Setup Echo listeners
-            // Private channel for player-on-bid and new-bid events
-            window.Echo.private(`auction.private.${this.auctionId}`)
-                .listen('.player.onbid', (e) => this.handlePlayerOnBid(e))
-                .listen('.bid.new', (e) => this.handleNewBid(e));
-
-            // Public channel for player-sold event
-            window.Echo.channel(`auction.${this.auctionId}`)
-                .listen('.player-on-sold', (e) => this.handlePlayerSold(e));
+            // Start polling for live updates (replaces Echo which requires Pusher)
+            this.startStatePolling();
         },
 
-        // Event Handlers
-        handlePlayerOnBid(event) {
-            this.currentPlayer = event.auctionPlayer;
-            this.currentBid = event.auctionPlayer.base_price;
-            this.winningTeamName = 'No Bids';
-            this.bidLog = (event.auctionPlayer.bids || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            this.displayState = 'bidding';
-            this.statusText = `${event.auctionPlayer.player.name} is now live!`;
-            this.startBiddingTimer();
+        // ---- Polling-based live updates ----
+        _lastCurrentPlayerId: null,
+        _pollInterval: null,
+
+        startStatePolling() {
+            this._lastCurrentPlayerId = this.currentPlayer?.id || null;
+            this._pollInterval = setInterval(() => this.pollAuctionState(), 2000);
         },
 
-        handleNewBid(event) {
-            if (!this.currentPlayer || event.bid.auction_player_id !== this.currentPlayer.id) return;
-            this.currentBid = event.bid.amount;
-            this.winningTeamName = event.bid.team.name;
-            this.bidLog.unshift(event.bid);
+        async pollAuctionState() {
+            try {
+                const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/poll-state`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
 
-            // Update team budget in UI
-            const team = this.teams.find(t => t.id === event.bid.team.id);
-            if (team) {
-                // This is a simplified update - the actual remaining will be calculated on refresh
-            }
+                // Update auction status
+                this.auctionStatus = data.auction_status;
 
-            this.resetBiddingTimer();
-        },
+                // Update available players — normalize nested structure to flat
+                this.availablePlayers = (data.available_players || []).map(ap => ({
+                    id: ap.id,
+                    name: ap.player?.name || 'Unknown',
+                    base_price: ap.base_price,
+                    image_path: ap.player?.image_path || null,
+                    player_type: ap.player?.player_type?.name || ap.player?.player_type?.type || 'Player',
+                    batting_style: ap.player?.batting_profile?.name || ap.player?.batting_profile?.style || null,
+                    bowling_style: ap.player?.bowling_profile?.name || ap.player?.bowling_profile?.style || null,
+                }));
 
-        handlePlayerSold(event) {
-            this.stopBiddingTimer();
+                // Update teams
+                this.teams = (data.teams || []).map(t => {
+                    t.remaining_budget = t.remaining_budget ?? (this.maxBudget - (t.total_spent || 0));
+                    return t;
+                });
 
-            // The event data structure from broadcastWith()
-            const auctionPlayer = event.auctionPlayer;
-            const winningTeam = event.winningTeam;
-
-            this.lastSoldPlayer = {
-                player: auctionPlayer.player,
-                final_price: auctionPlayer.final_price || this.currentBid,
-                winning_team: winningTeam
-            };
-
-            if (winningTeam) {
-                this.displayState = 'sold';
-                // Update team in UI
-                const team = this.teams.find(t => t.id === winningTeam.id);
-                if (team) {
-                    team.players_bought++;
-                    team.total_spent += this.lastSoldPlayer.final_price;
-                    team.remaining_budget = this.maxBudget - team.total_spent;
+                // Update stats
+                if (data.stats) {
+                    this.stats = data.stats;
                 }
-            } else {
-                this.displayState = 'unsold';
-            }
 
-            // Remove from queue
-            this.availablePlayers = this.availablePlayers.filter(p => p.id !== auctionPlayer.id);
-            this.currentPlayer = null;
-            this.bidLog = [];
-        },
+                const newPlayer = data.current_player;
+                const prevId = this._lastCurrentPlayerId;
 
-        // Timer Management
-        startBiddingTimer() {
-            this.stopBiddingTimer();
-            this.biddingTimerSeconds = this.BID_TIMER_DURATION;
-            this.timerWidth = 100;
+                if (newPlayer) {
+                    // A player is on auction
+                    if (newPlayer.id !== prevId) {
+                        // New player just came on bid
+                        this.currentPlayer = newPlayer;
+                        this.currentBid = newPlayer.current_price || newPlayer.base_price;
+                        this.displayState = 'bidding';
+                        this.biddingClosed = false;
+                        this.sealedBids = [];
+                        this.statusText = `${newPlayer.player?.name} is now live!`;
+                        this._lastCurrentPlayerId = newPlayer.id;
+                    } else {
+                        // Same player — update bids/price
+                        this.currentBid = newPlayer.current_price || this.currentBid;
+                        this.currentPlayer = newPlayer;
+                    }
+                    // Always fetch sealed bids when a player is live
+                    this.fetchSealedBids();
+                } else if (prevId && !newPlayer) {
+                    // Player was on auction but now gone — sold or passed
+                    // Check sold players to determine outcome
+                    const soldPlayers = data.sold_players || [];
+                    const justSold = soldPlayers.find(sp => sp.id === prevId);
 
-            this.biddingTimerInterval = setInterval(() => {
-                this.biddingTimerSeconds--;
-                this.timerWidth = (this.biddingTimerSeconds / this.BID_TIMER_DURATION) * 100;
+                    if (justSold) {
+                        this.lastSoldPlayer = {
+                            player: justSold.player,
+                            final_price: justSold.final_price || this.currentBid,
+                            winning_team: justSold.sold_to_team
+                        };
+                        this.displayState = justSold.sold_to_team ? 'sold' : 'unsold';
+                    } else {
+                        this.displayState = 'unsold';
+                    }
 
-                if (this.biddingTimerSeconds <= 0) {
-                    this.stopBiddingTimer();
-                    this.sellPlayer();
+                    this.currentPlayer = null;
+                    this.sealedBids = [];
+                    this.biddingClosed = false;
+                    this._lastCurrentPlayerId = null;
                 }
-            }, 1000);
+            } catch (e) {
+                console.error('[OrganizerPanel] Poll error:', e);
+            }
         },
 
-        resetBiddingTimer() {
-            this.biddingTimerSeconds = this.BID_TIMER_RESET_TO;
+        async fetchSealedBids() {
+            if (!this.currentPlayer) return;
+            try {
+                const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/sealed-bids?auction_player_id=${this.currentPlayer.id}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.bids) this.sealedBids = data.bids;
+            } catch (e) { console.error('Error fetching sealed bids:', e); }
         },
 
-        stopBiddingTimer() {
-            clearInterval(this.biddingTimerInterval);
-            this.biddingTimerInterval = null;
+        async closeBidding() {
+            if (!this.currentPlayer) return;
+            const result = await this.sendCommand('close-bidding', { auction_player_id: this.currentPlayer.id });
+            if (result && result.success) {
+                this.biddingClosed = true;
+            }
+        },
+
+        // Closed Bid: Confirm sell to specific team
+        confirmSellToTeam(bid) {
+            this.sellModalData = bid;
+            this.showSellModal = true;
+        },
+
+        async executeSellToTeam() {
+            if (!this.sellModalData || !this.currentPlayer) return;
+            this.showSellModal = false;
+            const result = await this.sendCommand('sell-to-team', {
+                auction_player_id: this.currentPlayer.id,
+                team_id: this.sellModalData.team_id,
+                amount: this.sellModalData.amount
+            });
+            if (result && result.success) {
+                await this.pollAuctionState();
+            }
+            this.sellModalData = null;
         },
 
         // Tumbler Logic
@@ -638,13 +722,13 @@ function auctionOrganizerPanel() {
         async sendCommand(endpoint, body = {}) {
             try {
                 const response = await fetch(`/admin/organizer/auction/${this.auctionId}/api/${endpoint}`, {
-                    method: 'POST',
+                    method: endpoint === 'sealed-bids' ? 'GET' : 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify(body)
+                    body: endpoint === 'sealed-bids' ? undefined : JSON.stringify(body)
                 });
 
                 const data = await response.json();
@@ -674,7 +758,6 @@ function auctionOrganizerPanel() {
             const result = await this.sendCommand('end');
             if (result) {
                 this.auctionStatus = 'completed';
-                this.stopBiddingTimer();
             }
         },
 
@@ -687,29 +770,40 @@ function auctionOrganizerPanel() {
 
         async putPlayerOnBid() {
             if (!this.selectedPlayerId) return;
-            await this.sendCommand('player-on-bid', { auction_player_id: this.selectedPlayerId });
+            const result = await this.sendCommand('player-on-bid', { auction_player_id: this.selectedPlayerId });
+            if (result) await this.pollAuctionState();
         },
 
         async sellPlayer() {
             if (!this.currentPlayer) return;
-            await this.sendCommand('sell-player', { auction_player_id: this.currentPlayer.id });
+            const result = await this.sendCommand('sell-player', { auction_player_id: this.currentPlayer.id });
+            if (result) await this.pollAuctionState();
         },
 
         async passPlayer() {
             if (!this.currentPlayer) return;
-            await this.sendCommand('pass-player', { auction_player_id: this.currentPlayer.id });
+            const result = await this.sendCommand('pass-player', { auction_player_id: this.currentPlayer.id });
+            if (result) await this.pollAuctionState();
         },
 
         // Helpers
         formatCurrency(amount) {
             const num = Number(amount) || 0;
-            if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr';
-            if (num >= 100000) return (num / 100000).toFixed(2) + ' L';
-            if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
+            if (num >= 10000000) {
+                const val = num / 10000000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' Cr';
+            }
+            if (num >= 100000) {
+                const val = num / 100000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' L';
+            }
+            if (num >= 1000) {
+                const val = num / 1000;
+                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace(/\.?0+$/, '')) + 'K';
+            }
             return num.toLocaleString();
         },
 
-        // Handle nested objects from broadcast vs initial load
         getPlayerType(player) {
             if (!player?.player) return 'Player';
             const pt = player.player.player_type || player.player.playerType;

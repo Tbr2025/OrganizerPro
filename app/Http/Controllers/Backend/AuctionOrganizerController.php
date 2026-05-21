@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Auction;
+use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
 use App\Models\ActualTeam;
 use App\Models\Player;
@@ -78,6 +79,64 @@ class AuctionOrganizerController extends Controller
             'teams',
             'stats'
         ));
+    }
+
+    /**
+     * Return full auction state as JSON for polling.
+     */
+    public function pollState(Auction $auction)
+    {
+        $availablePlayers = $auction->auctionPlayers()
+            ->where('status', 'waiting')
+            ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
+            ->get();
+
+        $currentPlayer = $auction->auctionPlayers()
+            ->where('status', 'on_auction')
+            ->with([
+                'player.playerType',
+                'player.battingProfile',
+                'player.bowlingProfile',
+                'bids.team',
+                'bids.user',
+                'soldToTeam'
+            ])
+            ->first();
+
+        $soldPlayers = $auction->auctionPlayers()
+            ->where('status', 'sold')
+            ->with(['player', 'soldToTeam'])
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+            ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
+                $query->where('auction_id', $auction->id)->where('status', 'sold');
+            }])
+            ->withSum(['auctionPlayers as total_spent' => function ($query) use ($auction) {
+                $query->where('auction_id', $auction->id)->where('status', 'sold');
+            }], 'final_price')
+            ->get()
+            ->map(function ($team) use ($auction) {
+                $team->remaining_budget = $auction->max_budget_per_team - ($team->total_spent ?? 0);
+                return $team;
+            });
+
+        $stats = [
+            'total_players' => $auction->auctionPlayers()->count(),
+            'sold_count' => $soldPlayers->count(),
+            'unsold_count' => $auction->auctionPlayers()->where('status', 'unsold')->count(),
+            'waiting_count' => $availablePlayers->count(),
+        ];
+
+        return response()->json([
+            'auction_status' => $auction->fresh()->status,
+            'available_players' => $availablePlayers,
+            'current_player' => $currentPlayer,
+            'sold_players' => $soldPlayers,
+            'teams' => $teams,
+            'stats' => $stats,
+        ]);
     }
 
     /**
@@ -262,5 +321,108 @@ class AuctionOrganizerController extends Controller
 
         // 5. Return a success response to the Organizer's panel
         return response()->json(['message' => 'Auction status has been updated to ' . $newStatus . '.']);
+    }
+
+    /**
+     * Sell a player to a specific team at a specific amount (closed bid mode).
+     */
+    public function sellToTeam(Request $request, Auction $auction)
+    {
+        $validated = $request->validate([
+            'auction_player_id' => 'required|exists:auction_players,id',
+            'team_id' => 'required|exists:actual_teams,id',
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
+            ->where('auction_id', $auction->id)
+            ->firstOrFail();
+
+        $team = ActualTeam::findOrFail($validated['team_id']);
+
+        // Calculate total spent budget for the team
+        $spentBudget = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('sold_to_team_id', $team->id)
+            ->where('status', 'sold')
+            ->sum('final_price');
+
+        $availableBalance = $auction->max_budget_per_team - $spentBudget;
+
+        if ($validated['amount'] > $availableBalance) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient team balance. Available: ' . number_format($availableBalance)
+            ], 400);
+        }
+
+        DB::transaction(function () use ($auctionPlayer, $team, $validated, $auction) {
+            // Mark player as sold
+            $auctionPlayer->update([
+                'status' => 'sold',
+                'sold_to_team_id' => $team->id,
+                'final_price' => $validated['amount'],
+                'current_price' => $validated['amount'],
+                'current_bid_team_id' => $team->id,
+            ]);
+
+            // Update the main player's mode (consistent with existing sellPlayer)
+            Player::where('id', $auctionPlayer->player_id)->update(['player_mode' => 'retained']);
+        });
+
+        broadcast(new PlayerSoldEvent($auctionPlayer->fresh(), $team));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Player sold to ' . $team->name . ' for ' . number_format($validated['amount']),
+        ]);
+    }
+
+    /**
+     * Close bidding for the current player (stop accepting bids).
+     */
+    public function closeBidding(Request $request, Auction $auction)
+    {
+        $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
+
+        $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)
+            ->where('auction_id', $auction->id)
+            ->where('status', 'on_auction')
+            ->firstOrFail();
+
+        $auctionPlayer->update(['status' => 'closed']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bidding closed for this player.',
+        ]);
+    }
+
+    /**
+     * Fetch sealed bids for a player on auction (closed bid mode).
+     */
+    public function fetchSealedBids(Request $request, Auction $auction)
+    {
+        $auctionPlayerId = $request->query('auction_player_id');
+
+        $query = AuctionBid::where('auction_id', $auction->id)
+            ->with(['team', 'user']);
+
+        if ($auctionPlayerId) {
+            $query->where('auction_player_id', $auctionPlayerId);
+        }
+
+        $bids = $query->orderByDesc('amount')->get()->map(function ($bid) {
+            return [
+                'id' => $bid->id,
+                'team_id' => $bid->team_id,
+                'team_name' => $bid->team->name ?? 'Unknown',
+                'team_logo' => $bid->team->logo_path ?? null,
+                'amount' => $bid->amount,
+                'user_name' => $bid->user->name ?? 'Unknown',
+                'created_at' => $bid->created_at->toISOString(),
+            ];
+        });
+
+        return response()->json(['bids' => $bids]);
     }
 }
