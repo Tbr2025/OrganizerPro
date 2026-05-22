@@ -674,8 +674,9 @@
         </div>
     </div>
 
-    {{-- Sell Player Modal (outside overflow-hidden containers) --}}
-    <div x-show="showSellModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm" x-cloak>
+    {{-- Sell Player Modal (teleported to body to escape overflow-hidden) --}}
+    <template x-teleport="body">
+    <div x-show="showSellModal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80" x-cloak>
         <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-gray-700 shadow-2xl">
             <h3 class="text-xl font-bold text-white mb-4 text-center">Sell Player</h3>
             <div class="text-center mb-6">
@@ -721,6 +722,7 @@
             </div>
         </div>
     </div>
+    </template>
 </div>
 
 <script>
