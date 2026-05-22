@@ -183,7 +183,7 @@ class AuctionOrganizerController extends Controller
                 ->pluck('player_id');
 
             Player::whereIn('id', $soldPlayerIds)
-                ->update(['player_mode' => 'pool']);
+                ->update(['player_mode' => 'normal']);
 
             // Reset all auction players back to waiting
             $auction->auctionPlayers()->update([
@@ -583,7 +583,7 @@ class AuctionOrganizerController extends Controller
 
             // Reset player_mode in case it was retained
             Player::where('id', $auctionPlayer->player_id)
-                ->update(['player_mode' => 'pool']);
+                ->update(['player_mode' => 'normal']);
 
             // Reset bid phase if auto transition is enabled
             if ($auction->hasAutoPhaseTransition()) {
@@ -656,7 +656,7 @@ class AuctionOrganizerController extends Controller
             // If was sold, revert player_mode
             if ($auctionPlayer->status === 'sold') {
                 Player::where('id', $auctionPlayer->player_id)
-                    ->update(['player_mode' => 'pool']);
+                    ->update(['player_mode' => 'normal']);
             }
 
             // Reset and put on auction
