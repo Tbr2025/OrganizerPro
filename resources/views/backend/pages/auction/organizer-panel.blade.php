@@ -103,6 +103,53 @@
          ] : null) }}
      )">
 
+    {{-- Sell Player Modal --}}
+    <div x-show="showSellModal" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);" x-cloak>
+        <div style="background:#1f2937;border-radius:1rem;padding:2rem;max-width:28rem;width:100%;margin:1rem;border:1px solid #374151;box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+            <h3 class="text-xl font-bold text-white mb-4 text-center">Sell Player</h3>
+            <div class="text-center mb-6">
+                <p class="text-gray-300 mb-4">Selling <span class="font-bold text-white" x-text="currentPlayer?.player?.name"></span></p>
+            </div>
+
+            {{-- Team Selection --}}
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Select Team</label>
+                <select x-model="sellModalData.team_id"
+                        class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
+                    <option value="">-- Choose a team --</option>
+                    <template x-for="team in teams" :key="team.id">
+                        <option :value="team.id" x-text="team.name + ' (Balance: ' + formatCurrency(team.remaining_budget) + ')'"></option>
+                    </template>
+                </select>
+            </div>
+
+            {{-- Amount Input --}}
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Sale Amount</label>
+                <input type="number" x-model="sellModalData.amount"
+                       class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
+            </div>
+
+            {{-- Summary --}}
+            <div x-show="sellModalData.team_id && sellModalData.amount" class="bg-gray-900/50 rounded-xl p-4 mb-6 text-center">
+                <p class="text-gray-300">Sell to <span class="font-bold text-green-400" x-text="teams.find(t => t.id == sellModalData.team_id)?.name"></span></p>
+                <p class="text-gray-300">for <span class="font-bold text-yellow-400 text-2xl" x-text="formatCurrency(sellModalData.amount)"></span></p>
+            </div>
+
+            <div class="flex gap-4">
+                <button @click="showSellModal = false"
+                        class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition">
+                    Cancel
+                </button>
+                <button @click="executeSellToTeam()"
+                        :disabled="!sellModalData.team_id || !sellModalData.amount"
+                        class="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold transition">
+                    Confirm Sale
+                </button>
+            </div>
+        </div>
+    </div>
+
     {{-- Header Bar --}}
     <div class="bg-gray-800 border-b border-gray-700 px-6 py-4">
         <div class="flex items-center justify-between">
@@ -674,55 +721,7 @@
         </div>
     </div>
 
-    {{-- Sell Player Modal (teleported to body to escape overflow-hidden) --}}
-    <template x-teleport="body">
-    <div x-show="showSellModal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80" x-cloak>
-        <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-gray-700 shadow-2xl">
-            <h3 class="text-xl font-bold text-white mb-4 text-center">Sell Player</h3>
-            <div class="text-center mb-6">
-                <p class="text-gray-300 mb-4">Selling <span class="font-bold text-white" x-text="currentPlayer?.player?.name"></span></p>
-            </div>
 
-            {{-- Team Selection --}}
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-300 mb-2">Select Team</label>
-                <select x-model="sellModalData.team_id"
-                        class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
-                    <option value="">-- Choose a team --</option>
-                    <template x-for="team in teams" :key="team.id">
-                        <option :value="team.id" x-text="team.name + ' (Balance: ' + formatCurrency(team.remaining_budget) + ')'"></option>
-                    </template>
-                </select>
-            </div>
-
-            {{-- Amount Input --}}
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-300 mb-2">Sale Amount</label>
-                <input type="number" x-model="sellModalData.amount"
-                       :placeholder="'Base price: ' + formatCurrency(currentPlayer?.base_price)"
-                       class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
-            </div>
-
-            {{-- Summary --}}
-            <div x-show="sellModalData.team_id && sellModalData.amount" class="bg-gray-900/50 rounded-xl p-4 mb-6 text-center">
-                <p class="text-gray-300">Sell to <span class="font-bold text-green-400" x-text="teams.find(t => t.id == sellModalData.team_id)?.name"></span></p>
-                <p class="text-gray-300">for <span class="font-bold text-yellow-400 text-2xl" x-text="formatCurrency(sellModalData.amount)"></span></p>
-            </div>
-
-            <div class="flex gap-4">
-                <button @click="showSellModal = false"
-                        class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition">
-                    Cancel
-                </button>
-                <button @click="executeSellToTeam()"
-                        :disabled="!sellModalData.team_id || !sellModalData.amount"
-                        class="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold transition">
-                    Confirm Sale
-                </button>
-            </div>
-        </div>
-    </div>
-    </template>
 </div>
 
 <script>
