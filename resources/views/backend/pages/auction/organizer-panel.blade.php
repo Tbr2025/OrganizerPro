@@ -350,7 +350,7 @@
         <div class="flex-1 flex flex-col items-center justify-center p-8 relative overflow-hidden">
 
             {{-- Background Pattern --}}
-            <div class="absolute inset-0 opacity-5">
+            <div class="absolute inset-0 opacity-5 pointer-events-none">
                 <div class="absolute inset-0" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 40px 40px;"></div>
             </div>
 
@@ -375,7 +375,7 @@
             </div>
 
             {{-- Bidding State: Main Player Card --}}
-            <div x-show="displayState === 'bidding'" x-transition class="w-full max-w-2xl">
+            <div x-show="displayState === 'bidding'" x-transition class="w-full max-w-2xl relative z-10">
                 <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl overflow-hidden border-2 border-blue-500 player-card-glow">
                     {{-- Player Image & Info --}}
                     <div class="relative">
@@ -437,24 +437,24 @@
 
                         {{-- Action Buttons (same for both open & closed since all bids are sealed) --}}
                         <div class="space-y-4">
-                            <div class="flex gap-4 justify-center">
+                            <div class="flex flex-wrap gap-3 justify-center">
                                 <button @click="sellPlayer()"
-                                        class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30">
-                                    <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30">
+                                    <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
                                     SELL
                                 </button>
                                 <button @click="passPlayer()"
-                                        class="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30">
-                                    <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        class="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30">
+                                    <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                     </svg>
                                     PASS
                                 </button>
                                 <button @click="rebidCurrentPlayer()"
-                                        class="px-6 py-4 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/30">
-                                    <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        class="relative z-10 px-6 py-3 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/30 cursor-pointer">
+                                    <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                                     </svg>
                                     RE-BID
