@@ -671,22 +671,48 @@
                 </div>
             </div>
 
-            {{-- Sell Confirmation Modal --}}
+            {{-- Sell Player Modal --}}
             <div x-show="showSellModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm" x-cloak>
                 <div class="bg-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 border border-gray-700 shadow-2xl">
-                    <h3 class="text-xl font-bold text-white mb-4 text-center">Confirm Sale</h3>
+                    <h3 class="text-xl font-bold text-white mb-4 text-center">Sell Player</h3>
                     <div class="text-center mb-6">
-                        <p class="text-gray-300 mb-2">Sell <span class="font-bold text-white" x-text="currentPlayer?.player?.name"></span></p>
-                        <p class="text-gray-300">to <span class="font-bold text-green-400" x-text="sellModalData?.team_name"></span></p>
-                        <p class="text-gray-300">for <span class="font-bold text-yellow-400 text-2xl" x-text="formatCurrency(sellModalData?.amount)"></span>?</p>
+                        <p class="text-gray-300 mb-4">Selling <span class="font-bold text-white" x-text="currentPlayer?.player?.name"></span></p>
                     </div>
+
+                    {{-- Team Selection --}}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Select Team</label>
+                        <select x-model="sellModalData.team_id"
+                                class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
+                            <option value="">-- Choose a team --</option>
+                            <template x-for="team in teams" :key="team.id">
+                                <option :value="team.id" x-text="team.name + ' (Balance: ' + formatCurrency(team.remaining_budget) + ')'"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    {{-- Amount Input --}}
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Sale Amount</label>
+                        <input type="number" x-model="sellModalData.amount"
+                               :placeholder="'Base price: ' + formatCurrency(currentPlayer?.base_price)"
+                               class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
+                    </div>
+
+                    {{-- Summary --}}
+                    <div x-show="sellModalData.team_id && sellModalData.amount" class="bg-gray-900/50 rounded-xl p-4 mb-6 text-center">
+                        <p class="text-gray-300">Sell to <span class="font-bold text-green-400" x-text="teams.find(t => t.id == sellModalData.team_id)?.name"></span></p>
+                        <p class="text-gray-300">for <span class="font-bold text-yellow-400 text-2xl" x-text="formatCurrency(sellModalData.amount)"></span></p>
+                    </div>
+
                     <div class="flex gap-4">
                         <button @click="showSellModal = false"
                                 class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition">
                             Cancel
                         </button>
                         <button @click="executeSellToTeam()"
-                                class="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold transition">
+                                :disabled="!sellModalData.team_id || !sellModalData.amount"
+                                class="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold transition">
                             Confirm Sale
                         </button>
                     </div>
@@ -726,7 +752,7 @@ function auctionOrganizerPanel() {
         sealedBidPollInterval: null,
         biddingClosed: false,
         showSellModal: false,
-        sellModalData: null,
+        sellModalData: { team_id: '', amount: '' },
 
         // Online/Offline mode state
         bidType: '{{ $auction->bid_type ?? 'open' }}',
@@ -952,7 +978,7 @@ function auctionOrganizerPanel() {
             if (result && result.success) {
                 await this.pollAuctionState();
             }
-            this.sellModalData = null;
+            this.sellModalData = { team_id: '', amount: '' };
         },
 
         // Manual Phase Switch (open / closed / offline)
@@ -1178,8 +1204,15 @@ function auctionOrganizerPanel() {
 
         async sellPlayer() {
             if (!this.currentPlayer) return;
-            const result = await this.sendCommand('sell-player', { auction_player_id: this.currentPlayer.id });
-            if (result) await this.pollAuctionState();
+            // Pre-fill with highest bidder if available
+            const highestBid = this.currentPlayer.bids?.length
+                ? this.currentPlayer.bids.reduce((a, b) => (a.amount > b.amount ? a : b), this.currentPlayer.bids[0])
+                : null;
+            this.sellModalData = {
+                team_id: highestBid?.team_id || '',
+                amount: highestBid?.amount || this.currentPlayer.current_price || this.currentPlayer.base_price,
+            };
+            this.showSellModal = true;
         },
 
         async passPlayer() {
