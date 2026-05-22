@@ -67,7 +67,7 @@ class TeamManagerController extends Controller
         $upcomingAuctions = collect();
         if ($team->tournament_id) {
             $upcomingAuctions = Auction::where('tournament_id', $team->tournament_id)
-                ->whereIn('status', ['scheduled', 'active', 'paused'])
+                ->whereIn('status', ['scheduled', 'running', 'paused'])
                 ->with('tournament')
                 ->get();
         }

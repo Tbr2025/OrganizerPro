@@ -868,7 +868,12 @@ class ActualTeamController extends Controller
 
             // Auto-send credentials email
             try {
-                Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $plainPassword, $actualTeam->tournament, $actualTeam));
+                $tournament = $actualTeam->tournament ?? $actualTeam->tournaments()->first();
+                if ($tournament) {
+                    Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $plainPassword, $tournament, $actualTeam));
+                } else {
+                    Log::warning("No tournament found for team {$actualTeam->id}, skipping credentials email to {$user->email}");
+                }
             } catch (\Throwable $e) {
                 Log::warning("Failed to send credentials email to {$user->email}: {$e->getMessage()}");
             }

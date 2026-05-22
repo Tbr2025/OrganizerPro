@@ -168,6 +168,20 @@ class AuctionOrganizerController extends Controller
     }
 
     /**
+     * Restart a completed auction — sets status back to running.
+     */
+    public function restartAuction(Auction $auction)
+    {
+        if ($auction->status !== 'completed') {
+            return response()->json(['message' => 'Only completed auctions can be restarted.'], 422);
+        }
+
+        $auction->update(['status' => 'running']);
+        broadcast(new AuctionStatusUpdate($auction->id, 'running'));
+        return response()->json(['success' => true, 'message' => 'Auction has been restarted.']);
+    }
+
+    /**
      * Select the next player and put them up for bidding.
      */
     // public function putPlayerOnBid(Request $request, Auction $auction)

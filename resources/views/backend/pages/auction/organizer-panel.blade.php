@@ -204,6 +204,10 @@
                             class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
                         End Auction
                     </button>
+                    <button @click="restartAuction()" x-show="auctionStatus === 'completed'"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
+                        Restart Auction
+                    </button>
                 </div>
             </div>
         </div>
@@ -662,6 +666,7 @@ function auctionOrganizerPanel() {
         biddingTimerInterval: null,
         biddingTimerSeconds: 0,
         timerWidth: 100,
+        _lastKnownBid: 0,
 
         init(auctionId, status, players, teams, maxBudget, currentPlayer) {
             this.auctionId = auctionId;
@@ -674,12 +679,41 @@ function auctionOrganizerPanel() {
             if (currentPlayer) {
                 this.currentPlayer = currentPlayer;
                 this.currentBid = currentPlayer.current_price || currentPlayer.base_price;
+                this._lastKnownBid = this.currentBid;
                 this.displayState = 'bidding';
                 this.sealedBids = [];
+                this.startBiddingTimer();
             }
 
             // Start polling for live updates (replaces Echo which requires Pusher)
             this.startStatePolling();
+        },
+
+        // ---- Timer logic ----
+        startBiddingTimer(duration) {
+            this.stopBiddingTimer();
+            this.biddingTimerSeconds = duration || this.BID_TIMER_DURATION;
+            this.timerWidth = 100;
+            const maxSeconds = this.biddingTimerSeconds;
+            this.biddingTimerInterval = setInterval(() => {
+                this.biddingTimerSeconds--;
+                this.timerWidth = Math.max(0, (this.biddingTimerSeconds / maxSeconds) * 100);
+                if (this.biddingTimerSeconds <= 0) {
+                    this.stopBiddingTimer();
+                }
+            }, 1000);
+        },
+
+        resetBiddingTimer() {
+            const resetTo = this.BID_TIMER_RESET_TO || this.BID_TIMER_DURATION;
+            this.startBiddingTimer(resetTo);
+        },
+
+        stopBiddingTimer() {
+            if (this.biddingTimerInterval) {
+                clearInterval(this.biddingTimerInterval);
+                this.biddingTimerInterval = null;
+            }
         },
 
         // ---- Polling-based live updates ----
@@ -746,20 +780,33 @@ function auctionOrganizerPanel() {
                         // New player just came on bid
                         this.currentPlayer = newPlayer;
                         this.currentBid = newPlayer.current_price || newPlayer.base_price;
+                        this._lastKnownBid = this.currentBid;
                         this.displayState = 'bidding';
                         this.biddingClosed = false;
                         this.sealedBids = [];
                         this.statusText = `${newPlayer.player?.name} is now live!`;
                         this._lastCurrentPlayerId = newPlayer.id;
+                        // Start timer for new player
+                        this.startBiddingTimer();
                     } else {
                         // Same player — update bids/price
-                        this.currentBid = newPlayer.current_price || this.currentBid;
+                        const newBid = newPlayer.current_price || this.currentBid;
+                        if (newBid !== this._lastKnownBid) {
+                            // New bid detected — reset timer
+                            this._lastKnownBid = newBid;
+                            this.resetBiddingTimer();
+                        }
+                        this.currentBid = newBid;
                         this.currentPlayer = newPlayer;
                     }
                     // Always fetch sealed bids when a player is live
                     this.fetchSealedBids();
                 } else if (prevId && !newPlayer) {
                     // Player was on auction but now gone — sold or passed
+                    this.stopBiddingTimer();
+                    this.biddingTimerSeconds = 0;
+                    this.timerWidth = 0;
+
                     // Check sold players to determine outcome
                     const soldPlayers = data.sold_players || [];
                     const justSold = soldPlayers.find(sp => sp.id === prevId);
@@ -779,6 +826,7 @@ function auctionOrganizerPanel() {
                     this.sealedBids = [];
                     this.biddingClosed = false;
                     this._lastCurrentPlayerId = null;
+                    this._lastKnownBid = 0;
                 }
             } catch (e) {
                 console.error('[OrganizerPanel] Poll error:', e);
@@ -1012,6 +1060,16 @@ function auctionOrganizerPanel() {
             const result = await this.sendCommand('end');
             if (result) {
                 this.auctionStatus = 'completed';
+            }
+        },
+
+        async restartAuction() {
+            if (!confirm('Are you sure you want to restart this auction? It will be set back to running.')) return;
+            const result = await this.sendCommand('restart');
+            if (result && result.success) {
+                this.auctionStatus = 'running';
+                this.displayState = 'waiting';
+                this.statusText = 'Auction restarted! Select next player.';
             }
         },
 

@@ -183,6 +183,7 @@ Route::middleware(['auth'])
             Route::get('/poll-state', [AuctionOrganizerController::class, 'pollState'])->name('poll-state');
             Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('start');
             Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('end');
+            Route::post('/restart', [AuctionOrganizerController::class, 'restartAuction'])->name('restart');
             Route::post('/toggle-pause', [AuctionOrganizerController::class, 'togglePause'])->name('toggle-pause');
             Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('player.onbid');
             Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('player.sell');
