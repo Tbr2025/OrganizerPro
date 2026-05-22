@@ -53,6 +53,21 @@
     .queue-item:hover {
         transform: translateX(5px);
     }
+    .team-card-selected {
+        animation: teamCardPulse 0.3s ease-out;
+    }
+    @keyframes teamCardPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    .offline-winner-glow {
+        animation: winnerGlow 2s ease-in-out infinite alternate;
+    }
+    @keyframes winnerGlow {
+        from { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
+        to { box-shadow: 0 0 40px rgba(34, 197, 94, 0.6), 0 0 60px rgba(34, 197, 94, 0.3); }
+    }
 </style>
 @endpush
 
@@ -394,7 +409,8 @@
         </div>
 
         {{-- Center: Main Player Display --}}
-        <div class="flex-1 flex flex-col items-center justify-center p-8 relative overflow-hidden">
+        <div class="flex-1 flex flex-col items-center justify-center relative overflow-hidden"
+             :class="openBidMode === 'offline' && displayState === 'bidding' ? 'p-3 justify-start overflow-y-auto' : 'p-8'">
 
             {{-- Background Pattern --}}
             <div class="absolute inset-0 opacity-5 pointer-events-none">
@@ -421,8 +437,8 @@
                 <p class="text-blue-400">Selecting player...</p>
             </div>
 
-            {{-- Bidding State: Main Player Card --}}
-            <div x-show="displayState === 'bidding'" x-transition class="w-full max-w-2xl relative z-10">
+            {{-- Bidding State: Main Player Card (Online/Normal mode) --}}
+            <div x-show="displayState === 'bidding' && openBidMode !== 'offline'" x-transition class="w-full max-w-2xl relative z-10">
                 <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl overflow-hidden border-2 border-blue-500 player-card-glow">
                     {{-- Player Image & Info --}}
                     <div class="relative">
@@ -508,6 +524,228 @@
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Offline Bidding State: Dedicated Panel --}}
+            <div x-show="displayState === 'bidding' && openBidMode === 'offline'" x-transition class="w-full relative z-10">
+
+                {{-- A. Compact Player Info Bar --}}
+                <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 mb-3">
+                    <div class="flex items-center gap-3">
+                        <img :src="currentPlayer?.player?.image_path ? `/storage/${currentPlayer.player.image_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(currentPlayer?.player?.name || 'P')}&size=80&background=random`"
+                             class="w-12 h-12 rounded-lg object-cover object-top border-2 border-blue-500/50 flex-shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-base font-bold text-white truncate" x-text="currentPlayer?.player?.name"></h3>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <span class="px-1.5 py-0.5 bg-gray-700 rounded text-xs" x-text="getPlayerType(currentPlayer)"></span>
+                                <span>Base: <span class="text-white font-semibold" x-text="formatCurrency(currentPlayer?.base_price)"></span></span>
+                                <span x-show="currentPlayer?.current_price">Curr: <span class="text-orange-400 font-semibold" x-text="formatCurrency(currentPlayer?.current_price)"></span></span>
+                            </div>
+                        </div>
+                        <div class="bg-orange-500/80 px-2 py-1 rounded-full flex-shrink-0">
+                            <span class="text-xs font-bold text-white">OFFLINE</span>
+                        </div>
+                        <div class="flex gap-1.5 flex-shrink-0">
+                            <button @click="sellPlayer()" class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold text-xs transition-all">SELL</button>
+                            <button @click="passPlayer()" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-xs transition-all">PASS</button>
+                            <button @click="rebidCurrentPlayer()" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold text-xs transition-all">RE-BID</button>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- B. Phase Stepper --}}
+                <div class="flex items-center justify-center gap-1 mb-3">
+                    <template x-for="(step, idx) in [{label:'Select', phase:'selection'}, {label:'Bids', phase:'bidding'}, {label:'Results', phase:'results'}]" :key="idx">
+                        <div class="flex items-center gap-1">
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                                 :class="offlinePhase === step.phase ? 'bg-blue-600 text-white' : (['selection','bidding','results'].indexOf(offlinePhase) > idx ? 'bg-green-600/30 text-green-400' : 'bg-gray-700 text-gray-400')">
+                                <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+                                      :class="offlinePhase === step.phase ? 'bg-white text-blue-600' : (['selection','bidding','results'].indexOf(offlinePhase) > idx ? 'bg-green-500 text-white' : 'bg-gray-600 text-gray-300')"
+                                      x-text="['selection','bidding','results'].indexOf(offlinePhase) > idx ? '✓' : (idx + 1)"></span>
+                                <span x-text="step.label"></span>
+                            </div>
+                            <svg x-show="idx < 2" class="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </div>
+                    </template>
+                </div>
+
+                {{-- C. Phase 1: Team Selection --}}
+                <div x-show="offlinePhase === 'selection'" x-transition>
+                    {{-- Participating teams bar --}}
+                    <div x-show="offlineParticipants.length > 0" class="bg-gray-800/50 border border-gray-700 rounded-xl p-3 mb-4">
+                        <p class="text-xs text-gray-400 mb-2">PARTICIPATING TEAMS (<span x-text="offlineParticipants.length"></span>)</p>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="tid in offlineParticipants" :key="tid">
+                                <div class="flex items-center gap-2 bg-orange-500/20 border border-orange-500/40 rounded-full px-3 py-1.5 cursor-pointer hover:bg-orange-500/30 transition-all"
+                                     @click="toggleOfflineParticipant(tid)">
+                                    <template x-if="getTeamById(tid)?.logo_path">
+                                        <img :src="`/storage/${getTeamById(tid).logo_path}`" class="w-6 h-6 rounded-full object-cover">
+                                    </template>
+                                    <template x-if="!getTeamById(tid)?.logo_path">
+                                        <div class="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-white text-xs font-bold" x-text="getTeamById(tid)?.short_name || '?'"></div>
+                                    </template>
+                                    <span class="text-sm text-white font-medium" x-text="getTeamById(tid)?.name"></span>
+                                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    {{-- Team Logo Grid --}}
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
+                        <template x-for="team in teams" :key="team.id">
+                            <div @click="toggleOfflineParticipant(team.id)"
+                                 class="relative bg-gray-800 border-2 rounded-lg p-3 cursor-pointer transition-all hover:scale-[1.03] flex items-center gap-2"
+                                 :class="isOfflineParticipant(team.id) ? 'border-orange-500 bg-orange-500/10 team-card-selected' : 'border-gray-700 hover:border-gray-500'">
+                                {{-- Checkmark --}}
+                                <div x-show="isOfflineParticipant(team.id)" class="absolute top-1 right-1">
+                                    <div class="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    </div>
+                                </div>
+                                {{-- Logo --}}
+                                <template x-if="team.logo_path">
+                                    <img :src="`/storage/${team.logo_path}`" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
+                                </template>
+                                <template x-if="!team.logo_path">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0" x-text="team.short_name"></div>
+                                </template>
+                                {{-- Name & Budget --}}
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-semibold text-white truncate" x-text="team.name"></p>
+                                    <p class="text-xs" :class="team.remaining_budget < maxBudget * 0.2 ? 'text-red-400' : 'text-gray-400'" x-text="formatCurrency(team.remaining_budget) + ' left'"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    {{-- Start Bidding Button --}}
+                    <div class="text-center">
+                        <button @click="startOfflineBidding()"
+                                :disabled="offlineParticipants.length === 0"
+                                class="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white rounded-xl font-bold text-base transition-all transform hover:scale-105 disabled:hover:scale-100 shadow-lg shadow-blue-500/30 disabled:shadow-none">
+                            <span x-text="offlineParticipants.length > 0 ? 'Start Bidding (' + offlineParticipants.length + ' teams)' : 'Select teams to start'"></span>
+                        </button>
+                    </div>
+                </div>
+
+                {{-- D. Phase 2: Bid Entry --}}
+                <div x-show="offlinePhase === 'bidding'" x-transition>
+                    <div class="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden mb-4">
+                        <div class="p-3 bg-gray-700/50 border-b border-gray-700">
+                            <p class="text-sm font-semibold text-white">Enter bid amounts for each team</p>
+                        </div>
+                        <div class="divide-y divide-gray-700">
+                            <template x-for="tid in offlineParticipants" :key="tid">
+                                <div class="flex items-center gap-4 p-4">
+                                    {{-- Team logo --}}
+                                    <template x-if="getTeamById(tid)?.logo_path">
+                                        <img :src="`/storage/${getTeamById(tid).logo_path}`" class="w-10 h-10 rounded-full object-cover">
+                                    </template>
+                                    <template x-if="!getTeamById(tid)?.logo_path">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm" x-text="getTeamById(tid)?.short_name || '?'"></div>
+                                    </template>
+                                    {{-- Team info --}}
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-semibold text-white truncate" x-text="getTeamById(tid)?.name"></p>
+                                        <p class="text-xs text-gray-400">Budget: <span x-text="formatCurrency(getTeamById(tid)?.remaining_budget)"></span></p>
+                                    </div>
+                                    {{-- Bid input (in Lakhs) --}}
+                                    <div class="w-44">
+                                        <div class="flex items-center bg-gray-700 border border-gray-600 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                                            <input type="number"
+                                                   :value="offlineTeamBids[tid] / 100000"
+                                                   @input="offlineTeamBids[tid] = Number($event.target.value) * 100000"
+                                                   class="w-full bg-transparent px-3 py-2 text-white text-sm text-right outline-none"
+                                                   placeholder="0" min="0" step="0.5">
+                                            <span class="pr-3 text-xs text-gray-400 whitespace-nowrap">L</span>
+                                        </div>
+                                    </div>
+                                    {{-- Remove button --}}
+                                    <button @click="toggleOfflineParticipant(tid)" class="p-2 text-gray-400 hover:text-red-400 transition-colors">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between">
+                        <button @click="offlineGoBack()" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all">
+                            &larr; Back to Selection
+                        </button>
+                        <button @click="endOfflineBidding()"
+                                class="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30">
+                            End Bidding &amp; Show Winner
+                        </button>
+                    </div>
+                </div>
+
+                {{-- E. Phase 3: Results --}}
+                <div x-show="offlinePhase === 'results'" x-transition>
+                    {{-- Winner Card --}}
+                    <div x-show="offlineHighestBidder" class="bg-gray-800 border-2 border-green-500 rounded-xl p-6 mb-4 text-center offline-winner-glow">
+                        <p class="text-green-400 text-sm font-semibold mb-3 uppercase tracking-wider">Winner</p>
+                        <template x-if="getTeamById(offlineHighestBidder)?.logo_path">
+                            <img :src="`/storage/${getTeamById(offlineHighestBidder).logo_path}`" class="w-20 h-20 mx-auto rounded-full object-cover mb-3 border-4 border-green-500/50">
+                        </template>
+                        <template x-if="!getTeamById(offlineHighestBidder)?.logo_path">
+                            <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-2xl mb-3" x-text="getTeamById(offlineHighestBidder)?.short_name || '?'"></div>
+                        </template>
+                        <h3 class="text-2xl font-bold text-white mb-1" x-text="getTeamById(offlineHighestBidder)?.name"></h3>
+                        <p class="text-3xl font-black text-green-400 mb-4" x-text="formatCurrency(offlineHighestAmount)"></p>
+                        <button @click="confirmOfflineSale(offlineHighestBidder, offlineHighestAmount)"
+                                class="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30">
+                            Confirm Sale to Winner
+                        </button>
+                    </div>
+
+                    {{-- All Bids Ranked --}}
+                    <div class="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden mb-4">
+                        <div class="p-3 bg-gray-700/50 border-b border-gray-700">
+                            <p class="text-sm font-semibold text-white">All Bids (Ranked)</p>
+                        </div>
+                        <div class="divide-y divide-gray-700">
+                            <template x-for="(entry, idx) in Object.entries(offlineTeamBids).sort((a,b) => b[1] - a[1])" :key="entry[0]">
+                                <div class="flex items-center gap-4 p-4"
+                                     :class="Number(entry[0]) === offlineHighestBidder ? 'bg-green-500/10' : ''">
+                                    {{-- Rank --}}
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                                         :class="idx === 0 ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'"
+                                         x-text="'#' + (idx + 1)"></div>
+                                    {{-- Team logo --}}
+                                    <template x-if="getTeamById(Number(entry[0]))?.logo_path">
+                                        <img :src="`/storage/${getTeamById(Number(entry[0])).logo_path}`" class="w-10 h-10 rounded-full object-cover">
+                                    </template>
+                                    <template x-if="!getTeamById(Number(entry[0]))?.logo_path">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm" x-text="getTeamById(Number(entry[0]))?.short_name || '?'"></div>
+                                    </template>
+                                    {{-- Team info --}}
+                                    <div class="flex-1 min-w-0">
+                                        <p class="font-semibold text-white truncate" x-text="getTeamById(Number(entry[0]))?.name"></p>
+                                    </div>
+                                    {{-- Amount --}}
+                                    <p class="font-bold text-lg" :class="Number(entry[0]) === offlineHighestBidder ? 'text-green-400' : 'text-gray-300'" x-text="formatCurrency(entry[1])"></p>
+                                    {{-- Override sell button (non-winners) --}}
+                                    <button x-show="Number(entry[0]) !== offlineHighestBidder"
+                                            @click="confirmOfflineSale(Number(entry[0]), entry[1])"
+                                            class="px-3 py-1.5 bg-gray-700 hover:bg-green-600 text-gray-300 hover:text-white rounded-lg text-xs font-semibold transition-all">
+                                        Sell
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between">
+                        <button @click="offlineGoBack()" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all">
+                            &larr; Back to Bids
+                        </button>
+                        <button @click="resetOfflinePanel()" class="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all">
+                            Reset
+                        </button>
                     </div>
                 </div>
             </div>
@@ -613,63 +851,6 @@
                 </div>
             </div>
 
-            {{-- Offline Bidding Panel (shown when in offline mode) --}}
-            <div x-show="openBidMode === 'offline' && hasOnlineOfflineMode && displayState === 'bidding'"
-                 class="border-t border-gray-700 p-4 space-y-3" x-cloak>
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full bg-orange-500 animate-pulse"></div>
-                    <h2 class="text-lg font-semibold text-white">Offline Bidding</h2>
-                </div>
-                <p class="text-xs text-gray-400">Select a team to add a bid (hand raise). Click "Sell" when bidding ends.</p>
-
-                {{-- Current Price Display --}}
-                <div class="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 text-center">
-                    <p class="text-orange-300 text-xs uppercase">Current Price</p>
-                    <p class="text-2xl font-bold text-orange-400" x-text="formatCurrency(currentPlayer?.current_price || currentPlayer?.base_price)"></p>
-                </div>
-
-                {{-- Team Dropdown --}}
-                <div>
-                    <label class="text-xs text-gray-400 mb-1 block">Team (Hand Raise)</label>
-                    <select x-model="offlineSaleTeamId"
-                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
-                        <option value="">Select Team...</option>
-                        <template x-for="team in teams" :key="team.id">
-                            <option :value="team.id" x-text="team.name + ' (' + formatCurrency(team.remaining_budget) + ' left)'"></option>
-                        </template>
-                    </select>
-                </div>
-
-                {{-- Add Bid (Increment) Button --}}
-                <button @click="executeOfflineBid()"
-                        :disabled="!offlineSaleTeamId"
-                        class="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold text-base transition-all">
-                    <span class="flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path>
-                        </svg>
-                        Add Bid (Hand Raise)
-                    </span>
-                </button>
-
-                <div class="border-t border-gray-600 my-1"></div>
-
-                {{-- Direct Sell Section --}}
-                <div>
-                    <label class="text-xs text-gray-400 mb-1 block">Sale Amount (leave empty to use current price)</label>
-                    <input type="number" x-model.number="offlineSaleAmount"
-                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                           :placeholder="'Current: ' + formatCurrency(currentPlayer?.current_price || 0)" min="0">
-                </div>
-
-                {{-- Sell Button --}}
-                <button @click="executeOfflineSale()"
-                        :disabled="!offlineSaleTeamId"
-                        class="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg transition-all">
-                    Sell to Team
-                </button>
-            </div>
-
             {{-- Bids Panel (visible to admin only) --}}
             <div class="flex-1 border-t border-gray-700 flex flex-col">
                 <div class="p-4 border-b border-gray-700">
@@ -764,6 +945,13 @@ function auctionOrganizerPanel() {
         modeManuallyOverridden: {{ $auction->mode_manually_overridden ? 'true' : 'false' }},
         offlineSaleTeamId: '',
         offlineSaleAmount: '',
+
+        // Offline bidding panel state
+        offlinePhase: 'selection',
+        offlineParticipants: [],
+        offlineTeamBids: {},
+        offlineHighestBidder: null,
+        offlineHighestAmount: 0,
 
         isTumbling: false,
         selectedPlayerId: null,
@@ -895,6 +1083,7 @@ function auctionOrganizerPanel() {
                         this.displayState = 'bidding';
                         this.biddingClosed = false;
                         this.sealedBids = [];
+                        this.resetOfflinePanel();
                         this.statusText = `${newPlayer.player?.name} is now live!`;
                         this._lastCurrentPlayerId = newPlayer.id;
                         // Start timer for new player
@@ -1004,6 +1193,7 @@ function auctionOrganizerPanel() {
                 }
             } else {
                 // Switch bid type and ensure online mode
+                this.resetOfflinePanel();
                 const modeResult = await this.sendCommand('switch-mode', { mode: 'online' });
                 if (modeResult && modeResult.success) {
                     this.openBidMode = 'online';
@@ -1088,6 +1278,84 @@ function auctionOrganizerPanel() {
                 this.offlineSaleAmount = '';
                 await this.pollAuctionState();
             }
+        },
+
+        // Offline Panel Methods
+        toggleOfflineParticipant(teamId) {
+            const idx = this.offlineParticipants.indexOf(teamId);
+            if (idx === -1) {
+                this.offlineParticipants.push(teamId);
+            } else {
+                this.offlineParticipants.splice(idx, 1);
+                delete this.offlineTeamBids[teamId];
+            }
+        },
+
+        isOfflineParticipant(teamId) {
+            return this.offlineParticipants.includes(teamId);
+        },
+
+        startOfflineBidding() {
+            if (this.offlineParticipants.length === 0) return;
+            const basePrice = this.currentPlayer?.base_price || 0;
+            this.offlineParticipants.forEach(tid => {
+                if (!this.offlineTeamBids[tid]) {
+                    this.offlineTeamBids[tid] = basePrice;
+                }
+            });
+            this.offlinePhase = 'bidding';
+        },
+
+        endOfflineBidding() {
+            let highestId = null;
+            let highestAmt = 0;
+            for (const tid of this.offlineParticipants) {
+                const amt = Number(this.offlineTeamBids[tid]) || 0;
+                if (amt > highestAmt) {
+                    highestAmt = amt;
+                    highestId = Number(tid);
+                }
+            }
+            this.offlineHighestBidder = highestId;
+            this.offlineHighestAmount = highestAmt;
+            this.offlinePhase = 'results';
+        },
+
+        async confirmOfflineSale(teamId, amount) {
+            if (!this.currentPlayer) return;
+            const team = this.getTeamById(teamId);
+            const teamName = team ? team.name : 'selected team';
+            if (!confirm(`Sell ${this.currentPlayer?.player?.name} to ${teamName} for ${this.formatCurrency(amount)}?`)) return;
+
+            const result = await this.sendCommand('sell-to-team', {
+                auction_player_id: this.currentPlayer.id,
+                team_id: teamId,
+                amount: amount
+            });
+            if (result && result.success) {
+                this.resetOfflinePanel();
+                await this.pollAuctionState();
+            }
+        },
+
+        resetOfflinePanel() {
+            this.offlinePhase = 'selection';
+            this.offlineParticipants = [];
+            this.offlineTeamBids = {};
+            this.offlineHighestBidder = null;
+            this.offlineHighestAmount = 0;
+        },
+
+        offlineGoBack() {
+            if (this.offlinePhase === 'bidding') {
+                this.offlinePhase = 'selection';
+            } else if (this.offlinePhase === 'results') {
+                this.offlinePhase = 'bidding';
+            }
+        },
+
+        getTeamById(teamId) {
+            return this.teams.find(t => t.id === teamId || t.id === Number(teamId));
         },
 
         // Tumbler Logic
