@@ -104,8 +104,8 @@
      )">
 
     {{-- Sell Player Modal --}}
-    <div x-show="showSellModal" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);" x-cloak>
-        <div style="background:#1f2937;border-radius:1rem;padding:2rem;max-width:28rem;width:100%;margin:1rem;border:1px solid #374151;box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+    <div x-show="showSellModal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;background:rgba(0,0,0,0.85);" x-cloak>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#1f2937;border-radius:1rem;padding:2rem;max-width:28rem;width:calc(100% - 2rem);border:1px solid #374151;box-shadow:0 25px 50px rgba(0,0,0,0.5);">
             <h3 class="text-xl font-bold text-white mb-4 text-center">Sell Player</h3>
             <div class="text-center mb-6">
                 <p class="text-gray-300 mb-4">Selling <span class="font-bold text-white" x-text="currentPlayer?.player?.name"></span></p>
