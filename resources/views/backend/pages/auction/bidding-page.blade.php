@@ -73,51 +73,52 @@
     }
 
     .player-avatar-wrapper {
-        width: 200px;
-        height: 200px;
-        border-radius: 20px;
+        width: 100px;
+        height: 100px;
+        border-radius: 14px;
         background: linear-gradient(135deg, #f97316, #ea580c);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 80px;
+        font-size: 36px;
         font-weight: bold;
         color: white;
-        box-shadow: 0 10px 40px rgba(249, 115, 22, 0.3);
+        box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
     }
 
     .player-avatar-wrapper img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: 20px;
+        object-position: top;
+        border-radius: 14px;
     }
 
     /* Bid display */
     .bid-display {
         background: linear-gradient(135deg, #065f46 0%, #047857 100%);
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 10px 40px rgba(4, 120, 87, 0.3);
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: 0 6px 20px rgba(4, 120, 87, 0.3);
     }
 
     /* Bid button */
     .bid-button {
         background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
         border: none;
-        border-radius: 16px;
-        font-size: 24px;
+        border-radius: 12px;
+        font-size: 16px;
         font-weight: bold;
-        padding: 20px 40px;
+        padding: 12px 24px;
         color: white;
         cursor: pointer;
         transition: all 0.3s ease;
-        box-shadow: 0 10px 40px rgba(34, 197, 94, 0.4);
+        box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
     }
 
     .bid-button:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 15px 50px rgba(34, 197, 94, 0.5);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 30px rgba(34, 197, 94, 0.5);
     }
 
     .bid-button:disabled {
@@ -128,7 +129,7 @@
 
     .bid-button.winning {
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        box-shadow: 0 10px 40px rgba(59, 130, 246, 0.4);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
     }
 
     /* Sidebar styles */
@@ -225,12 +226,25 @@
     auctionMode: "{{ $auction->open_bid_mode ?? 'online' }}",
     bidRules: @json($auction->bid_rules ?? []),
 
+    // Timer state
+    BID_TIMER_DURATION: {{ $auction->bid_timer_seconds ?? 30 }},
+    BID_TIMER_RESET_TO: {{ $auction->bid_timer_reset_seconds ?? 15 }},
+    timerSeconds: 0,
+    timerWidth: 100,
+    timerInterval: null,
+    timerExpired: false,
+    lastKnownPrice: 0,
+
     init() {
         if (this.auctionStatus === "completed") {
             this.state = "completed";
         } else {
             const initialPlayer = @json($currentPlayer);
-            if (initialPlayer) this.setPlayerOnBid(initialPlayer);
+            if (initialPlayer) {
+                this.setPlayerOnBid(initialPlayer);
+                this.lastPlayerId = initialPlayer.id;
+                this.lastKnownPrice = Number(initialPlayer.current_price) || Number(initialPlayer.base_price) || 0;
+            }
         }
         this.startPolling();
     },
@@ -264,19 +278,22 @@
                     this.myBidAmount = 0;
                     this.customAmount = "";
                     this.bidSuccess = "";
-                } else {
-                    // Same player — update current price and bid team live
-                    if (data.auctionPlayer.current_price) {
-                        this.player.current_price = Number(data.auctionPlayer.current_price) || this.player.current_price;
-                    }
-                    if (data.auctionPlayer.current_bid_team !== undefined) {
-                        this.player.current_bid_team = data.auctionPlayer.current_bid_team;
-                    }
                 }
+                // Same player — update current price and bid team live
+                const newPrice = Number(data.auctionPlayer.current_price) || this.player.current_price;
+                this.player.current_price = newPrice;
+                if (data.auctionPlayer.current_bid_team !== undefined) {
+                    this.player.current_bid_team = data.auctionPlayer.current_bid_team;
+                }
+                // Sync timer from server
+                this.syncTimerFromServer(data);
             } else if (this.state === "bidding") {
                 this.state = "waiting";
                 this.resetPlayer();
                 this.lastPlayerId = null;
+                this.stopTimer();
+                this.timerSeconds = 0;
+                this.timerWidth = 0;
             }
         } catch (e) { console.error("[BiddingPanel] Error:", e); }
     },
@@ -354,6 +371,7 @@
     get canRaiseHand() {
         if (this.auctionMode === "offline") return false;
         if (this.state !== "bidding" || this.isSubmitting) return false;
+        if (this.timerExpired) return false;
         if (this.nextBidAmount <= 0) return false;
         if (this.nextBidAmount > this.teamBudget) return false;
         return true;
@@ -386,6 +404,7 @@
     get canBidCustom() {
         if (this.auctionMode === "offline") return false;
         if (this.state !== "bidding" || this.isSubmitting) return false;
+        if (this.timerExpired) return false;
         const amt = Number(this.customAmount) || 0;
         if (amt <= 0) return false;
         if (amt > this.teamBudget) return false;
@@ -415,6 +434,27 @@
         finally { this.isSubmitting = false; }
     },
 
+    // Offline mode: raise hand with optional amount
+    async raiseHandOffline() {
+        if (this.isSubmitting || !this.player.id) return;
+        const amt = Number(this.customAmount) * 100000;
+        this.isSubmitting = true;
+        this.bidError = "";
+        this.bidSuccess = "";
+        try {
+            const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/place-bid", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": "{{ csrf_token() }}", "Accept": "application/json" },
+                body: JSON.stringify({ auction_player_id: this.player.id, amount: amt > 0 ? amt : undefined })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to raise hand");
+            this.myBidAmount = amt > 0 ? amt : (data.new_price || this.player.current_price);
+            this.bidSuccess = "Hand raised! " + (amt > 0 ? this.formatCurrency(amt) : "");
+        } catch (e) { this.bidError = e.message; }
+        finally { this.isSubmitting = false; }
+    },
+
     // Closed bid: place custom amount
     async placeCustomBid() {
         if (!this.canBidCustom || !this.player.id) return;
@@ -435,6 +475,58 @@
             this.customAmount = "";
         } catch (e) { this.bidError = e.message; }
         finally { this.isSubmitting = false; }
+    },
+
+    // Timer methods — synced from admin panel via server timestamps
+    lastServerUpdatedAt: 0,
+
+    syncTimerFromServer(data) {
+        const serverTime = data.server_time || 0;
+        const playerUpdatedAt = data.player_updated_at || 0;
+        const timerDuration = data.bid_timer_seconds || this.BID_TIMER_DURATION;
+
+        if (!serverTime || !playerUpdatedAt) return;
+
+        // Detect if admin reset the timer (updated_at changed)
+        const isTimerReset = playerUpdatedAt !== this.lastServerUpdatedAt;
+        this.lastServerUpdatedAt = playerUpdatedAt;
+
+        // Calculate remaining seconds from server
+        const elapsed = serverTime - playerUpdatedAt;
+        const remaining = Math.max(0, timerDuration - elapsed);
+
+        if (remaining <= 0) {
+            this.stopTimer();
+            this.timerSeconds = 0;
+            this.timerWidth = 0;
+            this.timerExpired = true;
+        } else if (isTimerReset || !this.timerInterval) {
+            // Start/restart local countdown from server-calculated remaining
+            this.startTimer(remaining, timerDuration);
+        }
+    },
+
+    startTimer(remaining, maxDuration) {
+        this.stopTimer();
+        this.timerSeconds = Math.ceil(remaining);
+        const maxSeconds = maxDuration || remaining;
+        this.timerWidth = Math.max(0, (this.timerSeconds / maxSeconds) * 100);
+        this.timerExpired = false;
+        this.timerInterval = setInterval(() => {
+            this.timerSeconds--;
+            this.timerWidth = Math.max(0, (this.timerSeconds / maxSeconds) * 100);
+            if (this.timerSeconds <= 0) {
+                this.stopTimer();
+                this.timerExpired = true;
+            }
+        }, 1000);
+    },
+
+    stopTimer() {
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
     },
 
     get isMyTeamHighest() {
@@ -495,7 +587,7 @@
     </div>
 
     <!-- Center: Active Player -->
-    <div class="flex-1 flex flex-col items-center justify-center p-8 relative">
+    <div class="flex-1 flex flex-col items-center justify-center p-4 relative">
         <!-- Header -->
         <div class="absolute top-4 left-4 right-4 flex justify-between items-center">
             <div>
@@ -532,18 +624,33 @@
         </div>
 
         <!-- Bidding State -->
-        <div x-show="state === 'bidding'" x-transition.opacity x-cloak class="w-full max-w-xl">
-            <div class="player-card p-8">
-                <!-- Base Price -->
-                <div class="text-center mb-6">
-                    <span class="inline-flex items-center px-5 py-2 rounded-full bg-white/10 text-white">
-                        Base: <span class="font-bold text-yellow-400 ml-2" x-text="formatCurrency(player.base_price)"></span>
-                    </span>
+        <div x-show="state === 'bidding'" x-transition.opacity x-cloak class="w-full max-w-md">
+            <div class="player-card p-5">
+                <!-- Timer Bar -->
+                <div x-show="timerSeconds > 0 || timerExpired" class="mb-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs uppercase tracking-wider"
+                              :class="timerExpired ? 'text-red-400' : (timerSeconds <= 5 ? 'text-red-400' : 'text-gray-400')"
+                              x-text="timerExpired ? 'TIME UP' : 'Time Left'"></span>
+                        <span class="text-sm font-bold"
+                              :class="timerExpired ? 'text-red-500' : (timerSeconds <= 5 ? 'text-red-500 animate-pulse' : 'text-white')"
+                              x-text="timerExpired ? '0s' : timerSeconds + 's'"></span>
+                    </div>
+                    <div class="w-full bg-gray-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full transition-all duration-1000"
+                             :class="timerExpired ? 'bg-red-500' : (timerSeconds <= 5 ? 'bg-red-500' : 'bg-blue-500')"
+                             :style="`width: ${timerWidth}%`"></div>
+                    </div>
                 </div>
 
-                <!-- Player Avatar -->
-                <div class="flex justify-center mb-6">
-                    <div class="player-avatar-wrapper">
+                <!-- Timer Expired Banner -->
+                <div x-show="timerExpired" class="mb-3 bg-red-500/20 border border-red-500/30 rounded-lg p-2 text-center">
+                    <p class="text-red-400 font-semibold text-sm">Bidding Time Expired</p>
+                </div>
+
+                <!-- Player Info Row: Avatar + Name + Base Price -->
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="player-avatar-wrapper flex-shrink-0">
                         <template x-if="player.image_url && !player.image_url.includes('ui-avatars')">
                             <img :src="player.image_url" :alt="player.name">
                         </template>
@@ -551,129 +658,146 @@
                             <span x-text="player.name?.substring(0,2).toUpperCase() || 'P'"></span>
                         </template>
                     </div>
-                </div>
-
-                <!-- Player Name & Info -->
-                <h2 class="text-4xl font-bold text-white text-center mb-3" x-text="player.name"></h2>
-                <div class="flex justify-center gap-2 mb-8">
-                    <span class="px-3 py-1 bg-white/10 rounded-full text-xs text-gray-300" x-text="player.role"></span>
-                    <span class="px-3 py-1 bg-white/10 rounded-full text-xs text-gray-300" x-text="player.batting_style"></span>
-                    <span class="px-3 py-1 bg-white/10 rounded-full text-xs text-gray-300" x-text="player.bowling_style"></span>
-                </div>
-
-                <!-- Offline Mode Banner -->
-                <div x-show="auctionMode === 'offline'" class="mb-6 bg-gradient-to-r from-orange-600/20 to-amber-600/20 rounded-2xl p-6 text-center border border-orange-500/30" x-cloak>
-                    <div class="flex items-center justify-center gap-3 mb-2">
-                        <div class="w-3 h-3 rounded-full bg-orange-500 animate-pulse"></div>
-                        <p class="text-orange-300 text-lg font-bold uppercase tracking-widest">Bidding is Offline</p>
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-xl font-bold text-white truncate" x-text="player.name"></h2>
+                        <div class="flex flex-wrap gap-1.5 mt-1">
+                            <span class="px-2 py-0.5 bg-white/10 rounded text-xs text-gray-300" x-text="player.role"></span>
+                            <span class="px-2 py-0.5 bg-white/10 rounded text-xs text-gray-300" x-text="player.batting_style"></span>
+                            <span class="px-2 py-0.5 bg-white/10 rounded text-xs text-gray-300" x-text="player.bowling_style"></span>
+                        </div>
+                        <p class="text-yellow-400 font-semibold text-sm mt-1">Base: <span x-text="formatCurrency(player.base_price)"></span></p>
                     </div>
-                    <p class="text-orange-200/80 text-sm">The organizer is currently handling bids manually. Please wait for online bidding to resume.</p>
+                </div>
+
+                <!-- Offline Mode: Hand Raise + Amount Entry -->
+                <div x-show="auctionMode === 'offline'" x-cloak>
+                    <div class="flex items-center justify-center gap-2 mb-3">
+                        <div class="w-2 h-2 rounded-full bg-orange-500 animate-pulse"></div>
+                        <p class="text-orange-300 text-xs font-bold uppercase tracking-widest">Offline Bidding</p>
+                    </div>
+
+                    <!-- Current Price -->
+                    <div class="bid-display mb-3 text-center">
+                        <p class="text-emerald-200 text-xs uppercase tracking-widest mb-1">Current Price</p>
+                        <p class="text-3xl font-black text-white" x-text="formatCurrency(player.current_price)"></p>
+                    </div>
+
+                    <!-- Amount Input (Lakhs) -->
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/10 mb-3">
+                        <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block text-center">Your Bid (Lakhs)</label>
+                        <div class="flex items-center gap-2 mb-2">
+                            <button @click="customAmount = Math.max(0, (Number(customAmount) || (player.current_price / 100000)) - (currentIncrement / 100000))"
+                                    class="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-lg font-bold flex items-center justify-center hover:bg-red-500/30 transition shrink-0">
+                                &minus;
+                            </button>
+                            <div class="flex-1">
+                                <div class="flex items-center bg-white/10 border border-white/20 rounded-lg focus-within:border-cyan-500">
+                                    <input type="number" x-model.number="customAmount"
+                                           class="w-full px-3 py-2 bg-transparent text-white text-lg text-center focus:outline-none"
+                                           placeholder="0" step="0.5" min="0">
+                                    <span class="pr-3 text-gray-400 font-bold text-sm">L</span>
+                                </div>
+                            </div>
+                            <button @click="customAmount = (Number(customAmount) || (player.current_price / 100000)) + (currentIncrement / 100000)"
+                                    class="w-10 h-10 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-lg font-bold flex items-center justify-center hover:bg-green-500/30 transition shrink-0">
+                                +
+                            </button>
+                        </div>
+                        <p class="text-center text-gray-500 text-xs">Budget: <span class="text-green-400 font-bold" x-text="formatCurrency(teamBudget)"></span></p>
+                    </div>
+
+                    <button @click="raiseHandOffline()"
+                            :disabled="isSubmitting || !player.id || timerExpired"
+                            class="bid-button w-full mb-2">
+                        <span x-show="!isSubmitting" x-text="Number(customAmount) > 0 ? 'RAISE HAND — ' + formatCurrency(customAmount * 100000) : 'RAISE HAND'"></span>
+                        <span x-show="isSubmitting">Raising Hand...</span>
+                    </button>
+
+                    <div x-show="bidSuccess" class="mt-2 p-2 bg-green-500/20 border border-green-500/30 rounded-lg text-center" x-cloak>
+                        <p class="text-green-400 text-xs font-medium" x-text="bidSuccess"></p>
+                    </div>
                 </div>
 
                 <!-- ===== OPEN BID: IPL-Style Raise Hand ===== -->
                 <div x-show="bidType === 'open' && auctionMode !== 'offline'">
 
-                    <!-- Current Price Display -->
-                    <div class="bid-display mb-6 text-center">
-                        <p class="text-emerald-200 text-sm uppercase tracking-widest mb-1">Current Price</p>
-                        <p class="text-5xl font-black text-white glow-green" x-text="formatCurrency(player.current_price)"></p>
-                        <div class="mt-3">
-                            <template x-if="player.current_bid_team">
-                                <p class="text-emerald-300 text-sm">
-                                    Highest Bid: <span class="font-bold text-white" x-text="player.current_bid_team.name"></span>
-                                    <template x-if="isMyTeamHighest">
-                                        <span class="ml-2 px-2 py-0.5 bg-green-500 text-white text-xs rounded-full font-bold">YOUR TEAM</span>
-                                    </template>
-                                </p>
-                            </template>
-                            <template x-if="!player.current_bid_team">
-                                <p class="text-gray-400 text-sm">No bids yet — be the first!</p>
-                            </template>
-                        </div>
+                    <!-- Current Price -->
+                    <div class="bid-display mb-3 text-center">
+                        <p class="text-emerald-200 text-xs uppercase tracking-widest mb-1">Current Price</p>
+                        <p class="text-3xl font-black text-white" x-text="formatCurrency(player.current_price)"></p>
+                        <template x-if="player.current_bid_team">
+                            <p class="text-emerald-300 text-xs mt-1">
+                                <span class="font-bold text-white" x-text="player.current_bid_team.name"></span>
+                                <template x-if="isMyTeamHighest">
+                                    <span class="ml-1 px-1.5 py-0.5 bg-green-500 text-white text-xs rounded font-bold">YOU</span>
+                                </template>
+                            </p>
+                        </template>
                     </div>
 
-                    <!-- Next Bid Info -->
-                    <div class="bg-white/5 rounded-xl p-4 mb-4 text-center border border-white/10" x-show="nextBidAmount > 0">
-                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Your Bid Will Be</p>
-                        <p class="text-3xl font-bold text-cyan-400" x-text="formatCurrency(nextBidAmount)"></p>
+                    <!-- Next Bid + Raise Hand -->
+                    <div class="bg-white/5 rounded-lg p-3 mb-3 text-center border border-white/10" x-show="nextBidAmount > 0">
+                        <p class="text-gray-400 text-xs mb-1">Your Bid</p>
+                        <p class="text-xl font-bold text-cyan-400" x-text="formatCurrency(nextBidAmount)"></p>
                     </div>
 
-                    <!-- RAISE HAND Button -->
                     <button @click="raiseHand()"
                             :disabled="!canRaiseHand"
-                            class="bid-button w-full mb-4"
+                            class="bid-button w-full mb-3"
                             :class="{ 'winning': isMyTeamHighest }">
-                        <span x-show="!isSubmitting" class="flex items-center justify-center gap-3">
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path>
-                            </svg>
-                            <span x-text="isMyTeamHighest ? 'YOU ARE HIGHEST BIDDER' : 'RAISE HAND — BID ' + formatCurrency(nextBidAmount)"></span>
-                        </span>
-                        <span x-show="isSubmitting" class="flex items-center justify-center gap-2">
-                            <svg class="animate-spin w-6 h-6" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                            </svg>
-                            Placing Bid...
-                        </span>
+                        <span x-show="!isSubmitting" x-text="isMyTeamHighest ? 'YOU ARE HIGHEST' : 'RAISE HAND — ' + formatCurrency(nextBidAmount)"></span>
+                        <span x-show="isSubmitting">Placing Bid...</span>
                     </button>
 
-                    <p class="text-center text-gray-500 text-xs mb-2">
-                        Budget remaining: <span class="text-green-400 font-bold" x-text="formatCurrency(teamBudget)"></span>
+                    <p class="text-center text-gray-500 text-xs">
+                        Budget: <span class="text-green-400 font-bold" x-text="formatCurrency(teamBudget)"></span>
                     </p>
 
-                    <!-- Success/Error Messages -->
-                    <div x-show="bidSuccess" class="mt-3 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-center" x-cloak>
-                        <p class="text-green-400 text-sm font-medium" x-text="bidSuccess"></p>
+                    <div x-show="bidSuccess" class="mt-2 p-2 bg-green-500/20 border border-green-500/30 rounded-lg text-center" x-cloak>
+                        <p class="text-green-400 text-xs font-medium" x-text="bidSuccess"></p>
                     </div>
                 </div>
 
                 <!-- ===== CLOSED BID: Custom Amount Entry ===== -->
                 <div x-show="bidType === 'closed' && auctionMode !== 'offline'">
 
-                    <!-- Current Price Display -->
-                    <div class="bid-display mb-6 text-center">
-                        <p class="text-emerald-200 text-sm uppercase tracking-widest mb-1">Current Price</p>
-                        <p class="text-5xl font-black text-white glow-green" x-text="formatCurrency(player.current_price)"></p>
+                    <!-- Current Price -->
+                    <div class="bid-display mb-3 text-center">
+                        <p class="text-emerald-200 text-xs uppercase tracking-widest mb-1">Current Price</p>
+                        <p class="text-3xl font-black text-white" x-text="formatCurrency(player.current_price)"></p>
                     </div>
 
-                    <!-- Minimum Bid Info -->
-                    <div class="bg-white/5 rounded-xl p-4 mb-4 text-center border border-white/10">
-                        <p class="text-gray-400 text-xs uppercase tracking-wide mb-1">Minimum Bid</p>
-                        <p class="text-2xl font-bold text-cyan-400" x-text="formatCurrency(closedBidMinimum)"></p>
-                        <p class="text-gray-500 text-xs mt-1">Based on bid increment rules</p>
+                    <!-- Your Current Bid -->
+                    <div x-show="myBidAmount > 0" class="mb-3 bg-green-600/20 rounded-lg p-3 text-center border border-green-500/30">
+                        <p class="text-green-200 text-xs uppercase mb-0.5">Your Bid</p>
+                        <p class="text-xl font-bold text-green-400" x-text="formatCurrency(myBidAmount)"></p>
                     </div>
 
-                    <!-- Your Current Bid Status -->
-                    <div x-show="myBidAmount > 0" class="mb-4 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-xl p-4 text-center border border-green-500/30">
-                        <p class="text-green-200 text-xs uppercase tracking-widest mb-1">Your Current Bid</p>
-                        <p class="text-3xl font-bold text-green-400 glow-green" x-text="formatCurrency(myBidAmount)"></p>
-                        <p class="text-green-300 text-xs mt-1">You can update your bid below</p>
-                    </div>
-
-                    <!-- Bid Input -->
-                    <div class="bg-white/5 rounded-xl p-6 border border-white/10">
-                        <label class="text-gray-400 text-sm uppercase tracking-wide mb-3 block text-center">Your Bid Amount</label>
-                        <div class="flex items-center gap-3 mb-4">
+                    <!-- Bid Input (Lakhs) -->
+                    <div class="bg-white/5 rounded-lg p-4 border border-white/10 mb-3">
+                        <label class="text-gray-400 text-xs uppercase tracking-wide mb-2 block text-center">Bid Amount (Lakhs) &middot; Min: <span x-text="(closedBidMinimum / 100000)"></span> L</label>
+                        <div class="flex items-center gap-2 mb-3">
                             <button @click="customAmount = Math.max(closedBidMinimum, (Number(customAmount) || closedBidMinimum) - currentIncrement)"
-                                    class="w-14 h-14 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-2xl font-bold flex items-center justify-center hover:bg-red-500/30 transition shrink-0">
+                                    class="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-lg font-bold flex items-center justify-center hover:bg-red-500/30 transition shrink-0">
                                 &minus;
                             </button>
-                            <div class="flex-1 text-center">
-                                <input type="number" x-model.number="customAmount"
-                                       :min="closedBidMinimum"
-                                       class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white text-2xl text-center focus:outline-none focus:border-cyan-500"
-                                       :placeholder="'Min: ' + formatCurrency(closedBidMinimum)">
-                                <p class="text-cyan-400 font-bold text-lg mt-1" x-show="Number(customAmount) > 0" x-text="formatCurrency(customAmount)"></p>
+                            <div class="flex-1">
+                                <div class="flex items-center bg-white/10 border border-white/20 rounded-lg focus-within:border-cyan-500">
+                                    <input type="number"
+                                           :value="Number(customAmount) > 0 ? (customAmount / 100000) : ''"
+                                           @input="customAmount = Number($event.target.value) * 100000"
+                                           :min="closedBidMinimum / 100000"
+                                           class="w-full px-3 py-2 bg-transparent text-white text-lg text-center focus:outline-none"
+                                           :placeholder="(closedBidMinimum / 100000)"
+                                           step="0.5">
+                                    <span class="pr-3 text-gray-400 font-bold text-sm">L</span>
+                                </div>
                             </div>
                             <button @click="customAmount = (Number(customAmount) || closedBidMinimum) + currentIncrement"
-                                    class="w-14 h-14 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-2xl font-bold flex items-center justify-center hover:bg-green-500/30 transition shrink-0">
+                                    class="w-10 h-10 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-lg font-bold flex items-center justify-center hover:bg-green-500/30 transition shrink-0">
                                 +
                             </button>
                         </div>
-                        <p class="text-center text-gray-500 text-xs mb-4">
-                            Budget remaining: <span class="text-green-400 font-bold" x-text="formatCurrency(teamBudget)"></span>
-                        </p>
                         <button @click="placeCustomBid()"
                                 :disabled="!canBidCustom"
                                 class="bid-button w-full"
@@ -681,9 +805,10 @@
                             <span x-text="isSubmitting ? 'Submitting...' : (myBidAmount > 0 ? 'Update Bid' : 'Place Bid')"></span>
                         </button>
                     </div>
+                    <p class="text-center text-gray-500 text-xs">Budget: <span class="text-green-400 font-bold" x-text="formatCurrency(teamBudget)"></span></p>
 
-                    <div x-show="bidSuccess" class="mt-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg text-center" x-cloak>
-                        <p class="text-green-400 text-sm font-medium" x-text="bidSuccess"></p>
+                    <div x-show="bidSuccess" class="mt-2 p-2 bg-green-500/20 border border-green-500/30 rounded-lg text-center" x-cloak>
+                        <p class="text-green-400 text-xs font-medium" x-text="bidSuccess"></p>
                     </div>
                 </div>
 

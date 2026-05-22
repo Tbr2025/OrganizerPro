@@ -105,6 +105,10 @@ class PublicAuctionController extends Controller
             'open_bid_mode' => $auction->open_bid_mode,
             'bid_type' => $auction->bid_type,
             'bid_rules' => $auction->bid_rules,
+            'bid_timer_seconds' => $auction->bid_timer_seconds ?? 30,
+            'bid_timer_reset_seconds' => $auction->bid_timer_reset_seconds ?? 15,
+            'player_updated_at' => $auctionPlayer->updated_at->timestamp,
+            'server_time' => now()->timestamp,
         ]);
     }
 

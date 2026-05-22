@@ -473,13 +473,7 @@
                 soldBadge.classList.add('hidden');
                 teamLogo.classList.add('hidden');
 
-                // Show highest bidder team name
-                if (p.current_bid_team && p.current_bid_team.name) {
-                    bidderName.textContent = p.current_bid_team.name;
-                    highestBidder.classList.remove('hidden');
-                } else {
-                    highestBidder.classList.add('hidden');
-                }
+                highestBidder.classList.add('hidden');
             } else if (p.status === 'unsold') {
                 soldText.textContent = 'UNSOLD';
                 soldBadge.classList.add('hidden');

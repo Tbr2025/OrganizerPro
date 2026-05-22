@@ -138,11 +138,17 @@
                 </select>
             </div>
 
-            {{-- Amount Input --}}
+            {{-- Amount Input (in Lakhs) --}}
             <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-300 mb-2">Sale Amount</label>
-                <input type="number" x-model="sellModalData.amount"
-                       class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Sale Amount (in Lakhs)</label>
+                <div class="flex items-center bg-gray-900 border border-gray-600 rounded-xl focus-within:border-blue-500">
+                    <input type="number"
+                           :value="sellModalData.amount ? (sellModalData.amount / 100000) : ''"
+                           @input="sellModalData.amount = Number($event.target.value) * 100000"
+                           class="w-full px-4 py-3 bg-transparent text-white focus:outline-none text-right"
+                           placeholder="0" step="0.5" min="0">
+                    <span class="pr-4 text-gray-400 font-medium">L</span>
+                </div>
             </div>
 
             {{-- Summary --}}
