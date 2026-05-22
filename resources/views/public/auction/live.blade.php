@@ -431,18 +431,25 @@
                 ? bowlingStyle?.style || bowlingStyle?.name || 'N/A'
                 : bowlingStyle || 'N/A';
 
-            // Only show base price — no bid amounts on public display
-            const price = p.base_price || 0;
-            document.getElementById('current-bid').textContent = formatMillions(price);
+            // Show current bid price if available, otherwise base price
+            const price = p.current_price || p.base_price || 0;
+            const bidEl = document.getElementById('current-bid');
+            bidEl.textContent = formatMillions(price);
+
+            // Flash animation when price changes
+            if (price !== window._lastDisplayedPrice) {
+                bidEl.classList.remove('bid-flash');
+                void bidEl.offsetWidth; // trigger reflow
+                bidEl.classList.add('bid-flash');
+                window._lastDisplayedPrice = price;
+            }
 
             // Status text and badges
             const soldText = document.getElementById('sold-text');
             const soldBadge = document.getElementById('sold-badge');
             const teamLogo = document.getElementById('team-logo');
             const highestBidder = document.getElementById('highest-bidder');
-
-            // Always hide bid-related info on public display
-            highestBidder.classList.add('hidden');
+            const bidderName = document.getElementById('bidder-name');
 
             if (p.status === 'sold') {
                 soldText.textContent = 'SOLD';
@@ -455,18 +462,34 @@
                 } else {
                     teamLogo.classList.add('hidden');
                 }
+                highestBidder.classList.add('hidden');
             } else if (p.status === 'on_auction') {
-                soldText.textContent = 'BASE VALUE';
+                // Show CURRENT BID when there are bids, otherwise BASE VALUE
+                if (p.current_price && p.current_price > p.base_price) {
+                    soldText.textContent = 'CURRENT BID';
+                } else {
+                    soldText.textContent = 'BASE VALUE';
+                }
                 soldBadge.classList.add('hidden');
                 teamLogo.classList.add('hidden');
+
+                // Show highest bidder team name
+                if (p.current_bid_team && p.current_bid_team.name) {
+                    bidderName.textContent = p.current_bid_team.name;
+                    highestBidder.classList.remove('hidden');
+                } else {
+                    highestBidder.classList.add('hidden');
+                }
             } else if (p.status === 'unsold') {
                 soldText.textContent = 'UNSOLD';
                 soldBadge.classList.add('hidden');
                 teamLogo.classList.add('hidden');
+                highestBidder.classList.add('hidden');
             } else {
                 soldText.textContent = 'BASE VALUE';
                 soldBadge.classList.add('hidden');
                 teamLogo.classList.add('hidden');
+                highestBidder.classList.add('hidden');
             }
 
             currentStatus = p.status;

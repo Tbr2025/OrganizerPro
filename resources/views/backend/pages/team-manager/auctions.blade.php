@@ -81,13 +81,20 @@
                     </div>
 
                     {{-- Auction Footer --}}
-                    <div class="p-5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                    <div class="p-5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 space-y-2">
                         @if(in_array($auction->status, ['running', 'paused']))
                             <a href="{{ route('team.auction.bidding.show', $auction) }}" class="btn btn-primary w-full flex items-center justify-center gap-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                 </svg>
                                 Join Live Bidding
+                            </a>
+                            <a href="{{ route('public.auction.live', $auction) }}" target="_blank"
+                               class="btn btn-dark w-full flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                                Live Display
                             </a>
                         @elseif($auction->status === 'completed')
                             <button disabled class="btn btn-secondary w-full opacity-50 cursor-not-allowed">

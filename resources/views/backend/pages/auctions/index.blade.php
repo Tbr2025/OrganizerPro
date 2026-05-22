@@ -73,6 +73,11 @@
                                                 class="text-green-600 hover:text-green-900 font-semibold">Manage</a>
                                         @endif
 
+                                        {{-- Public LED Wall Display --}}
+                                        <a href="{{ route('public.auction.live', $auction) }}"
+                                            target="_blank"
+                                            class="text-purple-600 hover:text-purple-900">Live Display</a>
+
                                         <form action="{{ route('admin.auctions.destroy', $auction) }}" method="POST"
                                             class="inline-block"
                                             onsubmit="return confirm('Are you sure you want to delete this auction?');">

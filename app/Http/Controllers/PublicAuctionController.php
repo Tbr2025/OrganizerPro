@@ -85,22 +85,18 @@ class PublicAuctionController extends Controller
         $playerData->batting_profile = $auctionPlayer->player->battingProfile;
         $playerData->bowling_profile = $auctionPlayer->player->bowlingProfile;
 
-        // Build response data
+        // Build response data — always include current price for live display
         $responsePlayer = [
             'id' => $auctionPlayer->id,
             'player' => $playerData,
             'base_price' => $auctionPlayer->base_price,
+            'current_price' => $auctionPlayer->current_price,
             'status' => $auctionPlayer->status,
-        ];
-
-        // For open bid: include current price and bid team (IPL-style transparency)
-        if ($auction->bid_type === 'open') {
-            $responsePlayer['current_price'] = $auctionPlayer->current_price;
-            $responsePlayer['current_bid_team'] = $auctionPlayer->currentBidTeam ? [
+            'current_bid_team' => $auctionPlayer->currentBidTeam ? [
                 'id' => $auctionPlayer->currentBidTeam->id,
                 'name' => $auctionPlayer->currentBidTeam->name,
-            ] : null;
-        }
+            ] : null,
+        ];
 
         return response()->json([
             'success' => true,
