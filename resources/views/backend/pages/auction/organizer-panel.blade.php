@@ -204,7 +204,7 @@
                             class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
                         End Auction
                     </button>
-                    <button @click="restartAuction()" x-show="auctionStatus === 'completed'"
+                    <button @click="restartAuction()" x-show="auctionStatus === 'completed' || auctionStatus === 'running' || auctionStatus === 'paused'"
                             class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
                         Restart Auction
                     </button>
@@ -218,44 +218,115 @@
 
         {{-- Left Sidebar: Player Queue --}}
         <div class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col">
+            {{-- Tab Toggle --}}
             <div class="p-4 border-b border-gray-700">
-                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
-                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                    </svg>
-                    Player Queue
-                </h2>
-                <p class="text-sm text-gray-400 mt-1"><span x-text="availablePlayers.length"></span> players waiting</p>
+                <div class="flex rounded-lg bg-gray-900 p-1 mb-3">
+                    <button @click="playerListTab = 'queue'"
+                            :class="playerListTab === 'queue' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'"
+                            class="flex-1 py-1.5 text-sm font-medium rounded-md transition">
+                        Queue
+                    </button>
+                    <button @click="playerListTab = 'all'; fetchAllPlayers()"
+                            :class="playerListTab === 'all' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'"
+                            class="flex-1 py-1.5 text-sm font-medium rounded-md transition">
+                        All Players
+                    </button>
+                </div>
+                <template x-if="playerListTab === 'queue'">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                            Player Queue
+                        </h2>
+                        <p class="text-sm text-gray-400 mt-1"><span x-text="availablePlayers.length"></span> players waiting</p>
+                    </div>
+                </template>
+                <template x-if="playerListTab === 'all'">
+                    <div>
+                        <input type="text" x-model="playerSearchQuery" placeholder="Search player name..."
+                               class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500">
+                    </div>
+                </template>
             </div>
 
             <div class="flex-1 overflow-y-auto p-3 space-y-2">
-                <template x-for="(player, index) in availablePlayers.slice(0, 20)" :key="player.id">
-                    <div class="queue-item bg-gray-700/50 rounded-lg p-3 cursor-pointer hover:bg-gray-700"
-                         @click="selectAndPutOnBid(player)">
-                        <div class="flex items-center gap-3">
-                            <div class="relative">
-                                <img :src="player.image_path ? `/storage/${player.image_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&size=40&background=random`"
-                                     class="w-10 h-10 rounded-full object-cover">
-                                <span class="absolute -top-1 -left-1 w-5 h-5 bg-blue-600 rounded-full text-xs flex items-center justify-center text-white font-bold"
-                                      x-text="index + 1"></span>
+                {{-- Queue Tab --}}
+                <template x-if="playerListTab === 'queue'">
+                    <div class="space-y-2">
+                        <template x-for="(player, index) in availablePlayers.slice(0, 20)" :key="player.id">
+                            <div class="queue-item bg-gray-700/50 rounded-lg p-3 cursor-pointer hover:bg-gray-700"
+                                 @click="selectAndPutOnBid(player)">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative">
+                                        <img :src="player.image_path ? `/storage/${player.image_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&size=40&background=random`"
+                                             class="w-10 h-10 rounded-full object-cover">
+                                        <span class="absolute -top-1 -left-1 w-5 h-5 bg-blue-600 rounded-full text-xs flex items-center justify-center text-white font-bold"
+                                              x-text="index + 1"></span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-white truncate" x-text="player.name"></p>
+                                        <p class="text-xs text-gray-400" x-text="player.player_type"></p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xs text-green-400 font-medium" x-text="formatCurrency(player.base_price)"></p>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-white truncate" x-text="player.name"></p>
-                                <p class="text-xs text-gray-400" x-text="player.player_type"></p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-xs text-green-400 font-medium" x-text="formatCurrency(player.base_price)"></p>
-                            </div>
+                        </template>
+
+                        <div x-show="availablePlayers.length === 0" class="text-center py-8 text-gray-500">
+                            <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-sm">All players auctioned!</p>
                         </div>
                     </div>
                 </template>
 
-                <div x-show="availablePlayers.length === 0" class="text-center py-8 text-gray-500">
-                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p class="text-sm">All players auctioned!</p>
-                </div>
+                {{-- All Players Tab --}}
+                <template x-if="playerListTab === 'all'">
+                    <div class="space-y-2">
+                        <template x-for="player in filteredAllPlayers" :key="player.id">
+                            <div class="bg-gray-700/50 rounded-lg p-3">
+                                <div class="flex items-center gap-3">
+                                    <img :src="player.image_path ? `/storage/${player.image_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(player.name)}&size=40&background=random`"
+                                         class="w-10 h-10 rounded-full object-cover">
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-white truncate" x-text="player.name"></p>
+                                        <div class="flex items-center gap-1 mt-0.5">
+                                            <span class="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                                                  :class="{
+                                                      'bg-green-500/20 text-green-400': player.status === 'sold',
+                                                      'bg-red-500/20 text-red-400': player.status === 'unsold',
+                                                      'bg-blue-500/20 text-blue-400': player.status === 'on_auction',
+                                                      'bg-gray-500/20 text-gray-400': player.status === 'waiting'
+                                                  }"
+                                                  x-text="player.status.toUpperCase()"></span>
+                                            <span x-show="player.sold_to_team" class="text-xs text-gray-400 truncate" x-text="player.sold_to_team"></span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right flex-shrink-0">
+                                        <template x-if="player.status === 'sold' || player.status === 'unsold'">
+                                            <button @click="reAuctionPlayer(player)"
+                                                    class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-medium transition">
+                                                Re-auction
+                                            </button>
+                                        </template>
+                                        <template x-if="player.status === 'sold'">
+                                            <p class="text-xs text-green-400 font-medium mt-1" x-text="formatCurrency(player.final_price)"></p>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="filteredAllPlayers.length === 0" class="text-center py-8 text-gray-500">
+                            <p class="text-sm">No players found.</p>
+                        </div>
+                    </div>
+                </template>
             </div>
 
             {{-- Next Player Button --}}
@@ -380,6 +451,13 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                     </svg>
                                     PASS
+                                </button>
+                                <button @click="rebidCurrentPlayer()"
+                                        class="px-6 py-4 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg shadow-yellow-500/30">
+                                    <svg class="w-6 h-6 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    RE-BID
                                 </button>
                             </div>
                         </div>
@@ -661,6 +739,11 @@ function auctionOrganizerPanel() {
 
         isTumbling: false,
         selectedPlayerId: null,
+
+        // All Players tab
+        playerListTab: 'queue',
+        playerSearchQuery: '',
+        allPlayers: [],
 
         // Timer
         biddingTimerInterval: null,
@@ -1024,13 +1107,13 @@ function auctionOrganizerPanel() {
         async sendCommand(endpoint, body = {}) {
             try {
                 const response = await fetch(`/admin/organizer/auction/${this.auctionId}/api/${endpoint}`, {
-                    method: endpoint === 'sealed-bids' ? 'GET' : 'POST',
+                    method: (endpoint === 'sealed-bids' || endpoint === 'all-players') ? 'GET' : 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: endpoint === 'sealed-bids' ? undefined : JSON.stringify(body)
+                    body: (endpoint === 'sealed-bids' || endpoint === 'all-players') ? undefined : JSON.stringify(body)
                 });
 
                 const data = await response.json();
@@ -1064,12 +1147,19 @@ function auctionOrganizerPanel() {
         },
 
         async restartAuction() {
-            if (!confirm('Are you sure you want to restart this auction? It will be set back to running.')) return;
+            const isRunning = this.auctionStatus === 'running' || this.auctionStatus === 'paused';
+            const msg = isRunning
+                ? 'WARNING: This will reset ALL players and bids! The auction is still in progress. Are you sure you want to restart from scratch?'
+                : 'Are you sure you want to restart this auction? All players and bids will be reset.';
+            if (!confirm(msg)) return;
             const result = await this.sendCommand('restart');
             if (result && result.success) {
                 this.auctionStatus = 'running';
                 this.displayState = 'waiting';
-                this.statusText = 'Auction restarted! Select next player.';
+                this.currentPlayer = null;
+                this.stopBiddingTimer();
+                this.statusText = 'Auction restarted! All players reset.';
+                await this.pollAuctionState();
             }
         },
 
@@ -1096,6 +1186,46 @@ function auctionOrganizerPanel() {
             if (!this.currentPlayer) return;
             const result = await this.sendCommand('pass-player', { auction_player_id: this.currentPlayer.id });
             if (result) await this.pollAuctionState();
+        },
+
+        // All Players tab
+        get filteredAllPlayers() {
+            if (!this.playerSearchQuery) return this.allPlayers;
+            const q = this.playerSearchQuery.toLowerCase();
+            return this.allPlayers.filter(p => p.name.toLowerCase().includes(q));
+        },
+
+        async fetchAllPlayers() {
+            try {
+                const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/all-players`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                this.allPlayers = data.players || [];
+            } catch (e) {
+                console.error('Failed to fetch all players:', e);
+            }
+        },
+
+        async rebidCurrentPlayer() {
+            if (!this.currentPlayer) return;
+            if (!confirm('Reset this player\'s bids and start fresh? All current bids will be cleared.')) return;
+            const result = await this.sendCommand('re-bid-player', { auction_player_id: this.currentPlayer.id });
+            if (result && result.success) {
+                this.statusText = 'Player re-bid started!';
+                await this.pollAuctionState();
+            }
+        },
+
+        async reAuctionPlayer(player) {
+            if (!confirm(`Re-auction ${player.name}? This will put them back on bid with base price.`)) return;
+            const result = await this.sendCommand('re-auction-player', { auction_player_id: player.id });
+            if (result && result.success) {
+                this.statusText = `${player.name} is back on auction!`;
+                this.playerListTab = 'queue';
+                await this.pollAuctionState();
+            }
         },
 
         // Helpers

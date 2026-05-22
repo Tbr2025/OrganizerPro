@@ -193,6 +193,9 @@ Route::middleware(['auth'])
             Route::get('/sealed-bids', [AuctionOrganizerController::class, 'fetchSealedBids'])->name('sealed-bids');
             Route::post('/switch-mode', [AuctionOrganizerController::class, 'switchMode'])->name('switch-mode');
             Route::post('/switch-bid-type', [AuctionOrganizerController::class, 'switchBidType'])->name('switch-bid-type');
+            Route::get('/all-players', [AuctionOrganizerController::class, 'allPlayers'])->name('all-players');
+            Route::post('/re-bid-player', [AuctionOrganizerController::class, 'rebidPlayer'])->name('player.re-bid');
+            Route::post('/re-auction-player', [AuctionOrganizerController::class, 'reAuctionPlayer'])->name('player.re-auction');
         });
 
         // API routes for the panel to call

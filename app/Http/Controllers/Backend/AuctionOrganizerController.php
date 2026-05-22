@@ -168,17 +168,41 @@ class AuctionOrganizerController extends Controller
     }
 
     /**
-     * Restart a completed auction — sets status back to running.
+     * Restart an auction — resets all players and bids back to initial state.
      */
     public function restartAuction(Auction $auction)
     {
-        if ($auction->status !== 'completed') {
-            return response()->json(['message' => 'Only completed auctions can be restarted.'], 422);
+        if (!in_array($auction->status, ['completed', 'running', 'paused'])) {
+            return response()->json(['message' => 'Auction cannot be restarted from this state.'], 422);
         }
 
-        $auction->update(['status' => 'running']);
+        DB::transaction(function () use ($auction) {
+            // Reset sold players' mode back to pool
+            $soldPlayerIds = $auction->auctionPlayers()
+                ->where('status', 'sold')
+                ->pluck('player_id');
+
+            Player::whereIn('id', $soldPlayerIds)
+                ->update(['player_mode' => 'pool']);
+
+            // Reset all auction players back to waiting
+            $auction->auctionPlayers()->update([
+                'status' => 'waiting',
+                'current_price' => DB::raw('base_price'),
+                'current_bid_team_id' => null,
+                'sold_to_team_id' => null,
+                'final_price' => null,
+            ]);
+
+            // Clear all bids
+            AuctionBid::where('auction_id', $auction->id)->delete();
+
+            // Reset auction status
+            $auction->update(['status' => 'running']);
+        });
+
         broadcast(new AuctionStatusUpdate($auction->id, 'running'));
-        return response()->json(['success' => true, 'message' => 'Auction has been restarted.']);
+        return response()->json(['success' => true, 'message' => 'Auction restarted. All players reset.']);
     }
 
     /**
@@ -527,5 +551,147 @@ class AuctionOrganizerController extends Controller
         });
 
         return response()->json(['bids' => $bids]);
+    }
+
+    /**
+     * Re-bid the current player — reset price/bids and restart bidding.
+     */
+    public function rebidPlayer(Request $request, Auction $auction)
+    {
+        $validated = $request->validate([
+            'auction_player_id' => 'required|exists:auction_players,id',
+        ]);
+
+        $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
+            ->where('auction_id', $auction->id)
+            ->firstOrFail();
+
+        DB::transaction(function () use ($auctionPlayer, $auction) {
+            // Reset player price and bids
+            $auctionPlayer->update([
+                'status' => 'on_auction',
+                'current_price' => $auctionPlayer->base_price,
+                'current_bid_team_id' => null,
+                'final_price' => null,
+                'sold_to_team_id' => null,
+            ]);
+
+            // Delete bids for this player
+            AuctionBid::where('auction_id', $auction->id)
+                ->where('auction_player_id', $auctionPlayer->id)
+                ->delete();
+
+            // Reset player_mode in case it was retained
+            Player::where('id', $auctionPlayer->player_id)
+                ->update(['player_mode' => 'pool']);
+
+            // Reset bid phase if auto transition is enabled
+            if ($auction->hasAutoPhaseTransition()) {
+                $auction->update([
+                    'bid_type' => 'open',
+                    'open_bid_mode' => 'online',
+                    'mode_manually_overridden' => false,
+                ]);
+            }
+        });
+
+        $playerDataForBroadcast = $auctionPlayer->fresh([
+            'player.playerType',
+            'player.battingProfile',
+            'player.bowlingProfile',
+            'bids.team',
+            'bids.user'
+        ]);
+
+        broadcast(new PlayerOnBid($playerDataForBroadcast));
+        return response()->json(['success' => true, 'message' => 'Player re-bid started.']);
+    }
+
+    /**
+     * Get all auction players with their statuses for the "All Players" tab.
+     */
+    public function allPlayers(Auction $auction)
+    {
+        $players = $auction->auctionPlayers()
+            ->with(['player', 'soldToTeam'])
+            ->orderByRaw("FIELD(status, 'on_auction', 'waiting', 'sold', 'unsold')")
+            ->get()
+            ->map(fn($ap) => [
+                'id' => $ap->id,
+                'name' => $ap->player->name ?? 'Unknown',
+                'status' => $ap->status,
+                'sold_to_team' => $ap->soldToTeam?->name,
+                'final_price' => $ap->final_price,
+                'base_price' => $ap->base_price,
+                'image_path' => $ap->player->image_path ?? null,
+            ]);
+
+        return response()->json(['players' => $players]);
+    }
+
+    /**
+     * Re-auction a sold or unsold player — put them back on auction.
+     */
+    public function reAuctionPlayer(Request $request, Auction $auction)
+    {
+        $validated = $request->validate([
+            'auction_player_id' => 'required|exists:auction_players,id',
+        ]);
+
+        $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
+            ->where('auction_id', $auction->id)
+            ->whereIn('status', ['sold', 'unsold'])
+            ->firstOrFail();
+
+        // Check no other player is currently live
+        $livePlayer = $auction->auctionPlayers()->where('status', 'on_auction')->first();
+        if ($livePlayer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Finish the current player first before re-auctioning another.'
+            ], 400);
+        }
+
+        DB::transaction(function () use ($auctionPlayer, $auction) {
+            // If was sold, revert player_mode
+            if ($auctionPlayer->status === 'sold') {
+                Player::where('id', $auctionPlayer->player_id)
+                    ->update(['player_mode' => 'pool']);
+            }
+
+            // Reset and put on auction
+            $auctionPlayer->update([
+                'status' => 'on_auction',
+                'current_price' => $auctionPlayer->base_price,
+                'current_bid_team_id' => null,
+                'sold_to_team_id' => null,
+                'final_price' => null,
+            ]);
+
+            // Delete old bids
+            AuctionBid::where('auction_id', $auction->id)
+                ->where('auction_player_id', $auctionPlayer->id)
+                ->delete();
+
+            // Reset bid phase if auto transition is enabled
+            if ($auction->hasAutoPhaseTransition()) {
+                $auction->update([
+                    'bid_type' => 'open',
+                    'open_bid_mode' => 'online',
+                    'mode_manually_overridden' => false,
+                ]);
+            }
+        });
+
+        $playerDataForBroadcast = $auctionPlayer->fresh([
+            'player.playerType',
+            'player.battingProfile',
+            'player.bowlingProfile',
+            'bids.team',
+            'bids.user'
+        ]);
+
+        broadcast(new PlayerOnBid($playerDataForBroadcast));
+        return response()->json(['success' => true, 'message' => 'Player put back on auction.']);
     }
 }
