@@ -33,7 +33,7 @@ class AuctionBiddingController extends Controller
             if ($teamId) {
                 // Admin viewing as specific team
                 $userTeam = ActualTeam::where('id', $teamId)
-                    ->where('tournament_id', $auction->tournament_id)
+                    ->forTournament($auction->tournament_id)
                     ->first();
 
                 if (!$userTeam) {
@@ -43,7 +43,7 @@ class AuctionBiddingController extends Controller
                 $isPreviewMode = true;
             } else {
                 // Show team selector for admin
-                $allTeams = ActualTeam::where('tournament_id', $auction->tournament_id)->get();
+                $allTeams = ActualTeam::forTournament($auction->tournament_id)->get();
 
                 return view('backend.pages.auction.bidding-team-selector', compact(
                     'auction',
@@ -53,7 +53,7 @@ class AuctionBiddingController extends Controller
         } else {
             // Regular team manager - find their team
             $userTeam = $user->actualTeams()
-                ->where('tournament_id', $auction->tournament_id)
+                ->forTournament($auction->tournament_id)
                 ->first();
 
             // Security: Abort if the user is not on a participating team.
@@ -117,7 +117,7 @@ class AuctionBiddingController extends Controller
         }
 
         // Get all teams with their budgets
-        $allTeams = ActualTeam::where('tournament_id', $auction->tournament_id)
+        $allTeams = ActualTeam::forTournament($auction->tournament_id)
             ->get()
             ->map(function ($team) use ($auction) {
                 $spent = $auction->auctionPlayers()

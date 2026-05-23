@@ -106,6 +106,19 @@ class ActualTeam extends Model
         return $this->users()->wherePivot('role', 'Manager')->first();
     }
 
+    /**
+     * Scope: find teams belonging to a tournament (checks both legacy column and pivot table)
+     */
+    public function scopeForTournament(Builder $query, $tournamentId): Builder
+    {
+        return $query->where(function ($q) use ($tournamentId) {
+            $q->where('tournament_id', $tournamentId)
+              ->orWhereHas('tournaments', function ($sub) use ($tournamentId) {
+                  $sub->where('tournaments.id', $tournamentId);
+              });
+        });
+    }
+
     public function scopeApplyFilters(Builder $query, array $filters): Builder
     {
         // Apply Organization filter if provided

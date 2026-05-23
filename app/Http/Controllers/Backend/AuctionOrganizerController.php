@@ -11,8 +11,12 @@ use App\Models\Player;
 use App\Events\AuctionStatusUpdate;
 use App\Events\PlayerOnBid;
 use App\Events\PlayerSoldEvent;
+use App\Mail\PlayerSoldMail;
+use App\Mail\PlayerUnsoldMail;
+use App\Notifications\GeneralNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class AuctionOrganizerController extends Controller
 {
@@ -50,7 +54,7 @@ class AuctionOrganizerController extends Controller
             ->get();
 
         // Fetch teams with their budget calculations
-        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+        $teams = ActualTeam::forTournament($auction->tournament_id)
             ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
                 $query->where('auction_id', $auction->id)->where('status', 'sold');
             }])
@@ -109,7 +113,7 @@ class AuctionOrganizerController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+        $teams = ActualTeam::forTournament($auction->tournament_id)
             ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
                 $query->where('auction_id', $auction->id)->where('status', 'sold');
             }])
@@ -154,6 +158,19 @@ class AuctionOrganizerController extends Controller
     {
         $auction->update(['status' => 'running']);
         broadcast(new AuctionStatusUpdate($auction->id, 'running'));
+
+        // Notify all players in auction
+        $auctionPlayers = $auction->auctionPlayers()->with('player.user')->get();
+        foreach ($auctionPlayers as $ap) {
+            if ($ap->player?->user) {
+                $ap->player->user->notify(new GeneralNotification(
+                    "Auction '{$auction->name}' has started!",
+                    route('admin.auctions.show', $auction),
+                    'info'
+                ));
+            }
+        }
+
         return response()->json(['message' => 'Auction has been started.']);
     }
 
@@ -164,6 +181,19 @@ class AuctionOrganizerController extends Controller
     {
         $auction->update(['status' => 'completed']);
         broadcast(new AuctionStatusUpdate($auction->id, 'completed'));
+
+        // Notify all players in auction
+        $auctionPlayers = $auction->auctionPlayers()->with('player.user')->get();
+        foreach ($auctionPlayers as $ap) {
+            if ($ap->player?->user) {
+                $ap->player->user->notify(new GeneralNotification(
+                    "Auction '{$auction->name}' has ended.",
+                    route('admin.auctions.show', $auction),
+                    'info'
+                ));
+            }
+        }
+
         return response()->json(['message' => 'Auction has been completed.']);
     }
 
@@ -333,6 +363,9 @@ class AuctionOrganizerController extends Controller
             Player::where('id', $auctionPlayer->player_id)->update(['player_mode' => 'retained']);
 
             broadcast(new PlayerSoldEvent($auctionPlayer, $winningBid->team));
+
+            // Send notifications
+            $this->notifyPlayerSold($auctionPlayer->player_id, $winningBid->team, $auction, $winningBid->amount);
         } else {
             // If no bids, mark as unsold
             $this->passPlayer($request, $auction);
@@ -354,6 +387,20 @@ class AuctionOrganizerController extends Controller
 
         // Still broadcast the "sold" event so the UI can update, but without a winning team
         broadcast(new PlayerSoldEvent($auctionPlayer, null));
+
+        // Send unsold notifications
+        $player = Player::with('user')->find($auctionPlayer->player_id);
+        if ($player?->user) {
+            $player->user->notify(new GeneralNotification(
+                "You were not selected in the auction: {$auction->name}.",
+                route('admin.auctions.show', $auction),
+                'warning'
+            ));
+
+            if ($player->user->email) {
+                Mail::to($player->user->email)->send(new PlayerUnsoldMail($player, $auction));
+            }
+        }
 
         return response()->json(['message' => 'Player has been passed.']);
     }
@@ -441,6 +488,9 @@ class AuctionOrganizerController extends Controller
         });
 
         broadcast(new PlayerSoldEvent($auctionPlayer->fresh(), $team));
+
+        // Send notifications
+        $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $validated['amount']);
 
         return response()->json([
             'success' => true,
@@ -693,5 +743,35 @@ class AuctionOrganizerController extends Controller
 
         broadcast(new PlayerOnBid($playerDataForBroadcast));
         return response()->json(['success' => true, 'message' => 'Player put back on auction.']);
+    }
+
+    /**
+     * Send sold notifications to player and team managers.
+     */
+    private function notifyPlayerSold(int $playerId, ActualTeam $team, Auction $auction, float $finalPrice): void
+    {
+        $player = Player::with('user')->find($playerId);
+
+        // Notify the player
+        if ($player?->user) {
+            $player->user->notify(new GeneralNotification(
+                "You've been sold to {$team->name} for " . number_format($finalPrice) . " in {$auction->name}!",
+                route('admin.auctions.show', $auction),
+                'success'
+            ));
+
+            if ($player->user->email) {
+                Mail::to($player->user->email)->send(new PlayerSoldMail($player, $team, $auction, $finalPrice));
+            }
+        }
+
+        // Notify team managers
+        foreach ($team->users as $manager) {
+            $manager->notify(new GeneralNotification(
+                "{$player->name} has been added to {$team->name} for " . number_format($finalPrice) . "!",
+                route('admin.auctions.show', $auction),
+                'success'
+            ));
+        }
     }
 }

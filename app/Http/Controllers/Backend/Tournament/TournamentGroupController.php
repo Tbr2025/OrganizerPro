@@ -25,7 +25,7 @@ class TournamentGroupController extends Controller
         $groups = $tournament->groups()->with(['teams', 'pointTableEntries.team'])->get();
 
         // All teams for this tournament (from registration approval)
-        $allTeams = ActualTeam::where('tournament_id', $tournament->id)
+        $allTeams = ActualTeam::forTournament($tournament->id)
             ->with(['users' => function ($q) {
                 $q->wherePivotIn('role', ['Owner', 'Manager']);
             }])

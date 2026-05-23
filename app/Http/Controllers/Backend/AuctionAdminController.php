@@ -168,7 +168,7 @@ class AuctionAdminController extends Controller
         if (!$isAdmin) {
             // Get user's team for this tournament
             $userTeam = $user->actualTeams()
-                ->where('tournament_id', $auction->tournament_id)
+                ->forTournament($auction->tournament_id)
                 ->first();
 
             if ($userTeam) {
@@ -185,7 +185,7 @@ class AuctionAdminController extends Controller
             }
         }
 
-        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+        $teams = ActualTeam::forTournament($auction->tournament_id)
             ->orderBy('name')
             ->get();
 
@@ -283,7 +283,7 @@ class AuctionAdminController extends Controller
         });
 
         // Teams for filters
-        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+        $teams = ActualTeam::forTournament($auction->tournament_id)
             ->orderBy('name')
             ->get();
 
@@ -964,7 +964,7 @@ class AuctionAdminController extends Controller
             },
         ]);
 
-        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+        $teams = ActualTeam::forTournament($auction->tournament_id)
             ->orderBy('name')
             ->get();
 

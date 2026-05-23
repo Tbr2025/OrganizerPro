@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActualTeam;
 use App\Models\Organization;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
@@ -97,9 +98,7 @@ class TournamentController extends Controller
 
         // Append teams count: max of actual_teams (from approvals) and group_teams (manually added)
         foreach ($tournaments as $tournament) {
-            $actualCount = DB::table('actual_teams')
-                ->where('tournament_id', $tournament->id)
-                ->count();
+            $actualCount = ActualTeam::forTournament($tournament->id)->count();
             $groupCount = DB::table('tournament_group_teams')
                 ->join('tournament_groups', 'tournament_group_teams.tournament_group_id', '=', 'tournament_groups.id')
                 ->where('tournament_groups.tournament_id', $tournament->id)
@@ -142,7 +141,7 @@ class TournamentController extends Controller
         // Get various counts and stats
         $stats = [
             'teams_count' => max(
-                DB::table('actual_teams')->where('tournament_id', $tournament->id)->count(),
+                ActualTeam::forTournament($tournament->id)->count(),
                 DB::table('tournament_group_teams')
                     ->join('tournament_groups', 'tournament_group_teams.tournament_group_id', '=', 'tournament_groups.id')
                     ->where('tournament_groups.tournament_id', $tournament->id)

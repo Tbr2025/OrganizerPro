@@ -63,10 +63,14 @@ class TeamManagerController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Get upcoming auctions for the tournament
-        $upcomingAuctions = collect();
+        // Get upcoming auctions for all tournaments this team belongs to
+        $teamTournamentIds = $team->tournaments()->pluck('tournaments.id');
         if ($team->tournament_id) {
-            $upcomingAuctions = Auction::where('tournament_id', $team->tournament_id)
+            $teamTournamentIds = $teamTournamentIds->push($team->tournament_id)->unique();
+        }
+        $upcomingAuctions = collect();
+        if ($teamTournamentIds->isNotEmpty()) {
+            $upcomingAuctions = Auction::whereIn('tournament_id', $teamTournamentIds)
                 ->whereIn('status', ['scheduled', 'running', 'paused'])
                 ->with('tournament')
                 ->get();
@@ -381,7 +385,11 @@ class TeamManagerController extends Controller
                 ->with('error', 'You are not assigned to any team.');
         }
 
-        $auctions = Auction::where('tournament_id', $team->tournament_id)
+        $teamTournamentIds = $team->tournaments()->pluck('tournaments.id');
+        if ($team->tournament_id) {
+            $teamTournamentIds = $teamTournamentIds->push($team->tournament_id)->unique();
+        }
+        $auctions = Auction::whereIn('tournament_id', $teamTournamentIds)
             ->with(['tournament', 'auctionPlayers' => function ($query) use ($team) {
                 $query->where('team_id', $team->id)->where('status', 'sold');
             }])

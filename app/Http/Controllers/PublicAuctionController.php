@@ -22,7 +22,7 @@ class PublicAuctionController extends Controller
             'auctionPlayers.soldToTeam'
         ]);
 
-        $teams = ActualTeam::where('tournament_id', $auction->tournament_id)
+        $teams = ActualTeam::forTournament($auction->tournament_id)
             ->orderBy('name')
             ->get();
 
