@@ -112,6 +112,15 @@ class TemplateRenderService extends PosterGeneratorService
         $x = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
         $y = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
 
+        // Dispatch table/scorecard types early (they use $data directly, not $value)
+        if ($type === 'tableArea') {
+            $this->renderTableArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
+            return;
+        } elseif ($type === 'scorecardTable') {
+            $this->renderScorecardTable($canvas, $element, $data, $canvasWidth, $canvasHeight);
+            return;
+        }
+
         // Get value from data, element's static text, or placeholder display
         $staticText = $element['text'] ?? '';
         // Ignore broken JS interpolation text saved by template editor
@@ -132,15 +141,6 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Ensure value is always a string
         $value = (string) ($value ?? '');
-
-        // Dispatch table/scorecard types early (before string cast)
-        if ($type === 'tableArea') {
-            $this->renderTableArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
-            return;
-        } elseif ($type === 'scorecardTable') {
-            $this->renderScorecardTable($canvas, $element, $data, $canvasWidth, $canvasHeight);
-            return;
-        }
 
         if ($type === 'icon') {
             $this->renderIconElement($canvas, $element, $x, $y);
@@ -885,7 +885,6 @@ class TemplateRenderService extends PosterGeneratorService
         if (is_string($tableData)) {
             $tableData = json_decode($tableData, true) ?? [];
         }
-        \Log::info('SCORECARD_DEBUG', ['dataKey' => $dataKey, 'type' => gettype($tableData), 'count' => is_array($tableData) ? count($tableData) : -1, 'allDataKeys' => array_keys($data)]);
 
         // Style config
         $headerBg = $config['headerBg'] ?? '#1e40af';
