@@ -601,6 +601,45 @@ class MatchSummaryController extends Controller
             }
         }
 
+        // Extract scorecard data for scorecard tables
+        if ($match->result && $match->result->scorecard_data) {
+            $scorecard = is_string($match->result->scorecard_data)
+                ? json_decode($match->result->scorecard_data, true)
+                : $match->result->scorecard_data;
+            $innings = $scorecard['innings'] ?? $scorecard;
+
+            if (is_array($innings) && count($innings) >= 2) {
+                $shouldSwap = $match->result->team_a_batting_first === false;
+                $firstKey = $shouldSwap ? 'b' : 'a';
+                $secondKey = $shouldSwap ? 'a' : 'b';
+
+                if (!empty($innings[0]['batting'])) {
+                    $data['batting_table_' . $firstKey] = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
+                        'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
+                    ])->values()->toArray();
+                }
+                if (!empty($innings[0]['bowling'])) {
+                    $data['bowling_table_' . $secondKey] = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
+                        'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
+                    ])->values()->toArray();
+                }
+                if (!empty($innings[1]['batting'])) {
+                    $data['batting_table_' . $secondKey] = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
+                        'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
+                    ])->values()->toArray();
+                }
+                if (!empty($innings[1]['bowling'])) {
+                    $data['bowling_table_' . $firstKey] = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
+                        'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
+                    ])->values()->toArray();
+                }
+            }
+        }
+
         return $data;
     }
 

@@ -133,14 +133,17 @@ class TemplateRenderService extends PosterGeneratorService
         // Ensure value is always a string
         $value = (string) ($value ?? '');
 
-        if ($type === 'icon') {
-            $this->renderIconElement($canvas, $element, $x, $y);
-            return;
-        } elseif ($type === 'tableArea') {
+        // Dispatch table/scorecard types early (before string cast)
+        if ($type === 'tableArea') {
             $this->renderTableArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
             return;
         } elseif ($type === 'scorecardTable') {
             $this->renderScorecardTable($canvas, $element, $data, $canvasWidth, $canvasHeight);
+            return;
+        }
+
+        if ($type === 'icon') {
+            $this->renderIconElement($canvas, $element, $x, $y);
             return;
         } elseif ($type === 'image') {
             $this->renderImageElement($canvas, $element, $value, $x, $y, $canvasWidth);
@@ -882,7 +885,6 @@ class TemplateRenderService extends PosterGeneratorService
         if (is_string($tableData)) {
             $tableData = json_decode($tableData, true) ?? [];
         }
-        \Log::info('renderScorecardTable', ['dataKey' => $dataKey, 'hasData' => !empty($tableData), 'count' => is_array($tableData) ? count($tableData) : 0, 'availableKeys' => array_keys(array_filter($data, fn($v) => is_array($v)))]);
 
         // Style config
         $headerBg = $config['headerBg'] ?? '#1e40af';
