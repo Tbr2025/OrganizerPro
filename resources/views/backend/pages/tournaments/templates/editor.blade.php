@@ -795,6 +795,12 @@
                         <label class="prop-label">Max Rows</label>
                         <input type="number" id="propScMaxRows" class="prop-input" min="2" max="5" value="3" onchange="editor.updateScorecardConfig('maxRows', parseInt(this.value))">
                     </div>
+                    <div class="prop-group" style="margin-top:8px;">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propScTransparentBg" onchange="editor.updateScorecardConfig('transparentBg', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Transparent Background</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="prop-section">
                     <div class="prop-section-title">Style Presets</div>
@@ -1439,6 +1445,7 @@ const editor = {
         document.getElementById('propScFontSize').value = cfg.fontSize || 14;
         document.getElementById('propScRowHeight').value = cfg.rowHeight || 40;
         document.getElementById('propScMaxRows').value = cfg.maxRows || 3;
+        document.getElementById('propScTransparentBg').checked = cfg.transparentBg || false;
     },
 
     starPoints(spikes, outerR, innerR) {

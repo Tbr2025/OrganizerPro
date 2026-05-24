@@ -888,6 +888,7 @@ class TemplateRenderService extends PosterGeneratorService
         }
 
         // Style config
+        $transparentBg = !empty($config['transparentBg']);
         $headerBg = $config['headerBg'] ?? '#1e40af';
         $headerText = $config['headerText'] ?? '#ffffff';
         $rowBg = $config['rowBg'] ?? '#1e293b';
@@ -919,19 +920,23 @@ class TemplateRenderService extends PosterGeneratorService
         $colFontSize = (int) ($fontSize * 0.85);
 
         // --- Team header bar ---
-        $hdrColor = $this->parseColor($canvas, $headerBg);
-        imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + $headerHeight, $hdrColor);
-        // Accent line at bottom of header
-        $accentParsed = $this->parseColor($canvas, $accentColor);
-        imagefilledrectangle($canvas, $areaX, $areaY + $headerHeight - (2 * $this->renderScale), $areaX + $areaWidth, $areaY + $headerHeight, $accentParsed);
+        if (!$transparentBg) {
+            $hdrColor = $this->parseColor($canvas, $headerBg);
+            imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + $headerHeight, $hdrColor);
+            // Accent line at bottom of header
+            $accentParsed = $this->parseColor($canvas, $accentColor);
+            imagefilledrectangle($canvas, $areaX, $areaY + $headerHeight - (2 * $this->renderScale), $areaX + $areaWidth, $areaY + $headerHeight, $accentParsed);
+        }
         // Team name text
         $this->addText($canvas, strtoupper($teamName) . ' - ' . $typeLabel, $areaX + (int) ($areaWidth * 0.04), $areaY + (int) ($headerHeight * 0.65), $headerFontSize, $headerText, $headerFont, 'left');
 
         $currentY = $areaY + $headerHeight;
 
         // --- Column headers ---
-        $colHdrColor = $this->parseColor($canvas, $this->darkenColorHex($headerBg, 15));
-        imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $colHeaderHeight, $colHdrColor);
+        if (!$transparentBg) {
+            $colHdrColor = $this->parseColor($canvas, $this->darkenColorHex($headerBg, 15));
+            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $colHeaderHeight, $colHdrColor);
+        }
 
         if ($scorecardType === 'batting') {
             $cols = $this->getScorecardBattingColumns($areaX, $areaWidth);
@@ -955,16 +960,20 @@ class TemplateRenderService extends PosterGeneratorService
         $rows = array_slice($tableData, 0, $maxRows);
         if (empty($rows)) {
             // No data placeholder
-            $noBg = $this->parseColor($canvas, $rowBg);
-            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $noBg);
+            if (!$transparentBg) {
+                $noBg = $this->parseColor($canvas, $rowBg);
+                imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $noBg);
+            }
             $this->addText($canvas, 'No scorecard data', $areaX + (int) ($areaWidth / 2), $currentY + (int) ($rowHeight * 0.6), $fontSize, '#888888', $bodyFont, 'center');
             return;
         }
 
         foreach ($rows as $index => $row) {
-            $bgColor = ($index % 2 === 0) ? $rowBg : $altRowBg;
-            $rowColor = $this->parseColor($canvas, $bgColor);
-            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowColor);
+            if (!$transparentBg) {
+                $bgColor = ($index % 2 === 0) ? $rowBg : $altRowBg;
+                $rowColor = $this->parseColor($canvas, $bgColor);
+                imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowColor);
+            }
 
             $textY = $currentY + (int) ($rowHeight * 0.62);
 
@@ -987,7 +996,7 @@ class TemplateRenderService extends PosterGeneratorService
             }
 
             // Subtle divider
-            if ($index < count($rows) - 1) {
+            if (!$transparentBg && $index < count($rows) - 1) {
                 $divider = imagecolorallocatealpha($canvas, 255, 255, 255, 110);
                 imageline($canvas, $areaX + 4, $currentY + $rowHeight - 1, $areaX + $areaWidth - 4, $currentY + $rowHeight - 1, $divider);
             }
