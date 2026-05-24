@@ -174,7 +174,8 @@ class TemplateRenderService extends PosterGeneratorService
         $underline = (bool) ($element['underline'] ?? false);
         $linethrough = (bool) ($element['linethrough'] ?? false);
         // Shadow can be bool, array {blur, offsetX, offsetY} or {blur, x, y}, or null
-        $shadowRaw = $element['shadow'] ?? true;
+        // Default to false — only render shadow when explicitly enabled
+        $shadowRaw = $element['shadow'] ?? false;
         $shadow = is_array($shadowRaw) ? !empty($shadowRaw) : (bool) $shadowRaw;
         $shadowBlur = (int) ($element['shadowBlur'] ?? (is_array($shadowRaw) ? ($shadowRaw['blur'] ?? 4) : 4));
         $shadowX = (int) ($element['shadowX'] ?? (is_array($shadowRaw) ? ($shadowRaw['offsetX'] ?? $shadowRaw['x'] ?? 2) : 2));
