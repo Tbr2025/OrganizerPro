@@ -142,6 +142,11 @@ class TournamentTemplate extends Model
                 // Performance Figures
                 'batting_figures',
                 'bowling_figures',
+                // Scorecard Tables
+                'batting_table_a',
+                'batting_table_b',
+                'bowling_table_a',
+                'bowling_table_b',
             ],
             self::TYPE_AWARD_POSTER => [
                 'tournament_name',

@@ -51,6 +51,11 @@ class AuctionBiddingController extends Controller
                 ));
             }
         } else {
+            // Only team managers/coaches/captains can access the bidding page — not players
+            if ($user->hasRole('player')) {
+                abort(403, 'Players cannot access the bidding page. Only team managers can bid.');
+            }
+
             // Regular team manager - find their team
             $userTeam = $user->actualTeams()
                 ->forTournament($auction->tournament_id)
@@ -175,7 +180,14 @@ class AuctionBiddingController extends Controller
             'amount' => 'nullable|numeric|min:0', // Only used for closed bid
         ]);
 
-        $userTeam = Auth::user()->actualTeams()->first();
+        $user = Auth::user();
+
+        // Only team managers can place bids — not players
+        if ($user->hasRole('player')) {
+            return response()->json(['error' => 'Players cannot place bids. Only team managers can bid.'], 403);
+        }
+
+        $userTeam = $user->actualTeams()->first();
         if (!$userTeam) {
             return response()->json(['error' => 'You are not assigned to a team.'], 403);
         }

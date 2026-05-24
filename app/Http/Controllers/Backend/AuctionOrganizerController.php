@@ -28,6 +28,8 @@ class AuctionOrganizerController extends Controller
      */
     public function showPanel(Auction $auction)
     {
+        $auction->load('tournament');
+
         // Fetch available players (waiting status)
         $availablePlayers = $auction->auctionPlayers()
             ->where('status', 'waiting')
@@ -72,6 +74,7 @@ class AuctionOrganizerController extends Controller
             'total_players' => $auction->auctionPlayers()->count(),
             'sold_count' => $auction->auctionPlayers()->where('status', 'sold')->count(),
             'unsold_count' => $auction->auctionPlayers()->where('status', 'unsold')->count(),
+            'skipped_count' => $auction->auctionPlayers()->where('status', 'skipped')->count(),
             'waiting_count' => $availablePlayers->count(),
         ];
 
@@ -82,6 +85,93 @@ class AuctionOrganizerController extends Controller
             'soldPlayers',
             'teams',
             'stats'
+        ));
+    }
+
+    /**
+     * Display the fullscreen offline auction control panel.
+     */
+    public function showOfflinePanel(Auction $auction)
+    {
+        $auction->load('tournament');
+
+        $availablePlayers = $auction->auctionPlayers()
+            ->where('status', 'waiting')
+            ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
+            ->get();
+
+        $currentPlayer = $auction->auctionPlayers()
+            ->where('status', 'on_auction')
+            ->with([
+                'player.playerType',
+                'player.battingProfile',
+                'player.bowlingProfile',
+                'bids.team',
+                'bids.user',
+                'soldToTeam',
+                'currentBidTeam'
+            ])
+            ->first();
+
+        $soldPlayers = $auction->auctionPlayers()
+            ->where('status', 'sold')
+            ->with(['player', 'soldToTeam'])
+            ->get();
+
+        $unsoldPlayers = $auction->auctionPlayers()
+            ->where('status', 'unsold')
+            ->with(['player'])
+            ->get();
+
+        $teams = ActualTeam::forTournament($auction->tournament_id)
+            ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
+                $query->where('auction_id', $auction->id)->where('status', 'sold');
+            }])
+            ->withSum(['auctionPlayers as total_spent' => function ($query) use ($auction) {
+                $query->where('auction_id', $auction->id)->where('status', 'sold');
+            }], 'final_price')
+            ->get()
+            ->map(function ($team) use ($auction) {
+                $team->remaining_budget = $auction->max_budget_per_team - ($team->total_spent ?? 0);
+                return $team;
+            });
+
+        $skippedPlayers = $auction->auctionPlayers()
+            ->where('status', 'skipped')
+            ->with(['player'])
+            ->get();
+
+        $stats = [
+            'total_players' => $auction->auctionPlayers()->count(),
+            'sold_count' => $soldPlayers->count(),
+            'unsold_count' => $unsoldPlayers->count(),
+            'skipped_count' => $skippedPlayers->count(),
+            'waiting_count' => $availablePlayers->count(),
+        ];
+
+        $bidRules = is_string($auction->bid_rules) ? json_decode($auction->bid_rules, true) : ($auction->bid_rules ?? []);
+
+        // Map available players to compact format for JSON in Blade
+        $availablePlayersCompact = $availablePlayers->map(function ($ap) {
+            return [
+                'id' => $ap->id,
+                'player_id' => $ap->player_id,
+                'base_price' => $ap->base_price,
+                'jersey_number' => $ap->player->jersey_number ?? null,
+                'player' => $ap->player,
+            ];
+        });
+
+        return view('backend.pages.auction.offline-panel', compact(
+            'auction',
+            'availablePlayers',
+            'availablePlayersCompact',
+            'currentPlayer',
+            'soldPlayers',
+            'unsoldPlayers',
+            'teams',
+            'stats',
+            'bidRules'
         ));
     }
 
@@ -130,6 +220,7 @@ class AuctionOrganizerController extends Controller
             'total_players' => $auction->auctionPlayers()->count(),
             'sold_count' => $soldPlayers->count(),
             'unsold_count' => $auction->auctionPlayers()->where('status', 'unsold')->count(),
+            'skipped_count' => $auction->auctionPlayers()->where('status', 'skipped')->count(),
             'waiting_count' => $availablePlayers->count(),
         ];
 
@@ -604,6 +695,81 @@ class AuctionOrganizerController extends Controller
     }
 
     /**
+     * Skip the current player — defer to a later round without marking as unsold.
+     */
+    public function skipPlayer(Request $request, Auction $auction)
+    {
+        $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
+
+        $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)
+            ->where('auction_id', $auction->id)
+            ->firstOrFail();
+
+        $auctionPlayer->update([
+            'status' => 'skipped',
+            'current_bid_team_id' => null,
+        ]);
+
+        // Broadcast so live page updates (reuse PlayerSoldEvent with null team)
+        broadcast(new PlayerSoldEvent($auctionPlayer->fresh(), null));
+
+        return response()->json(['success' => true, 'message' => 'Player skipped.']);
+    }
+
+    /**
+     * Start a re-auction round — reset all unsold + skipped players back to waiting.
+     */
+    public function startReAuctionRound(Request $request, Auction $auction)
+    {
+        // Check no player is currently live
+        $livePlayer = $auction->auctionPlayers()->where('status', 'on_auction')->first();
+        if ($livePlayer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Finish the current player before starting a new round.'
+            ], 400);
+        }
+
+        $affected = $auction->auctionPlayers()
+            ->whereIn('status', ['unsold', 'skipped'])
+            ->count();
+
+        if ($affected === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No unsold or skipped players to re-auction.'
+            ], 400);
+        }
+
+        DB::transaction(function () use ($auction) {
+            $auction->auctionPlayers()
+                ->whereIn('status', ['unsold', 'skipped'])
+                ->update([
+                    'status' => 'waiting',
+                    'current_price' => DB::raw('base_price'),
+                    'current_bid_team_id' => null,
+                    'sold_to_team_id' => null,
+                    'final_price' => null,
+                ]);
+
+            // Delete old bids for these players
+            $resetPlayerIds = $auction->auctionPlayers()
+                ->where('status', 'waiting')
+                ->pluck('id');
+
+            AuctionBid::where('auction_id', $auction->id)
+                ->whereIn('auction_player_id', $resetPlayerIds)
+                ->delete();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => $affected . ' player(s) moved back to waiting for re-auction.',
+            'reset_count' => $affected,
+        ]);
+    }
+
+    /**
      * Re-bid the current player — reset price/bids and restart bidding.
      */
     public function rebidPlayer(Request $request, Auction $auction)
@@ -663,8 +829,8 @@ class AuctionOrganizerController extends Controller
     public function allPlayers(Auction $auction)
     {
         $players = $auction->auctionPlayers()
-            ->with(['player', 'soldToTeam'])
-            ->orderByRaw("FIELD(status, 'on_auction', 'waiting', 'sold', 'unsold')")
+            ->with(['player.playerType', 'soldToTeam'])
+            ->orderByRaw("FIELD(status, 'on_auction', 'waiting', 'skipped', 'sold', 'unsold')")
             ->get()
             ->map(fn($ap) => [
                 'id' => $ap->id,
@@ -674,6 +840,10 @@ class AuctionOrganizerController extends Controller
                 'final_price' => $ap->final_price,
                 'base_price' => $ap->base_price,
                 'image_path' => $ap->player->image_path ?? null,
+                'player_type' => $ap->player->playerType?->name ?? null,
+                'total_matches' => $ap->player->total_matches,
+                'total_runs' => $ap->player->total_runs,
+                'total_wickets' => $ap->player->total_wickets,
             ]);
 
         return response()->json(['players' => $players]);
@@ -690,7 +860,7 @@ class AuctionOrganizerController extends Controller
 
         $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
             ->where('auction_id', $auction->id)
-            ->whereIn('status', ['sold', 'unsold'])
+            ->whereIn('status', ['sold', 'unsold', 'skipped'])
             ->firstOrFail();
 
         // Check no other player is currently live
@@ -743,6 +913,55 @@ class AuctionOrganizerController extends Controller
 
         broadcast(new PlayerOnBid($playerDataForBroadcast));
         return response()->json(['success' => true, 'message' => 'Player put back on auction.']);
+    }
+
+    /**
+     * Update a player's base price from the offline panel.
+     */
+    public function updateAuctionBasePrice(Request $request, Auction $auction)
+    {
+        $validated = $request->validate([
+            'base_price' => 'required|numeric|min:0',
+        ]);
+
+        $auction->update([
+            'base_price' => $validated['base_price'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Auction base price updated.',
+            'base_price' => $auction->base_price,
+        ]);
+    }
+
+    public function updateBasePrice(Request $request, Auction $auction)
+    {
+        $validated = $request->validate([
+            'auction_player_id' => 'required|exists:auction_players,id',
+            'base_price' => 'required|numeric|min:0',
+        ]);
+
+        $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
+            ->where('auction_id', $auction->id)
+            ->firstOrFail();
+
+        $auctionPlayer->update([
+            'base_price' => $validated['base_price'],
+        ]);
+
+        // If player is currently on auction and has no bids, also update current_price
+        if ($auctionPlayer->status === 'on_auction' && !$auctionPlayer->current_bid_team_id) {
+            $auctionPlayer->update([
+                'current_price' => $validated['base_price'],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Base price updated.',
+            'base_price' => $auctionPlayer->base_price,
+        ]);
     }
 
     /**

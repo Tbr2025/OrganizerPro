@@ -76,9 +76,9 @@
                 {{-- Location --}}
                 <div class="mt-4">
                     <label for="location" class="block text-sm font-medium">Location</label>
-                    <input type="text" name="location" id="location" 
-                        value="{{ old('location', $tournament->location) }}" 
-                        placeholder="Enter location" required
+                    <input type="text" name="location" id="location"
+                        value="{{ old('location', $tournament->location) }}"
+                        placeholder="Enter location"
                         class="mt-1 block w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     @error('location')
                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
@@ -163,19 +163,21 @@
         document.addEventListener("DOMContentLoaded", function() {
             const today = new Date().toISOString().split("T")[0];
 
+            const startDate = "{{ old('start_date', $tournament->start_date->format('Y-m-d')) }}";
+            const endDate = "{{ old('end_date', $tournament->end_date->format('Y-m-d')) }}";
+
             flatpickr("#start_date", {
-                minDate: "today",
                 dateFormat: "Y-m-d",
-                defaultDate: "{{ old('start_date', $tournament->start_date->format('Y-m-d')) }}",
+                defaultDate: startDate,
                 onChange: function(selectedDates, dateStr, instance) {
                     endPicker.set('minDate', dateStr);
                 }
             });
 
             const endPicker = flatpickr("#end_date", {
-                minDate: "today",
                 dateFormat: "Y-m-d",
-                defaultDate: "{{ old('end_date', $tournament->end_date->format('Y-m-d')) }}",
+                defaultDate: endDate,
+                minDate: startDate,
             });
 
             // Fetch zones when organization changes

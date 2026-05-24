@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class AuctionAdminController extends Controller
@@ -90,6 +91,13 @@ class AuctionAdminController extends Controller
             'online_bid_limit_to' => 'nullable|numeric|min:0|gt:online_bid_limit_from',
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
 
+            // Branding
+            'background_image' => 'nullable|image|max:5120',
+            'auction_logo' => 'nullable|image|max:5120',
+            'waiting_background_image' => 'nullable|image|max:5120',
+            'primary_color' => 'nullable|string|max:7',
+            'secondary_color' => 'nullable|string|max:7',
+
             // Player pool data (optional at creation)
             'player_ids' => 'nullable|array',
             'player_ids.*' => 'exists:players,id',
@@ -104,10 +112,20 @@ class AuctionAdminController extends Controller
             }
         }
 
-        DB::transaction(function () use ($validated) {
+        DB::transaction(function () use ($validated, $request) {
+
+            // Handle branding uploads
+            $brandingData = [];
+            foreach (['background_image', 'auction_logo', 'waiting_background_image'] as $field) {
+                if ($request->hasFile($field)) {
+                    $brandingData[$field] = $request->file($field)->store('auction-branding', 'public');
+                }
+            }
+            if (!empty($validated['primary_color'])) $brandingData['primary_color'] = $validated['primary_color'];
+            if (!empty($validated['secondary_color'])) $brandingData['secondary_color'] = $validated['secondary_color'];
 
             // Create the auction
-            $auction = Auction::create([
+            $auction = Auction::create(array_merge([
                 'name' => $validated['name'],
                 'organization_id' => $validated['organization_id'],
                 'tournament_id' => $validated['tournament_id'],
@@ -123,7 +141,7 @@ class AuctionAdminController extends Controller
                 'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
                 'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
-            ]);
+            ], $brandingData));
 
             // Add players to the auction pool (if provided)
             $playerIdsInPool = $validated['player_ids'] ?? [];
@@ -351,6 +369,7 @@ class AuctionAdminController extends Controller
         $newPrice = $current + $increment;
         $player->current_price = $newPrice;
         $player->final_price = $newPrice;
+        $player->current_bid_team_id = $data['teamId'] ?? null;
         $player->save();
 
         // Determine bid source based on current auction mode
@@ -583,8 +602,8 @@ class AuctionAdminController extends Controller
         $organizations = Organization::orderBy('name')->get();
         $tournaments = Tournament::orderBy('name')->get();
 
-        // Load the players currently in the auction to get their IDs
-        $auction->load('auctionPlayers.player');
+        // Load the players currently in the auction and tournament for branding
+        $auction->load('auctionPlayers.player', 'tournament');
         $auctionPlayerIds = $auction->auctionPlayers->pluck('player.id')->toArray();
 
         // Find players who are available (Verified, not Retained, and not already in this auction)
@@ -649,6 +668,12 @@ class AuctionAdminController extends Controller
             'online_bid_limit_from' => 'nullable|numeric|min:0',
             'online_bid_limit_to' => 'nullable|numeric|min:0|gt:online_bid_limit_from',
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
+            // Branding
+            'background_image' => 'nullable|image|max:5120',
+            'auction_logo' => 'nullable|image|max:5120',
+            'waiting_background_image' => 'nullable|image|max:5120',
+            'primary_color' => 'nullable|string|max:7',
+            'secondary_color' => 'nullable|string|max:7',
             // Player IDs and prices are handled via AJAX, not directly validated here,
             // but if they are part of the form submission (hidden fields), we need to ensure they are present.
             'player_ids' => 'nullable|array',
@@ -658,7 +683,20 @@ class AuctionAdminController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $auction, $request) {
-            $auction->update([
+            // Handle branding uploads — delete old file on replacement
+            $brandingData = [];
+            foreach (['background_image', 'auction_logo', 'waiting_background_image'] as $field) {
+                if ($request->hasFile($field)) {
+                    if ($auction->$field) {
+                        Storage::disk('public')->delete($auction->$field);
+                    }
+                    $brandingData[$field] = $request->file($field)->store('auction-branding', 'public');
+                }
+            }
+            if ($request->has('primary_color')) $brandingData['primary_color'] = $validated['primary_color'];
+            if ($request->has('secondary_color')) $brandingData['secondary_color'] = $validated['secondary_color'];
+
+            $auction->update(array_merge([
                 'name' => $validated['name'],
                 'organization_id' => $validated['organization_id'],
                 'tournament_id' => $validated['tournament_id'],
@@ -672,7 +710,7 @@ class AuctionAdminController extends Controller
                 'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
                 'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
-            ]);
+            ], $brandingData));
 
             // The player_ids and player_base_prices are now primarily managed by AJAX.
             // However, if the form is submitted, we still want to capture any manually
@@ -702,6 +740,25 @@ class AuctionAdminController extends Controller
         });
 
         return redirect()->route('admin.auctions.index')->with('success', 'Auction configuration updated successfully.');
+    }
+
+    public function removeBrandingImage(Request $request, Auction $auction)
+    {
+        $this->authorize('auction.edit');
+
+        $field = $request->input('field');
+        $allowed = ['background_image', 'auction_logo', 'waiting_background_image'];
+
+        if (!in_array($field, $allowed)) {
+            return response()->json(['error' => 'Invalid field.'], 422);
+        }
+
+        if ($auction->$field) {
+            Storage::disk('public')->delete($auction->$field);
+            $auction->update([$field => null]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Image removed.']);
     }
 
     public function addPlayerToPool(Request $request, Auction $auction, Player $player)

@@ -139,6 +139,9 @@ class TemplateRenderService extends PosterGeneratorService
         } elseif ($type === 'tableArea') {
             $this->renderTableArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
             return;
+        } elseif ($type === 'scorecardTable') {
+            $this->renderScorecardTable($canvas, $element, $data, $canvasWidth, $canvasHeight);
+            return;
         } elseif ($type === 'image') {
             $this->renderImageElement($canvas, $element, $value, $x, $y, $canvasWidth);
         } elseif ($type === 'uploadedImage') {
@@ -861,6 +864,177 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
+     * Render scorecard table (batting or bowling) on canvas
+     */
+    protected function renderScorecardTable(\GdImage $canvas, array $element, array $data, int $canvasWidth, int $canvasHeight): void
+    {
+        $config = $element['scorecardConfig'] ?? [];
+        $team = $config['team'] ?? 'a';
+        $scorecardType = $config['scorecardType'] ?? 'batting';
+        $maxRows = (int) ($config['maxRows'] ?? 3);
+
+        // Determine data key
+        $dataKey = $scorecardType === 'batting'
+            ? ('batting_table_' . $team)
+            : ('bowling_table_' . $team);
+
+        $tableData = $data[$dataKey] ?? [];
+        if (is_string($tableData)) {
+            $tableData = json_decode($tableData, true) ?? [];
+        }
+
+        // Style config
+        $headerBg = $config['headerBg'] ?? '#1e40af';
+        $headerText = $config['headerText'] ?? '#ffffff';
+        $rowBg = $config['rowBg'] ?? '#1e293b';
+        $altRowBg = $config['altRowBg'] ?? '#334155';
+        $textColor = $config['textColor'] ?? '#ffffff';
+        $accentColor = $config['accentColor'] ?? '#FFD700';
+        $fontSize = (int) (($config['fontSize'] ?? 14) * $this->renderScale);
+        $rowHeight = (int) (($config['rowHeight'] ?? 40) * $this->renderScale);
+
+        // Calculate element area
+        $areaWidth = (int) (($element['width'] ?? 400) * $this->renderScale);
+        $areaHeight = (int) (($element['height'] ?? 200) * $this->renderScale);
+        $centerX = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
+        $centerY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+        $areaX = (int) ($centerX - $areaWidth / 2);
+        $areaY = (int) ($centerY - $areaHeight / 2);
+
+        // Team name from data
+        $teamNameKey = 'team_' . $team . '_name';
+        $teamName = $data[$teamNameKey] ?? ('Team ' . strtoupper($team));
+        $typeLabel = strtoupper($scorecardType);
+
+        // Header bar height
+        $headerHeight = (int) ($rowHeight * 0.85);
+        $colHeaderHeight = (int) ($rowHeight * 0.75);
+        $headerFont = 'Montserrat-Bold.ttf';
+        $bodyFont = 'Montserrat-Medium.ttf';
+        $headerFontSize = (int) ($fontSize * 1.1);
+        $colFontSize = (int) ($fontSize * 0.85);
+
+        // --- Team header bar ---
+        $hdrColor = $this->parseColor($canvas, $headerBg);
+        imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + $headerHeight, $hdrColor);
+        // Accent line at bottom of header
+        $accentParsed = $this->parseColor($canvas, $accentColor);
+        imagefilledrectangle($canvas, $areaX, $areaY + $headerHeight - (2 * $this->renderScale), $areaX + $areaWidth, $areaY + $headerHeight, $accentParsed);
+        // Team name text
+        $this->addText($canvas, strtoupper($teamName) . ' - ' . $typeLabel, $areaX + (int) ($areaWidth * 0.04), $areaY + (int) ($headerHeight * 0.65), $headerFontSize, $headerText, $headerFont, 'left');
+
+        $currentY = $areaY + $headerHeight;
+
+        // --- Column headers ---
+        $colHdrColor = $this->parseColor($canvas, $this->darkenColorHex($headerBg, 15));
+        imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $colHeaderHeight, $colHdrColor);
+
+        if ($scorecardType === 'batting') {
+            $cols = $this->getScorecardBattingColumns($areaX, $areaWidth);
+            $this->addText($canvas, 'Name', $areaX + $cols['name'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'left');
+            $this->addText($canvas, 'R', $areaX + $cols['c1'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+            $this->addText($canvas, 'B', $areaX + $cols['c2'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+            $this->addText($canvas, '4s', $areaX + $cols['c3'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+            $this->addText($canvas, '6s', $areaX + $cols['c4'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+        } else {
+            $cols = $this->getScorecardBowlingColumns($areaX, $areaWidth);
+            $this->addText($canvas, 'Name', $areaX + $cols['name'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'left');
+            $this->addText($canvas, 'O', $areaX + $cols['c1'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+            $this->addText($canvas, 'R', $areaX + $cols['c2'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+            $this->addText($canvas, 'W', $areaX + $cols['c3'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+            $this->addText($canvas, 'Econ', $areaX + $cols['c4'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
+        }
+
+        $currentY += $colHeaderHeight;
+
+        // --- Data rows ---
+        $rows = array_slice($tableData, 0, $maxRows);
+        if (empty($rows)) {
+            // No data placeholder
+            $noBg = $this->parseColor($canvas, $rowBg);
+            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $noBg);
+            $this->addText($canvas, 'No scorecard data', $areaX + (int) ($areaWidth / 2), $currentY + (int) ($rowHeight * 0.6), $fontSize, '#888888', $bodyFont, 'center');
+            return;
+        }
+
+        foreach ($rows as $index => $row) {
+            $bgColor = ($index % 2 === 0) ? $rowBg : $altRowBg;
+            $rowColor = $this->parseColor($canvas, $bgColor);
+            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowColor);
+
+            $textY = $currentY + (int) ($rowHeight * 0.62);
+
+            if ($scorecardType === 'batting') {
+                $cols = $this->getScorecardBattingColumns($areaX, $areaWidth);
+                $name = mb_substr($row['name'] ?? '', 0, 18);
+                $this->addText($canvas, $name, $areaX + $cols['name'], $textY, $fontSize, $textColor, $bodyFont, 'left');
+                $this->addText($canvas, (string) ($row['runs'] ?? '-'), $areaX + $cols['c1'], $textY, $fontSize, $accentColor, $headerFont, 'center');
+                $this->addText($canvas, (string) ($row['balls'] ?? '-'), $areaX + $cols['c2'], $textY, $fontSize, $textColor, $bodyFont, 'center');
+                $this->addText($canvas, (string) ($row['fours'] ?? '-'), $areaX + $cols['c3'], $textY, $fontSize, $textColor, $bodyFont, 'center');
+                $this->addText($canvas, (string) ($row['sixes'] ?? '-'), $areaX + $cols['c4'], $textY, $fontSize, $textColor, $bodyFont, 'center');
+            } else {
+                $cols = $this->getScorecardBowlingColumns($areaX, $areaWidth);
+                $name = mb_substr($row['name'] ?? '', 0, 18);
+                $this->addText($canvas, $name, $areaX + $cols['name'], $textY, $fontSize, $textColor, $bodyFont, 'left');
+                $this->addText($canvas, (string) ($row['overs'] ?? '-'), $areaX + $cols['c1'], $textY, $fontSize, $textColor, $bodyFont, 'center');
+                $this->addText($canvas, (string) ($row['runs'] ?? '-'), $areaX + $cols['c2'], $textY, $fontSize, $textColor, $bodyFont, 'center');
+                $this->addText($canvas, (string) ($row['wickets'] ?? '-'), $areaX + $cols['c3'], $textY, $fontSize, $accentColor, $headerFont, 'center');
+                $this->addText($canvas, (string) ($row['economy'] ?? '-'), $areaX + $cols['c4'], $textY, $fontSize, $textColor, $bodyFont, 'center');
+            }
+
+            // Subtle divider
+            if ($index < count($rows) - 1) {
+                $divider = imagecolorallocatealpha($canvas, 255, 255, 255, 110);
+                imageline($canvas, $areaX + 4, $currentY + $rowHeight - 1, $areaX + $areaWidth - 4, $currentY + $rowHeight - 1, $divider);
+            }
+
+            $currentY += $rowHeight;
+        }
+    }
+
+    /**
+     * Get column positions for batting scorecard
+     */
+    protected function getScorecardBattingColumns(int $areaX, int $areaWidth): array
+    {
+        return [
+            'name' => (int) ($areaWidth * 0.04),
+            'c1' => (int) ($areaWidth * 0.60),  // R
+            'c2' => (int) ($areaWidth * 0.72),  // B
+            'c3' => (int) ($areaWidth * 0.84),  // 4s
+            'c4' => (int) ($areaWidth * 0.94),  // 6s
+        ];
+    }
+
+    /**
+     * Get column positions for bowling scorecard
+     */
+    protected function getScorecardBowlingColumns(int $areaX, int $areaWidth): array
+    {
+        return [
+            'name' => (int) ($areaWidth * 0.04),
+            'c1' => (int) ($areaWidth * 0.55),  // O
+            'c2' => (int) ($areaWidth * 0.66),  // R
+            'c3' => (int) ($areaWidth * 0.77),  // W
+            'c4' => (int) ($areaWidth * 0.90),  // Econ
+        ];
+    }
+
+    /**
+     * Darken a hex color by percentage
+     */
+    protected function darkenColorHex(string $hex, int $percent): string
+    {
+        $rgb = $this->hexToRgb($hex);
+        $factor = 1 - ($percent / 100);
+        return sprintf('#%02x%02x%02x',
+            max(0, (int) ($rgb['r'] * $factor)),
+            max(0, (int) ($rgb['g'] * $factor)),
+            max(0, (int) ($rgb['b'] * $factor))
+        );
+    }
+
+    /**
      * Draw a horizontal divider line
      */
     protected function drawHorizontalLine(\GdImage $canvas, int $x1, int $x2, int $y, int $color): void
@@ -1417,6 +1591,14 @@ class TemplateRenderService extends PosterGeneratorService
                 $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleTableData();
                 continue;
             }
+            if ($placeholder === 'batting_table_a' || $placeholder === 'batting_table_b') {
+                $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleBattingData();
+                continue;
+            }
+            if ($placeholder === 'bowling_table_a' || $placeholder === 'bowling_table_b') {
+                $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleBowlingData();
+                continue;
+            }
             $data[$placeholder] = $customData[$placeholder] ?? $this->getDisplayValue($placeholder);
         }
 
@@ -1433,6 +1615,30 @@ class TemplateRenderService extends PosterGeneratorService
             ['position' => 2, 'team_name' => 'Canadian CC', 'team_logo' => '', 'matches_played' => 5, 'won' => 3, 'lost' => 2, 'tied' => 0, 'net_run_rate' => 0.450, 'points' => 6, 'qualified' => true],
             ['position' => 3, 'team_name' => 'Thunder Kings', 'team_logo' => '', 'matches_played' => 5, 'won' => 2, 'lost' => 3, 'tied' => 0, 'net_run_rate' => -0.320, 'points' => 4, 'qualified' => false],
             ['position' => 4, 'team_name' => 'Royal Strikers', 'team_logo' => '', 'matches_played' => 5, 'won' => 1, 'lost' => 4, 'tied' => 0, 'net_run_rate' => -1.100, 'points' => 2, 'qualified' => false],
+        ];
+    }
+
+    /**
+     * Get sample batting scorecard data for preview
+     */
+    protected function getSampleBattingData(): array
+    {
+        return [
+            ['name' => 'Virat K.', 'runs' => 72, 'balls' => 45, 'fours' => 8, 'sixes' => 3],
+            ['name' => 'Rohit S.', 'runs' => 56, 'balls' => 38, 'fours' => 6, 'sixes' => 2],
+            ['name' => 'KL Rahul', 'runs' => 41, 'balls' => 30, 'fours' => 4, 'sixes' => 1],
+        ];
+    }
+
+    /**
+     * Get sample bowling scorecard data for preview
+     */
+    protected function getSampleBowlingData(): array
+    {
+        return [
+            ['name' => 'Jasprit B.', 'overs' => '4.0', 'runs' => 24, 'wickets' => 3, 'economy' => '6.00'],
+            ['name' => 'Mohammed S.', 'overs' => '4.0', 'runs' => 32, 'wickets' => 2, 'economy' => '8.00'],
+            ['name' => 'Ravindra J.', 'overs' => '3.0', 'runs' => 22, 'wickets' => 1, 'economy' => '7.33'],
         ];
     }
 

@@ -122,6 +122,13 @@
                         <p class="text-sm text-gray-500 mt-2">No matches found. <a href="{{ route('admin.tournaments.fixtures.index', $tournament) }}" class="text-purple-600 hover:underline">Create fixtures first</a>.</p>
                     @endif
 
+                    {{-- Scorecard note --}}
+                    <div id="scorecardNote" class="hidden mt-3">
+                        <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3">
+                            <p class="text-xs text-blue-700 dark:text-blue-300"><strong>Scorecard Tables:</strong> If the template includes scorecard table elements, top batsmen and bowlers will be auto-populated from the match's scorecard data. No manual entry needed.</p>
+                        </div>
+                    </div>
+
                     {{-- Match Summary Stats (shown when match selected for match_summary type) --}}
                     <div id="matchSummaryStats" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                         {{-- Score Summary --}}
@@ -1237,8 +1244,10 @@ document.getElementById('matchSelect')?.addEventListener('change', function() {
         document.getElementById('summaryBowlWickets').value = '';
 
         statsSection.classList.remove('hidden');
+        document.getElementById('scorecardNote')?.classList.remove('hidden');
     } else {
         statsSection?.classList.add('hidden');
+        document.getElementById('scorecardNote')?.classList.add('hidden');
     }
     if (this.value) showDataSummary(getSelectedData());
 });

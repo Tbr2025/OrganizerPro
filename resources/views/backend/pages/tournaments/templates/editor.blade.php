@@ -371,6 +371,36 @@
                     </div>
                     @endif
 
+                    @if($type === 'match_summary')
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Scorecard Tables</div>
+                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('batting_table_a', 'batting', 'a')">
+                            <div class="icon" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
+                            </div>
+                            <div class="info"><div class="name">Team A Batting</div><div class="type">Scorecard</div></div>
+                        </div>
+                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('batting_table_b', 'batting', 'b')">
+                            <div class="icon" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
+                            </div>
+                            <div class="info"><div class="name">Team B Batting</div><div class="type">Scorecard</div></div>
+                        </div>
+                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('bowling_table_a', 'bowling', 'a')">
+                            <div class="icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
+                            </div>
+                            <div class="info"><div class="name">Team A Bowling</div><div class="type">Scorecard</div></div>
+                        </div>
+                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('bowling_table_b', 'bowling', 'b')">
+                            <div class="icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
+                            </div>
+                            <div class="info"><div class="name">Team B Bowling</div><div class="type">Scorecard</div></div>
+                        </div>
+                    </div>
+                    @endif
+
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Image Layers</div>
                         <label class="bg-upload-area block" id="overlayUploadArea" style="padding: 12px; cursor: pointer;">
@@ -710,6 +740,68 @@
                         <button onclick="editor.applyTablePreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
                         <button onclick="editor.applyTablePreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#fff;border-color:#7c3aed;">IPL Style</button>
                         <button onclick="editor.applyTablePreset('minimal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#18181b;color:#a1a1aa;border-color:#3f3f46;">Minimal</button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Scorecard Table Properties --}}
+            <div id="scorecardPropertiesPanel" class="hidden">
+                <div class="prop-section">
+                    <div class="prop-section-title">Scorecard Colors</div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Header BG</label>
+                            <input type="color" id="propScHeaderBg" class="color-preview" value="#1e40af" onchange="editor.updateScorecardConfig('headerBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Header Text</label>
+                            <input type="color" id="propScHeaderText" class="color-preview" value="#ffffff" onchange="editor.updateScorecardConfig('headerText', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Row BG</label>
+                            <input type="color" id="propScRowBg" class="color-preview" value="#1e293b" onchange="editor.updateScorecardConfig('rowBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Alt Row BG</label>
+                            <input type="color" id="propScAltRowBg" class="color-preview" value="#334155" onchange="editor.updateScorecardConfig('altRowBg', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Text Color</label>
+                            <input type="color" id="propScTextColor" class="color-preview" value="#ffffff" onchange="editor.updateScorecardConfig('textColor', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Accent Color</label>
+                            <input type="color" id="propScAccentColor" class="color-preview" value="#FFD700" onchange="editor.updateScorecardConfig('accentColor', this.value)">
+                        </div>
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Layout</div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Font Size</label>
+                            <input type="number" id="propScFontSize" class="prop-input" min="10" max="24" value="14" onchange="editor.updateScorecardConfig('fontSize', parseInt(this.value))">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Row Height</label>
+                            <input type="number" id="propScRowHeight" class="prop-input" min="25" max="60" value="40" onchange="editor.updateScorecardConfig('rowHeight', parseInt(this.value))">
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Max Rows</label>
+                        <input type="number" id="propScMaxRows" class="prop-input" min="2" max="5" value="3" onchange="editor.updateScorecardConfig('maxRows', parseInt(this.value))">
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Style Presets</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="editor.applyScorecardPreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark</button>
+                        <button onclick="editor.applyScorecardPreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
+                        <button onclick="editor.applyScorecardPreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#fff;border-color:#7c3aed;">IPL</button>
                     </div>
                 </div>
             </div>
@@ -1258,6 +1350,97 @@ const editor = {
         document.getElementById('propTableShowLegend').checked = cfg.showLegend !== false;
     },
 
+    addScorecardTable(placeholder, scorecardType, team, x, y) {
+        x = x || this.canvasWidth / 2;
+        y = y || this.canvasHeight / 2;
+        const isBatting = scorecardType === 'batting';
+        const teamLabel = team === 'a' ? 'TEAM A' : 'TEAM B';
+        const typeLabel = isBatting ? 'BATTING' : 'BOWLING';
+        const w = 400, h = isBatting ? 180 : 160;
+
+        const border = new fabric.Rect({
+            width: w, height: h,
+            fill: 'rgba(30, 64, 175, 0.12)',
+            stroke: isBatting ? '#3b82f6' : '#10b981',
+            strokeWidth: 2, strokeDashArray: [8, 4],
+            rx: 6, ry: 6,
+            originX: 'center', originY: 'center',
+        });
+        const title = new fabric.Text(teamLabel + ' - ' + typeLabel, {
+            fontSize: 14, fill: isBatting ? '#60a5fa' : '#34d399',
+            fontFamily: 'Arial', fontWeight: '700',
+            originX: 'center', originY: 'center', top: -h/2 + 18,
+        });
+        const sampleLines = isBatting
+            ? 'Name          R    B   4s   6s\nVirat K.     72   45    8    3\nRohit S.     56   38    6    2\nKL Rahul     41   30    4    1'
+            : 'Name          O    R    W  Econ\nJasprit B.  4.0   24    3  6.00\nMohd S.     4.0   32    2  8.00\nRavindra J. 3.0   22    1  7.33';
+        const sample = new fabric.Text(sampleLines, {
+            fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New',
+            originX: 'center', originY: 'center', top: 15, lineHeight: 1.5,
+        });
+        const group = new fabric.Group([border, title, sample], {
+            left: x, top: y, originX: 'center', originY: 'center',
+        });
+        group.elementType = 'scorecardTable';
+        group.placeholder = placeholder;
+        group.scorecardConfig = {
+            scorecardType: scorecardType, team: team, maxRows: 3,
+            headerBg: '#1e40af', headerText: '#ffffff',
+            rowBg: '#1e293b', altRowBg: '#334155',
+            textColor: '#ffffff', accentColor: '#FFD700',
+            fontSize: 14, rowHeight: 40,
+        };
+        this.canvas.add(group);
+        this.canvas.setActiveObject(group);
+        this.saveHistory();
+    },
+
+    updateScorecardConfig(key, value) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'scorecardTable') return;
+        obj.scorecardConfig = obj.scorecardConfig || {};
+        obj.scorecardConfig[key] = value;
+        if (key === 'headerBg') {
+            const r = parseInt(value.slice(1,3),16), g = parseInt(value.slice(3,5),16), b = parseInt(value.slice(5,7),16);
+            obj.item(0).set('fill', `rgba(${r},${g},${b},0.12)`);
+            obj.item(0).set('stroke', value);
+            this.canvas.renderAll();
+        }
+        this.saveHistory();
+    },
+
+    applyScorecardPreset(preset) {
+        const presets = {
+            dark: { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#1e293b', altRowBg:'#334155', textColor:'#ffffff', accentColor:'#FFD700' },
+            light: { headerBg:'#6366f1', headerText:'#ffffff', rowBg:'#f8fafc', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#7c3aed' },
+            ipl: { headerBg:'#7c3aed', headerText:'#ffffff', rowBg:'#1a0533', altRowBg:'#2d0a4e', textColor:'#e2e8f0', accentColor:'#fbbf24' },
+        };
+        const cfg = presets[preset];
+        if (!cfg) return;
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'scorecardTable') return;
+        obj.scorecardConfig = { ...obj.scorecardConfig, ...cfg };
+        this.updateScorecardPropertiesPanel(obj);
+        const r = parseInt(cfg.headerBg.slice(1,3),16), g = parseInt(cfg.headerBg.slice(3,5),16), b = parseInt(cfg.headerBg.slice(5,7),16);
+        obj.item(0).set('fill', `rgba(${r},${g},${b},0.12)`);
+        obj.item(0).set('stroke', cfg.headerBg);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateScorecardPropertiesPanel(obj) {
+        const cfg = obj.scorecardConfig || {};
+        document.getElementById('propScHeaderBg').value = cfg.headerBg || '#1e40af';
+        document.getElementById('propScHeaderText').value = cfg.headerText || '#ffffff';
+        document.getElementById('propScRowBg').value = cfg.rowBg || '#1e293b';
+        document.getElementById('propScAltRowBg').value = cfg.altRowBg || '#334155';
+        document.getElementById('propScTextColor').value = cfg.textColor || '#ffffff';
+        document.getElementById('propScAccentColor').value = cfg.accentColor || '#FFD700';
+        document.getElementById('propScFontSize').value = cfg.fontSize || 14;
+        document.getElementById('propScRowHeight').value = cfg.rowHeight || 40;
+        document.getElementById('propScMaxRows').value = cfg.maxRows || 3;
+    },
+
     starPoints(spikes, outerR, innerR) {
         const points = [];
         const step = Math.PI / spikes;
@@ -1350,10 +1533,12 @@ const editor = {
         const isText = !isIcon && (obj.elementType === 'text' || obj.type === 'i-text');
         const isShape = !isIcon && obj.elementType === 'shape';
         const isTable = obj.elementType === 'tableArea';
+        const isScorecard = obj.elementType === 'scorecardTable';
         document.getElementById('iconPropertiesPanel').classList.toggle('hidden', !isIcon);
         document.getElementById('textPropertiesPanel').classList.toggle('hidden', !isText);
         document.getElementById('shapePropertiesPanel').classList.toggle('hidden', !isShape);
         document.getElementById('tablePropertiesPanel').classList.toggle('hidden', !isTable);
+        document.getElementById('scorecardPropertiesPanel').classList.toggle('hidden', !isScorecard);
 
         if (isIcon) {
             const iconColor = obj.iconType === 'svg' ? (obj.iconColor || '#ffffff') : (obj.fill || '#ffffff');
@@ -1394,6 +1579,9 @@ const editor = {
         }
         if (isTable) {
             this.updateTablePropertiesPanel(obj);
+        }
+        if (isScorecard) {
+            this.updateScorecardPropertiesPanel(obj);
         }
         this.updateProperties();
     },
@@ -1447,6 +1635,7 @@ const editor = {
         document.getElementById('textPropertiesPanel').classList.add('hidden');
         document.getElementById('shapePropertiesPanel').classList.add('hidden');
         document.getElementById('tablePropertiesPanel').classList.add('hidden');
+        document.getElementById('scorecardPropertiesPanel').classList.add('hidden');
     },
 
     updateProperties() {
@@ -1960,6 +2149,25 @@ const editor = {
                     border.set('stroke', hc);
                 }
                 this.canvas.add(group);
+            } else if (item.type === 'scorecardTable') {
+                const scCfg = item.scorecardConfig || {};
+                const sw = item.width || 400, sh = item.height || 180;
+                const isBat = scCfg.scorecardType === 'batting';
+                const teamLbl = (scCfg.team === 'b') ? 'TEAM B' : 'TEAM A';
+                const typeLbl = isBat ? 'BATTING' : 'BOWLING';
+                const hdrCol = scCfg.headerBg || '#1e40af';
+                const hr = parseInt(hdrCol.slice(1,3),16), hg = parseInt(hdrCol.slice(3,5),16), hb = parseInt(hdrCol.slice(5,7),16);
+                const scBorder = new fabric.Rect({ width: sw, height: sh, fill: `rgba(${hr},${hg},${hb},0.12)`, stroke: hdrCol, strokeWidth: 2, strokeDashArray: [8, 4], rx: 6, ry: 6, originX: 'center', originY: 'center' });
+                const scTitle = new fabric.Text(teamLbl + ' - ' + typeLbl, { fontSize: 14, fill: isBat ? '#60a5fa' : '#34d399', fontFamily: 'Arial', fontWeight: '700', originX: 'center', originY: 'center', top: -sh/2 + 18 });
+                const scSample = isBat
+                    ? new fabric.Text('Name          R    B   4s   6s\nVirat K.     72   45    8    3\nRohit S.     56   38    6    2\nKL Rahul     41   30    4    1', { fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 15, lineHeight: 1.5 })
+                    : new fabric.Text('Name          O    R    W  Econ\nJasprit B.  4.0   24    3  6.00\nMohd S.     4.0   32    2  8.00\nRavindra J. 3.0   22    1  7.33', { fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 15, lineHeight: 1.5 });
+                const scGroup = new fabric.Group([scBorder, scTitle, scSample], { left: x, top: y, originX: 'center', originY: 'center', angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100 });
+                scGroup.elementType = 'scorecardTable';
+                scGroup.placeholder = item.placeholder || ('batting_table_' + (scCfg.team || 'a'));
+                scGroup.scorecardConfig = scCfg;
+                scGroup._layoutIndex = layoutIndex;
+                this.canvas.add(scGroup);
             } else if (item.type === 'uploadedImage') {
                 pendingImages++;
                 const imgPath = item.imagePath || item.path || '';
@@ -2042,6 +2250,8 @@ const editor = {
                 return { ...base, type: 'uploadedImage', imagePath: obj.imagePath, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'tableArea') {
                 return { ...base, type: 'tableArea', tableConfig: obj.tableConfig || {}, width: (obj.width || 900) * (obj.scaleX || 1), height: (obj.height || 500) * (obj.scaleY || 1) };
+            } else if (obj.elementType === 'scorecardTable') {
+                return { ...base, type: 'scorecardTable', scorecardConfig: obj.scorecardConfig || {}, width: (obj.width || 400) * (obj.scaleX || 1), height: (obj.height || 180) * (obj.scaleY || 1) };
             }
             return base;
         });

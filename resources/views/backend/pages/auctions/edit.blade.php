@@ -142,7 +142,7 @@
     {{-- Main Form Card --}}
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
 
-        <form action="{{ route('admin.auctions.update', $auction) }}" method="POST" @submit.prevent="submitForm" x-ref="auctionFormElement">
+        <form action="{{ route('admin.auctions.update', $auction) }}" method="POST" enctype="multipart/form-data" @submit.prevent="submitForm" x-ref="auctionFormElement">
             @csrf
             @method('PUT')
 
@@ -683,6 +683,113 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- Step 5: Branding --}}
+                <div x-show="step === 5" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0">
+                    <div class="max-w-4xl mx-auto">
+                        <div class="mb-6">
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Branding & Appearance</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Customize how the live auction page looks — background images, logos, and accent colors.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {{-- Card Background Image --}}
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Card Background Image</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">This replaces the default player card background on the live page. Recommended: 1601x910px.</p>
+                                <input type="file" name="background_image" accept="image/*"
+                                       class="form-control" @change="previewImage($event, 'bgPreview')">
+                                @if($auction->background_image)
+                                    <div class="mt-3 flex items-end gap-3" id="current-background_image">
+                                        <div>
+                                            <p class="text-xs text-green-600 dark:text-green-400 mb-1">Current:</p>
+                                            <img src="{{ $auction->background_image_url }}" alt="Card Background" class="h-32 rounded-lg border border-gray-200 dark:border-gray-700 object-cover">
+                                        </div>
+                                        <button type="button" @click="removeBrandingImage('background_image')"
+                                                class="px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition">
+                                            Remove
+                                        </button>
+                                    </div>
+                                @endif
+                                <img id="bgPreview" class="mt-3 h-32 rounded-lg border border-gray-200 dark:border-gray-700 object-cover hidden">
+                            </div>
+
+                            {{-- Auction Logo --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Auction Logo</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Shown on the live page card.</p>
+                                <input type="file" name="auction_logo" accept="image/*"
+                                       class="form-control" @change="previewImage($event, 'logoPreview')">
+                                @if($auction->auction_logo)
+                                    <div class="mt-3 flex items-end gap-3" id="current-auction_logo">
+                                        <div>
+                                            <p class="text-xs text-green-600 dark:text-green-400 mb-1">Current:</p>
+                                            <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo" class="h-20 rounded-lg border border-gray-200 dark:border-gray-700 object-contain">
+                                        </div>
+                                        <button type="button" @click="removeBrandingImage('auction_logo')"
+                                                class="px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition">
+                                            Remove
+                                        </button>
+                                    </div>
+                                @endif
+                                <img id="logoPreview" class="mt-3 h-20 rounded-lg border border-gray-200 dark:border-gray-700 object-contain hidden">
+                            </div>
+
+                            {{-- Waiting Screen Background --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Waiting Screen Background</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Background for the idle/waiting screen.</p>
+                                <input type="file" name="waiting_background_image" accept="image/*"
+                                       class="form-control" @change="previewImage($event, 'waitingBgPreview')">
+                                @if($auction->waiting_background_image)
+                                    <div class="mt-3 flex items-end gap-3" id="current-waiting_background_image">
+                                        <div>
+                                            <p class="text-xs text-green-600 dark:text-green-400 mb-1">Current:</p>
+                                            <img src="{{ $auction->waiting_background_image_url }}" alt="Waiting BG" class="h-20 rounded-lg border border-gray-200 dark:border-gray-700 object-cover">
+                                        </div>
+                                        <button type="button" @click="removeBrandingImage('waiting_background_image')"
+                                                class="px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-sm font-medium hover:bg-red-200 dark:hover:bg-red-900/50 transition">
+                                            Remove
+                                        </button>
+                                    </div>
+                                @endif
+                                <img id="waitingBgPreview" class="mt-3 h-20 rounded-lg border border-gray-200 dark:border-gray-700 object-cover hidden">
+                            </div>
+
+                            {{-- Color Pickers --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Primary Color</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Accent color for the live page (default: #00bcd4).</p>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="primary_color"
+                                           value="{{ $auction->primary_color ?? '#00bcd4' }}"
+                                           class="w-12 h-10 rounded cursor-pointer border border-gray-300 dark:border-gray-600">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400 font-mono" id="primaryColorLabel">{{ $auction->primary_color ?? '#00bcd4' }}</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Secondary Color</label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Secondary accent color (default: #22c55e).</p>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="secondary_color"
+                                           value="{{ $auction->secondary_color ?? '#22c55e' }}"
+                                           class="w-12 h-10 rounded cursor-pointer border border-gray-300 dark:border-gray-600">
+                                    <span class="text-sm text-gray-500 dark:text-gray-400 font-mono" id="secondaryColorLabel">{{ $auction->secondary_color ?? '#22c55e' }}</span>
+                                </div>
+                            </div>
+
+                            {{-- Tournament Logo (read-only) --}}
+                            @if($auction->tournament && $auction->tournament->logo_url)
+                            <div class="md:col-span-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament Logo (from tournament settings)</label>
+                                <img src="{{ $auction->tournament->logo_url }}" alt="Tournament Logo" class="h-16 object-contain">
+                                <p class="text-xs text-gray-400 mt-2">This logo is managed in Tournament settings and will also appear on the live page.</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {{-- Form Footer --}}
@@ -704,7 +811,7 @@
                             Previous
                         </button>
 
-                        <button type="button" @click="step++" x-show="step < 4"
+                        <button type="button" @click="step++" x-show="step < 5"
                                 class="flex-1 sm:flex-none btn btn-primary" x-cloak>
                             Next
                             <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -712,7 +819,7 @@
                             </svg>
                         </button>
 
-                        <button type="button" @click="submitForm()" x-show="step === 4"
+                        <button type="button" @click="submitForm()" x-show="step === 5"
                                 class="flex-1 sm:flex-none btn btn-success px-8"
                                 :disabled="isSubmitting" x-cloak>
                             <template x-if="!isSubmitting">
@@ -783,7 +890,8 @@ document.addEventListener('alpine:init', () => {
             { title: 'Details', icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>' },
             { title: 'Financials', icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' },
             { title: 'Bid Rules', icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>' },
-            { title: 'Players', icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>' }
+            { title: 'Players', icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>' },
+            { title: 'Branding', icon: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>' }
         ],
 
         init() {
@@ -977,6 +1085,45 @@ document.addEventListener('alpine:init', () => {
                 priceInput.value = player.base_price;
                 this.$refs.auctionFormElement.appendChild(priceInput);
             });
+        },
+
+        // Remove a branding image via AJAX
+        async removeBrandingImage(field) {
+            if (!confirm('Remove this image?')) return;
+            try {
+                const response = await fetch(`/admin/auctions/{{ $auction->id }}/branding-image`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ field })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    const el = document.getElementById('current-' + field);
+                    if (el) el.remove();
+                    this.showToast('Image removed', 'success');
+                } else {
+                    this.showToast(data.error || 'Failed to remove', 'error');
+                }
+            } catch (error) {
+                this.showToast('Network error', 'error');
+            }
+        },
+
+        // Preview uploaded image
+        previewImage(event, previewId) {
+            const file = event.target.files[0];
+            const preview = document.getElementById(previewId);
+            if (file && preview) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.src = e.target.result;
+                    preview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
         },
 
         // Submit form

@@ -26,6 +26,11 @@ class Auction extends Model
         'online_bid_limit_to',
         'mode_manually_overridden',
         'closed_bid_starts_at',
+        'background_image',
+        'auction_logo',
+        'waiting_background_image',
+        'primary_color',
+        'secondary_color',
     ];
     protected $casts = [
         'start_at' => 'datetime',
@@ -98,6 +103,21 @@ class Auction extends Model
         }
 
         return 'online';
+    }
+
+    public function getBackgroundImageUrlAttribute(): ?string
+    {
+        return $this->background_image ? asset('storage/' . $this->background_image) : null;
+    }
+
+    public function getAuctionLogoUrlAttribute(): ?string
+    {
+        return $this->auction_logo ? asset('storage/' . $this->auction_logo) : null;
+    }
+
+    public function getWaitingBackgroundImageUrlAttribute(): ?string
+    {
+        return $this->waiting_background_image ? asset('storage/' . $this->waiting_background_image) : null;
     }
 
     public function players()

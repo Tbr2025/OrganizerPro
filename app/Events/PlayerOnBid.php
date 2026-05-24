@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\AuctionPlayer;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -16,9 +17,12 @@ class PlayerOnBid implements ShouldBroadcastNow
     {
         $this->auctionPlayer = $auctionPlayer->load(['player.playerType', 'player.battingProfile', 'player.bowlingProfile', 'player.location', 'player.kitSize']);
     }
-    public function broadcastOn(): PrivateChannel
+    public function broadcastOn(): array
     {
-        return new PrivateChannel('auction.private.' . $this->auctionPlayer->auction_id);
+        return [
+            new PrivateChannel('auction.private.' . $this->auctionPlayer->auction_id),
+            new Channel('auction.' . $this->auctionPlayer->auction_id),
+        ];
     }
     public function broadcastAs(): string
     {

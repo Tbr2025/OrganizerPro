@@ -13,6 +13,7 @@ class AuctionTemplate extends Model
         'type',
         'background_image',
         'sold_badge_image',
+        'unsold_badge_image',
         'canvas_width',
         'canvas_height',
         'element_positions',
@@ -106,11 +107,66 @@ class AuctionTemplate extends Model
     }
 
     /**
+     * Get unsold badge image URL
+     */
+    public function getUnsoldBadgeUrlAttribute(): ?string
+    {
+        return $this->unsold_badge_image
+            ? asset('storage/' . $this->unsold_badge_image)
+            : null;
+    }
+
+    /**
+     * Get all standard element keys
+     */
+    public static function getElementKeys(): array
+    {
+        return [
+            'player_image', 'player_name', 'player_role',
+            'batting_style', 'bowling_style', 'current_bid', 'bid_label',
+            'sold_badge', 'team_logo', 'highest_bidder', 'stats_table',
+        ];
+    }
+
+    /**
+     * Get default styling properties for elements
+     */
+    public static function getDefaultStyling(): array
+    {
+        return [
+            'color' => '#ffffff',
+            'bgColor' => '',
+            'opacity' => 1,
+            'bgOpacity' => 1,
+            'borderRadius' => 0,
+            'boxShadow' => 'none',
+            'textShadow' => 'none',
+            'zIndex' => 10,
+            'visible' => true,
+            'fontWeight' => 'bold',
+            'padding' => 0,
+            'margin' => 0,
+            'letterSpacing' => 0,
+            'lineHeight' => '',
+            'textAlign' => 'left',
+            'textTransform' => 'none',
+            'rotation' => 0,
+            'borderStyle' => 'none',
+            'borderColor' => '',
+            'borderWidth' => 0,
+            'width' => '',
+            'height' => '',
+        ];
+    }
+
+    /**
      * Get default element positions
      */
     public static function getDefaultPositions(): array
     {
-        return [
+        $styling = static::getDefaultStyling();
+
+        $positions = [
             'player_image' => ['bottom' => 305, 'left' => 114, 'width' => 380],
             'player_name' => ['top' => 210, 'left' => 545, 'fontSize' => 46],
             'player_role' => ['top' => 275, 'left' => 570, 'fontSize' => 24],
@@ -118,14 +174,25 @@ class AuctionTemplate extends Model
             'bowling_style' => ['top' => 404, 'left' => 570, 'fontSize' => 34],
             'current_bid' => ['bottom' => 197, 'left' => 234, 'fontSize' => 32],
             'bid_label' => ['bottom' => 243, 'left' => 186, 'fontSize' => 32],
-            'stats_matches_label' => ['top' => 490, 'left' => 600, 'fontSize' => 33],
-            'stats_matches_value' => ['top' => 550, 'left' => 605, 'fontSize' => 33],
-            'stats_wickets_label' => ['top' => 490, 'left' => 825, 'fontSize' => 33],
-            'stats_wickets_value' => ['top' => 550, 'left' => 825, 'fontSize' => 33],
-            'stats_runs_label' => ['top' => 490, 'left' => 1020, 'fontSize' => 33],
-            'stats_runs_value' => ['top' => 550, 'left' => 1050, 'fontSize' => 33],
             'sold_badge' => ['bottom' => 27, 'left' => 112, 'width' => 150, 'height' => 150],
             'team_logo' => ['bottom' => 56, 'left' => 316, 'width' => 170, 'height' => 100],
+            'highest_bidder' => ['top' => 470, 'left' => 570, 'fontSize' => 28],
+            'stats_table' => ['top' => 480, 'left' => 550, 'width' => 500, 'height' => 150, 'fontSize' => 20,
+                'headerBg' => 'rgba(0,0,0,0.7)', 'headerColor' => '#ffffff',
+                'rowBg' => 'rgba(255,255,255,0.1)', 'cellColor' => '#ffffff', 'cellPadding' => 10,
+                'tableBorderColor' => 'rgba(255,255,255,0.2)', 'tableBorderWidth' => 1,
+                'tableColumns' => json_encode([
+                    ['label' => 'Matches', 'field' => 'total_matches', 'cellBg' => '', 'cellColor' => '', 'headerBg' => '', 'headerColor' => '', 'width' => ''],
+                    ['label' => 'Runs', 'field' => 'total_runs', 'cellBg' => '', 'cellColor' => '', 'headerBg' => '', 'headerColor' => '', 'width' => ''],
+                    ['label' => 'Wickets', 'field' => 'total_wickets', 'cellBg' => '', 'cellColor' => '', 'headerBg' => '', 'headerColor' => '', 'width' => ''],
+                ])],
         ];
+
+        // Merge styling defaults into each element
+        foreach ($positions as $key => &$pos) {
+            $pos = array_merge($styling, $pos);
+        }
+
+        return $positions;
     }
 }

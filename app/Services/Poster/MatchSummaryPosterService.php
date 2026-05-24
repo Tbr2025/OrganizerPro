@@ -96,6 +96,42 @@ class MatchSummaryPosterService extends PosterGeneratorService
             $data['man_of_the_match_image'] = $momAward->player->image_path ?? null;
         }
 
+        // Extract scorecard data if available
+        if ($result && $result->scorecard_data) {
+            $scorecard = is_string($result->scorecard_data)
+                ? json_decode($result->scorecard_data, true)
+                : $result->scorecard_data;
+            $innings = $scorecard['innings'] ?? $scorecard;
+
+            if (is_array($innings) && count($innings) >= 2) {
+                // innings[0] = first batting team (team_a in our data), innings[1] = second
+                if (!empty($innings[0]['batting'])) {
+                    $data['batting_table_a'] = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
+                        'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
+                    ])->values()->toArray();
+                }
+                if (!empty($innings[0]['bowling'])) {
+                    $data['bowling_table_b'] = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
+                        'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
+                    ])->values()->toArray();
+                }
+                if (!empty($innings[1]['batting'])) {
+                    $data['batting_table_b'] = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
+                        'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
+                    ])->values()->toArray();
+                }
+                if (!empty($innings[1]['bowling'])) {
+                    $data['bowling_table_a'] = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                        'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
+                        'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
+                    ])->values()->toArray();
+                }
+            }
+        }
+
         // Render using template
         $filename = 'summary-' . $match->id . '-' . time() . '.png';
         return $this->templateRenderService->renderAndSave($template, $data, $filename);

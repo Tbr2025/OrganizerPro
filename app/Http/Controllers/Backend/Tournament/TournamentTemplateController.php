@@ -247,6 +247,53 @@ class TournamentTemplateController extends Controller
                             $data[$key] = $value;
                         }
                     }
+
+                    // Extract scorecard data for match_summary type
+                    if ($template->type === TournamentTemplate::TYPE_MATCH_SUMMARY && $match->result && $match->result->scorecard_data) {
+                        $scorecard = is_string($match->result->scorecard_data)
+                            ? json_decode($match->result->scorecard_data, true)
+                            : $match->result->scorecard_data;
+                        $innings = $scorecard['innings'] ?? $scorecard;
+
+                        if (is_array($innings) && count($innings) >= 2) {
+                            // innings[0] = first batting team, innings[1] = second batting team
+                            // Map to team_a/team_b based on batting order
+                            $firstKey = ($shouldSwap) ? 'b' : 'a';
+                            $secondKey = ($shouldSwap) ? 'a' : 'b';
+
+                            // First innings batting/bowling
+                            if (!empty($innings[0]['batting'])) {
+                                $batsmen = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                                    'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
+                                    'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
+                                ])->values()->toArray();
+                                $data['batting_table_' . $firstKey] = $batsmen;
+                            }
+                            if (!empty($innings[0]['bowling'])) {
+                                $bowlers = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                                    'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
+                                    'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
+                                ])->values()->toArray();
+                                $data['bowling_table_' . $secondKey] = $bowlers;
+                            }
+
+                            // Second innings batting/bowling
+                            if (!empty($innings[1]['batting'])) {
+                                $batsmen = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                                    'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
+                                    'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
+                                ])->values()->toArray();
+                                $data['batting_table_' . $secondKey] = $batsmen;
+                            }
+                            if (!empty($innings[1]['bowling'])) {
+                                $bowlers = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                                    'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
+                                    'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
+                                ])->values()->toArray();
+                                $data['bowling_table_' . $firstKey] = $bowlers;
+                            }
+                        }
+                    }
                 }
             }
 

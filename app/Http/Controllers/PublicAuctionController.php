@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Auction;
 use App\Models\ActualTeam;
+use App\Models\AuctionTemplate;
 use Illuminate\Http\Request;
 
 class PublicAuctionController extends Controller
@@ -37,8 +38,40 @@ class PublicAuctionController extends Controller
      */
     public function showPublicDisplay(Auction $auction)
     {
+        $auction->load('tournament');
+
+        // Fetch auction-specific or default template
+        $template = AuctionTemplate::forAuction($auction->id, 'live_display');
+
+        // Resolve element positions
+        $positions = $template?->element_positions ?? AuctionTemplate::getDefaultPositions();
+
+        // Resolve background: if template exists, use its bg (even if null = removed)
+        // Only fall back to auction/default when there's no template at all
+        if ($template) {
+            $backgroundUrl = $template->background_url;
+        } else {
+            $backgroundUrl = $auction->background_image_url ?? asset('images/player-card.jpeg');
+        }
+
+        // Resolve sold badge: template sold_badge → null (use HTML fallback)
+        $soldBadgeUrl = $template?->sold_badge_url ?? null;
+
+        // Resolve unsold badge
+        $unsoldBadgeUrl = $template?->unsold_badge_url ?? null;
+
+        // Resolve canvas dimensions
+        $canvasWidth = $template?->canvas_width ?? 1601;
+        $canvasHeight = $template?->canvas_height ?? 910;
+
         return view('public.auction.live', [
-            'auction' => $auction
+            'auction' => $auction,
+            'positions' => $positions,
+            'backgroundUrl' => $backgroundUrl,
+            'soldBadgeUrl' => $soldBadgeUrl,
+            'unsoldBadgeUrl' => $unsoldBadgeUrl,
+            'canvasWidth' => $canvasWidth,
+            'canvasHeight' => $canvasHeight,
         ]);
     }
 
@@ -70,12 +103,58 @@ class PublicAuctionController extends Controller
             ->where('status', 'on_auction')
             ->first();
 
+        // Fetch waiting player names for shuffle animation
+        $waitingPlayers = $auction->auctionPlayers()
+            ->where('status', 'waiting')
+            ->with('player:id,name')
+            ->get()
+            ->pluck('player.name')
+            ->filter()
+            ->values();
+
         if (!$auctionPlayer) {
+            // Return the most recently sold or unsold player so the live page
+            // can show the correct state instead of stale data
+            $lastActionPlayer = $auction->auctionPlayers()
+                ->with([
+                    'player', 'player.playerType', 'player.battingProfile',
+                    'player.bowlingProfile', 'soldToTeam',
+                ])
+                ->whereIn('status', ['sold', 'unsold', 'skipped'])
+                ->orderBy('updated_at', 'desc')
+                ->first();
+
+            $lastActionData = null;
+            if ($lastActionPlayer) {
+                $lpData = $lastActionPlayer->player;
+                $lpData->player_type = $lastActionPlayer->player->playerType;
+                $lpData->batting_profile = $lastActionPlayer->player->battingProfile;
+                $lpData->bowling_profile = $lastActionPlayer->player->bowlingProfile;
+
+                $lastActionData = [
+                    'id' => $lastActionPlayer->id,
+                    'player' => $lpData,
+                    'base_price' => $lastActionPlayer->base_price,
+                    'current_price' => $lastActionPlayer->current_price,
+                    'final_price' => $lastActionPlayer->final_price,
+                    'status' => $lastActionPlayer->status,
+                    'sold_to_team' => $lastActionPlayer->soldToTeam ? [
+                        'id' => $lastActionPlayer->soldToTeam->id,
+                        'name' => $lastActionPlayer->soldToTeam->name,
+                        'logo_path' => $lastActionPlayer->soldToTeam->team_logo ?? null,
+                    ] : null,
+                    'updated_at' => $lastActionPlayer->updated_at->timestamp,
+                ];
+            }
+
             return response()->json([
                 'success' => true,
                 'auctionPlayer' => null,
+                'lastActionPlayer' => $lastActionData,
+                'last_sold_player' => $lastActionData && $lastActionData['status'] === 'sold' ? $lastActionData : null,
                 'auction_status' => $auction->status,
                 'open_bid_mode' => $auction->open_bid_mode,
+                'waitingPlayers' => $waitingPlayers,
             ]);
         }
 
@@ -109,6 +188,7 @@ class PublicAuctionController extends Controller
             'bid_timer_reset_seconds' => $auction->bid_timer_reset_seconds ?? 15,
             'player_updated_at' => $auctionPlayer->updated_at->timestamp,
             'server_time' => now()->timestamp,
+            'waitingPlayers' => $waitingPlayers,
         ]);
     }
 
@@ -155,7 +235,7 @@ class PublicAuctionController extends Controller
     public function soldPlayers(Auction $auction)
     {
         $soldPlayers = $auction->auctionPlayers()
-            ->with(['player', 'soldToTeam'])
+            ->with(['player.playerType', 'soldToTeam'])
             ->where('status', 'sold')
             ->orderBy('updated_at', 'desc')
             ->get()
@@ -165,11 +245,14 @@ class PublicAuctionController extends Controller
                     'player' => $ap->player ? [
                         'id' => $ap->player->id,
                         'name' => $ap->player->name,
+                        'player_type' => $ap->player->playerType?->name ?? null,
                     ] : null,
                     'sold_to_team' => $ap->soldToTeam ? [
                         'id' => $ap->soldToTeam->id,
                         'name' => $ap->soldToTeam->name,
+                        'logo_path' => $ap->soldToTeam->team_logo ?? null,
                     ] : null,
+                    'final_price' => $ap->final_price,
                 ];
             });
 

@@ -117,7 +117,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
     Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
-
+    Route::delete('/auctions/{auction}/branding-image', [AuctionAdminController::class, 'removeBrandingImage'])->name('auctions.branding.remove');
 
     Route::post('/auctions/{auction}/players/{player}', [AuctionAdminController::class, 'addPlayerToPool'])->name('auctions.players.add');
 
@@ -177,6 +177,7 @@ Route::middleware(['auth'])
 
         // **FIX**: Added route to SHOW the panel page
         Route::get('/panel', [AuctionOrganizerController::class, 'showPanel'])->name('panel');
+        Route::get('/offline-panel', [AuctionOrganizerController::class, 'showOfflinePanel'])->name('offline-panel');
 
 
         Route::prefix('api')->name('api.')->group(function () {
@@ -196,6 +197,10 @@ Route::middleware(['auth'])
             Route::get('/all-players', [AuctionOrganizerController::class, 'allPlayers'])->name('all-players');
             Route::post('/re-bid-player', [AuctionOrganizerController::class, 'rebidPlayer'])->name('player.re-bid');
             Route::post('/re-auction-player', [AuctionOrganizerController::class, 'reAuctionPlayer'])->name('player.re-auction');
+            Route::post('/skip-player', [AuctionOrganizerController::class, 'skipPlayer'])->name('player.skip');
+            Route::post('/start-reauction-round', [AuctionOrganizerController::class, 'startReAuctionRound'])->name('start-reauction-round');
+            Route::post('/update-base-price', [AuctionOrganizerController::class, 'updateBasePrice'])->name('player.update-base-price');
+            Route::post('/update-auction-base-price', [AuctionOrganizerController::class, 'updateAuctionBasePrice'])->name('auction.update-base-price');
         });
 
         // API routes for the panel to call
