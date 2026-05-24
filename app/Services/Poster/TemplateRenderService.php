@@ -882,6 +882,7 @@ class TemplateRenderService extends PosterGeneratorService
         if (is_string($tableData)) {
             $tableData = json_decode($tableData, true) ?? [];
         }
+        \Log::info('renderScorecardTable', ['dataKey' => $dataKey, 'hasData' => !empty($tableData), 'count' => is_array($tableData) ? count($tableData) : 0, 'availableKeys' => array_keys(array_filter($data, fn($v) => is_array($v)))]);
 
         // Style config
         $headerBg = $config['headerBg'] ?? '#1e40af';
