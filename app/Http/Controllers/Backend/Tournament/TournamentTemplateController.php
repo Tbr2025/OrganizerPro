@@ -107,6 +107,7 @@ class TournamentTemplateController extends Controller
     public function generatePreview(Tournament $tournament, Request $request)
     {
         ini_set('memory_limit', '512M');
+        \Log::info('generatePreview called', ['match_id' => $request->input('match_id'), 'template_id' => $request->input('template_id')]);
 
         $tempFiles = [];
         try {
