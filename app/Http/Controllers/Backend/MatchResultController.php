@@ -221,8 +221,13 @@ class MatchResultController extends Controller
         // Update match status and winner
         $match->update([
             'status' => 'completed',
-            'winner_team_id' => $validated['winner_team_id'],
+            'winner_team_id' => $validated['winner_team_id'] ?? null,
         ]);
+
+        // Clear cached summary poster so it regenerates with latest data
+        if ($match->summary && $match->summary->summary_poster) {
+            $match->summary->update(['summary_poster' => null]);
+        }
 
         // Update point table if group stage match
         if ($match->isGroupStage()) {
