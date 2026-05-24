@@ -102,7 +102,7 @@
                 <div class="space-y-3 mb-4">
                     <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Text Fields</h4>
                     @foreach($placeholders as $placeholder)
-                        @if(!in_array($placeholder, $imagePlaceholders))
+                        @if(!in_array($placeholder, $imagePlaceholders) && !is_array($sampleData[$placeholder] ?? ''))
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                                     {{ str_replace('_', ' ', ucwords($placeholder, '_')) }}
