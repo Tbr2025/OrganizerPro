@@ -249,6 +249,7 @@ class TournamentTemplateController extends Controller
                     }
 
                     // Extract scorecard data for match_summary type
+                    \Log::info('Scorecard check', ['type' => $template->type, 'expected' => TournamentTemplate::TYPE_MATCH_SUMMARY, 'match' => $template->type === TournamentTemplate::TYPE_MATCH_SUMMARY, 'hasResult' => (bool)$match->result, 'hasScorecard' => (bool)($match->result?->scorecard_data)]);
                     if ($template->type === TournamentTemplate::TYPE_MATCH_SUMMARY && $match->result && $match->result->scorecard_data) {
                         $scorecard = is_string($match->result->scorecard_data)
                             ? json_decode($match->result->scorecard_data, true)
