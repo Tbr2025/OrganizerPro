@@ -189,7 +189,7 @@ class MatchResultController extends Controller
 
         // Validate winner_team_id based on result_type
         if (in_array($validated['result_type'], ['runs', 'wickets', 'super_over', 'dls'])) {
-            if (!$validated['winner_team_id']) {
+            if (empty($validated['winner_team_id'] ?? null)) {
                 return redirect()->back()->withErrors(['winner_team_id' => 'Winner is required for this result type.']);
             }
         }
