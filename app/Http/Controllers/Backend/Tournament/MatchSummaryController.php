@@ -621,6 +621,13 @@ class MatchSummaryController extends Controller
                 $allBatting = array_merge($innings[0]['batting'] ?? [], $innings[1]['batting'] ?? []);
                 $allBowling = array_merge($innings[0]['bowling'] ?? [], $innings[1]['bowling'] ?? []);
 
+                // Fuzzy name matcher: case-insensitive, trims whitespace, checks if either contains the other
+                $fuzzyMatch = function (string $a, string $b): bool {
+                    $a = strtolower(trim($a));
+                    $b = strtolower(trim($b));
+                    return $a === $b || str_contains($a, $b) || str_contains($b, $a);
+                };
+
                 $awardMap = [
                     'man_of_the_match' => $data['man_of_the_match_name'] ?? null,
                     'best_batsman' => $data['best_batsman_name'] ?? null,
@@ -630,8 +637,8 @@ class MatchSummaryController extends Controller
                 foreach ($awardMap as $prefix => $playerName) {
                     if (!$playerName) continue;
 
-                    // Find batting stats
-                    $bat = collect($allBatting)->first(fn($b) => ($b['name'] ?? '') === $playerName);
+                    // Find batting stats (fuzzy name match)
+                    $bat = collect($allBatting)->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
                     if ($bat) {
                         $runs = $bat['runs'] ?? 0;
                         $balls = $bat['balls'] ?? 0;
@@ -644,8 +651,8 @@ class MatchSummaryController extends Controller
                         $data[$prefix . '_batting_figures'] = "{$runs} ({$balls}) {$fours}x4 {$sixes}x6";
                     }
 
-                    // Find bowling stats
-                    $bowl = collect($allBowling)->first(fn($b) => ($b['name'] ?? '') === $playerName);
+                    // Find bowling stats (fuzzy name match)
+                    $bowl = collect($allBowling)->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
                     if ($bowl) {
                         $overs = $bowl['overs'] ?? '0';
                         $maidens = $bowl['maidens'] ?? 0;
