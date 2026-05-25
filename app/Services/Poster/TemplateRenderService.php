@@ -939,7 +939,6 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Style config
         $transparentBg = !empty($config['transparentBg']);
-        $bgOpacity = (int) ($config['bgOpacity'] ?? ($transparentBg ? 0 : 100));
         $headerBg = $config['headerBg'] ?? '#1e40af';
         $headerText = $config['headerText'] ?? '#ffffff';
         $rowBg = $config['rowBg'] ?? '#1e293b';
@@ -948,7 +947,6 @@ class TemplateRenderService extends PosterGeneratorService
         $accentColor = $config['accentColor'] ?? '#FFD700';
         $fontSize = (int) (($config['fontSize'] ?? 14) * $this->renderScale);
         $rowHeight = (int) (($config['rowHeight'] ?? 40) * $this->renderScale);
-        $drawBg = !$transparentBg && $bgOpacity > 0;
 
         // Calculate element area
         $areaWidth = (int) (($element['width'] ?? 400) * $this->renderScale);
@@ -957,23 +955,6 @@ class TemplateRenderService extends PosterGeneratorService
         $centerY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
         $areaX = (int) ($centerX - $areaWidth / 2);
         $areaY = (int) ($centerY - $areaHeight / 2);
-
-        // Helper: draw a filled rect with bgOpacity onto canvas
-        $drawBgRect = function (int $x1, int $y1, int $x2, int $y2, string $color) use ($canvas, $bgOpacity) {
-            if ($bgOpacity >= 100) {
-                $c = $this->parseColor($canvas, $color);
-                imagefilledrectangle($canvas, $x1, $y1, $x2, $y2, $c);
-            } else {
-                $w = $x2 - $x1;
-                $h = $y2 - $y1;
-                if ($w <= 0 || $h <= 0) return;
-                $tmp = imagecreatetruecolor($w, $h);
-                $c = $this->parseColor($tmp, $color);
-                imagefilledrectangle($tmp, 0, 0, $w, $h, $c);
-                imagecopymerge($canvas, $tmp, $x1, $y1, 0, 0, $w, $h, $bgOpacity);
-                imagedestroy($tmp);
-            }
-        };
 
         // Team name from data
         $teamNameKey = 'team_' . $team . '_name';
@@ -989,9 +970,10 @@ class TemplateRenderService extends PosterGeneratorService
         $colFontSize = (int) ($fontSize * 0.85);
 
         // --- Team header bar ---
-        if ($drawBg) {
-            $drawBgRect($areaX, $areaY, $areaX + $areaWidth, $areaY + $headerHeight, $headerBg);
-            // Accent line at bottom of header (always full opacity)
+        if (!$transparentBg) {
+            $hdrColor = $this->parseColor($canvas, $headerBg);
+            imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + $headerHeight, $hdrColor);
+            // Accent line at bottom of header
             $accentParsed = $this->parseColor($canvas, $accentColor);
             imagefilledrectangle($canvas, $areaX, $areaY + $headerHeight - (2 * $this->renderScale), $areaX + $areaWidth, $areaY + $headerHeight, $accentParsed);
         }
@@ -1001,8 +983,9 @@ class TemplateRenderService extends PosterGeneratorService
         $currentY = $areaY + $headerHeight;
 
         // --- Column headers ---
-        if ($drawBg) {
-            $drawBgRect($areaX, $currentY, $areaX + $areaWidth, $currentY + $colHeaderHeight, $this->darkenColorHex($headerBg, 15));
+        if (!$transparentBg) {
+            $colHdrColor = $this->parseColor($canvas, $this->darkenColorHex($headerBg, 15));
+            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $colHeaderHeight, $colHdrColor);
         }
 
         if ($scorecardType === 'batting') {
@@ -1027,17 +1010,19 @@ class TemplateRenderService extends PosterGeneratorService
         $rows = array_slice($tableData, 0, $maxRows);
         if (empty($rows)) {
             // No data placeholder
-            if ($drawBg) {
-                $drawBgRect($areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowBg);
+            if (!$transparentBg) {
+                $noBg = $this->parseColor($canvas, $rowBg);
+                imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $noBg);
             }
             $this->addText($canvas, 'No scorecard data', $areaX + (int) ($areaWidth / 2), $currentY + (int) ($rowHeight * 0.6), $fontSize, '#888888', $bodyFont, 'center');
             return;
         }
 
         foreach ($rows as $index => $row) {
-            if ($drawBg) {
+            if (!$transparentBg) {
                 $bgColor = ($index % 2 === 0) ? $rowBg : $altRowBg;
-                $drawBgRect($areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $bgColor);
+                $rowColor = $this->parseColor($canvas, $bgColor);
+                imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowColor);
             }
 
             $textY = $currentY + (int) ($rowHeight * 0.62);
@@ -1061,7 +1046,7 @@ class TemplateRenderService extends PosterGeneratorService
             }
 
             // Subtle divider
-            if ($drawBg && $index < count($rows) - 1) {
+            if (!$transparentBg && $index < count($rows) - 1) {
                 $divider = imagecolorallocatealpha($canvas, 255, 255, 255, 110);
                 imageline($canvas, $areaX + 4, $currentY + $rowHeight - 1, $areaX + $areaWidth - 4, $currentY + $rowHeight - 1, $divider);
             }
