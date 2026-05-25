@@ -603,8 +603,10 @@ class MatchSummaryController extends Controller
                 if ($playerImage) $data['man_of_the_match_image'] = $playerImage;
             } elseif ($awardSlug === 'best-batsman') {
                 if ($playerName) $data['best_batsman_name'] = $playerName;
+                if ($playerImage) $data['best_batsman_image'] = $playerImage;
             } elseif ($awardSlug === 'best-bowler') {
                 if ($playerName) $data['best_bowler_name'] = $playerName;
+                if ($playerImage) $data['best_bowler_image'] = $playerImage;
             }
         }
 

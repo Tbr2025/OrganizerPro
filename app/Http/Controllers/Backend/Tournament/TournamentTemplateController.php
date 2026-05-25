@@ -133,7 +133,7 @@ class TournamentTemplateController extends Controller
                 'venue', 'ground_name', 'match_stage', 'match_number',
                 'award_name', 'achievement_text', 'match_details',
                 'man_of_the_match_name', 'man_of_the_match_image',
-                'best_batsman_name', 'best_bowler_name',
+                'best_batsman_name', 'best_batsman_image', 'best_bowler_name', 'best_bowler_image',
                 'result_summary', 'batting_figures', 'bowling_figures',
                 'batting_runs', 'batting_balls', 'batting_fours', 'batting_sixes',
                 'bowling_overs', 'bowling_runs', 'bowling_maidens', 'bowling_wickets',
@@ -153,13 +153,20 @@ class TournamentTemplateController extends Controller
             ])) {
                 $match = Matches::with(['teamA', 'teamB', 'winner', 'result', 'ground', 'matchAwards.player', 'matchAwards.tournamentAward'])->find($request->input('match_id'));
                 if ($match) {
+                    // Resolve teams by batting order: team_a = first batting team
+                    $teamABatsFirst = $match->result?->team_a_batting_first ?? true;
+                    $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+                    $secondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+                    $firstKey = $teamABatsFirst ? 'a' : 'b';
+                    $secondKey = $teamABatsFirst ? 'b' : 'a';
+
                     $matchData = [
-                        'team_a_name' => $match->teamA?->name,
-                        'team_b_name' => $match->teamB?->name,
-                        'team_a_short_name' => $match->teamA?->short_name ?? $match->teamA?->name,
-                        'team_b_short_name' => $match->teamB?->short_name ?? $match->teamB?->name,
-                        'team_a_logo' => $match->teamA?->team_logo,
-                        'team_b_logo' => $match->teamB?->team_logo,
+                        'team_a_name' => $firstTeam?->name,
+                        'team_b_name' => $secondTeam?->name,
+                        'team_a_short_name' => $firstTeam?->short_name ?? $firstTeam?->name,
+                        'team_b_short_name' => $secondTeam?->short_name ?? $secondTeam?->name,
+                        'team_a_logo' => $firstTeam?->team_logo,
+                        'team_b_logo' => $secondTeam?->team_logo,
                         'match_date' => $match->match_date?->format('M d, Y'),
                         'match_date_day' => $match->match_date?->format('d'),
                         'match_date_month' => $match->match_date ? strtoupper($match->match_date->format('M')) : null,
@@ -174,16 +181,16 @@ class TournamentTemplateController extends Controller
 
                     if ($match->result) {
                         $r = $match->result;
-                        $matchData['team_a_score'] = $r->team_a_score_display;
-                        $matchData['team_b_score'] = $r->team_b_score_display;
-                        $matchData['team_a_score_wickets'] = $r->team_a_score . '/' . $r->team_a_wickets;
-                        $matchData['team_b_score_wickets'] = $r->team_b_score . '/' . $r->team_b_wickets;
-                        $matchData['team_a_runs'] = (string) $r->team_a_score;
-                        $matchData['team_b_runs'] = (string) $r->team_b_score;
-                        $matchData['team_a_wickets'] = (string) $r->team_a_wickets;
-                        $matchData['team_b_wickets'] = (string) $r->team_b_wickets;
-                        $matchData['team_a_overs'] = (string) $r->team_a_overs;
-                        $matchData['team_b_overs'] = (string) $r->team_b_overs;
+                        $matchData['team_a_score'] = $r->{'team_' . $firstKey . '_score_display'};
+                        $matchData['team_b_score'] = $r->{'team_' . $secondKey . '_score_display'};
+                        $matchData['team_a_score_wickets'] = $r->{'team_' . $firstKey . '_score'} . '/' . $r->{'team_' . $firstKey . '_wickets'};
+                        $matchData['team_b_score_wickets'] = $r->{'team_' . $secondKey . '_score'} . '/' . $r->{'team_' . $secondKey . '_wickets'};
+                        $matchData['team_a_runs'] = (string) $r->{'team_' . $firstKey . '_score'};
+                        $matchData['team_b_runs'] = (string) $r->{'team_' . $secondKey . '_score'};
+                        $matchData['team_a_wickets'] = (string) $r->{'team_' . $firstKey . '_wickets'};
+                        $matchData['team_b_wickets'] = (string) $r->{'team_' . $secondKey . '_wickets'};
+                        $matchData['team_a_overs'] = (string) $r->{'team_' . $firstKey . '_overs'};
+                        $matchData['team_b_overs'] = (string) $r->{'team_' . $secondKey . '_overs'};
                         $matchData['result_summary'] = $r->result_summary ?: $r->generateResultSummary();
                         $matchData['win_margin'] = $r->margin ? 'Won by ' . $r->margin . ' ' . $r->result_type : '';
                         // Toss
@@ -209,34 +216,10 @@ class TournamentTemplateController extends Controller
                             if ($playerImage) $matchData['man_of_the_match_image'] = $playerImage;
                         } elseif ($awardSlug === 'best-batsman') {
                             if ($playerName) $matchData['best_batsman_name'] = $playerName;
+                            if ($playerImage) $matchData['best_batsman_image'] = $playerImage;
                         } elseif ($awardSlug === 'best-bowler') {
                             if ($playerName) $matchData['best_bowler_name'] = $playerName;
-                        }
-                    }
-
-                    // Swap team data based on batting order and innings selection
-                    // Default (innings=1): team_a = first batting team
-                    // Innings 2: team_a = second batting (chasing) team
-                    $innings = (int) $request->input('innings', 1);
-                    $shouldSwap = $match->result && $match->result->team_a_batting_first === false;
-
-                    // For 2nd innings, reverse the logic: swap when team A batted first
-                    if ($innings === 2) {
-                        $shouldSwap = $match->result && $match->result->team_a_batting_first !== false;
-                    }
-
-                    if ($shouldSwap) {
-                        $swapKeys = [
-                            'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
-                            'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',
-                            'team_a_score_wickets' => 'team_b_score_wickets',
-                            'team_a_runs' => 'team_b_runs', 'team_a_wickets' => 'team_b_wickets',
-                            'team_a_overs' => 'team_b_overs',
-                        ];
-                        foreach ($swapKeys as $keyA => $keyB) {
-                            $tmp = $matchData[$keyA] ?? null;
-                            $matchData[$keyA] = $matchData[$keyB] ?? null;
-                            $matchData[$keyB] = $tmp;
+                            if ($playerImage) $matchData['best_bowler_image'] = $playerImage;
                         }
                     }
 
@@ -248,49 +231,57 @@ class TournamentTemplateController extends Controller
                     }
 
                     // Extract scorecard data for match_summary type
+                    // Since team_a = first batting team, map directly: innings[0] -> a, innings[1] -> b
                     if ($template->type === TournamentTemplate::TYPE_MATCH_SUMMARY && $match->result && $match->result->scorecard_data) {
                         $scorecard = is_string($match->result->scorecard_data)
                             ? json_decode($match->result->scorecard_data, true)
                             : $match->result->scorecard_data;
-                        $innings = $scorecard['innings'] ?? $scorecard;
+                        $scorecardInnings = $scorecard['innings'] ?? $scorecard;
 
-                        if (is_array($innings) && count($innings) >= 2) {
-                            // innings[0] = first batting team, innings[1] = second batting team
-                            // Map to team_a/team_b based on batting order
-                            $firstKey = ($shouldSwap) ? 'b' : 'a';
-                            $secondKey = ($shouldSwap) ? 'a' : 'b';
-
-                            // First innings batting/bowling
-                            if (!empty($innings[0]['batting'])) {
-                                $batsmen = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                        if (is_array($scorecardInnings) && count($scorecardInnings) >= 2) {
+                            if (!empty($scorecardInnings[0]['batting'])) {
+                                $data['batting_table_a'] = collect($scorecardInnings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
                                     'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                                     'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                                 ])->values()->toArray();
-                                $data['batting_table_' . $firstKey] = $batsmen;
                             }
-                            if (!empty($innings[0]['bowling'])) {
-                                $bowlers = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                            if (!empty($scorecardInnings[0]['bowling'])) {
+                                $data['bowling_table_b'] = collect($scorecardInnings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
                                     'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                                     'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                                 ])->values()->toArray();
-                                $data['bowling_table_' . $secondKey] = $bowlers;
                             }
-
-                            // Second innings batting/bowling
-                            if (!empty($innings[1]['batting'])) {
-                                $batsmen = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                            if (!empty($scorecardInnings[1]['batting'])) {
+                                $data['batting_table_b'] = collect($scorecardInnings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
                                     'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                                     'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                                 ])->values()->toArray();
-                                $data['batting_table_' . $secondKey] = $batsmen;
                             }
-                            if (!empty($innings[1]['bowling'])) {
-                                $bowlers = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                            if (!empty($scorecardInnings[1]['bowling'])) {
+                                $data['bowling_table_a'] = collect($scorecardInnings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
                                     'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                                     'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                                 ])->values()->toArray();
-                                $data['bowling_table_' . $firstKey] = $bowlers;
                             }
+                        }
+                    }
+
+                    // Apply innings-based swap: when viewing innings 2, swap team_a/team_b
+                    $inningsView = (int) $request->input('innings', 1);
+                    if ($inningsView === 2) {
+                        $swapKeys = [
+                            'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
+                            'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',
+                            'team_a_score_wickets' => 'team_b_score_wickets',
+                            'team_a_runs' => 'team_b_runs', 'team_a_wickets' => 'team_b_wickets',
+                            'team_a_overs' => 'team_b_overs',
+                            'batting_table_a' => 'batting_table_b',
+                            'bowling_table_a' => 'bowling_table_b',
+                        ];
+                        foreach ($swapKeys as $keyA => $keyB) {
+                            $tmp = $data[$keyA] ?? null;
+                            $data[$keyA] = $data[$keyB] ?? null;
+                            $data[$keyB] = $tmp;
                         }
                     }
                 }

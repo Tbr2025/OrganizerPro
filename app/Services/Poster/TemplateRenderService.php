@@ -1459,6 +1459,8 @@ class TemplateRenderService extends PosterGeneratorService
             'team_b_captain_image',
             'captain_image',
             'man_of_the_match_image',
+            'best_batsman_image',
+            'best_bowler_image',
             'award_player_image',
         ];
 
@@ -1552,6 +1554,8 @@ class TemplateRenderService extends PosterGeneratorService
             'win_margin' => 'Won by 5 runs',
             'toss_result' => 'MCC won toss, chose to bat',
             'man_of_the_match_name' => 'Player Name',
+            'best_batsman_name' => 'Best Batsman',
+            'best_bowler_name' => 'Best Bowler',
             'match_details' => 'Team A vs Team B',
             // Player info
             'player_type' => 'All Rounder',

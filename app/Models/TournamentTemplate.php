@@ -138,7 +138,9 @@ class TournamentTemplate extends Model
                 'man_of_the_match_name',
                 'man_of_the_match_image',
                 'best_batsman_name',
+                'best_batsman_image',
                 'best_bowler_name',
+                'best_bowler_image',
                 // Performance Figures
                 'batting_figures',
                 'bowling_figures',

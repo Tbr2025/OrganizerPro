@@ -85,15 +85,23 @@ class MatchSummaryPosterService extends PosterGeneratorService
             'match_number' => $match->match_number ?? '',
         ];
 
-        // Add Man of the Match if available
-        $momAward = $match->matchAwards()->whereHas('tournamentAward', function($q) {
-            $q->where('name', 'like', '%Man of the Match%')
-              ->orWhere('name', 'like', '%Player of the Match%');
-        })->with('player')->first();
+        // Add awards if available
+        $awards = $match->matchAwards()->with('player', 'tournamentAward')->get();
+        foreach ($awards as $award) {
+            $awardSlug = $award->tournamentAward?->slug;
+            $playerName = $award->player?->name;
+            $playerImage = $award->player?->image_path;
 
-        if ($momAward && $momAward->player) {
-            $data['man_of_the_match_name'] = $momAward->player->name ?? '';
-            $data['man_of_the_match_image'] = $momAward->player->image_path ?? null;
+            if (in_array($awardSlug, ['man-of-the-match', 'player-of-the-match'])) {
+                if ($playerName) $data['man_of_the_match_name'] = $playerName;
+                if ($playerImage) $data['man_of_the_match_image'] = $playerImage;
+            } elseif ($awardSlug === 'best-batsman') {
+                if ($playerName) $data['best_batsman_name'] = $playerName;
+                if ($playerImage) $data['best_batsman_image'] = $playerImage;
+            } elseif ($awardSlug === 'best-bowler') {
+                if ($playerName) $data['best_bowler_name'] = $playerName;
+                if ($playerImage) $data['best_bowler_image'] = $playerImage;
+            }
         }
 
         // Extract scorecard data if available
