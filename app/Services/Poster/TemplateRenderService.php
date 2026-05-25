@@ -198,6 +198,35 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
+        // If opacity < 100, render text onto a temp canvas and merge with opacity
+        if ($opacity < 100) {
+            $canvasW = imagesx($canvas);
+            $canvasH = imagesy($canvas);
+            $tempCanvas = imagecreatetruecolor($canvasW, $canvasH);
+            imagealphablending($tempCanvas, true);
+            imagesavealpha($tempCanvas, true);
+            $transparent = imagecolorallocatealpha($tempCanvas, 0, 0, 0, 127);
+            imagefill($tempCanvas, 0, 0, $transparent);
+
+            // Draw shadow on temp canvas if enabled
+            if ($shadow) {
+                $this->addText($tempCanvas, $text, $x + $shadowX, $y + $shadowY, $fontSize, '#000000', $fontFile, $textAlign, -$rotation);
+            }
+
+            // Draw main text on temp canvas
+            $this->addText($tempCanvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, -$rotation);
+
+            // Draw decorations on temp canvas
+            if ($underline || $linethrough) {
+                $this->renderTextDecoration($tempCanvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, -$rotation, $underline, $linethrough);
+            }
+
+            // Merge temp canvas onto main canvas with opacity
+            imagecopymerge($canvas, $tempCanvas, 0, 0, 0, 0, $canvasW, $canvasH, $opacity);
+            imagedestroy($tempCanvas);
+            return;
+        }
+
         // Draw shadow first if enabled
         if ($shadow) {
             $this->addText(
@@ -636,9 +665,30 @@ class TemplateRenderService extends PosterGeneratorService
         $fill = $element['fill'] ?? 'rgba(99, 102, 241, 0.5)';
         $stroke = $element['stroke'] ?? '#6366f1';
         $strokeWidth = (int) ($element['strokeWidth'] ?? 2);
+        $opacity = (int) ($element['opacity'] ?? 100);
 
         $drawX = (int) ($x - $width / 2);
         $drawY = (int) ($y - $height / 2);
+
+        // If opacity < 100, render shape onto a temp canvas and merge with opacity
+        if ($opacity < 100) {
+            $canvasW = imagesx($canvas);
+            $canvasH = imagesy($canvas);
+            $tempCanvas = imagecreatetruecolor($canvasW, $canvasH);
+            imagealphablending($tempCanvas, true);
+            imagesavealpha($tempCanvas, true);
+            $transparent = imagecolorallocatealpha($tempCanvas, 0, 0, 0, 127);
+            imagefill($tempCanvas, 0, 0, $transparent);
+
+            // Render shape at full opacity onto temp canvas, then merge
+            $tempElement = $element;
+            $tempElement['opacity'] = 100;
+            $this->renderShapeElement($tempCanvas, $tempElement, $x, $y, $canvasWidth);
+
+            imagecopymerge($canvas, $tempCanvas, 0, 0, 0, 0, $canvasW, $canvasH, $opacity);
+            imagedestroy($tempCanvas);
+            return;
+        }
 
         // Check if fill is a gradient config
         $isGradient = is_array($fill) && isset($fill['type']);

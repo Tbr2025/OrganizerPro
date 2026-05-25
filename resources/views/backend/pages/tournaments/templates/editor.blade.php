@@ -1102,7 +1102,6 @@ const editor = {
             fill: '#ffffff',
             originX: 'center', originY: 'center',
             textAlign: 'center',
-            shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 5, offsetX: 2, offsetY: 2 }),
         });
         text.placeholder = placeholder;
         text.elementType = 'text';
@@ -1122,7 +1121,6 @@ const editor = {
             fill: '#ffffff',
             originX: 'center', originY: 'center',
             textAlign: 'center',
-            shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: 5, offsetX: 2, offsetY: 2 }),
         });
         text.placeholder = '';
         text.elementType = 'text';
@@ -1250,8 +1248,8 @@ const editor = {
 
     addShape(type, x, y) {
         let shape;
-        const props = { left: x, top: y, fill: '#6366f1', stroke: '#6366f1', strokeWidth: 2, originX: 'center', originY: 'center' };
-        if (type === 'rect') shape = new fabric.Rect({ ...props, width: 150, height: 100, rx: 8, ry: 8 });
+        const props = { left: x, top: y, fill: '#6366f1', stroke: null, strokeWidth: 0, originX: 'center', originY: 'center' };
+        if (type === 'rect') shape = new fabric.Rect({ ...props, width: 150, height: 100, rx: 0, ry: 0 });
         else if (type === 'circle') shape = new fabric.Circle({ ...props, radius: 60 });
         else if (type === 'triangle') shape = new fabric.Triangle({ ...props, width: 120, height: 120 });
         else if (type === 'line') shape = new fabric.Line([0, 0, 200, 0], { stroke: '#6366f1', strokeWidth: 4, left: x, top: y, originX: 'center', originY: 'center' });
@@ -2097,8 +2095,8 @@ const editor = {
             } else if (item.type === 'shape') {
                 let shape;
                 const solidFill = (typeof item.fill === 'string') ? item.fill : '#6366f1';
-                const props = { left: x, top: y, fill: solidFill, stroke: item.stroke || '#6366f1', strokeWidth: item.strokeWidth || 2, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' };
-                if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: item.rx ?? 8, ry: item.ry ?? 8 });
+                const props = { left: x, top: y, fill: solidFill, stroke: item.stroke ?? null, strokeWidth: item.strokeWidth ?? 0, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' };
+                if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: item.rx ?? 0, ry: item.ry ?? 0 });
                 else if (item.shapeType === 'circle') shape = new fabric.Circle({ ...props, radius: (item.width || 120) / 2 });
                 else if (item.shapeType === 'triangle') shape = new fabric.Triangle({ ...props, width: item.width || 120, height: item.height || 120 });
                 else if (item.shapeType === 'line') shape = new fabric.Line([0, 0, item.width || 200, 0], { ...props, fill: null });
