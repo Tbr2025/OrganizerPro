@@ -174,12 +174,12 @@ class TemplateRenderService extends PosterGeneratorService
         $underline = (bool) ($element['underline'] ?? false);
         $linethrough = (bool) ($element['linethrough'] ?? false);
         // Shadow can be bool, array {blur, offsetX, offsetY} or {blur, x, y}, or null
-        // Default to false — only render shadow when explicitly enabled
+        // Default to false — only render shadow when explicitly enabled with non-zero values
         $shadowRaw = $element['shadow'] ?? false;
-        $shadow = is_array($shadowRaw) ? !empty($shadowRaw) : (bool) $shadowRaw;
-        $shadowBlur = (int) ($element['shadowBlur'] ?? (is_array($shadowRaw) ? ($shadowRaw['blur'] ?? 4) : 4));
-        $shadowX = (int) ($element['shadowX'] ?? (is_array($shadowRaw) ? ($shadowRaw['offsetX'] ?? $shadowRaw['x'] ?? 2) : 2));
-        $shadowY = (int) ($element['shadowY'] ?? (is_array($shadowRaw) ? ($shadowRaw['offsetY'] ?? $shadowRaw['y'] ?? 2) : 2));
+        $shadowBlur = (int) ($element['shadowBlur'] ?? (is_array($shadowRaw) ? ($shadowRaw['blur'] ?? 0) : 0));
+        $shadowX = (int) ($element['shadowX'] ?? (is_array($shadowRaw) ? ($shadowRaw['offsetX'] ?? $shadowRaw['x'] ?? 0) : 0));
+        $shadowY = (int) ($element['shadowY'] ?? (is_array($shadowRaw) ? ($shadowRaw['offsetY'] ?? $shadowRaw['y'] ?? 0) : 0));
+        $shadow = (is_array($shadowRaw) ? !empty($shadowRaw) : (bool) $shadowRaw) && ($shadowBlur > 0 || $shadowX != 0 || $shadowY != 0);
 
         // Apply text transform
         $text = match ($textTransform) {
@@ -190,7 +190,8 @@ class TemplateRenderService extends PosterGeneratorService
         };
 
         // Map font weight + style to font file
-        $fontFile = $this->getFontFile($fontWeight, $fontStyle);
+        $fontFamily = $element['fontFamily'] ?? 'Montserrat';
+        $fontFile = $this->getFontFile($fontWeight, $fontStyle, $fontFamily);
 
         // If skew is applied, render to temp canvas and apply affine shear
         if ($skewX != 0) {
@@ -1530,10 +1531,11 @@ class TemplateRenderService extends PosterGeneratorService
     /**
      * Get font file based on weight and style
      */
-    protected function getFontFile(string $weight, string $fontStyle = 'normal'): string
+    protected function getFontFile(string $weight, string $fontStyle = 'normal', string $fontFamily = 'Montserrat'): string
     {
+        $isMontserrat = stripos($fontFamily, 'montserrat') !== false;
+
         if ($fontStyle === 'italic') {
-            // Italic variants use Montserrat
             $w = (int) $weight;
             if ($w >= 600) {
                 return 'Montserrat-BoldItalic.ttf';
@@ -1541,7 +1543,13 @@ class TemplateRenderService extends PosterGeneratorService
             return 'Montserrat-Italic.ttf';
         }
 
-        // Map weights to available fonts (Oswald + Montserrat-Medium available)
+        if ($isMontserrat) {
+            $w = (int) $weight;
+            if ($w >= 700) return 'Montserrat-Bold.ttf';
+            return 'Montserrat-Medium.ttf';
+        }
+
+        // Oswald variants for non-Montserrat fonts
         return match ($weight) {
             '100' => 'Oswald-Light.ttf',
             '300' => 'Oswald-Light.ttf',
