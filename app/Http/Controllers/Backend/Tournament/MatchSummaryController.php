@@ -617,6 +617,12 @@ class MatchSummaryController extends Controller
             'mom_name' => $data['man_of_the_match_name'] ?? 'NOT SET',
             'batsman_name' => $data['best_batsman_name'] ?? 'NOT SET',
             'bowler_name' => $data['best_bowler_name'] ?? 'NOT SET',
+            'awards_count' => $match->matchAwards->count(),
+            'awards_detail' => $match->matchAwards->map(fn($a) => [
+                'slug' => $a->tournamentAward?->slug,
+                'award_name' => $a->tournamentAward?->name,
+                'player' => $a->player?->name,
+            ])->toArray(),
         ]);
         if ($match->result && $match->result->scorecard_data) {
             $scorecard = is_string($match->result->scorecard_data)
