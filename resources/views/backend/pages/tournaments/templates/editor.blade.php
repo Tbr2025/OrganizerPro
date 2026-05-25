@@ -23,6 +23,18 @@
     .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
     .sidebar-section { margin-bottom: 16px; }
     .sidebar-section-title { font-size: 11px; font-weight: 600; color: #8b8ba7; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .sidebar-accordion { background: #252538; border-radius: 8px; margin-bottom: 6px; overflow: hidden; border: 1px solid #2d2d44; }
+    .sidebar-accordion-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; user-select: none; }
+    .sidebar-accordion-header:hover { background: #2d2d4a; }
+    .sidebar-accordion-header .acc-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sidebar-accordion-header .acc-icon svg { width: 14px; height: 14px; color: white; }
+    .sidebar-accordion-header .acc-title { flex: 1; font-size: 12px; font-weight: 600; color: #e2e2e2; }
+    .sidebar-accordion-header .acc-chevron { width: 16px; height: 16px; color: #8b8ba7; transition: transform 0.2s; }
+    .sidebar-accordion-header.open .acc-chevron { transform: rotate(180deg); }
+    .sidebar-accordion-body { display: none; padding: 4px 8px 8px; }
+    .sidebar-accordion-body.open { display: block; }
+    .sidebar-accordion-body .draggable-item { background: #1a1a2e; margin-bottom: 4px; padding: 8px 10px; }
+    .sidebar-accordion-body .draggable-item:hover { background: #2d2d4a; }
 
     .draggable-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #252538; border-radius: 8px; cursor: grab; margin-bottom: 6px; border: 1px solid transparent; }
     .draggable-item:hover { background: #2d2d4a; border-color: #4f46e5; }
@@ -177,11 +189,21 @@
                         </div>
                     </div>
 
+                    @php
+                        $isImage = fn($p) => in_array($p, ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo', 'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image', 'best_batsman_image', 'best_bowler_image', 'winner_logo', 'qr_code']);
+                        $awardGroups = [
+                            'Man of the Match' => ['prefix' => 'man_of_the_match', 'color' => '#f59e0b, #d97706'],
+                            'Best Batsman' => ['prefix' => 'best_batsman', 'color' => '#10b981, #059669'],
+                            'Best Bowler' => ['prefix' => 'best_bowler', 'color' => '#ec4899, #be185d'],
+                        ];
+                        $awardPrefixes = array_column($awardGroups, 'prefix');
+                        $isAwardPlaceholder = fn($p) => collect($awardPrefixes)->contains(fn($pre) => str_starts_with($p, $pre . '_'));
+                    @endphp
+
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Text Placeholders</div>
                         @foreach($placeholders as $placeholder)
-                            @php $isImage = in_array($placeholder, ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo', 'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image', 'best_batsman_image', 'best_bowler_image', 'winner_logo', 'qr_code']); @endphp
-                            @if(!$isImage && $placeholder !== 'table_data')
+                            @if(!$isImage($placeholder) && $placeholder !== 'table_data' && !$isAwardPlaceholder($placeholder))
                             <div class="draggable-item" draggable="true" data-type="text" data-placeholder="{{ $placeholder }}">
                                 <div class="icon text"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg></div>
                                 <div class="info">
@@ -193,11 +215,48 @@
                         @endforeach
                     </div>
 
+                    @foreach($awardGroups as $groupLabel => $groupInfo)
+                        @php $groupPlaceholders = collect($placeholders)->filter(fn($p) => str_starts_with($p, $groupInfo['prefix'] . '_'))->values(); @endphp
+                        @if($groupPlaceholders->isNotEmpty())
+                        <div class="sidebar-section" style="margin-bottom: 6px;">
+                            <div class="sidebar-accordion">
+                                <div class="sidebar-accordion-header" onclick="this.classList.toggle('open'); this.nextElementSibling.classList.toggle('open');">
+                                    <div class="acc-icon" style="background: linear-gradient(135deg, {{ $groupInfo['color'] }});">
+                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                                    </div>
+                                    <span class="acc-title">{{ $groupLabel }}</span>
+                                    <svg class="acc-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </div>
+                                <div class="sidebar-accordion-body">
+                                    @foreach($groupPlaceholders as $placeholder)
+                                        @if($isImage($placeholder))
+                                        <div class="draggable-item" draggable="true" data-type="image" data-placeholder="{{ $placeholder }}">
+                                            <div class="icon image"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
+                                            <div class="info">
+                                                <div class="name">{{ str_replace('_', ' ', ucwords(str_replace($groupInfo['prefix'] . '_', '', $placeholder), '_')) }}</div>
+                                                <div class="type">Image</div>
+                                            </div>
+                                        </div>
+                                        @else
+                                        <div class="draggable-item" draggable="true" data-type="text" data-placeholder="{{ $placeholder }}">
+                                            <div class="icon text"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg></div>
+                                            <div class="info">
+                                                <div class="name">{{ str_replace('_', ' ', ucwords(str_replace($groupInfo['prefix'] . '_', '', $placeholder), '_')) }}</div>
+                                                <div class="type">Text</div>
+                                            </div>
+                                        </div>
+                                        @endif
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+                    @endforeach
+
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Image Placeholders</div>
                         @foreach($placeholders as $placeholder)
-                            @php $isImage = in_array($placeholder, ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo', 'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image', 'best_batsman_image', 'best_bowler_image', 'winner_logo', 'qr_code']); @endphp
-                            @if($isImage)
+                            @if($isImage($placeholder) && !$isAwardPlaceholder($placeholder))
                             <div class="draggable-item" draggable="true" data-type="image" data-placeholder="{{ $placeholder }}">
                                 <div class="icon image"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>
                                 <div class="info">
