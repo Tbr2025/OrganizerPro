@@ -141,6 +141,16 @@ class TournamentTemplate extends Model
                 'best_batsman_image',
                 'best_bowler_name',
                 'best_bowler_image',
+                // Man of the Match stats
+                'man_of_the_match_runs', 'man_of_the_match_balls', 'man_of_the_match_fours', 'man_of_the_match_sixes',
+                'man_of_the_match_overs', 'man_of_the_match_wickets', 'man_of_the_match_bowling_runs', 'man_of_the_match_maidens',
+                'man_of_the_match_batting_figures', 'man_of_the_match_bowling_figures',
+                // Best Batsman stats
+                'best_batsman_runs', 'best_batsman_balls', 'best_batsman_fours', 'best_batsman_sixes',
+                'best_batsman_batting_figures',
+                // Best Bowler stats
+                'best_bowler_overs', 'best_bowler_wickets', 'best_bowler_bowling_runs', 'best_bowler_maidens',
+                'best_bowler_bowling_figures',
                 // Performance Figures
                 'batting_figures',
                 'bowling_figures',

@@ -610,6 +610,57 @@ class MatchSummaryController extends Controller
             }
         }
 
+        // Extract award winner stats from scorecard data
+        if ($match->result && $match->result->scorecard_data) {
+            $scorecard = is_string($match->result->scorecard_data)
+                ? json_decode($match->result->scorecard_data, true)
+                : $match->result->scorecard_data;
+            $innings = $scorecard['innings'] ?? $scorecard;
+
+            if (is_array($innings) && count($innings) >= 2) {
+                $allBatting = array_merge($innings[0]['batting'] ?? [], $innings[1]['batting'] ?? []);
+                $allBowling = array_merge($innings[0]['bowling'] ?? [], $innings[1]['bowling'] ?? []);
+
+                $awardMap = [
+                    'man_of_the_match' => $data['man_of_the_match_name'] ?? null,
+                    'best_batsman' => $data['best_batsman_name'] ?? null,
+                    'best_bowler' => $data['best_bowler_name'] ?? null,
+                ];
+
+                foreach ($awardMap as $prefix => $playerName) {
+                    if (!$playerName) continue;
+
+                    // Find batting stats
+                    $bat = collect($allBatting)->first(fn($b) => ($b['name'] ?? '') === $playerName);
+                    if ($bat) {
+                        $runs = $bat['runs'] ?? 0;
+                        $balls = $bat['balls'] ?? 0;
+                        $fours = $bat['fours'] ?? 0;
+                        $sixes = $bat['sixes'] ?? 0;
+                        $data[$prefix . '_runs'] = (string) $runs;
+                        $data[$prefix . '_balls'] = (string) $balls;
+                        $data[$prefix . '_fours'] = (string) $fours;
+                        $data[$prefix . '_sixes'] = (string) $sixes;
+                        $data[$prefix . '_batting_figures'] = "{$runs} ({$balls}) {$fours}x4 {$sixes}x6";
+                    }
+
+                    // Find bowling stats
+                    $bowl = collect($allBowling)->first(fn($b) => ($b['name'] ?? '') === $playerName);
+                    if ($bowl) {
+                        $overs = $bowl['overs'] ?? '0';
+                        $maidens = $bowl['maidens'] ?? 0;
+                        $bRuns = $bowl['runs'] ?? 0;
+                        $wickets = $bowl['wickets'] ?? 0;
+                        $data[$prefix . '_overs'] = (string) $overs;
+                        $data[$prefix . '_maidens'] = (string) $maidens;
+                        $data[$prefix . '_bowling_runs'] = (string) $bRuns;
+                        $data[$prefix . '_wickets'] = (string) $wickets;
+                        $data[$prefix . '_bowling_figures'] = "{$overs} - {$maidens} - {$bRuns} - {$wickets}";
+                    }
+                }
+            }
+        }
+
         // Extract scorecard data for scorecard tables
         // innings[0] = first batting team's batting / second team's bowling
         // innings[1] = second batting team's batting / first team's bowling
