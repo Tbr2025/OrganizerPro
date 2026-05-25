@@ -611,11 +611,27 @@ class MatchSummaryController extends Controller
         }
 
         // Extract award winner stats from scorecard data
+        \Log::info('Award stats debug', [
+            'has_result' => (bool) $match->result,
+            'has_scorecard' => (bool) ($match->result?->scorecard_data),
+            'mom_name' => $data['man_of_the_match_name'] ?? 'NOT SET',
+            'batsman_name' => $data['best_batsman_name'] ?? 'NOT SET',
+            'bowler_name' => $data['best_bowler_name'] ?? 'NOT SET',
+        ]);
         if ($match->result && $match->result->scorecard_data) {
             $scorecard = is_string($match->result->scorecard_data)
                 ? json_decode($match->result->scorecard_data, true)
                 : $match->result->scorecard_data;
             $innings = $scorecard['innings'] ?? $scorecard;
+
+            \Log::info('Scorecard structure', [
+                'is_array' => is_array($innings),
+                'count' => is_array($innings) ? count($innings) : 0,
+                'keys' => is_array($innings) ? array_keys($innings) : [],
+                'first_keys' => is_array($innings) && isset($innings[0]) ? array_keys($innings[0]) : [],
+                'batting_names_0' => is_array($innings) && isset($innings[0]['batting']) ? collect($innings[0]['batting'])->pluck('name')->toArray() : [],
+                'batting_names_1' => is_array($innings) && isset($innings[1]['batting']) ? collect($innings[1]['batting'])->pluck('name')->toArray() : [],
+            ]);
 
             if (is_array($innings) && count($innings) >= 2) {
                 $allBatting = array_merge($innings[0]['batting'] ?? [], $innings[1]['batting'] ?? []);
