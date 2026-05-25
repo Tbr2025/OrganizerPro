@@ -1772,7 +1772,7 @@ class TemplateRenderService extends PosterGeneratorService
      */
     public function renderAndSave(TournamentTemplate $template, array $data, string $customFilename = null): string
     {
-        $path = $this->renderTemplate($template, $data, false);
+        $path = $this->renderTemplate($template, $data, false, true);
 
         if ($customFilename && Storage::disk('public')->exists($path)) {
             $newPath = $this->outputDirectory . '/' . $customFilename;
