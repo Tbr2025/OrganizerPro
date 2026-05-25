@@ -611,56 +611,48 @@ class MatchSummaryController extends Controller
         }
 
         // Extract award winner stats from scorecard data
-        \Log::info('Award stats debug', [
-            'has_result' => (bool) $match->result,
-            'has_scorecard' => (bool) ($match->result?->scorecard_data),
-            'mom_name' => $data['man_of_the_match_name'] ?? 'NOT SET',
-            'batsman_name' => $data['best_batsman_name'] ?? 'NOT SET',
-            'bowler_name' => $data['best_bowler_name'] ?? 'NOT SET',
-            'awards_count' => $match->matchAwards->count(),
-            'awards_detail' => $match->matchAwards->map(fn($a) => [
-                'slug' => $a->tournamentAward?->slug,
-                'award_name' => $a->tournamentAward?->name,
-                'player' => $a->player?->name,
-            ])->toArray(),
-        ]);
         if ($match->result && $match->result->scorecard_data) {
             $scorecard = is_string($match->result->scorecard_data)
                 ? json_decode($match->result->scorecard_data, true)
                 : $match->result->scorecard_data;
             $innings = $scorecard['innings'] ?? $scorecard;
 
-            \Log::info('Scorecard structure', [
-                'is_array' => is_array($innings),
-                'count' => is_array($innings) ? count($innings) : 0,
-                'keys' => is_array($innings) ? array_keys($innings) : [],
-                'first_keys' => is_array($innings) && isset($innings[0]) ? array_keys($innings[0]) : [],
-                'batting_names_0' => is_array($innings) && isset($innings[0]['batting']) ? collect($innings[0]['batting'])->pluck('name')->toArray() : [],
-                'batting_names_1' => is_array($innings) && isset($innings[1]['batting']) ? collect($innings[1]['batting'])->pluck('name')->toArray() : [],
-            ]);
-
             if (is_array($innings) && count($innings) >= 2) {
-                $allBatting = array_merge($innings[0]['batting'] ?? [], $innings[1]['batting'] ?? []);
-                $allBowling = array_merge($innings[0]['bowling'] ?? [], $innings[1]['bowling'] ?? []);
+                $allBatting = collect(array_merge($innings[0]['batting'] ?? [], $innings[1]['batting'] ?? []));
+                $allBowling = collect(array_merge($innings[0]['bowling'] ?? [], $innings[1]['bowling'] ?? []));
+
+                // Auto-detect top performers from scorecard when awards aren't assigned
+                if (empty($data['best_batsman_name']) && $allBatting->isNotEmpty()) {
+                    $topBat = $allBatting->sortByDesc('runs')->first();
+                    if ($topBat) {
+                        $data['best_batsman_name'] = $topBat['name'] ?? '';
+                    }
+                }
+                if (empty($data['best_bowler_name']) && $allBowling->isNotEmpty()) {
+                    $topBowl = $allBowling->sortByDesc('wickets')->first();
+                    if ($topBowl) {
+                        $data['best_bowler_name'] = $topBowl['name'] ?? '';
+                    }
+                }
+                if (empty($data['man_of_the_match_name'])) {
+                    // Default MOM to best batsman if not assigned
+                    $data['man_of_the_match_name'] = $data['best_batsman_name'] ?? '';
+                }
 
                 // Fuzzy name matcher: case-insensitive, trims whitespace, checks if either contains the other
                 $fuzzyMatch = function (string $a, string $b): bool {
                     $a = strtolower(trim($a));
                     $b = strtolower(trim($b));
+                    if (!$a || !$b) return false;
                     return $a === $b || str_contains($a, $b) || str_contains($b, $a);
                 };
 
-                $awardMap = [
-                    'man_of_the_match' => $data['man_of_the_match_name'] ?? null,
-                    'best_batsman' => $data['best_batsman_name'] ?? null,
-                    'best_bowler' => $data['best_bowler_name'] ?? null,
-                ];
+                // Helper to populate stats for a given prefix + player name
+                $populateStats = function (string $prefix, string $playerName) use (&$data, $allBatting, $allBowling, $fuzzyMatch) {
+                    if (!$playerName) return;
 
-                foreach ($awardMap as $prefix => $playerName) {
-                    if (!$playerName) continue;
-
-                    // Find batting stats (fuzzy name match)
-                    $bat = collect($allBatting)->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
+                    // Find batting stats
+                    $bat = $allBatting->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
                     if ($bat) {
                         $runs = $bat['runs'] ?? 0;
                         $balls = $bat['balls'] ?? 0;
@@ -673,8 +665,8 @@ class MatchSummaryController extends Controller
                         $data[$prefix . '_batting_figures'] = "{$runs} ({$balls}) {$fours}x4 {$sixes}x6";
                     }
 
-                    // Find bowling stats (fuzzy name match)
-                    $bowl = collect($allBowling)->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
+                    // Find bowling stats
+                    $bowl = $allBowling->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
                     if ($bowl) {
                         $overs = $bowl['overs'] ?? '0';
                         $maidens = $bowl['maidens'] ?? 0;
@@ -686,7 +678,11 @@ class MatchSummaryController extends Controller
                         $data[$prefix . '_wickets'] = (string) $wickets;
                         $data[$prefix . '_bowling_figures'] = "{$overs} - {$maidens} - {$bRuns} - {$wickets}";
                     }
-                }
+                };
+
+                $populateStats('man_of_the_match', $data['man_of_the_match_name'] ?? '');
+                $populateStats('best_batsman', $data['best_batsman_name'] ?? '');
+                $populateStats('best_bowler', $data['best_bowler_name'] ?? '');
             }
         }
 
