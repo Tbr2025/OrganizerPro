@@ -325,70 +325,90 @@ class AuctionAdminController extends Controller
         ]);
 
         $auction = Auction::findOrFail($data['auctionId']);
-        $player  = AuctionPlayer::where('auction_id', $auction->id)
-            ->findOrFail($data['playerID']);
 
-        // Decode bid rules
-        $rules = $auction->bid_rules;
-        if (is_string($rules)) $rules = json_decode($rules, true);
-        if (!is_array($rules)) $rules = [];
+        try {
+            $result = DB::transaction(function () use ($data, $auction) {
+                $player = AuctionPlayer::where('auction_id', $auction->id)
+                    ->lockForUpdate()
+                    ->findOrFail($data['playerID']);
 
-        $current = (float) $player->current_price;
-        $increment = 0;
-
-        foreach ($rules as $r) {
-            $from = isset($r['from']) ? (float) $r['from'] : 0;
-            $to   = isset($r['to']) ? (float) $r['to'] : PHP_FLOAT_MAX;
-            $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
-
-            if ($current >= $from && $current <= $to) {
-                $increment = $inc;
-                break;
-            }
-        }
-
-        if ($increment == 0) {
-            foreach ($rules as $r) {
-                $from = isset($r['from']) ? (float) $r['from'] : 0;
-                $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
-                if ($current < $from) {
-                    $increment = $inc;
-                    break;
+                // Prevent consecutive bids by the same team
+                if ($data['teamId'] && $player->current_bid_team_id == $data['teamId']) {
+                    throw new \Exception('This team is already the highest bidder.');
                 }
-            }
-        }
 
-        if ($increment == 0) {
+                // Decode bid rules
+                $rules = $auction->bid_rules;
+                if (is_string($rules)) $rules = json_decode($rules, true);
+                if (!is_array($rules)) $rules = [];
+
+                $current = (float) $player->current_price;
+                $increment = 0;
+
+                foreach ($rules as $r) {
+                    $from = isset($r['from']) ? (float) $r['from'] : 0;
+                    $to   = isset($r['to']) ? (float) $r['to'] : PHP_FLOAT_MAX;
+                    $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
+
+                    if ($current >= $from && $current <= $to) {
+                        $increment = $inc;
+                        break;
+                    }
+                }
+
+                if ($increment == 0) {
+                    foreach ($rules as $r) {
+                        $from = isset($r['from']) ? (float) $r['from'] : 0;
+                        $inc  = isset($r['increment']) ? (float) $r['increment'] : 0;
+                        if ($current < $from) {
+                            $increment = $inc;
+                            break;
+                        }
+                    }
+                }
+
+                if ($increment == 0) {
+                    throw new \Exception('Maximum bid reached.');
+                }
+
+                $newPrice = $current + $increment;
+                $player->current_price = $newPrice;
+                $player->final_price = $newPrice;
+                $player->current_bid_team_id = $data['teamId'] ?? null;
+                $player->save();
+
+                // Determine bid source based on current auction mode
+                $bidSource = $auction->isOfflineMode() ? 'offline' : 'online';
+
+                // Create auction bid record
+                AuctionBid::updateOrCreate(
+                    [
+                        'auction_id'        => $auction->id,
+                        'auction_player_id' => $player->id,
+                        'team_id'           => $data['teamId'] ?? null,
+                        'user_id'           => auth()->id(),
+                    ],
+                    [
+                        'player_id'         => $player->player_id,
+                        'amount'            => $newPrice,
+                        'bid_source'        => $bidSource,
+                    ]
+                );
+
+                return ['newPrice' => $newPrice, 'increment' => $increment, 'player' => $player];
+            });
+        } catch (\Exception $e) {
+            $player = AuctionPlayer::where('auction_id', $auction->id)->find($data['playerID']);
             return response()->json([
                 'success' => false,
-                'message' => 'Maximum bid reached.',
-                'current_price' => $current
-            ], 400);
+                'message' => $e->getMessage(),
+                'current_price' => (float) ($player?->current_price ?? 0),
+            ], 422);
         }
 
-        $newPrice = $current + $increment;
-        $player->current_price = $newPrice;
-        $player->final_price = $newPrice;
-        $player->current_bid_team_id = $data['teamId'] ?? null;
-        $player->save();
-
-        // Determine bid source based on current auction mode
-        $bidSource = $auction->isOfflineMode() ? 'offline' : 'online';
-
-        // Create auction bid record
-        AuctionBid::updateOrCreate(
-            [
-                'auction_id'        => $auction->id,
-                'auction_player_id' => $player->id,
-                'team_id'           => $data['teamId'] ?? null,
-                'user_id'           => auth()->id(),
-            ],
-            [
-                'player_id'         => $player->player_id,
-                'amount'            => $newPrice,
-                'bid_source'        => $bidSource,
-            ]
-        );
+        $newPrice = $result['newPrice'];
+        $increment = $result['increment'];
+        $player = $result['player'];
 
         // Auto-transition: open → closed (if threshold configured and not manually overridden)
         if ($auction->hasAutoPhaseTransition()

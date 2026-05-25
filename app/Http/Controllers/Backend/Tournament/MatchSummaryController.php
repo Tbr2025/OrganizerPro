@@ -538,14 +538,21 @@ class MatchSummaryController extends Controller
      */
     private function buildMatchData(Matches $match, $tournament): array
     {
+        // Resolve teams by batting order: team_a = first batting team
+        $teamABatsFirst = $match->result?->team_a_batting_first ?? true;
+        $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
+        $secondTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
+        $firstKey = $teamABatsFirst ? 'a' : 'b';
+        $secondKey = $teamABatsFirst ? 'b' : 'a';
+
         $data = [
             'tournament_name' => $tournament->name,
-            'team_a_name' => $match->teamA?->name,
-            'team_b_name' => $match->teamB?->name,
-            'team_a_short_name' => $match->teamA?->short_name ?? $match->teamA?->name,
-            'team_b_short_name' => $match->teamB?->short_name ?? $match->teamB?->name,
-            'team_a_logo' => $match->teamA?->team_logo,
-            'team_b_logo' => $match->teamB?->team_logo,
+            'team_a_name' => $firstTeam?->name,
+            'team_b_name' => $secondTeam?->name,
+            'team_a_short_name' => $firstTeam?->short_name ?? $firstTeam?->name,
+            'team_b_short_name' => $secondTeam?->short_name ?? $secondTeam?->name,
+            'team_a_logo' => $firstTeam?->team_logo,
+            'team_b_logo' => $secondTeam?->team_logo,
             'match_date' => $match->match_date?->format('M d, Y'),
             'match_date_day' => $match->match_date?->format('d'),
             'match_date_month' => $match->match_date ? strtoupper($match->match_date->format('M')) : null,
@@ -564,16 +571,16 @@ class MatchSummaryController extends Controller
 
         if ($match->result) {
             $r = $match->result;
-            $data['team_a_score'] = $r->team_a_score_display;
-            $data['team_b_score'] = $r->team_b_score_display;
-            $data['team_a_score_wickets'] = $r->team_a_score . '/' . $r->team_a_wickets;
-            $data['team_b_score_wickets'] = $r->team_b_score . '/' . $r->team_b_wickets;
-            $data['team_a_runs'] = (string) $r->team_a_score;
-            $data['team_b_runs'] = (string) $r->team_b_score;
-            $data['team_a_wickets'] = (string) $r->team_a_wickets;
-            $data['team_b_wickets'] = (string) $r->team_b_wickets;
-            $data['team_a_overs'] = (string) $r->team_a_overs;
-            $data['team_b_overs'] = (string) $r->team_b_overs;
+            $data['team_a_score'] = $r->{'team_' . $firstKey . '_score_display'};
+            $data['team_b_score'] = $r->{'team_' . $secondKey . '_score_display'};
+            $data['team_a_score_wickets'] = $r->{'team_' . $firstKey . '_score'} . '/' . $r->{'team_' . $firstKey . '_wickets'};
+            $data['team_b_score_wickets'] = $r->{'team_' . $secondKey . '_score'} . '/' . $r->{'team_' . $secondKey . '_wickets'};
+            $data['team_a_runs'] = (string) $r->{'team_' . $firstKey . '_score'};
+            $data['team_b_runs'] = (string) $r->{'team_' . $secondKey . '_score'};
+            $data['team_a_wickets'] = (string) $r->{'team_' . $firstKey . '_wickets'};
+            $data['team_b_wickets'] = (string) $r->{'team_' . $secondKey . '_wickets'};
+            $data['team_a_overs'] = (string) $r->{'team_' . $firstKey . '_overs'};
+            $data['team_b_overs'] = (string) $r->{'team_' . $secondKey . '_overs'};
             $data['result_summary'] = $r->result_summary ?: $r->generateResultSummary();
             $data['win_margin'] = $r->margin ? 'Won by ' . $r->margin . ' ' . $r->result_type : '';
             if ($r->toss_won_by) {
@@ -602,6 +609,9 @@ class MatchSummaryController extends Controller
         }
 
         // Extract scorecard data for scorecard tables
+        // innings[0] = first batting team's batting / second team's bowling
+        // innings[1] = second batting team's batting / first team's bowling
+        // Since team_a = first batting team, map directly without swap
         if ($match->result && $match->result->scorecard_data) {
             $scorecard = is_string($match->result->scorecard_data)
                 ? json_decode($match->result->scorecard_data, true)
@@ -609,30 +619,26 @@ class MatchSummaryController extends Controller
             $innings = $scorecard['innings'] ?? $scorecard;
 
             if (is_array($innings) && count($innings) >= 2) {
-                $shouldSwap = $match->result->team_a_batting_first === false;
-                $firstKey = $shouldSwap ? 'b' : 'a';
-                $secondKey = $shouldSwap ? 'a' : 'b';
-
                 if (!empty($innings[0]['batting'])) {
-                    $data['batting_table_' . $firstKey] = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                    $data['batting_table_a'] = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
                         'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                         'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                     ])->values()->toArray();
                 }
                 if (!empty($innings[0]['bowling'])) {
-                    $data['bowling_table_' . $secondKey] = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                    $data['bowling_table_b'] = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
                         'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                         'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                     ])->values()->toArray();
                 }
                 if (!empty($innings[1]['batting'])) {
-                    $data['batting_table_' . $secondKey] = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                    $data['batting_table_b'] = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
                         'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                         'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                     ])->values()->toArray();
                 }
                 if (!empty($innings[1]['bowling'])) {
-                    $data['bowling_table_' . $firstKey] = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                    $data['bowling_table_a'] = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
                         'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                         'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                     ])->values()->toArray();
@@ -648,19 +654,17 @@ class MatchSummaryController extends Controller
      */
     private function applyInningsSwap(Matches $match, array $data, int $innings): array
     {
-        $shouldSwap = $match->result && $match->result->team_a_batting_first === false;
-
+        // buildMatchData() already outputs team_a = first batting team
+        // Only swap when viewing innings 2 (second batting team as team_a)
         if ($innings === 2) {
-            $shouldSwap = $match->result && $match->result->team_a_batting_first !== false;
-        }
-
-        if ($shouldSwap) {
             $swapKeys = [
                 'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
                 'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',
                 'team_a_score_wickets' => 'team_b_score_wickets',
                 'team_a_runs' => 'team_b_runs', 'team_a_wickets' => 'team_b_wickets',
                 'team_a_overs' => 'team_b_overs',
+                'batting_table_a' => 'batting_table_b',
+                'bowling_table_a' => 'bowling_table_b',
             ];
             foreach ($swapKeys as $keyA => $keyB) {
                 $tmp = $data[$keyA] ?? null;

@@ -610,6 +610,7 @@ function teamBiddingPanel() {
             if (this.auctionMode === "offline") return false;
             if (this.state !== "bidding" || this.isSubmitting) return false;
             if (this.timerExpired) return false;
+            if (this.isMyTeamHighest) return false;
             if (this.nextBidAmount <= 0) return false;
             if (this.nextBidAmount > this.teamBudget) return false;
             return true;

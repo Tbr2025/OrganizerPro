@@ -474,6 +474,14 @@ class AuctionOrganizerController extends Controller
 
         $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)->firstOrFail();
 
+        // Prevent passing a player who has active bids
+        if ($auctionPlayer->current_bid_team_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot pass a player who has active bids. Use SELL instead.',
+            ], 422);
+        }
+
         $auctionPlayer->update(['status' => 'unsold']);
 
         // Still broadcast the "sold" event so the UI can update, but without a winning team

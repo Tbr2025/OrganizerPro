@@ -213,6 +213,10 @@ class AuctionBiddingController extends Controller
                     throw new \Exception('Bidding is not active for this player.');
                 }
 
+                if ($auctionPlayer->current_bid_team_id === $userTeam->id) {
+                    throw new \Exception('Your team is already the highest bidder.');
+                }
+
                 // For open bid: calculate next price from bid rules
                 if ($auction->bid_type === 'open') {
                     $current = (float) $auctionPlayer->current_price;

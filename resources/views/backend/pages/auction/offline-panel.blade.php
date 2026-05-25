@@ -496,11 +496,11 @@
             <div class="flex-1 flex items-center justify-center gap-2 overflow-x-auto px-2 min-w-0">
                 <template x-for="(team, idx) in teams" :key="team.id">
                     <button @click="bidForTeam(team.id)"
-                            :disabled="!currentPlayer || showSoldOverlay || showUnsoldOverlay || showSkippedOverlay"
+                            :disabled="!currentPlayer || showSoldOverlay || showUnsoldOverlay || showSkippedOverlay || currentBidTeamId == team.id"
                             :class="{
                                 'ring-2 ring-emerald-400 border-emerald-400 team-pulse': currentBidTeamId == team.id,
                                 'border-gray-600 hover:border-gray-400': currentBidTeamId != team.id,
-                                'opacity-40 cursor-not-allowed': !currentPlayer || showSoldOverlay || showUnsoldOverlay || showSkippedOverlay
+                                'opacity-40 cursor-not-allowed': !currentPlayer || showSoldOverlay || showUnsoldOverlay || showSkippedOverlay || currentBidTeamId == team.id
                             }"
                             class="relative w-12 h-12 rounded-full border-2 flex-shrink-0 flex items-center justify-center overflow-hidden transition-all group bg-gray-800"
                             :title="team.name + ' (' + formatCurrency(team.remaining_budget) + ' left)'">
@@ -530,8 +530,8 @@
                 SOLD (S)
             </button>
             <button @click="passCurrentPlayer()"
-                    :disabled="!currentPlayer || showSoldOverlay || showUnsoldOverlay || showSkippedOverlay"
-                    :class="(currentPlayer && !showSoldOverlay && !showUnsoldOverlay && !showSkippedOverlay) ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-700 cursor-not-allowed opacity-50'"
+                    :disabled="!currentPlayer || showSoldOverlay || showUnsoldOverlay || showSkippedOverlay || !!currentBidTeamId"
+                    :class="(currentPlayer && !showSoldOverlay && !showUnsoldOverlay && !showSkippedOverlay && !currentBidTeamId) ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-700 cursor-not-allowed opacity-50'"
                     class="px-4 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap">
                 UNSOLD (U)
             </button>
@@ -981,6 +981,7 @@
             // ─── BID FOR TEAM ───
             async bidForTeam(teamId) {
                 if (!this.currentPlayer || this._isBidding) return;
+                if (this.currentBidTeamId == teamId) return;
                 this._isBidding = true;
                 try {
                     const res = await fetch('/admin/auctions/add-bid', {
@@ -1231,7 +1232,7 @@
 
             // ─── PASS PLAYER ───
             async passCurrentPlayer() {
-                if (!this.currentPlayer) return;
+                if (!this.currentPlayer || this.currentBidTeamId) return;
                 if (!confirm('Mark as UNSOLD?')) return;
 
                 this.unsoldPlayerName = this.currentPlayer.player?.name || 'Unknown';
@@ -1480,7 +1481,7 @@
                 }
 
                 // U — Unsold
-                if (key === 'U' && this.currentPlayer && !hasOverlay) {
+                if (key === 'U' && this.currentPlayer && !hasOverlay && !this.currentBidTeamId) {
                     e.preventDefault();
                     this.passCurrentPlayer();
                     return;

@@ -710,11 +710,11 @@
                 <div class="flex-1 flex items-center justify-center gap-1.5 overflow-x-auto px-1 min-w-0">
                     <template x-for="(team, idx) in teams" :key="team.id">
                         <button @click="bidForTeam(team.id)"
-                                :disabled="!currentPlayer || displayState !== 'bidding' || openBidMode === 'offline'"
+                                :disabled="!currentPlayer || displayState !== 'bidding' || openBidMode === 'offline' || (currentPlayer?.current_bid_team_id == team.id)"
                                 :class="{
                                     'ring-2 ring-emerald-400 border-emerald-400 team-pulse': winningTeamName === team.name,
                                     'border-gray-600 hover:border-gray-400': winningTeamName !== team.name,
-                                    'opacity-40 cursor-not-allowed': !currentPlayer || displayState !== 'bidding' || openBidMode === 'offline'
+                                    'opacity-40 cursor-not-allowed': !currentPlayer || displayState !== 'bidding' || openBidMode === 'offline' || (currentPlayer?.current_bid_team_id == team.id)
                                 }"
                                 class="relative w-10 h-10 rounded-full border-2 flex-shrink-0 flex items-center justify-center overflow-hidden transition-all group bg-gray-800"
                                 :title="team.name + ' (' + formatCurrency(team.remaining_budget) + ' left)'">
@@ -738,9 +738,9 @@
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
                         :class="(currentPlayer && displayState === 'bidding') ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">SELL</button>
                 <button @click="passPlayer()"
-                        :disabled="!currentPlayer || displayState !== 'bidding'"
+                        :disabled="!currentPlayer || displayState !== 'bidding' || !!currentPlayer?.current_bid_team_id"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
-                        :class="(currentPlayer && displayState === 'bidding') ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">PASS</button>
+                        :class="(currentPlayer && displayState === 'bidding' && !currentPlayer?.current_bid_team_id) ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">PASS</button>
                 <button @click="rebidCurrentPlayer()"
                         :disabled="!currentPlayer || displayState !== 'bidding'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
@@ -1301,6 +1301,7 @@ function auctionOrganizerPanel() {
         // Bid for team (from toolbar buttons)
         async bidForTeam(teamId) {
             if (!this.currentPlayer || this.displayState !== 'bidding' || this.openBidMode === 'offline') return;
+            if (this.currentPlayer?.current_bid_team_id == teamId) return;
             try {
                 const response = await fetch('/admin/auctions/add-bid', {
                     method: 'POST',
@@ -1320,6 +1321,7 @@ function auctionOrganizerPanel() {
                     this.currentBid = data.current_price;
                     const team = this.teams.find(t => t.id == teamId);
                     if (team) this.winningTeamName = team.name;
+                    this.currentPlayer.current_bid_team_id = teamId;
                     this.resetBiddingTimer();
                 } else {
                     alert(data.message || 'Bid failed');
@@ -1611,7 +1613,7 @@ function auctionOrganizerPanel() {
         },
 
         async passPlayer() {
-            if (!this.currentPlayer) return;
+            if (!this.currentPlayer || this.currentPlayer?.current_bid_team_id) return;
             const result = await this.sendCommand('pass-player', { auction_player_id: this.currentPlayer.id });
             if (result) await this.pollAuctionState();
         },
@@ -1673,7 +1675,7 @@ function auctionOrganizerPanel() {
             if (key === 'S' && !e.ctrlKey && !e.metaKey && this.currentPlayer && this.displayState === 'bidding') {
                 e.preventDefault(); this.sellPlayer(); return;
             }
-            if (key === 'P' && this.currentPlayer && this.displayState === 'bidding') {
+            if (key === 'P' && this.currentPlayer && this.displayState === 'bidding' && !this.currentPlayer?.current_bid_team_id) {
                 e.preventDefault(); this.passPlayer(); return;
             }
 
