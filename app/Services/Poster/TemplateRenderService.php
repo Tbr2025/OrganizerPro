@@ -1530,33 +1530,36 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function getFontFile(string $weight, string $fontStyle = 'normal', string $fontFamily = 'Montserrat'): string
     {
-        $isMontserrat = stripos($fontFamily, 'montserrat') !== false;
+        $w = (int) $weight;
 
+        $fontMap = [
+            'montserrat' => ['regular' => 'Montserrat-Medium.ttf', 'bold' => 'Montserrat-Bold.ttf'],
+            'roboto' => ['regular' => 'Roboto-Regular.ttf', 'medium' => 'Roboto-Medium.ttf', 'bold' => 'Roboto-Bold.ttf'],
+            'open sans' => ['regular' => 'OpenSans-Regular.ttf', 'semibold' => 'OpenSans-SemiBold.ttf', 'bold' => 'OpenSans-Bold.ttf'],
+            'poppins' => ['regular' => 'Poppins-Regular.ttf', 'medium' => 'Poppins-Medium.ttf', 'bold' => 'Poppins-Bold.ttf'],
+            'oswald' => ['light' => 'Oswald-Light.ttf', 'regular' => 'Oswald-Regular.ttf', 'medium' => 'Oswald-Medium.ttf', 'semibold' => 'Oswald-SemiBold.ttf', 'bold' => 'Oswald-Bold.ttf'],
+            'bebas neue' => ['regular' => 'BebasNeue-Regular.ttf'],
+            'anton' => ['regular' => 'Anton-Regular.ttf'],
+            'bangers' => ['regular' => 'Bangers-Regular.ttf'],
+        ];
+
+        // Handle italic (only Montserrat has italic TTFs)
         if ($fontStyle === 'italic') {
-            $w = (int) $weight;
-            if ($w >= 600) {
-                return 'Montserrat-BoldItalic.ttf';
-            }
-            return 'Montserrat-Italic.ttf';
+            return $w >= 600 ? 'Montserrat-BoldItalic.ttf' : 'Montserrat-Italic.ttf';
         }
 
-        if ($isMontserrat) {
-            $w = (int) $weight;
-            if ($w >= 700) return 'Montserrat-Bold.ttf';
-            return 'Montserrat-Medium.ttf';
+        // Look up font family
+        $family = $fontMap[strtolower($fontFamily)] ?? null;
+        if (!$family) {
+            // Default fallback
+            return $w >= 700 ? 'Montserrat-Bold.ttf' : 'Montserrat-Medium.ttf';
         }
 
-        // Oswald variants for non-Montserrat fonts
-        return match ($weight) {
-            '100' => 'Oswald-Light.ttf',
-            '300' => 'Oswald-Light.ttf',
-            '400' => 'Oswald-Regular.ttf',
-            '500' => 'Oswald-Medium.ttf',
-            '600' => 'Oswald-SemiBold.ttf',
-            '700' => 'Oswald-Bold.ttf',
-            '900' => 'Oswald-Bold.ttf',
-            default => 'Oswald-Bold.ttf',
-        };
+        // Select weight variant
+        if ($w >= 700) return $family['bold'] ?? $family['regular'];
+        if ($w >= 600) return $family['semibold'] ?? $family['bold'] ?? $family['regular'];
+        if ($w >= 500) return $family['medium'] ?? $family['regular'];
+        return $family['regular'] ?? $family['bold'] ?? 'Montserrat-Medium.ttf';
     }
 
     /**

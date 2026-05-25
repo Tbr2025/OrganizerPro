@@ -545,6 +545,7 @@
                             <option value="Bebas Neue">Bebas Neue</option>
                             <option value="Anton">Anton</option>
                             <option value="Impact">Impact</option>
+                            <option value="Bangers">Bangers</option>
                         </select>
                     </div>
                     <div class="prop-input-row">
