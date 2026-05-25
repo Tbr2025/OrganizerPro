@@ -939,7 +939,7 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Style config
         $transparentBg = !empty($config['transparentBg']);
-        $bgOpacity = (int) ($config['bgOpacity'] ?? ($transparentBg ? 0 : 75));
+        $bgOpacity = (int) ($config['bgOpacity'] ?? ($transparentBg ? 0 : 100));
         $headerBg = $config['headerBg'] ?? '#1e40af';
         $headerText = $config['headerText'] ?? '#ffffff';
         $rowBg = $config['rowBg'] ?? '#1e293b';
@@ -1787,7 +1787,7 @@ class TemplateRenderService extends PosterGeneratorService
      */
     public function renderAndSave(TournamentTemplate $template, array $data, string $customFilename = null): string
     {
-        $path = $this->renderTemplate($template, $data, false, true);
+        $path = $this->renderTemplate($template, $data, false);
 
         if ($customFilename && Storage::disk('public')->exists($path)) {
             $newPath = $this->outputDirectory . '/' . $customFilename;
