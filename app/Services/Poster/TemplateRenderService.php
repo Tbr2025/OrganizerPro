@@ -173,10 +173,11 @@ class TemplateRenderService extends PosterGeneratorService
         $opacity = (int) ($element['opacity'] ?? 100);
         $underline = (bool) ($element['underline'] ?? false);
         $linethrough = (bool) ($element['linethrough'] ?? false);
-        // Shadow disabled — not needed for text elements
-        $shadow = false;
-        $shadowX = 0;
-        $shadowY = 0;
+        // Text shadow (default 0 = off)
+        $shadowData = $element['shadow'] ?? null;
+        $shadowX = (int) ($shadowData['offsetX'] ?? 0);
+        $shadowY = (int) ($shadowData['offsetY'] ?? 0);
+        $shadow = ($shadowX !== 0 || $shadowY !== 0 || ($shadowData['blur'] ?? 0) > 0);
 
         // Apply text transform
         $text = match ($textTransform) {
@@ -388,6 +389,9 @@ class TemplateRenderService extends PosterGeneratorService
         if (!$bbox) return;
         $textWidth = abs($bbox[2] - $bbox[0]);
 
+        // Adjust y from center to baseline (same as addText)
+        $baselineY = $y - (int) (($bbox[7] + $bbox[1]) / 2);
+
         $rgb = $this->hexToRgb($color);
         $lineColor = imagecolorallocate($canvas, $rgb['r'], $rgb['g'], $rgb['b']);
         $thickness = max(2, (int) ($fontSize / 14));
@@ -403,12 +407,12 @@ class TemplateRenderService extends PosterGeneratorService
         imagesetthickness($canvas, $thickness);
 
         if ($underline) {
-            $lineY = $y + (int) ($fontSize * 0.15);
+            $lineY = $baselineY + (int) ($fontSize * 0.15);
             imageline($canvas, (int) $startX, $lineY, (int) $endX, $lineY, $lineColor);
         }
 
         if ($linethrough) {
-            $lineY = $y - (int) ($fontSize * 0.3);
+            $lineY = $baselineY - (int) ($fontSize * 0.3);
             imageline($canvas, (int) $startX, $lineY, (int) $endX, $lineY, $lineColor);
         }
 
