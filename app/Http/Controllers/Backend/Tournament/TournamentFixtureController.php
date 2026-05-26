@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActualTeam;
 use App\Models\Ground;
 use App\Models\Matches;
 use App\Models\Tournament;
@@ -53,7 +54,7 @@ class TournamentFixtureController extends Controller
               ->orWhereNull('organization_id');
         })->active()->get();
 
-        $teams = $tournament->actualTeams;
+        $teams = ActualTeam::forTournament($tournament->id)->get();
 
         return view('backend.pages.tournaments.fixtures.index', [
             'tournament' => $tournament,
