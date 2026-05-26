@@ -450,8 +450,28 @@ class AuctionOrganizerController extends Controller
                 'final_price' => $winningBid->amount,
             ]);
 
-            // Update the main player's mode to 'retained'
-            Player::where('id', $auctionPlayer->player_id)->update(['player_mode' => 'retained']);
+            // Update the main player's mode and assign to team
+            $player = $auctionPlayer->player;
+            if ($player) {
+                $player->update([
+                    'player_mode' => 'retained',
+                    'actual_team_id' => $winningBid->team_id,
+                ]);
+
+                // Add to team roster (actual_team_users pivot)
+                $team = $winningBid->team;
+                if ($team && $player->user_id) {
+                    $team->users()->syncWithoutDetaching([
+                        $player->user_id => ['role' => 'Player']
+                    ]);
+                }
+
+                // Assign Player Spatie role
+                $user = $player->user;
+                if ($user && !$user->hasAnyRole(['Superadmin', 'Admin'])) {
+                    $user->syncRoles(['Player']);
+                }
+            }
 
             broadcast(new PlayerSoldEvent($auctionPlayer, $winningBid->team));
 

@@ -38,9 +38,12 @@ class ActualTeamController extends Controller
         $query = ActualTeam::with(['organization', 'tournament', 'auction', 'tournaments']);
 
         // Filter teams based on user role
-        if ($user->hasRole('Superadmin') || $user->hasRole('Admin')) {
-            // Superadmin and Admin see all teams
+        if ($user->hasRole('Superadmin')) {
+            // Superadmin sees all teams
             $query->applyFilters($filters);
+        } elseif ($user->organization_id) {
+            // Admin/Organizer sees all teams in their org
+            $query->where('organization_id', $user->organization_id)->applyFilters($filters);
         } else {
             // Team Manager and others see only their assigned teams (via actual_team_users pivot)
             $teamIds = $user->actualTeams->pluck('id')->toArray();
@@ -54,7 +57,7 @@ class ActualTeamController extends Controller
         // Editable teams based on role
         $editableTeamIds = [];
         $teamManagerTeamIds = [];
-        if ($user->hasRole('Superadmin') || $user->hasRole('Admin')) {
+        if ($user->hasRole('Superadmin') || $user->organization_id) {
             $editableTeamIds = $actualTeams->pluck('id')->toArray();
         } else {
             // Team Manager can edit their assigned teams
@@ -63,9 +66,12 @@ class ActualTeamController extends Controller
         }
 
         // Prepare filter dropdowns
-        if ($user->hasRole('Superadmin') || $user->hasRole('Admin')) {
+        if ($user->hasRole('Superadmin')) {
             $organizations = Organization::orderBy('name')->get();
             $tournaments = Tournament::orderBy('name')->get();
+        } elseif ($user->organization_id) {
+            $organizations = Organization::where('id', $user->organization_id)->orderBy('name')->get();
+            $tournaments = Tournament::where('organization_id', $user->organization_id)->orderBy('name')->get();
         } else {
             $managedTeams = $user->actualTeams;
             $organizationIds = $managedTeams->pluck('organization_id')->unique();
@@ -1076,6 +1082,22 @@ class ActualTeamController extends Controller
                         'updated_at'     => now(),
                         'created_at'     => now(),
                     ]
+                );
+            }
+
+            // Assign Player Spatie role
+            $playerUser = $player->user;
+            if ($playerUser && !$playerUser->hasAnyRole(['Superadmin', 'Admin'])) {
+                if (!$playerUser->hasRole('Player')) {
+                    $playerUser->assignRole('Player');
+                }
+            }
+
+            // Add to actual_team_users pivot
+            if ($player->user_id) {
+                DB::table('actual_team_users')->updateOrInsert(
+                    ['actual_team_id' => $actualTeam->id, 'user_id' => $player->user_id],
+                    ['role' => 'Player', 'updated_at' => now()]
                 );
             }
 

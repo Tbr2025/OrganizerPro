@@ -36,36 +36,48 @@ class DashboardController extends Controller
 
         $this->checkAuthorization($user, ['dashboard.view']);
 
+        // Build org-scoped helpers for non-Superadmin users
+        $isSuperadmin = $user->hasRole('Superadmin');
+        $orgId = $isSuperadmin ? null : $user->organization_id;
+        $orgTournamentIds = $isSuperadmin ? null : Tournament::where('organization_id', $orgId)->pluck('id');
+
         // Tournament statistics
+        $tournamentQuery = $isSuperadmin ? Tournament::query() : Tournament::where('organization_id', $orgId);
         $tournamentStats = [
-            'total' => Tournament::count(),
-            'draft' => Tournament::where('status', 'draft')->count(),
-            'registration' => Tournament::where('status', 'registration')->count(),
-            'ongoing' => Tournament::whereIn('status', ['ongoing', 'in_progress', 'active'])->count(),
-            'completed' => Tournament::where('status', 'completed')->count(),
+            'total' => (clone $tournamentQuery)->count(),
+            'draft' => (clone $tournamentQuery)->where('status', 'draft')->count(),
+            'registration' => (clone $tournamentQuery)->where('status', 'registration')->count(),
+            'ongoing' => (clone $tournamentQuery)->whereIn('status', ['ongoing', 'in_progress', 'active'])->count(),
+            'completed' => (clone $tournamentQuery)->where('status', 'completed')->count(),
         ];
 
         // Match statistics
+        $matchQuery = $isSuperadmin ? Matches::query() : Matches::whereIn('tournament_id', $orgTournamentIds);
         $matchStats = [
-            'total' => Matches::count(),
-            'upcoming' => Matches::where('status', 'upcoming')->count(),
-            'live' => Matches::whereIn('status', ['live', 'in_progress'])->count(),
-            'completed' => Matches::where('status', 'completed')->count(),
+            'total' => (clone $matchQuery)->count(),
+            'upcoming' => (clone $matchQuery)->where('status', 'upcoming')->count(),
+            'live' => (clone $matchQuery)->whereIn('status', ['live', 'in_progress'])->count(),
+            'completed' => (clone $matchQuery)->where('status', 'completed')->count(),
         ];
 
         // Team and player counts
-        $teamCount = ActualTeam::count();
-        $playerCount = Player::count();
+        $teamCount = $isSuperadmin ? ActualTeam::count() : ActualTeam::where('organization_id', $orgId)->count();
+        $playerCount = $isSuperadmin
+            ? Player::count()
+            : Player::whereHas('actualTeam', fn($q) => $q->where('organization_id', $orgId))->count();
 
         // Recent registrations
-        $pendingRegistrations = TournamentRegistration::where('status', 'pending')->count();
-        $recentRegistrations = TournamentRegistration::with(['tournament', 'team', 'player'])
+        $registrationQuery = $isSuperadmin
+            ? TournamentRegistration::query()
+            : TournamentRegistration::whereIn('tournament_id', $orgTournamentIds);
+        $pendingRegistrations = (clone $registrationQuery)->where('status', 'pending')->count();
+        $recentRegistrations = (clone $registrationQuery)->with(['tournament', 'team', 'player'])
             ->latest()
             ->take(5)
             ->get();
 
         // Upcoming matches
-        $upcomingMatches = Matches::with(['tournament', 'teamA', 'teamB', 'ground'])
+        $upcomingMatches = (clone $matchQuery)->with(['tournament', 'teamA', 'teamB', 'ground'])
             ->where('status', 'upcoming')
             ->whereNotNull('match_date')
             ->orderBy('match_date')
@@ -73,13 +85,13 @@ class DashboardController extends Controller
             ->get();
 
         // Recent tournaments
-        $recentTournaments = Tournament::with('settings')
+        $recentTournaments = (clone $tournamentQuery)->with('settings')
             ->latest()
             ->take(5)
             ->get();
 
         // Live matches
-        $liveMatches = Matches::with(['tournament', 'teamA', 'teamB'])
+        $liveMatches = (clone $matchQuery)->with(['tournament', 'teamA', 'teamB'])
             ->whereIn('status', ['live', 'in_progress'])
             ->get();
 
@@ -98,7 +110,7 @@ class DashboardController extends Controller
                 'live_matches' => $liveMatches,
 
                 // Original stats
-                'total_users' => number_format(User::count()),
+                'total_users' => number_format($isSuperadmin ? User::count() : User::where('organization_id', $orgId)->count()),
                 'total_roles' => number_format(Role::count()),
                 'total_permissions' => number_format(Permission::count()),
                 'languages' => [
