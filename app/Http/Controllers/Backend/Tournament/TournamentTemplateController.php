@@ -521,6 +521,14 @@ class TournamentTemplateController extends Controller
             $template->setAsDefault();
         }
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Template created successfully.',
+                'redirect' => route('admin.tournaments.templates.edit', [$tournament, $template]),
+            ]);
+        }
+
         return redirect()
             ->route('admin.tournaments.templates.index', $tournament)
             ->with('success', 'Template created successfully.');
@@ -610,6 +618,13 @@ class TournamentTemplateController extends Controller
         // Set as default if requested
         if ($request->boolean('is_default')) {
             $template->setAsDefault();
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Template saved successfully.',
+            ]);
         }
 
         return redirect()

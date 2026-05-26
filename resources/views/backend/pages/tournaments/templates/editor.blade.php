@@ -2533,7 +2533,58 @@ const editor = {
             document.getElementById('formBackgroundBase64').value = this.backgroundImageData;
         }
 
-        document.getElementById('saveForm').submit();
+        const form = document.getElementById('saveForm');
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                this.showToast(data.message || 'Saved successfully!', 'success');
+                // For new templates, update URL to edit route so subsequent saves use PUT
+                if (data.redirect && !form.querySelector('input[name="_method"]')) {
+                    window.history.replaceState({}, '', data.redirect);
+                    // Add _method PUT for subsequent saves
+                    const methodInput = document.createElement('input');
+                    methodInput.type = 'hidden';
+                    methodInput.name = '_method';
+                    methodInput.value = 'PUT';
+                    form.appendChild(methodInput);
+                    form.action = data.redirect.replace('/edit', '');
+                }
+            } else {
+                this.showToast(data.message || 'Save failed.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Save failed:', err);
+            this.showToast('Save failed. Please try again.', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save';
+        });
+    },
+
+    showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.style.cssText = `position:fixed;top:20px;right:20px;z-index:99999;padding:12px 20px;border-radius:8px;color:#fff;font-size:13px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s,transform 0.3s;transform:translateY(-10px);opacity:0;`;
+        toast.style.background = type === 'success' ? '#10b981' : '#ef4444';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-10px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     },
 };
 
