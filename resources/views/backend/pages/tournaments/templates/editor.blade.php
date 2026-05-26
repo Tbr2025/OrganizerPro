@@ -773,6 +773,7 @@
                                     <input type="number" id="propBorderRadiusBR" class="prop-input" min="0" max="100" value="0" onchange="editor.updateShapeBorderRadiusCorners()">
                                 </div>
                                 <button class="prop-btn prop-btn-secondary" onclick="editor.toggleBorderRadiusLink()" title="Link corners" style="padding:4px 8px;font-size:10px;width:100%;">Link All Corners</button>
+                                <small style="color:#6b7280;font-size:9px;display:block;margin-top:4px;">Per-corner radii apply in final render. Canvas shows average.</small>
                             </div>
                         </div>
                     </div>
@@ -2074,9 +2075,9 @@ const editor = {
         const br = parseInt(document.getElementById('propBorderRadiusBR').value) || 0;
         const bl = parseInt(document.getElementById('propBorderRadiusBL').value) || 0;
         obj.borderRadii = { tl, tr, br, bl };
-        // Fabric.js only supports uniform rx/ry, use max as visual approximation
-        const maxR = Math.max(tl, tr, br, bl);
-        obj.set({ rx: maxR, ry: maxR });
+        // Fabric.js only supports uniform rx/ry, use average as visual hint
+        const avg = Math.round((tl + tr + br + bl) / 4);
+        obj.set({ rx: avg, ry: avg });
         this.canvas.renderAll();
         this.saveHistory();
     },
