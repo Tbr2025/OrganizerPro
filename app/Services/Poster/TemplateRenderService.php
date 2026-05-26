@@ -177,7 +177,11 @@ class TemplateRenderService extends PosterGeneratorService
         $shadowData = $element['shadow'] ?? null;
         $shadowX = (int) ($shadowData['offsetX'] ?? 0);
         $shadowY = (int) ($shadowData['offsetY'] ?? 0);
+        $shadowColor = $shadowData['color'] ?? '#000000';
         $shadow = ($shadowX !== 0 || $shadowY !== 0 || ($shadowData['blur'] ?? 0) > 0);
+        // Text stroke
+        $strokeColor = $element['stroke'] ?? null;
+        $strokeWidth = (int) ($element['strokeWidth'] ?? 0);
 
         // Apply text transform
         $text = match ($textTransform) {
@@ -193,7 +197,7 @@ class TemplateRenderService extends PosterGeneratorService
 
         // If skew is applied, render to temp canvas and apply affine shear
         if ($skewX != 0) {
-            $this->renderSkewedText($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, $rotation, $skewX, $shadow, $shadowX, $shadowY);
+            $this->renderSkewedText($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, $rotation, $skewX, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth);
             return;
         }
 
@@ -209,7 +213,12 @@ class TemplateRenderService extends PosterGeneratorService
 
             // Draw shadow on temp canvas if enabled
             if ($shadow) {
-                $this->addText($tempCanvas, $text, $x + $shadowX, $y + $shadowY, $fontSize, '#000000', $fontFile, $textAlign, -$rotation);
+                $this->addText($tempCanvas, $text, $x + $shadowX, $y + $shadowY, $fontSize, $shadowColor, $fontFile, $textAlign, -$rotation);
+            }
+
+            // Draw stroke on temp canvas if enabled
+            if ($strokeColor && $strokeWidth > 0) {
+                $this->renderTextStroke($tempCanvas, $text, $x, $y, $fontSize, $strokeColor, $strokeWidth, $fontFile, $textAlign, -$rotation);
             }
 
             // Draw main text on temp canvas
@@ -234,11 +243,16 @@ class TemplateRenderService extends PosterGeneratorService
                 $x + $shadowX,
                 $y + $shadowY,
                 $fontSize,
-                '#000000',
+                $shadowColor,
                 $fontFile,
                 $textAlign,
                 -$rotation
             );
+        }
+
+        // Draw stroke before main text
+        if ($strokeColor && $strokeWidth > 0) {
+            $this->renderTextStroke($canvas, $text, $x, $y, $fontSize, $strokeColor, $strokeWidth, $fontFile, $textAlign, -$rotation);
         }
 
         // Draw main text
@@ -261,6 +275,27 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
+     * Render text stroke by drawing text multiple times offset in 8 directions
+     */
+    protected function renderTextStroke(
+        \GdImage $canvas, string $text, int $x, int $y,
+        int $fontSize, string $strokeColor, int $strokeWidth,
+        string $fontFile, string $textAlign, float $angle
+    ): void {
+        // Draw the text offset in 8 directions to simulate stroke
+        $offsets = [
+            [-1, -1], [0, -1], [1, -1],
+            [-1,  0],          [1,  0],
+            [-1,  1], [0,  1], [1,  1],
+        ];
+        for ($w = 1; $w <= $strokeWidth; $w++) {
+            foreach ($offsets as [$dx, $dy]) {
+                $this->addText($canvas, $text, $x + $dx * $w, $y + $dy * $w, $fontSize, $strokeColor, $fontFile, $textAlign, $angle);
+            }
+        }
+    }
+
+    /**
      * Render text with skew (shear) transformation
      * Uses manual row-by-row horizontal shift instead of imageaffine()
      * to properly preserve transparency (imageaffine fills empty areas with opaque black).
@@ -268,7 +303,8 @@ class TemplateRenderService extends PosterGeneratorService
     protected function renderSkewedText(
         \GdImage $canvas, string $text, int $x, int $y,
         int $fontSize, string $color, string $fontFile, string $textAlign,
-        float $rotation, float $skewX, bool $shadow, int $shadowX, int $shadowY
+        float $rotation, float $skewX, bool $shadow, int $shadowX, int $shadowY,
+        string $shadowColor = '#000000', ?string $strokeColor = null, int $strokeWidth = 0
     ): void {
         if ($text === '') return;
 
@@ -285,7 +321,7 @@ class TemplateRenderService extends PosterGeneratorService
         $textHeight = abs($bbox[7] - $bbox[1]);
 
         // Create temp canvas with padding for text drawing
-        $padding = 20;
+        $padding = 20 + $strokeWidth;
         $tmpW = $textWidth + $padding * 2 + abs($shadowX) + 4;
         $tmpH = $textHeight + $padding * 2 + abs($shadowY) + 4;
 
@@ -302,8 +338,21 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Draw shadow
         if ($shadow) {
-            $shadowColor = imagecolorallocate($tmp, 0, 0, 0);
-            @imagettftext($tmp, $fontSize, 0, (int) ($drawX + $shadowX), (int) ($drawY + $shadowY), $shadowColor, $fontPath, $text);
+            $shadowRgb = $this->hexToRgb($shadowColor);
+            $shadowGd = imagecolorallocate($tmp, $shadowRgb['r'], $shadowRgb['g'], $shadowRgb['b']);
+            @imagettftext($tmp, $fontSize, 0, (int) ($drawX + $shadowX), (int) ($drawY + $shadowY), $shadowGd, $fontPath, $text);
+        }
+
+        // Draw stroke
+        if ($strokeColor && $strokeWidth > 0) {
+            $strokeRgb = $this->hexToRgb($strokeColor);
+            $strokeGd = imagecolorallocate($tmp, $strokeRgb['r'], $strokeRgb['g'], $strokeRgb['b']);
+            $offsets = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+            for ($w = 1; $w <= $strokeWidth; $w++) {
+                foreach ($offsets as [$dx, $dy]) {
+                    @imagettftext($tmp, $fontSize, 0, (int)($drawX + $dx * $w), (int)($drawY + $dy * $w), $strokeGd, $fontPath, $text);
+                }
+            }
         }
 
         // Draw main text
@@ -668,6 +717,7 @@ class TemplateRenderService extends PosterGeneratorService
         $stroke = $element['stroke'] ?? '#6366f1';
         $strokeWidth = (int) ($element['strokeWidth'] ?? 2);
         $opacity = (int) ($element['opacity'] ?? 100);
+        $shadowData = $element['shadow'] ?? null;
 
         $drawX = (int) ($x - $width / 2);
         $drawY = (int) ($y - $height / 2);
@@ -692,11 +742,40 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
+        // Draw shadow first if present
+        if ($shadowData) {
+            $sx = (int) ($shadowData['offsetX'] ?? 0);
+            $sy = (int) ($shadowData['offsetY'] ?? 0);
+            if ($sx !== 0 || $sy !== 0 || ($shadowData['blur'] ?? 0) > 0) {
+                $shadowColor = $this->parseColor($canvas, $shadowData['color'] ?? '#000000');
+                $sdx = $drawX + $sx;
+                $sdy = $drawY + $sy;
+                if ($shapeType === 'rect') {
+                    imagefilledrectangle($canvas, $sdx, $sdy, $sdx + $width, $sdy + $height, $shadowColor);
+                } elseif ($shapeType === 'circle') {
+                    $radius = min($width, $height) / 2;
+                    imagefilledellipse($canvas, $x + $sx, $y + $sy, (int)($radius * 2), (int)($radius * 2), $shadowColor);
+                } elseif ($shapeType === 'triangle') {
+                    $points = [$sdx + $width / 2, $sdy, $sdx, $sdy + $height, $sdx + $width, $sdy + $height];
+                    imagefilledpolygon($canvas, $points, $shadowColor);
+                } elseif ($shapeType === 'star') {
+                    $points = $this->calculateStarPoints(5, $width / 2, $width / 4, $x + $sx, $y + $sy);
+                    imagefilledpolygon($canvas, $points, $shadowColor);
+                } elseif ($shapeType === 'diamond') {
+                    $points = [$x + $sx, $sdy, $sdx + $width, $y + $sy, $x + $sx, $sdy + $height, $sdx, $y + $sy];
+                    imagefilledpolygon($canvas, $points, $shadowColor);
+                }
+            }
+        }
+
         // Check if fill is a gradient config
         $isGradient = is_array($fill) && isset($fill['type']);
 
         if ($shapeType === 'rect') {
-            if ($isGradient) {
+            $borderRadii = $element['borderRadii'] ?? null;
+            if ($borderRadii && ($borderRadii['tl'] > 0 || $borderRadii['tr'] > 0 || $borderRadii['br'] > 0 || $borderRadii['bl'] > 0)) {
+                $this->renderRoundedRect($canvas, $drawX, $drawY, $width, $height, $borderRadii, $isGradient ? $fill : null, $isGradient ? null : $fill);
+            } elseif ($isGradient) {
                 $this->renderGradientRect($canvas, $drawX, $drawY, $width, $height, $fill);
             } else {
                 $fillColor = $this->parseColor($canvas, $fill);
@@ -1157,6 +1236,52 @@ class TemplateRenderService extends PosterGeneratorService
             $points[] = (int) ($cy + $r * sin($angle));
         }
         return $points;
+    }
+
+    /**
+     * Render a rectangle with per-corner border radius using arcs + rectangles
+     */
+    protected function renderRoundedRect(\GdImage $canvas, int $x, int $y, int $w, int $h, array $radii, ?array $gradientConfig = null, $solidFill = null): void
+    {
+        // Clamp radii to half the min dimension
+        $maxR = (int) (min($w, $h) / 2);
+        $tl = min((int) ($radii['tl'] ?? 0), $maxR);
+        $tr = min((int) ($radii['tr'] ?? 0), $maxR);
+        $br = min((int) ($radii['br'] ?? 0), $maxR);
+        $bl = min((int) ($radii['bl'] ?? 0), $maxR);
+
+        // Get fill color
+        if ($gradientConfig) {
+            // For gradient + rounded rect, render gradient rect then mask
+            // Simplified: use first color stop as solid for now
+            $stops = $gradientConfig['colorStops'] ?? [];
+            $firstColor = $stops[0]['color'] ?? '#6366f1';
+            $color = $this->parseColor($canvas, $firstColor);
+        } else {
+            $color = $this->parseColor($canvas, $solidFill ?? '#6366f1');
+        }
+
+        // Draw 4 corner arcs
+        if ($tl > 0) imagefilledarc($canvas, $x + $tl, $y + $tl, $tl * 2, $tl * 2, 180, 270, $color, IMG_ARC_PIE);
+        if ($tr > 0) imagefilledarc($canvas, $x + $w - $tr, $y + $tr, $tr * 2, $tr * 2, 270, 360, $color, IMG_ARC_PIE);
+        if ($br > 0) imagefilledarc($canvas, $x + $w - $br, $y + $h - $br, $br * 2, $br * 2, 0, 90, $color, IMG_ARC_PIE);
+        if ($bl > 0) imagefilledarc($canvas, $x + $bl, $y + $h - $bl, $bl * 2, $bl * 2, 90, 180, $color, IMG_ARC_PIE);
+
+        // Fill the body rectangles between the corners
+        // Top edge
+        imagefilledrectangle($canvas, $x + $tl, $y, $x + $w - $tr, $y + max($tl, $tr), $color);
+        // Bottom edge
+        imagefilledrectangle($canvas, $x + $bl, $y + $h - max($bl, $br), $x + $w - $br, $y + $h, $color);
+        // Left edge
+        imagefilledrectangle($canvas, $x, $y + $tl, $x + max($tl, $bl), $y + $h - $bl, $color);
+        // Right edge
+        imagefilledrectangle($canvas, $x + $w - max($tr, $br), $y + $tr, $x + $w, $y + $h - $br, $color);
+        // Center fill
+        $leftInner = max($tl, $bl);
+        $rightInner = max($tr, $br);
+        $topInner = max($tl, $tr);
+        $bottomInner = max($bl, $br);
+        imagefilledrectangle($canvas, $x + $leftInner, $y + $topInner, $x + $w - $rightInner, $y + $h - $bottomInner, $color);
     }
 
     /**

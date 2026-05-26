@@ -616,6 +616,40 @@
                             <button class="text-[10px] text-gray-500 hover:text-white" onclick="editor.updateSkew(15)">+15°</button>
                         </div>
                     </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Text Shadow</label>
+                        <div class="prop-input-row">
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Offset X</label>
+                                <input type="number" id="propShadowX" class="prop-input" min="-20" max="20" value="0" onchange="editor.updateShadow()">
+                            </div>
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Offset Y</label>
+                                <input type="number" id="propShadowY" class="prop-input" min="-20" max="20" value="0" onchange="editor.updateShadow()">
+                            </div>
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Blur</label>
+                                <input type="number" id="propShadowBlur" class="prop-input" min="0" max="30" value="0" onchange="editor.updateShadow()">
+                            </div>
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Color</label>
+                                <input type="color" id="propShadowColor" class="color-preview" value="#000000" onchange="editor.updateShadow()" style="width:100%;height:32px;">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Text Stroke</label>
+                        <div class="prop-input-row">
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Color</label>
+                                <input type="color" id="propTextStroke" class="color-preview" value="#000000" onchange="editor.updateTextStroke(this.value)" style="width:100%;height:32px;">
+                            </div>
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Width</label>
+                                <input type="number" id="propTextStrokeWidth" class="prop-input" min="0" max="10" value="0" onchange="editor.updateTextStrokeWidth(parseInt(this.value))">
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -717,7 +751,50 @@
                         </div>
                         <div class="prop-group" id="borderRadiusGroup">
                             <label class="prop-label">Border Radius</label>
-                            <input type="number" id="propShapeBorderRadius" class="prop-input" min="0" max="100" value="8" onchange="editor.updateShapeBorderRadius(parseInt(this.value))">
+                            <div class="prop-input-row" id="borderRadiusLinked">
+                                <input type="number" id="propShapeBorderRadius" class="prop-input" min="0" max="100" value="8" onchange="editor.updateShapeBorderRadius(parseInt(this.value))">
+                                <button id="borderRadiusLinkBtn" class="prop-btn prop-btn-primary" onclick="editor.toggleBorderRadiusLink()" title="Unlink corners" style="padding:4px 8px;font-size:11px;">&#x1f517;</button>
+                            </div>
+                            <div class="prop-input-row hidden" id="borderRadiusUnlinked" style="flex-wrap:wrap;gap:4px;">
+                                <div class="prop-group" style="flex:1;min-width:45%;">
+                                    <label class="prop-label text-[10px]">TL</label>
+                                    <input type="number" id="propBorderRadiusTL" class="prop-input" min="0" max="100" value="0" onchange="editor.updateShapeBorderRadiusCorners()">
+                                </div>
+                                <div class="prop-group" style="flex:1;min-width:45%;">
+                                    <label class="prop-label text-[10px]">TR</label>
+                                    <input type="number" id="propBorderRadiusTR" class="prop-input" min="0" max="100" value="0" onchange="editor.updateShapeBorderRadiusCorners()">
+                                </div>
+                                <div class="prop-group" style="flex:1;min-width:45%;">
+                                    <label class="prop-label text-[10px]">BL</label>
+                                    <input type="number" id="propBorderRadiusBL" class="prop-input" min="0" max="100" value="0" onchange="editor.updateShapeBorderRadiusCorners()">
+                                </div>
+                                <div class="prop-group" style="flex:1;min-width:45%;">
+                                    <label class="prop-label text-[10px]">BR</label>
+                                    <input type="number" id="propBorderRadiusBR" class="prop-input" min="0" max="100" value="0" onchange="editor.updateShapeBorderRadiusCorners()">
+                                </div>
+                                <button class="prop-btn prop-btn-secondary" onclick="editor.toggleBorderRadiusLink()" title="Link corners" style="padding:4px 8px;font-size:10px;width:100%;">Link All Corners</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Shape Shadow</label>
+                        <div class="prop-input-row">
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">X</label>
+                                <input type="number" id="propShapeShadowX" class="prop-input" min="-20" max="20" value="0" onchange="editor.updateShapeShadow()">
+                            </div>
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Y</label>
+                                <input type="number" id="propShapeShadowY" class="prop-input" min="-20" max="20" value="0" onchange="editor.updateShapeShadow()">
+                            </div>
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Blur</label>
+                                <input type="number" id="propShapeShadowBlur" class="prop-input" min="0" max="30" value="0" onchange="editor.updateShapeShadow()">
+                            </div>
+                            <div class="prop-group">
+                                <label class="prop-label text-[10px]">Color</label>
+                                <input type="color" id="propShapeShadowColor" class="color-preview" value="#000000" onchange="editor.updateShapeShadow()" style="width:100%;height:32px;">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1638,6 +1715,12 @@ const editor = {
             toggleState('propItalicBtn', obj.fontStyle === 'italic');
             toggleState('propUnderlineBtn', obj.underline === true);
             toggleState('propLinethroughBtn', obj.linethrough === true);
+            document.getElementById('propShadowX').value = obj.shadow ? Math.round(obj.shadow.offsetX || 0) : 0;
+            document.getElementById('propShadowY').value = obj.shadow ? Math.round(obj.shadow.offsetY || 0) : 0;
+            document.getElementById('propShadowBlur').value = obj.shadow ? Math.round(obj.shadow.blur || 0) : 0;
+            document.getElementById('propShadowColor').value = obj.shadow ? this.colorToHex(obj.shadow.color || '#000000') : '#000000';
+            document.getElementById('propTextStroke').value = this.colorToHex(obj.stroke || '#000000');
+            document.getElementById('propTextStrokeWidth').value = obj.strokeWidth || 0;
         }
         if (isShape) {
             this.updateShapePropertiesPanel(obj);
@@ -1682,8 +1765,22 @@ const editor = {
         const brGroup = document.getElementById('borderRadiusGroup');
         brGroup.style.display = obj.shapeType === 'rect' ? '' : 'none';
         if (obj.shapeType === 'rect') {
+            const radii = obj.borderRadii || { tl: obj.rx || 0, tr: obj.rx || 0, br: obj.rx || 0, bl: obj.rx || 0 };
+            const allSame = radii.tl === radii.tr && radii.tr === radii.br && radii.br === radii.bl;
+            this.borderRadiusLinked = allSame;
+            document.getElementById('borderRadiusLinked').classList.toggle('hidden', !allSame);
+            document.getElementById('borderRadiusUnlinked').classList.toggle('hidden', allSame);
             document.getElementById('propShapeBorderRadius').value = obj.rx || 0;
+            document.getElementById('propBorderRadiusTL').value = radii.tl;
+            document.getElementById('propBorderRadiusTR').value = radii.tr;
+            document.getElementById('propBorderRadiusBR').value = radii.br;
+            document.getElementById('propBorderRadiusBL').value = radii.bl;
         }
+        // Shape shadow
+        document.getElementById('propShapeShadowX').value = obj.shadow ? Math.round(obj.shadow.offsetX || 0) : 0;
+        document.getElementById('propShapeShadowY').value = obj.shadow ? Math.round(obj.shadow.offsetY || 0) : 0;
+        document.getElementById('propShapeShadowBlur').value = obj.shadow ? Math.round(obj.shadow.blur || 0) : 0;
+        document.getElementById('propShapeShadowColor').value = obj.shadow ? this.colorToHex(obj.shadow.color || '#000000') : '#000000';
     },
 
     colorToHex(color) {
@@ -1789,6 +1886,39 @@ const editor = {
         this.saveHistory();
     },
 
+    updateShadow() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        const x = parseInt(document.getElementById('propShadowX').value) || 0;
+        const y = parseInt(document.getElementById('propShadowY').value) || 0;
+        const blur = parseInt(document.getElementById('propShadowBlur').value) || 0;
+        const shadowColor = document.getElementById('propShadowColor').value || '#000000';
+        if (x === 0 && y === 0 && blur === 0) {
+            obj.set('shadow', null);
+        } else {
+            obj.set('shadow', new fabric.Shadow({ color: shadowColor, blur: blur, offsetX: x, offsetY: y }));
+        }
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateTextStroke(color) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        obj.set('stroke', color);
+        document.getElementById('propTextStroke').value = this.colorToHex(color);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateTextStrokeWidth(val) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj) return;
+        obj.set('strokeWidth', parseInt(val) || 0);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
     updatePosition() {
         const obj = this.canvas.getActiveObject();
         if (!obj) return;
@@ -1814,6 +1944,7 @@ const editor = {
         document.getElementById('opacityValue').textContent = val;
         obj.set('opacity', (100 - val) / 100);
         this.canvas.renderAll();
+        this.saveHistory();
     },
 
     // Shape property updates
@@ -1905,6 +2036,63 @@ const editor = {
         const obj = this.canvas.getActiveObject();
         if (!obj || obj.shapeType !== 'rect') return;
         obj.set({ rx: val, ry: val });
+        obj.borderRadii = { tl: val, tr: val, br: val, bl: val };
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    borderRadiusLinked: true,
+
+    toggleBorderRadiusLink() {
+        this.borderRadiusLinked = !this.borderRadiusLinked;
+        document.getElementById('borderRadiusLinked').classList.toggle('hidden', !this.borderRadiusLinked);
+        document.getElementById('borderRadiusUnlinked').classList.toggle('hidden', this.borderRadiusLinked);
+        if (this.borderRadiusLinked) {
+            // Sync all corners to the max value
+            const tl = parseInt(document.getElementById('propBorderRadiusTL').value) || 0;
+            const tr = parseInt(document.getElementById('propBorderRadiusTR').value) || 0;
+            const br = parseInt(document.getElementById('propBorderRadiusBR').value) || 0;
+            const bl = parseInt(document.getElementById('propBorderRadiusBL').value) || 0;
+            const maxVal = Math.max(tl, tr, br, bl);
+            document.getElementById('propShapeBorderRadius').value = maxVal;
+            this.updateShapeBorderRadius(maxVal);
+        } else {
+            // Copy uniform value to all corners
+            const val = parseInt(document.getElementById('propShapeBorderRadius').value) || 0;
+            document.getElementById('propBorderRadiusTL').value = val;
+            document.getElementById('propBorderRadiusTR').value = val;
+            document.getElementById('propBorderRadiusBL').value = val;
+            document.getElementById('propBorderRadiusBR').value = val;
+        }
+    },
+
+    updateShapeBorderRadiusCorners() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.shapeType !== 'rect') return;
+        const tl = parseInt(document.getElementById('propBorderRadiusTL').value) || 0;
+        const tr = parseInt(document.getElementById('propBorderRadiusTR').value) || 0;
+        const br = parseInt(document.getElementById('propBorderRadiusBR').value) || 0;
+        const bl = parseInt(document.getElementById('propBorderRadiusBL').value) || 0;
+        obj.borderRadii = { tl, tr, br, bl };
+        // Fabric.js only supports uniform rx/ry, use max as visual approximation
+        const maxR = Math.max(tl, tr, br, bl);
+        obj.set({ rx: maxR, ry: maxR });
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateShapeShadow() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'shape') return;
+        const x = parseInt(document.getElementById('propShapeShadowX').value) || 0;
+        const y = parseInt(document.getElementById('propShapeShadowY').value) || 0;
+        const blur = parseInt(document.getElementById('propShapeShadowBlur').value) || 0;
+        const color = document.getElementById('propShapeShadowColor').value || '#000000';
+        if (x === 0 && y === 0 && blur === 0) {
+            obj.set('shadow', null);
+        } else {
+            obj.set('shadow', new fabric.Shadow({ color: color, blur: blur, offsetX: x, offsetY: y }));
+        }
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -2000,6 +2188,7 @@ const editor = {
             cloned.placeholderWidth = obj.placeholderWidth;
             cloned.placeholderHeight = obj.placeholderHeight;
             cloned.textTransform = obj.textTransform;
+            if (obj.borderRadii) cloned.borderRadii = { ...obj.borderRadii };
             if (obj.tableConfig) cloned.tableConfig = JSON.parse(JSON.stringify(obj.tableConfig));
             this.canvas.add(cloned);
             this.canvas.setActiveObject(cloned);
@@ -2095,7 +2284,9 @@ const editor = {
                     textAlign: item.textAlign || 'center',
                     originX: 'center', originY: 'center',
                 });
-                if (item.shadow) text.shadow = new fabric.Shadow({ color: 'rgba(0,0,0,0.5)', blur: item.shadow.blur || 5, offsetX: item.shadow.offsetX || 2, offsetY: item.shadow.offsetY || 2 });
+                if (item.shadow) text.shadow = new fabric.Shadow({ color: item.shadow.color || '#000000', blur: item.shadow.blur || 5, offsetX: item.shadow.offsetX || 2, offsetY: item.shadow.offsetY || 2 });
+                if (item.stroke) text.set('stroke', item.stroke);
+                if (item.strokeWidth) text.set('strokeWidth', item.strokeWidth);
                 text.placeholder = item.placeholder;
                 text.elementType = 'text';
                 text.textTransform = item.textTransform || 'none';
@@ -2193,6 +2384,14 @@ const editor = {
                         shape.set('fill', gradient);
                         shape.gradientAngle = gc.angle || 90;
                         shape.gradientFillConfig = gc;
+                    }
+                    // Restore shadow
+                    if (item.shadow) {
+                        shape.set('shadow', new fabric.Shadow({ color: item.shadow.color || '#000000', blur: item.shadow.blur || 0, offsetX: item.shadow.offsetX || 0, offsetY: item.shadow.offsetY || 0 }));
+                    }
+                    // Restore per-corner border radii
+                    if (item.borderRadii) {
+                        shape.borderRadii = item.borderRadii;
                     }
                     this.canvas.add(shape);
                 }
@@ -2298,7 +2497,7 @@ const editor = {
             } else if (obj.elementType === 'text' || obj.type === 'i-text') {
                 // Save the actual text content — needed for custom/static text that has no placeholder
                 const textContent = obj.text || '';
-                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', underline: obj.underline || false, linethrough: obj.linethrough || false, skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY } : null };
+                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', underline: obj.underline || false, linethrough: obj.linethrough || false, skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY, color: obj.shadow.color || '#000000' } : null, stroke: obj.stroke || null, strokeWidth: obj.strokeWidth || 0 };
             } else if (obj.elementType === 'image') {
                 return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'shape') {
@@ -2310,7 +2509,7 @@ const editor = {
                     // Extract gradient info from fabric gradient object
                     fillData = { type: obj.fill.type, angle: obj.gradientAngle || 90, colorStops: obj.fill.colorStops };
                 }
-                return { ...base, shapeType: obj.shapeType, iconName: obj.iconName || null, fill: fillData, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1), rx: obj.rx || 0, ry: obj.ry || 0 };
+                return { ...base, shapeType: obj.shapeType, iconName: obj.iconName || null, fill: fillData, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1), rx: obj.rx || 0, ry: obj.ry || 0, shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY, color: obj.shadow.color || '#000000' } : null, borderRadii: obj.borderRadii || null };
             } else if (obj.elementType === 'uploadedImage') {
                 return { ...base, type: 'uploadedImage', imagePath: obj.imagePath, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'tableArea') {
