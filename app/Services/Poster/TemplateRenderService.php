@@ -772,8 +772,17 @@ class TemplateRenderService extends PosterGeneratorService
         $isGradient = is_array($fill) && isset($fill['type']);
 
         if ($shapeType === 'rect') {
+            // Determine border radii: per-corner or uniform from rx/ry
             $borderRadii = $element['borderRadii'] ?? null;
-            if ($borderRadii && ($borderRadii['tl'] > 0 || $borderRadii['tr'] > 0 || $borderRadii['br'] > 0 || $borderRadii['bl'] > 0)) {
+            $rx = (int) ($element['rx'] ?? 0);
+            $ry = (int) ($element['ry'] ?? 0);
+            if (!$borderRadii && ($rx > 0 || $ry > 0)) {
+                $r = max($rx, $ry);
+                $borderRadii = ['tl' => $r, 'tr' => $r, 'br' => $r, 'bl' => $r];
+            }
+            $hasRadius = $borderRadii && (($borderRadii['tl'] ?? 0) > 0 || ($borderRadii['tr'] ?? 0) > 0 || ($borderRadii['br'] ?? 0) > 0 || ($borderRadii['bl'] ?? 0) > 0);
+
+            if ($hasRadius) {
                 $this->renderRoundedRect($canvas, $drawX, $drawY, $width, $height, $borderRadii, $isGradient ? $fill : null, $isGradient ? null : $fill);
             } elseif ($isGradient) {
                 $this->renderGradientRect($canvas, $drawX, $drawY, $width, $height, $fill);
@@ -1243,6 +1252,8 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function renderRoundedRect(\GdImage $canvas, int $x, int $y, int $w, int $h, array $radii, ?array $gradientConfig = null, $solidFill = null): void
     {
+        if ($w <= 0 || $h <= 0) return;
+
         // Clamp radii to half the min dimension
         $maxR = (int) (min($w, $h) / 2);
         $tl = min((int) ($radii['tl'] ?? 0), $maxR);
@@ -1250,38 +1261,68 @@ class TemplateRenderService extends PosterGeneratorService
         $br = min((int) ($radii['br'] ?? 0), $maxR);
         $bl = min((int) ($radii['bl'] ?? 0), $maxR);
 
-        // Get fill color
-        if ($gradientConfig) {
-            // For gradient + rounded rect, render gradient rect then mask
-            // Simplified: use first color stop as solid for now
-            $stops = $gradientConfig['colorStops'] ?? [];
-            $firstColor = $stops[0]['color'] ?? '#6366f1';
-            $color = $this->parseColor($canvas, $firstColor);
-        } else {
-            $color = $this->parseColor($canvas, $solidFill ?? '#6366f1');
+        // Create a mask image for the rounded rect shape (white = inside)
+        $mask = imagecreatetruecolor($w, $h);
+        $black = imagecolorallocate($mask, 0, 0, 0);
+        $white = imagecolorallocate($mask, 255, 255, 255);
+        imagefill($mask, 0, 0, $black);
+
+        // Fill full rect in white
+        imagefilledrectangle($mask, 0, 0, $w, $h, $white);
+
+        // Cut out corners with black, then draw arcs back in white
+        // Top-left corner
+        if ($tl > 0) {
+            imagefilledrectangle($mask, 0, 0, $tl - 1, $tl - 1, $black);
+            imagefilledarc($mask, $tl, $tl, $tl * 2, $tl * 2, 180, 270, $white, IMG_ARC_PIE);
+        }
+        // Top-right corner
+        if ($tr > 0) {
+            imagefilledrectangle($mask, $w - $tr, 0, $w, $tr - 1, $black);
+            imagefilledarc($mask, $w - $tr - 1, $tr, $tr * 2, $tr * 2, 270, 360, $white, IMG_ARC_PIE);
+        }
+        // Bottom-right corner
+        if ($br > 0) {
+            imagefilledrectangle($mask, $w - $br, $h - $br, $w, $h, $black);
+            imagefilledarc($mask, $w - $br - 1, $h - $br - 1, $br * 2, $br * 2, 0, 90, $white, IMG_ARC_PIE);
+        }
+        // Bottom-left corner
+        if ($bl > 0) {
+            imagefilledrectangle($mask, 0, $h - $bl, $bl - 1, $h, $black);
+            imagefilledarc($mask, $bl, $h - $bl - 1, $bl * 2, $bl * 2, 90, 180, $white, IMG_ARC_PIE);
         }
 
-        // Draw 4 corner arcs
-        if ($tl > 0) imagefilledarc($canvas, $x + $tl, $y + $tl, $tl * 2, $tl * 2, 180, 270, $color, IMG_ARC_PIE);
-        if ($tr > 0) imagefilledarc($canvas, $x + $w - $tr, $y + $tr, $tr * 2, $tr * 2, 270, 360, $color, IMG_ARC_PIE);
-        if ($br > 0) imagefilledarc($canvas, $x + $w - $br, $y + $h - $br, $br * 2, $br * 2, 0, 90, $color, IMG_ARC_PIE);
-        if ($bl > 0) imagefilledarc($canvas, $x + $bl, $y + $h - $bl, $bl * 2, $bl * 2, 90, 180, $color, IMG_ARC_PIE);
+        // Create temp image with the fill
+        $temp = imagecreatetruecolor($w, $h);
+        imagealphablending($temp, false);
+        imagesavealpha($temp, true);
+        $transparent = imagecolorallocatealpha($temp, 0, 0, 0, 127);
+        imagefill($temp, 0, 0, $transparent);
+        imagealphablending($temp, true);
 
-        // Fill the body rectangles between the corners
-        // Top edge
-        imagefilledrectangle($canvas, $x + $tl, $y, $x + $w - $tr, $y + max($tl, $tr), $color);
-        // Bottom edge
-        imagefilledrectangle($canvas, $x + $bl, $y + $h - max($bl, $br), $x + $w - $br, $y + $h, $color);
-        // Left edge
-        imagefilledrectangle($canvas, $x, $y + $tl, $x + max($tl, $bl), $y + $h - $bl, $color);
-        // Right edge
-        imagefilledrectangle($canvas, $x + $w - max($tr, $br), $y + $tr, $x + $w, $y + $h - $br, $color);
-        // Center fill
-        $leftInner = max($tl, $bl);
-        $rightInner = max($tr, $br);
-        $topInner = max($tl, $tr);
-        $bottomInner = max($bl, $br);
-        imagefilledrectangle($canvas, $x + $leftInner, $y + $topInner, $x + $w - $rightInner, $y + $h - $bottomInner, $color);
+        if ($gradientConfig) {
+            $this->renderGradientRect($temp, 0, 0, $w, $h, $gradientConfig);
+        } else {
+            $color = $this->parseColor($temp, $solidFill ?? '#6366f1');
+            imagefilledrectangle($temp, 0, 0, $w, $h, $color);
+        }
+
+        // Apply mask: set pixels outside the rounded rect to transparent
+        imagealphablending($temp, false);
+        for ($px = 0; $px < $w; $px++) {
+            for ($py = 0; $py < $h; $py++) {
+                $maskPixel = imagecolorat($mask, $px, $py) & 0xFF;
+                if ($maskPixel === 0) {
+                    imagesetpixel($temp, $px, $py, $transparent);
+                }
+            }
+        }
+        imagedestroy($mask);
+
+        // Composite onto main canvas
+        imagealphablending($canvas, true);
+        imagecopy($canvas, $temp, $x, $y, 0, 0, $w, $h);
+        imagedestroy($temp);
     }
 
     /**
