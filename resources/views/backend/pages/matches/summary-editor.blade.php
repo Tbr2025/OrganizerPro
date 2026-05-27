@@ -140,6 +140,12 @@
                         <option value="">— Skip —</option>
                     </select>
                 </div>
+                {{-- Extra Awards (dynamic) --}}
+                <div id="ch-extra-awards"></div>
+                <button type="button" id="ch-add-award-btn" class="inline-flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 font-medium">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                    Add Award
+                </button>
             </div>
         </div>
 
@@ -1483,6 +1489,9 @@ function fuzzy(a, b) {
 }
 
 // --- Populate Award Dropdowns from CricHeroes Scorecard ---
+let chScorecardCache = null; // cached for "Add Award" reuse
+let extraAwardCount = 0;
+
 function populateAwardDropdowns(chData, winnerTeamName) {
     const container = document.getElementById('ch-award-selection');
     if (!container) return;
@@ -1491,78 +1500,96 @@ function populateAwardDropdowns(chData, winnerTeamName) {
     const batterSelect = document.getElementById('ch-award-batter');
     const bowlerSelect = document.getElementById('ch-award-bowler');
 
-    // Reset dropdowns
+    // Reset
     motmSelect.innerHTML = '<option value="">— Skip —</option>';
     batterSelect.innerHTML = '<option value="">— Skip —</option>';
     bowlerSelect.innerHTML = '<option value="">— Skip —</option>';
+    document.getElementById('ch-extra-awards').innerHTML = '';
+    extraAwardCount = 0;
 
-    // Get scorecard innings data
     const scorecard = chData.scorecard || [];
-    if (!scorecard.length || scorecard.length < 2) {
-        container.classList.remove('hidden');
-        return;
-    }
 
-    // Find winning team's innings (batting + bowling)
-    // innings[0].team and innings[1].team hold the batting team name
-    let winBatIdx = -1;
+    // Collect all batters and bowlers from both innings
+    const allBatters = [];
+    const allBowlers = [];
+    const allPlayerNames = new Map(); // name -> team label
     for (let i = 0; i < scorecard.length; i++) {
-        if (scorecard[i].team && fuzzy(scorecard[i].team, winnerTeamName)) {
-            winBatIdx = i;
-            break;
-        }
+        const teamLabel = scorecard[i].team || ('Innings ' + (i + 1));
+        (scorecard[i].batting || []).forEach(b => {
+            if (b.name) {
+                allBatters.push({ ...b, teamLabel });
+                if (!allPlayerNames.has(b.name)) allPlayerNames.set(b.name, teamLabel);
+            }
+        });
+        (scorecard[i].bowling || []).forEach(b => {
+            if (b.name) {
+                allBowlers.push({ ...b, teamLabel });
+                if (!allPlayerNames.has(b.name)) allPlayerNames.set(b.name, teamLabel);
+            }
+        });
     }
 
-    // Winning team's batters from their batting innings
-    const winBatting = winBatIdx >= 0 ? (scorecard[winBatIdx].batting || []) : [];
-    // Winning team's bowlers from the OTHER innings' bowling
-    const otherIdx = winBatIdx === 0 ? 1 : 0;
-    const winBowling = otherIdx >= 0 ? (scorecard[otherIdx].bowling || []) : [];
+    // Cache for "Add Award"
+    chScorecardCache = { allPlayerNames, allBatters, allBowlers, scorecard, winnerTeamName };
 
-    // Deduplicated player names from winning team
-    const allWinPlayers = new Map();
-    winBatting.forEach(b => { if (b.name) allWinPlayers.set(b.name, b); });
-    winBowling.forEach(b => { if (b.name && !allWinPlayers.has(b.name)) allWinPlayers.set(b.name, b); });
+    // Group teams for optgroups
+    const teamNames = [];
+    scorecard.forEach(inn => { if (inn.team && !teamNames.includes(inn.team)) teamNames.push(inn.team); });
 
-    // Populate MOTM with all winning team players
-    allWinPlayers.forEach((_, name) => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        motmSelect.appendChild(opt);
+    // --- MOTM: all players from both teams ---
+    teamNames.forEach(team => {
+        const group = document.createElement('optgroup');
+        group.label = team;
+        allPlayerNames.forEach((pTeam, name) => {
+            if (pTeam === team) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                group.appendChild(opt);
+            }
+        });
+        if (group.children.length) motmSelect.appendChild(group);
     });
 
-    // Populate Best Batter (sorted by runs desc)
-    const sortedBatters = [...winBatting].filter(b => b.name).sort((a, b) => (b.runs || 0) - (a.runs || 0));
-    sortedBatters.forEach(b => {
-        const opt = document.createElement('option');
-        opt.value = b.name;
-        const parts = [b.runs || 0];
-        if (b.balls) parts[0] += ` (${b.balls}b`;
-        else parts[0] += ' (0b';
-        if (b.fours) parts.push(` ${b.fours}x4`);
-        if (b.sixes) parts.push(` ${b.sixes}x6`);
-        opt.textContent = `${b.name} — ${(b.runs || 0)} (${b.balls || 0}b${b.fours ? ', ' + b.fours + 'x4' : ''}${b.sixes ? ', ' + b.sixes + 'x6' : ''})`;
-        batterSelect.appendChild(opt);
+    // --- Best Batter: all batters from both innings, sorted by runs desc ---
+    const sortedBatters = [...allBatters].sort((a, b) => (b.runs || 0) - (a.runs || 0));
+    teamNames.forEach(team => {
+        const teamBatters = sortedBatters.filter(b => b.teamLabel === team);
+        if (!teamBatters.length) return;
+        const group = document.createElement('optgroup');
+        group.label = team;
+        teamBatters.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.name;
+            opt.textContent = `${b.name} — ${b.runs || 0} (${b.balls || 0}b${b.fours ? ', ' + b.fours + 'x4' : ''}${b.sixes ? ', ' + b.sixes + 'x6' : ''})`;
+            group.appendChild(opt);
+        });
+        batterSelect.appendChild(group);
     });
 
-    // Populate Best Bowler (sorted by wickets desc)
-    const sortedBowlers = [...winBowling].filter(b => b.name).sort((a, b) => (b.wickets || 0) - (a.wickets || 0));
-    sortedBowlers.forEach(b => {
-        const opt = document.createElement('option');
-        opt.value = b.name;
-        opt.textContent = `${b.name} — ${b.wickets || 0}/${b.runs || 0} (${b.overs || '0'} ov)`;
-        bowlerSelect.appendChild(opt);
+    // --- Best Bowler: all bowlers from both innings, sorted by wickets desc ---
+    const sortedBowlers = [...allBowlers].sort((a, b) => (b.wickets || 0) - (a.wickets || 0));
+    teamNames.forEach(team => {
+        const teamBowlers = sortedBowlers.filter(b => b.teamLabel === team);
+        if (!teamBowlers.length) return;
+        const group = document.createElement('optgroup');
+        group.label = team;
+        teamBowlers.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.name;
+            opt.textContent = `${b.name} — ${b.wickets || 0}/${b.runs || 0} (${b.overs || '0'} ov)`;
+            group.appendChild(opt);
+        });
+        bowlerSelect.appendChild(group);
     });
 
-    // Pre-select: top batter for Best Batter, top bowler for Best Bowler
+    // Pre-select top performers
     if (sortedBatters.length > 0) batterSelect.value = sortedBatters[0].name;
     if (sortedBowlers.length > 0) bowlerSelect.value = sortedBowlers[0].name;
 
-    // Pre-select MOTM: use CricHeroes heroes POTM if available, else top batter
+    // Pre-select MOTM from CricHeroes heroes or fallback to top batter
     const heroes = chData.heroes || {};
     if (heroes.player_of_the_match && heroes.player_of_the_match.name) {
-        // Try to find in the dropdown
         const potmName = heroes.player_of_the_match.name;
         let found = false;
         for (const opt of motmSelect.options) {
@@ -1578,6 +1605,46 @@ function populateAwardDropdowns(chData, winnerTeamName) {
     }
 
     container.classList.remove('hidden');
+}
+
+// --- Add Extra Award ---
+function addExtraAwardRow() {
+    if (!chScorecardCache) return;
+    extraAwardCount++;
+    const idx = extraAwardCount;
+    const container = document.getElementById('ch-extra-awards');
+
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 items-end';
+    row.id = 'ch-extra-award-' + idx;
+
+    // Award name input
+    let html = '<div class="flex-1"><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Award Name</label>';
+    html += '<input type="text" id="ch-extra-name-' + idx + '" placeholder="e.g. Best Fielder" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-teal-500 focus:border-teal-500"></div>';
+
+    // Player dropdown
+    html += '<div class="flex-1"><label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Player</label>';
+    html += '<select id="ch-extra-player-' + idx + '" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-teal-500 focus:border-teal-500">';
+    html += '<option value="">— Skip —</option>';
+
+    // Group by team
+    const teamNames = [];
+    chScorecardCache.scorecard.forEach(inn => { if (inn.team && !teamNames.includes(inn.team)) teamNames.push(inn.team); });
+    teamNames.forEach(team => {
+        html += '<optgroup label="' + team.replace(/"/g, '&quot;') + '">';
+        chScorecardCache.allPlayerNames.forEach((pTeam, name) => {
+            if (pTeam === team) html += '<option value="' + name.replace(/"/g, '&quot;') + '">' + name + '</option>';
+        });
+        html += '</optgroup>';
+    });
+
+    html += '</select></div>';
+
+    // Remove button
+    html += '<button type="button" onclick="document.getElementById(\'ch-extra-award-' + idx + '\').remove()" class="p-2 text-red-400 hover:text-red-600 rounded-lg" title="Remove"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
+
+    row.innerHTML = html;
+    container.appendChild(row);
 }
 
 // --- CricHeroes Import ---
@@ -1602,6 +1669,8 @@ function populateAwardDropdowns(chData, winnerTeamName) {
         panel.classList.toggle('hidden');
         preview.classList.add('hidden');
     });
+
+    document.getElementById('ch-add-award-btn')?.addEventListener('click', addExtraAwardRow);
 
     function showPreviewFromData(teamA, teamB, resultText, tossText) {
         document.getElementById('ch-preview-a-score').textContent = `${teamA.runs}/${teamA.wickets}`;
@@ -1860,7 +1929,20 @@ function populateAwardDropdowns(chData, winnerTeamName) {
             if (batter) pendingData.award_best_batter_name = batter;
             if (bowler) pendingData.award_best_bowler_name = bowler;
 
+            // Collect extra awards
+            const extraAwards = [];
+            document.querySelectorAll('[id^="ch-extra-award-"]').forEach(row => {
+                const idx = row.id.replace('ch-extra-award-', '');
+                const name = document.getElementById('ch-extra-name-' + idx)?.value?.trim();
+                const player = document.getElementById('ch-extra-player-' + idx)?.value?.trim();
+                if (name && player) extraAwards.push({ name, player });
+            });
+
             const formData = new URLSearchParams(pendingData);
+            extraAwards.forEach((ea, i) => {
+                formData.append('extra_awards[' + i + '][name]', ea.name);
+                formData.append('extra_awards[' + i + '][player]', ea.player);
+            });
             formData.append('_token', '{{ csrf_token() }}');
             formData.append('_method', 'PUT');
 

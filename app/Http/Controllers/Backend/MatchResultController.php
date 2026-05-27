@@ -564,7 +564,7 @@ class MatchResultController extends Controller
                 break;
             }
         }
-        if (!$hasAnyAward) {
+        if (!$hasAnyAward && !$request->has('extra_awards')) {
             return;
         }
 
@@ -622,6 +622,60 @@ class MatchResultController extends Controller
             }
 
             // Fuzzy-match player name to a player in the teams
+            $player = $allPlayers->first(function ($p) use ($playerName) {
+                return $this->fuzzyMatch($p->name, $playerName)
+                    || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $playerName));
+            });
+            if (!$player) {
+                continue;
+            }
+
+            $match->matchAwards()->create([
+                'tournament_award_id' => $tournamentAward->id,
+                'player_id' => $player->id,
+            ]);
+        }
+
+        // Process extra/custom awards
+        $extraAwards = $request->input('extra_awards', []);
+        if (!is_array($extraAwards)) {
+            return;
+        }
+
+        $maxOrder = $tournamentAwards->max('order') ?? 5;
+        foreach ($extraAwards as $extra) {
+            $awardName = trim($extra['name'] ?? '');
+            $playerName = trim($extra['player'] ?? '');
+            if (!$awardName || !$playerName) {
+                continue;
+            }
+
+            // Find or create the tournament award by name
+            $tournamentAward = $tournamentAwards->first(function ($a) use ($awardName) {
+                return $this->fuzzyMatch($a->name, $awardName);
+            });
+            if (!$tournamentAward) {
+                $maxOrder++;
+                $tournamentAward = TournamentAward::create([
+                    'tournament_id' => $tournament->id,
+                    'name' => $awardName,
+                    'icon' => '',
+                    'is_match_level' => true,
+                    'is_active' => true,
+                    'order' => $maxOrder,
+                    'template_settings' => TournamentAward::getDefaultTemplateSettings($awardName),
+                ]);
+                $tournamentAwards->push($tournamentAward);
+            }
+
+            // Skip if already assigned
+            $exists = $match->matchAwards()
+                ->where('tournament_award_id', $tournamentAward->id)
+                ->exists();
+            if ($exists) {
+                continue;
+            }
+
             $player = $allPlayers->first(function ($p) use ($playerName) {
                 return $this->fuzzyMatch($p->name, $playerName)
                     || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $playerName));
