@@ -327,9 +327,32 @@ class MatchResultController extends Controller
 
             // Auto-save scorecard data if result already exists;
             // otherwise it will be saved when the result form is submitted
-            if (!empty($data['scorecard'])) {
-                MatchResult::where('match_id', $match->id)
-                    ->update(['scorecard_data' => $data['scorecard']]);
+            $existingResult = MatchResult::where('match_id', $match->id)->first();
+            if ($existingResult) {
+                $scorecardData = $existingResult->scorecard_data;
+                if (is_string($scorecardData)) {
+                    $scorecardData = json_decode($scorecardData, true) ?? [];
+                }
+                $scorecardData = is_array($scorecardData) ? $scorecardData : [];
+
+                if (!empty($data['scorecard'])) {
+                    $scorecardData = $data['scorecard'];
+                }
+
+                // Store heroes data alongside scorecard
+                if (!empty($data['heroes'])) {
+                    if (is_array($scorecardData) && !isset($scorecardData[0])) {
+                        $scorecardData['cricheroes_heroes'] = $data['heroes'];
+                    } else {
+                        // scorecard is innings array format, wrap it
+                        $scorecardData = [
+                            'innings' => $scorecardData,
+                            'cricheroes_heroes' => $data['heroes'],
+                        ];
+                    }
+                }
+
+                $existingResult->update(['scorecard_data' => $scorecardData]);
             }
 
             return response()->json([
@@ -442,7 +465,16 @@ class MatchResultController extends Controller
         ];
 
         if (!empty($data['scorecard'])) {
-            $resultData['scorecard_data'] = $data['scorecard'];
+            $scorecardData = $data['scorecard'];
+            // Include heroes data in scorecard_data
+            if (!empty($data['heroes'])) {
+                if (is_array($scorecardData) && !isset($scorecardData['innings'])) {
+                    $scorecardData = ['innings' => $scorecardData, 'cricheroes_heroes' => $data['heroes']];
+                } else {
+                    $scorecardData['cricheroes_heroes'] = $data['heroes'];
+                }
+            }
+            $resultData['scorecard_data'] = $scorecardData;
         }
 
         $result = MatchResult::updateOrCreate(

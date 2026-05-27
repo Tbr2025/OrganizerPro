@@ -110,6 +110,38 @@
             <span id="ch-import-status" class="text-sm"></span>
         </div>
 
+        {{-- Heroes Preview (shown after fetch if heroes data is available) --}}
+        <div id="ch-heroes-preview" class="hidden border-t border-gray-200 dark:border-gray-700">
+            <div class="p-4">
+                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                    CricHeroes Awards
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {{-- Player of the Match --}}
+                    <div id="ch-hero-potm" class="hidden bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-3 border border-purple-200 dark:border-purple-700">
+                        <div class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-1">Player of the Match</div>
+                        <div class="font-bold text-gray-800 dark:text-gray-200" id="ch-hero-potm-name">-</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400" id="ch-hero-potm-team">-</div>
+                    </div>
+                    {{-- Best Batter --}}
+                    <div id="ch-hero-batter" class="hidden bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-3 border border-green-200 dark:border-green-700">
+                        <div class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-1">Best Batter</div>
+                        <div class="font-bold text-gray-800 dark:text-gray-200" id="ch-hero-batter-name">-</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400" id="ch-hero-batter-stats">-</div>
+                    </div>
+                    {{-- Best Bowler --}}
+                    <div id="ch-hero-bowler" class="hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-3 border border-red-200 dark:border-red-700">
+                        <div class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">Best Bowler</div>
+                        <div class="font-bold text-gray-800 dark:text-gray-200" id="ch-hero-bowler-name">-</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400" id="ch-hero-bowler-stats">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- Preview card (shown after parsing, before save) --}}
         <div id="ch-preview" class="hidden border-t border-gray-200 dark:border-gray-700">
             <div class="gradient-card p-5 text-white">
@@ -569,6 +601,27 @@
                         </div>
                     </div>
                 @else
+                    @php
+                        $hasHeroesData = false;
+                        if ($match->result && $match->result->scorecard_data) {
+                            $scData = is_string($match->result->scorecard_data)
+                                ? json_decode($match->result->scorecard_data, true)
+                                : $match->result->scorecard_data;
+                            $hasHeroesData = !empty($scData['cricheroes_heroes']);
+                        }
+                    @endphp
+                    @if($hasHeroesData)
+                        <div class="mb-4">
+                            <button type="button" id="ch-auto-assign-btn"
+                                    onclick="autoAssignAwards()"
+                                    class="w-full px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl transition flex items-center justify-center text-sm">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Auto-Assign Awards from CricHeroes
+                            </button>
+                        </div>
+                    @endif
                     <!-- Unified Award & Poster Section -->
                     <div class="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 rounded-xl p-4 border border-purple-200 dark:border-purple-700">
                         {{-- Award + Player Selection (shared by both assign and poster) --}}
@@ -1385,6 +1438,88 @@ function downloadAwardPoster() {
     showToast('Award poster downloaded!', 'success');
 }
 
+// --- Auto-Assign Awards from CricHeroes ---
+async function autoAssignAwards() {
+    const btn = document.getElementById('ch-auto-assign-btn');
+    if (!btn) return;
+
+    btn.disabled = true;
+    const origHTML = btn.innerHTML;
+    btn.innerHTML = '<svg class="w-4 h-4 mr-1.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Assigning...';
+
+    try {
+        const res = await fetch('{{ route("admin.matches.summary.auto-assign-awards", $match) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+            },
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            if (data.assigned && data.assigned.length > 0) {
+                showToast(data.message, 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                showToast(data.message, 'info');
+            }
+        } else {
+            showToast(data.message || 'Failed to assign awards.', 'error');
+        }
+    } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+    }
+}
+
+// --- Display CricHeroes Heroes Preview ---
+function showHeroesPreview(heroes) {
+    const container = document.getElementById('ch-heroes-preview');
+    if (!container || !heroes) return;
+
+    let hasAny = false;
+
+    if (heroes.player_of_the_match) {
+        const el = document.getElementById('ch-hero-potm');
+        el.classList.remove('hidden');
+        document.getElementById('ch-hero-potm-name').textContent = heroes.player_of_the_match.name;
+        document.getElementById('ch-hero-potm-team').textContent = heroes.player_of_the_match.team || '';
+        hasAny = true;
+    }
+
+    if (heroes.best_batter) {
+        const el = document.getElementById('ch-hero-batter');
+        el.classList.remove('hidden');
+        document.getElementById('ch-hero-batter-name').textContent = heroes.best_batter.name;
+        const stats = [];
+        if (heroes.best_batter.runs) stats.push(heroes.best_batter.runs + ' runs');
+        if (heroes.best_batter.balls) stats.push(heroes.best_batter.balls + ' balls');
+        if (heroes.best_batter.fours) stats.push(heroes.best_batter.fours + 'x4');
+        if (heroes.best_batter.sixes) stats.push(heroes.best_batter.sixes + 'x6');
+        document.getElementById('ch-hero-batter-stats').textContent = stats.join(', ') || heroes.best_batter.team || '';
+        hasAny = true;
+    }
+
+    if (heroes.best_bowler) {
+        const el = document.getElementById('ch-hero-bowler');
+        el.classList.remove('hidden');
+        document.getElementById('ch-hero-bowler-name').textContent = heroes.best_bowler.name;
+        const stats = [];
+        if (heroes.best_bowler.wickets) stats.push(heroes.best_bowler.wickets + '/' + (heroes.best_bowler.runs || 0));
+        if (heroes.best_bowler.overs) stats.push('(' + heroes.best_bowler.overs + ' ov)');
+        document.getElementById('ch-hero-bowler-stats').textContent = stats.join(' ') || heroes.best_bowler.team || '';
+        hasAny = true;
+    }
+
+    if (hasAny) {
+        container.classList.remove('hidden');
+    }
+}
+
 // --- CricHeroes Import ---
 (function() {
     const toggleBtn = document.getElementById('ch-toggle-import');
@@ -1520,6 +1655,12 @@ function downloadAwardPoster() {
                     }
 
                     showPreviewFromData(ta, tb, resultText, tossText);
+
+                    // Show heroes preview if available
+                    if (chData.heroes) {
+                        showHeroesPreview(chData.heroes);
+                    }
+
                     statusEl.innerHTML = '<span class="text-green-600">Fetched! Review preview below.</span>';
                 } else {
                     statusEl.innerHTML = '<span class="text-red-500">No team data found in CricHeroes response.</span>';

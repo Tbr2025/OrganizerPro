@@ -534,6 +534,146 @@ class MatchSummaryController extends Controller
     }
 
     /**
+     * Auto-assign awards from CricHeroes heroes data.
+     */
+    public function autoAssignAwardsFromCricHeroes(Matches $match)
+    {
+        $heroesData = $this->getHeroesData($match);
+
+        if (!$heroesData) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No CricHeroes heroes data found. Fetch from CricHeroes first.',
+            ], 422);
+        }
+
+        $match->load(['teamA.players.player', 'teamB.players.player']);
+        $tournament = $match->tournament;
+        $tournamentAwards = $tournament->awards()->matchLevel()->active()->get();
+
+        $allPlayers = collect();
+        if ($match->teamA) {
+            $allPlayers = $allPlayers->merge($match->teamA->players->pluck('player')->filter());
+        }
+        if ($match->teamB) {
+            $allPlayers = $allPlayers->merge($match->teamB->players->pluck('player')->filter());
+        }
+
+        $assigned = [];
+
+        $awardMapping = [
+            'player_of_the_match' => ['man-of-the-match', 'player-of-the-match'],
+            'best_batter' => ['best-batsman'],
+            'best_bowler' => ['best-bowler'],
+        ];
+
+        foreach ($awardMapping as $heroKey => $slugs) {
+            if (empty($heroesData[$heroKey]['name'])) continue;
+
+            $heroName = $heroesData[$heroKey]['name'];
+
+            // Find matching tournament award
+            $tournamentAward = $tournamentAwards->first(function ($a) use ($slugs) {
+                return in_array($a->slug, $slugs);
+            });
+
+            if (!$tournamentAward) continue;
+
+            // Skip if award already assigned for this match
+            $exists = $match->matchAwards()
+                ->where('tournament_award_id', $tournamentAward->id)
+                ->exists();
+            if ($exists) continue;
+
+            // Find player by fuzzy name matching
+            $player = $allPlayers->first(function ($p) use ($heroName) {
+                return $this->fuzzyNameMatch($p->name, $heroName)
+                    || ($p->jersey_name && $this->fuzzyNameMatch($p->jersey_name, $heroName));
+            });
+
+            if (!$player) continue;
+
+            // Build remarks from stats
+            $remarks = $this->buildAwardRemarks($heroKey, $heroesData[$heroKey]);
+
+            $match->matchAwards()->create([
+                'tournament_award_id' => $tournamentAward->id,
+                'player_id' => $player->id,
+                'remarks' => $remarks,
+            ]);
+
+            $assigned[] = [
+                'award' => $tournamentAward->name,
+                'player' => $player->name,
+                'remarks' => $remarks,
+            ];
+        }
+
+        if (empty($assigned)) {
+            return response()->json([
+                'success' => true,
+                'message' => 'No new awards to assign (all already assigned or players not found).',
+                'assigned' => [],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => count($assigned) . ' award(s) assigned from CricHeroes.',
+            'assigned' => $assigned,
+        ]);
+    }
+
+    /**
+     * Get CricHeroes heroes data from match result's scorecard_data.
+     */
+    private function getHeroesData(Matches $match): ?array
+    {
+        if (!$match->result || !$match->result->scorecard_data) {
+            return null;
+        }
+
+        $scorecardData = is_string($match->result->scorecard_data)
+            ? json_decode($match->result->scorecard_data, true)
+            : $match->result->scorecard_data;
+
+        return $scorecardData['cricheroes_heroes'] ?? null;
+    }
+
+    /**
+     * Fuzzy name matching for player lookup.
+     */
+    private function fuzzyNameMatch(string $a, string $b): bool
+    {
+        $a = strtolower(trim($a));
+        $b = strtolower(trim($b));
+        if (!$a || !$b) return false;
+        return $a === $b || str_contains($a, $b) || str_contains($b, $a);
+    }
+
+    /**
+     * Build remarks string from heroes data stats.
+     */
+    private function buildAwardRemarks(string $heroKey, array $data): ?string
+    {
+        if ($heroKey === 'best_batter' && !empty($data['runs'])) {
+            $parts = [$data['runs'] . ' runs'];
+            if (!empty($data['balls'])) $parts[] = $data['balls'] . ' balls';
+            if (!empty($data['fours'])) $parts[] = $data['fours'] . 'x4';
+            if (!empty($data['sixes'])) $parts[] = $data['sixes'] . 'x6';
+            return implode(', ', $parts);
+        }
+
+        if ($heroKey === 'best_bowler' && !empty($data['wickets'])) {
+            $parts = [$data['wickets'] . '/' . ($data['runs'] ?? 0)];
+            if (!empty($data['overs'])) $parts[] = '(' . $data['overs'] . ' ov)';
+            return implode(' ', $parts);
+        }
+
+        return null;
+    }
+
+    /**
      * Build match data array for template rendering
      */
     private function buildMatchData(Matches $match, $tournament): array
@@ -594,6 +734,7 @@ class MatchSummaryController extends Controller
             $data['winner_logo'] = $match->winner->team_logo;
         }
 
+        // Priority 1: Assigned MatchAwards
         foreach ($match->matchAwards as $award) {
             $awardSlug = $award->tournamentAward?->slug;
             $playerName = $award->player?->name;
@@ -610,7 +751,21 @@ class MatchSummaryController extends Controller
             }
         }
 
-        // Extract award winner stats from scorecard data
+        // Priority 2: CricHeroes Heroes data (fills gaps not covered by assigned awards)
+        $heroesData = $this->getHeroesData($match);
+        if ($heroesData) {
+            if (empty($data['man_of_the_match_name']) && !empty($heroesData['player_of_the_match']['name'])) {
+                $data['man_of_the_match_name'] = $heroesData['player_of_the_match']['name'];
+            }
+            if (empty($data['best_batsman_name']) && !empty($heroesData['best_batter']['name'])) {
+                $data['best_batsman_name'] = $heroesData['best_batter']['name'];
+            }
+            if (empty($data['best_bowler_name']) && !empty($heroesData['best_bowler']['name'])) {
+                $data['best_bowler_name'] = $heroesData['best_bowler']['name'];
+            }
+        }
+
+        // Priority 3: Extract award winner stats from scorecard data
         if ($match->result && $match->result->scorecard_data) {
             $scorecard = is_string($match->result->scorecard_data)
                 ? json_decode($match->result->scorecard_data, true)

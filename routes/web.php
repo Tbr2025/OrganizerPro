@@ -842,6 +842,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::get('/summary/download-poster', [MatchSummaryController::class, 'downloadPoster'])->name('summary.download-poster');
         Route::get('/summary/preview-poster', [MatchSummaryController::class, 'previewPoster'])->name('summary.preview-poster');
         Route::post('/summary/create-default-awards', [MatchSummaryController::class, 'createDefaultAwards'])->name('summary.create-default-awards');
+        Route::post('/summary/auto-assign-awards', [MatchSummaryController::class, 'autoAssignAwardsFromCricHeroes'])->name('summary.auto-assign-awards');
         Route::post('/summary/recalculate-statistics', [MatchSummaryController::class, 'recalculateStatistics'])->name('summary.recalculate-statistics');
     });
 
