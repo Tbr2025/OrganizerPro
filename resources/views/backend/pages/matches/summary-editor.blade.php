@@ -1514,7 +1514,7 @@ function populateAwardDropdowns(chData, winnerTeamName) {
     const allBowlers = [];
     const allPlayerNames = new Map(); // name -> team label
     for (let i = 0; i < scorecard.length; i++) {
-        const teamLabel = scorecard[i].team || ('Innings ' + (i + 1));
+        const teamLabel = scorecard[i].team_name || scorecard[i].team || ('Innings ' + (i + 1));
         (scorecard[i].batting || []).forEach(b => {
             if (b.name) {
                 allBatters.push({ ...b, teamLabel });
@@ -1534,7 +1534,10 @@ function populateAwardDropdowns(chData, winnerTeamName) {
 
     // Group teams for optgroups
     const teamNames = [];
-    scorecard.forEach(inn => { if (inn.team && !teamNames.includes(inn.team)) teamNames.push(inn.team); });
+    scorecard.forEach(inn => {
+        const tn = inn.team_name || inn.team;
+        if (tn && !teamNames.includes(tn)) teamNames.push(tn);
+    });
 
     // --- MOTM: all players from both teams ---
     teamNames.forEach(team => {
@@ -1629,7 +1632,7 @@ function addExtraAwardRow() {
 
     // Group by team
     const teamNames = [];
-    chScorecardCache.scorecard.forEach(inn => { if (inn.team && !teamNames.includes(inn.team)) teamNames.push(inn.team); });
+    chScorecardCache.scorecard.forEach(inn => { const tn = inn.team_name || inn.team; if (tn && !teamNames.includes(tn)) teamNames.push(tn); });
     teamNames.forEach(team => {
         html += '<optgroup label="' + team.replace(/"/g, '&quot;') + '">';
         chScorecardCache.allPlayerNames.forEach((pTeam, name) => {
