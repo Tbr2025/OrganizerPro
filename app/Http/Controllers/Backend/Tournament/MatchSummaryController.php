@@ -583,6 +583,7 @@ class MatchSummaryController extends Controller
         }
 
         $assigned = [];
+        $skipped = [];
 
         $awardMapping = [
             'player_of_the_match' => ['man-of-the-match', 'player-of-the-match'],
@@ -590,8 +591,15 @@ class MatchSummaryController extends Controller
             'best_bowler' => ['best-bowler'],
         ];
 
+        \Log::info('CricHeroes auto-assign: heroes data', ['heroes' => $heroesData]);
+        \Log::info('CricHeroes auto-assign: tournament awards', ['awards' => $tournamentAwards->pluck('slug', 'name')->toArray()]);
+        \Log::info('CricHeroes auto-assign: players', ['players' => $allPlayers->pluck('name')->toArray()]);
+
         foreach ($awardMapping as $heroKey => $slugs) {
-            if (empty($heroesData[$heroKey]['name'])) continue;
+            if (empty($heroesData[$heroKey]['name'])) {
+                $skipped[] = "$heroKey: no name in heroes data";
+                continue;
+            }
 
             $heroName = $heroesData[$heroKey]['name'];
 
@@ -600,13 +608,19 @@ class MatchSummaryController extends Controller
                 return in_array($a->slug, $slugs);
             });
 
-            if (!$tournamentAward) continue;
+            if (!$tournamentAward) {
+                $skipped[] = "$heroKey ($heroName): no matching tournament award for slugs [" . implode(', ', $slugs) . "]";
+                continue;
+            }
 
             // Skip if award already assigned for this match
             $exists = $match->matchAwards()
                 ->where('tournament_award_id', $tournamentAward->id)
                 ->exists();
-            if ($exists) continue;
+            if ($exists) {
+                $skipped[] = "$heroKey ($heroName): award '{$tournamentAward->name}' already assigned";
+                continue;
+            }
 
             // Find player by fuzzy name matching
             $player = $allPlayers->first(function ($p) use ($heroName) {
@@ -614,7 +628,10 @@ class MatchSummaryController extends Controller
                     || ($p->jersey_name && $this->fuzzyNameMatch($p->jersey_name, $heroName));
             });
 
-            if (!$player) continue;
+            if (!$player) {
+                $skipped[] = "$heroKey ($heroName): player not found in teams";
+                continue;
+            }
 
             // Build remarks from stats
             $remarks = $this->buildAwardRemarks($heroKey, $heroesData[$heroKey]);
@@ -632,10 +649,13 @@ class MatchSummaryController extends Controller
             ];
         }
 
+        \Log::info('CricHeroes auto-assign: skipped', ['skipped' => $skipped]);
+
         if (empty($assigned)) {
+            $reason = !empty($skipped) ? ' Reasons: ' . implode('; ', $skipped) : '';
             return response()->json([
                 'success' => true,
-                'message' => 'No new awards to assign (all already assigned or players not found).',
+                'message' => 'No new awards to assign.' . $reason,
                 'assigned' => [],
             ]);
         }
