@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Ball;
 use App\Models\Matches;
+use App\Models\MatchAward;
 use App\Models\MatchResult;
+use App\Models\Player;
+use App\Models\TournamentAward;
 use App\Services\CricHeroes\CricHeroesScraper;
 use App\Services\Tournament\PointTableService;
 use Illuminate\Http\JsonResponse;
@@ -233,6 +236,9 @@ class MatchResultController extends Controller
         if ($match->isGroupStage()) {
             $this->pointTableService->updateFromMatchResult($match);
         }
+
+        // Process award selections from CricHeroes import
+        $this->processAwardSelections($request, $match);
 
         return redirect()->back()->with('success', __('Match result saved successfully.'));
     }
@@ -538,6 +544,97 @@ class MatchResultController extends Controller
         $b = strtolower(trim($str2));
 
         return $a === $b || str_contains($a, $b) || str_contains($b, $a);
+    }
+
+    /**
+     * Process award selections submitted alongside the match result.
+     */
+    private function processAwardSelections(Request $request, Matches $match): void
+    {
+        $awardMap = [
+            'award_motm_name' => ['slugs' => ['man-of-the-match', 'player-of-the-match'], 'name' => 'Man of the Match', 'icon' => "\xF0\x9F\x8F\x86", 'order' => 1],
+            'award_best_batter_name' => ['slugs' => ['best-batsman'], 'name' => 'Best Batsman', 'icon' => "\xF0\x9F\x8F\x8F", 'order' => 2],
+            'award_best_bowler_name' => ['slugs' => ['best-bowler'], 'name' => 'Best Bowler', 'icon' => "\xF0\x9F\x8E\xAF", 'order' => 3],
+        ];
+
+        $hasAnyAward = false;
+        foreach (array_keys($awardMap) as $field) {
+            if ($request->filled($field)) {
+                $hasAnyAward = true;
+                break;
+            }
+        }
+        if (!$hasAnyAward) {
+            return;
+        }
+
+        $match->load(['teamA.players.player', 'teamB.players.player']);
+        $tournament = $match->tournament;
+
+        // Collect all players from both teams
+        $allPlayers = collect();
+        if ($match->teamA) {
+            $allPlayers = $allPlayers->merge($match->teamA->players->pluck('player')->filter());
+        }
+        if ($match->teamB) {
+            $allPlayers = $allPlayers->merge($match->teamB->players->pluck('player')->filter());
+        }
+
+        // Ensure tournament has default awards
+        $tournamentAwards = $tournament->awards()->matchLevel()->active()->get();
+        if ($tournamentAwards->isEmpty()) {
+            foreach ($awardMap as $info) {
+                TournamentAward::create([
+                    'tournament_id' => $tournament->id,
+                    'name' => $info['name'],
+                    'icon' => $info['icon'],
+                    'is_match_level' => true,
+                    'is_active' => true,
+                    'order' => $info['order'],
+                    'template_settings' => TournamentAward::getDefaultTemplateSettings($info['name']),
+                ]);
+            }
+            $tournamentAwards = $tournament->awards()->matchLevel()->active()->get();
+        }
+
+        foreach ($awardMap as $field => $info) {
+            $playerName = $request->input($field);
+            if (!$playerName) {
+                continue;
+            }
+
+            $slugs = $info['slugs'];
+
+            // Find matching tournament award by slug
+            $tournamentAward = $tournamentAwards->first(function ($a) use ($slugs) {
+                return in_array($a->slug, $slugs);
+            });
+            if (!$tournamentAward) {
+                continue;
+            }
+
+            // Skip if this award type is already assigned for this match
+            $exists = $match->matchAwards()
+                ->where('tournament_award_id', $tournamentAward->id)
+                ->exists();
+            if ($exists) {
+                continue;
+            }
+
+            // Fuzzy-match player name to a player in the teams
+            $player = $allPlayers->first(function ($p) use ($playerName) {
+                return $this->fuzzyMatch($p->name, $playerName)
+                    || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $playerName));
+            });
+            if (!$player) {
+                continue;
+            }
+
+            $match->matchAwards()->create([
+                'tournament_award_id' => $tournamentAward->id,
+                'player_id' => $player->id,
+            ]);
+        }
     }
 
     /**

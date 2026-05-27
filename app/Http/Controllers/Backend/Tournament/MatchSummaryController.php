@@ -591,10 +591,6 @@ class MatchSummaryController extends Controller
             'best_bowler' => ['best-bowler'],
         ];
 
-        \Log::info('CricHeroes auto-assign: heroes data', ['heroes' => $heroesData]);
-        \Log::info('CricHeroes auto-assign: tournament awards', ['awards' => $tournamentAwards->pluck('slug', 'name')->toArray()]);
-        \Log::info('CricHeroes auto-assign: players', ['players' => $allPlayers->pluck('name')->toArray()]);
-
         foreach ($awardMapping as $heroKey => $slugs) {
             if (empty($heroesData[$heroKey]['name'])) {
                 $skipped[] = "$heroKey: no name in heroes data";
@@ -648,8 +644,6 @@ class MatchSummaryController extends Controller
                 'remarks' => $remarks,
             ];
         }
-
-        \Log::info('CricHeroes auto-assign: skipped', ['skipped' => $skipped]);
 
         if (empty($assigned)) {
             $reason = !empty($skipped) ? ' Reasons: ' . implode('; ', $skipped) : '';

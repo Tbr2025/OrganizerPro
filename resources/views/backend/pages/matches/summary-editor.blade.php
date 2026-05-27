@@ -110,34 +110,35 @@
             <span id="ch-import-status" class="text-sm"></span>
         </div>
 
-        {{-- Heroes Preview (shown after fetch if heroes data is available) --}}
-        <div id="ch-heroes-preview" class="hidden border-t border-gray-200 dark:border-gray-700">
-            <div class="p-4">
-                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-1.5">
+        {{-- Award Selection (shown after fetch, populated from scorecard data) --}}
+        <div id="ch-award-selection" class="hidden border-t border-gray-200 dark:border-gray-700">
+            <div class="p-4 space-y-3">
+                <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                     <svg class="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
                     </svg>
-                    CricHeroes Awards
+                    Assign Awards
                 </h4>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {{-- Player of the Match --}}
-                    <div id="ch-hero-potm" class="hidden bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-3 border border-purple-200 dark:border-purple-700">
-                        <div class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-1">Player of the Match</div>
-                        <div class="font-bold text-gray-800 dark:text-gray-200" id="ch-hero-potm-name">-</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400" id="ch-hero-potm-team">-</div>
-                    </div>
-                    {{-- Best Batter --}}
-                    <div id="ch-hero-batter" class="hidden bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-3 border border-green-200 dark:border-green-700">
-                        <div class="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide mb-1">Best Batter</div>
-                        <div class="font-bold text-gray-800 dark:text-gray-200" id="ch-hero-batter-name">-</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400" id="ch-hero-batter-stats">-</div>
-                    </div>
-                    {{-- Best Bowler --}}
-                    <div id="ch-hero-bowler" class="hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-3 border border-red-200 dark:border-red-700">
-                        <div class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">Best Bowler</div>
-                        <div class="font-bold text-gray-800 dark:text-gray-200" id="ch-hero-bowler-name">-</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400" id="ch-hero-bowler-stats">-</div>
-                    </div>
+                {{-- Man of the Match --}}
+                <div>
+                    <label class="block text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">Man of the Match</label>
+                    <select id="ch-award-motm" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                        <option value="">— Skip —</option>
+                    </select>
+                </div>
+                {{-- Best Batter --}}
+                <div>
+                    <label class="block text-xs font-medium text-green-600 dark:text-green-400 mb-1">Best Batter</label>
+                    <select id="ch-award-batter" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-green-500 focus:border-green-500">
+                        <option value="">— Skip —</option>
+                    </select>
+                </div>
+                {{-- Best Bowler --}}
+                <div>
+                    <label class="block text-xs font-medium text-red-600 dark:text-red-400 mb-1">Best Bowler</label>
+                    <select id="ch-award-bowler" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-red-500 focus:border-red-500">
+                        <option value="">— Skip —</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -1476,48 +1477,102 @@ async function autoAssignAwards() {
     }
 }
 
-// --- Display CricHeroes Heroes Preview ---
-function showHeroesPreview(heroes) {
-    const container = document.getElementById('ch-heroes-preview');
-    if (!container || !heroes) return;
+// --- Populate Award Dropdowns from CricHeroes Scorecard ---
+function populateAwardDropdowns(chData, winnerTeamName) {
+    const container = document.getElementById('ch-award-selection');
+    if (!container) return;
 
-    let hasAny = false;
+    const motmSelect = document.getElementById('ch-award-motm');
+    const batterSelect = document.getElementById('ch-award-batter');
+    const bowlerSelect = document.getElementById('ch-award-bowler');
 
-    if (heroes.player_of_the_match) {
-        const el = document.getElementById('ch-hero-potm');
-        el.classList.remove('hidden');
-        document.getElementById('ch-hero-potm-name').textContent = heroes.player_of_the_match.name;
-        document.getElementById('ch-hero-potm-team').textContent = heroes.player_of_the_match.team || '';
-        hasAny = true;
-    }
+    // Reset dropdowns
+    motmSelect.innerHTML = '<option value="">— Skip —</option>';
+    batterSelect.innerHTML = '<option value="">— Skip —</option>';
+    bowlerSelect.innerHTML = '<option value="">— Skip —</option>';
 
-    if (heroes.best_batter) {
-        const el = document.getElementById('ch-hero-batter');
-        el.classList.remove('hidden');
-        document.getElementById('ch-hero-batter-name').textContent = heroes.best_batter.name;
-        const stats = [];
-        if (heroes.best_batter.runs) stats.push(heroes.best_batter.runs + ' runs');
-        if (heroes.best_batter.balls) stats.push(heroes.best_batter.balls + ' balls');
-        if (heroes.best_batter.fours) stats.push(heroes.best_batter.fours + 'x4');
-        if (heroes.best_batter.sixes) stats.push(heroes.best_batter.sixes + 'x6');
-        document.getElementById('ch-hero-batter-stats').textContent = stats.join(', ') || heroes.best_batter.team || '';
-        hasAny = true;
-    }
-
-    if (heroes.best_bowler) {
-        const el = document.getElementById('ch-hero-bowler');
-        el.classList.remove('hidden');
-        document.getElementById('ch-hero-bowler-name').textContent = heroes.best_bowler.name;
-        const stats = [];
-        if (heroes.best_bowler.wickets) stats.push(heroes.best_bowler.wickets + '/' + (heroes.best_bowler.runs || 0));
-        if (heroes.best_bowler.overs) stats.push('(' + heroes.best_bowler.overs + ' ov)');
-        document.getElementById('ch-hero-bowler-stats').textContent = stats.join(' ') || heroes.best_bowler.team || '';
-        hasAny = true;
-    }
-
-    if (hasAny) {
+    // Get scorecard innings data
+    const scorecard = chData.scorecard || [];
+    if (!scorecard.length || scorecard.length < 2) {
         container.classList.remove('hidden');
+        return;
     }
+
+    // Find winning team's innings (batting + bowling)
+    // innings[0].team and innings[1].team hold the batting team name
+    let winBatIdx = -1;
+    for (let i = 0; i < scorecard.length; i++) {
+        if (scorecard[i].team && fuzzy(scorecard[i].team, winnerTeamName)) {
+            winBatIdx = i;
+            break;
+        }
+    }
+
+    // Winning team's batters from their batting innings
+    const winBatting = winBatIdx >= 0 ? (scorecard[winBatIdx].batting || []) : [];
+    // Winning team's bowlers from the OTHER innings' bowling
+    const otherIdx = winBatIdx === 0 ? 1 : 0;
+    const winBowling = otherIdx >= 0 ? (scorecard[otherIdx].bowling || []) : [];
+
+    // Deduplicated player names from winning team
+    const allWinPlayers = new Map();
+    winBatting.forEach(b => { if (b.name) allWinPlayers.set(b.name, b); });
+    winBowling.forEach(b => { if (b.name && !allWinPlayers.has(b.name)) allWinPlayers.set(b.name, b); });
+
+    // Populate MOTM with all winning team players
+    allWinPlayers.forEach((_, name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        motmSelect.appendChild(opt);
+    });
+
+    // Populate Best Batter (sorted by runs desc)
+    const sortedBatters = [...winBatting].filter(b => b.name).sort((a, b) => (b.runs || 0) - (a.runs || 0));
+    sortedBatters.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        const parts = [b.runs || 0];
+        if (b.balls) parts[0] += ` (${b.balls}b`;
+        else parts[0] += ' (0b';
+        if (b.fours) parts.push(` ${b.fours}x4`);
+        if (b.sixes) parts.push(` ${b.sixes}x6`);
+        opt.textContent = `${b.name} — ${(b.runs || 0)} (${b.balls || 0}b${b.fours ? ', ' + b.fours + 'x4' : ''}${b.sixes ? ', ' + b.sixes + 'x6' : ''})`;
+        batterSelect.appendChild(opt);
+    });
+
+    // Populate Best Bowler (sorted by wickets desc)
+    const sortedBowlers = [...winBowling].filter(b => b.name).sort((a, b) => (b.wickets || 0) - (a.wickets || 0));
+    sortedBowlers.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        opt.textContent = `${b.name} — ${b.wickets || 0}/${b.runs || 0} (${b.overs || '0'} ov)`;
+        bowlerSelect.appendChild(opt);
+    });
+
+    // Pre-select: top batter for Best Batter, top bowler for Best Bowler
+    if (sortedBatters.length > 0) batterSelect.value = sortedBatters[0].name;
+    if (sortedBowlers.length > 0) bowlerSelect.value = sortedBowlers[0].name;
+
+    // Pre-select MOTM: use CricHeroes heroes POTM if available, else top batter
+    const heroes = chData.heroes || {};
+    if (heroes.player_of_the_match && heroes.player_of_the_match.name) {
+        // Try to find in the dropdown
+        const potmName = heroes.player_of_the_match.name;
+        let found = false;
+        for (const opt of motmSelect.options) {
+            if (opt.value && fuzzy(opt.value, potmName)) {
+                motmSelect.value = opt.value;
+                found = true;
+                break;
+            }
+        }
+        if (!found && sortedBatters.length > 0) motmSelect.value = sortedBatters[0].name;
+    } else if (sortedBatters.length > 0) {
+        motmSelect.value = sortedBatters[0].name;
+    }
+
+    container.classList.remove('hidden');
 }
 
 // --- CricHeroes Import ---
@@ -1581,12 +1636,6 @@ function showHeroesPreview(heroes) {
         fetchBtnEl.addEventListener('click', async () => {
             const url = fetchUrlInput.value.trim();
             if (!url) { statusEl.innerHTML = '<span class="text-red-500">Enter a CricHeroes URL</span>'; return; }
-
-            // Warning 1: Confirm import
-            if (!confirm('This will import scores from CricHeroes and update the match result. Do you want to continue?')) return;
-
-            // Warning 2: Awards auto-assign notice
-            if (!confirm('Awards (Man of the Match, Best Batsman, Best Bowler) will also be auto-assigned from CricHeroes if available. Existing awards will NOT be overwritten. Continue?')) return;
 
             statusEl.innerHTML = '<span class="text-blue-500">Fetching from CricHeroes...</span>';
             fetchBtnEl.disabled = true;
@@ -1662,10 +1711,8 @@ function showHeroesPreview(heroes) {
 
                     showPreviewFromData(ta, tb, resultText, tossText);
 
-                    // Show heroes preview if available
-                    if (chData.heroes) {
-                        showHeroesPreview(chData.heroes);
-                    }
+                    // Populate award dropdowns from scorecard data
+                    populateAwardDropdowns(chData, pendingData.winner_team_id === teamAId ? teamAName : teamBName);
 
                     statusEl.innerHTML = '<span class="text-green-600">Fetched! Review preview below.</span>';
                 } else {
@@ -1793,6 +1840,7 @@ function showHeroesPreview(heroes) {
 
     cancelBtn.addEventListener('click', () => {
         preview.classList.add('hidden');
+        document.getElementById('ch-award-selection')?.classList.add('hidden');
         pendingData = null;
         statusEl.innerHTML = '';
     });
@@ -1804,6 +1852,14 @@ function showHeroesPreview(heroes) {
         saveBtn.innerHTML = '<svg class="w-4 h-4 mr-1.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Saving...';
 
         try {
+            // Include award selections
+            const motm = document.getElementById('ch-award-motm')?.value || '';
+            const batter = document.getElementById('ch-award-batter')?.value || '';
+            const bowler = document.getElementById('ch-award-bowler')?.value || '';
+            if (motm) pendingData.award_motm_name = motm;
+            if (batter) pendingData.award_best_batter_name = batter;
+            if (bowler) pendingData.award_best_bowler_name = bowler;
+
             const formData = new URLSearchParams(pendingData);
             formData.append('_token', '{{ csrf_token() }}');
             formData.append('_method', 'PUT');
@@ -1816,31 +1872,8 @@ function showHeroesPreview(heroes) {
             });
 
             if (res.ok || res.redirected) {
-                showToast('Match result saved from CricHeroes!', 'success');
-
-                // Auto-assign awards from CricHeroes heroes data
-                try {
-                    const awardRes = await fetch('{{ route("admin.matches.summary.auto-assign-awards", $match) }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json',
-                        },
-                    });
-                    const awardData = await awardRes.json();
-                    if (awardData.success && awardData.assigned && awardData.assigned.length > 0) {
-                        showToast(awardData.message, 'success');
-                    } else if (awardData.success) {
-                        showToast(awardData.message || 'No new awards to assign.', 'info');
-                    } else {
-                        showToast(awardData.message || 'Could not auto-assign awards.', 'error');
-                    }
-                } catch (e) {
-                    showToast('Award auto-assign failed: ' + e.message, 'error');
-                }
-
-                setTimeout(() => window.location.reload(), 1500);
+                showToast('Match result & awards saved!', 'success');
+                setTimeout(() => window.location.reload(), 800);
             } else {
                 const text = await res.text();
                 throw new Error('Save failed');
