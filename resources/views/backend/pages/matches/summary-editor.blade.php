@@ -1582,6 +1582,12 @@ function showHeroesPreview(heroes) {
             const url = fetchUrlInput.value.trim();
             if (!url) { statusEl.innerHTML = '<span class="text-red-500">Enter a CricHeroes URL</span>'; return; }
 
+            // Warning 1: Confirm import
+            if (!confirm('This will import scores from CricHeroes and update the match result. Do you want to continue?')) return;
+
+            // Warning 2: Awards auto-assign notice
+            if (!confirm('Awards (Man of the Match, Best Batsman, Best Bowler) will also be auto-assigned from CricHeroes if available. Existing awards will NOT be overwritten. Continue?')) return;
+
             statusEl.innerHTML = '<span class="text-blue-500">Fetching from CricHeroes...</span>';
             fetchBtnEl.disabled = true;
             fetchBtnEl.innerHTML = '<svg class="w-4 h-4 mr-1.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Fetching...';
@@ -1811,7 +1817,26 @@ function showHeroesPreview(heroes) {
 
             if (res.ok || res.redirected) {
                 showToast('Match result saved from CricHeroes!', 'success');
-                setTimeout(() => window.location.reload(), 800);
+
+                // Auto-assign awards from CricHeroes heroes data
+                try {
+                    const awardRes = await fetch('{{ route("admin.matches.summary.auto-assign-awards", $match) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json',
+                        },
+                    });
+                    const awardData = await awardRes.json();
+                    if (awardData.success && awardData.assigned && awardData.assigned.length > 0) {
+                        showToast(awardData.message, 'success');
+                    }
+                } catch (e) {
+                    // Silently continue — awards may not be configured yet
+                }
+
+                setTimeout(() => window.location.reload(), 1000);
             } else {
                 const text = await res.text();
                 throw new Error('Save failed');
