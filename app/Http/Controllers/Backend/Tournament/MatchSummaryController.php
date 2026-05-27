@@ -551,6 +551,29 @@ class MatchSummaryController extends Controller
         $tournament = $match->tournament;
         $tournamentAwards = $tournament->awards()->matchLevel()->active()->get();
 
+        // Auto-create default awards if none exist
+        if ($tournamentAwards->isEmpty()) {
+            $defaultAwards = [
+                ['name' => 'Man of the Match', 'icon' => '🏆', 'order' => 1],
+                ['name' => 'Best Batsman', 'icon' => '🏏', 'order' => 2],
+                ['name' => 'Best Bowler', 'icon' => '🎯', 'order' => 3],
+                ['name' => 'Best Fielder', 'icon' => '🧤', 'order' => 4],
+                ['name' => 'Best Catch', 'icon' => '👐', 'order' => 5],
+            ];
+            foreach ($defaultAwards as $award) {
+                TournamentAward::create([
+                    'tournament_id' => $tournament->id,
+                    'name' => $award['name'],
+                    'icon' => $award['icon'],
+                    'is_match_level' => true,
+                    'is_active' => true,
+                    'order' => $award['order'],
+                    'template_settings' => TournamentAward::getDefaultTemplateSettings($award['name']),
+                ]);
+            }
+            $tournamentAwards = $tournament->awards()->matchLevel()->active()->get();
+        }
+
         $allPlayers = collect();
         if ($match->teamA) {
             $allPlayers = $allPlayers->merge($match->teamA->players->pluck('player')->filter());

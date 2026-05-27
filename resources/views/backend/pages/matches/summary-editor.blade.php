@@ -1831,12 +1831,16 @@ function showHeroesPreview(heroes) {
                     const awardData = await awardRes.json();
                     if (awardData.success && awardData.assigned && awardData.assigned.length > 0) {
                         showToast(awardData.message, 'success');
+                    } else if (awardData.success) {
+                        showToast(awardData.message || 'No new awards to assign.', 'info');
+                    } else {
+                        showToast(awardData.message || 'Could not auto-assign awards.', 'error');
                     }
                 } catch (e) {
-                    // Silently continue — awards may not be configured yet
+                    showToast('Award auto-assign failed: ' + e.message, 'error');
                 }
 
-                setTimeout(() => window.location.reload(), 1000);
+                setTimeout(() => window.location.reload(), 1500);
             } else {
                 const text = await res.text();
                 throw new Error('Save failed');
