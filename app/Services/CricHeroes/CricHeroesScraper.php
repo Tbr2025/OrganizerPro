@@ -26,134 +26,61 @@ class CricHeroesScraper
 
         $result = $this->parseData($data);
 
-        // Also fetch heroes/awards data
-        $result['heroes'] = $this->fetchHeroes($url);
+        // Extract heroes from summaryData (same page, no extra request needed)
+        $result['heroes'] = $this->extractHeroesFromSummary($data);
 
         return $result;
     }
 
     /**
-     * Fetch heroes/awards data from the CricHeroes "Heroes" tab.
-     * The heroes URL is the scorecard URL with /cricheroes appended.
+     * Extract heroes/awards data from summaryData.data on the scorecard page.
+     * Uses: player_of_the_match, best_performances.batting[0], best_performances.bowling[0]
      */
-    public function fetchHeroes(string $url): ?array
+    private function extractHeroesFromSummary(array $pageProps): ?array
     {
-        try {
-            $url = rtrim($url, '/');
-            // Strip /scorecard suffix and append /cricheroes
-            $url = preg_replace('#/scorecard$#', '', $url);
-            $url .= '/cricheroes';
+        $summary = $pageProps['summaryData']['data'] ?? null;
+        if (!$summary) return null;
 
-            $html = $this->fetchPage($url);
-            $pageProps = $this->extractNextData($html);
-
-            return $this->parseHeroesData($pageProps);
-        } catch (\Throwable $e) {
-            Log::warning('CricHeroes heroes fetch failed: ' . $e->getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Parse heroes/awards data from pageProps.
-     * Searches recursively for award-related keys since exact structure is unknown.
-     */
-    private function parseHeroesData(array $pageProps): ?array
-    {
         $heroes = [];
 
-        // Try known paths first
-        $heroesData = $pageProps['heroesData'] ?? $pageProps['heroes'] ?? null;
-        if (!$heroesData) {
-            // Check nested paths
-            foreach (['summaryData', 'matchData', 'pageData', 'data'] as $key) {
-                if (isset($pageProps[$key])) {
-                    $nested = is_array($pageProps[$key]) ? $pageProps[$key] : [];
-                    $heroesData = $nested['heroes'] ?? $nested['heroesData'] ?? $nested['awards'] ?? null;
-                    if ($heroesData) break;
-
-                    // Check one level deeper (e.g. summaryData.data.heroes)
-                    if (isset($nested['data']) && is_array($nested['data'])) {
-                        $heroesData = $nested['data']['heroes'] ?? $nested['data']['heroesData'] ?? $nested['data']['awards'] ?? null;
-                        if ($heroesData) break;
-                    }
-                }
-            }
+        // Player of the Match
+        $potm = $summary['player_of_the_match'] ?? null;
+        if ($potm && !empty($potm['player_name'])) {
+            $heroes['player_of_the_match'] = [
+                'name' => $potm['player_name'],
+                'team' => $potm['team_name'] ?? '',
+            ];
         }
 
-        // Recursive search for award-related keys
-        if (!$heroesData) {
-            $heroesData = $this->findHeroesRecursive($pageProps, 3);
+        // Best Batter — first entry in best_performances.batting
+        $bestBatting = $summary['best_performances']['batting'] ?? [];
+        if (!empty($bestBatting[0])) {
+            $bat = $bestBatting[0];
+            $heroes['best_batter'] = [
+                'name' => $bat['player_name'] ?? '',
+                'team' => $bat['team_name'] ?? '',
+                'runs' => (int) ($bat['runs'] ?? 0),
+                'balls' => (int) ($bat['balls'] ?? 0),
+                'fours' => (int) ($bat['4s'] ?? 0),
+                'sixes' => (int) ($bat['6s'] ?? 0),
+            ];
         }
 
-        if (!$heroesData || !is_array($heroesData)) {
-            Log::info('CricHeroes: No heroes data found in pageProps. Keys available: ' . implode(', ', array_keys($pageProps)));
-            return null;
-        }
-
-        // Parse the heroes data - handle both array and object formats
-        $heroesArray = isset($heroesData[0]) ? $heroesData : [$heroesData];
-
-        foreach ($heroesArray as $hero) {
-            if (!is_array($hero)) continue;
-
-            $awardType = strtolower($hero['award_type'] ?? $hero['awardType'] ?? $hero['type'] ?? $hero['title'] ?? '');
-            $playerName = $hero['player_name'] ?? $hero['playerName'] ?? $hero['name'] ?? '';
-            $teamName = $hero['team_name'] ?? $hero['teamName'] ?? $hero['team'] ?? '';
-
-            if (!$playerName) continue;
-
-            if (str_contains($awardType, 'match') || str_contains($awardType, 'mvp') || str_contains($awardType, 'potm') || str_contains($awardType, 'player of')) {
-                $heroes['player_of_the_match'] = [
-                    'name' => $playerName,
-                    'team' => $teamName,
-                ];
-            } elseif (str_contains($awardType, 'bat')) {
-                $heroes['best_batter'] = [
-                    'name' => $playerName,
-                    'team' => $teamName,
-                    'runs' => (int) ($hero['runs'] ?? 0),
-                    'balls' => (int) ($hero['balls'] ?? 0),
-                    'fours' => (int) ($hero['fours'] ?? $hero['4s'] ?? 0),
-                    'sixes' => (int) ($hero['sixes'] ?? $hero['6s'] ?? 0),
-                ];
-            } elseif (str_contains($awardType, 'bowl')) {
-                $heroes['best_bowler'] = [
-                    'name' => $playerName,
-                    'team' => $teamName,
-                    'overs' => (string) ($hero['overs'] ?? '0'),
-                    'wickets' => (int) ($hero['wickets'] ?? 0),
-                    'runs' => (int) ($hero['runs_given'] ?? $hero['runs'] ?? 0),
-                    'economy' => (string) ($hero['economy'] ?? $hero['economy_rate'] ?? '0.00'),
-                ];
-            }
+        // Best Bowler — first entry in best_performances.bowling
+        $bestBowling = $summary['best_performances']['bowling'] ?? [];
+        if (!empty($bestBowling[0])) {
+            $bowl = $bestBowling[0];
+            $heroes['best_bowler'] = [
+                'name' => $bowl['player_name'] ?? '',
+                'team' => $bowl['team_name'] ?? '',
+                'overs' => (string) ($bowl['overs'] ?? '0'),
+                'wickets' => (int) ($bowl['wickets'] ?? 0),
+                'runs' => (int) ($bowl['runs'] ?? 0),
+                'economy' => (string) ($bowl['economy_rate'] ?? '0.00'),
+            ];
         }
 
         return !empty($heroes) ? $heroes : null;
-    }
-
-    /**
-     * Recursively search for heroes/award-related data in nested arrays.
-     */
-    private function findHeroesRecursive(array $data, int $depth): ?array
-    {
-        if ($depth <= 0) return null;
-
-        foreach ($data as $key => $value) {
-            if (!is_array($value)) continue;
-
-            $keyLower = strtolower((string) $key);
-            if (str_contains($keyLower, 'hero') || str_contains($keyLower, 'award') ||
-                str_contains($keyLower, 'mvp') || str_contains($keyLower, 'potm') ||
-                $keyLower === 'best') {
-                return $value;
-            }
-
-            $found = $this->findHeroesRecursive($value, $depth - 1);
-            if ($found) return $found;
-        }
-
-        return null;
     }
 
     /**
