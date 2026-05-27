@@ -1477,6 +1477,11 @@ async function autoAssignAwards() {
     }
 }
 
+function fuzzy(a, b) {
+    const x = a.toLowerCase().trim(), y = b.toLowerCase().trim();
+    return x === y || x.includes(y) || y.includes(x);
+}
+
 // --- Populate Award Dropdowns from CricHeroes Scorecard ---
 function populateAwardDropdowns(chData, winnerTeamName) {
     const container = document.getElementById('ch-award-selection');
@@ -1597,11 +1602,6 @@ function populateAwardDropdowns(chData, winnerTeamName) {
         panel.classList.toggle('hidden');
         preview.classList.add('hidden');
     });
-
-    function fuzzy(a, b) {
-        const x = a.toLowerCase().trim(), y = b.toLowerCase().trim();
-        return x === y || x.includes(y) || y.includes(x);
-    }
 
     function showPreviewFromData(teamA, teamB, resultText, tossText) {
         document.getElementById('ch-preview-a-score').textContent = `${teamA.runs}/${teamA.wickets}`;
