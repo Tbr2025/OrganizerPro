@@ -77,6 +77,7 @@
     .toolbar-group { display: flex; align-items: center; gap: 4px; padding: 0 12px; border-right: 1px solid #2d2d44; }
     .toolbar-btn { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: #8b8ba7; cursor: pointer; }
     .toolbar-btn:hover { background: #252538; color: #fff; }
+    .toolbar-btn.active { background: #4f46e5; color: #fff; }
     .toolbar-btn svg { width: 18px; height: 18px; }
 
     .zoom-controls { display: flex; align-items: center; gap: 8px; }
@@ -143,6 +144,31 @@
                 <button class="toolbar-btn" onclick="editor.bringForward()" title="Bring Forward"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg></button>
                 <button class="toolbar-btn" onclick="editor.sendBackward()" title="Send Backward"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></button>
                 <button class="toolbar-btn" onclick="editor.sendToBack()" title="Send to Back"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 13l-7 7-7-7m14-8l-7 7-7-7"/></svg></button>
+            </div>
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="gridToggleBtn" onclick="editor.toggleGrid()" title="Toggle Grid">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h16v16H4zM4 9h16M4 14h16M9 4v16M14 4v16"/></svg>
+                </button>
+            </div>
+            <div class="toolbar-group" style="border-right: none;">
+                <button class="toolbar-btn" onclick="editor.alignObjects('left')" title="Align Left">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v16M8 8h12M8 16h8"/></svg>
+                </button>
+                <button class="toolbar-btn" onclick="editor.alignObjects('centerH')" title="Align Center Horizontal">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16M6 8h12M8 16h8"/></svg>
+                </button>
+                <button class="toolbar-btn" onclick="editor.alignObjects('right')" title="Align Right">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 4v16M4 8h12M8 16h8"/></svg>
+                </button>
+                <button class="toolbar-btn" onclick="editor.alignObjects('top')" title="Align Top">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h16M8 8v12M16 8v8"/></svg>
+                </button>
+                <button class="toolbar-btn" onclick="editor.alignObjects('centerV')" title="Align Center Vertical">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h16M8 6v12M16 8v8"/></svg>
+                </button>
+                <button class="toolbar-btn" onclick="editor.alignObjects('bottom')" title="Align Bottom">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 20h16M8 4v12M16 8v8"/></svg>
+                </button>
             </div>
         </div>
 
@@ -1136,6 +1162,7 @@ const editor = {
     canvasWidth: {{ $template?->canvas_width ?? 1080 }},
     canvasHeight: {{ $template?->canvas_height ?? 1080 }},
     zoom: 1,
+    showGrid: false,
     backgroundImageData: null,
 
     init() {
@@ -1192,6 +1219,46 @@ const editor = {
         this.canvas.on('object:modified', () => { this.saveHistory(); this.updateProperties(); this.updateLayers(); });
         this.canvas.on('object:added', () => this.updateLayers());
         this.canvas.on('object:removed', () => this.updateLayers());
+
+        // Grid rendering
+        this.canvas.on('after:render', () => {
+            if (!this.showGrid) return;
+            const ctx = this.canvas.getContext();
+            const w = this.canvasWidth;
+            const h = this.canvasHeight;
+            const gridSize = 20;
+            const zoom = this.canvas.getZoom();
+            ctx.save();
+            ctx.transform(zoom, 0, 0, zoom, 0, 0);
+            for (let x = 0; x <= w; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.strokeStyle = (x % (gridSize * 5) === 0) ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)';
+                ctx.lineWidth = 1 / zoom;
+                ctx.stroke();
+            }
+            for (let y = 0; y <= h; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.strokeStyle = (y % (gridSize * 5) === 0) ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)';
+                ctx.lineWidth = 1 / zoom;
+                ctx.stroke();
+            }
+            ctx.restore();
+        });
+
+        // Snap to grid on move
+        this.canvas.on('object:moving', (e) => {
+            if (!this.showGrid) return;
+            const obj = e.target;
+            const snap = 10;
+            obj.set({
+                left: Math.round(obj.left / snap) * snap,
+                top: Math.round(obj.top / snap) * snap,
+            });
+        });
     },
 
     setupDragDrop() {
@@ -2207,6 +2274,76 @@ const editor = {
     bringForward() { const obj = this.canvas.getActiveObject(); if (obj) { this.canvas.bringForward(obj); this.saveHistory(); this.updateLayers(); } },
     sendBackward() { const obj = this.canvas.getActiveObject(); if (obj) { this.canvas.sendBackwards(obj); this.saveHistory(); this.updateLayers(); } },
     sendToBack() { const obj = this.canvas.getActiveObject(); if (obj) { this.canvas.sendToBack(obj); this.saveHistory(); this.updateLayers(); } },
+
+    // Grid
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        document.getElementById('gridToggleBtn').classList.toggle('active', this.showGrid);
+        this.canvas.renderAll();
+    },
+
+    // Alignment
+    alignObjects(direction) {
+        const active = this.canvas.getActiveObject();
+        if (!active) return;
+
+        // Multi-select (ActiveSelection)
+        if (active.type === 'activeSelection') {
+            const objects = active.getObjects();
+            const bound = active.getBoundingRect(true);
+            objects.forEach(obj => {
+                // Positions are relative to the selection center
+                const objBound = obj.getBoundingRect(true);
+                switch (direction) {
+                    case 'left':
+                        obj.set('left', obj.left - (objBound.left - bound.left));
+                        break;
+                    case 'right':
+                        obj.set('left', obj.left + (bound.left + bound.width - objBound.left - objBound.width));
+                        break;
+                    case 'centerH':
+                        obj.set('left', obj.left - (objBound.left + objBound.width / 2 - bound.left - bound.width / 2));
+                        break;
+                    case 'top':
+                        obj.set('top', obj.top - (objBound.top - bound.top));
+                        break;
+                    case 'bottom':
+                        obj.set('top', obj.top + (bound.top + bound.height - objBound.top - objBound.height));
+                        break;
+                    case 'centerV':
+                        obj.set('top', obj.top - (objBound.top + objBound.height / 2 - bound.top - bound.height / 2));
+                        break;
+                }
+                obj.setCoords();
+            });
+        } else {
+            // Single object - align to canvas
+            const objBound = active.getBoundingRect(true);
+            switch (direction) {
+                case 'left':
+                    active.set('left', active.left - objBound.left);
+                    break;
+                case 'right':
+                    active.set('left', active.left + (this.canvasWidth - objBound.left - objBound.width));
+                    break;
+                case 'centerH':
+                    active.set('left', active.left + (this.canvasWidth / 2 - objBound.left - objBound.width / 2));
+                    break;
+                case 'top':
+                    active.set('top', active.top - objBound.top);
+                    break;
+                case 'bottom':
+                    active.set('top', active.top + (this.canvasHeight - objBound.top - objBound.height));
+                    break;
+                case 'centerV':
+                    active.set('top', active.top + (this.canvasHeight / 2 - objBound.top - objBound.height / 2));
+                    break;
+            }
+            active.setCoords();
+        }
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
 
     // History
     saveHistory() {
