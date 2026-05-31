@@ -221,7 +221,7 @@
                                     <x-buttons.action-item :href="route('admin.matches.show', $match)" icon="eye" :label="__('View')" />
                                     <x-buttons.action-item :href="route('admin.matches.edit', $match)" icon="pencil" :label="__('Edit')" />
                                     <x-buttons.action-item :href="route('admin.matches.summary.edit', $match)" icon="file-text" :label="__('Summary')" />
-                                    <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=award_poster'" icon="star" :label="__('Award Poster')" />
+                                    <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=award_poster&match_id=' . $match->id" icon="star" :label="__('Award Poster')" />
                                     @if(!$match->is_cancelled && $match->status !== 'live')
                                         <form action="{{ route('admin.matches.goLive', $match) }}" method="POST" class="inline">
                                             @csrf
