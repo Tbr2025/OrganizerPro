@@ -1154,29 +1154,35 @@ const editor = {
         this.setupDragDrop();
         this.setupKeyboard();
 
-        // Load existing data
-        @if($template && $template->layout_json)
-            this.loadTemplate(@json($template->layout_json));
-        @endif
+        // Preload all Google Fonts before rendering template text
+        // (display=swap makes fonts lazy; explicitly loading ensures they're ready)
+        const fontFamilies = ['Roboto', 'Open Sans', 'Montserrat', 'Poppins', 'Oswald', 'Bebas Neue', 'Anton', 'Bangers'];
+        const fontLoads = fontFamilies.map(f => document.fonts.load(`16px "${f}"`).catch(() => {}));
+        Promise.all(fontLoads).then(() => {
+            // Load existing data
+            @if($template && $template->layout_json)
+                this.loadTemplate(@json($template->layout_json));
+            @endif
 
-        @if($template && $template->background_image)
-            this.loadBackgroundFromUrl('{{ $template->background_image_url }}');
-        @endif
+            @if($template && $template->background_image)
+                this.loadBackgroundFromUrl('{{ $template->background_image_url }}');
+            @endif
 
-        // Load existing overlay images into sidebar list
-        @if($template && $template->overlay_images)
-            @foreach($template->overlay_images as $ov)
-                this.uploadedOverlays.push({ path: '{{ $ov['imagePath'] ?? $ov['path'] ?? '' }}', url: '{{ asset("storage/" . ($ov['imagePath'] ?? $ov['path'] ?? '')) }}', name: '{{ basename($ov['imagePath'] ?? $ov['path'] ?? 'image') }}' });
-            @endforeach
-            this.renderOverlayList();
-        @endif
+            // Load existing overlay images into sidebar list
+            @if($template && $template->overlay_images)
+                @foreach($template->overlay_images as $ov)
+                    this.uploadedOverlays.push({ path: '{{ $ov['imagePath'] ?? $ov['path'] ?? '' }}', url: '{{ asset("storage/" . ($ov['imagePath'] ?? $ov['path'] ?? '')) }}', name: '{{ basename($ov['imagePath'] ?? $ov['path'] ?? 'image') }}' });
+                @endforeach
+                this.renderOverlayList();
+            @endif
 
-        // Update canvas size dropdown
-        document.getElementById('canvasSizeSelect').value = this.canvasWidth + 'x' + this.canvasHeight;
-        document.getElementById('canvasSizeDisplay').textContent = this.canvasWidth + ' x ' + this.canvasHeight;
+            // Update canvas size dropdown
+            document.getElementById('canvasSizeSelect').value = this.canvasWidth + 'x' + this.canvasHeight;
+            document.getElementById('canvasSizeDisplay').textContent = this.canvasWidth + ' x ' + this.canvasHeight;
 
-        this.saveHistory();
-        this.updateLayers();
+            this.saveHistory();
+            this.updateLayers();
+        });
     },
 
     setupEvents() {

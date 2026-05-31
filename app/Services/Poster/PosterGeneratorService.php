@@ -103,9 +103,11 @@ abstract class PosterGeneratorService
 
         // Adjust y from center-of-text to baseline.
         // Editor (Fabric.js) stores y as vertical center, but GD expects baseline.
-        // bbox[7] = top y (negative, above baseline), bbox[1] = bottom y (positive, descenders)
-        // center relative to baseline = (bbox[7] + bbox[1]) / 2
-        $adjustedY = $y - (int) (($bbox[7] + $bbox[1]) / 2);
+        // Use a fixed reference string for consistent Y centering (matches Fabric.js behavior).
+        // This ensures the Y adjustment is font-dependent but NOT content-dependent,
+        // preventing overlap when different text strings have different ascenders/descenders.
+        $refBbox = @imagettfbbox($size, $angle, $fontPath, 'Ajgq|');
+        $adjustedY = $y - (int) (($refBbox[7] + $refBbox[1]) / 2);
 
         @imagettftext($image, $size, $angle, (int) $adjustedX, $adjustedY, $textColor, $fontPath, $text);
     }
