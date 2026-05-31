@@ -244,9 +244,18 @@ class MatchSummaryController extends Controller
     {
         $validated = $request->validate([
             'tournament_award_id' => 'required|exists:tournament_awards,id',
-            'player_id' => 'required|exists:players,id',
+            'player_id' => 'nullable|exists:players,id',
+            'custom_player_name' => 'nullable|string|max:255',
+            'custom_player_image' => 'nullable|image|max:5120',
             'remarks' => 'nullable|string|max:500',
         ]);
+
+        // Require either player_id or custom_player_name
+        if (empty($validated['player_id']) && empty($validated['custom_player_name'])) {
+            return redirect()
+                ->back()
+                ->with('error', 'Please select a player or enter a custom player name.');
+        }
 
         // Check if award already assigned
         $exists = $match->matchAwards()
@@ -257,6 +266,18 @@ class MatchSummaryController extends Controller
             return redirect()
                 ->back()
                 ->with('error', 'This award has already been assigned for this match.');
+        }
+
+        // Handle custom player image upload
+        if ($request->hasFile('custom_player_image')) {
+            $validated['custom_player_image'] = $request->file('custom_player_image')
+                ->store('award_player_images', 'public');
+        }
+
+        // Clear custom fields if player_id is set
+        if (!empty($validated['player_id'])) {
+            $validated['custom_player_name'] = null;
+            $validated['custom_player_image'] = null;
         }
 
         $match->matchAwards()->create($validated);
@@ -518,8 +539,8 @@ class MatchSummaryController extends Controller
             // Add award-specific data
             $matchAward = $match->matchAwards()->with('player', 'tournamentAward')->findOrFail($request->input('award_id'));
             $matchData['award_name'] = $matchAward->tournamentAward?->name ?? 'Award';
-            $matchData['player_name'] = $matchAward->player?->name ?? 'Player';
-            $matchData['player_image'] = $matchAward->player?->image_path ?? 'defaults/default-player.png';
+            $matchData['player_name'] = $matchAward->display_name;
+            $matchData['player_image'] = $matchAward->display_image ?? 'defaults/default-player.png';
 
             $renderService = app(TemplateRenderService::class);
             $path = $renderService->renderAndSave($template, $matchData, 'award-poster-' . $match->id . '-' . time() . '.png');
@@ -624,25 +645,35 @@ class MatchSummaryController extends Controller
                     || ($p->jersey_name && $this->fuzzyNameMatch($p->jersey_name, $heroName));
             });
 
-            if (!$player) {
-                $skipped[] = "$heroKey ($heroName): player not found in teams";
-                continue;
-            }
-
             // Build remarks from stats
             $remarks = $this->buildAwardRemarks($heroKey, $heroesData[$heroKey]);
 
-            $match->matchAwards()->create([
-                'tournament_award_id' => $tournamentAward->id,
-                'player_id' => $player->id,
-                'remarks' => $remarks,
-            ]);
+            if ($player) {
+                $match->matchAwards()->create([
+                    'tournament_award_id' => $tournamentAward->id,
+                    'player_id' => $player->id,
+                    'remarks' => $remarks,
+                ]);
 
-            $assigned[] = [
-                'award' => $tournamentAward->name,
-                'player' => $player->name,
-                'remarks' => $remarks,
-            ];
+                $assigned[] = [
+                    'award' => $tournamentAward->name,
+                    'player' => $player->name,
+                    'remarks' => $remarks,
+                ];
+            } else {
+                // Player not found in DB - create with custom player name
+                $match->matchAwards()->create([
+                    'tournament_award_id' => $tournamentAward->id,
+                    'custom_player_name' => $heroName,
+                    'remarks' => $remarks,
+                ]);
+
+                $assigned[] = [
+                    'award' => $tournamentAward->name,
+                    'player' => $heroName . ' (custom)',
+                    'remarks' => $remarks,
+                ];
+            }
         }
 
         if (empty($assigned)) {
@@ -774,16 +805,16 @@ class MatchSummaryController extends Controller
         // Priority 1: Assigned MatchAwards
         foreach ($match->matchAwards as $award) {
             $awardSlug = $award->tournamentAward?->slug;
-            $playerName = $award->player?->name;
-            $playerImage = $award->player?->image_path;
+            $playerName = $award->display_name;
+            $playerImage = $award->display_image;
             if (in_array($awardSlug, ['man-of-the-match', 'player-of-the-match'])) {
-                if ($playerName) $data['man_of_the_match_name'] = $playerName;
+                if ($playerName && $playerName !== 'Unknown') $data['man_of_the_match_name'] = $playerName;
                 if ($playerImage) $data['man_of_the_match_image'] = $playerImage;
             } elseif ($awardSlug === 'best-batsman') {
-                if ($playerName) $data['best_batsman_name'] = $playerName;
+                if ($playerName && $playerName !== 'Unknown') $data['best_batsman_name'] = $playerName;
                 if ($playerImage) $data['best_batsman_image'] = $playerImage;
             } elseif ($awardSlug === 'best-bowler') {
-                if ($playerName) $data['best_bowler_name'] = $playerName;
+                if ($playerName && $playerName !== 'Unknown') $data['best_bowler_name'] = $playerName;
                 if ($playerImage) $data['best_bowler_image'] = $playerImage;
             }
         }

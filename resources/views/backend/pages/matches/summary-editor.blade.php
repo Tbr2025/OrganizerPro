@@ -528,13 +528,13 @@
                             <div class="relative flex items-center gap-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4 border border-gray-200 dark:border-gray-600 hover:shadow-lg transition">
                                 <!-- Player Image -->
                                 <div class="flex-shrink-0">
-                                    @if($award->player?->image_path)
-                                        <img src="{{ Storage::url($award->player->image_path) }}"
-                                             alt="{{ $award->player->name }}"
+                                    @if($award->display_image)
+                                        <img src="{{ Storage::url($award->display_image) }}"
+                                             alt="{{ $award->display_name }}"
                                              class="w-14 h-14 rounded-full object-cover border-2 border-yellow-400 shadow-md">
                                     @else
                                         <div class="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-lg font-bold text-gray-600 dark:text-gray-300">
-                                            {{ substr($award->player?->name ?? '?', 0, 1) }}
+                                            {{ substr($award->display_name, 0, 1) }}
                                         </div>
                                     @endif
                                 </div>
@@ -548,7 +548,10 @@
                                         </span>
                                     </div>
                                     <div class="font-medium text-gray-800 dark:text-gray-200">
-                                        {{ $award->player?->name ?? 'Unknown' }}
+                                        {{ $award->display_name }}
+                                        @if(!$award->player_id)
+                                            <span class="text-xs bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-1.5 py-0.5 rounded-full ml-1">custom</span>
+                                        @endif
                                     </div>
                                     @if($award->remarks)
                                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ $award->remarks }}</p>
@@ -557,7 +560,7 @@
 
                                 <!-- Actions -->
                                 <div class="flex items-center gap-1 flex-shrink-0">
-                                    <a href="{{ route('admin.tournaments.templates.generate', $tournament) }}?type=award_poster&match_id={{ $match->id }}&player_id={{ $award->player_id }}&award_name={{ urlencode($award->tournamentAward?->name ?? 'Award') }}"
+                                    <a href="{{ route('admin.tournaments.templates.generate', $tournament) }}?type=award_poster&match_id={{ $match->id }}@if($award->player_id)&player_id={{ $award->player_id }}@endif&award_name={{ urlencode($award->tournamentAward?->name ?? 'Award') }}@if(!$award->player_id && $award->custom_player_name)&custom_player_name={{ urlencode($award->custom_player_name) }}@endif"
                                        class="p-2 text-purple-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition" title="Generate Award Poster">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -633,55 +636,81 @@
                     <div class="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-gray-800 dark:to-gray-800 rounded-xl p-4 border border-purple-200 dark:border-purple-700">
                         {{-- Award + Player Selection (shared by both assign and poster) --}}
                         <div class="space-y-3">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Award</label>
+                                <select id="apAwardSelect" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="" data-name="">Select Award</option>
+                                    @foreach($tournamentAwards as $tAward)
+                                        <option value="{{ $tAward->id }}" data-name="{{ $tAward->name }}">{{ $tAward->icon ?? '' }} {{ $tAward->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- Custom Player Toggle --}}
+                            <div class="flex items-center gap-2">
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="customPlayerToggle" class="sr-only peer" onchange="toggleCustomPlayer()">
+                                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:after:border-gray-500 peer-checked:bg-purple-600"></div>
+                                </label>
+                                <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Custom Player</span>
+                            </div>
+
+                            {{-- Player Select (roster) --}}
+                            <div id="rosterPlayerSection">
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Player</label>
+                                <select id="apPlayerSelect" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="">Select Player</option>
+                                    @if($teamAPlayers->count() > 0)
+                                        <optgroup label="{{ $match->teamA?->name ?? 'Team A' }}">
+                                            @foreach($teamAPlayers as $player)
+                                                <option value="{{ $player->id }}"
+                                                    data-name="{{ $player->jersey_name ?: $player->name }}"
+                                                    data-image="{{ $player->image_path ?? '' }}"
+                                                    data-team="{{ $match->teamA?->name ?? '' }}"
+                                                    data-team-logo="{{ $match->teamA?->team_logo ?? '' }}">
+                                                    {{ $player->name }}
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                    @if($teamBPlayers->count() > 0)
+                                        <optgroup label="{{ $match->teamB?->name ?? 'Team B' }}">
+                                            @foreach($teamBPlayers as $player)
+                                                <option value="{{ $player->id }}"
+                                                    data-name="{{ $player->jersey_name ?: $player->name }}"
+                                                    data-image="{{ $player->image_path ?? '' }}"
+                                                    data-team="{{ $match->teamB?->name ?? '' }}"
+                                                    data-team-logo="{{ $match->teamB?->team_logo ?? '' }}">
+                                                    {{ $player->name }}
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                </select>
+                            </div>
+
+                            {{-- Custom Player Inputs (hidden by default) --}}
+                            <div id="customPlayerSection" class="hidden space-y-2">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Award</label>
-                                    <select id="apAwardSelect" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
-                                        <option value="" data-name="">Select Award</option>
-                                        @foreach($tournamentAwards as $tAward)
-                                            <option value="{{ $tAward->id }}" data-name="{{ $tAward->name }}">{{ $tAward->icon ?? '' }} {{ $tAward->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Player Name</label>
+                                    <input type="text" id="customPlayerNameInput"
+                                           placeholder="Enter player name"
+                                           class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Player</label>
-                                    <select id="apPlayerSelect" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
-                                        <option value="">Select Player</option>
-                                        @if($teamAPlayers->count() > 0)
-                                            <optgroup label="{{ $match->teamA?->name ?? 'Team A' }}">
-                                                @foreach($teamAPlayers as $player)
-                                                    <option value="{{ $player->id }}"
-                                                        data-name="{{ $player->jersey_name ?: $player->name }}"
-                                                        data-image="{{ $player->image_path ?? '' }}"
-                                                        data-team="{{ $match->teamA?->name ?? '' }}"
-                                                        data-team-logo="{{ $match->teamA?->team_logo ?? '' }}">
-                                                        {{ $player->name }}
-                                                    </option>
-                                                @endforeach
-                                            </optgroup>
-                                        @endif
-                                        @if($teamBPlayers->count() > 0)
-                                            <optgroup label="{{ $match->teamB?->name ?? 'Team B' }}">
-                                                @foreach($teamBPlayers as $player)
-                                                    <option value="{{ $player->id }}"
-                                                        data-name="{{ $player->jersey_name ?: $player->name }}"
-                                                        data-image="{{ $player->image_path ?? '' }}"
-                                                        data-team="{{ $match->teamB?->name ?? '' }}"
-                                                        data-team-logo="{{ $match->teamB?->team_logo ?? '' }}">
-                                                        {{ $player->name }}
-                                                    </option>
-                                                @endforeach
-                                            </optgroup>
-                                        @endif
-                                    </select>
+                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Player Photo (optional)</label>
+                                    <input type="file" id="customPlayerImageInput" accept="image/*"
+                                           class="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100 dark:file:bg-purple-900/30 dark:file:text-purple-300">
                                 </div>
                             </div>
 
                             {{-- Remarks + Assign Button --}}
-                            <form action="{{ route('admin.matches.summary.assign-award', $match) }}" method="POST" id="apAssignForm">
+                            <form action="{{ route('admin.matches.summary.assign-award', $match) }}" method="POST" id="apAssignForm" enctype="multipart/form-data">
                                 @csrf
                                 <input type="hidden" name="tournament_award_id" id="apAssignAwardId">
                                 <input type="hidden" name="player_id" id="apAssignPlayerId">
+                                <input type="hidden" name="custom_player_name" id="apAssignCustomName">
+                                {{-- File input cloned into form on submit --}}
                                 <div class="flex gap-2">
                                     <input type="text" name="remarks" id="apRemarks"
                                            placeholder="Performance remarks (e.g., 65 runs off 40 balls)"
@@ -1077,7 +1106,7 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Award</label>
                     <select x-model="selectedAwardId" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500">
                         @foreach($awards as $award)
-                            <option value="{{ $award->id }}">{{ $award->tournamentAward?->icon }} {{ $award->tournamentAward?->name }} — {{ $award->player?->name }}</option>
+                            <option value="{{ $award->id }}">{{ $award->tournamentAward?->icon }} {{ $award->tournamentAward?->name }} — {{ $award->display_name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -1288,6 +1317,28 @@ let apGeneratedImageBase64 = null;
         });
 })();
 
+// Toggle custom player mode
+function toggleCustomPlayer() {
+    const isCustom = document.getElementById('customPlayerToggle').checked;
+    const rosterSection = document.getElementById('rosterPlayerSection');
+    const customSection = document.getElementById('customPlayerSection');
+
+    if (isCustom) {
+        rosterSection.classList.add('hidden');
+        customSection.classList.remove('hidden');
+        // Clear roster selection
+        document.getElementById('apPlayerSelect').value = '';
+        document.getElementById('apAssignPlayerId').value = '';
+    } else {
+        rosterSection.classList.remove('hidden');
+        customSection.classList.add('hidden');
+        // Clear custom fields
+        document.getElementById('customPlayerNameInput').value = '';
+        document.getElementById('customPlayerImageInput').value = '';
+        document.getElementById('apAssignCustomName').value = '';
+    }
+}
+
 // Sync shared dropdowns to hidden assign form fields
 document.getElementById('apAwardSelect')?.addEventListener('change', function() {
     document.getElementById('apAssignAwardId').value = this.value;
@@ -1318,10 +1369,48 @@ document.getElementById('apPlayerSelect')?.addEventListener('change', function()
 // Validate assign form before submit
 document.getElementById('apAssignForm')?.addEventListener('submit', function(e) {
     const awardId = document.getElementById('apAssignAwardId').value;
-    const playerId = document.getElementById('apAssignPlayerId').value;
-    if (!awardId || !playerId) {
+    const isCustom = document.getElementById('customPlayerToggle')?.checked;
+
+    if (!awardId) {
         e.preventDefault();
-        showToast('Please select both an award and a player.', 'error');
+        showToast('Please select an award.', 'error');
+        return;
+    }
+
+    if (isCustom) {
+        const customName = document.getElementById('customPlayerNameInput').value.trim();
+        if (!customName) {
+            e.preventDefault();
+            showToast('Please enter a custom player name.', 'error');
+            return;
+        }
+        // Sync custom fields to form
+        document.getElementById('apAssignCustomName').value = customName;
+        document.getElementById('apAssignPlayerId').value = '';
+
+        // Move custom image file input into the form
+        const customImageInput = document.getElementById('customPlayerImageInput');
+        if (customImageInput.files.length > 0) {
+            const clone = customImageInput.cloneNode(true);
+            clone.name = 'custom_player_image';
+            clone.id = '';
+            clone.style.display = 'none';
+            this.appendChild(clone);
+            // Copy files via DataTransfer
+            const dt = new DataTransfer();
+            for (const file of customImageInput.files) {
+                dt.items.add(file);
+            }
+            clone.files = dt.files;
+        }
+    } else {
+        const playerId = document.getElementById('apAssignPlayerId').value;
+        if (!playerId) {
+            e.preventDefault();
+            showToast('Please select a player.', 'error');
+            return;
+        }
+        document.getElementById('apAssignCustomName').value = '';
     }
 });
 
@@ -1349,8 +1438,14 @@ async function generateAwardPoster() {
     const awardName = awardOpt?.dataset?.name || '';
     if (awardName) formData.append('award_name', awardName);
 
-    // Player data
-    if (playerOpt && playerOpt.value) {
+    // Player data - check if custom player mode
+    const isCustomMode = document.getElementById('customPlayerToggle')?.checked;
+    if (isCustomMode) {
+        const customName = document.getElementById('customPlayerNameInput')?.value?.trim();
+        if (customName) formData.append('player_name', customName);
+        const customImageFile = document.getElementById('customPlayerImageInput')?.files?.[0];
+        if (customImageFile) formData.append('player_image_file', customImageFile);
+    } else if (playerOpt && playerOpt.value) {
         formData.append('player_name', playerOpt.dataset.name || '');
         if (playerOpt.dataset.image) formData.append('player_image', playerOpt.dataset.image);
         if (playerOpt.dataset.team) formData.append('team_name', playerOpt.dataset.team);

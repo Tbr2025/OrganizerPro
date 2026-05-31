@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class MatchAward extends Model
 {
@@ -14,6 +15,8 @@ class MatchAward extends Model
         'match_id',
         'tournament_award_id',
         'player_id',
+        'custom_player_name',
+        'custom_player_image',
         'remarks',
         'poster_image',
         'poster_sent',
@@ -38,6 +41,21 @@ class MatchAward extends Model
     public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class);
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->player?->name ?? $this->custom_player_name ?? 'Unknown';
+    }
+
+    public function getDisplayImageAttribute(): ?string
+    {
+        return $this->player?->image_path ?? $this->custom_player_image;
+    }
+
+    public function getCustomPlayerImageUrlAttribute(): ?string
+    {
+        return $this->custom_player_image ? asset('storage/' . $this->custom_player_image) : null;
     }
 
     public function getPosterImageUrlAttribute(): ?string
