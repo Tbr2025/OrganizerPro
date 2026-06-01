@@ -86,28 +86,44 @@ abstract class PosterGeneratorService
         $rgb = $this->hexToRgb($color);
         $textColor = imagecolorallocate($image, $rgb['r'], $rgb['g'], $rgb['b']);
 
-        // Calculate text bounds for alignment
-        $bbox = @imagettfbbox($size, $angle, $fontPath, $text);
-        if (!$bbox) {
+        // Always measure at angle=0 for alignment (rotated bbox distorts width/height)
+        $measureBbox = @imagettfbbox($size, 0, $fontPath, $text);
+        if (!$measureBbox) {
             \Log::warning("Failed to calculate text bounds for: {$text}");
             return;
         }
-        $textWidth = abs($bbox[4] - $bbox[0]);
+        $textWidth = abs($measureBbox[2] - $measureBbox[0]);
 
-        // Adjust x based on alignment
-        $adjustedX = match ($align) {
-            'center' => $x - ($textWidth / 2),
-            'right' => $x - $textWidth,
-            default => $x,
-        };
+        // Y centering: use a fixed reference string so centering is font-dependent, not content-dependent
+        $refBbox = @imagettfbbox($size, 0, $fontPath, 'Ajgq|');
+        // Vertical midpoint of text relative to baseline (negative = above baseline)
+        $yMid = ($refBbox[7] + $refBbox[1]) / 2;
 
-        // Adjust y from center-of-text to baseline.
-        // Editor (Fabric.js) stores y as vertical center, but GD expects baseline.
-        // Use a fixed reference string for consistent Y centering (matches Fabric.js behavior).
-        // This ensures the Y adjustment is font-dependent but NOT content-dependent,
-        // preventing overlap when different text strings have different ascenders/descenders.
-        $refBbox = @imagettfbbox($size, $angle, $fontPath, 'Ajgq|');
-        $adjustedY = $y - (int) (($refBbox[7] + $refBbox[1]) / 2);
+        if ($angle != 0) {
+            // For rotated text: find baseline start so rotated center lands at (x, y)
+            // Unrotated center offset from baseline start: (textWidth/2, yMid)
+            $rad = deg2rad($angle);
+            $cosA = cos($rad);
+            $sinA = sin($rad);
+            // Center offset in align direction
+            $cxOff = match ($align) {
+                'center' => $textWidth / 2,
+                'right' => $textWidth,
+                default => 0,
+            };
+            // GD rotates CCW with y-down: rotated offset = (dx*cos+dy*sin, -dx*sin+dy*cos)
+            $adjustedX = (int) ($x - ($cxOff * $cosA + $yMid * $sinA));
+            $adjustedY = (int) ($y - (-$cxOff * $sinA + $yMid * $cosA));
+        } else {
+            // Adjust x based on alignment
+            $adjustedX = match ($align) {
+                'center' => $x - ($textWidth / 2),
+                'right' => $x - $textWidth,
+                default => $x,
+            };
+            // Adjust y from center-of-text to baseline
+            $adjustedY = $y - (int) $yMid;
+        }
 
         @imagettftext($image, $size, $angle, (int) $adjustedX, $adjustedY, $textColor, $fontPath, $text);
     }

@@ -105,6 +105,11 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function renderElement(\GdImage $canvas, array $element, array $data, int $canvasWidth, int $canvasHeight): void
     {
+        // Skip hidden elements (layer visibility toggle)
+        if (!empty($element['hidden'])) {
+            return;
+        }
+
         $placeholder = $element['placeholder'] ?? '';
         $type = $element['type'] ?? 'text';
 
@@ -175,13 +180,13 @@ class TemplateRenderService extends PosterGeneratorService
         $linethrough = (bool) ($element['linethrough'] ?? false);
         // Text shadow (default 0 = off)
         $shadowData = $element['shadow'] ?? null;
-        $shadowX = (int) ($shadowData['offsetX'] ?? 0);
-        $shadowY = (int) ($shadowData['offsetY'] ?? 0);
+        $shadowX = (int) (($shadowData['offsetX'] ?? 0) * $this->renderScale);
+        $shadowY = (int) (($shadowData['offsetY'] ?? 0) * $this->renderScale);
         $shadowColor = $shadowData['color'] ?? '#000000';
         $shadow = ($shadowX !== 0 || $shadowY !== 0 || ($shadowData['blur'] ?? 0) > 0);
         // Text stroke
         $strokeColor = $element['stroke'] ?? null;
-        $strokeWidth = (int) ($element['strokeWidth'] ?? 0);
+        $strokeWidth = (int) (($element['strokeWidth'] ?? 0) * $this->renderScale);
 
         // Apply text transform
         $text = match ($textTransform) {
@@ -476,7 +481,7 @@ class TemplateRenderService extends PosterGeneratorService
         $unicode = $element['iconUnicode'] ?? '';
         if (!$unicode) return;
 
-        $fontSize = (int) ($element['fontSize'] ?? 64);
+        $fontSize = (int) (($element['fontSize'] ?? 64) * $this->renderScale);
         $color = $element['color'] ?? '#ffffff';
         $rotation = (float) ($element['rotation'] ?? 0);
 
@@ -653,8 +658,8 @@ class TemplateRenderService extends PosterGeneratorService
     protected function renderUploadedImage(\GdImage $canvas, array $element, int $x, int $y, int $canvasWidth): void
     {
         $path = $element['imagePath'] ?? $element['path'] ?? '';
-        $width = (int) ($element['width'] ?? 150);
-        $height = (int) ($element['height'] ?? 150);
+        $width = (int) (($element['width'] ?? 150) * $this->renderScale);
+        $height = (int) (($element['height'] ?? 150) * $this->renderScale);
 
         if (empty($path) || !Storage::disk('public')->exists($path)) {
             $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
@@ -711,11 +716,11 @@ class TemplateRenderService extends PosterGeneratorService
     protected function renderShapeElement(\GdImage $canvas, array $element, int $x, int $y, int $canvasWidth): void
     {
         $shapeType = $element['shapeType'] ?? 'rect';
-        $width = (int) ($element['width'] ?? 150);
-        $height = (int) ($element['height'] ?? 100);
+        $width = (int) (($element['width'] ?? 150) * $this->renderScale);
+        $height = (int) (($element['height'] ?? 100) * $this->renderScale);
         $fill = $element['fill'] ?? 'rgba(99, 102, 241, 0.5)';
         $stroke = $element['stroke'] ?? '#6366f1';
-        $strokeWidth = (int) ($element['strokeWidth'] ?? 2);
+        $strokeWidth = (int) (($element['strokeWidth'] ?? 2) * $this->renderScale);
         $opacity = (int) ($element['opacity'] ?? 100);
         $shadowData = $element['shadow'] ?? null;
 
@@ -744,8 +749,8 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Draw shadow first if present
         if ($shadowData) {
-            $sx = (int) ($shadowData['offsetX'] ?? 0);
-            $sy = (int) ($shadowData['offsetY'] ?? 0);
+            $sx = (int) (($shadowData['offsetX'] ?? 0) * $this->renderScale);
+            $sy = (int) (($shadowData['offsetY'] ?? 0) * $this->renderScale);
             if ($sx !== 0 || $sy !== 0 || ($shadowData['blur'] ?? 0) > 0) {
                 $shadowColor = $this->parseColor($canvas, $shadowData['color'] ?? '#000000');
                 $sdx = $drawX + $sx;
@@ -774,8 +779,11 @@ class TemplateRenderService extends PosterGeneratorService
         if ($shapeType === 'rect') {
             // Determine border radii: per-corner or uniform from rx/ry
             $borderRadii = $element['borderRadii'] ?? null;
-            $rx = (int) ($element['rx'] ?? 0);
-            $ry = (int) ($element['ry'] ?? 0);
+            if ($borderRadii && $this->renderScale !== 1) {
+                foreach ($borderRadii as $k => $v) { $borderRadii[$k] = (int)($v * $this->renderScale); }
+            }
+            $rx = (int) (($element['rx'] ?? 0) * $this->renderScale);
+            $ry = (int) (($element['ry'] ?? 0) * $this->renderScale);
             if (!$borderRadii && ($rx > 0 || $ry > 0)) {
                 $r = max($rx, $ry);
                 $borderRadii = ['tl' => $r, 'tr' => $r, 'br' => $r, 'bl' => $r];
@@ -1585,6 +1593,11 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function renderOverlayImage(\GdImage $canvas, array $overlay, int $canvasWidth, int $canvasHeight): void
     {
+        // Skip hidden overlays
+        if (!empty($overlay['hidden'])) {
+            return;
+        }
+
         $path = $overlay['path'] ?? '';
 
         if (empty($path) || !Storage::disk('public')->exists($path)) {
@@ -1596,8 +1609,8 @@ class TemplateRenderService extends PosterGeneratorService
         $y = (int) (($overlay['y'] ?? 50) / 100 * $canvasHeight);
 
         // Overlay dimensions are stored as actual pixel values
-        $width = (int) ($overlay['width'] ?? 100);
-        $height = (int) ($overlay['height'] ?? 100);
+        $width = (int) (($overlay['width'] ?? 100) * $this->renderScale);
+        $height = (int) (($overlay['height'] ?? 100) * $this->renderScale);
 
         // Center the image at x, y
         $drawX = (int) ($x - $width / 2);
