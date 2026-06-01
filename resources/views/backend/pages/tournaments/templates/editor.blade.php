@@ -93,6 +93,18 @@
     .layer-info { flex: 1; min-width: 0; }
     .layer-name { font-size: 12px; color: #e2e2e2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .layer-type { font-size: 10px; color: #8b8ba7; }
+    .layer-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0; }
+    .layer-action-btn { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: #8b8ba7; cursor: pointer; padding: 0; }
+    .layer-action-btn:hover { background: rgba(99, 102, 241, 0.2); color: #c4b5fd; }
+    .layer-action-btn.active { color: #818cf8; }
+    .layer-action-btn svg { width: 14px; height: 14px; }
+    .layer-item.hidden-layer { opacity: 0.45; }
+    .layer-item.locked-layer { border-left: 2px solid #f59e0b; }
+    .layer-rename-input { background: #1a1a2e; border: 1px solid #6366f1; border-radius: 4px; color: #e2e2e2; font-size: 12px; padding: 2px 6px; width: 100%; outline: none; }
+    .layer-drag-handle { cursor: grab; color: #5a5a7a; display: flex; align-items: center; flex-shrink: 0; padding: 0 2px; }
+    .layer-drag-handle:active { cursor: grabbing; }
+    .layer-drag-handle svg { width: 14px; height: 14px; }
+    .layer-item.drag-over { border-top: 2px solid #818cf8; }
 
     .icon-item { display: flex; align-items: center; justify-content: center; padding: 8px; background: #252538; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
     .icon-item:hover { background: #2d2d4a; border-color: #4f46e5; }
@@ -2374,20 +2386,110 @@ const editor = {
         document.getElementById('layerCount').textContent = objects.length;
         const list = document.getElementById('layersList');
         list.innerHTML = [...objects].reverse().map((obj, i) => {
-            const rawName = obj.placeholder || obj.shapeType || obj.type || 'Element';
+            const rawName = obj.layerName || obj.placeholder || obj.shapeType || obj.type || 'Element';
             const name = rawName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const selected = obj === this.canvas.getActiveObject();
             const idx = objects.length - 1 - i;
-            return `<div class="layer-item ${selected ? 'selected' : ''}" onclick="editor.selectLayer(${idx})">
-                <div class="layer-thumb"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg></div>
-                <div class="layer-info"><div class="layer-name">${name}</div><div class="layer-type">${obj.elementType || obj.type}</div></div>
+            const isHidden = obj.visible === false;
+            const isLocked = obj.locked === true;
+            const classes = ['layer-item', selected ? 'selected' : '', isHidden ? 'hidden-layer' : '', isLocked ? 'locked-layer' : ''].filter(Boolean).join(' ');
+            const eyeIcon = isHidden
+                ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18"/></svg>'
+                : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>';
+            const lockIcon = isLocked
+                ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>'
+                : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>';
+            return `<div class="${classes}" draggable="true" data-layer-idx="${idx}"
+                        ondragstart="editor.layerDragStart(event, ${idx})"
+                        ondragover="editor.layerDragOver(event, ${idx})"
+                        ondragleave="event.currentTarget.classList.remove('drag-over')"
+                        ondrop="editor.layerDrop(event, ${idx})"
+                        onclick="editor.selectLayer(${idx})">
+                <div class="layer-drag-handle"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg></div>
+                <div class="layer-info" style="flex:1;min-width:0;">
+                    <div class="layer-name" ondblclick="event.stopPropagation(); editor.startLayerRename(${idx}, this)">${name}</div>
+                    <div class="layer-type">${obj.elementType || obj.type}</div>
+                </div>
+                <div class="layer-actions">
+                    <button class="layer-action-btn ${isHidden ? '' : 'active'}" onclick="event.stopPropagation(); editor.toggleLayerVisibility(${idx})" title="${isHidden ? 'Show' : 'Hide'}">${eyeIcon}</button>
+                    <button class="layer-action-btn ${isLocked ? 'active' : ''}" onclick="event.stopPropagation(); editor.toggleLayerLock(${idx})" title="${isLocked ? 'Unlock' : 'Lock'}">${lockIcon}</button>
+                </div>
             </div>`;
         }).join('');
     },
 
     selectLayer(idx) {
         const obj = this.canvas.getObjects()[idx];
-        if (obj) { this.canvas.setActiveObject(obj); this.canvas.renderAll(); }
+        if (!obj) return;
+        if (obj.locked) { this.showToast('Layer is locked', 'error'); return; }
+        this.canvas.setActiveObject(obj); this.canvas.renderAll();
+    },
+
+    toggleLayerVisibility(idx) {
+        const obj = this.canvas.getObjects()[idx];
+        if (!obj) return;
+        obj.visible = !obj.visible;
+        if (!obj.visible && obj === this.canvas.getActiveObject()) this.canvas.discardActiveObject();
+        this.canvas.renderAll(); this.updateLayers(); this.saveHistory();
+    },
+
+    toggleLayerLock(idx) {
+        const obj = this.canvas.getObjects()[idx];
+        if (!obj) return;
+        obj.locked = !obj.locked;
+        obj.selectable = !obj.locked;
+        obj.evented = !obj.locked;
+        if (obj.locked && obj === this.canvas.getActiveObject()) this.canvas.discardActiveObject();
+        this.canvas.renderAll(); this.updateLayers(); this.saveHistory();
+    },
+
+    startLayerRename(idx, el) {
+        const obj = this.canvas.getObjects()[idx];
+        if (!obj) return;
+        const currentName = obj.layerName || obj.placeholder || obj.shapeType || obj.type || 'Element';
+        const displayName = currentName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        el.innerHTML = `<input class="layer-rename-input" value="${displayName.replace(/"/g, '&quot;')}" />`;
+        const input = el.querySelector('input');
+        input.focus();
+        input.select();
+        const finish = (save) => {
+            if (save && input.value.trim()) { obj.layerName = input.value.trim(); }
+            this.updateLayers(); if (save) this.saveHistory();
+        };
+        input.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+    },
+
+    _layerDragIdx: null,
+    layerDragStart(e, idx) {
+        this._layerDragIdx = idx;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', idx);
+        e.currentTarget.style.opacity = '0.5';
+        setTimeout(() => { if (e.currentTarget) e.currentTarget.style.opacity = ''; }, 0);
+    },
+
+    layerDragOver(e, idx) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.layer-item').forEach(el => el.classList.remove('drag-over'));
+        e.currentTarget.classList.add('drag-over');
+    },
+
+    layerDrop(e, targetIdx) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        const fromIdx = this._layerDragIdx;
+        if (fromIdx === null || fromIdx === targetIdx) return;
+        const obj = this.canvas.getObjects()[fromIdx];
+        if (!obj) return;
+        this.canvas.moveTo(obj, targetIdx);
+        this.canvas.renderAll(); this.updateLayers(); this.saveHistory();
+        this._layerDragIdx = null;
     },
 
     // Preview
@@ -2465,6 +2567,9 @@ const editor = {
                         group.iconColor = color;
                         group.placeholder = '';
                         group._layoutIndex = idx;
+                        if (savedItem.layerName) group.layerName = savedItem.layerName;
+                        if (savedItem.hidden) { group.visible = false; }
+                        if (savedItem.locked) { group.selectable = false; group.evented = false; group.locked = true; }
                         this.canvas.add(group);
                         this.canvas.renderAll();
                     });
@@ -2592,6 +2697,9 @@ const editor = {
                         });
                         img._layoutIndex = layoutIndex;
                         if (item.width) img.scaleToWidth(item.width);
+                        if (item.layerName) img.layerName = item.layerName;
+                        if (item.hidden) { img.visible = false; }
+                        if (item.locked) { img.selectable = false; img.evented = false; img.locked = true; }
                         this.canvas.add(img);
                         pendingImages--;
                         if (pendingImages === 0) {
@@ -2603,6 +2711,16 @@ const editor = {
                     pendingImages--;
                 }
             }
+        });
+
+        // Restore layer states (name, visibility, lock) for all non-image elements
+        this.canvas.getObjects().forEach(obj => {
+            if (obj._layoutIndex == null) return;
+            const item = layout[obj._layoutIndex];
+            if (!item) return;
+            if (item.layerName) obj.layerName = item.layerName;
+            if (item.hidden) { obj.visible = false; }
+            if (item.locked) { obj.selectable = false; obj.evented = false; obj.locked = true; }
         });
         this.canvas.renderAll();
     },
@@ -2632,6 +2750,9 @@ const editor = {
                 rotation: obj.angle || 0,
                 opacity: (obj.opacity ?? 1) * 100,
                 zIndex: i,
+                layerName: obj.layerName || null,
+                hidden: obj.visible === false,
+                locked: obj.locked || false,
             };
 
             if (obj.elementType === 'icon' && obj.iconType === 'svg') {
