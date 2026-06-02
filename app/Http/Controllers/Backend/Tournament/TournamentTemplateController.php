@@ -84,12 +84,15 @@ class TournamentTemplateController extends Controller
             ->orderBy('match_date')
             ->get();
 
-        // Load players belonging to tournament's actual teams (direct + via groups)
+        // Load players belonging to tournament's actual teams (direct + pivot + groups)
         $directTeamIds = $tournament->actualTeams()->pluck('id');
+        $pivotTeamIds = DB::table('actual_team_tournament')
+            ->where('tournament_id', $tournament->id)
+            ->pluck('actual_team_id');
         $groupTeamIds = DB::table('tournament_group_teams')
             ->whereIn('tournament_group_id', $tournament->groups()->pluck('id'))
             ->pluck('actual_team_id');
-        $allTeamIds = $directTeamIds->merge($groupTeamIds)->unique();
+        $allTeamIds = $directTeamIds->merge($pivotTeamIds)->merge($groupTeamIds)->unique();
 
         $players = Player::whereIn('actual_team_id', $allTeamIds)
             ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
