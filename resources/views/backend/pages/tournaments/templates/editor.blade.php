@@ -241,7 +241,7 @@
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Text Placeholders</div>
                         @foreach($placeholders as $placeholder)
-                            @if(!$isImage($placeholder) && $placeholder !== 'table_data' && !$isAwardPlaceholder($placeholder))
+                            @if(!$isImage($placeholder) && $placeholder !== 'table_data' && $placeholder !== 'fixture_area' && !$isAwardPlaceholder($placeholder))
                             <div class="draggable-item" draggable="true" data-type="text" data-placeholder="{{ $placeholder }}">
                                 <div class="icon text"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg></div>
                                 <div class="info">
@@ -468,6 +468,17 @@
                     </div>
                     @endif
 
+                    @if($type === 'fixtures_poster')
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Fixture Area</div>
+                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addFixtureArea()">
+                            <div class="icon" style="background: linear-gradient(135deg, #14b8a6, #06b6d4);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            </div>
+                            <div class="info"><div class="name">Fixtures List</div><div class="type">Fixture Area</div></div>
+                        </div>
+                    </div>
+                    @endif
                     @if($type === 'match_summary')
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Scorecard Tables</div>
@@ -984,6 +995,113 @@
                         <button onclick="editor.applyScorecardPreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark</button>
                         <button onclick="editor.applyScorecardPreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
                         <button onclick="editor.applyScorecardPreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#fff;border-color:#7c3aed;">IPL</button>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Fixture Area Properties --}}
+            <div id="fixturePropertiesPanel" class="hidden">
+                <div class="prop-section">
+                    <div class="prop-section-title">Fixture Colors</div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Header BG</label>
+                            <input type="color" id="propFxHeaderBg" class="color-preview" value="#1e40af" onchange="editor.updateFixtureConfig('headerBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Header Text</label>
+                            <input type="color" id="propFxHeaderText" class="color-preview" value="#ffffff" onchange="editor.updateFixtureConfig('headerText', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Row BG</label>
+                            <input type="color" id="propFxRowBg" class="color-preview" value="#1e293b" onchange="editor.updateFixtureConfig('rowBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Alt Row BG</label>
+                            <input type="color" id="propFxAltRowBg" class="color-preview" value="#293548" onchange="editor.updateFixtureConfig('altRowBg', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Text Color</label>
+                            <input type="color" id="propFxTextColor" class="color-preview" value="#ffffff" onchange="editor.updateFixtureConfig('textColor', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Accent (VS)</label>
+                            <input type="color" id="propFxAccentColor" class="color-preview" value="#FFD700" onchange="editor.updateFixtureConfig('accentColor', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Muted Text</label>
+                        <input type="color" id="propFxMutedColor" class="color-preview" value="#94a3b8" onchange="editor.updateFixtureConfig('mutedColor', this.value)">
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Badge BG</label>
+                            <input type="color" id="propFxMatchBadgeBg" class="color-preview" value="#ffffff" onchange="editor.updateFixtureConfig('matchBadgeBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Badge Text</label>
+                            <input type="color" id="propFxMatchBadgeText" class="color-preview" value="#0a1628" onchange="editor.updateFixtureConfig('matchBadgeText', this.value)">
+                        </div>
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Design Layout</div>
+                    <div class="prop-group" style="margin-bottom:10px;">
+                        <div class="grid grid-cols-2 gap-2" id="propFxLayoutSelector">
+                            <button type="button" onclick="editor.updateFixtureConfig('layout', 'row')" data-layout="row" class="prop-btn text-xs justify-center flex items-center gap-1 transition-all" style="padding:8px 6px;">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                                Row List
+                            </button>
+                            <button type="button" onclick="editor.updateFixtureConfig('layout', 'card')" data-layout="card" class="prop-btn text-xs justify-center flex items-center gap-1 transition-all" style="padding:8px 6px;">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                                Card Grid
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Layout Settings</div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Font Size</label>
+                            <input type="number" id="propFxFontSize" class="prop-input" min="10" max="24" value="14" onchange="editor.updateFixtureConfig('fontSize', parseInt(this.value))">
+                        </div>
+                        <div class="prop-group" id="propFxRowHeightGroup">
+                            <label class="prop-label">Row Height</label>
+                            <input type="number" id="propFxRowHeight" class="prop-input" min="40" max="120" value="80" onchange="editor.updateFixtureConfig('rowHeight', parseInt(this.value))">
+                        </div>
+                    </div>
+                    <div class="prop-input-row" id="propFxCardColumnsGroup" style="display:none;">
+                        <div class="prop-group">
+                            <label class="prop-label">Columns</label>
+                            <select id="propFxCardColumns" class="prop-input" onchange="editor.updateFixtureConfig('cardColumns', parseInt(this.value))">
+                                <option value="2">2 Columns</option>
+                                <option value="3">3 Columns</option>
+                                <option value="4">4 Columns</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="prop-label">Max Fixtures</label>
+                        <input type="number" id="propFxMaxRows" class="prop-input" min="1" max="20" value="5" onchange="editor.updateFixtureConfig('maxRows', parseInt(this.value))">
+                    </div>
+                    <div class="prop-group" style="margin-top:8px;">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propFxTransparentBg" onchange="editor.updateFixtureConfig('transparentBg', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Transparent Background</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Style Presets</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="editor.applyFixturePreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark</button>
+                        <button onclick="editor.applyFixturePreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
+                        <button onclick="editor.applyFixturePreset('green')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#064e3b;color:#fff;border-color:#047857;">Green</button>
                     </div>
                 </div>
             </div>
@@ -1669,6 +1787,126 @@ const editor = {
         document.getElementById('propScTransparentBg').checked = cfg.transparentBg || false;
     },
 
+    addFixtureArea(x, y) {
+        x = x || this.canvasWidth / 2;
+        y = y || this.canvasHeight / 2;
+        const w = 900, h = 500;
+
+        const border = new fabric.Rect({
+            width: w, height: h,
+            fill: 'rgba(20, 184, 166, 0.12)',
+            stroke: '#14b8a6',
+            strokeWidth: 2, strokeDashArray: [8, 4],
+            rx: 6, ry: 6,
+            originX: 'center', originY: 'center',
+        });
+        const title = new fabric.Text('UPCOMING FIXTURES', {
+            fontSize: 14, fill: '#14b8a6',
+            fontFamily: 'Arial', fontWeight: '700',
+            originX: 'center', originY: 'center', top: -h/2 + 18,
+        });
+        const sampleLines = 'Royal Strikers       VS       Thunder Kings\n  Jun 15  |  06:00 PM  |  City Stadium\n\nMountrich CC         VS       Canadian CC\n  Jun 16  |  06:00 PM  |  City Stadium';
+        const sample = new fabric.Text(sampleLines, {
+            fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New',
+            originX: 'center', originY: 'center', top: 20, lineHeight: 1.4,
+        });
+        const group = new fabric.Group([border, title, sample], {
+            left: x, top: y, originX: 'center', originY: 'center',
+        });
+        group.elementType = 'fixtureArea';
+        group.placeholder = 'fixture_area';
+        group.fixtureConfig = {
+            layout: 'row',
+            transparentBg: true,
+            maxRows: 5,
+            headerBg: '#1e40af', headerText: '#ffffff',
+            rowBg: '#0a1628', altRowBg: '#0f1d33',
+            textColor: '#ffffff', accentColor: '#d4a843',
+            matchBadgeBg: '#ffffff', matchBadgeText: '#0a1628',
+            mutedColor: '#8899aa',
+            fontSize: 16, rowHeight: 100,
+            cardColumns: 2,
+        };
+        this.canvas.add(group);
+        this.canvas.setActiveObject(group);
+        this.saveHistory();
+    },
+
+    updateFixtureConfig(key, value) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'fixtureArea') return;
+        obj.fixtureConfig = obj.fixtureConfig || {};
+        obj.fixtureConfig[key] = value;
+        if (key === 'headerBg') {
+            const r = parseInt(value.slice(1,3),16), g = parseInt(value.slice(3,5),16), b = parseInt(value.slice(5,7),16);
+            obj.item(0).set('fill', `rgba(${r},${g},${b},0.12)`);
+            obj.item(0).set('stroke', value);
+            this.canvas.renderAll();
+        }
+        if (key === 'layout') {
+            this._syncFixtureLayoutUI(value);
+        }
+        this.saveHistory();
+    },
+
+    _syncFixtureLayoutUI(layout) {
+        // Toggle active state on layout buttons
+        document.querySelectorAll('#propFxLayoutSelector button').forEach(btn => {
+            if (btn.dataset.layout === layout) {
+                btn.style.background = '#4f46e5'; btn.style.color = '#fff'; btn.style.borderColor = '#6366f1';
+            } else {
+                btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
+            }
+        });
+        // Toggle card-specific options
+        const isCard = layout === 'card';
+        const cardColGroup = document.getElementById('propFxCardColumnsGroup');
+        const rowHeightGroup = document.getElementById('propFxRowHeightGroup');
+        if (cardColGroup) cardColGroup.style.display = isCard ? '' : 'none';
+        if (rowHeightGroup) {
+            rowHeightGroup.querySelector('.prop-label').textContent = isCard ? 'Card Height' : 'Row Height';
+        }
+    },
+
+    applyFixturePreset(preset) {
+        const presets = {
+            dark: { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', matchBadgeBg:'#ffffff', matchBadgeText:'#0a1628' },
+            light: { headerBg:'#4f46e5', headerText:'#ffffff', rowBg:'#ffffff', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#4f46e5', mutedColor:'#64748b', matchBadgeBg:'#4f46e5', matchBadgeText:'#ffffff' },
+            green: { headerBg:'#047857', headerText:'#ffffff', rowBg:'#064e3b', altRowBg:'#065f46', textColor:'#ffffff', accentColor:'#FFD700', mutedColor:'#a7f3d0', matchBadgeBg:'#ffffff', matchBadgeText:'#064e3b' },
+        };
+        const cfg = presets[preset];
+        if (!cfg) return;
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'fixtureArea') return;
+        obj.fixtureConfig = { ...obj.fixtureConfig, ...cfg };
+        this.updateFixturePropertiesPanel(obj);
+        const r = parseInt(cfg.headerBg.slice(1,3),16), g = parseInt(cfg.headerBg.slice(3,5),16), b = parseInt(cfg.headerBg.slice(5,7),16);
+        obj.item(0).set('fill', `rgba(${r},${g},${b},0.12)`);
+        obj.item(0).set('stroke', cfg.headerBg);
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateFixturePropertiesPanel(obj) {
+        const cfg = obj.fixtureConfig || {};
+        document.getElementById('propFxHeaderBg').value = cfg.headerBg || '#1e40af';
+        document.getElementById('propFxHeaderText').value = cfg.headerText || '#ffffff';
+        document.getElementById('propFxRowBg').value = cfg.rowBg || '#1e293b';
+        document.getElementById('propFxAltRowBg').value = cfg.altRowBg || '#293548';
+        document.getElementById('propFxTextColor').value = cfg.textColor || '#ffffff';
+        document.getElementById('propFxAccentColor').value = cfg.accentColor || '#d4a843';
+        document.getElementById('propFxMutedColor').value = cfg.mutedColor || '#94a3b8';
+        document.getElementById('propFxMatchBadgeBg').value = cfg.matchBadgeBg || '#ffffff';
+        document.getElementById('propFxMatchBadgeText').value = cfg.matchBadgeText || '#0a1628';
+        document.getElementById('propFxFontSize').value = cfg.fontSize || 14;
+        document.getElementById('propFxRowHeight').value = cfg.rowHeight || 90;
+        document.getElementById('propFxMaxRows').value = cfg.maxRows || 5;
+        document.getElementById('propFxTransparentBg').checked = cfg.transparentBg || false;
+        const cardColSel = document.getElementById('propFxCardColumns');
+        if (cardColSel) cardColSel.value = cfg.cardColumns || 2;
+        this._syncFixtureLayoutUI(cfg.layout || 'row');
+    },
+
     starPoints(spikes, outerR, innerR) {
         const points = [];
         const step = Math.PI / spikes;
@@ -1762,11 +2000,13 @@ const editor = {
         const isShape = !isIcon && obj.elementType === 'shape';
         const isTable = obj.elementType === 'tableArea';
         const isScorecard = obj.elementType === 'scorecardTable';
+        const isFixture = obj.elementType === 'fixtureArea';
         document.getElementById('iconPropertiesPanel').classList.toggle('hidden', !isIcon);
         document.getElementById('textPropertiesPanel').classList.toggle('hidden', !isText);
         document.getElementById('shapePropertiesPanel').classList.toggle('hidden', !isShape);
         document.getElementById('tablePropertiesPanel').classList.toggle('hidden', !isTable);
         document.getElementById('scorecardPropertiesPanel').classList.toggle('hidden', !isScorecard);
+        document.getElementById('fixturePropertiesPanel').classList.toggle('hidden', !isFixture);
 
         if (isIcon) {
             const iconColor = obj.iconType === 'svg' ? (obj.iconColor || '#ffffff') : (obj.fill || '#ffffff');
@@ -1816,6 +2056,9 @@ const editor = {
         }
         if (isScorecard) {
             this.updateScorecardPropertiesPanel(obj);
+        }
+        if (isFixture) {
+            this.updateFixturePropertiesPanel(obj);
         }
         this.updateProperties();
     },
@@ -2681,6 +2924,20 @@ const editor = {
                 scGroup.scorecardConfig = scCfg;
                 scGroup._layoutIndex = layoutIndex;
                 this.canvas.add(scGroup);
+            } else if (item.type === 'fixtureArea') {
+                const fxCfg = item.fixtureConfig || {};
+                const fw = item.width || 900, fh = item.height || 500;
+                const fxHdrCol = fxCfg.headerBg || '#14b8a6';
+                const fr = parseInt(fxHdrCol.slice(1,3),16), fg = parseInt(fxHdrCol.slice(3,5),16), fb = parseInt(fxHdrCol.slice(5,7),16);
+                const fxBorder = new fabric.Rect({ width: fw, height: fh, fill: `rgba(${fr},${fg},${fb},0.12)`, stroke: fxHdrCol, strokeWidth: 2, strokeDashArray: [8, 4], rx: 6, ry: 6, originX: 'center', originY: 'center' });
+                const fxTitle = new fabric.Text('UPCOMING FIXTURES', { fontSize: 14, fill: '#14b8a6', fontFamily: 'Arial', fontWeight: '700', originX: 'center', originY: 'center', top: -fh/2 + 18 });
+                const fxSample = new fabric.Text('Royal Strikers       VS       Thunder Kings\n  Jun 15  |  06:00 PM  |  City Stadium\n\nMountrich CC         VS       Canadian CC\n  Jun 16  |  06:00 PM  |  City Stadium', { fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 20, lineHeight: 1.4 });
+                const fxGroup = new fabric.Group([fxBorder, fxTitle, fxSample], { left: x, top: y, originX: 'center', originY: 'center', angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100 });
+                fxGroup.elementType = 'fixtureArea';
+                fxGroup.placeholder = 'fixture_area';
+                fxGroup.fixtureConfig = fxCfg;
+                fxGroup._layoutIndex = layoutIndex;
+                this.canvas.add(fxGroup);
             } else if (item.type === 'uploadedImage') {
                 pendingImages++;
                 const imgPath = item.imagePath || item.path || '';
@@ -2781,6 +3038,8 @@ const editor = {
                 return { ...base, type: 'tableArea', tableConfig: obj.tableConfig || {}, width: (obj.width || 900) * (obj.scaleX || 1), height: (obj.height || 500) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'scorecardTable') {
                 return { ...base, type: 'scorecardTable', scorecardConfig: obj.scorecardConfig || {}, width: (obj.width || 400) * (obj.scaleX || 1), height: (obj.height || 180) * (obj.scaleY || 1) };
+            } else if (obj.elementType === 'fixtureArea') {
+                return { ...base, type: 'fixtureArea', fixtureConfig: obj.fixtureConfig || {}, width: (obj.width || 900) * (obj.scaleX || 1), height: (obj.height || 500) * (obj.scaleY || 1) };
             }
             return base;
         });

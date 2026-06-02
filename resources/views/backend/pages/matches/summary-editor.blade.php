@@ -526,17 +526,27 @@
                     <div class="space-y-3 mb-6">
                         @foreach($awards as $award)
                             <div class="relative flex items-center gap-4 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4 border border-gray-200 dark:border-gray-600 hover:shadow-lg transition">
-                                <!-- Player Image -->
-                                <div class="flex-shrink-0">
+                                <!-- Player Image (clickable to upload) -->
+                                <div class="flex-shrink-0 relative group cursor-pointer" onclick="document.getElementById('award-img-input-{{ $award->id }}').click()">
                                     @if($award->display_image)
                                         <img src="{{ Storage::url($award->display_image) }}"
                                              alt="{{ $award->display_name }}"
+                                             id="award-img-preview-{{ $award->id }}"
                                              class="w-14 h-14 rounded-full object-cover border-2 border-yellow-400 shadow-md">
                                     @else
-                                        <div class="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-lg font-bold text-gray-600 dark:text-gray-300">
+                                        <div id="award-img-placeholder-{{ $award->id }}" class="w-14 h-14 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-lg font-bold text-gray-600 dark:text-gray-300">
                                             {{ substr($award->display_name, 0, 1) }}
                                         </div>
                                     @endif
+                                    <!-- Camera overlay -->
+                                    <div class="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        </svg>
+                                    </div>
+                                    <input type="file" id="award-img-input-{{ $award->id }}" accept="image/*" class="hidden"
+                                           onchange="uploadAwardImage({{ $award->id }}, this)">
                                 </div>
 
                                 <!-- Award Info -->
@@ -698,6 +708,15 @@
                                            class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
                                 </div>
                                 <div>
+                                    <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Assign to Team</label>
+                                    <select id="customPlayerTeamSelect"
+                                            class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
+                                        <option value="">-- No team --</option>
+                                        <option value="team_a">{{ $match->teamA?->name ?? 'Team A' }}</option>
+                                        <option value="team_b">{{ $match->teamB?->name ?? 'Team B' }}</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Player Photo (optional)</label>
                                     <input type="file" id="customPlayerImageInput" accept="image/*"
                                            class="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100 dark:file:bg-purple-900/30 dark:file:text-purple-300">
@@ -710,6 +729,7 @@
                                 <input type="hidden" name="tournament_award_id" id="apAssignAwardId">
                                 <input type="hidden" name="player_id" id="apAssignPlayerId">
                                 <input type="hidden" name="custom_player_name" id="apAssignCustomName">
+                                <input type="hidden" name="custom_player_team" id="apAssignCustomTeam">
                                 {{-- File input cloned into form on submit --}}
                                 <div class="flex gap-2">
                                     <input type="text" name="remarks" id="apRemarks"
@@ -742,8 +762,8 @@
                                 <p class="text-xs text-gray-400 mt-1">Upload to override. BG auto-removed.</p>
                             </div>
 
-                            {{-- Score Summary (auto-filled) --}}
-                            <div>
+                            {{-- Score Summary (auto-filled) - shown when template uses score placeholders --}}
+                            <div class="ap-field-group hidden" data-placeholders="team_a_score,team_b_score,team_a_score_wickets,team_b_score_wickets">
                                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Score Summary</label>
                                 <div class="grid grid-cols-2 gap-2">
                                     <input type="text" id="apTeamAScore" placeholder="{{ $match->teamA?->name ?? 'Team A' }} Score"
@@ -755,16 +775,16 @@
                                 </div>
                             </div>
 
-                            <div>
+                            <div class="ap-field-group hidden" data-placeholders="result_summary,winner_name,win_margin">
                                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Result Summary</label>
                                 <input type="text" id="apResultSummary" placeholder="e.g. Team A won by 5 runs"
                                        value="{{ $match->result?->result_summary ?? '' }}"
                                        class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-purple-500 focus:border-purple-500">
                             </div>
 
-                            {{-- Batting & Bowling --}}
+                            {{-- Batting & Bowling - shown dynamically based on template --}}
                             <div class="grid grid-cols-2 gap-3">
-                                <div>
+                                <div class="ap-field-group hidden" data-placeholders="batting_figures,batting_runs,batting_balls,batting_fours,batting_sixes">
                                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Batting Figures</label>
                                     <div class="grid grid-cols-4 gap-1">
                                         <input type="number" id="apBatRuns" placeholder="R" title="Runs" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
@@ -773,7 +793,7 @@
                                         <input type="number" id="apBatSixes" placeholder="6s" title="Sixes" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
                                     </div>
                                 </div>
-                                <div>
+                                <div class="ap-field-group hidden" data-placeholders="bowling_figures,bowling_overs,bowling_runs,bowling_maidens,bowling_wickets">
                                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Bowling Figures</label>
                                     <div class="grid grid-cols-4 gap-1">
                                         <input type="text" id="apBowlOvers" placeholder="Ov" title="Overs" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs focus:ring-purple-500 focus:border-purple-500 px-2">
@@ -1076,120 +1096,120 @@
                 </div>
                 @endif
             </div>
-        </div>
 
-        {{-- Award Poster Card --}}
-        @php
-            $awardPosterTemplates = $tournament->templates()
-                ->where('type', 'award_poster')
-                ->where('is_active', true)
-                ->orderByDesc('is_default')
-                ->get();
-        @endphp
-        @if($awardPosterTemplates->count() > 0 && $awards->count() > 0)
-        <div class="card rounded-2xl overflow-hidden mt-4" x-data="{ open: false, selectedAwardTemplate: '{{ $awardPosterTemplates->first()->id }}', selectedAwardId: '{{ $awards->first()->id }}', awardInnings: '1', awardGenerating: false }">
-            <button @click="open = !open" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 px-6 py-4 flex items-center justify-between cursor-pointer">
-                <h3 class="text-white font-bold text-lg flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 3.707a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L8.414 9H10a3 3 0 013 3v1a1 1 0 102 0v-1a5 5 0 00-5-5H8.414l1.293-1.293z" clip-rule="evenodd"/>
-                    </svg>
-                    Award Poster
-                </h3>
-                <svg class="w-5 h-5 text-white transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
-            </button>
-
-            <div x-show="open" x-collapse class="p-4">
-                {{-- Award/Player Selector --}}
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Award</label>
-                    <select x-model="selectedAwardId" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500">
-                        @foreach($awards as $award)
-                            <option value="{{ $award->id }}">{{ $award->tournamentAward?->icon }} {{ $award->tournamentAward?->name }} — {{ $award->display_name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Template Selector --}}
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Template</label>
-                <div class="grid grid-cols-{{ min($awardPosterTemplates->count(), 3) }} gap-2 mb-4">
-                    @foreach($awardPosterTemplates as $tmpl)
-                        <button type="button"
-                                @click="selectedAwardTemplate = '{{ $tmpl->id }}'"
-                                :class="selectedAwardTemplate === '{{ $tmpl->id }}' ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-gray-800' : ''"
-                                class="relative aspect-[3/4] rounded-lg overflow-hidden transition-all hover:scale-105 focus:outline-none border border-gray-200 dark:border-gray-700">
-                            @if($tmpl->background_image)
-                                <img src="{{ asset('storage/' . $tmpl->background_image) }}" class="w-full h-full object-cover" alt="{{ $tmpl->name }}">
-                            @else
-                                <div class="w-full h-full bg-gradient-to-br from-amber-500 to-yellow-500"></div>
-                            @endif
-                            <span class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center text-xs py-1 font-medium truncate px-1">{{ $tmpl->name }}</span>
-                            @if($tmpl->is_default)
-                                <span class="absolute top-1 right-1 bg-yellow-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">Default</span>
-                            @endif
-                        </button>
-                    @endforeach
-                </div>
-
-                {{-- Innings Selector --}}
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                        <svg class="w-4 h-4 mr-1.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+            {{-- Award Poster Card (inside sticky container for scrollability) --}}
+            @php
+                $awardPosterTemplates = $tournament->templates()
+                    ->where('type', 'award_poster')
+                    ->where('is_active', true)
+                    ->orderByDesc('is_default')
+                    ->get();
+            @endphp
+            @if($awardPosterTemplates->count() > 0 && $awards->count() > 0)
+            <div class="rounded-2xl overflow-hidden mt-4 border border-amber-200 dark:border-amber-700" x-data="{ open: false, selectedAwardTemplate: '{{ $awardPosterTemplates->first()->id }}', selectedAwardId: '{{ $awards->first()->id }}', awardInnings: '1', awardGenerating: false }">
+                <button @click="open = !open" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 px-6 py-4 flex items-center justify-between cursor-pointer">
+                    <h3 class="text-white font-bold text-lg flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 3.707a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L8.414 9H10a3 3 0 013 3v1a1 1 0 102 0v-1a5 5 0 00-5-5H8.414l1.293-1.293z" clip-rule="evenodd"/>
                         </svg>
-                        Innings View
-                    </label>
-                    <select x-model="awardInnings" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500">
-                        <option value="1">1st Innings (Batting First on Left)</option>
-                        <option value="2">2nd Innings (Chasing Team on Left)</option>
-                    </select>
-                </div>
-
-                <button type="button"
-                        @click="
-                            awardGenerating = true;
-                            const formData = new FormData();
-                            formData.append('_token', '{{ csrf_token() }}');
-                            formData.append('template_id', selectedAwardTemplate);
-                            formData.append('innings', awardInnings);
-                            formData.append('award_id', selectedAwardId);
-                            fetch('{{ route('admin.matches.summary.generate-award-poster', $match) }}', { method: 'POST', body: formData })
-                                .then(r => { if (!r.ok) throw new Error('Failed'); return r.blob(); })
-                                .then(blob => {
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url; a.download = 'award-poster-{{ $match->id }}.png';
-                                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                    showToast('Award poster downloaded!', 'success');
-                                })
-                                .catch(e => showToast('Failed to generate poster', 'error'))
-                                .finally(() => awardGenerating = false);
-                        "
-                        :disabled="awardGenerating"
-                        class="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 text-white font-semibold rounded-xl transition flex items-center justify-center shadow-lg">
-                    <template x-if="!awardGenerating">
-                        <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                            </svg>
-                            Generate & Download
-                        </span>
-                    </template>
-                    <template x-if="awardGenerating">
-                        <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Generating...
-                        </span>
-                    </template>
+                        Award Poster
+                    </h3>
+                    <svg class="w-5 h-5 text-white transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
                 </button>
+
+                <div x-show="open" x-collapse class="p-4">
+                    {{-- Award/Player Selector --}}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Award</label>
+                        <select x-model="selectedAwardId" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500">
+                            @foreach($awards as $award)
+                                <option value="{{ $award->id }}">{{ $award->tournamentAward?->icon }} {{ $award->tournamentAward?->name }} — {{ $award->display_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Template Selector --}}
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Template</label>
+                    <div class="grid grid-cols-{{ min($awardPosterTemplates->count(), 3) }} gap-2 mb-4">
+                        @foreach($awardPosterTemplates as $tmpl)
+                            <button type="button"
+                                    @click="selectedAwardTemplate = '{{ $tmpl->id }}'"
+                                    :class="selectedAwardTemplate === '{{ $tmpl->id }}' ? 'ring-2 ring-amber-500 ring-offset-2 dark:ring-offset-gray-800' : ''"
+                                    class="relative aspect-[3/4] rounded-lg overflow-hidden transition-all hover:scale-105 focus:outline-none border border-gray-200 dark:border-gray-700">
+                                @if($tmpl->background_image)
+                                    <img src="{{ asset('storage/' . $tmpl->background_image) }}" class="w-full h-full object-cover" alt="{{ $tmpl->name }}">
+                                @else
+                                    <div class="w-full h-full bg-gradient-to-br from-amber-500 to-yellow-500"></div>
+                                @endif
+                                <span class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center text-xs py-1 font-medium truncate px-1">{{ $tmpl->name }}</span>
+                                @if($tmpl->is_default)
+                                    <span class="absolute top-1 right-1 bg-yellow-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">Default</span>
+                                @endif
+                            </button>
+                        @endforeach
+                    </div>
+
+                    {{-- Innings Selector --}}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                            <svg class="w-4 h-4 mr-1.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                            </svg>
+                            Innings View
+                        </label>
+                        <select x-model="awardInnings" class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500">
+                            <option value="1">1st Innings (Batting First on Left)</option>
+                            <option value="2">2nd Innings (Chasing Team on Left)</option>
+                        </select>
+                    </div>
+
+                    <button type="button"
+                            @click="
+                                awardGenerating = true;
+                                const formData = new FormData();
+                                formData.append('_token', '{{ csrf_token() }}');
+                                formData.append('template_id', selectedAwardTemplate);
+                                formData.append('innings', awardInnings);
+                                formData.append('award_id', selectedAwardId);
+                                fetch('{{ route('admin.matches.summary.generate-award-poster', $match) }}', { method: 'POST', body: formData })
+                                    .then(r => { if (!r.ok) throw new Error('Failed'); return r.blob(); })
+                                    .then(blob => {
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url; a.download = 'award-poster-{{ $match->id }}.png';
+                                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                        showToast('Award poster downloaded!', 'success');
+                                    })
+                                    .catch(e => showToast('Failed to generate poster', 'error'))
+                                    .finally(() => awardGenerating = false);
+                            "
+                            :disabled="awardGenerating"
+                            class="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 text-white font-semibold rounded-xl transition flex items-center justify-center shadow-lg">
+                        <template x-if="!awardGenerating">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Generate & Download
+                            </span>
+                        </template>
+                        <template x-if="awardGenerating">
+                            <span class="flex items-center">
+                                <svg class="w-5 h-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Generating...
+                            </span>
+                        </template>
+                    </button>
+                </div>
             </div>
+            @endif
         </div>
-        @endif
     </div>
 </div>
 
@@ -1277,6 +1297,19 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 4000);
 }
 
+// ===== Dynamic Template Fields =====
+const templatePlaceholderMap = @json($templatePlaceholderMap ?? []);
+
+function updateDynamicFields() {
+    const templateInput = document.querySelector('input[name="ap_template_id"]:checked');
+    const placeholders = templateInput ? (templatePlaceholderMap[templateInput.value] || []) : [];
+    document.querySelectorAll('.ap-field-group').forEach(group => {
+        const groupPlaceholders = (group.dataset.placeholders || '').split(',');
+        const hasMatch = groupPlaceholders.some(p => placeholders.includes(p.trim()));
+        group.classList.toggle('hidden', !hasMatch);
+    });
+}
+
 // ===== Inline Award Poster Generator =====
 let apSelectedTemplateId = null;
 let apGeneratedImageBase64 = null;
@@ -1302,12 +1335,16 @@ let apGeneratedImageBase64 = null;
                 `).join('');
                 apSelectedTemplateId = data.templates[0].id;
 
-                // Track template selection
+                // Track template selection and update dynamic fields
                 container.addEventListener('change', function(e) {
                     if (e.target.name === 'ap_template_id') {
                         apSelectedTemplateId = e.target.value;
+                        updateDynamicFields();
                     }
                 });
+
+                // Initial dynamic fields update
+                updateDynamicFields();
             } else {
                 container.innerHTML = `<p class="col-span-3 text-xs text-gray-400">No award poster templates found. <a href="{{ route('admin.tournaments.templates.create', $tournament) }}?type=award_poster" class="text-purple-500 hover:underline">Create one</a></p>`;
             }
@@ -1387,6 +1424,7 @@ document.getElementById('apAssignForm')?.addEventListener('submit', function(e) 
         // Sync custom fields to form
         document.getElementById('apAssignCustomName').value = customName;
         document.getElementById('apAssignPlayerId').value = '';
+        document.getElementById('apAssignCustomTeam').value = document.getElementById('customPlayerTeamSelect')?.value || '';
 
         // Move custom image file input into the form
         const customImageInput = document.getElementById('customPlayerImageInput');
@@ -1538,6 +1576,59 @@ function downloadAwardPoster() {
     link.click();
     document.body.removeChild(link);
     showToast('Award poster downloaded!', 'success');
+}
+
+// --- Upload Player Image for Award ---
+async function uploadAwardImage(awardId, input) {
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('Image must be less than 5MB', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('_token', '{{ csrf_token() }}');
+
+    // Show loading state on the image
+    const placeholder = document.getElementById('award-img-placeholder-' + awardId);
+    const preview = document.getElementById('award-img-preview-' + awardId);
+    if (placeholder) placeholder.innerHTML = '<svg class="w-5 h-5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>';
+
+    try {
+        const res = await fetch(`/admin/matches/{{ $match->id }}/summary/award/${awardId}/update-image`, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: formData,
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Replace placeholder with actual image
+            const container = input.parentElement;
+            if (placeholder) placeholder.remove();
+            if (preview) {
+                preview.src = data.image_url;
+            } else {
+                const img = document.createElement('img');
+                img.src = data.image_url;
+                img.alt = 'Player';
+                img.id = 'award-img-preview-' + awardId;
+                img.className = 'w-14 h-14 rounded-full object-cover border-2 border-yellow-400 shadow-md';
+                container.insertBefore(img, container.firstChild);
+            }
+        } else {
+            showToast(data.message || 'Failed to upload image.', 'error');
+            if (placeholder) placeholder.textContent = placeholder.dataset.initial || '?';
+        }
+    } catch (err) {
+        showToast('Error uploading image: ' + err.message, 'error');
+    }
+
+    input.value = '';
 }
 
 // --- Auto-Assign Awards from CricHeroes ---

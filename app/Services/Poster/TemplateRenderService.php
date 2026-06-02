@@ -124,6 +124,9 @@ class TemplateRenderService extends PosterGeneratorService
         } elseif ($type === 'scorecardTable') {
             $this->renderScorecardTable($canvas, $element, $data, $canvasWidth, $canvasHeight);
             return;
+        } elseif ($type === 'fixtureArea' || ($placeholder === 'fixture_area' && is_array($data['fixture_area'] ?? null))) {
+            $this->renderFixtureArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
+            return;
         }
 
         // Get value from data, element's static text, or placeholder display
@@ -144,7 +147,10 @@ class TemplateRenderService extends PosterGeneratorService
             $value = $data[$placeholder] ?? ($staticText ?: $this->getDisplayValue($placeholder));
         }
 
-        // Ensure value is always a string
+        // Ensure value is always a string — skip array data (handled by special element types)
+        if (is_array($value)) {
+            return;
+        }
         $value = (string) ($value ?? '');
 
         if ($type === 'icon') {
@@ -1880,6 +1886,10 @@ class TemplateRenderService extends PosterGeneratorService
                 $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleBowlingData();
                 continue;
             }
+            if ($placeholder === 'fixture_area') {
+                $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleFixtureData();
+                continue;
+            }
             $data[$placeholder] = $customData[$placeholder] ?? $this->getDisplayValue($placeholder);
         }
 
@@ -1921,6 +1931,322 @@ class TemplateRenderService extends PosterGeneratorService
             ['name' => 'Mohammed S.', 'overs' => '4.0', 'runs' => 32, 'wickets' => 2, 'economy' => '8.00'],
             ['name' => 'Ravindra J.', 'overs' => '3.0', 'runs' => 22, 'wickets' => 1, 'economy' => '7.33'],
         ];
+    }
+
+    /**
+     * Get sample fixture data for preview
+     */
+    protected function getSampleFixtureData(): array
+    {
+        return [
+            ['team_a' => 'Royal Strikers', 'team_b' => 'Thunder Kings', 'team_a_logo' => '', 'team_b_logo' => '', 'date' => 'Jun 15, 2026', 'time' => '06:00 PM', 'venue' => 'City Stadium', 'match_number' => '1'],
+            ['team_a' => 'Mountrich CC', 'team_b' => 'Canadian CC', 'team_a_logo' => '', 'team_b_logo' => '', 'date' => 'Jun 16, 2026', 'time' => '06:00 PM', 'venue' => 'City Stadium', 'match_number' => '2'],
+            ['team_a' => 'Thunder Kings', 'team_b' => 'Canadian CC', 'team_a_logo' => '', 'team_b_logo' => '', 'date' => 'Jun 17, 2026', 'time' => '06:00 PM', 'venue' => 'Sports Ground', 'match_number' => '3'],
+            ['team_a' => 'Royal Strikers', 'team_b' => 'Mountrich CC', 'team_a_logo' => '', 'team_b_logo' => '', 'date' => 'Jun 18, 2026', 'time' => '06:00 PM', 'venue' => 'Sports Ground', 'match_number' => '4'],
+            ['team_a' => 'Canadian CC', 'team_b' => 'Royal Strikers', 'team_a_logo' => '', 'team_b_logo' => '', 'date' => 'Jun 19, 2026', 'time' => '06:00 PM', 'venue' => 'City Stadium', 'match_number' => '5'],
+        ];
+    }
+
+    /**
+     * Render fixture area — dispatches to row or card layout
+     */
+    protected function renderFixtureArea(\GdImage $canvas, array $element, array $data, int $canvasWidth, int $canvasHeight): void
+    {
+        $config = $element['fixtureConfig'] ?? [];
+        $fixtures = $data['fixture_area'] ?? [];
+        if (is_string($fixtures)) {
+            $fixtures = json_decode($fixtures, true) ?? [];
+        }
+
+        $layout = $config['layout'] ?? 'row';
+
+        if ($layout === 'card') {
+            $this->renderFixtureCards($canvas, $element, $config, $fixtures, $canvasWidth, $canvasHeight);
+        } else {
+            $this->renderFixtureRows($canvas, $element, $config, $fixtures, $canvasWidth, $canvasHeight);
+        }
+    }
+
+    /**
+     * Render fixture area as row list
+     * Layout: [Team A logo + name] — [Date / Time / Venue center] — [Team B name + logo]
+     */
+    protected function renderFixtureRows(\GdImage $canvas, array $element, array $config, array $fixtures, int $canvasWidth, int $canvasHeight): void
+    {
+        $maxRows = (int) ($config['maxRows'] ?? 10);
+        $transparentBg = ($config['transparentBg'] ?? true);
+        $rowBg = $config['rowBg'] ?? '#0a1628';
+        $altRowBg = $config['altRowBg'] ?? '#0f1d33';
+        $textColor = $config['textColor'] ?? '#ffffff';
+        $accentColor = $config['accentColor'] ?? '#d4a843';
+        $mutedColor = $config['mutedColor'] ?? '#8899aa';
+        $dividerColor = $config['dividerColor'] ?? $accentColor;
+        $fontSize = (int) (($config['fontSize'] ?? 16) * $this->renderScale);
+        $rowHeight = (int) (($config['rowHeight'] ?? 100) * $this->renderScale);
+        $showMatchNum = !empty($config['showMatchNum']);
+
+        // Calculate element area
+        $hasExplicitSize = isset($element['width']) && isset($element['height']);
+        $defaultWidth = (int) ($canvasWidth * 0.88 / $this->renderScale);
+        $areaWidth = (int) (($element['width'] ?? $defaultWidth) * $this->renderScale);
+
+        if ($hasExplicitSize) {
+            $areaHeight = (int) ($element['height'] * $this->renderScale);
+            $centerX = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
+            $centerY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+            $areaX = (int) ($centerX - $areaWidth / 2);
+            $areaY = (int) ($centerY - $areaHeight / 2);
+        } else {
+            $areaX = (int) ((($element['x'] ?? 50) / 100 * $canvasWidth) - $areaWidth / 2);
+            $areaY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+            $areaHeight = $canvasHeight - $areaY;
+        }
+
+        $boldFont = 'Montserrat-Bold.ttf';
+        $mediumFont = 'Montserrat-Medium.ttf';
+        $regularFont = 'Montserrat-Regular.ttf';
+        $scale = $this->renderScale;
+
+        // Font sizes — bigger, more readable
+        $teamNameSize = (int) ($fontSize * 1.0);
+        $dateSize = (int) ($fontSize * 0.78);
+        $timeSize = (int) ($fontSize * 0.72);
+        $venueSize = (int) ($fontSize * 0.65);
+        $logoDiameter = (int) ($rowHeight * 0.50);
+        $padding = (int) (16 * $scale);
+
+        $currentY = $areaY;
+        $rows = array_slice($fixtures, 0, $maxRows);
+
+        if (empty($rows)) {
+            $this->addText($canvas, 'No upcoming fixtures', $areaX + (int)($areaWidth / 2), $currentY + (int)(40 * $scale), $fontSize, $mutedColor, $mediumFont, 'center');
+            return;
+        }
+
+        // Layout: 3 zones — left team (35%), center info (30%), right team (35%)
+        $teamZoneW = (int)($areaWidth * 0.35);
+        $centerZoneW = $areaWidth - (2 * $teamZoneW);
+
+        $midX = $areaX + (int)($areaWidth / 2);
+        $leftZoneEnd = $areaX + $teamZoneW;
+        $rightZoneStart = $areaX + $teamZoneW + $centerZoneW;
+
+        foreach ($rows as $index => $fixture) {
+            $rowTop = $currentY;
+            $rowBottom = $rowTop + $rowHeight;
+            if ($rowBottom > $areaY + $areaHeight) break;
+
+            $teamAName = $fixture['team_a'] ?? 'TBD';
+            $teamBName = $fixture['team_b'] ?? 'TBD';
+            $dateStr = $fixture['date'] ?? '';
+            $timeStr = $fixture['time'] ?? '';
+            $venue = $fixture['venue'] ?? '';
+            $matchNum = $fixture['match_number'] ?? ($index + 1);
+            $rowMidY = $rowTop + (int)($rowHeight / 2);
+
+            // === ROW BACKGROUND ===
+            if (!$transparentBg) {
+                $bgHex = ($index % 2 === 0) ? $rowBg : $altRowBg;
+                imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $this->parseColor($canvas, $bgHex));
+            }
+
+            // === LEFT: Team A (logo + name, right-aligned toward center) ===
+            $logoAX = $leftZoneEnd - $padding - (int)($logoDiameter / 2);
+            if (!empty($fixture['team_a_logo'])) {
+                $this->addCircularImage($canvas, $fixture['team_a_logo'], $logoAX, $rowMidY, $logoDiameter);
+            } else {
+                imagefilledellipse($canvas, $logoAX, $rowMidY, $logoDiameter, $logoDiameter, $this->parseColor($canvas, '#1e3a5f'));
+                $this->addText($canvas, mb_substr($teamAName, 0, 1), $logoAX, $rowMidY, (int)($logoDiameter * 0.38), '#ffffff', $boldFont, 'center');
+            }
+            // Team A name (left of logo)
+            $nameAX = $logoAX - (int)($logoDiameter / 2) - (int)(10 * $scale);
+            $this->addText($canvas, $teamAName, $nameAX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'right');
+
+            // === CENTER: Date, Time, Venue (stacked vertically) ===
+            $centerLineY = $rowMidY;
+            $lineGap = (int)(4 * $scale);
+
+            if ($dateStr && $timeStr && $venue) {
+                // 3 lines: date, time, venue
+                $this->addText($canvas, $dateStr, $midX, $centerLineY - $dateSize - $lineGap, $dateSize, $accentColor, $boldFont, 'center');
+                $this->addText($canvas, $timeStr, $midX, $centerLineY, $timeSize, $textColor, $mediumFont, 'center');
+                $this->addText($canvas, $venue, $midX, $centerLineY + $timeSize + $lineGap, $venueSize, $mutedColor, $regularFont, 'center');
+            } elseif ($dateStr || $timeStr) {
+                // 2 lines: date+time, venue
+                $dtStr = trim($dateStr . ($timeStr ? '  |  ' . $timeStr : ''));
+                $this->addText($canvas, $dtStr, $midX, $venue ? $centerLineY - (int)($timeSize * 0.5) : $centerLineY, $dateSize, $accentColor, $boldFont, 'center');
+                if ($venue) {
+                    $this->addText($canvas, $venue, $midX, $centerLineY + (int)($dateSize * 0.7), $venueSize, $mutedColor, $regularFont, 'center');
+                }
+            }
+
+            // === RIGHT: Team B (name + logo, left-aligned from center) ===
+            $logoBX = $rightZoneStart + $padding + (int)($logoDiameter / 2);
+            if (!empty($fixture['team_b_logo'])) {
+                $this->addCircularImage($canvas, $fixture['team_b_logo'], $logoBX, $rowMidY, $logoDiameter);
+            } else {
+                imagefilledellipse($canvas, $logoBX, $rowMidY, $logoDiameter, $logoDiameter, $this->parseColor($canvas, '#1e3a5f'));
+                $this->addText($canvas, mb_substr($teamBName, 0, 1), $logoBX, $rowMidY, (int)($logoDiameter * 0.38), '#ffffff', $boldFont, 'center');
+            }
+            // Team B name (right of logo)
+            $nameBX = $logoBX + (int)($logoDiameter / 2) + (int)(10 * $scale);
+            $this->addText($canvas, $teamBName, $nameBX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'left');
+
+            // === DIVIDER LINE ===
+            if ($index < count($rows) - 1) {
+                $divRgb = $this->hexToRgb($dividerColor);
+                $divCol = imagecolorallocatealpha($canvas, $divRgb['r'], $divRgb['g'], $divRgb['b'], 90);
+                $lineY = $rowBottom;
+                $lineInset = (int)(30 * $scale);
+                imageline($canvas, $areaX + $lineInset, $lineY, $areaX + $areaWidth - $lineInset, $lineY, $divCol);
+            }
+
+            $currentY += $rowHeight;
+        }
+    }
+
+    /**
+     * Render fixture area as card grid layout
+     * Each card: [Match N] header bar, Team A logo + name VS Team B logo + name, date/time, venue
+     */
+    protected function renderFixtureCards(\GdImage $canvas, array $element, array $config, array $fixtures, int $canvasWidth, int $canvasHeight): void
+    {
+        $maxItems = (int) ($config['maxRows'] ?? 6);
+        $columns = (int) ($config['cardColumns'] ?? 2);
+        $transparentBg = !empty($config['transparentBg']);
+        $rowBg = $config['rowBg'] ?? '#0f1d33';
+        $textColor = $config['textColor'] ?? '#ffffff';
+        $accentColor = $config['accentColor'] ?? '#d4a843';
+        $mutedColor = $config['mutedColor'] ?? '#8899aa';
+        $matchBadgeBg = $config['matchBadgeBg'] ?? '#ffffff';
+        $matchBadgeText = $config['matchBadgeText'] ?? '#0a1628';
+        $headerBg = $config['headerBg'] ?? '#1e40af';
+        $headerText = $config['headerText'] ?? '#ffffff';
+        $fontSize = (int) (($config['fontSize'] ?? 14) * $this->renderScale);
+
+        // Calculate element area
+        $hasExplicitSize = isset($element['width']) && isset($element['height']);
+        $defaultWidth = (int) ($canvasWidth * 0.88 / $this->renderScale);
+        $areaWidth = (int) (($element['width'] ?? $defaultWidth) * $this->renderScale);
+
+        if ($hasExplicitSize) {
+            $areaHeight = (int) ($element['height'] * $this->renderScale);
+            $centerX = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
+            $centerY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+            $areaX = (int) ($centerX - $areaWidth / 2);
+            $areaY = (int) ($centerY - $areaHeight / 2);
+        } else {
+            $areaX = (int) ((($element['x'] ?? 50) / 100 * $canvasWidth) - $areaWidth / 2);
+            $areaY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+            $areaHeight = $canvasHeight - $areaY;
+        }
+
+        $boldFont = 'Montserrat-Bold.ttf';
+        $mediumFont = 'Montserrat-Medium.ttf';
+        $regularFont = 'Montserrat-Regular.ttf';
+        $scale = $this->renderScale;
+
+        $cards = array_slice($fixtures, 0, $maxItems);
+        if (empty($cards)) {
+            if (!$transparentBg) {
+                imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + (int)(80 * $scale), $this->parseColor($canvas, $rowBg));
+            }
+            $this->addText($canvas, 'No upcoming fixtures', $areaX + (int)($areaWidth / 2), $areaY + (int)(40 * $scale), $fontSize, '#888888', $mediumFont, 'center');
+            return;
+        }
+
+        // Card grid layout
+        $gap = (int)(12 * $scale);
+        $cardW = (int)(($areaWidth - ($columns - 1) * $gap) / $columns);
+        $headerBarH = (int)(32 * $scale);
+        $teamsRowH = (int)(70 * $scale);
+        $infoRowH = (int)(44 * $scale);
+        $cardH = $headerBarH + $teamsRowH + $infoRowH;
+
+        $logoDiam = (int)($teamsRowH * 0.6);
+        $teamFontSize = (int) ($fontSize * 0.78);
+        $vsFontSize = (int) ($fontSize * 0.7);
+        $dateFontSize = (int) ($fontSize * 0.65);
+        $venueFontSize = (int) ($fontSize * 0.58);
+        $matchLabelSize = (int) ($fontSize * 0.6);
+
+        foreach ($cards as $index => $fixture) {
+            $col = $index % $columns;
+            $row = (int)($index / $columns);
+
+            $cardX = $areaX + $col * ($cardW + $gap);
+            $cardY = $areaY + $row * ($cardH + $gap);
+
+            // Skip if card goes beyond area
+            if ($cardY + $cardH > $areaY + $areaHeight) break;
+
+            $teamAName = $fixture['team_a'] ?? 'TBD';
+            $teamBName = $fixture['team_b'] ?? 'TBD';
+            $dateStr = $fixture['date'] ?? '';
+            $timeStr = $fixture['time'] ?? '';
+            $venue = $fixture['venue'] ?? '';
+            $matchNum = $fixture['match_number'] ?? ($index + 1);
+
+            // ====== CARD BACKGROUND ======
+            if (!$transparentBg) {
+                imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $this->parseColor($canvas, $rowBg));
+            }
+
+            // ====== HEADER BAR: "MATCH N" with accent bg ======
+            $hdrRgb = $this->hexToRgb($headerBg);
+            $hdrCol = imagecolorallocate($canvas, $hdrRgb['r'], $hdrRgb['g'], $hdrRgb['b']);
+            imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $headerBarH, $hdrCol);
+            $this->addText($canvas, 'MATCH ' . $matchNum, $cardX + (int)($cardW / 2), $cardY + (int)($headerBarH / 2), $matchLabelSize, $headerText, $boldFont, 'center');
+
+            // ====== TEAMS ROW: [Logo A] [Name A]  VS  [Name B] [Logo B] ======
+            $teamsCenterY = $cardY + $headerBarH + (int)($teamsRowH / 2);
+            $cardCenterX = $cardX + (int)($cardW / 2);
+
+            // VS badge (center)
+            $vsR = (int)(14 * $scale);
+            $acRgb = $this->hexToRgb($accentColor);
+            $vsBadge = imagecolorallocate($canvas, $acRgb['r'], $acRgb['g'], $acRgb['b']);
+            imagefilledellipse($canvas, $cardCenterX, $teamsCenterY, $vsR * 2, $vsR * 2, $vsBadge);
+            $this->addText($canvas, 'VS', $cardCenterX, $teamsCenterY, (int)($vsFontSize * 0.6), '#000000', $boldFont, 'center');
+
+            // Team A: logo + name (left half)
+            $leftHalfW = (int)(($cardW / 2) - $vsR - (8 * $scale));
+            $logoAX = $cardX + (int)($leftHalfW * 0.35);
+            if (!empty($fixture['team_a_logo'])) {
+                $this->addCircularImage($canvas, $fixture['team_a_logo'], $logoAX, $teamsCenterY - (int)(6 * $scale), $logoDiam);
+            } else {
+                imagefilledellipse($canvas, $logoAX, $teamsCenterY - (int)(6 * $scale), $logoDiam, $logoDiam, $this->parseColor($canvas, '#1a2d4a'));
+                $this->addText($canvas, mb_substr($teamAName, 0, 1), $logoAX, $teamsCenterY - (int)(6 * $scale), (int)($logoDiam * 0.4), '#ffffff', $boldFont, 'center');
+            }
+            // Team A name (below logo)
+            $this->addText($canvas, $teamAName, $logoAX, $teamsCenterY + (int)($logoDiam * 0.42), (int)($teamFontSize * 0.82), $textColor, $boldFont, 'center');
+
+            // Team B: logo + name (right half)
+            $logoBX = $cardX + $cardW - (int)($leftHalfW * 0.35);
+            if (!empty($fixture['team_b_logo'])) {
+                $this->addCircularImage($canvas, $fixture['team_b_logo'], $logoBX, $teamsCenterY - (int)(6 * $scale), $logoDiam);
+            } else {
+                imagefilledellipse($canvas, $logoBX, $teamsCenterY - (int)(6 * $scale), $logoDiam, $logoDiam, $this->parseColor($canvas, '#1a2d4a'));
+                $this->addText($canvas, mb_substr($teamBName, 0, 1), $logoBX, $teamsCenterY - (int)(6 * $scale), (int)($logoDiam * 0.4), '#ffffff', $boldFont, 'center');
+            }
+            $this->addText($canvas, $teamBName, $logoBX, $teamsCenterY + (int)($logoDiam * 0.42), (int)($teamFontSize * 0.82), $textColor, $boldFont, 'center');
+
+            // ====== INFO ROW: Date/Time + Venue ======
+            $infoY = $cardY + $headerBarH + $teamsRowH;
+            $infoCenterY = $infoY + (int)($infoRowH / 2);
+
+            // Subtle top border
+            $borderCol = imagecolorallocatealpha($canvas, 255, 255, 255, 110);
+            imageline($canvas, $cardX + (int)(10 * $scale), $infoY, $cardX + $cardW - (int)(10 * $scale), $infoY, $borderCol);
+
+            $dateTimeStr = trim($dateStr . ($timeStr ? '  |  ' . $timeStr : ''));
+            if ($dateTimeStr) {
+                $this->addText($canvas, $dateTimeStr, $cardCenterX, $infoCenterY - (int)(7 * $scale), $dateFontSize, $accentColor, $mediumFont, 'center');
+            }
+            if ($venue) {
+                $this->addText($canvas, $venue, $cardCenterX, $infoCenterY + (int)(9 * $scale), $venueFontSize, $mutedColor, $regularFont, 'center');
+            }
+        }
     }
 
     /**

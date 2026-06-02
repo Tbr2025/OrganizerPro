@@ -27,7 +27,7 @@
                     Select Poster Type
                 </h3>
 
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-3" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-3" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
                     <button type="button" @click="type = 'match_poster'; updateType('match_poster')"
                             :class="type === 'match_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
                             class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
@@ -71,6 +71,15 @@
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
                         </div>
                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Point Table</span>
+                    </button>
+
+                    <button type="button" @click="type = 'fixtures_poster'; updateType('fixtures_poster')"
+                            :class="type === 'fixtures_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
+                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
+                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-teal-500 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Fixtures</span>
                     </button>
                 </div>
             </div>
@@ -417,6 +426,64 @@
                         <p class="text-sm text-gray-500 mt-2">No groups found. <a href="{{ route('admin.tournaments.groups.index', $tournament) }}" class="text-purple-600 hover:underline">Create groups first</a>.</p>
                     @endif
                 </div>
+
+                {{-- Fixtures Poster Controls --}}
+                <div id="fixturesSelection" class="hidden space-y-5" x-data="{ fixtureCount: '5', customCount: '', fixtureLayout: 'row' }">
+                    {{-- Design Layout --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Design Layout</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" @click="fixtureLayout = 'row'"
+                                :class="fixtureLayout === 'row' ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 ring-2 ring-teal-500' : 'border-gray-200 dark:border-gray-700 hover:border-teal-300'"
+                                class="border-2 rounded-xl p-3 transition text-left">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">Row List</span>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="h-2 bg-gray-200 dark:bg-gray-600 rounded w-full"></div>
+                                    <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded w-full"></div>
+                                    <div class="h-2 bg-gray-200 dark:bg-gray-600 rounded w-full"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">IPL-style horizontal rows</p>
+                            </button>
+                            <button type="button" @click="fixtureLayout = 'card'"
+                                :class="fixtureLayout === 'card' ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 ring-2 ring-teal-500' : 'border-gray-200 dark:border-gray-700 hover:border-teal-300'"
+                                class="border-2 rounded-xl p-3 transition text-left">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                                    <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">Card Grid</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-1">
+                                    <div class="h-4 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                                    <div class="h-4 bg-gray-200 dark:bg-gray-600 rounded"></div>
+                                    <div class="h-4 bg-gray-100 dark:bg-gray-700 rounded"></div>
+                                    <div class="h-4 bg-gray-100 dark:bg-gray-700 rounded"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Match cards in grid</p>
+                            </button>
+                        </div>
+                        <input type="hidden" id="fixtureLayoutValue" :value="fixtureLayout" value="row">
+                    </div>
+
+                    {{-- Match Count --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Number of Upcoming Matches</label>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="fixtureCount = '5'; customCount = ''" :class="fixtureCount === '5' ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="px-4 py-2 rounded-lg text-sm font-medium transition">5</button>
+                            <button type="button" @click="fixtureCount = '10'; customCount = ''" :class="fixtureCount === '10' ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="px-4 py-2 rounded-lg text-sm font-medium transition">10</button>
+                            <button type="button" @click="fixtureCount = 'all'; customCount = ''" :class="fixtureCount === 'all' ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="px-4 py-2 rounded-lg text-sm font-medium transition">All</button>
+                            <input type="number" min="1" max="50" placeholder="Custom"
+                                   x-model="customCount"
+                                   @input="fixtureCount = 'custom'"
+                                   :class="fixtureCount === 'custom' ? 'border-teal-500 ring-1 ring-teal-500' : 'border-gray-300 dark:border-gray-600'"
+                                   class="w-20 rounded-lg dark:bg-gray-700 text-sm px-2 py-2">
+                            <input type="hidden" id="fixtureCountValue" value="5"
+                                   :value="fixtureCount === 'custom' ? customCount : (fixtureCount === 'all' ? '100' : fixtureCount)">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Upcoming matches will be rendered into the Fixture Area element on the template.</p>
+                </div>
             </div>
 
             {{-- Template Selection --}}
@@ -558,6 +625,7 @@ function updateType(type) {
     document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card');
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
     document.getElementById('groupSelection').classList.toggle('hidden', type !== 'point_table');
+    document.getElementById('fixturesSelection').classList.toggle('hidden', type !== 'fixtures_poster');
 
     // Show/hide innings selector
     showInningsSelector();
@@ -824,6 +892,9 @@ function getSelectedData() {
             data.group_id = selected.value;
             data.group_name = selected.dataset.name;
         }
+    } else if (currentType === 'fixtures_poster') {
+        data.fixture_count = document.getElementById('fixtureCountValue')?.value || '5';
+        data.fixture_layout = document.getElementById('fixtureLayoutValue')?.value || 'row';
     }
 
     // Get selected template
@@ -947,6 +1018,7 @@ function showDataSummary(data) {
     if (data.team_name) html += `<p>Team: ${data.team_name}</p>`;
     if (data.award_name) html += `<p>Award: ${data.award_name}</p>`;
     if (data.group_name) html += `<p>Group: <strong>${data.group_name}</strong></p>`;
+    if (data.fixture_count) html += `<p>Fixtures: <strong>${data.fixture_count === '100' ? 'All' : data.fixture_count} upcoming matches</strong> (${data.fixture_layout === 'card' ? 'Card Grid' : 'Row List'})</p>`;
 
     if (html) {
         content.innerHTML = html;

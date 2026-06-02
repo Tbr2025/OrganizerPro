@@ -39,6 +39,7 @@ class TournamentTemplate extends Model
     public const TYPE_FLYER = 'flyer';
     public const TYPE_CHAMPIONS_POSTER = 'champions_poster';
     public const TYPE_POINT_TABLE = 'point_table';
+    public const TYPE_FIXTURES_POSTER = 'fixtures_poster';
 
     public const TYPES = [
         self::TYPE_WELCOME_CARD,
@@ -48,6 +49,7 @@ class TournamentTemplate extends Model
         self::TYPE_FLYER,
         self::TYPE_CHAMPIONS_POSTER,
         self::TYPE_POINT_TABLE,
+        self::TYPE_FIXTURES_POSTER,
     ];
 
     /**
@@ -237,6 +239,11 @@ class TournamentTemplate extends Model
                 'table_data', // JSON array of teams with stats
                 'last_updated',
             ],
+            self::TYPE_FIXTURES_POSTER => [
+                'tournament_name',
+                'tournament_logo',
+                'fixture_area',
+            ],
             default => [],
         };
     }
@@ -283,6 +290,11 @@ class TournamentTemplate extends Model
         return $query->where('type', self::TYPE_POINT_TABLE);
     }
 
+    public function scopeFixturesPosters($query)
+    {
+        return $query->where('type', self::TYPE_FIXTURES_POSTER);
+    }
+
     public function scopeDefault($query)
     {
         return $query->where('is_default', true);
@@ -322,6 +334,7 @@ class TournamentTemplate extends Model
             self::TYPE_FLYER => 'Tournament Flyer',
             self::TYPE_CHAMPIONS_POSTER => 'Champions Poster',
             self::TYPE_POINT_TABLE => 'Point Table',
+            self::TYPE_FIXTURES_POSTER => 'Fixtures Poster',
             default => ucfirst(str_replace('_', ' ', $type)),
         };
     }

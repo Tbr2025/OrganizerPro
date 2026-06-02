@@ -10,6 +10,7 @@ use App\Models\MatchResult;
 use App\Models\MatchAward;
 use App\Models\Player;
 use App\Models\TournamentAward;
+use App\Services\CricHeroes\CricHeroesScraper;
 use App\Services\Poster\MatchSummaryPosterService;
 use App\Services\Poster\TemplateRenderService;
 use App\Services\Notification\TournamentNotificationService;
@@ -65,6 +66,18 @@ class MatchSummaryController extends Controller
             $teamBPlayers = $match->teamB->players->pluck('player')->filter()->values();
         }
 
+        // Build template placeholder map for dynamic field visibility
+        $awardPosterTemplates = $tournament->templates()
+            ->where('type', 'award_poster')
+            ->where('is_active', true)
+            ->get();
+        $templatePlaceholderMap = [];
+        foreach ($awardPosterTemplates as $tmpl) {
+            $placeholders = collect($tmpl->layout_json ?? [])
+                ->pluck('placeholder')->filter()->values()->toArray();
+            $templatePlaceholderMap[$tmpl->id] = $placeholders;
+        }
+
         return view('backend.pages.matches.summary-editor', compact(
             'match',
             'summary',
@@ -72,7 +85,8 @@ class MatchSummaryController extends Controller
             'awards',
             'tournamentAwards',
             'teamAPlayers',
-            'teamBPlayers'
+            'teamBPlayers',
+            'templatePlaceholderMap'
         ));
     }
 
@@ -247,6 +261,7 @@ class MatchSummaryController extends Controller
             'player_id' => 'nullable|exists:players,id',
             'custom_player_name' => 'nullable|string|max:255',
             'custom_player_image' => 'nullable|image|max:5120',
+            'custom_player_team' => 'nullable|string|in:team_a,team_b',
             'remarks' => 'nullable|string|max:500',
         ]);
 
@@ -269,16 +284,70 @@ class MatchSummaryController extends Controller
         }
 
         // Handle custom player image upload
+        $imagePath = null;
         if ($request->hasFile('custom_player_image')) {
-            $validated['custom_player_image'] = $request->file('custom_player_image')
+            $imagePath = $request->file('custom_player_image')
                 ->store('award_player_images', 'public');
         }
 
-        // Clear custom fields if player_id is set
-        if (!empty($validated['player_id'])) {
+        // If custom player name provided and no player_id, create a Player record
+        if (!empty($validated['custom_player_name']) && empty($validated['player_id'])) {
+            $tournament = $match->tournament;
+            $customName = $validated['custom_player_name'];
+
+            // Check for existing player in tournament roster (fuzzy match)
+            $match->load(['teamA.players.player', 'teamB.players.player']);
+            $allPlayers = collect();
+            if ($match->teamA) {
+                $allPlayers = $allPlayers->merge($match->teamA->players->pluck('player')->filter());
+            }
+            if ($match->teamB) {
+                $allPlayers = $allPlayers->merge($match->teamB->players->pluck('player')->filter());
+            }
+
+            $existingPlayer = $allPlayers->first(function ($p) use ($customName) {
+                return $this->fuzzyNameMatch($p->name, $customName)
+                    || ($p->jersey_name && $this->fuzzyNameMatch($p->jersey_name, $customName));
+            });
+
+            if ($existingPlayer) {
+                $validated['player_id'] = $existingPlayer->id;
+            } else {
+                // Create new Player record
+                $player = Player::create([
+                    'name' => $customName,
+                    'image_path' => $imagePath,
+                    'status' => 'approved',
+                ]);
+
+                // Attach to team via pivot
+                $teamKey = $validated['custom_player_team'] ?? null;
+                $teamId = null;
+                if ($teamKey === 'team_a') {
+                    $teamId = $match->team_a_id;
+                } elseif ($teamKey === 'team_b') {
+                    $teamId = $match->team_b_id;
+                }
+
+                if ($teamId) {
+                    $player->actualTeamAssignments()->attach($teamId, [
+                        'tournament_id' => $tournament->id,
+                    ]);
+                }
+
+                $validated['player_id'] = $player->id;
+            }
+
+            // Keep custom_player_name as fallback display
+            $validated['custom_player_image'] = $imagePath;
+        } else if (!empty($validated['player_id'])) {
+            // Clear custom fields if player_id is set
             $validated['custom_player_name'] = null;
             $validated['custom_player_image'] = null;
         }
+
+        // Remove non-model field before creating
+        unset($validated['custom_player_team']);
 
         $match->matchAwards()->create($validated);
 
@@ -661,16 +730,51 @@ class MatchSummaryController extends Controller
                     'remarks' => $remarks,
                 ];
             } else {
-                // Player not found in DB - create with custom player name
+                // Player not found in DB - create a new Player record
+                $newPlayer = Player::create([
+                    'name' => $heroName,
+                    'status' => 'approved',
+                ]);
+
+                // Download player image from CricHeroes
+                $heroImageUrl = $heroesData[$heroKey]['image_url'] ?? null;
+                if (!$heroImageUrl) {
+                    $heroImageUrl = $this->findPlayerImageFromScorecard($match, $heroName);
+                }
+                if ($heroImageUrl) {
+                    $imagePath = CricHeroesScraper::downloadPlayerImage($heroImageUrl, $heroName);
+                    if ($imagePath) {
+                        $newPlayer->update(['image_path' => $imagePath]);
+                    }
+                }
+
+                // Determine team from heroes data
+                $heroTeam = $heroesData[$heroKey]['team'] ?? null;
+                $teamId = null;
+                if ($heroTeam) {
+                    if ($match->teamA && $this->fuzzyNameMatch($match->teamA->name, $heroTeam)) {
+                        $teamId = $match->team_a_id;
+                    } elseif ($match->teamB && $this->fuzzyNameMatch($match->teamB->name, $heroTeam)) {
+                        $teamId = $match->team_b_id;
+                    }
+                }
+
+                if ($teamId) {
+                    $newPlayer->actualTeamAssignments()->attach($teamId, [
+                        'tournament_id' => $tournament->id,
+                    ]);
+                }
+
                 $match->matchAwards()->create([
                     'tournament_award_id' => $tournamentAward->id,
+                    'player_id' => $newPlayer->id,
                     'custom_player_name' => $heroName,
                     'remarks' => $remarks,
                 ]);
 
                 $assigned[] = [
                     'award' => $tournamentAward->name,
-                    'player' => $heroName . ' (custom)',
+                    'player' => $heroName . ' (created)',
                     'remarks' => $remarks,
                 ];
             }
@@ -689,6 +793,35 @@ class MatchSummaryController extends Controller
             'success' => true,
             'message' => count($assigned) . ' award(s) assigned from CricHeroes.',
             'assigned' => $assigned,
+        ]);
+    }
+
+    /**
+     * Update a player's image from the award card.
+     */
+    public function updateAwardPlayerImage(Request $request, Matches $match, MatchAward $award)
+    {
+        $request->validate([
+            'image' => 'required|image|max:5120',
+        ]);
+
+        $player = $award->player;
+        if (!$player) {
+            return response()->json(['success' => false, 'message' => 'No player linked to this award.'], 422);
+        }
+
+        // Delete old image if it exists
+        if ($player->image_path && \Storage::disk('public')->exists($player->image_path)) {
+            \Storage::disk('public')->delete($player->image_path);
+        }
+
+        $path = $request->file('image')->store('player_images', 'public');
+        $player->update(['image_path' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'image_url' => \Storage::url($path),
+            'message' => 'Player image updated!',
         ]);
     }
 
@@ -717,6 +850,34 @@ class MatchSummaryController extends Controller
         $b = strtolower(trim($b));
         if (!$a || !$b) return false;
         return $a === $b || str_contains($a, $b) || str_contains($b, $a);
+    }
+
+    /**
+     * Find a player's image URL from the stored scorecard data.
+     */
+    private function findPlayerImageFromScorecard(Matches $match, string $playerName): ?string
+    {
+        $scorecard = $match->result?->scorecard_data;
+        if (!$scorecard) return null;
+
+        if (is_string($scorecard)) {
+            $scorecard = json_decode($scorecard, true) ?? [];
+        }
+
+        $innings = $scorecard['innings'] ?? $scorecard;
+        if (!is_array($innings)) return null;
+
+        foreach ($innings as $inn) {
+            if (!is_array($inn)) continue;
+            foreach (['batting', 'bowling'] as $type) {
+                foreach ($inn[$type] ?? [] as $entry) {
+                    if ($this->fuzzyNameMatch($entry['name'] ?? '', $playerName) && !empty($entry['image_url'])) {
+                        return $entry['image_url'];
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**

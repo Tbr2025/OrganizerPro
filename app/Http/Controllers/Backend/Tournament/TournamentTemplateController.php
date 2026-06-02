@@ -8,6 +8,7 @@ use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
 use App\Services\ImageBackgroundRemovalService;
+use App\Services\Poster\FixturesPosterService;
 use App\Services\Poster\TemplateRenderService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -309,6 +310,51 @@ class TournamentTemplateController extends Controller
                 }
             }
 
+            // Handle fixtures_poster type — build fixture_area from upcoming matches
+            if ($template->type === TournamentTemplate::TYPE_FIXTURES_POSTER) {
+                $fixtureCount = (int) $request->input('fixture_count', 5);
+                $fixtureCount = max(1, min($fixtureCount, 100));
+
+                $upcomingMatches = $tournament->matches()
+                    ->where('status', 'upcoming')
+                    ->where('is_cancelled', false)
+                    ->with(['teamA', 'teamB', 'ground'])
+                    ->orderBy('match_date')
+                    ->orderBy('start_time')
+                    ->limit($fixtureCount)
+                    ->get();
+
+                $data['fixture_area'] = $upcomingMatches->map(fn($m) => [
+                    'team_a' => $m->teamA?->name ?? 'TBD',
+                    'team_b' => $m->teamB?->name ?? 'TBD',
+                    'team_a_logo' => $m->teamA?->team_logo ?? '',
+                    'team_b_logo' => $m->teamB?->team_logo ?? '',
+                    'date' => $m->match_date?->format('M d, Y') ?? '',
+                    'time' => $m->start_time ? Carbon::parse($m->start_time)->format('h:i A') : '',
+                    'venue' => $m->ground?->name ?? $m->venue ?? '',
+                    'match_number' => (string) ($m->match_number ?? $m->id),
+                ])->toArray();
+
+                // Override fixture layout from generate page selection
+                $fixtureLayout = $request->input('fixture_layout');
+                if ($fixtureLayout && in_array($fixtureLayout, ['row', 'card'])) {
+                    $layoutJson = $template->layout_json;
+                    if (is_array($layoutJson)) {
+                        foreach ($layoutJson as &$el) {
+                            $placeholder = $el['placeholder'] ?? '';
+                            $type = $el['type'] ?? '';
+                            if ($type === 'fixtureArea' || $placeholder === 'fixture_area') {
+                                $el['fixtureConfig'] = $el['fixtureConfig'] ?? [];
+                                $el['fixtureConfig']['layout'] = $fixtureLayout;
+                                $el['fixtureConfig']['maxRows'] = $fixtureCount;
+                            }
+                        }
+                        unset($el);
+                        $template->layout_json = $layoutJson;
+                    }
+                }
+            }
+
             // Handle point_table type — build table_data from group entries
             if ($template->type === TournamentTemplate::TYPE_POINT_TABLE && $request->input('group_id')) {
                 $group = $tournament->groups()->find($request->input('group_id'));
@@ -339,11 +385,12 @@ class TournamentTemplateController extends Controller
                 }
             }
 
-            // Filter empty values (but keep table_data array)
+            // Filter empty values (but keep array data like table_data, fixture_area)
             $data = array_filter($data, fn($v) => is_array($v) ? !empty($v) : ($v !== null && $v !== ''));
 
             // Skip blank placeholders when generating from actual data (not editor preview)
-            $hasMatchData = $request->input('match_id') || $request->input('player_id') || $request->input('group_id');
+            $hasMatchData = $request->input('match_id') || $request->input('player_id') || $request->input('group_id')
+                || $template->type === TournamentTemplate::TYPE_FIXTURES_POSTER;
             $base64Image = $renderService->renderToBase64($template, $data, true, (bool) $hasMatchData);
 
             // Clean up temp uploaded files
@@ -1017,5 +1064,27 @@ class TournamentTemplateController extends Controller
         Storage::disk('public')->put($path, $imageData);
 
         return $path;
+    }
+
+    /**
+     * Generate fixtures poster (programmatic GD-based)
+     */
+    public function generateFixturesPoster(Tournament $tournament, Request $request)
+    {
+        $matchCount = (int) $request->input('fixture_count', 5);
+        $theme = $request->input('theme', 'dark');
+
+        // Clamp match count
+        $matchCount = max(1, min($matchCount, 100));
+
+        $service = new FixturesPosterService();
+        $path = $service->generate($tournament, $matchCount, $theme);
+
+        return response()->json([
+            'success' => true,
+            'image_url' => Storage::url($path),
+            'image' => Storage::url($path),
+            'path' => $path,
+        ]);
     }
 }

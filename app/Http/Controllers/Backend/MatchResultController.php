@@ -626,13 +626,39 @@ class MatchResultController extends Controller
                 return $this->fuzzyMatch($p->name, $playerName)
                     || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $playerName));
             });
+
             if (!$player) {
-                continue;
+                // Create new Player from CricHeroes data
+                $player = Player::create([
+                    'name' => $playerName,
+                    'status' => 'approved',
+                ]);
+
+                // Try to download image from CricHeroes scorecard data
+                $imageUrl = $this->findPlayerImageFromScorecard($match, $playerName);
+                if ($imageUrl) {
+                    $imagePath = CricHeroesScraper::downloadPlayerImage($imageUrl, $playerName);
+                    if ($imagePath) {
+                        $player->update(['image_path' => $imagePath]);
+                    }
+                }
+
+                // Determine team from scorecard data and attach
+                $teamId = $this->resolveTeamFromScorecard($match, $playerName);
+                if ($teamId) {
+                    $player->actualTeamAssignments()->attach($teamId, [
+                        'tournament_id' => $tournament->id,
+                    ]);
+                }
             }
+
+            $remarks = $this->buildRemarksFromScorecard($match, $playerName, $field);
 
             $match->matchAwards()->create([
                 'tournament_award_id' => $tournamentAward->id,
                 'player_id' => $player->id,
+                'custom_player_name' => $playerName,
+                'remarks' => $remarks,
             ]);
         }
 
@@ -680,13 +706,33 @@ class MatchResultController extends Controller
                 return $this->fuzzyMatch($p->name, $playerName)
                     || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $playerName));
             });
+
             if (!$player) {
-                continue;
+                $player = Player::create([
+                    'name' => $playerName,
+                    'status' => 'approved',
+                ]);
+
+                $imageUrl = $this->findPlayerImageFromScorecard($match, $playerName);
+                if ($imageUrl) {
+                    $imagePath = CricHeroesScraper::downloadPlayerImage($imageUrl, $playerName);
+                    if ($imagePath) {
+                        $player->update(['image_path' => $imagePath]);
+                    }
+                }
+
+                $teamId = $this->resolveTeamFromScorecard($match, $playerName);
+                if ($teamId) {
+                    $player->actualTeamAssignments()->attach($teamId, [
+                        'tournament_id' => $tournament->id,
+                    ]);
+                }
             }
 
             $match->matchAwards()->create([
                 'tournament_award_id' => $tournamentAward->id,
                 'player_id' => $player->id,
+                'custom_player_name' => $playerName,
             ]);
         }
     }
@@ -703,6 +749,130 @@ class MatchResultController extends Controller
         }
 
         return redirect()->back()->with('success', __('Scorecard data cleared successfully.'));
+    }
+
+    /**
+     * Find a player's image URL from the stored scorecard data.
+     */
+    private function findPlayerImageFromScorecard(Matches $match, string $playerName): ?string
+    {
+        $scorecard = $match->result?->scorecard_data;
+        if (!$scorecard) return null;
+
+        if (is_string($scorecard)) {
+            $scorecard = json_decode($scorecard, true) ?? [];
+        }
+
+        $innings = $scorecard['innings'] ?? $scorecard;
+        if (!is_array($innings)) return null;
+
+        foreach ($innings as $inn) {
+            if (!is_array($inn)) continue;
+            foreach (['batting', 'bowling'] as $type) {
+                foreach ($inn[$type] ?? [] as $entry) {
+                    if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && !empty($entry['image_url'])) {
+                        return $entry['image_url'];
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolve a player's team ID from scorecard data.
+     */
+    private function resolveTeamFromScorecard(Matches $match, string $playerName): ?int
+    {
+        $scorecard = $match->result?->scorecard_data;
+        if (!$scorecard) return null;
+
+        if (is_string($scorecard)) {
+            $scorecard = json_decode($scorecard, true) ?? [];
+        }
+
+        $innings = $scorecard['innings'] ?? $scorecard;
+        if (!is_array($innings)) return null;
+
+        foreach ($innings as $inn) {
+            if (!is_array($inn)) continue;
+            $teamName = $inn['team_name'] ?? '';
+            foreach (['batting', 'bowling'] as $type) {
+                foreach ($inn[$type] ?? [] as $entry) {
+                    if ($this->fuzzyMatch($entry['name'] ?? '', $playerName)) {
+                        if ($match->teamA && $this->fuzzyMatch($match->teamA->name, $teamName)) {
+                            return $match->team_a_id;
+                        }
+                        if ($match->teamB && $this->fuzzyMatch($match->teamB->name, $teamName)) {
+                            return $match->team_b_id;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Build remarks from scorecard stats for an award.
+     */
+    private function buildRemarksFromScorecard(Matches $match, string $playerName, string $awardField): ?string
+    {
+        $scorecard = $match->result?->scorecard_data;
+        if (!$scorecard) return null;
+
+        if (is_string($scorecard)) {
+            $scorecard = json_decode($scorecard, true) ?? [];
+        }
+
+        // Also check heroes data for pre-built stats
+        $heroes = $scorecard['cricheroes_heroes'] ?? null;
+
+        if ($awardField === 'award_best_batter_name' && $heroes && !empty($heroes['best_batter'])) {
+            $bat = $heroes['best_batter'];
+            $parts = [];
+            if (!empty($bat['runs'])) $parts[] = $bat['runs'] . ' runs';
+            if (!empty($bat['balls'])) $parts[] = $bat['balls'] . ' balls';
+            if (!empty($bat['fours'])) $parts[] = $bat['fours'] . 'x4';
+            if (!empty($bat['sixes'])) $parts[] = $bat['sixes'] . 'x6';
+            return !empty($parts) ? implode(', ', $parts) : null;
+        }
+
+        if ($awardField === 'award_best_bowler_name' && $heroes && !empty($heroes['best_bowler'])) {
+            $bowl = $heroes['best_bowler'];
+            $parts = [];
+            if (!empty($bowl['wickets'])) $parts[] = $bowl['wickets'] . '/' . ($bowl['runs'] ?? 0);
+            if (!empty($bowl['overs'])) $parts[] = '(' . $bowl['overs'] . ' ov)';
+            return !empty($parts) ? implode(' ', $parts) : null;
+        }
+
+        // Fallback: search scorecard batting/bowling for this player's stats
+        $innings = $scorecard['innings'] ?? $scorecard;
+        if (!is_array($innings)) return null;
+
+        foreach ($innings as $inn) {
+            if (!is_array($inn)) continue;
+            // Check batting
+            foreach ($inn['batting'] ?? [] as $entry) {
+                if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && !empty($entry['runs'])) {
+                    $parts = [$entry['runs'] . ' runs'];
+                    if (!empty($entry['balls'])) $parts[] = $entry['balls'] . ' balls';
+                    if (!empty($entry['fours'])) $parts[] = $entry['fours'] . 'x4';
+                    if (!empty($entry['sixes'])) $parts[] = $entry['sixes'] . 'x6';
+                    return implode(', ', $parts);
+                }
+            }
+            // Check bowling
+            foreach ($inn['bowling'] ?? [] as $entry) {
+                if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && !empty($entry['wickets'])) {
+                    $parts = [$entry['wickets'] . '/' . ($entry['runs'] ?? 0)];
+                    if (!empty($entry['overs'])) $parts[] = '(' . $entry['overs'] . ' ov)';
+                    return implode(' ', $parts);
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

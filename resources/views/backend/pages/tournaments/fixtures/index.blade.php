@@ -73,6 +73,10 @@
                             Regenerate All Posters
                         </button>
                     </form>
+                    <div class="border-t dark:border-gray-700 my-1"></div>
+                    <button type="button" onclick="document.getElementById('fixturesPosterModal').classList.remove('hidden')" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-teal-600 dark:text-teal-400 font-medium">
+                        Fixtures Poster
+                    </button>
                 </div>
             </div>
         </div>
@@ -599,6 +603,182 @@ function fixtureManager() {
             });
         }
     };
+}
+</script>
+@endpush
+
+{{-- Fixtures Poster Modal --}}
+<div id="fixturesPosterModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50" onclick="if(event.target===this) this.classList.add('hidden')">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
+        <div class="bg-gradient-to-r from-teal-500 to-cyan-500 px-6 py-4">
+            <h3 class="text-lg font-bold text-white">Generate Fixtures Poster</h3>
+            <p class="text-teal-100 text-sm">Select a template and match count</p>
+        </div>
+        <div class="p-6 space-y-4">
+            {{-- Template Selection --}}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Template</label>
+                <select id="fxPosterTemplate" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                    <option value="">Loading templates...</option>
+                </select>
+                <p id="fxNoTemplates" class="hidden text-sm text-gray-500 mt-2">
+                    No fixtures poster templates found.
+                    <a href="{{ route('admin.tournaments.templates.create', ['tournament' => $tournament, 'type' => 'fixtures_poster']) }}" class="text-teal-600 hover:underline">Create one</a>.
+                </p>
+            </div>
+
+            {{-- Design Layout --}}
+            <div x-data="{ fxLayout: 'row' }">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Design Layout</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" @click="fxLayout = 'row'"
+                        :class="fxLayout === 'row' ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 ring-1 ring-teal-500' : 'border-gray-200 dark:border-gray-700'"
+                        class="border-2 rounded-lg px-3 py-2 text-left transition">
+                        <div class="flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                            <span class="text-xs font-semibold text-gray-800 dark:text-gray-200">Row List</span>
+                        </div>
+                    </button>
+                    <button type="button" @click="fxLayout = 'card'"
+                        :class="fxLayout === 'card' ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/30 ring-1 ring-teal-500' : 'border-gray-200 dark:border-gray-700'"
+                        class="border-2 rounded-lg px-3 py-2 text-left transition">
+                        <div class="flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                            <span class="text-xs font-semibold text-gray-800 dark:text-gray-200">Card Grid</span>
+                        </div>
+                    </button>
+                </div>
+                <input type="hidden" id="fxPosterLayout" :value="fxLayout" value="row">
+            </div>
+
+            {{-- Match Count --}}
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Number of Matches</label>
+                <div class="flex items-center gap-2" x-data="{ fc: '5', cc: '' }">
+                    <button type="button" @click="fc='5'; cc=''" :class="fc==='5' ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="px-3 py-1.5 rounded-lg text-sm font-medium transition">5</button>
+                    <button type="button" @click="fc='10'; cc=''" :class="fc==='10' ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="px-3 py-1.5 rounded-lg text-sm font-medium transition">10</button>
+                    <button type="button" @click="fc='all'; cc=''" :class="fc==='all' ? 'bg-teal-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'" class="px-3 py-1.5 rounded-lg text-sm font-medium transition">All</button>
+                    <input type="number" min="1" max="50" placeholder="Custom" x-model="cc" @input="fc='custom'"
+                           :class="fc==='custom' ? 'border-teal-500 ring-1 ring-teal-500' : 'border-gray-300 dark:border-gray-600'"
+                           class="w-20 rounded-lg dark:bg-gray-700 text-sm px-2 py-1.5">
+                    <input type="hidden" id="fxPosterCount" value="5" :value="fc==='custom' ? cc : (fc==='all' ? '100' : fc)">
+                </div>
+            </div>
+
+            {{-- Preview --}}
+            <div id="fxPosterPreview" class="hidden">
+                <img id="fxPosterImage" src="" class="w-full rounded-lg shadow-md" alt="Fixtures Poster">
+            </div>
+            <div id="fxPosterLoading" class="hidden text-center py-6">
+                <svg class="w-8 h-8 mx-auto animate-spin text-teal-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <p class="text-sm text-gray-500 mt-2">Generating poster...</p>
+            </div>
+        </div>
+        <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
+            <button type="button" onclick="document.getElementById('fixturesPosterModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800">Cancel</button>
+            <div class="flex gap-2">
+                <button type="button" id="fxDownloadBtn" onclick="downloadFxPoster()" class="hidden px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">
+                    Download
+                </button>
+                <button type="button" id="fxGenerateBtn" onclick="generateFxPoster()" class="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700 transition">
+                    Generate
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+// Load fixtures poster templates when modal opens
+(function() {
+    let loaded = false;
+    const observer = new MutationObserver(() => {
+        const modal = document.getElementById('fixturesPosterModal');
+        if (modal && !modal.classList.contains('hidden') && !loaded) {
+            loaded = true;
+            loadFxTemplates();
+        }
+    });
+    const modal = document.getElementById('fixturesPosterModal');
+    if (modal) observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+})();
+
+function loadFxTemplates() {
+    fetch(`{{ url('admin/tournaments/' . $tournament->id . '/templates') }}?type=fixtures_poster&ajax=1`)
+        .then(r => r.json())
+        .then(data => {
+            const select = document.getElementById('fxPosterTemplate');
+            const noTpl = document.getElementById('fxNoTemplates');
+            if (data.templates && data.templates.length > 0) {
+                select.innerHTML = data.templates.map((t, i) =>
+                    `<option value="${t.id}" ${i === 0 ? 'selected' : ''}>${t.name}${t.is_default ? ' (Default)' : ''}</option>`
+                ).join('');
+                noTpl.classList.add('hidden');
+                select.classList.remove('hidden');
+            } else {
+                select.classList.add('hidden');
+                noTpl.classList.remove('hidden');
+            }
+        });
+}
+
+let fxGeneratedUrl = null;
+
+function generateFxPoster() {
+    const templateId = document.getElementById('fxPosterTemplate').value;
+    if (!templateId) { alert('Please select a template'); return; }
+
+    const count = document.getElementById('fxPosterCount')?.value || '5';
+    const layout = document.getElementById('fxPosterLayout')?.value || 'row';
+
+    document.getElementById('fxPosterPreview').classList.add('hidden');
+    document.getElementById('fxPosterLoading').classList.remove('hidden');
+    document.getElementById('fxDownloadBtn').classList.add('hidden');
+    document.getElementById('fxGenerateBtn').disabled = true;
+
+    fetch(`{{ route('admin.tournaments.templates.generate-preview', $tournament) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+            'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+            template_id: templateId,
+            type: 'fixtures_poster',
+            fixture_count: count,
+            fixture_layout: layout,
+        })
+    })
+    .then(r => { if (!r.ok) throw new Error('Server error'); return r.json(); })
+    .then(result => {
+        document.getElementById('fxPosterLoading').classList.add('hidden');
+        document.getElementById('fxGenerateBtn').disabled = false;
+        if (result.success && result.image) {
+            document.getElementById('fxPosterImage').src = result.image;
+            document.getElementById('fxPosterPreview').classList.remove('hidden');
+            document.getElementById('fxDownloadBtn').classList.remove('hidden');
+            fxGeneratedUrl = result.image;
+        } else {
+            alert(result.error || 'Failed to generate poster');
+        }
+    })
+    .catch(err => {
+        document.getElementById('fxPosterLoading').classList.add('hidden');
+        document.getElementById('fxGenerateBtn').disabled = false;
+        alert('Failed: ' + err.message);
+    });
+}
+
+function downloadFxPoster() {
+    if (!fxGeneratedUrl) return;
+    const a = document.createElement('a');
+    a.href = fxGeneratedUrl;
+    a.download = `fixtures-poster-${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 </script>
 @endpush

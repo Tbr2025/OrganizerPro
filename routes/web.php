@@ -816,6 +816,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/generate-preview', [TournamentTemplateController::class, 'generatePreview'])->name('templates.generate-preview');
             Route::get('/matches/{match}/awards', [TournamentTemplateController::class, 'getMatchAwards'])->name('matches.get-awards');
             Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
+            Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster');
         });
 
         // Tournament Calendar (Calendar-based fixture scheduling)
@@ -843,6 +844,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::get('/summary/preview-poster', [MatchSummaryController::class, 'previewPoster'])->name('summary.preview-poster');
         Route::post('/summary/create-default-awards', [MatchSummaryController::class, 'createDefaultAwards'])->name('summary.create-default-awards');
         Route::post('/summary/auto-assign-awards', [MatchSummaryController::class, 'autoAssignAwardsFromCricHeroes'])->name('summary.auto-assign-awards');
+        Route::post('/summary/award/{award}/update-image', [MatchSummaryController::class, 'updateAwardPlayerImage'])->name('summary.update-award-image');
         Route::post('/summary/recalculate-statistics', [MatchSummaryController::class, 'recalculateStatistics'])->name('summary.recalculate-statistics');
     });
 

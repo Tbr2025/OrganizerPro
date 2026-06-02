@@ -4,6 +4,8 @@ namespace App\Services\CricHeroes;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CricHeroesScraper
 {
@@ -43,12 +45,18 @@ class CricHeroesScraper
 
         $heroes = [];
 
+        // Log raw heroes fields for debugging CricHeroes schema
+        if (!empty($summary['player_of_the_match'])) {
+            Log::info('CricHeroes raw POTM fields', array_keys($summary['player_of_the_match']));
+        }
+
         // Player of the Match
         $potm = $summary['player_of_the_match'] ?? null;
         if ($potm && !empty($potm['player_name'])) {
             $heroes['player_of_the_match'] = [
                 'name' => $potm['player_name'],
                 'team' => $potm['team_name'] ?? '',
+                'image_url' => $potm['profile_photo_url'] ?? $potm['photo'] ?? $potm['player_photo'] ?? null,
             ];
         }
 
@@ -63,6 +71,7 @@ class CricHeroesScraper
                 'balls' => (int) ($bat['balls'] ?? 0),
                 'fours' => (int) ($bat['4s'] ?? 0),
                 'sixes' => (int) ($bat['6s'] ?? 0),
+                'image_url' => $bat['profile_photo_url'] ?? $bat['photo'] ?? $bat['player_photo'] ?? null,
             ];
         }
 
@@ -77,6 +86,7 @@ class CricHeroesScraper
                 'wickets' => (int) ($bowl['wickets'] ?? 0),
                 'runs' => (int) ($bowl['runs'] ?? 0),
                 'economy' => (string) ($bowl['economy_rate'] ?? '0.00'),
+                'image_url' => $bowl['profile_photo_url'] ?? $bowl['photo'] ?? $bowl['player_photo'] ?? null,
             ];
         }
 
@@ -99,6 +109,26 @@ class CricHeroesScraper
         $pageProps = $this->extractNextData($html);
 
         return $this->parseScorecardData($pageProps);
+    }
+
+    /**
+     * Download a player image from CricHeroes and store it locally.
+     */
+    public static function downloadPlayerImage(string $imageUrl, string $playerName): ?string
+    {
+        try {
+            $response = Http::timeout(10)->get($imageUrl);
+            if (!$response->successful()) return null;
+
+            $extension = 'jpg';
+            $filename = 'player_images/' . Str::slug($playerName) . '-' . time() . '.' . $extension;
+            Storage::disk('public')->put($filename, $response->body());
+
+            return $filename;
+        } catch (\Exception $e) {
+            Log::warning('Failed to download CricHeroes image: ' . $e->getMessage());
+            return null;
+        }
     }
 
     private function validateUrl(string $url): void
@@ -233,6 +263,14 @@ class CricHeroesScraper
         foreach ($scorecardInnings as $inn) {
             $inningData = $inn['inning'] ?? [];
 
+            // Log raw field keys from first batting entry for debugging CricHeroes schema changes
+            if (empty($innings) && !empty($inn['batting'][0])) {
+                Log::info('CricHeroes raw batting fields', array_keys($inn['batting'][0]));
+            }
+            if (empty($innings) && !empty($inn['bowling'][0])) {
+                Log::info('CricHeroes raw bowling fields', array_keys($inn['bowling'][0]));
+            }
+
             $batting = collect($inn['batting'] ?? [])->map(fn($b) => [
                 'name' => $b['name'] ?? '',
                 'runs' => (int) ($b['runs'] ?? 0),
@@ -241,6 +279,7 @@ class CricHeroesScraper
                 'sixes' => (int) ($b['6s'] ?? 0),
                 'strike_rate' => $b['SR'] ?? '0.00',
                 'how_out' => $b['how_to_out'] ?? 'not out',
+                'image_url' => $b['profile_photo_url'] ?? $b['photo'] ?? $b['player_photo'] ?? null,
             ])->toArray();
 
             $bowling = collect($inn['bowling'] ?? [])->map(function ($bw) {
@@ -257,6 +296,7 @@ class CricHeroesScraper
                     'economy' => $bw['economy_rate'] ?? '0.00',
                     'wides' => (int) ($bw['wide'] ?? 0),
                     'no_balls' => (int) ($bw['noball'] ?? 0),
+                    'image_url' => $bw['profile_photo_url'] ?? $bw['photo'] ?? $bw['player_photo'] ?? null,
                 ];
             })->toArray();
 
