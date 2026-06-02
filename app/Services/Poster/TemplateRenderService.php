@@ -1990,6 +1990,7 @@ class TemplateRenderService extends PosterGeneratorService
         $showMatchNum = !empty($config['showMatchNum']);
         $showVenue = $config['showVenue'] ?? true;
         $showDateTime = $config['showDateTime'] ?? true;
+        $cardStyle = $config['cardStyle'] ?? 'flat';
 
         // Calculate element area
         $hasExplicitSize = isset($element['width']) && isset($element['height']);
@@ -2058,10 +2059,31 @@ class TemplateRenderService extends PosterGeneratorService
             $matchNum = $fixture['match_number'] ?? ($index + 1);
             $rowMidY = $rowTop + (int)($rowHeight / 2);
 
-            // === ROW BACKGROUND ===
+            // === ROW BACKGROUND & STYLE ===
             if (!$transparentBg) {
                 $bgHex = ($index % 2 === 0) ? $rowBg : $altRowBg;
-                imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $this->parseColor($canvas, $bgHex));
+                if ($cardStyle === 'gradient') {
+                    // Gradient: darker at top, lighter at bottom
+                    $bgRgb = $this->hexToRgb($bgHex);
+                    for ($gy = $rowTop; $gy < $rowBottom; $gy++) {
+                        $progress = ($gy - $rowTop) / max(1, $rowBottom - $rowTop);
+                        $r = min(255, (int)($bgRgb['r'] + (30 * $progress)));
+                        $g = min(255, (int)($bgRgb['g'] + (30 * $progress)));
+                        $b = min(255, (int)($bgRgb['b'] + (30 * $progress)));
+                        $lineCol = imagecolorallocate($canvas, $r, $g, $b);
+                        imageline($canvas, $areaX, $gy, $areaX + $areaWidth, $gy, $lineCol);
+                    }
+                } else {
+                    imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $this->parseColor($canvas, $bgHex));
+                }
+            }
+            if ($cardStyle === 'bordered') {
+                // Left accent bar
+                $barW = (int)(4 * $scale);
+                imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $barW, $rowBottom, $this->parseColor($canvas, $accentColor));
+                // Border outline
+                $borderCol = $this->parseColor($canvas, $accentColor);
+                imagerectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $borderCol);
             }
 
             // === MATCH NUMBER (small badge at top-left of row) ===
@@ -2167,6 +2189,7 @@ class TemplateRenderService extends PosterGeneratorService
         $showMatchNum = $config['showMatchNum'] ?? false;
         $showVenue = $config['showVenue'] ?? true;
         $showDateTime = $config['showDateTime'] ?? true;
+        $cardStyle = $config['cardStyle'] ?? 'flat';
 
         // Calculate element area
         $hasExplicitSize = isset($element['width']) && isset($element['height']);
@@ -2231,9 +2254,29 @@ class TemplateRenderService extends PosterGeneratorService
             $venue = $fixture['venue'] ?? '';
             $matchNum = $fixture['match_number'] ?? ($index + 1);
 
-            // ====== CARD BACKGROUND ======
+            // ====== CARD BACKGROUND & STYLE ======
             if (!$transparentBg) {
-                imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $this->parseColor($canvas, $rowBg));
+                if ($cardStyle === 'gradient') {
+                    $bgRgb = $this->hexToRgb($rowBg);
+                    for ($gy = $cardY; $gy < $cardY + $cardH; $gy++) {
+                        $progress = ($gy - $cardY) / max(1, $cardH);
+                        $r = min(255, (int)($bgRgb['r'] + (35 * $progress)));
+                        $g = min(255, (int)($bgRgb['g'] + (35 * $progress)));
+                        $b = min(255, (int)($bgRgb['b'] + (35 * $progress)));
+                        $lineCol = imagecolorallocate($canvas, $r, $g, $b);
+                        imageline($canvas, $cardX, $gy, $cardX + $cardW, $gy, $lineCol);
+                    }
+                } else {
+                    imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $this->parseColor($canvas, $rowBg));
+                }
+            }
+            if ($cardStyle === 'bordered') {
+                // Accent border around card
+                $borderCol = $this->parseColor($canvas, $accentColor);
+                imagerectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $borderCol);
+                // Top accent bar
+                $barH = (int)(3 * $scale);
+                imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $barH, $this->parseColor($canvas, $accentColor));
             }
 
             // ====== HEADER BAR: "MATCH N" (only if showMatchNum) ======

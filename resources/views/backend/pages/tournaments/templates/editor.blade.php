@@ -1121,11 +1121,24 @@
                     </div>
                 </div>
                 <div class="prop-section">
+                    <div class="prop-section-title">Card Style</div>
+                    <div class="grid grid-cols-3 gap-2" id="propFxCardStyleSelector">
+                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'flat')" data-style="flat" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Flat</button>
+                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'bordered')" data-style="bordered" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Bordered</button>
+                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'gradient')" data-style="gradient" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Gradient</button>
+                    </div>
+                </div>
+                <div class="prop-section">
                     <div class="prop-section-title">Style Presets</div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-2">
                         <button onclick="editor.applyFixturePreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark</button>
                         <button onclick="editor.applyFixturePreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
                         <button onclick="editor.applyFixturePreset('green')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#064e3b;color:#fff;border-color:#047857;">Green</button>
+                        <button onclick="editor.applyFixturePreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#fff;border-color:#7c3aed;">IPL</button>
+                        <button onclick="editor.applyFixturePreset('royal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1e1b4b;color:#fbbf24;border-color:#4338ca;">Royal</button>
+                        <button onclick="editor.applyFixturePreset('neon')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0a0a0a;color:#22d3ee;border-color:#06b6d4;">Neon</button>
+                        <button onclick="editor.applyFixturePreset('sunset')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#7c2d12;color:#fef08a;border-color:#ea580c;">Sunset</button>
+                        <button onclick="editor.applyFixturePreset('ocean')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0c4a6e;color:#7dd3fc;border-color:#0284c7;">Ocean</button>
                         <button onclick="editor.applyFixturePreset('minimal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#18181b;color:#a1a1aa;border-color:#3f3f46;">Minimal</button>
                     </div>
                 </div>
@@ -1849,7 +1862,7 @@ const editor = {
             textColor: '#ffffff', accentColor: '#d4a843',
             mutedColor: '#8899aa', dividerColor: '#d4a843',
             fontSize: 16, rowHeight: 100,
-            cardColumns: 2,
+            cardColumns: 2, cardStyle: 'flat',
             showTeamLogo: true,
             useShortName: false,
             showMatchNum: false,
@@ -1875,6 +1888,9 @@ const editor = {
         if (key === 'layout') {
             this._syncFixtureLayoutUI(value);
         }
+        if (key === 'cardStyle') {
+            this._syncCardStyleUI(value);
+        }
         this.saveHistory();
     },
 
@@ -1899,11 +1915,26 @@ const editor = {
         }
     },
 
+    _syncCardStyleUI(style) {
+        document.querySelectorAll('#propFxCardStyleSelector button').forEach(btn => {
+            if (btn.dataset.style === style) {
+                btn.style.background = '#4f46e5'; btn.style.color = '#fff'; btn.style.borderColor = '#6366f1';
+            } else {
+                btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = '';
+            }
+        });
+    },
+
     applyFixturePreset(preset) {
         const presets = {
-            dark: { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', dividerColor:'#d4a843', transparentBg:true },
-            light: { headerBg:'#4f46e5', headerText:'#ffffff', rowBg:'#ffffff', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#4f46e5', mutedColor:'#64748b', dividerColor:'#e2e8f0', transparentBg:false },
-            green: { headerBg:'#047857', headerText:'#ffffff', rowBg:'#064e3b', altRowBg:'#065f46', textColor:'#ffffff', accentColor:'#FFD700', mutedColor:'#a7f3d0', dividerColor:'#FFD700', transparentBg:true },
+            dark:    { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', dividerColor:'#d4a843', transparentBg:true },
+            light:   { headerBg:'#4f46e5', headerText:'#ffffff', rowBg:'#ffffff', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#4f46e5', mutedColor:'#64748b', dividerColor:'#e2e8f0', transparentBg:false },
+            green:   { headerBg:'#047857', headerText:'#ffffff', rowBg:'#064e3b', altRowBg:'#065f46', textColor:'#ffffff', accentColor:'#FFD700', mutedColor:'#a7f3d0', dividerColor:'#FFD700', transparentBg:true },
+            ipl:     { headerBg:'#7c3aed', headerText:'#ffffff', rowBg:'#1a0533', altRowBg:'#2d1050', textColor:'#ffffff', accentColor:'#f59e0b', mutedColor:'#c4b5fd', dividerColor:'#7c3aed', transparentBg:false },
+            royal:   { headerBg:'#4338ca', headerText:'#fbbf24', rowBg:'#1e1b4b', altRowBg:'#312e81', textColor:'#e0e7ff', accentColor:'#fbbf24', mutedColor:'#a5b4fc', dividerColor:'#fbbf24', transparentBg:false },
+            neon:    { headerBg:'#06b6d4', headerText:'#000000', rowBg:'#0a0a0a', altRowBg:'#171717', textColor:'#22d3ee', accentColor:'#f43f5e', mutedColor:'#67e8f9', dividerColor:'#06b6d4', transparentBg:false },
+            sunset:  { headerBg:'#ea580c', headerText:'#ffffff', rowBg:'#7c2d12', altRowBg:'#9a3412', textColor:'#fef08a', accentColor:'#fbbf24', mutedColor:'#fed7aa', dividerColor:'#f97316', transparentBg:false },
+            ocean:   { headerBg:'#0284c7', headerText:'#ffffff', rowBg:'#0c4a6e', altRowBg:'#075985', textColor:'#e0f2fe', accentColor:'#38bdf8', mutedColor:'#7dd3fc', dividerColor:'#0ea5e9', transparentBg:false },
             minimal: { headerBg:'#27272a', headerText:'#fafafa', rowBg:'#18181b', altRowBg:'#27272a', textColor:'#fafafa', accentColor:'#a1a1aa', mutedColor:'#71717a', dividerColor:'#3f3f46', transparentBg:true },
         };
         const cfg = presets[preset];
@@ -1941,6 +1972,7 @@ const editor = {
         const cardColSel = document.getElementById('propFxCardColumns');
         if (cardColSel) cardColSel.value = cfg.cardColumns || 2;
         this._syncFixtureLayoutUI(cfg.layout || 'row');
+        this._syncCardStyleUI(cfg.cardStyle || 'flat');
     },
 
     starPoints(spikes, outerR, innerR) {
