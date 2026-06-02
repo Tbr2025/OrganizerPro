@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RemoveImageBackground;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -12,7 +13,7 @@ use Illuminate\Support\Str;
 class PlayerImageProcessController extends Controller
 {
     /**
-     * Process a cropped player image: save, remove background, resize.
+     * Process a cropped player image: save, resize, queue background removal.
      * Accepts base64 data URL from Cropper.js.
      */
     public function process(Request $request): JsonResponse
@@ -37,65 +38,94 @@ class PlayerImageProcessController extends Controller
         $dir = storage_path('app/public/player_images');
         File::ensureDirectoryExists($dir);
 
-        // Save original temp file
-        $originalFilename = 'original-' . Str::random(10) . '.png';
-        $inputPath = $dir . '/' . $originalFilename;
-        file_put_contents($inputPath, $imageData);
-
-        // Define output path for background removal
+        // Save and resize immediately
         $outputFilename = 'processed-' . Str::random(10) . '.png';
         $outputPath = $dir . '/' . $outputFilename;
-
-        // Run background removal via Python script
-        $pythonScript = resource_path('scripts/remove_bg.py');
-        $bgRemoved = false;
-
-        if (File::exists($pythonScript)) {
-            if (app()->environment('production')) {
-                $pythonBinary = '/usr/bin/python3';
-                $cachePath = storage_path('app/rembg_cache');
-                File::ensureDirectoryExists($cachePath);
-                $command = 'U2NET_HOME=' . escapeshellarg($cachePath) . ' ' .
-                    escapeshellcmd($pythonBinary) . ' ' .
-                    escapeshellarg($pythonScript) . ' ' .
-                    escapeshellarg($inputPath) . ' ' .
-                    escapeshellarg($outputPath) . ' 2>&1';
-            } else {
-                $pythonBinary = PHP_OS_FAMILY === 'Windows'
-                    ? base_path('venv/Scripts/python.exe')
-                    : 'python3';
-                $command = '"' . $pythonBinary . '" "' . $pythonScript . '" "' . $inputPath . '" "' . $outputPath . '"';
-            }
-
-            try {
-                set_time_limit(300);
-                shell_exec($command);
-
-                if (File::exists($outputPath)) {
-                    File::delete($inputPath);
-                    $bgRemoved = true;
-                }
-            } catch (\Exception $e) {
-                \Log::warning("Background removal failed in AJAX process: " . $e->getMessage());
-            }
-        }
-
-        // If background removal failed/skipped, use original as output
-        if (!$bgRemoved) {
-            rename($inputPath, $outputPath);
-        }
+        file_put_contents($outputPath, $imageData);
 
         // Resize to max 800x1067 (3:4 portrait) while preserving transparency
         $this->resizeImage($outputPath, 800, 1067);
 
         $relativePath = 'player_images/' . $outputFilename;
-        $url = Storage::url($relativePath);
+
+        // Check if image already has transparency — skip bg removal if so
+        $needsBgRemoval = !$this->hasTransparency($outputPath);
+
+        if ($needsBgRemoval) {
+            // Dispatch to queue instead of running synchronously
+            RemoveImageBackground::dispatch($relativePath);
+        }
 
         return response()->json([
             'success' => true,
             'path' => $relativePath,
-            'url' => $url,
+            'url' => Storage::url($relativePath),
+            'bgProcessing' => $needsBgRemoval,
         ]);
+    }
+
+    /**
+     * Check background removal status for a given image path.
+     */
+    public function status(Request $request): JsonResponse
+    {
+        $path = $request->input('path');
+
+        if (!$path || !Storage::disk('public')->exists($path)) {
+            return response()->json(['done' => false, 'url' => null]);
+        }
+
+        $done = Storage::disk('public')->exists($path . '.done');
+
+        return response()->json([
+            'done' => $done,
+            'url' => $done ? Storage::url($path) . '?t=' . time() : null,
+        ]);
+    }
+
+    /**
+     * Check if a PNG image already has transparent pixels (sampled from corners).
+     */
+    private function hasTransparency(string $filePath): bool
+    {
+        $info = @getimagesize($filePath);
+        if (!$info || $info[2] !== IMAGETYPE_PNG) {
+            return false;
+        }
+
+        $image = @imagecreatefrompng($filePath);
+        if (!$image) {
+            return false;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $transparentCount = 0;
+        $sampleSize = 5;
+
+        $corners = [
+            [0, 0],
+            [$width - $sampleSize, 0],
+            [0, $height - $sampleSize],
+            [$width - $sampleSize, $height - $sampleSize],
+        ];
+
+        foreach ($corners as [$startX, $startY]) {
+            for ($x = max(0, $startX); $x < min($width, $startX + $sampleSize); $x++) {
+                for ($y = max(0, $startY); $y < min($height, $startY + $sampleSize); $y++) {
+                    $rgba = imagecolorat($image, $x, $y);
+                    $alpha = ($rgba >> 24) & 0x7F;
+                    if ($alpha > 64) {
+                        $transparentCount++;
+                    }
+                }
+            }
+        }
+
+        imagedestroy($image);
+
+        $totalSamples = count($corners) * $sampleSize * $sampleSize;
+        return ($transparentCount / $totalSamples) > 0.2;
     }
 
     /**

@@ -21,8 +21,8 @@ class RemoveImageBackground implements ShouldQueue
 
     public function __construct(
         public string $imagePath,
-        public string $model,
-        public int $modelId,
+        public ?string $model = null,
+        public ?int $modelId = null,
         public string $column = 'captain_image'
     ) {}
 
@@ -31,19 +31,36 @@ class RemoveImageBackground implements ShouldQueue
         $service = new ImageBackgroundRemovalService();
         $processedPath = $service->removeBackgroundQueued($this->imagePath);
 
-        if ($processedPath) {
-            DB::table((new $this->model)->getTable())
-                ->where('id', $this->modelId)
-                ->update([$this->column => $processedPath]);
+        if ($this->model && $this->modelId) {
+            // Model mode: update DB column
+            if ($processedPath) {
+                DB::table((new $this->model)->getTable())
+                    ->where('id', $this->modelId)
+                    ->update([$this->column => $processedPath]);
 
-            Log::info("Background removed for {$this->model}#{$this->modelId}: {$processedPath}");
+                Log::info("Background removed for {$this->model}#{$this->modelId}: {$processedPath}");
+            } else {
+                Log::info("Background removal skipped for {$this->model}#{$this->modelId} (no change needed)");
+            }
         } else {
-            Log::info("Background removal skipped for {$this->model}#{$this->modelId} (no change needed)");
+            // File-only mode: overwrite original with processed result, create .done marker
+            if ($processedPath && $processedPath !== $this->imagePath) {
+                Storage::disk('public')->delete($this->imagePath);
+                Storage::disk('public')->move($processedPath, $this->imagePath);
+            }
+            Storage::disk('public')->put($this->imagePath . '.done', '1');
+
+            Log::info("Background removed (file-only): {$this->imagePath}");
         }
     }
 
     public function failed(\Throwable $e): void
     {
-        Log::error("Background removal job failed for {$this->model}#{$this->modelId}: {$e->getMessage()}");
+        Log::error("Background removal job failed for {$this->imagePath}: {$e->getMessage()}");
+
+        // In file-only mode, still create .done marker so polling stops
+        if (!$this->model) {
+            Storage::disk('public')->put($this->imagePath . '.done', '1');
+        }
     }
 }

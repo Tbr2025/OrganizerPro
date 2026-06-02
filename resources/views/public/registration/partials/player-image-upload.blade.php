@@ -56,12 +56,19 @@
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
         <p class="text-sm text-yellow-400 font-medium">Processing image...</p>
-        <p class="text-xs text-gray-500 mt-1">Removing background & optimizing</p>
+        <p class="text-xs text-gray-500 mt-1">Cropping & optimizing</p>
     </div>
 
     {{-- Processed Preview --}}
     <div x-show="processedPath" x-cloak class="border border-gray-600 rounded-lg p-4 text-center bg-gray-800">
         <img :src="previewUrl" class="mx-auto mb-3 h-48 object-contain rounded-lg" x-show="previewUrl" />
+        <div x-show="bgProcessing" x-cloak class="mt-2 inline-flex items-center gap-1.5 text-xs text-yellow-400">
+            <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Removing background...
+        </div>
         <button type="button" @click="resetUpload()"
                 class="text-sm text-yellow-500 hover:text-yellow-400 hover:underline">
             Change Photo
@@ -142,6 +149,7 @@ function publicPlayerImageUpload_{{ $piuId }}() {
         processedPath: '',
         previewUrl: '',
         processing: false,
+        bgProcessing: false,
         errorMsg: '',
         showCropModal: false,
         cropMode: 'portrait',
@@ -242,6 +250,10 @@ function publicPlayerImageUpload_{{ $piuId }}() {
                 if (data.success) {
                     this.processedPath = data.path;
                     this.previewUrl = data.url;
+                    if (data.bgProcessing) {
+                        this.bgProcessing = true;
+                        this.pollBgStatus();
+                    }
                 } else {
                     this.errorMsg = data.message || 'Failed to process image.';
                 }
@@ -253,9 +265,36 @@ function publicPlayerImageUpload_{{ $piuId }}() {
             }
         },
 
+        pollBgStatus() {
+            const csrfToken = document.querySelector('input[name="_token"]')?.value
+                || document.querySelector('meta[name="csrf-token"]')?.content;
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`{{ route("public.player-image.status") }}?path=${encodeURIComponent(this.processedPath)}`, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        }
+                    });
+                    const data = await res.json();
+                    if (data.done) {
+                        clearInterval(interval);
+                        this.bgProcessing = false;
+                        this.previewUrl = data.url;
+                    }
+                } catch (e) {
+                    clearInterval(interval);
+                    this.bgProcessing = false;
+                }
+            }, 3000);
+            // Safety: stop polling after 2 minutes
+            setTimeout(() => { clearInterval(interval); this.bgProcessing = false; }, 120000);
+        },
+
         resetUpload() {
             this.processedPath = '';
             this.previewUrl = '';
+            this.bgProcessing = false;
             this.errorMsg = '';
             const input = this.$refs.pubFileInput_{{ $piuId }};
             if (input) input.value = '';

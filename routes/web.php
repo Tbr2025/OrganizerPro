@@ -105,11 +105,17 @@ Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middlewa
 Route::post('/player-image/process', [PlayerImageProcessController::class, 'process'])
     ->middleware('auth')
     ->name('player-image.process');
+Route::get('/player-image/status', [PlayerImageProcessController::class, 'status'])
+    ->middleware('auth')
+    ->name('player-image.status');
 
 // Player image AJAX processing (public, rate-limited)
 Route::post('/public/player-image/process', [PlayerImageProcessController::class, 'process'])
     ->middleware('throttle:10,1')
     ->name('public.player-image.process');
+Route::get('/public/player-image/status', [PlayerImageProcessController::class, 'status'])
+    ->middleware('throttle:30,1')
+    ->name('public.player-image.status');
 
 // --- Main Admin Route Group for general pages ---
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager']], function () {
