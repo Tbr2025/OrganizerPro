@@ -327,6 +327,8 @@ class TournamentTemplateController extends Controller
                 $data['fixture_area'] = $upcomingMatches->map(fn($m) => [
                     'team_a' => $m->teamA?->name ?? 'TBD',
                     'team_b' => $m->teamB?->name ?? 'TBD',
+                    'team_a_short' => $m->teamA?->short_name ?? $m->teamA?->name ?? 'TBD',
+                    'team_b_short' => $m->teamB?->short_name ?? $m->teamB?->name ?? 'TBD',
                     'team_a_logo' => $m->teamA?->team_logo ?? '',
                     'team_b_logo' => $m->teamB?->team_logo ?? '',
                     'date' => $m->match_date?->format('M d, Y') ?? '',

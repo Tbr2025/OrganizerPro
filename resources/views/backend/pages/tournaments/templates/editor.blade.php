@@ -1091,6 +1091,12 @@
                     </div>
                     <div class="prop-group">
                         <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propFxUseShortName" onchange="editor.updateFixtureConfig('useShortName', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Use Short Name</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="propFxShowMatchNum" onchange="editor.updateFixtureConfig('showMatchNum', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
                             <span class="prop-label" style="margin:0">Show Match Number</span>
                         </label>
@@ -1845,6 +1851,7 @@ const editor = {
             fontSize: 16, rowHeight: 100,
             cardColumns: 2,
             showTeamLogo: true,
+            useShortName: false,
             showMatchNum: false,
             showVenue: true,
             showDateTime: true,
@@ -1927,6 +1934,7 @@ const editor = {
         document.getElementById('propFxMaxRows').value = cfg.maxRows || 5;
         document.getElementById('propFxTransparentBg').checked = cfg.transparentBg ?? true;
         document.getElementById('propFxShowTeamLogo').checked = cfg.showTeamLogo ?? true;
+        document.getElementById('propFxUseShortName').checked = cfg.useShortName ?? false;
         document.getElementById('propFxShowMatchNum').checked = cfg.showMatchNum ?? false;
         document.getElementById('propFxShowVenue').checked = cfg.showVenue ?? true;
         document.getElementById('propFxShowDateTime').checked = cfg.showDateTime ?? true;

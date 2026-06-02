@@ -1986,6 +1986,7 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Toggle options
         $showTeamLogo = $config['showTeamLogo'] ?? true;
+        $useShortName = !empty($config['useShortName']);
         $showMatchNum = !empty($config['showMatchNum']);
         $showVenue = $config['showVenue'] ?? true;
         $showDateTime = $config['showDateTime'] ?? true;
@@ -2049,8 +2050,8 @@ class TemplateRenderService extends PosterGeneratorService
             $rowBottom = $rowTop + $rowHeight;
             if ($rowBottom > $areaY + $areaHeight) break;
 
-            $teamAName = $fixture['team_a'] ?? 'TBD';
-            $teamBName = $fixture['team_b'] ?? 'TBD';
+            $teamAName = $useShortName ? ($fixture['team_a_short'] ?? $fixture['team_a'] ?? 'TBD') : ($fixture['team_a'] ?? 'TBD');
+            $teamBName = $useShortName ? ($fixture['team_b_short'] ?? $fixture['team_b'] ?? 'TBD') : ($fixture['team_b'] ?? 'TBD');
             $dateStr = $fixture['date'] ?? '';
             $timeStr = $fixture['time'] ?? '';
             $venue = $fixture['venue'] ?? '';
@@ -2162,6 +2163,7 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Toggle options
         $showTeamLogo = $config['showTeamLogo'] ?? true;
+        $useShortName = !empty($config['useShortName']);
         $showMatchNum = $config['showMatchNum'] ?? false;
         $showVenue = $config['showVenue'] ?? true;
         $showDateTime = $config['showDateTime'] ?? true;
@@ -2222,8 +2224,8 @@ class TemplateRenderService extends PosterGeneratorService
             // Skip if card goes beyond area
             if ($cardY + $cardH > $areaY + $areaHeight) break;
 
-            $teamAName = $fixture['team_a'] ?? 'TBD';
-            $teamBName = $fixture['team_b'] ?? 'TBD';
+            $teamAName = $useShortName ? ($fixture['team_a_short'] ?? $fixture['team_a'] ?? 'TBD') : ($fixture['team_a'] ?? 'TBD');
+            $teamBName = $useShortName ? ($fixture['team_b_short'] ?? $fixture['team_b'] ?? 'TBD') : ($fixture['team_b'] ?? 'TBD');
             $dateStr = $fixture['date'] ?? '';
             $timeStr = $fixture['time'] ?? '';
             $venue = $fixture['venue'] ?? '';
