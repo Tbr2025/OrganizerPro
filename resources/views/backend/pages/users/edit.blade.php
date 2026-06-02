@@ -91,6 +91,42 @@
                     </div>
                     @endif
 
+                    {{-- Tournaments --}}
+                    @if($playerTournaments->isNotEmpty())
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Tournaments</h4>
+                        <div class="space-y-2">
+                            @foreach($playerTournaments as $tournament)
+                            @php
+                                $hasPlayerAssignment = $player->actualTeamAssignments->contains(fn($t) => $t->pivot->tournament_id == $tournament->id);
+                                $stat = $playerStats->firstWhere('tournament_id', $tournament->id);
+                            @endphp
+                            <div class="flex items-center justify-between p-3 rounded-lg border {{ $hasPlayerAssignment ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50' : 'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20' }}">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-sm font-medium text-gray-900 dark:text-white">{{ $tournament->name }}</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $tournament->status === 'completed' ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' : ($tournament->status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400') }}">
+                                        {{ ucfirst($tournament->status) }}
+                                    </span>
+                                    @if($stat)
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ $stat->matches }} match{{ $stat->matches !== 1 ? 'es' : '' }}</span>
+                                    @endif
+                                </div>
+                                <div>
+                                    @if(!$hasPlayerAssignment)
+                                    <span class="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                                        Not assigned via roster
+                                    </span>
+                                    @else
+                                    <span class="text-xs text-green-600 dark:text-green-400">Assigned</span>
+                                    @endif
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     {{-- Tournament Stats --}}
                     @if($playerStats->isNotEmpty())
                     <div>

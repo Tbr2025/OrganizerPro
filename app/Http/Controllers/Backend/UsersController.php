@@ -114,17 +114,30 @@ class UsersController extends Controller
         // Load player summary if user has a player profile
         $player = $user->player;
         $playerStats = collect();
+        $playerTournaments = collect();
         if ($player) {
             $player->load(['actualTeam', 'player_type', 'batting_profile', 'bowling_profile', 'actualTeamAssignments']);
             $playerStats = PlayerStatistic::where('player_id', $player->id)
                 ->with(['tournament', 'team'])
                 ->get();
+
+            // Get all tournaments this player's team(s) participate in
+            $teamIds = $player->actualTeamAssignments->pluck('id')->push($player->actual_team_id)->filter()->unique();
+            if ($teamIds->isNotEmpty()) {
+                $playerTournaments = \App\Models\Tournament::where(function ($q) use ($teamIds) {
+                    $q->whereHas('actualTeams', fn($q2) => $q2->whereIn('actual_teams.id', $teamIds))
+                      ->orWhereHas('groups.teams', fn($q2) => $q2->whereIn('actual_teams.id', $teamIds));
+                })
+                ->with(['actualTeams' => fn($q) => $q->whereIn('actual_teams.id', $teamIds)])
+                ->get();
+            }
         }
 
         return view('backend.pages.users.edit', [
             'user' => $user,
             'player' => $player,
             'playerStats' => $playerStats,
+            'playerTournaments' => $playerTournaments,
             'roles' => $this->rolesService->getRolesDropdown(),
             'breadcrumbs' => [
                 'title' => __('Edit User'),
