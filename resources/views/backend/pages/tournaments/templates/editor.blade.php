@@ -1119,27 +1119,44 @@
                             <span class="prop-label" style="margin:0">Transparent Background</span>
                         </label>
                     </div>
-                </div>
-                <div class="prop-section">
-                    <div class="prop-section-title">Card Style</div>
-                    <div class="grid grid-cols-3 gap-2" id="propFxCardStyleSelector">
-                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'flat')" data-style="flat" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Flat</button>
-                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'bordered')" data-style="bordered" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Bordered</button>
-                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'gradient')" data-style="gradient" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Gradient</button>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propFxShowBorder" onchange="editor.updateFixtureConfig('showBorder', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show Border</span>
+                        </label>
+                    </div>
+                    <div class="prop-input-row" style="margin-top:8px;">
+                        <div class="prop-group">
+                            <label class="prop-label">Row Gap</label>
+                            <input type="number" id="propFxRowGap" class="prop-input" min="0" max="30" value="4" onchange="editor.updateFixtureConfig('rowGap', parseInt(this.value))">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Padding</label>
+                            <input type="number" id="propFxRowPadding" class="prop-input" min="0" max="40" value="16" onchange="editor.updateFixtureConfig('rowPadding', parseInt(this.value))">
+                        </div>
                     </div>
                 </div>
                 <div class="prop-section">
-                    <div class="prop-section-title">Style Presets</div>
+                    <div class="prop-section-title">Row Effect</div>
+                    <div class="grid grid-cols-4 gap-2" id="propFxCardStyleSelector">
+                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'flat')" data-style="flat" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Flat</button>
+                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'gradient')" data-style="gradient" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Gradient</button>
+                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'stripe')" data-style="stripe" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Stripe</button>
+                        <button type="button" onclick="editor.updateFixtureConfig('cardStyle', 'glow')" data-style="glow" class="prop-btn text-xs justify-center transition-all" style="padding:6px 4px;">Glow</button>
+                    </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Preset Layouts</div>
                     <div class="grid grid-cols-3 gap-2">
-                        <button onclick="editor.applyFixturePreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark</button>
-                        <button onclick="editor.applyFixturePreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
-                        <button onclick="editor.applyFixturePreset('green')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#064e3b;color:#fff;border-color:#047857;">Green</button>
-                        <button onclick="editor.applyFixturePreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#fff;border-color:#7c3aed;">IPL</button>
-                        <button onclick="editor.applyFixturePreset('royal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1e1b4b;color:#fbbf24;border-color:#4338ca;">Royal</button>
-                        <button onclick="editor.applyFixturePreset('neon')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0a0a0a;color:#22d3ee;border-color:#06b6d4;">Neon</button>
-                        <button onclick="editor.applyFixturePreset('sunset')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#7c2d12;color:#fef08a;border-color:#ea580c;">Sunset</button>
-                        <button onclick="editor.applyFixturePreset('ocean')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0c4a6e;color:#7dd3fc;border-color:#0284c7;">Ocean</button>
+                        <button onclick="editor.applyFixturePreset('classic')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#d4a843;border-color:#1e40af;">Classic</button>
+                        <button onclick="editor.applyFixturePreset('modern')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1e293b;color:#fff;border-color:#3b82f6;">Modern</button>
                         <button onclick="editor.applyFixturePreset('minimal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#18181b;color:#a1a1aa;border-color:#3f3f46;">Minimal</button>
+                        <button onclick="editor.applyFixturePreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#f59e0b;border-color:#7c3aed;">IPL</button>
+                        <button onclick="editor.applyFixturePreset('cardDark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0a1628;color:#fff;border-color:#334155;">Card Dark</button>
+                        <button onclick="editor.applyFixturePreset('cardLight')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Card Light</button>
+                        <button onclick="editor.applyFixturePreset('neonGlow')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0a0a0a;color:#22d3ee;border-color:#f43f5e;">Neon Glow</button>
+                        <button onclick="editor.applyFixturePreset('royal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1e1b4b;color:#fbbf24;border-color:#4338ca;">Royal</button>
+                        <button onclick="editor.applyFixturePreset('tournament')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#064e3b;color:#FFD700;border-color:#047857;">Tournament</button>
                     </div>
                 </div>
             </div>
@@ -1868,6 +1885,9 @@ const editor = {
             showMatchNum: false,
             showVenue: true,
             showDateTime: true,
+            showBorder: false,
+            rowGap: 4,
+            rowPadding: 16,
         };
         this.canvas.add(group);
         this.canvas.setActiveObject(group);
@@ -1927,15 +1947,15 @@ const editor = {
 
     applyFixturePreset(preset) {
         const presets = {
-            dark:    { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', dividerColor:'#d4a843', transparentBg:true },
-            light:   { headerBg:'#4f46e5', headerText:'#ffffff', rowBg:'#ffffff', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#4f46e5', mutedColor:'#64748b', dividerColor:'#e2e8f0', transparentBg:false },
-            green:   { headerBg:'#047857', headerText:'#ffffff', rowBg:'#064e3b', altRowBg:'#065f46', textColor:'#ffffff', accentColor:'#FFD700', mutedColor:'#a7f3d0', dividerColor:'#FFD700', transparentBg:true },
-            ipl:     { headerBg:'#7c3aed', headerText:'#ffffff', rowBg:'#1a0533', altRowBg:'#2d1050', textColor:'#ffffff', accentColor:'#f59e0b', mutedColor:'#c4b5fd', dividerColor:'#7c3aed', transparentBg:false },
-            royal:   { headerBg:'#4338ca', headerText:'#fbbf24', rowBg:'#1e1b4b', altRowBg:'#312e81', textColor:'#e0e7ff', accentColor:'#fbbf24', mutedColor:'#a5b4fc', dividerColor:'#fbbf24', transparentBg:false },
-            neon:    { headerBg:'#06b6d4', headerText:'#000000', rowBg:'#0a0a0a', altRowBg:'#171717', textColor:'#22d3ee', accentColor:'#f43f5e', mutedColor:'#67e8f9', dividerColor:'#06b6d4', transparentBg:false },
-            sunset:  { headerBg:'#ea580c', headerText:'#ffffff', rowBg:'#7c2d12', altRowBg:'#9a3412', textColor:'#fef08a', accentColor:'#fbbf24', mutedColor:'#fed7aa', dividerColor:'#f97316', transparentBg:false },
-            ocean:   { headerBg:'#0284c7', headerText:'#ffffff', rowBg:'#0c4a6e', altRowBg:'#075985', textColor:'#e0f2fe', accentColor:'#38bdf8', mutedColor:'#7dd3fc', dividerColor:'#0ea5e9', transparentBg:false },
-            minimal: { headerBg:'#27272a', headerText:'#fafafa', rowBg:'#18181b', altRowBg:'#27272a', textColor:'#fafafa', accentColor:'#a1a1aa', mutedColor:'#71717a', dividerColor:'#3f3f46', transparentBg:true },
+            classic: { layout:'row', cardStyle:'flat', showBorder:false, transparentBg:true, showTeamLogo:true, showMatchNum:false, showVenue:true, showDateTime:true, useShortName:false, rowGap:4, rowPadding:16, headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', dividerColor:'#d4a843' },
+            modern:  { layout:'row', cardStyle:'gradient', showBorder:true, transparentBg:false, showTeamLogo:true, showMatchNum:false, showVenue:true, showDateTime:true, useShortName:false, rowGap:6, rowPadding:18, headerBg:'#3b82f6', headerText:'#ffffff', rowBg:'#1e293b', altRowBg:'#273548', textColor:'#f1f5f9', accentColor:'#60a5fa', mutedColor:'#94a3b8', dividerColor:'#3b82f6' },
+            minimal: { layout:'row', cardStyle:'flat', showBorder:false, transparentBg:true, showTeamLogo:false, showMatchNum:false, showVenue:false, showDateTime:true, useShortName:true, rowGap:2, rowPadding:12, headerBg:'#27272a', headerText:'#fafafa', rowBg:'#18181b', altRowBg:'#27272a', textColor:'#fafafa', accentColor:'#a1a1aa', mutedColor:'#71717a', dividerColor:'#3f3f46' },
+            ipl:     { layout:'row', cardStyle:'glow', showBorder:false, transparentBg:false, showTeamLogo:true, showMatchNum:true, showVenue:true, showDateTime:true, useShortName:false, rowGap:6, rowPadding:16, headerBg:'#7c3aed', headerText:'#ffffff', rowBg:'#1a0533', altRowBg:'#2d1050', textColor:'#ffffff', accentColor:'#f59e0b', mutedColor:'#c4b5fd', dividerColor:'#7c3aed' },
+            cardDark:{ layout:'card', cardStyle:'flat', showBorder:true, transparentBg:false, showTeamLogo:true, showMatchNum:true, showVenue:true, showDateTime:true, useShortName:false, rowGap:8, rowPadding:12, cardColumns:2, headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', dividerColor:'#d4a843' },
+            cardLight:{ layout:'card', cardStyle:'flat', showBorder:false, transparentBg:false, showTeamLogo:true, showMatchNum:true, showVenue:true, showDateTime:true, useShortName:false, rowGap:8, rowPadding:12, cardColumns:2, headerBg:'#4f46e5', headerText:'#ffffff', rowBg:'#ffffff', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#4f46e5', mutedColor:'#64748b', dividerColor:'#e2e8f0' },
+            neonGlow:{ layout:'row', cardStyle:'glow', showBorder:false, transparentBg:false, showTeamLogo:true, showMatchNum:false, showVenue:true, showDateTime:true, useShortName:false, rowGap:6, rowPadding:16, headerBg:'#06b6d4', headerText:'#000000', rowBg:'#0a0a0a', altRowBg:'#171717', textColor:'#22d3ee', accentColor:'#f43f5e', mutedColor:'#67e8f9', dividerColor:'#06b6d4' },
+            royal:   { layout:'row', cardStyle:'gradient', showBorder:true, transparentBg:false, showTeamLogo:true, showMatchNum:false, showVenue:true, showDateTime:true, useShortName:false, rowGap:4, rowPadding:16, headerBg:'#4338ca', headerText:'#fbbf24', rowBg:'#1e1b4b', altRowBg:'#312e81', textColor:'#e0e7ff', accentColor:'#fbbf24', mutedColor:'#a5b4fc', dividerColor:'#fbbf24' },
+            tournament:{ layout:'row', cardStyle:'stripe', showBorder:false, transparentBg:false, showTeamLogo:true, showMatchNum:true, showVenue:true, showDateTime:true, useShortName:false, rowGap:4, rowPadding:16, headerBg:'#047857', headerText:'#ffffff', rowBg:'#064e3b', altRowBg:'#065f46', textColor:'#ffffff', accentColor:'#FFD700', mutedColor:'#a7f3d0', dividerColor:'#FFD700' },
         };
         const cfg = presets[preset];
         if (!cfg) return;
@@ -1969,6 +1989,9 @@ const editor = {
         document.getElementById('propFxShowMatchNum').checked = cfg.showMatchNum ?? false;
         document.getElementById('propFxShowVenue').checked = cfg.showVenue ?? true;
         document.getElementById('propFxShowDateTime').checked = cfg.showDateTime ?? true;
+        document.getElementById('propFxShowBorder').checked = cfg.showBorder ?? false;
+        document.getElementById('propFxRowGap').value = cfg.rowGap ?? 4;
+        document.getElementById('propFxRowPadding').value = cfg.rowPadding ?? 16;
         const cardColSel = document.getElementById('propFxCardColumns');
         if (cardColSel) cardColSel.value = cfg.cardColumns || 2;
         this._syncFixtureLayoutUI(cfg.layout || 'row');
@@ -2818,7 +2841,7 @@ const editor = {
     // Load template
     loadTemplate(layout) {
         if (!layout || !Array.isArray(layout)) return;
-        let pendingImages = 0;
+        let pendingAsync = 0;
         const totalItems = layout.length;
 
         layout.forEach((item, layoutIndex) => {
@@ -2862,9 +2885,10 @@ const editor = {
                 this.canvas.add(group);
             } else if (item.type === 'icon' && item.iconType === 'svg') {
                 // Restore SVG-based icon (cricket icons)
+                pendingAsync++;
                 ((savedItem, lx, ly, idx) => {
                     const svgTemplate = this.svgIconMap[savedItem.iconName];
-                    if (!svgTemplate) return;
+                    if (!svgTemplate) { pendingAsync--; if (pendingAsync === 0) this._reorderByLayoutIndex(); return; }
                     const color = savedItem.color || '#ffffff';
                     const svgString = svgTemplate.replace(/__COLOR__/g, color);
                     fabric.loadSVGFromString(svgString, (objects, options) => {
@@ -2882,6 +2906,8 @@ const editor = {
                         if (savedItem.hidden) { group.visible = false; }
                         if (savedItem.locked) { group.selectable = false; group.evented = false; group.locked = true; }
                         this.canvas.add(group);
+                        pendingAsync--;
+                        if (pendingAsync === 0) this._reorderByLayoutIndex();
                         this.canvas.renderAll();
                     });
                 })(item, x, y, layoutIndex);
@@ -3007,7 +3033,7 @@ const editor = {
                 fxGroup._layoutIndex = layoutIndex;
                 this.canvas.add(fxGroup);
             } else if (item.type === 'uploadedImage') {
-                pendingImages++;
+                pendingAsync++;
                 const imgPath = item.imagePath || item.path || '';
                 if (imgPath) {
                     const imgUrl = imgPath.startsWith('http') ? imgPath : '{{ asset("storage") }}/' + imgPath;
@@ -3026,14 +3052,15 @@ const editor = {
                         if (item.hidden) { img.visible = false; }
                         if (item.locked) { img.selectable = false; img.evented = false; img.locked = true; }
                         this.canvas.add(img);
-                        pendingImages--;
-                        if (pendingImages === 0) {
+                        pendingAsync--;
+                        if (pendingAsync === 0) {
                             this._reorderByLayoutIndex();
                         }
                         this.canvas.renderAll();
                     }, { crossOrigin: 'anonymous' });
                 } else {
-                    pendingImages--;
+                    pendingAsync--;
+                    if (pendingAsync === 0) this._reorderByLayoutIndex();
                 }
             }
         });
@@ -3047,6 +3074,10 @@ const editor = {
             if (item.hidden) { obj.visible = false; }
             if (item.locked) { obj.selectable = false; obj.evented = false; obj.locked = true; }
         });
+        // Reorder synchronous elements immediately; async items will reorder again when they complete
+        if (pendingAsync === 0) {
+            this._reorderByLayoutIndex();
+        }
         this.canvas.renderAll();
     },
 
@@ -3056,6 +3087,7 @@ const editor = {
         this.canvas._objects.length = 0;
         objects.forEach(obj => this.canvas._objects.push(obj));
         this.canvas.renderAll();
+        this.updateLayers();
     },
 
     // Save
