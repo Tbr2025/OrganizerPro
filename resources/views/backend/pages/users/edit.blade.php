@@ -11,6 +11,206 @@
         {!! ld_apply_filters('users_after_breadcrumbs', '') !!}
 
         <div class="space-y-6">
+            {{-- Player Summary --}}
+            @if($player)
+            <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Player Summary</h3>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $player->status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' }}">
+                        {{ ucfirst($player->status) }}
+                    </span>
+                </div>
+                <div class="p-5 sm:p-6 space-y-6">
+                    {{-- Player Profile Card --}}
+                    <div class="flex items-start gap-5">
+                        @if($player->image_path)
+                        <img src="{{ Storage::url($player->image_path) }}" class="w-20 h-24 object-cover rounded-lg bg-gray-100 dark:bg-gray-700" />
+                        @else
+                        <div class="w-20 h-24 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                            <svg class="w-10 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 32"><ellipse cx="12" cy="8" rx="5" ry="6"/><path d="M2 28c0-6 4-10 10-10s10 4 10 10"/></svg>
+                        </div>
+                        @endif
+                        <div class="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Name</span>
+                                <p class="font-medium text-gray-900 dark:text-white">{{ $player->name }}</p>
+                            </div>
+                            @if($player->jersey_number)
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Jersey #</span>
+                                <p class="font-medium text-gray-900 dark:text-white">{{ $player->jersey_number }}</p>
+                            </div>
+                            @endif
+                            @if($player->player_type)
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Type</span>
+                                <p class="font-medium text-gray-900 dark:text-white">{{ $player->player_type->type }}</p>
+                            </div>
+                            @endif
+                            @if($player->batting_profile)
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Batting</span>
+                                <p class="font-medium text-gray-900 dark:text-white">{{ $player->batting_profile->name }}</p>
+                            </div>
+                            @endif
+                            @if($player->bowling_profile)
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Bowling</span>
+                                <p class="font-medium text-gray-900 dark:text-white">{{ $player->bowling_profile->name }}</p>
+                            </div>
+                            @endif
+                            @if($player->actualTeam)
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Team</span>
+                                <p class="font-medium text-gray-900 dark:text-white">{{ $player->actualTeam->name }}</p>
+                            </div>
+                            @endif
+                            @if($player->is_wicket_keeper)
+                            <div>
+                                <span class="text-gray-500 dark:text-gray-400">Role</span>
+                                <p class="font-medium text-gray-900 dark:text-white">Wicket Keeper</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- Team Assignments --}}
+                    @if($player->actualTeamAssignments->isNotEmpty())
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Team Assignments</h4>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($player->actualTeamAssignments as $team)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                {{ $team->name }}
+                                @if($team->pivot->role)
+                                <span class="text-blue-500 dark:text-blue-400">({{ $team->pivot->role }})</span>
+                                @endif
+                            </span>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- Tournament Stats --}}
+                    @if($playerStats->isNotEmpty())
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Tournament Statistics</h4>
+                        <div class="space-y-4">
+                            @foreach($playerStats as $stat)
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-semibold text-sm text-gray-800 dark:text-white">{{ $stat->tournament?->name ?? 'Unknown Tournament' }}</span>
+                                        @if($stat->team)
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">- {{ $stat->team->name }}</span>
+                                        @endif
+                                    </div>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ $stat->matches ?? 0 }} match{{ ($stat->matches ?? 0) !== 1 ? 'es' : '' }}</span>
+                                </div>
+                                <div class="p-4">
+                                    {{-- Batting --}}
+                                    @if($stat->innings_batted > 0)
+                                    <div class="mb-3">
+                                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Batting</p>
+                                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->runs }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Runs</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->innings_batted }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Innings</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->highest_score_display }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Highest</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->batting_average !== null ? number_format($stat->batting_average, 2) : '-' }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Average</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->strike_rate > 0 ? number_format($stat->strike_rate, 1) : '-' }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">SR</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->fours }}/{{ $stat->sixes }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">4s/6s</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+
+                                    {{-- Bowling --}}
+                                    @if($stat->innings_bowled > 0)
+                                    <div class="mb-3">
+                                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Bowling</p>
+                                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->wickets }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Wickets</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->overs_bowled }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Overs</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->runs_conceded }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Conceded</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->bowling_average !== null ? number_format($stat->bowling_average, 2) : '-' }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Average</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->economy_rate !== null ? number_format($stat->economy_rate, 2) : '-' }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Econ</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->best_bowling ?: '-' }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Best</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+
+                                    {{-- Fielding --}}
+                                    @if(($stat->catches + $stat->stumpings + $stat->run_outs) > 0)
+                                    <div>
+                                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Fielding</p>
+                                        <div class="grid grid-cols-3 gap-3">
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->catches }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Catches</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->stumpings }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Stumpings</p>
+                                            </div>
+                                            <div class="text-center p-2 rounded bg-gray-50 dark:bg-gray-800/50">
+                                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $stat->run_outs }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">Run Outs</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endif
+
+                                    {{-- No stats yet --}}
+                                    @if(($stat->innings_batted ?? 0) === 0 && ($stat->innings_bowled ?? 0) === 0)
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">No batting/bowling stats recorded yet.</p>
+                                    @endif
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @else
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No tournament statistics available.</p>
+                    @endif
+                </div>
+            </div>
+            @endif
+
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                 <div class="p-5 space-y-6 border-t border-gray-100 dark:border-gray-800 sm:p-6">
                     <form action="{{ route('admin.users.update', $user->id) }}" method="POST" class="space-y-6"

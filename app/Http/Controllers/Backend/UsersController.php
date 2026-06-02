@@ -8,6 +8,7 @@ use App\Enums\ActionType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
+use App\Models\PlayerStatistic;
 use App\Models\User;
 use App\Services\RolesService;
 use App\Services\UserService;
@@ -110,8 +111,20 @@ class UsersController extends Controller
 
         $user = ld_apply_filters('user_edit_page_before_with_user', $user);
 
+        // Load player summary if user has a player profile
+        $player = $user->player;
+        $playerStats = collect();
+        if ($player) {
+            $player->load(['actualTeam', 'player_type', 'batting_profile', 'bowling_profile', 'actualTeamAssignments']);
+            $playerStats = PlayerStatistic::where('player_id', $player->id)
+                ->with(['tournament', 'team'])
+                ->get();
+        }
+
         return view('backend.pages.users.edit', [
             'user' => $user,
+            'player' => $player,
+            'playerStats' => $playerStats,
             'roles' => $this->rolesService->getRolesDropdown(),
             'breadcrumbs' => [
                 'title' => __('Edit User'),
