@@ -1002,17 +1002,20 @@
             {{-- Fixture Area Properties --}}
             <div id="fixturePropertiesPanel" class="hidden">
                 <div class="prop-section">
-                    <div class="prop-section-title">Fixture Colors</div>
-                    <div class="prop-input-row">
-                        <div class="prop-group">
-                            <label class="prop-label">Header BG</label>
-                            <input type="color" id="propFxHeaderBg" class="color-preview" value="#1e40af" onchange="editor.updateFixtureConfig('headerBg', this.value)">
-                        </div>
-                        <div class="prop-group">
-                            <label class="prop-label">Header Text</label>
-                            <input type="color" id="propFxHeaderText" class="color-preview" value="#ffffff" onchange="editor.updateFixtureConfig('headerText', this.value)">
-                        </div>
+                    <div class="prop-section-title">Design Layout</div>
+                    <div class="grid grid-cols-2 gap-2" id="propFxLayoutSelector">
+                        <button type="button" onclick="editor.updateFixtureConfig('layout', 'row')" data-layout="row" class="prop-btn text-xs justify-center flex items-center gap-1 transition-all" style="padding:8px 6px;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                            Row List
+                        </button>
+                        <button type="button" onclick="editor.updateFixtureConfig('layout', 'card')" data-layout="card" class="prop-btn text-xs justify-center flex items-center gap-1 transition-all" style="padding:8px 6px;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                            Card Grid
+                        </button>
                     </div>
+                </div>
+                <div class="prop-section">
+                    <div class="prop-section-title">Fixture Colors</div>
                     <div class="prop-input-row">
                         <div class="prop-group">
                             <label class="prop-label">Row BG</label>
@@ -1029,54 +1032,49 @@
                             <input type="color" id="propFxTextColor" class="color-preview" value="#ffffff" onchange="editor.updateFixtureConfig('textColor', this.value)">
                         </div>
                         <div class="prop-group">
-                            <label class="prop-label">Accent (VS)</label>
+                            <label class="prop-label">Accent Color</label>
                             <input type="color" id="propFxAccentColor" class="color-preview" value="#FFD700" onchange="editor.updateFixtureConfig('accentColor', this.value)">
                         </div>
                     </div>
-                    <div class="prop-group">
-                        <label class="prop-label">Muted Text</label>
-                        <input type="color" id="propFxMutedColor" class="color-preview" value="#94a3b8" onchange="editor.updateFixtureConfig('mutedColor', this.value)">
-                    </div>
                     <div class="prop-input-row">
                         <div class="prop-group">
-                            <label class="prop-label">Badge BG</label>
-                            <input type="color" id="propFxMatchBadgeBg" class="color-preview" value="#ffffff" onchange="editor.updateFixtureConfig('matchBadgeBg', this.value)">
+                            <label class="prop-label">Muted Text</label>
+                            <input type="color" id="propFxMutedColor" class="color-preview" value="#94a3b8" onchange="editor.updateFixtureConfig('mutedColor', this.value)">
                         </div>
                         <div class="prop-group">
-                            <label class="prop-label">Badge Text</label>
-                            <input type="color" id="propFxMatchBadgeText" class="color-preview" value="#0a1628" onchange="editor.updateFixtureConfig('matchBadgeText', this.value)">
+                            <label class="prop-label">Divider</label>
+                            <input type="color" id="propFxDividerColor" class="color-preview" value="#d4a843" onchange="editor.updateFixtureConfig('dividerColor', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row" id="propFxCardColorGroup" style="display:none;">
+                        <div class="prop-group">
+                            <label class="prop-label">Header BG</label>
+                            <input type="color" id="propFxHeaderBg" class="color-preview" value="#1e40af" onchange="editor.updateFixtureConfig('headerBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Header Text</label>
+                            <input type="color" id="propFxHeaderText" class="color-preview" value="#ffffff" onchange="editor.updateFixtureConfig('headerText', this.value)">
                         </div>
                     </div>
                 </div>
                 <div class="prop-section">
-                    <div class="prop-section-title">Design Layout</div>
-                    <div class="prop-group" style="margin-bottom:10px;">
-                        <div class="grid grid-cols-2 gap-2" id="propFxLayoutSelector">
-                            <button type="button" onclick="editor.updateFixtureConfig('layout', 'row')" data-layout="row" class="prop-btn text-xs justify-center flex items-center gap-1 transition-all" style="padding:8px 6px;">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                                Row List
-                            </button>
-                            <button type="button" onclick="editor.updateFixtureConfig('layout', 'card')" data-layout="card" class="prop-btn text-xs justify-center flex items-center gap-1 transition-all" style="padding:8px 6px;">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
-                                Card Grid
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="prop-section">
-                    <div class="prop-section-title">Layout Settings</div>
+                    <div class="prop-section-title">Fixture Layout</div>
                     <div class="prop-input-row">
                         <div class="prop-group">
                             <label class="prop-label">Font Size</label>
-                            <input type="number" id="propFxFontSize" class="prop-input" min="10" max="24" value="14" onchange="editor.updateFixtureConfig('fontSize', parseInt(this.value))">
+                            <input type="number" id="propFxFontSize" class="prop-input" min="8" max="32" value="16" onchange="editor.updateFixtureConfig('fontSize', parseInt(this.value))">
                         </div>
                         <div class="prop-group" id="propFxRowHeightGroup">
                             <label class="prop-label">Row Height</label>
-                            <input type="number" id="propFxRowHeight" class="prop-input" min="40" max="120" value="80" onchange="editor.updateFixtureConfig('rowHeight', parseInt(this.value))">
+                            <input type="number" id="propFxRowHeight" class="prop-input" min="40" max="200" value="100" onchange="editor.updateFixtureConfig('rowHeight', parseInt(this.value))">
                         </div>
                     </div>
-                    <div class="prop-input-row" id="propFxCardColumnsGroup" style="display:none;">
+                    <div class="prop-input-row">
                         <div class="prop-group">
+                            <label class="prop-label">Max Fixtures</label>
+                            <input type="number" id="propFxMaxRows" class="prop-input" min="1" max="20" value="5" onchange="editor.updateFixtureConfig('maxRows', parseInt(this.value))">
+                        </div>
+                        <div class="prop-group" id="propFxCardColumnsGroup" style="display:none;">
                             <label class="prop-label">Columns</label>
                             <select id="propFxCardColumns" class="prop-input" onchange="editor.updateFixtureConfig('cardColumns', parseInt(this.value))">
                                 <option value="2">2 Columns</option>
@@ -1085,11 +1083,31 @@
                             </select>
                         </div>
                     </div>
-                    <div class="prop-group">
-                        <label class="prop-label">Max Fixtures</label>
-                        <input type="number" id="propFxMaxRows" class="prop-input" min="1" max="20" value="5" onchange="editor.updateFixtureConfig('maxRows', parseInt(this.value))">
+                    <div class="prop-group" style="margin-top:12px;">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propFxShowTeamLogo" checked onchange="editor.updateFixtureConfig('showTeamLogo', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show Team Logo</span>
+                        </label>
                     </div>
-                    <div class="prop-group" style="margin-top:8px;">
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propFxShowMatchNum" onchange="editor.updateFixtureConfig('showMatchNum', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show Match Number</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propFxShowVenue" checked onchange="editor.updateFixtureConfig('showVenue', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show Venue</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propFxShowDateTime" checked onchange="editor.updateFixtureConfig('showDateTime', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show Date & Time</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="propFxTransparentBg" onchange="editor.updateFixtureConfig('transparentBg', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
                             <span class="prop-label" style="margin:0">Transparent Background</span>
@@ -1098,10 +1116,11 @@
                 </div>
                 <div class="prop-section">
                     <div class="prop-section-title">Style Presets</div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 gap-2">
                         <button onclick="editor.applyFixturePreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark</button>
                         <button onclick="editor.applyFixturePreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
                         <button onclick="editor.applyFixturePreset('green')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#064e3b;color:#fff;border-color:#047857;">Green</button>
+                        <button onclick="editor.applyFixturePreset('minimal')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#18181b;color:#a1a1aa;border-color:#3f3f46;">Minimal</button>
                     </div>
                 </div>
             </div>
@@ -1822,10 +1841,13 @@ const editor = {
             headerBg: '#1e40af', headerText: '#ffffff',
             rowBg: '#0a1628', altRowBg: '#0f1d33',
             textColor: '#ffffff', accentColor: '#d4a843',
-            matchBadgeBg: '#ffffff', matchBadgeText: '#0a1628',
-            mutedColor: '#8899aa',
+            mutedColor: '#8899aa', dividerColor: '#d4a843',
             fontSize: 16, rowHeight: 100,
             cardColumns: 2,
+            showTeamLogo: true,
+            showMatchNum: false,
+            showVenue: true,
+            showDateTime: true,
         };
         this.canvas.add(group);
         this.canvas.setActiveObject(group);
@@ -1861,8 +1883,10 @@ const editor = {
         // Toggle card-specific options
         const isCard = layout === 'card';
         const cardColGroup = document.getElementById('propFxCardColumnsGroup');
+        const cardColorGroup = document.getElementById('propFxCardColorGroup');
         const rowHeightGroup = document.getElementById('propFxRowHeightGroup');
         if (cardColGroup) cardColGroup.style.display = isCard ? '' : 'none';
+        if (cardColorGroup) cardColorGroup.style.display = isCard ? '' : 'none';
         if (rowHeightGroup) {
             rowHeightGroup.querySelector('.prop-label').textContent = isCard ? 'Card Height' : 'Row Height';
         }
@@ -1870,9 +1894,10 @@ const editor = {
 
     applyFixturePreset(preset) {
         const presets = {
-            dark: { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', matchBadgeBg:'#ffffff', matchBadgeText:'#0a1628' },
-            light: { headerBg:'#4f46e5', headerText:'#ffffff', rowBg:'#ffffff', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#4f46e5', mutedColor:'#64748b', matchBadgeBg:'#4f46e5', matchBadgeText:'#ffffff' },
-            green: { headerBg:'#047857', headerText:'#ffffff', rowBg:'#064e3b', altRowBg:'#065f46', textColor:'#ffffff', accentColor:'#FFD700', mutedColor:'#a7f3d0', matchBadgeBg:'#ffffff', matchBadgeText:'#064e3b' },
+            dark: { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#0a1628', altRowBg:'#0f1d33', textColor:'#ffffff', accentColor:'#d4a843', mutedColor:'#8899aa', dividerColor:'#d4a843', transparentBg:true },
+            light: { headerBg:'#4f46e5', headerText:'#ffffff', rowBg:'#ffffff', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#4f46e5', mutedColor:'#64748b', dividerColor:'#e2e8f0', transparentBg:false },
+            green: { headerBg:'#047857', headerText:'#ffffff', rowBg:'#064e3b', altRowBg:'#065f46', textColor:'#ffffff', accentColor:'#FFD700', mutedColor:'#a7f3d0', dividerColor:'#FFD700', transparentBg:true },
+            minimal: { headerBg:'#27272a', headerText:'#fafafa', rowBg:'#18181b', altRowBg:'#27272a', textColor:'#fafafa', accentColor:'#a1a1aa', mutedColor:'#71717a', dividerColor:'#3f3f46', transparentBg:true },
         };
         const cfg = presets[preset];
         if (!cfg) return;
@@ -1896,12 +1921,15 @@ const editor = {
         document.getElementById('propFxTextColor').value = cfg.textColor || '#ffffff';
         document.getElementById('propFxAccentColor').value = cfg.accentColor || '#d4a843';
         document.getElementById('propFxMutedColor').value = cfg.mutedColor || '#94a3b8';
-        document.getElementById('propFxMatchBadgeBg').value = cfg.matchBadgeBg || '#ffffff';
-        document.getElementById('propFxMatchBadgeText').value = cfg.matchBadgeText || '#0a1628';
-        document.getElementById('propFxFontSize').value = cfg.fontSize || 14;
-        document.getElementById('propFxRowHeight').value = cfg.rowHeight || 90;
+        document.getElementById('propFxDividerColor').value = cfg.dividerColor || '#d4a843';
+        document.getElementById('propFxFontSize').value = cfg.fontSize || 16;
+        document.getElementById('propFxRowHeight').value = cfg.rowHeight || 100;
         document.getElementById('propFxMaxRows').value = cfg.maxRows || 5;
-        document.getElementById('propFxTransparentBg').checked = cfg.transparentBg || false;
+        document.getElementById('propFxTransparentBg').checked = cfg.transparentBg ?? true;
+        document.getElementById('propFxShowTeamLogo').checked = cfg.showTeamLogo ?? true;
+        document.getElementById('propFxShowMatchNum').checked = cfg.showMatchNum ?? false;
+        document.getElementById('propFxShowVenue').checked = cfg.showVenue ?? true;
+        document.getElementById('propFxShowDateTime').checked = cfg.showDateTime ?? true;
         const cardColSel = document.getElementById('propFxCardColumns');
         if (cardColSel) cardColSel.value = cfg.cardColumns || 2;
         this._syncFixtureLayoutUI(cfg.layout || 'row');

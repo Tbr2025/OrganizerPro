@@ -1983,7 +1983,12 @@ class TemplateRenderService extends PosterGeneratorService
         $dividerColor = $config['dividerColor'] ?? $accentColor;
         $fontSize = (int) (($config['fontSize'] ?? 16) * $this->renderScale);
         $rowHeight = (int) (($config['rowHeight'] ?? 100) * $this->renderScale);
+
+        // Toggle options
+        $showTeamLogo = $config['showTeamLogo'] ?? true;
         $showMatchNum = !empty($config['showMatchNum']);
+        $showVenue = $config['showVenue'] ?? true;
+        $showDateTime = $config['showDateTime'] ?? true;
 
         // Calculate element area
         $hasExplicitSize = isset($element['width']) && isset($element['height']);
@@ -2007,11 +2012,12 @@ class TemplateRenderService extends PosterGeneratorService
         $regularFont = 'Montserrat-Regular.ttf';
         $scale = $this->renderScale;
 
-        // Font sizes — bigger, more readable
+        // Font sizes
         $teamNameSize = (int) ($fontSize * 1.0);
         $dateSize = (int) ($fontSize * 0.78);
         $timeSize = (int) ($fontSize * 0.72);
         $venueSize = (int) ($fontSize * 0.65);
+        $matchNumSize = (int) ($fontSize * 0.6);
         $logoDiameter = (int) ($rowHeight * 0.50);
         $padding = (int) (16 * $scale);
 
@@ -2023,9 +2029,16 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
-        // Layout: 3 zones — left team (35%), center info (30%), right team (35%)
-        $teamZoneW = (int)($areaWidth * 0.35);
-        $centerZoneW = $areaWidth - (2 * $teamZoneW);
+        // Dynamic zone widths based on what's visible
+        $hasCenter = $showDateTime || $showVenue;
+        if ($hasCenter) {
+            $teamZoneW = (int)($areaWidth * 0.35);
+            $centerZoneW = $areaWidth - (2 * $teamZoneW);
+        } else {
+            // No center content — teams get more space with VS in middle
+            $teamZoneW = (int)($areaWidth * 0.45);
+            $centerZoneW = $areaWidth - (2 * $teamZoneW);
+        }
 
         $midX = $areaX + (int)($areaWidth / 2);
         $leftZoneEnd = $areaX + $teamZoneW;
@@ -2050,47 +2063,72 @@ class TemplateRenderService extends PosterGeneratorService
                 imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $this->parseColor($canvas, $bgHex));
             }
 
-            // === LEFT: Team A (logo + name, right-aligned toward center) ===
-            $logoAX = $leftZoneEnd - $padding - (int)($logoDiameter / 2);
-            if (!empty($fixture['team_a_logo'])) {
-                $this->addCircularImage($canvas, $fixture['team_a_logo'], $logoAX, $rowMidY, $logoDiameter);
-            } else {
-                imagefilledellipse($canvas, $logoAX, $rowMidY, $logoDiameter, $logoDiameter, $this->parseColor($canvas, '#1e3a5f'));
-                $this->addText($canvas, mb_substr($teamAName, 0, 1), $logoAX, $rowMidY, (int)($logoDiameter * 0.38), '#ffffff', $boldFont, 'center');
+            // === MATCH NUMBER (small badge at top-left of row) ===
+            if ($showMatchNum) {
+                $badgeText = 'Match ' . $matchNum;
+                $this->addText($canvas, $badgeText, $areaX + $padding, $rowTop + (int)(10 * $scale), $matchNumSize, $mutedColor, $regularFont, 'left');
             }
-            // Team A name (left of logo)
-            $nameAX = $logoAX - (int)($logoDiameter / 2) - (int)(10 * $scale);
-            $this->addText($canvas, $teamAName, $nameAX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'right');
+
+            // === LEFT: Team A (name + logo, right-aligned toward center) ===
+            if ($showTeamLogo) {
+                $logoAX = $leftZoneEnd - $padding - (int)($logoDiameter / 2);
+                if (!empty($fixture['team_a_logo'])) {
+                    $this->addCircularImage($canvas, $fixture['team_a_logo'], $logoAX, $rowMidY, $logoDiameter);
+                } else {
+                    imagefilledellipse($canvas, $logoAX, $rowMidY, $logoDiameter, $logoDiameter, $this->parseColor($canvas, '#1e3a5f'));
+                    $this->addText($canvas, mb_substr($teamAName, 0, 1), $logoAX, $rowMidY, (int)($logoDiameter * 0.38), '#ffffff', $boldFont, 'center');
+                }
+                $nameAX = $logoAX - (int)($logoDiameter / 2) - (int)(10 * $scale);
+                $this->addText($canvas, $teamAName, $nameAX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'right');
+            } else {
+                // No logo — name right-aligned at zone end
+                $nameAX = $leftZoneEnd - $padding;
+                $this->addText($canvas, $teamAName, $nameAX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'right');
+            }
 
             // === CENTER: Date, Time, Venue (stacked vertically) ===
-            $centerLineY = $rowMidY;
-            $lineGap = (int)(4 * $scale);
+            if ($hasCenter) {
+                $centerLineY = $rowMidY;
+                $lineGap = (int)(4 * $scale);
+                $lines = [];
 
-            if ($dateStr && $timeStr && $venue) {
-                // 3 lines: date, time, venue
-                $this->addText($canvas, $dateStr, $midX, $centerLineY - $dateSize - $lineGap, $dateSize, $accentColor, $boldFont, 'center');
-                $this->addText($canvas, $timeStr, $midX, $centerLineY, $timeSize, $textColor, $mediumFont, 'center');
-                $this->addText($canvas, $venue, $midX, $centerLineY + $timeSize + $lineGap, $venueSize, $mutedColor, $regularFont, 'center');
-            } elseif ($dateStr || $timeStr) {
-                // 2 lines: date+time, venue
-                $dtStr = trim($dateStr . ($timeStr ? '  |  ' . $timeStr : ''));
-                $this->addText($canvas, $dtStr, $midX, $venue ? $centerLineY - (int)($timeSize * 0.5) : $centerLineY, $dateSize, $accentColor, $boldFont, 'center');
-                if ($venue) {
-                    $this->addText($canvas, $venue, $midX, $centerLineY + (int)($dateSize * 0.7), $venueSize, $mutedColor, $regularFont, 'center');
+                if ($showDateTime && $dateStr) $lines[] = ['text' => $dateStr, 'size' => $dateSize, 'color' => $accentColor, 'font' => $boldFont];
+                if ($showDateTime && $timeStr) $lines[] = ['text' => $timeStr, 'size' => $timeSize, 'color' => $textColor, 'font' => $mediumFont];
+                if ($showVenue && $venue) $lines[] = ['text' => $venue, 'size' => $venueSize, 'color' => $mutedColor, 'font' => $regularFont];
+
+                if (!empty($lines)) {
+                    $totalHeight = 0;
+                    foreach ($lines as $line) {
+                        $totalHeight += $line['size'] + $lineGap;
+                    }
+                    $totalHeight -= $lineGap;
+                    $startY = $centerLineY - (int)($totalHeight / 2) + (int)($lines[0]['size'] / 2);
+
+                    foreach ($lines as $line) {
+                        $this->addText($canvas, $line['text'], $midX, $startY, $line['size'], $line['color'], $line['font'], 'center');
+                        $startY += $line['size'] + $lineGap;
+                    }
                 }
+            } else {
+                // No date/venue — just render VS in center
+                $this->addText($canvas, 'VS', $midX, $rowMidY, (int)($fontSize * 0.9), $accentColor, $boldFont, 'center');
             }
 
-            // === RIGHT: Team B (name + logo, left-aligned from center) ===
-            $logoBX = $rightZoneStart + $padding + (int)($logoDiameter / 2);
-            if (!empty($fixture['team_b_logo'])) {
-                $this->addCircularImage($canvas, $fixture['team_b_logo'], $logoBX, $rowMidY, $logoDiameter);
+            // === RIGHT: Team B (logo + name, left-aligned from center) ===
+            if ($showTeamLogo) {
+                $logoBX = $rightZoneStart + $padding + (int)($logoDiameter / 2);
+                if (!empty($fixture['team_b_logo'])) {
+                    $this->addCircularImage($canvas, $fixture['team_b_logo'], $logoBX, $rowMidY, $logoDiameter);
+                } else {
+                    imagefilledellipse($canvas, $logoBX, $rowMidY, $logoDiameter, $logoDiameter, $this->parseColor($canvas, '#1e3a5f'));
+                    $this->addText($canvas, mb_substr($teamBName, 0, 1), $logoBX, $rowMidY, (int)($logoDiameter * 0.38), '#ffffff', $boldFont, 'center');
+                }
+                $nameBX = $logoBX + (int)($logoDiameter / 2) + (int)(10 * $scale);
+                $this->addText($canvas, $teamBName, $nameBX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'left');
             } else {
-                imagefilledellipse($canvas, $logoBX, $rowMidY, $logoDiameter, $logoDiameter, $this->parseColor($canvas, '#1e3a5f'));
-                $this->addText($canvas, mb_substr($teamBName, 0, 1), $logoBX, $rowMidY, (int)($logoDiameter * 0.38), '#ffffff', $boldFont, 'center');
+                $nameBX = $rightZoneStart + $padding;
+                $this->addText($canvas, $teamBName, $nameBX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'left');
             }
-            // Team B name (right of logo)
-            $nameBX = $logoBX + (int)($logoDiameter / 2) + (int)(10 * $scale);
-            $this->addText($canvas, $teamBName, $nameBX, $rowMidY, $teamNameSize, $textColor, $boldFont, 'left');
 
             // === DIVIDER LINE ===
             if ($index < count($rows) - 1) {
@@ -2118,11 +2156,15 @@ class TemplateRenderService extends PosterGeneratorService
         $textColor = $config['textColor'] ?? '#ffffff';
         $accentColor = $config['accentColor'] ?? '#d4a843';
         $mutedColor = $config['mutedColor'] ?? '#8899aa';
-        $matchBadgeBg = $config['matchBadgeBg'] ?? '#ffffff';
-        $matchBadgeText = $config['matchBadgeText'] ?? '#0a1628';
         $headerBg = $config['headerBg'] ?? '#1e40af';
         $headerText = $config['headerText'] ?? '#ffffff';
         $fontSize = (int) (($config['fontSize'] ?? 14) * $this->renderScale);
+
+        // Toggle options
+        $showTeamLogo = $config['showTeamLogo'] ?? true;
+        $showMatchNum = $config['showMatchNum'] ?? false;
+        $showVenue = $config['showVenue'] ?? true;
+        $showDateTime = $config['showDateTime'] ?? true;
 
         // Calculate element area
         $hasExplicitSize = isset($element['width']) && isset($element['height']);
@@ -2158,12 +2200,12 @@ class TemplateRenderService extends PosterGeneratorService
         // Card grid layout
         $gap = (int)(12 * $scale);
         $cardW = (int)(($areaWidth - ($columns - 1) * $gap) / $columns);
-        $headerBarH = (int)(32 * $scale);
+        $headerBarH = $showMatchNum ? (int)(32 * $scale) : 0;
         $teamsRowH = (int)(70 * $scale);
-        $infoRowH = (int)(44 * $scale);
+        $infoRowH = ($showDateTime || $showVenue) ? (int)(44 * $scale) : 0;
         $cardH = $headerBarH + $teamsRowH + $infoRowH;
 
-        $logoDiam = (int)($teamsRowH * 0.6);
+        $logoDiam = $showTeamLogo ? (int)($teamsRowH * 0.6) : 0;
         $teamFontSize = (int) ($fontSize * 0.78);
         $vsFontSize = (int) ($fontSize * 0.7);
         $dateFontSize = (int) ($fontSize * 0.65);
@@ -2192,13 +2234,15 @@ class TemplateRenderService extends PosterGeneratorService
                 imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $this->parseColor($canvas, $rowBg));
             }
 
-            // ====== HEADER BAR: "MATCH N" with accent bg ======
-            $hdrRgb = $this->hexToRgb($headerBg);
-            $hdrCol = imagecolorallocate($canvas, $hdrRgb['r'], $hdrRgb['g'], $hdrRgb['b']);
-            imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $headerBarH, $hdrCol);
-            $this->addText($canvas, 'MATCH ' . $matchNum, $cardX + (int)($cardW / 2), $cardY + (int)($headerBarH / 2), $matchLabelSize, $headerText, $boldFont, 'center');
+            // ====== HEADER BAR: "MATCH N" (only if showMatchNum) ======
+            if ($showMatchNum) {
+                $hdrRgb = $this->hexToRgb($headerBg);
+                $hdrCol = imagecolorallocate($canvas, $hdrRgb['r'], $hdrRgb['g'], $hdrRgb['b']);
+                imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $headerBarH, $hdrCol);
+                $this->addText($canvas, 'MATCH ' . $matchNum, $cardX + (int)($cardW / 2), $cardY + (int)($headerBarH / 2), $matchLabelSize, $headerText, $boldFont, 'center');
+            }
 
-            // ====== TEAMS ROW: [Logo A] [Name A]  VS  [Name B] [Logo B] ======
+            // ====== TEAMS ROW ======
             $teamsCenterY = $cardY + $headerBarH + (int)($teamsRowH / 2);
             $cardCenterX = $cardX + (int)($cardW / 2);
 
@@ -2209,42 +2253,54 @@ class TemplateRenderService extends PosterGeneratorService
             imagefilledellipse($canvas, $cardCenterX, $teamsCenterY, $vsR * 2, $vsR * 2, $vsBadge);
             $this->addText($canvas, 'VS', $cardCenterX, $teamsCenterY, (int)($vsFontSize * 0.6), '#000000', $boldFont, 'center');
 
-            // Team A: logo + name (left half)
+            // Team A (left half)
             $leftHalfW = (int)(($cardW / 2) - $vsR - (8 * $scale));
             $logoAX = $cardX + (int)($leftHalfW * 0.35);
-            if (!empty($fixture['team_a_logo'])) {
-                $this->addCircularImage($canvas, $fixture['team_a_logo'], $logoAX, $teamsCenterY - (int)(6 * $scale), $logoDiam);
-            } else {
-                imagefilledellipse($canvas, $logoAX, $teamsCenterY - (int)(6 * $scale), $logoDiam, $logoDiam, $this->parseColor($canvas, '#1a2d4a'));
-                $this->addText($canvas, mb_substr($teamAName, 0, 1), $logoAX, $teamsCenterY - (int)(6 * $scale), (int)($logoDiam * 0.4), '#ffffff', $boldFont, 'center');
-            }
-            // Team A name (below logo)
-            $this->addText($canvas, $teamAName, $logoAX, $teamsCenterY + (int)($logoDiam * 0.42), (int)($teamFontSize * 0.82), $textColor, $boldFont, 'center');
 
-            // Team B: logo + name (right half)
-            $logoBX = $cardX + $cardW - (int)($leftHalfW * 0.35);
-            if (!empty($fixture['team_b_logo'])) {
-                $this->addCircularImage($canvas, $fixture['team_b_logo'], $logoBX, $teamsCenterY - (int)(6 * $scale), $logoDiam);
+            if ($showTeamLogo) {
+                if (!empty($fixture['team_a_logo'])) {
+                    $this->addCircularImage($canvas, $fixture['team_a_logo'], $logoAX, $teamsCenterY - (int)(6 * $scale), $logoDiam);
+                } else {
+                    imagefilledellipse($canvas, $logoAX, $teamsCenterY - (int)(6 * $scale), $logoDiam, $logoDiam, $this->parseColor($canvas, '#1a2d4a'));
+                    $this->addText($canvas, mb_substr($teamAName, 0, 1), $logoAX, $teamsCenterY - (int)(6 * $scale), (int)($logoDiam * 0.4), '#ffffff', $boldFont, 'center');
+                }
+                $this->addText($canvas, $teamAName, $logoAX, $teamsCenterY + (int)($logoDiam * 0.42), (int)($teamFontSize * 0.82), $textColor, $boldFont, 'center');
             } else {
-                imagefilledellipse($canvas, $logoBX, $teamsCenterY - (int)(6 * $scale), $logoDiam, $logoDiam, $this->parseColor($canvas, '#1a2d4a'));
-                $this->addText($canvas, mb_substr($teamBName, 0, 1), $logoBX, $teamsCenterY - (int)(6 * $scale), (int)($logoDiam * 0.4), '#ffffff', $boldFont, 'center');
+                $this->addText($canvas, $teamAName, $logoAX + (int)($leftHalfW * 0.15), $teamsCenterY, (int)($teamFontSize * 0.9), $textColor, $boldFont, 'center');
             }
-            $this->addText($canvas, $teamBName, $logoBX, $teamsCenterY + (int)($logoDiam * 0.42), (int)($teamFontSize * 0.82), $textColor, $boldFont, 'center');
+
+            // Team B (right half)
+            $logoBX = $cardX + $cardW - (int)($leftHalfW * 0.35);
+            if ($showTeamLogo) {
+                if (!empty($fixture['team_b_logo'])) {
+                    $this->addCircularImage($canvas, $fixture['team_b_logo'], $logoBX, $teamsCenterY - (int)(6 * $scale), $logoDiam);
+                } else {
+                    imagefilledellipse($canvas, $logoBX, $teamsCenterY - (int)(6 * $scale), $logoDiam, $logoDiam, $this->parseColor($canvas, '#1a2d4a'));
+                    $this->addText($canvas, mb_substr($teamBName, 0, 1), $logoBX, $teamsCenterY - (int)(6 * $scale), (int)($logoDiam * 0.4), '#ffffff', $boldFont, 'center');
+                }
+                $this->addText($canvas, $teamBName, $logoBX, $teamsCenterY + (int)($logoDiam * 0.42), (int)($teamFontSize * 0.82), $textColor, $boldFont, 'center');
+            } else {
+                $this->addText($canvas, $teamBName, $logoBX - (int)($leftHalfW * 0.15), $teamsCenterY, (int)($teamFontSize * 0.9), $textColor, $boldFont, 'center');
+            }
 
             // ====== INFO ROW: Date/Time + Venue ======
-            $infoY = $cardY + $headerBarH + $teamsRowH;
-            $infoCenterY = $infoY + (int)($infoRowH / 2);
+            if ($showDateTime || $showVenue) {
+                $infoY = $cardY + $headerBarH + $teamsRowH;
+                $infoCenterY = $infoY + (int)($infoRowH / 2);
 
-            // Subtle top border
-            $borderCol = imagecolorallocatealpha($canvas, 255, 255, 255, 110);
-            imageline($canvas, $cardX + (int)(10 * $scale), $infoY, $cardX + $cardW - (int)(10 * $scale), $infoY, $borderCol);
+                // Subtle top border
+                $borderCol = imagecolorallocatealpha($canvas, 255, 255, 255, 110);
+                imageline($canvas, $cardX + (int)(10 * $scale), $infoY, $cardX + $cardW - (int)(10 * $scale), $infoY, $borderCol);
 
-            $dateTimeStr = trim($dateStr . ($timeStr ? '  |  ' . $timeStr : ''));
-            if ($dateTimeStr) {
-                $this->addText($canvas, $dateTimeStr, $cardCenterX, $infoCenterY - (int)(7 * $scale), $dateFontSize, $accentColor, $mediumFont, 'center');
-            }
-            if ($venue) {
-                $this->addText($canvas, $venue, $cardCenterX, $infoCenterY + (int)(9 * $scale), $venueFontSize, $mutedColor, $regularFont, 'center');
+                if ($showDateTime) {
+                    $dateTimeStr = trim(($dateStr ?: '') . ($timeStr ? '  |  ' . $timeStr : ''));
+                    if ($dateTimeStr) {
+                        $this->addText($canvas, $dateTimeStr, $cardCenterX, $showVenue && $venue ? $infoCenterY - (int)(7 * $scale) : $infoCenterY, $dateFontSize, $accentColor, $mediumFont, 'center');
+                    }
+                }
+                if ($showVenue && $venue) {
+                    $this->addText($canvas, $venue, $cardCenterX, $showDateTime ? $infoCenterY + (int)(9 * $scale) : $infoCenterY, $venueFontSize, $mutedColor, $regularFont, 'center');
+                }
             }
         }
     }
