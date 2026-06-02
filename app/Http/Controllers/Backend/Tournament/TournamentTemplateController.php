@@ -12,6 +12,7 @@ use App\Services\Poster\FixturesPosterService;
 use App\Services\Poster\TemplateRenderService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class TournamentTemplateController extends Controller
@@ -83,8 +84,14 @@ class TournamentTemplateController extends Controller
             ->orderBy('match_date')
             ->get();
 
-        // Load players belonging to tournament's actual teams
-        $players = Player::whereIn('actual_team_id', $tournament->actualTeams()->pluck('id'))
+        // Load players belonging to tournament's actual teams (direct + via groups)
+        $directTeamIds = $tournament->actualTeams()->pluck('id');
+        $groupTeamIds = DB::table('tournament_group_teams')
+            ->whereIn('tournament_group_id', $tournament->groups()->pluck('id'))
+            ->pluck('actual_team_id');
+        $allTeamIds = $directTeamIds->merge($groupTeamIds)->unique();
+
+        $players = Player::whereIn('actual_team_id', $allTeamIds)
             ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
             ->where('status', 'approved')
             ->get();
