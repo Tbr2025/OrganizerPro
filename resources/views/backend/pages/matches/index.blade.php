@@ -298,8 +298,8 @@
     </div>
 
     {{-- Bulk Actions Bar --}}
-    <div class="fixed bottom-0 left-0 right-0 z-50">
-        <div class="bulk-bar bg-gray-900 text-white px-6 py-3 flex items-center justify-between shadow-2xl"
+    <div class="fixed bottom-0 left-0 right-0 z-50" :class="selectedIds.length > 0 ? '' : 'pointer-events-none'">
+        <div class="bulk-bar bg-gray-900 text-white px-6 py-3 flex items-center justify-between shadow-2xl pointer-events-auto"
              :class="{ 'show': selectedIds.length > 0 }">
             <div class="flex items-center gap-3">
                 <span class="text-sm font-medium" x-text="selectedIds.length + ' selected'"></span>
