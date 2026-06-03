@@ -4,6 +4,7 @@
 
 @section('admin-content')
     <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8" x-data="closedBidDashboard()" x-init="init()">
+        <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
         <h1 class="text-2xl font-bold mb-4">Closed Bids</h1>
 
         {{-- Filters --}}

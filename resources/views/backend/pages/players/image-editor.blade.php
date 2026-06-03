@@ -4,6 +4,7 @@
 
 @section('admin-content')
     <div class="max-w-6xl mx-auto p-4">
+        <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
         <h1 class="text-2xl font-bold mb-4">Welcome Image Editor: {{ $player->name }}</h1>
 
         <div class="grid md:grid-cols-4 gap-4">

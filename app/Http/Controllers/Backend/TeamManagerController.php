@@ -42,7 +42,8 @@ class TeamManagerController extends Controller
             ->get();
 
         if ($teams->isEmpty()) {
-            return view('backend.pages.team-manager.no-team');
+            $breadcrumbs = ['title' => __('No Team Assigned')];
+            return view('backend.pages.team-manager.no-team', compact('breadcrumbs'));
         }
 
         // Get the selected team from query param, or session, or default to first
@@ -156,8 +157,10 @@ class TeamManagerController extends Controller
             ?? $team->tournament?->settings;
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournamentSettings);
 
+        $breadcrumbs = ['title' => __('Create Player')];
+
         return view('backend.pages.team-manager.create-player', compact(
-            'teams', 'team', 'effectiveTournaments', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry', 'fieldConfig'
+            'teams', 'team', 'effectiveTournaments', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry', 'fieldConfig', 'breadcrumbs'
         ));
     }
 
@@ -410,7 +413,9 @@ class TeamManagerController extends Controller
             ];
         }
 
-        return view('backend.pages.team-manager.auctions', compact('team', 'auctions'));
+        $breadcrumbs = ['title' => __('My Auctions')];
+
+        return view('backend.pages.team-manager.auctions', compact('team', 'auctions', 'breadcrumbs'));
     }
 
     /**

@@ -4,6 +4,7 @@
 
 @section('admin-content')
     <div class="max-w-4xl mx-auto bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-md">
+        <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
         <h2 class="text-2xl font-bold mb-6 text-center text-indigo-700">
             🏏 Live Scoring - {{ $match->name }}
         </h2>

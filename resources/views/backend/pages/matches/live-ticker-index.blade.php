@@ -6,6 +6,8 @@
 
 @section('admin-content')
 <div class="p-4 mx-auto sm:p-6">
+    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+
     <!-- Page Header -->
     <div class="mb-6">
         <div class="flex flex-wrap items-center justify-between gap-3">

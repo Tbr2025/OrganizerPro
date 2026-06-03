@@ -793,7 +793,9 @@ class PlayerController extends Controller
 
     public function editor(Player $player)
     {
-        return view('backend.pages.players.image-editor', compact('player'));
+        $breadcrumbs = ['title' => __('Player Image Editor')];
+
+        return view('backend.pages.players.image-editor', compact('player', 'breadcrumbs'));
     }
 
     public function saveImage(Request $request, ImageManager $imageManager)

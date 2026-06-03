@@ -44,7 +44,9 @@ class BallController extends Controller
             ->get()
             ->groupBy('over');
 
-        return view('backend.pages.balls.create', compact('match', 'battingPlayers', 'bowlingPlayers', 'overs'));
+        $breadcrumbs = ['title' => __('Live Scoring')];
+
+        return view('backend.pages.balls.create', compact('match', 'battingPlayers', 'bowlingPlayers', 'overs', 'breadcrumbs'));
     }
 
 

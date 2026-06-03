@@ -1139,6 +1139,8 @@ class AuctionAdminController extends Controller
             ];
         }
 
+        $breadcrumbs = ['title' => __('Auction Report')];
+
         return view('backend.pages.auctions.report', [
             'auction' => $auction,
             'teams' => $teams,
@@ -1147,6 +1149,7 @@ class AuctionAdminController extends Controller
             'closeBidIds' => $closeBidIds,
             'summary' => $summary,
             'teamSummaries' => $teamSummaries,
+            'breadcrumbs' => $breadcrumbs,
         ]);
     }
 

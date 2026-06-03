@@ -4,6 +4,8 @@
 
 @section('admin-content')
 <div class="p-4 mx-auto max-w-4xl md:p-6 lg:p-8">
+    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+
     {{-- Header --}}
     <div class="mb-8 text-center">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/20 mb-4">

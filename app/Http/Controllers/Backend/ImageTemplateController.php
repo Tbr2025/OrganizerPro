@@ -165,7 +165,9 @@ class ImageTemplateController extends Controller
 
     public function show(ImageTemplate $template)
     {
-        return view('backend.pages.image-templates.show', compact('template'));
+        $breadcrumbs = ['title' => __('View Template')];
+
+        return view('backend.pages.image-templates.show', compact('template', 'breadcrumbs'));
     }
 
     // In ImageTemplateController.php

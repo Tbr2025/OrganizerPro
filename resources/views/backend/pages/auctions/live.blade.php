@@ -5,6 +5,9 @@
 @endsection
 
 @section('admin-content')
+<div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+</div>
 <div class="p-6 bg-white shadow rounded-lg">
     <h1 class="text-2xl font-bold mb-4">{{ $auction->name }} – Live Bidding</h1>
 

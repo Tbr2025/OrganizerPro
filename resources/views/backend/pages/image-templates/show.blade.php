@@ -3,6 +3,9 @@
 @section('title', 'View Template: ' . $template->name)
 
 @section('admin-content')
+    <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+        <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+    </div>
     <x-backend.card>
         <x-slot name="header">{{ $template->name }} - Template Preview</x-slot>
 

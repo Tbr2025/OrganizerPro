@@ -45,9 +45,12 @@ class AuctionBiddingController extends Controller
                 // Show team selector for admin
                 $allTeams = ActualTeam::forTournament($auction->tournament_id)->get();
 
+                $breadcrumbs = ['title' => __('Select Team')];
+
                 return view('backend.pages.auction.bidding-team-selector', compact(
                     'auction',
-                    'allTeams'
+                    'allTeams',
+                    'breadcrumbs'
                 ));
             }
         } else {

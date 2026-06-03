@@ -5,6 +5,9 @@
 @endsection
 
 @section('admin-content')
+<div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+</div>
 <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
     <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">Notifications</h2>

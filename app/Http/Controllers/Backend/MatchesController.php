@@ -722,7 +722,9 @@ class MatchesController extends Controller
             ->orderBy('match_date', 'desc')
             ->paginate(20);
 
-        return view('backend.pages.matches.live-ticker-index', compact('matches'));
+        $breadcrumbs = ['title' => __('Live Match Ticker')];
+
+        return view('backend.pages.matches.live-ticker-index', compact('matches', 'breadcrumbs'));
     }
 
     /**

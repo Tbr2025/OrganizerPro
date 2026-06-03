@@ -3,6 +3,9 @@
 @section('title', 'Edit Auction | ' . $auction->name)
 
 @section('admin-content')
+<div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
+    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+</div>
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8"
      x-data="auctionEditForm({{ json_encode($auction) }}, {{ json_encode($availablePlayers) }}, {{ json_encode($organizations) }}, {{ json_encode($tournaments) }})"
      x-init="init()">

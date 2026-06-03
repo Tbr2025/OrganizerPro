@@ -5,6 +5,8 @@
 @section('admin-content')
 <div class="p-4 mx-auto md:p-6 lg:p-8" x-data="auctionReport()">
 
+    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>

@@ -21,8 +21,9 @@ class ClosedBidController extends Controller
     {
         $auctions = Auction::orderBy('name')->get(['id', 'name']);
         $teams = ActualTeam::orderBy('name')->get(['id', 'name']);
+        $breadcrumbs = ['title' => __('Closed Bids')];
 
-        return view('backend.pages.auctions.closed-bids', compact('auctions', 'teams'));
+        return view('backend.pages.auctions.closed-bids', compact('auctions', 'teams', 'breadcrumbs'));
     }
 
 

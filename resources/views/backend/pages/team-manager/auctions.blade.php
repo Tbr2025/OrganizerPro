@@ -4,6 +4,7 @@
 
 @section('admin-content')
 <div class="p-4 mx-auto max-w-7xl md:p-6">
+    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
     <div class="mb-6">
         <a href="{{ route('team-manager.dashboard') }}" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 flex items-center gap-1 mb-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
