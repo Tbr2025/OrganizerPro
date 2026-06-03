@@ -1027,8 +1027,19 @@ class TemplateRenderService extends PosterGeneratorService
     protected function renderScorecardTable(\GdImage $canvas, array $element, array $data, int $canvasWidth, int $canvasHeight): void
     {
         $config = $element['scorecardConfig'] ?? [];
-        $team = $config['team'] ?? 'a';
-        $scorecardType = $config['scorecardType'] ?? 'batting';
+        $team = $config['team'] ?? null;
+        $scorecardType = $config['scorecardType'] ?? null;
+
+        // Fallback: extract team/type from placeholder (e.g. 'batting_table_a')
+        if (!$team || !$scorecardType) {
+            $placeholder = $element['placeholder'] ?? '';
+            if (preg_match('/^(batting|bowling)_table_(a|b)$/', $placeholder, $m)) {
+                $scorecardType = $scorecardType ?? $m[1];
+                $team = $team ?? $m[2];
+            }
+        }
+        $team = $team ?? 'a';
+        $scorecardType = $scorecardType ?? 'batting';
         $maxRows = (int) ($config['maxRows'] ?? 3);
 
         // Determine data key
@@ -1991,6 +2002,9 @@ class TemplateRenderService extends PosterGeneratorService
         $showVenue = $config['showVenue'] ?? true;
         $showDateTime = $config['showDateTime'] ?? true;
         $cardStyle = $config['cardStyle'] ?? 'flat';
+        $showBorder = !empty($config['showBorder']);
+        $rowGap = (int)(($config['rowGap'] ?? 4) * $this->renderScale);
+        $rowPadding = (int)(($config['rowPadding'] ?? 16) * $this->renderScale);
 
         // Calculate element area
         $hasExplicitSize = isset($element['width']) && isset($element['height']);
@@ -2021,7 +2035,7 @@ class TemplateRenderService extends PosterGeneratorService
         $venueSize = (int) ($fontSize * 0.65);
         $matchNumSize = (int) ($fontSize * 0.6);
         $logoDiameter = (int) ($rowHeight * 0.50);
-        $padding = (int) (16 * $scale);
+        $padding = $rowPadding;
 
         $currentY = $areaY;
         $rows = array_slice($fixtures, 0, $maxRows);
@@ -2077,13 +2091,30 @@ class TemplateRenderService extends PosterGeneratorService
                     imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $this->parseColor($canvas, $bgHex));
                 }
             }
-            if ($cardStyle === 'bordered') {
-                // Left accent bar
+
+            // === ROW EFFECTS ===
+            if ($cardStyle === 'stripe') {
+                // Alternating left/right accent side bars
                 $barW = (int)(4 * $scale);
-                imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $barW, $rowBottom, $this->parseColor($canvas, $accentColor));
-                // Border outline
-                $borderCol = $this->parseColor($canvas, $accentColor);
-                imagerectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $borderCol);
+                if ($index % 2 === 0) {
+                    imagefilledrectangle($canvas, $areaX, $rowTop, $areaX + $barW, $rowBottom, $this->parseColor($canvas, $accentColor));
+                } else {
+                    imagefilledrectangle($canvas, $areaX + $areaWidth - $barW, $rowTop, $areaX + $areaWidth, $rowBottom, $this->parseColor($canvas, $accentColor));
+                }
+            } elseif ($cardStyle === 'glow') {
+                // Accent glow line at bottom of each row
+                $glowRgb = $this->hexToRgb($accentColor);
+                $lineInset = (int)(20 * $scale);
+                for ($g = 0; $g < 3; $g++) {
+                    $alpha = 60 + ($g * 25);
+                    $glowCol = imagecolorallocatealpha($canvas, $glowRgb['r'], $glowRgb['g'], $glowRgb['b'], $alpha);
+                    imageline($canvas, $areaX + $lineInset, $rowBottom - $g, $areaX + $areaWidth - $lineInset, $rowBottom - $g, $glowCol);
+                }
+            }
+
+            // === BORDER (independent toggle) ===
+            if ($showBorder) {
+                imagerectangle($canvas, $areaX, $rowTop, $areaX + $areaWidth, $rowBottom, $this->parseColor($canvas, $accentColor));
             }
 
             // === MATCH NUMBER (small badge at top-left of row) ===
@@ -2154,7 +2185,7 @@ class TemplateRenderService extends PosterGeneratorService
             }
 
             // === DIVIDER LINE ===
-            if ($index < count($rows) - 1) {
+            if ($index < count($rows) - 1 && $rowGap < (int)(2 * $scale)) {
                 $divRgb = $this->hexToRgb($dividerColor);
                 $divCol = imagecolorallocatealpha($canvas, $divRgb['r'], $divRgb['g'], $divRgb['b'], 90);
                 $lineY = $rowBottom;
@@ -2162,7 +2193,7 @@ class TemplateRenderService extends PosterGeneratorService
                 imageline($canvas, $areaX + $lineInset, $lineY, $areaX + $areaWidth - $lineInset, $lineY, $divCol);
             }
 
-            $currentY += $rowHeight;
+            $currentY += $rowHeight + $rowGap;
         }
     }
 
@@ -2190,6 +2221,9 @@ class TemplateRenderService extends PosterGeneratorService
         $showVenue = $config['showVenue'] ?? true;
         $showDateTime = $config['showDateTime'] ?? true;
         $cardStyle = $config['cardStyle'] ?? 'flat';
+        $showBorder = !empty($config['showBorder']);
+        $rowGap = (int)(($config['rowGap'] ?? 4) * $this->renderScale);
+        $rowPadding = (int)(($config['rowPadding'] ?? 16) * $this->renderScale);
 
         // Calculate element area
         $hasExplicitSize = isset($element['width']) && isset($element['height']);
@@ -2222,9 +2256,10 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
-        // Card grid layout
-        $gap = (int)(12 * $scale);
-        $cardW = (int)(($areaWidth - ($columns - 1) * $gap) / $columns);
+        // Card grid layout — use rowGap for vertical spacing, keep 12px horizontal gap
+        $hGap = (int)(12 * $scale);
+        $gap = $rowGap;
+        $cardW = (int)(($areaWidth - ($columns - 1) * $hGap) / $columns);
         $headerBarH = $showMatchNum ? (int)(32 * $scale) : 0;
         $teamsRowH = (int)(70 * $scale);
         $infoRowH = ($showDateTime || $showVenue) ? (int)(44 * $scale) : 0;
@@ -2241,7 +2276,7 @@ class TemplateRenderService extends PosterGeneratorService
             $col = $index % $columns;
             $row = (int)($index / $columns);
 
-            $cardX = $areaX + $col * ($cardW + $gap);
+            $cardX = $areaX + $col * ($cardW + $hGap);
             $cardY = $areaY + $row * ($cardH + $gap);
 
             // Skip if card goes beyond area
@@ -2270,13 +2305,28 @@ class TemplateRenderService extends PosterGeneratorService
                     imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $this->parseColor($canvas, $rowBg));
                 }
             }
-            if ($cardStyle === 'bordered') {
-                // Accent border around card
-                $borderCol = $this->parseColor($canvas, $accentColor);
-                imagerectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $borderCol);
-                // Top accent bar
-                $barH = (int)(3 * $scale);
-                imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $barH, $this->parseColor($canvas, $accentColor));
+
+            // ====== CARD EFFECTS ======
+            if ($cardStyle === 'stripe') {
+                $barW = (int)(4 * $scale);
+                if ($index % 2 === 0) {
+                    imagefilledrectangle($canvas, $cardX, $cardY, $cardX + $barW, $cardY + $cardH, $this->parseColor($canvas, $accentColor));
+                } else {
+                    imagefilledrectangle($canvas, $cardX + $cardW - $barW, $cardY, $cardX + $cardW, $cardY + $cardH, $this->parseColor($canvas, $accentColor));
+                }
+            } elseif ($cardStyle === 'glow') {
+                $glowRgb = $this->hexToRgb($accentColor);
+                $glowInset = (int)(10 * $scale);
+                for ($g = 0; $g < 3; $g++) {
+                    $alpha = 60 + ($g * 25);
+                    $glowCol = imagecolorallocatealpha($canvas, $glowRgb['r'], $glowRgb['g'], $glowRgb['b'], $alpha);
+                    imageline($canvas, $cardX + $glowInset, $cardY + $cardH - $g, $cardX + $cardW - $glowInset, $cardY + $cardH - $g, $glowCol);
+                }
+            }
+
+            // ====== BORDER (independent toggle) ======
+            if ($showBorder) {
+                imagerectangle($canvas, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, $this->parseColor($canvas, $accentColor));
             }
 
             // ====== HEADER BAR: "MATCH N" (only if showMatchNum) ======

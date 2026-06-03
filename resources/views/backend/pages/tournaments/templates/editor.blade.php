@@ -3015,6 +3015,15 @@ const editor = {
                 const scGroup = new fabric.Group([scBorder, scTitle, scSample], { left: x, top: y, originX: 'center', originY: 'center', angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100 });
                 scGroup.elementType = 'scorecardTable';
                 scGroup.placeholder = item.placeholder || ('batting_table_' + (scCfg.team || 'a'));
+                // Restore team/scorecardType from placeholder if missing in saved config
+                if (!scCfg.team || !scCfg.scorecardType) {
+                    const phMatch = (item.placeholder || '').match(/^(batting|bowling)_table_(a|b)$/);
+                    if (phMatch) {
+                        scCfg.scorecardType = scCfg.scorecardType || phMatch[1];
+                        scCfg.team = scCfg.team || phMatch[2];
+                        scCfg.maxRows = scCfg.maxRows || 3;
+                    }
+                }
                 scGroup.scorecardConfig = scCfg;
                 scGroup._layoutIndex = layoutIndex;
                 this.canvas.add(scGroup);
