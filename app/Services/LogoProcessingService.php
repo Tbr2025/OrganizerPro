@@ -92,6 +92,85 @@ class LogoProcessingService
         return $directory . '/' . $filename;
     }
 
+    /**
+     * Process a base64-encoded cropped logo (from Cropper.js).
+     */
+    public static function processBase64Logo(string $base64Data, string $directory = 'team-logos', ?string $oldPath = null): string
+    {
+        // Delete old logo if exists
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        // Decode base64
+        $imageData = preg_replace('/^data:image\/\w+;base64,/', '', $base64Data);
+        $imageData = base64_decode($imageData);
+        if (!$imageData) {
+            throw new \RuntimeException('Failed to decode base64 logo data.');
+        }
+
+        // Save to temp file and process
+        $tempPath = tempnam(sys_get_temp_dir(), 'logo_');
+        file_put_contents($tempPath, $imageData);
+
+        $sourceImage = @imagecreatefrompng($tempPath);
+        if (!$sourceImage) {
+            $sourceImage = @imagecreatefromjpeg($tempPath);
+        }
+        @unlink($tempPath);
+
+        if (!$sourceImage) {
+            throw new \RuntimeException('Failed to create image from cropped data.');
+        }
+
+        $origWidth = imagesx($sourceImage);
+        $origHeight = imagesy($sourceImage);
+
+        // Resize to 200x200 (already cropped square by Cropper.js)
+        $outputSize = 200;
+        $resizedImage = imagecreatetruecolor($outputSize, $outputSize);
+        imagealphablending($resizedImage, false);
+        imagesavealpha($resizedImage, true);
+        imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $outputSize, $outputSize, $origWidth, $origHeight);
+
+        // Apply circular clipping mask
+        $circularImage = imagecreatetruecolor($outputSize, $outputSize);
+        imagealphablending($circularImage, false);
+        imagesavealpha($circularImage, true);
+
+        $transparent = imagecolorallocatealpha($circularImage, 0, 0, 0, 127);
+        imagefill($circularImage, 0, 0, $transparent);
+        imagealphablending($circularImage, true);
+
+        $center = $outputSize / 2;
+        $radius = $outputSize / 2;
+
+        for ($x = 0; $x < $outputSize; $x++) {
+            for ($y = 0; $y < $outputSize; $y++) {
+                $dist = sqrt(($x - $center) ** 2 + ($y - $center) ** 2);
+                if ($dist <= $radius) {
+                    $color = imagecolorat($resizedImage, $x, $y);
+                    imagesetpixel($circularImage, $x, $y, $color);
+                }
+            }
+        }
+
+        // Save as PNG
+        $filename = uniqid('logo_') . '.png';
+        $storagePath = storage_path('app/public/' . $directory);
+        if (!is_dir($storagePath)) {
+            mkdir($storagePath, 0775, true);
+        }
+
+        imagepng($circularImage, $storagePath . '/' . $filename, 8);
+
+        imagedestroy($sourceImage);
+        imagedestroy($resizedImage);
+        imagedestroy($circularImage);
+
+        return $directory . '/' . $filename;
+    }
+
     private static function createImageFromFile(string $path): ?\GdImage
     {
         $info = @getimagesize($path);

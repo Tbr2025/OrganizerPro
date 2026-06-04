@@ -68,7 +68,7 @@ class TournamentTemplateController extends Controller
             ->orderByDesc('is_default')
             ->get();
 
-        // Load matches with team captain information
+        // Load matches with team captain information and awards
         $matches = $tournament->matches()
             ->with([
                 'teamA.users' => function ($query) {
@@ -79,7 +79,9 @@ class TournamentTemplateController extends Controller
                 },
                 'ground',
                 'winner',
-                'result'
+                'result',
+                'matchAwards.tournamentAward',
+                'matchAwards.player',
             ])
             ->orderBy('match_date')
             ->get();

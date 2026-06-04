@@ -38,8 +38,8 @@
                             </div>
 
                             <div>
-                                <label for="logo" class="form-label">{{ __('Team Logo') }}</label>
-                                <input type="file" name="logo" id="logo" class="form-control" accept="image/*">
+                                <label class="form-label">{{ __('Team Logo') }}</label>
+                                <x-logo-cropper name="logo" />
                             </div>
                         </div>
 

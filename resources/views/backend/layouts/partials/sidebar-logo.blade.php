@@ -50,6 +50,7 @@
                     loading="eager" />
                 <img
                     class="hidden dark:block h-[36px] max-w-[180px] object-contain"
+                    style="filter: brightness(0) invert(1);"
                     src="{{ config('settings.site_logo_dark') ?? asset('images/logo/lara-dashboard-dark.png') }}"
                     alt="{{ config('app.name') }}"
                     loading="eager" />

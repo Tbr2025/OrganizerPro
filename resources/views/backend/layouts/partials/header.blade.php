@@ -30,7 +30,7 @@
 
             <a href="{{ route('admin.dashboard') }}" class="lg:hidden flex-shrink-0" style="height: 32px;">
                 <img class="dark:hidden h-8 w-auto object-contain" src="{{ config('settings.site_logo_lite') ?? asset('images/logo/lara-dashboard.png') }}" alt="Logo" loading="eager" />
-                <img class="hidden dark:block h-8 w-auto object-contain" src="{{ config('settings.site_logo_dark') ?? asset('images/logo/lara-dashboard-dark.png') }}" alt="Logo" loading="eager" />
+                <img class="hidden dark:block h-8 w-auto object-contain" style="filter: brightness(0) invert(1);" src="{{ config('settings.site_logo_dark') ?? asset('images/logo/lara-dashboard-dark.png') }}" alt="Logo" loading="eager" />
             </a>
         </div>
 

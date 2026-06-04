@@ -200,8 +200,10 @@ class ActualTeamController extends Controller
 
         $validated = $request->validate($rules);
 
-        // Handle the file upload
-        if ($request->hasFile('team_logo')) {
+        // Handle the file upload — prefer cropped data, fallback to raw file
+        if ($request->filled('team_logo_cropped')) {
+            $validated['team_logo'] = LogoProcessingService::processBase64Logo($request->input('team_logo_cropped'), 'team-logos');
+        } elseif ($request->hasFile('team_logo')) {
             $validated['team_logo'] = LogoProcessingService::processLogo($request->file('team_logo'), 'team-logos');
         }
 
@@ -541,8 +543,10 @@ class ActualTeamController extends Controller
 
         $validated = $request->validate($rules);
 
-        // 3. Handle the Team Logo Upload
-        if ($request->hasFile('team_logo')) {
+        // 3. Handle the Team Logo Upload — prefer cropped data, fallback to raw file
+        if ($request->filled('team_logo_cropped')) {
+            $validated['team_logo'] = LogoProcessingService::processBase64Logo($request->input('team_logo_cropped'), 'team-logos', $actualTeam->team_logo);
+        } elseif ($request->hasFile('team_logo')) {
             $validated['team_logo'] = LogoProcessingService::processLogo($request->file('team_logo'), 'team-logos', $actualTeam->team_logo);
         }
 

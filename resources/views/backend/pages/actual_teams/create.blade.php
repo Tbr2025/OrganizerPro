@@ -25,40 +25,11 @@
                 @csrf
 
                 <div class="p-6 space-y-6">
-                    {{-- Team Logo Upload --}}
-                    <div x-data="{
-                        previewUrl: '',
-                        handleFileChange(event) {
-                            const file = event.target.files[0];
-                            if (file && file.type.startsWith('image/')) {
-                                this.previewUrl = URL.createObjectURL(file);
-                            } else {
-                                this.previewUrl = '';
-                            }
-                        }
-                    }">
+                    {{-- Team Logo Upload with Cropper --}}
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Logo</label>
-                        <div class="mt-2 flex items-center gap-4">
-                            {{-- Image Preview --}}
-                            <span class="inline-block h-20 w-20 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700">
-                                <template x-if="!previewUrl">
-                                    <svg class="h-full w-full text-gray-300 dark:text-gray-500" fill="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path
-                                            d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-                                    </svg>
-                                </template>
-                                <template x-if="previewUrl">
-                                    <img :src="previewUrl" alt="Team Logo Preview" class="h-full w-full object-cover">
-                                </template>
-                            </span>
-                            {{-- Upload Button --}}
-                            <label for="team_logo"
-                                class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                <span>Upload Logo</span>
-                                <input id="team_logo" name="team_logo" type="file" class="sr-only"
-                                    @change="handleFileChange">
-                            </label>
+                        <div class="mt-2">
+                            <x-logo-cropper name="team_logo" />
                         </div>
                         @error('team_logo')
                             <p class="text-red-600 text-sm mt-1">{{ $message }}</p>

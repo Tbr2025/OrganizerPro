@@ -119,7 +119,16 @@
                                     data-winner="{{ $match->winner?->name }}"
                                     data-winner-logo="{{ $match->winner?->team_logo ?? '' }}"
                                     data-result-summary="{{ $match->result?->result_summary ?? '' }}"
-                                    data-match-number="{{ $match->match_number ?? $match->id }}">
+                                    data-match-number="{{ $match->match_number ?? $match->id }}"
+                                    @php
+                                        $motmAward = $match->matchAwards->first(fn($a) => in_array($a->tournamentAward?->slug, ['man-of-the-match', 'player-of-the-match']));
+                                        $bestBatAward = $match->matchAwards->first(fn($a) => $a->tournamentAward?->slug === 'best-batsman');
+                                        $bestBowlAward = $match->matchAwards->first(fn($a) => $a->tournamentAward?->slug === 'best-bowler');
+                                    @endphp
+                                    data-motm-name="{{ $motmAward?->player?->name ?? '' }}"
+                                    data-motm-image="{{ $motmAward?->player?->image_path ?? '' }}"
+                                    data-best-batsman="{{ $bestBatAward?->player?->name ?? '' }}"
+                                    data-best-bowler="{{ $bestBowlAward?->player?->name ?? '' }}">
                                 Match #{{ $match->match_number ?? $match->id }}: {{ $match->teamA?->name ?? 'TBD' }} vs {{ $match->teamB?->name ?? 'TBD' }}
                                 @if($match->match_date) - {{ $match->match_date->format('M d') }} @endif
                                 @if($match->status === 'completed') (Completed) @endif
@@ -1302,10 +1311,10 @@ document.getElementById('matchSelect')?.addEventListener('change', function() {
         document.getElementById('summaryResultSummary').value = selected.dataset.resultSummary || '';
         document.getElementById('summaryWinnerName').value = selected.dataset.winner || '';
 
-        // Clear manual fields
-        document.getElementById('summaryMotmName').value = '';
-        document.getElementById('summaryBestBatsman').value = '';
-        document.getElementById('summaryBestBowler').value = '';
+        // Auto-fill award fields from match data (or clear if not available)
+        document.getElementById('summaryMotmName').value = selected.dataset.motmName || '';
+        document.getElementById('summaryBestBatsman').value = selected.dataset.bestBatsman || '';
+        document.getElementById('summaryBestBowler').value = selected.dataset.bestBowler || '';
         document.getElementById('summaryBatRuns').value = '';
         document.getElementById('summaryBatBalls').value = '';
         document.getElementById('summaryBatFours').value = '';
