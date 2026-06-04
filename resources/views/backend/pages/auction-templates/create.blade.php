@@ -4,15 +4,10 @@
 
 @section('admin-content')
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
+    <x-breadcrumbs :breadcrumbs="['title' => 'Create Template', 'items' => [['label' => 'Auction Templates', 'url' => route('admin.auction-templates.index')]]]" />
 
     {{-- Header --}}
     <div class="mb-8">
-        <a href="{{ route('admin.auction-templates.index') }}" class="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 mb-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-            </svg>
-            Back to Templates
-        </a>
         <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Create Auction Template</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400">Configure a new LED wall display template</p>
     </div>

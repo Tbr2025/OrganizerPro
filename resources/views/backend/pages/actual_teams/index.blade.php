@@ -4,8 +4,7 @@
 
 @section('admin-content')
     <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
-        {{-- Breadcrumbs (assuming you have this component) --}}
-        {{-- <x-breadcrumbs :breadcrumbs="$breadcrumbs" /> --}}
+        <x-breadcrumbs :breadcrumbs="['title' => 'Teams']" />
 
         <div class="space-y-6">
             {{-- Header --}}

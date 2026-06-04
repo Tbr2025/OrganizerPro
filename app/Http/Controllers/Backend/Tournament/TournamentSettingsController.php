@@ -7,6 +7,7 @@ use App\Helpers\TeamFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentSetting;
+use App\Services\LogoProcessingService;
 use App\Services\Poster\TournamentFlyerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -135,10 +136,7 @@ class TournamentSettingsController extends Controller
 
         // Handle file uploads
         if ($request->hasFile('logo')) {
-            if ($settings->logo) {
-                Storage::disk('public')->delete($settings->logo);
-            }
-            $validated['logo'] = $request->file('logo')->store('tournament_logos', 'public');
+            $validated['logo'] = LogoProcessingService::processLogo($request->file('logo'), 'tournament_logos', $settings->logo);
         }
 
         if ($request->hasFile('background_image')) {

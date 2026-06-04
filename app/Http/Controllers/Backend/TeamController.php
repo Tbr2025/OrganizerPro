@@ -8,17 +8,46 @@ use App\Models\PlayerType;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TeamController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $teams = Team::with(['tournament', 'admin'])->latest()->paginate(20);
+        $query = Team::with(['tournament', 'admin']);
+
+        // Search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('short_name', 'like', "%{$search}%");
+            });
+        }
+
+        // Tournament filter
+        if ($request->filled('tournament_id')) {
+            $query->where('tournament_id', $request->tournament_id);
+        }
+
+        // Sort
+        $sort = $request->get('sort', 'latest');
+        $query = match ($sort) {
+            'oldest' => $query->oldest(),
+            'name_asc' => $query->orderBy('name', 'asc'),
+            'name_desc' => $query->orderBy('name', 'desc'),
+            default => $query->latest(),
+        };
+
+        $teams = $query->paginate(20);
+        $tournaments = Tournament::orderBy('name')->pluck('name', 'id');
 
         return view('backend.pages.teams.index', [
             'teams' => $teams,
+            'tournaments' => $tournaments,
+            'filters' => $request->only(['search', 'tournament_id', 'sort']),
             'breadcrumbs' => [
                 'title' => __('Teams'),
             ],
@@ -54,10 +83,8 @@ class TeamController extends Controller
         ]);
 
         if ($request->hasFile('logo')) {
-            $validated['logo'] = $request->file('logo')->store('logos', 'public');
+            $validated['logo'] = LogoProcessingService::processLogo($request->file('logo'), 'team-logos');
         }
-
-
 
         Team::create($validated);
 
@@ -104,7 +131,7 @@ class TeamController extends Controller
         ]);
 
         if ($request->hasFile('logo')) {
-            $validated['logo'] = $request->file('logo')->store('teams', 'public');
+            $validated['logo'] = LogoProcessingService::processLogo($request->file('logo'), 'team-logos', $team->logo);
         }
 
         $team->update($validated);

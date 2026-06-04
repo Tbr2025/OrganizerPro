@@ -32,11 +32,22 @@ class OrganizationController extends Controller
     public function store(Request $request)
     {
         $this->authorize('organization.create');
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255|unique:organizations,name',
+            'package_type' => 'nullable|in:starter,premium,enterprise',
+            'max_tournaments' => 'nullable|integer|min:1',
+            'auction_enabled' => 'nullable|boolean',
+            'auction_modes' => 'nullable|array',
+            'auction_modes.*' => 'in:open,closed,offline',
         ]);
 
-        Organization::create($request->all());
+        if (!auth()->user()->hasRole('Superadmin')) {
+            unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes']);
+        }
+
+        $validated['auction_enabled'] = $validated['auction_enabled'] ?? false;
+
+        Organization::create($validated);
 
         return redirect()->route('admin.organizations.index')->with('success', 'Organization created successfully.');
     }
@@ -44,17 +55,41 @@ class OrganizationController extends Controller
     public function edit(Organization $organization)
     {
         $this->authorize('organization.edit');
-        return view('backend.pages.organizations.edit', compact('organization'));
+
+        $tournamentCount = $organization->tournaments()->count();
+        $auctionCount = \App\Models\Auction::whereHas('tournament', function ($q) use ($organization) {
+            $q->where('organization_id', $organization->id);
+        })->count();
+
+        return view('backend.pages.organizations.edit', compact('organization', 'tournamentCount', 'auctionCount'));
     }
 
     public function update(Request $request, Organization $organization)
     {
         $this->authorize('organization.edit');
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255|unique:organizations,name,' . $organization->id,
+            'package_type' => 'nullable|in:starter,premium,enterprise',
+            'max_tournaments' => 'nullable|integer|min:1',
+            'auction_enabled' => 'nullable|boolean',
+            'auction_modes' => 'nullable|array',
+            'auction_modes.*' => 'in:open,closed,offline',
         ]);
 
-        $organization->update($request->all());
+        if (!auth()->user()->hasRole('Superadmin')) {
+            unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes']);
+        }
+
+        if (array_key_exists('auction_enabled', $validated)) {
+            $validated['auction_enabled'] = $validated['auction_enabled'] ?? false;
+        }
+
+        // Handle "unlimited" toggle — if max_tournaments not in request, set to null
+        if (auth()->user()->hasRole('Superadmin') && !$request->has('max_tournaments')) {
+            $validated['max_tournaments'] = null;
+        }
+
+        $organization->update($validated);
 
         return redirect()->route('admin.organizations.index')->with('success', 'Organization updated successfully.');
     }
@@ -62,6 +97,15 @@ class OrganizationController extends Controller
     public function destroy(Organization $organization)
     {
         $this->authorize('organization.delete');
+
+        $hasTournaments = $organization->tournaments()->exists();
+        $hasUsers = \App\Models\User::where('organization_id', $organization->id)->exists();
+
+        if ($hasTournaments || $hasUsers) {
+            return redirect()->route('admin.organizations.index')
+                ->with('error', 'Cannot delete organization that has active tournaments or assigned users. Please reassign or remove them first.');
+        }
+
         $organization->delete();
         return redirect()->route('admin.organizations.index')->with('success', 'Organization deleted successfully.');
     }

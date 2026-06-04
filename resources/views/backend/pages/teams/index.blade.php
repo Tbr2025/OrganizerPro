@@ -17,6 +17,58 @@
                 </a>
             </div>
 
+            {{-- Filter Bar --}}
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+                <form action="{{ route('admin.teams.index') }}" method="GET">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        {{-- Search --}}
+                        <div>
+                            <label for="search" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Search') }}</label>
+                            <input type="text" name="search" id="search" value="{{ $filters['search'] ?? '' }}"
+                                placeholder="Team name or short name..."
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+
+                        {{-- Tournament Filter --}}
+                        <div>
+                            <label for="tournament_id" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Tournament') }}</label>
+                            <select name="tournament_id" id="tournament_id" onchange="this.form.submit()"
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="">{{ __('All Tournaments') }}</option>
+                                @foreach ($tournaments as $id => $name)
+                                    <option value="{{ $id }}" {{ ($filters['tournament_id'] ?? '') == $id ? 'selected' : '' }}>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        {{-- Sort --}}
+                        <div>
+                            <label for="sort" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Sort By') }}</label>
+                            <select name="sort" id="sort" onchange="this.form.submit()"
+                                class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-white text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                <option value="latest" {{ ($filters['sort'] ?? '') == 'latest' ? 'selected' : '' }}>{{ __('Latest First') }}</option>
+                                <option value="oldest" {{ ($filters['sort'] ?? '') == 'oldest' ? 'selected' : '' }}>{{ __('Oldest First') }}</option>
+                                <option value="name_asc" {{ ($filters['sort'] ?? '') == 'name_asc' ? 'selected' : '' }}>{{ __('Name A-Z') }}</option>
+                                <option value="name_desc" {{ ($filters['sort'] ?? '') == 'name_desc' ? 'selected' : '' }}>{{ __('Name Z-A') }}</option>
+                            </select>
+                        </div>
+
+                        {{-- Actions --}}
+                        <div class="flex items-end gap-2">
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <iconify-icon icon="lucide:search" height="14"></iconify-icon>
+                                {{ __('Filter') }}
+                            </button>
+                            @if(!empty(array_filter($filters ?? [])))
+                                <a href="{{ route('admin.teams.index') }}" class="btn btn-sm btn-secondary">
+                                    {{ __('Clear') }}
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                </form>
+            </div>
+
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="space-y-3 border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
                     <table class="w-full text-sm text-left text-gray-600 dark:text-gray-300">

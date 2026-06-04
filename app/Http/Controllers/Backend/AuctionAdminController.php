@@ -65,6 +65,18 @@ class AuctionAdminController extends Controller
     {
         $this->authorize('auction.create');
 
+        // Check auction access (bypass for Superadmin)
+        if (!Auth::user()->hasRole('Superadmin')) {
+            $organization = Auth::user()->organization_id
+                ? \App\Models\Organization::find(Auth::user()->organization_id)
+                : null;
+
+            if ($organization && !$organization->isAuctionEnabled()) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Auctions are not enabled for your organization. Please contact your administrator to upgrade your package.');
+            }
+        }
+
         $messages = [
             'organization_id.required' => 'You must select an organization for the auction.',
             'tournament_id.required' => 'You must select a tournament for the auction.',

@@ -43,7 +43,8 @@ class PlayerImageProcessController extends Controller
         $outputPath = $dir . '/' . $outputFilename;
         file_put_contents($outputPath, $imageData);
 
-        // Resize to max 800x1067 (3:4 portrait) while preserving transparency
+        // Enforce 3:4 aspect ratio via center-crop, then resize
+        $this->enforceAspectRatio($outputPath, 3, 4);
         $this->resizeImage($outputPath, 800, 1067);
 
         $relativePath = 'player_images/' . $outputFilename;
@@ -126,6 +127,52 @@ class PlayerImageProcessController extends Controller
 
         $totalSamples = count($corners) * $sampleSize * $sampleSize;
         return ($transparentCount / $totalSamples) > 0.2;
+    }
+
+    /**
+     * Enforce a specific aspect ratio by center-cropping the image.
+     */
+    private function enforceAspectRatio(string $path, int $ratioW, int $ratioH): void
+    {
+        $sourceImage = @imagecreatefrompng($path);
+        if (!$sourceImage) {
+            $sourceImage = @imagecreatefromjpeg($path);
+            if (!$sourceImage) return;
+        }
+
+        $origWidth = imagesx($sourceImage);
+        $origHeight = imagesy($sourceImage);
+
+        $targetRatio = $ratioW / $ratioH;
+        $currentRatio = $origWidth / $origHeight;
+
+        // Already correct ratio (within tolerance)
+        if (abs($currentRatio - $targetRatio) < 0.01) {
+            imagedestroy($sourceImage);
+            return;
+        }
+
+        if ($currentRatio > $targetRatio) {
+            // Too wide — crop sides
+            $newWidth = (int)($origHeight * $targetRatio);
+            $newHeight = $origHeight;
+        } else {
+            // Too tall — crop top/bottom
+            $newWidth = $origWidth;
+            $newHeight = (int)($origWidth / $targetRatio);
+        }
+
+        $cropX = (int)(($origWidth - $newWidth) / 2);
+        $cropY = (int)(($origHeight - $newHeight) / 2);
+
+        $croppedImage = imagecreatetruecolor($newWidth, $newHeight);
+        imagealphablending($croppedImage, false);
+        imagesavealpha($croppedImage, true);
+        imagecopyresampled($croppedImage, $sourceImage, 0, 0, $cropX, $cropY, $newWidth, $newHeight, $newWidth, $newHeight);
+
+        imagepng($croppedImage, $path);
+        imagedestroy($sourceImage);
+        imagedestroy($croppedImage);
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Mail\NewRegistrationAdminMail;
+use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -117,7 +118,7 @@ class PublicTournamentRegistrationController extends Controller
         // Handle team logo upload
         $logoPath = null;
         if ($request->hasFile('team_logo')) {
-            $logoPath = $request->file('team_logo')->store('team_logos', 'public');
+            $logoPath = LogoProcessingService::processLogo($request->file('team_logo'), 'team-logos');
         }
 
         // Create registration

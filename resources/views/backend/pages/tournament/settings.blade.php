@@ -4,6 +4,7 @@
 
 @section('admin-content')
 <div class="p-4 mx-auto max-w-4xl md:p-6 lg:p-8">
+    <x-breadcrumbs :breadcrumbs="['title' => 'Settings', 'items' => [['label' => 'Tournaments', 'url' => route('admin.tournaments.index')]]]" />
 
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">

@@ -14,6 +14,7 @@ use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Models\User;
 use App\Services\ImageBackgroundRemovalService;
+use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -201,7 +202,7 @@ class ActualTeamController extends Controller
 
         // Handle the file upload
         if ($request->hasFile('team_logo')) {
-            $validated['team_logo'] = $request->file('team_logo')->store('team-logos', 'public');
+            $validated['team_logo'] = LogoProcessingService::processLogo($request->file('team_logo'), 'team-logos');
         }
 
         unset($validated['team_scope']);
@@ -542,10 +543,7 @@ class ActualTeamController extends Controller
 
         // 3. Handle the Team Logo Upload
         if ($request->hasFile('team_logo')) {
-            if ($actualTeam->team_logo) {
-                Storage::disk('public')->delete($actualTeam->team_logo);
-            }
-            $validated['team_logo'] = $request->file('team_logo')->store('team-logos', 'public');
+            $validated['team_logo'] = LogoProcessingService::processLogo($request->file('team_logo'), 'team-logos', $actualTeam->team_logo);
         }
 
         // Handle Sponsor Logo Upload

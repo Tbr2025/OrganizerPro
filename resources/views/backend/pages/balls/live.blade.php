@@ -3,6 +3,9 @@
 @section('title', 'Live Scoring')
 
 @section('admin-content')
+<div class="max-w-4xl mx-auto p-6">
+    <x-breadcrumbs :breadcrumbs="['title' => 'Live Scoring', 'items' => [['label' => 'Matches', 'url' => route('admin.matches.index')]]]" />
+</div>
 <div class="max-w-4xl mx-auto bg-white dark:bg-gray-900 p-6 rounded-xl shadow">
     <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">
         Live Scoring – {{ $match->name }}

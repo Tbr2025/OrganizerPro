@@ -8,6 +8,7 @@ use App\Models\Organization;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Models\Zone;
+use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -237,11 +238,26 @@ class TournamentController extends Controller
                 ->get();
         }
 
-        // 5. Return the view with the correctly scoped data.
+        // 5. Check tournament limit for the user's organization
+        $organizationLimits = null;
+        if (!$user->hasRole('Superadmin') && $user->organization_id) {
+            $org = Organization::find($user->organization_id);
+            if ($org) {
+                $organizationLimits = [
+                    'max' => $org->max_tournaments,
+                    'used' => $org->tournaments()->count(),
+                    'remaining' => $org->remainingTournamentSlots(),
+                    'reached' => $org->hasReachedTournamentLimit(),
+                ];
+            }
+        }
+
+        // 6. Return the view with the correctly scoped data.
         return view('backend.pages.tournaments.create', [
             'organizations' => $organizations,
             'locations' => $locations,
             'zones' => $zones,
+            'organizationLimits' => $organizationLimits,
             'breadcrumbs' => [
                 ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
                 ['label' => 'Create Tournament'],
@@ -259,6 +275,15 @@ class TournamentController extends Controller
             'location'       => 'nullable|string|max:255',
             'status'         => 'nullable|in:draft,registration,active,completed',
         ]);
+
+        // Check tournament limit (bypass for Superadmin)
+        if (!auth()->user()->hasRole('Superadmin')) {
+            $organization = Organization::find($validated['organization_id']);
+            if ($organization && $organization->hasReachedTournamentLimit()) {
+                return redirect()->back()->withInput()
+                    ->with('error', 'Tournament limit reached for your organization (' . $organization->max_tournaments . ' max). Please contact your administrator to upgrade your package.');
+            }
+        }
 
         // Handle empty zone_id
         if (empty($validated['zone_id'])) {
@@ -325,11 +350,7 @@ class TournamentController extends Controller
 
         // Handle logo upload
         if ($request->hasFile('logo')) {
-            // Delete old logo if exists
-            if ($tournament->logo && \Storage::disk('public')->exists($tournament->logo)) {
-                \Storage::disk('public')->delete($tournament->logo);
-            }
-            $validated['logo'] = $request->file('logo')->store('tournaments/logos', 'public');
+            $validated['logo'] = LogoProcessingService::processLogo($request->file('logo'), 'tournaments/logos', $tournament->logo);
         }
 
         $tournament->update($validated);

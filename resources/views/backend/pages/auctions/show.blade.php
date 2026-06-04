@@ -3,6 +3,9 @@
 @section('title', 'View Auction | ' . $auction->name)
 
 @section('admin-content')
+    <div class="p-4 mx-auto md:p-6 lg:p-8">
+        <x-breadcrumbs :breadcrumbs="['title' => $auction->name, 'items' => [['label' => 'Auctions', 'url' => route('admin.auctions.index')]]]" />
+    </div>
     <div class="p-4 mx-auto md:p-6 lg:p-8" x-data="auctionPlayerPool()" x-init="init(
         {{ $auction->id }},
         {{ json_encode($auction->auctionPlayers) }},

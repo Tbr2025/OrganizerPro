@@ -17,6 +17,27 @@
             @endif
         </div>
 
+        @php
+            $auctionLocked = false;
+            if (!auth()->user()->hasRole('Superadmin') && auth()->user()->organization_id) {
+                $userOrg = \App\Models\Organization::find(auth()->user()->organization_id);
+                $auctionLocked = $userOrg && !$userOrg->isAuctionEnabled();
+            }
+        @endphp
+
+        @if($auctionLocked)
+            <div class="relative rounded-lg overflow-hidden">
+                {{-- Lock Overlay --}}
+                <div class="absolute inset-0 z-10 backdrop-blur-sm bg-white/60 dark:bg-gray-900/60 flex flex-col items-center justify-center rounded-lg">
+                    <iconify-icon icon="lucide:lock" class="text-5xl text-gray-400 dark:text-gray-500 mb-3"></iconify-icon>
+                    <p class="text-lg font-semibold text-gray-600 dark:text-gray-300">Auctions Not Available</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Your package does not include auction features.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Contact your administrator to upgrade.</p>
+                </div>
+                {{-- Blurred Content --}}
+                <div class="pointer-events-none select-none filter blur-[2px] opacity-50">
+        @endif
+
         @if ($auctions->count())
             <div
                 class="overflow-x-auto bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-700">
@@ -98,6 +119,11 @@
             </div>
         @else
             <p class="text-gray-500 dark:text-gray-400">No auctions found.</p>
+        @endif
+
+        @if($auctionLocked)
+                </div>
+            </div>
         @endif
     </div>
 @endsection

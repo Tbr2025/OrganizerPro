@@ -4,6 +4,7 @@
 
 @section('admin-content')
     <div class="p-4 mx-auto lg:p-8">
+        <x-breadcrumbs :breadcrumbs="['title' => 'Create Auction', 'items' => [['label' => 'Auctions', 'url' => route('admin.auctions.index')]]]" />
 
         {{-- Header --}}
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6">
@@ -13,6 +14,25 @@
                 </p>
             </div>
         </div>
+
+        @php
+            $auctionCreateLocked = false;
+            if (!auth()->user()->hasRole('Superadmin') && auth()->user()->organization_id) {
+                $userOrg = \App\Models\Organization::find(auth()->user()->organization_id);
+                $auctionCreateLocked = $userOrg && !$userOrg->isAuctionEnabled();
+            }
+        @endphp
+
+        @if($auctionCreateLocked)
+            <div class="relative rounded-lg overflow-hidden">
+                <div class="absolute inset-0 z-10 backdrop-blur-sm bg-white/60 dark:bg-gray-900/60 flex flex-col items-center justify-center rounded-lg">
+                    <iconify-icon icon="lucide:lock" class="text-5xl text-gray-400 dark:text-gray-500 mb-3"></iconify-icon>
+                    <p class="text-lg font-semibold text-gray-600 dark:text-gray-300">Auctions Not Available</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Your package does not include auction features.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Contact your administrator to upgrade.</p>
+                </div>
+                <div class="pointer-events-none select-none filter blur-[2px] opacity-50">
+        @endif
 
         {{-- Main Form Card with Alpine.js for Wizard Steps --}}
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700"
@@ -447,6 +467,11 @@
                 </div>
             </form>
         </div>
+
+        @if($auctionCreateLocked ?? false)
+                </div>
+            </div>
+        @endif
     </div>
 
 @endsection

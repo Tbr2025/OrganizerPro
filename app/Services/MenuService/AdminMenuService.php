@@ -57,6 +57,11 @@ class AdminMenuService
                         unset($child['permission']);
                     }
 
+                    // Handle superadmin_only flag
+                    if (!empty($child['superadmin_only']) && !$user->hasRole('Superadmin')) {
+                        return null;
+                    }
+
                     $permissions = $child['permissions'] ?? [];
                     if (empty($permissions) || $user->hasAnyPermission((array) $permissions)) {
                         return $this->createAdminMenuItem($child);
@@ -426,8 +431,15 @@ class AdminMenuService
                 ],
             ],
         ]);
+        $auctionLocked = false;
+        $user = auth()->user();
+        if ($user && !$user->hasRole('Superadmin') && $user->organization_id) {
+            $org = \App\Models\Organization::find($user->organization_id);
+            $auctionLocked = $org && !$org->isAuctionEnabled();
+        }
+
         $this->addMenuItem([
-            'label' => __('Auctions'),
+            'label' => __('Auctions') . ($auctionLocked ? ' <iconify-icon icon="lucide:lock" class="text-xs text-gray-400 ml-1 inline"></iconify-icon>' : ''),
             'icon' => 'feather:lock',
             'id' => 'auctions-submenu',
             'active' => Route::is('admin.auctions.*') || Route::is('admin.auction.organizer.*') || Route::is('team.auction.bidding.*') || Route::is('admin.auction-templates.*'),
@@ -497,6 +509,13 @@ class AdminMenuService
                     'active' => Route::is('admin.tournaments.create'),
                     'priority' => 20,
                     'permissions' => 'tournament.create',
+                ],
+                [
+                    'label' => __('Generate Poster'),
+                    'route' => route('admin.image-templates.index'),
+                    'active' => Route::is('admin.image-templates.*'),
+                    'priority' => 30,
+                    'permissions' => ['tournament.view', 'image-templates.edit'],
                 ],
             ],
         ]);
@@ -590,6 +609,7 @@ class AdminMenuService
                     'active' => Route::is('admin.image-templates.*'),
                     'priority' => 21,
                     'permissions' => 'image-templates.edit',
+                    'superadmin_only' => true,
                 ],
                 [
                     'label' => __('Translations'),

@@ -75,7 +75,9 @@ class UsersController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $user = new User();
-        $user->organization_id = $request->organization_id;
+        $user->organization_id = Auth::user()->hasRole('Superadmin')
+            ? $request->organization_id
+            : Auth::user()->organization_id;
         $user->name = $request->name;
         $user->username = $request->username;
 

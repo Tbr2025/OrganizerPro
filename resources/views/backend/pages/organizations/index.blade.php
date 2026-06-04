@@ -3,7 +3,7 @@
 @section('title', 'Organizations')
 
 @section('admin-content')
-    <x-breadcrumbs :breadcrumbs="[['name' => 'Dashboard', 'route' => route('admin.dashboard')], ['name' => 'Organizations']]" />
+    <x-breadcrumbs :breadcrumbs="['title' => 'Organizations']" />
     <div class="p-4 mx-auto  md:p-6">
         <div class="flex justify-between items-center">
             <h1 class="text-xl font-semibold">Organizations</h1>
@@ -19,6 +19,7 @@
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
                         <th scope="col" class="px-6 py-3">Name</th>
+                        <th scope="col" class="px-6 py-3">Package</th>
                         <th scope="col" class="px-6 py-3">Created At</th>
                         <th scope="col" class="px-6 py-3 text-right">Actions</th>
                     </tr>
@@ -27,6 +28,11 @@
                     @forelse($organizations as $organization)
                         <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                             <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">{{ $organization->name }}</td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 rounded-full text-xs font-medium {{ $organization->package_badge_class }}">
+                                    {{ $organization->package_label }}
+                                </span>
+                            </td>
                             <td class="px-6 py-4">{{ $organization->created_at->format('M d, Y') }}</td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex justify-end items-center space-x-4">
@@ -48,7 +54,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="3" class="px-6 py-4 text-center">No organizations found.</td>
+                            <td colspan="4" class="px-6 py-4 text-center">No organizations found.</td>
                         </tr>
                     @endforelse
                 </tbody>

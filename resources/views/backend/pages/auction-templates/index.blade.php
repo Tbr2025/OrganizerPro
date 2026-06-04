@@ -4,6 +4,7 @@
 
 @section('admin-content')
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
+    <x-breadcrumbs :breadcrumbs="['title' => 'Auction Templates']" />
 
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">

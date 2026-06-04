@@ -83,6 +83,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', 'HomeController@redirectAdmin')->name('index');
 Route::get('/home', 'HomeController@index')->name('home');
+Route::get('/pricing', [\App\Http\Controllers\Public\PricingController::class, 'index'])->name('public.pricing');
 
 /**
  * Admin routes.
