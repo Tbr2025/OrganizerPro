@@ -394,6 +394,7 @@
                                     </svg>
                                     Awards
                                 </a>
+                                @role('Superadmin')
                                 <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
                                    class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -401,6 +402,7 @@
                                     </svg>
                                     Templates
                                 </a>
+                                @endrole
                                 <a href="{{ route('admin.tournaments.settings.edit', $tournament) }}"
                                    class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -859,6 +859,7 @@
                             </div>
 
                             {{-- Edit Template Link --}}
+                            @role('Superadmin')
                             <div class="text-center">
                                 <a href="{{ route('admin.tournaments.templates.index', $tournament) }}?type=award_poster"
                                    class="inline-flex items-center text-xs text-purple-500 hover:text-purple-700 dark:text-purple-400">
@@ -868,6 +869,7 @@
                                     Edit Award Templates
                                 </a>
                             </div>
+                            @endrole
                         </div>
                     </div>
                 @endif
@@ -934,10 +936,12 @@
                 @else
                 <div class="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-center">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">No summary templates found</p>
+                    @role('Superadmin')
                     <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
                        class="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 font-medium">
                         Create a Template
                     </a>
+                    @endrole
                 </div>
                 @endif
 

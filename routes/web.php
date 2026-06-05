@@ -804,8 +804,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/point-table/initialize', [PointTableController::class, 'initialize'])->name('point-table.initialize');
         Route::post('/point-table/qualified', [PointTableController::class, 'updateQualified'])->name('point-table.qualified');
 
-        // Tournament Templates (Superadmin & Admin only)
-        Route::middleware(['role:Superadmin|Admin'])->group(function () {
+        // Template Editor (Superadmin only)
+        Route::middleware(['role:Superadmin'])->group(function () {
             Route::get('/templates', [TournamentTemplateController::class, 'index'])->name('templates.index');
             Route::get('/templates/create', [TournamentTemplateController::class, 'create'])->name('templates.create');
             Route::post('/templates', [TournamentTemplateController::class, 'store'])->name('templates.store');
@@ -815,14 +815,18 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');
             Route::match(['get', 'post'], '/templates/{template}/preview', [TournamentTemplateController::class, 'preview'])->name('templates.preview');
             Route::post('/templates/{template}/duplicate', [TournamentTemplateController::class, 'duplicate'])->name('templates.duplicate');
-            Route::post('/templates/{template}/render-preview', [TournamentTemplateController::class, 'renderPreview'])->name('templates.render-preview');
-            Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download');
             Route::post('/templates/upload-overlay', [TournamentTemplateController::class, 'uploadOverlay'])->name('templates.upload-overlay');
             Route::post('/templates/delete-overlay', [TournamentTemplateController::class, 'deleteOverlay'])->name('templates.delete-overlay');
+            Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
+        });
+
+        // Template Generate/Download (Superadmin & Admin)
+        Route::middleware(['role:Superadmin|Admin'])->group(function () {
             Route::get('/templates/generate', [TournamentTemplateController::class, 'generate'])->name('templates.generate');
             Route::post('/templates/generate-preview', [TournamentTemplateController::class, 'generatePreview'])->name('templates.generate-preview');
+            Route::post('/templates/{template}/render-preview', [TournamentTemplateController::class, 'renderPreview'])->name('templates.render-preview');
+            Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download');
             Route::get('/matches/{match}/awards', [TournamentTemplateController::class, 'getMatchAwards'])->name('matches.get-awards');
-            Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
             Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster');
         });
 

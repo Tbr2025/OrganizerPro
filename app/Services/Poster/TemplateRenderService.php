@@ -722,9 +722,20 @@ class TemplateRenderService extends PosterGeneratorService
     protected function renderShapeElement(\GdImage $canvas, array $element, int $x, int $y, int $canvasWidth): void
     {
         $shapeType = $element['shapeType'] ?? 'rect';
-        $width = (int) (($element['width'] ?? 150) * $this->renderScale);
-        $height = (int) (($element['height'] ?? 100) * $this->renderScale);
+        // Support new format (raw width + scaleX) and old format (pre-scaled width)
+        $scaleX = (float) ($element['scaleX'] ?? 1);
+        $scaleY = (float) ($element['scaleY'] ?? 1);
+        $width = (int) (($element['width'] ?? 150) * $scaleX * $this->renderScale);
+        $height = (int) (($element['height'] ?? 100) * $scaleY * $this->renderScale);
         $fill = $element['fill'] ?? 'rgba(99, 102, 241, 0.5)';
+        // Apply fill opacity to solid color fills
+        $fillOpacity = (float) ($element['fillOpacity'] ?? 1);
+        if ($fillOpacity < 1 && is_string($fill) && str_starts_with($fill, '#')) {
+            $r = hexdec(substr($fill, 1, 2));
+            $g = hexdec(substr($fill, 3, 2));
+            $b = hexdec(substr($fill, 5, 2));
+            $fill = "rgba($r,$g,$b,$fillOpacity)";
+        }
         $stroke = $element['stroke'] ?? '#6366f1';
         $strokeWidth = (int) (($element['strokeWidth'] ?? 2) * $this->renderScale);
         $opacity = (int) ($element['opacity'] ?? 100);

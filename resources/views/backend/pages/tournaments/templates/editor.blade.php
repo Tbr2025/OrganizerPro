@@ -788,6 +788,10 @@
                         </div>
                     </div>
                     <div class="prop-group">
+                        <label class="prop-label">Fill Opacity: <span id="fillOpacityValue">100</span>%</label>
+                        <input type="range" id="propFillOpacity" class="prop-slider" min="0" max="100" value="100" oninput="editor.updateShapeFillOpacity(this.value)">
+                    </div>
+                    <div class="prop-group">
                         <label class="prop-label">Stroke Color</label>
                         <div class="color-picker-wrapper">
                             <input type="color" id="propShapeStroke" class="color-preview" value="#6366f1" onchange="editor.updateShapeStroke(this.value)">
@@ -1654,6 +1658,7 @@ const editor = {
         if (shape) {
             shape.elementType = 'shape';
             shape.shapeType = type;
+            shape.fillOpacity = 1;
             this.canvas.add(shape);
             this.canvas.setActiveObject(shape);
             this.saveHistory();
@@ -2179,6 +2184,11 @@ const editor = {
             document.getElementById('propShapeFill').value = hex;
         }
 
+        // Fill opacity
+        const fillOpacityVal = Math.round((obj.fillOpacity ?? 1) * 100);
+        document.getElementById('propFillOpacity').value = fillOpacityVal;
+        document.getElementById('fillOpacityValue').textContent = fillOpacityVal;
+
         document.getElementById('propShapeStroke').value = this.colorToHex(obj.stroke || '#6366f1');
         document.getElementById('propShapeStrokeWidth').value = obj.strokeWidth || 2;
         // Show border radius only for rect
@@ -2384,9 +2394,35 @@ const editor = {
     updateShapeFill(color) {
         const obj = this.canvas.getActiveObject();
         if (!obj || obj.elementType !== 'shape') return;
-        obj.set('fill', color);
+        const fillOpacity = obj.fillOpacity ?? 1;
+        const hex = this.colorToHex(color);
+        if (fillOpacity < 1) {
+            const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+            obj.set('fill', `rgba(${r},${g},${b},${fillOpacity})`);
+        } else {
+            obj.set('fill', hex);
+        }
         obj.gradientFillConfig = null;
-        document.getElementById('propShapeFill').value = this.colorToHex(color);
+        document.getElementById('propShapeFill').value = hex;
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateShapeFillOpacity(val) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'shape') return;
+        const opacity = parseInt(val) / 100;
+        obj.fillOpacity = opacity;
+        document.getElementById('fillOpacityValue').textContent = val;
+        // Apply to current fill color
+        const currentHex = document.getElementById('propShapeFill').value || '#6366f1';
+        const r = parseInt(currentHex.slice(1,3),16), g = parseInt(currentHex.slice(3,5),16), b = parseInt(currentHex.slice(5,7),16);
+        if (opacity < 1) {
+            obj.set('fill', `rgba(${r},${g},${b},${opacity})`);
+        } else {
+            obj.set('fill', currentHex);
+        }
+        obj.gradientFillConfig = null;
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -2693,7 +2729,7 @@ const editor = {
 
     // History
     saveHistory() {
-        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'tableConfig', 'textTransform', 'iconName', 'iconUnicode', 'iconType', 'iconColor']);
+        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'fillOpacity', 'tableConfig', 'textTransform', 'iconName', 'iconUnicode', 'iconType', 'iconColor']);
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(JSON.stringify(json));
         this.historyIndex++;
@@ -2931,6 +2967,7 @@ const editor = {
                 this.canvas.add(icon);
             } else if (item.type === 'shape') {
                 let shape;
+                const hasScale = 'scaleX' in item;
                 const solidFill = (typeof item.fill === 'string') ? item.fill : '#6366f1';
                 const props = { left: x, top: y, fill: solidFill, stroke: item.stroke ?? null, strokeWidth: item.strokeWidth ?? 0, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' };
                 if (item.shapeType === 'rect') shape = new fabric.Rect({ ...props, width: item.width || 150, height: item.height || 100, rx: item.rx ?? 0, ry: item.ry ?? 0 });
@@ -2946,6 +2983,20 @@ const editor = {
                     shape.elementType = 'shape';
                     shape.shapeType = item.shapeType;
                     shape._layoutIndex = layoutIndex;
+                    // Apply saved scale (new format saves raw width + scaleX/scaleY)
+                    if (hasScale) {
+                        shape.set({ scaleX: item.scaleX || 1, scaleY: item.scaleY || 1 });
+                    }
+                    // Restore fill opacity
+                    if (item.fillOpacity != null && item.fillOpacity < 1) {
+                        shape.fillOpacity = item.fillOpacity;
+                        // Apply fill opacity to solid fills
+                        if (typeof shape.fill === 'string' && shape.fill.startsWith('#')) {
+                            const hex = shape.fill;
+                            const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+                            shape.set('fill', `rgba(${r},${g},${b},${item.fillOpacity})`);
+                        }
+                    }
                     // Restore gradient fill if saved
                     if (item.fill && typeof item.fill === 'object' && item.fill.type) {
                         const gc = item.fill;
@@ -2979,6 +3030,7 @@ const editor = {
                     if (item.borderRadii) {
                         shape.borderRadii = item.borderRadii;
                     }
+                    shape.setCoords();
                     this.canvas.add(shape);
                 }
             } else if (item.type === 'tableArea') {
@@ -3140,7 +3192,7 @@ const editor = {
                     // Extract gradient info from fabric gradient object
                     fillData = { type: obj.fill.type, angle: obj.gradientAngle || 90, colorStops: obj.fill.colorStops };
                 }
-                return { ...base, shapeType: obj.shapeType, iconName: obj.iconName || null, fill: fillData, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 100) * (obj.scaleY || 1), rx: obj.rx || 0, ry: obj.ry || 0, shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY, color: obj.shadow.color || '#000000' } : null, borderRadii: obj.borderRadii || null };
+                return { ...base, shapeType: obj.shapeType, iconName: obj.iconName || null, fill: fillData, fillOpacity: obj.fillOpacity ?? 1, stroke: obj.stroke, strokeWidth: obj.strokeWidth, width: obj.width || 150, height: obj.height || 100, scaleX: obj.scaleX || 1, scaleY: obj.scaleY || 1, rx: obj.rx || 0, ry: obj.ry || 0, shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY, color: obj.shadow.color || '#000000' } : null, borderRadii: obj.borderRadii || null };
             } else if (obj.elementType === 'uploadedImage') {
                 return { ...base, type: 'uploadedImage', imagePath: obj.imagePath, width: (obj.width || 150) * (obj.scaleX || 1), height: (obj.height || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'tableArea') {
