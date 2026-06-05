@@ -33,11 +33,11 @@
 
     {{-- Crop Modal --}}
     <div x-show="showModal" x-cloak
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-4 p-5" @click.outside="cancelCrop()">
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-t-xl sm:rounded-xl shadow-2xl w-full max-w-md sm:mx-4 p-5" @click.outside="cancelCrop()">
             <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Crop Logo</h3>
             <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Drag to position. The logo will be cropped to a circle.</p>
-            <div class="relative bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden" style="max-height: 350px;">
+            <div class="relative bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden" style="max-height: min(350px, 50vh);">
                 <img x-ref="cropImage" class="max-w-full" style="display:block;">
             </div>
             <div class="flex justify-end gap-3 mt-4">

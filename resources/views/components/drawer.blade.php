@@ -58,7 +58,7 @@
         x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
         x-transition:leave="transition ease-in duration-300" x-transition:leave-start="translate-x-0"
         x-transition:leave-end="translate-x-full" @click.stop
-        class="fixed top-0 right-0 bottom-0 {{ $width }} max-w-md z-50 flex flex-col crm:bg-white dark:bg-gray-800 bg-white shadow-xl border-l border-gray-200 dark:border-gray-700">
+        class="fixed top-0 right-0 bottom-0 w-full {{ $width }} max-w-md z-50 flex flex-col crm:bg-white dark:bg-gray-800 bg-white shadow-xl border-l border-gray-200 dark:border-gray-700">
 
         <!-- Header - Fixed at the top -->
         <div

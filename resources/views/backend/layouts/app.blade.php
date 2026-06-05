@@ -15,7 +15,16 @@
     @stack('before-alpine')
 
     {{-- Alpine.js x-cloak support - must be before Alpine loads --}}
-    <style>[x-cloak] { display: none !important; }</style>
+    <style>
+        [x-cloak] { display: none !important; }
+        /* Mobile scroll & touch improvements */
+        @media (max-width: 639px) {
+            .overflow-y-auto { -webkit-overflow-scrolling: touch; }
+            select, input[type="date"], input[type="time"] {
+                font-size: 16px; /* Prevents iOS zoom on focus */
+            }
+        }
+    </style>
 
     @viteReactRefresh
     @vite(['resources/js/app.js', 'resources/css/app.css'], 'build')

@@ -168,6 +168,21 @@
             }
         },
 
+        positionDropdown() {
+            // On mobile (< 640px), use fixed bottom sheet style
+            if (window.innerWidth < 640) {
+                const dd = this.$refs.dropdown;
+                if (dd) {
+                    dd.style.position = 'fixed';
+                    dd.style.left = '0';
+                    dd.style.right = '0';
+                    dd.style.bottom = '0';
+                    dd.style.top = 'auto';
+                    dd.style.width = '100%';
+                }
+            }
+        },
+
         init() {
             // If queryParam is provided, check URL for initial value
             if (this.queryParam) {
@@ -196,6 +211,12 @@
     @endif
 
     <div class="relative">
+        <!-- Mobile backdrop overlay -->
+        <div x-show="isOpen || openedWithKeyboard" x-cloak
+            class="sm:hidden fixed inset-0 bg-black/30 z-[9998]"
+            @click="isOpen = false; openedWithKeyboard = false;">
+        </div>
+
         <!-- Trigger button -->
         <button type="button"
             role="combobox"
@@ -232,12 +253,19 @@
         <!-- Dropdown -->
         <div x-cloak
             x-show="isOpen || openedWithKeyboard"
-            class="absolute z-50 left-0 top-full mt-1 w-full overflow-hidden rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            x-ref="dropdown"
+            x-init="$watch('isOpen', (val) => { if (val) $nextTick(() => positionDropdown()) })"
+            class="fixed sm:absolute z-[9999] sm:z-50 left-0 right-0 sm:right-auto bottom-0 sm:bottom-auto sm:top-full sm:mt-1 w-full overflow-hidden rounded-t-xl sm:rounded-xl sm:rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
             @click.outside="isOpen = false; openedWithKeyboard = false;"
             x-on:keydown.down.prevent="$focus.wrap().next()"
             x-on:keydown.up.prevent="$focus.wrap().previous()"
             x-transition
             x-trap="openedWithKeyboard">
+
+            {{-- Mobile handle bar --}}
+            <div class="sm:hidden flex justify-center py-2 border-b border-gray-200 dark:border-gray-700">
+                <div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+            </div>
 
             @if($searchable)
             <!-- Search input -->
@@ -251,7 +279,7 @@
             @endif
 
             <!-- Options list -->
-            <ul class="max-h-60 overflow-y-auto py-1">
+            <ul class="max-h-[50vh] sm:max-h-60 overflow-y-auto py-1 overscroll-contain">
                 <template x-for="(item, index) in options" x-bind:key="item.value">
                     @if($multiple)
                     <li role="option">

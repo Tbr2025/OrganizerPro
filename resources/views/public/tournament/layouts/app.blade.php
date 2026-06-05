@@ -240,6 +240,51 @@
         </div>
     </nav>
 
+    {{-- Tournament Info Bar --}}
+    @if($tournament->start_date || $tournament->location)
+    <div class="bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 border-b border-gray-700/50">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 py-2 text-xs sm:text-sm text-gray-300">
+                @if($tournament->start_date)
+                <div class="flex items-center gap-1.5">
+                    <i class="far fa-calendar-alt text-yellow-400"></i>
+                    <span>
+                        {{ $tournament->start_date->format('d M Y') }}
+                        @if($tournament->end_date && $tournament->end_date->ne($tournament->start_date))
+                            <span class="text-gray-500 mx-0.5">-</span> {{ $tournament->end_date->format('d M Y') }}
+                        @endif
+                    </span>
+                </div>
+                @endif
+
+                @if($tournament->location)
+                <div class="flex items-center gap-1.5">
+                    <i class="fas fa-map-marker-alt text-yellow-400"></i>
+                    <span>{{ $tournament->location }}</span>
+                </div>
+                @endif
+
+                <div class="flex items-center gap-1.5" x-data x-init="
+                    setInterval(() => {
+                        const now = new Date();
+                        $el.querySelector('[data-live-time]').textContent =
+                            now.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }) +
+                            ' \u2022 ' +
+                            now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    }, 1000);
+                    $el.querySelector('[data-live-time]').textContent =
+                        new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }) +
+                        ' \u2022 ' +
+                        new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                ">
+                    <i class="far fa-clock text-yellow-400"></i>
+                    <span data-live-time class="tabular-nums"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Flash Messages --}}
     @if(session('success'))
         <div class="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 text-center shadow-lg">
