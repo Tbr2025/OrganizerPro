@@ -19,6 +19,13 @@ class UserService
         // Use the QueryBuilderTrait methods directly from the User model
         $query = User::applyFilters($filters);
 
+        // Exclude users with the "Player" role — they belong in the Players section
+        if (empty($filters['role']) || $filters['role'] !== 'Player') {
+            $query->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'Player');
+            });
+        }
+
         return $query->paginateData([
             'per_page' => $filters['per_page'] ?? config('settings.default_pagination') ?? 10,
         ]);
