@@ -158,6 +158,138 @@
         [x-cloak] {
             display: none !important;
         }
+
+        /* ── Scroll Reveal Animations ── */
+        .reveal, .reveal-left, .reveal-right, .reveal-scale {
+            opacity: 0;
+            transition: opacity 0.7s ease, transform 0.7s ease;
+            will-change: opacity, transform;
+        }
+        .reveal { transform: translateY(40px); }
+        .reveal-left { transform: translateX(-40px); }
+        .reveal-right { transform: translateX(40px); }
+        .reveal-scale { transform: scale(0.85); }
+        .revealed {
+            opacity: 1 !important;
+            transform: translateY(0) translateX(0) scale(1) !important;
+        }
+
+        /* Stagger children */
+        .stagger-children > * {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .stagger-children.revealed > *:nth-child(1) { transition-delay: 0.05s; }
+        .stagger-children.revealed > *:nth-child(2) { transition-delay: 0.12s; }
+        .stagger-children.revealed > *:nth-child(3) { transition-delay: 0.19s; }
+        .stagger-children.revealed > *:nth-child(4) { transition-delay: 0.26s; }
+        .stagger-children.revealed > *:nth-child(5) { transition-delay: 0.33s; }
+        .stagger-children.revealed > *:nth-child(6) { transition-delay: 0.40s; }
+        .stagger-children.revealed > *:nth-child(7) { transition-delay: 0.47s; }
+        .stagger-children.revealed > *:nth-child(8) { transition-delay: 0.54s; }
+        .stagger-children.revealed > * {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-hover:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(251, 191, 36, 0.25);
+        }
+
+        /* Gold gradient text */
+        .gradient-gold {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* 3D Tilt card */
+        .tilt-card {
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+            transform-style: preserve-3d;
+            perspective: 800px;
+        }
+        .tilt-card:hover {
+            transform: rotateX(2deg) rotateY(-2deg) translateY(-6px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 20px rgba(251, 191, 36, 0.08);
+        }
+
+        /* Ripple button */
+        .btn-ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-ripple .ripple-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(251, 191, 36, 0.3);
+            transform: scale(0);
+            animation: rippleAnim 0.6s linear;
+            pointer-events: none;
+        }
+        @keyframes rippleAnim {
+            to { transform: scale(4); opacity: 0; }
+        }
+
+        /* Count-up transition */
+        .count-up {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Live border animation */
+        @keyframes rotateBorder {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .live-border {
+            background: linear-gradient(90deg, #ef4444, #fbbf24, #ef4444);
+            background-size: 200% 200%;
+            animation: rotateBorder 3s ease infinite;
+            padding: 2px;
+            border-radius: 0.75rem;
+        }
+        .live-border > * {
+            background: #0f172a;
+            border-radius: 0.65rem;
+        }
+
+        /* Champion glow ring */
+        @keyframes glowPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(251, 191, 36, 0.6); }
+        }
+        .glow-ring {
+            animation: glowPulse 2.5s ease-in-out infinite;
+        }
+
+        /* Top player gold glow */
+        @keyframes goldGlow {
+            0%, 100% { box-shadow: inset 0 0 20px rgba(251, 191, 36, 0.05); }
+            50% { box-shadow: inset 0 0 30px rgba(251, 191, 36, 0.12); }
+        }
+        .gold-glow {
+            animation: goldGlow 3s ease-in-out infinite;
+        }
+
+        /* Position #1 bounce */
+        @keyframes scaleBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .bounce-badge {
+            animation: scaleBounce 2s ease-in-out infinite;
+        }
     </style>
     @stack('styles')
 </head>
@@ -347,6 +479,65 @@
             if (!nav.contains(event.target) && !menu.classList.contains('hidden')) {
                 toggleMobileMenu();
             }
+        });
+    </script>
+    {{-- Scroll Reveal & Counter Animation --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // IntersectionObserver for reveal animations
+            const revealEls = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger-children');
+            if (revealEls.length) {
+                const revealObserver = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('revealed');
+                            revealObserver.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.15 });
+                revealEls.forEach(function (el) { revealObserver.observe(el); });
+            }
+
+            // Count-up animation
+            const counters = document.querySelectorAll('.count-up');
+            if (counters.length) {
+                const counterObserver = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        if (entry.isIntersecting) {
+                            const el = entry.target;
+                            const target = parseInt(el.getAttribute('data-count'), 10);
+                            if (isNaN(target)) return;
+                            counterObserver.unobserve(el);
+                            const duration = 1200;
+                            const start = performance.now();
+                            function tick(now) {
+                                const elapsed = now - start;
+                                const progress = Math.min(elapsed / duration, 1);
+                                const ease = 1 - Math.pow(1 - progress, 3);
+                                el.textContent = Math.round(ease * target);
+                                if (progress < 1) requestAnimationFrame(tick);
+                            }
+                            requestAnimationFrame(tick);
+                        }
+                    });
+                }, { threshold: 0.3 });
+                counters.forEach(function (el) { counterObserver.observe(el); });
+            }
+
+            // Ripple effect for .btn-ripple
+            document.querySelectorAll('.btn-ripple').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    const ripple = document.createElement('span');
+                    ripple.classList.add('ripple-effect');
+                    const rect = btn.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+                    ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+                    btn.appendChild(ripple);
+                    setTimeout(function () { ripple.remove(); }, 600);
+                });
+            });
         });
     </script>
     @stack('scripts')

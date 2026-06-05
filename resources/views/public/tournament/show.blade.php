@@ -118,6 +118,10 @@
         left: 50%;
         transform: translateX(-50%);
     }
+    @keyframes float {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-30px) scale(1.05); }
+    }
     /* Mobile team stacking */
     @media (max-width: 640px) {
         .result-teams-row {
@@ -151,12 +155,15 @@
 
     {{-- Hero Section --}}
     <section class="hero-section pt-16 pb-20 md:pt-24 md:pb-28">
+        {{-- Floating gradient orbs --}}
+        <div class="absolute top-0 left-1/4 w-72 h-72 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" style="animation: float 8s ease-in-out infinite;"></div>
+        <div class="absolute bottom-0 right-1/4 w-60 h-60 bg-blue-500/8 rounded-full blur-3xl pointer-events-none" style="animation: float 8s ease-in-out infinite; animation-delay: -3s;"></div>
         @if($settings?->background_image)
             <div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image: url('{{ Storage::url($settings->background_image) }}');"></div>
             <div class="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/60 to-gray-900"></div>
         @endif
         <div class="relative z-10 max-w-5xl mx-auto px-4">
-            <div class="text-center">
+            <div class="text-center reveal">
                 {{-- Logo --}}
                 @if($settings?->logo)
                     <div class="mb-6">
@@ -277,29 +284,28 @@
     </section>
 
     {{-- Quick Stats Strip --}}
-    <section class="py-1 bg-gray-900 border-t border-b border-gray-800">
+    <section class="py-1 bg-gray-900 border-t border-b border-gray-800 reveal">
         <div class="max-w-5xl mx-auto px-4">
             <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-800">
                 <div class="py-6 text-center">
-                    <p class="text-2xl md:text-3xl font-extrabold text-white">{{ $teamCount }}</p>
+                    <p class="text-2xl md:text-3xl font-extrabold text-white count-up" data-count="{{ $teamCount }}">0</p>
                     <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Teams</p>
                 </div>
                 <div class="py-6 text-center">
-                    <p class="text-2xl md:text-3xl font-extrabold text-white">{{ $totalMatches }}</p>
+                    <p class="text-2xl md:text-3xl font-extrabold text-white count-up" data-count="{{ $totalMatches }}">0</p>
                     <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Matches</p>
                 </div>
                 <div class="py-6 text-center">
-                    <p class="text-2xl md:text-3xl font-extrabold text-white">{{ $tournament->groups->count() ?: '-' }}</p>
+                    @php $groupCount = $tournament->groups->count(); @endphp
+                    @if($groupCount > 0)
+                        <p class="text-2xl md:text-3xl font-extrabold text-white count-up" data-count="{{ $groupCount }}">0</p>
+                    @else
+                        <p class="text-2xl md:text-3xl font-extrabold text-white">-</p>
+                    @endif
                     <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Groups</p>
                 </div>
                 <div class="py-6 text-center">
-                    <p class="text-2xl md:text-3xl font-extrabold text-white">
-                        @if($settings?->overs_per_match)
-                            {{ $settings->overs_per_match }}
-                        @else
-                            20
-                        @endif
-                    </p>
+                    <p class="text-2xl md:text-3xl font-extrabold text-white count-up" data-count="{{ $settings?->overs_per_match ?? 20 }}">0</p>
                     <p class="text-xs uppercase tracking-wider text-gray-500 mt-1">Overs</p>
                 </div>
             </div>
@@ -312,7 +318,7 @@
             <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22%23000%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%2210%22%20r%3D%221%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E')] opacity-50"></div>
             <div class="relative max-w-4xl mx-auto px-4 text-center">
                 <p class="text-yellow-900/60 font-bold text-sm uppercase tracking-widest mb-3">Champions</p>
-                <div class="inline-flex items-center gap-5 bg-white/95 rounded-2xl px-8 py-6 shadow-2xl">
+                <div class="inline-flex items-center gap-5 bg-white/95 rounded-2xl px-8 py-6 shadow-2xl reveal-scale glow-ring">
                     @if($tournament->champion->logo)
                         <img src="{{ Storage::url($tournament->champion->logo) }}"
                              alt="{{ $tournament->champion->name }}"
@@ -350,9 +356,9 @@
                     </a>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 stagger-children">
                     @foreach($upcomingMatches->take(4) as $match)
-                        <a href="{{ route('public.match.show', $match->slug) }}" class="block match-card rounded-xl overflow-hidden">
+                        <a href="{{ route('public.match.show', $match->slug) }}" class="block match-card tilt-card rounded-xl overflow-hidden">
                             {{-- Header --}}
                             <div class="px-4 py-2.5 flex items-center justify-between border-b border-white/5 bg-white/[0.02]">
                                 <div class="flex items-center gap-2 text-xs text-gray-400">
@@ -436,7 +442,7 @@
                             $teamBWon = $match->winner_team_id === $match->team_b_id;
                         @endphp
                         <a href="{{ route('public.match.show', $match->slug) }}"
-                           class="block match-card rounded-xl overflow-hidden border-l-3 border-l-green-500">
+                           class="block match-card reveal rounded-xl overflow-hidden border-l-3 border-l-green-500">
                             <div class="p-4 md:p-5">
                                 <div class="result-teams-row flex items-center justify-between gap-4">
                                     {{-- Team A --}}
@@ -515,7 +521,7 @@
                 <h2 class="text-2xl font-bold text-white">Explore</h2>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
                 <a href="{{ route('public.tournament.fixtures', $tournament->slug) }}"
                    class="nav-card rounded-xl p-6 text-center group hover:border-blue-500/30 hover:bg-blue-500/5">
                     <div class="w-14 h-14 mx-auto mb-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">

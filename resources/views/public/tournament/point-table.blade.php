@@ -154,7 +154,7 @@
         <div class="absolute inset-0 opacity-15">
             <div class="absolute top-0 left-1/4 w-60 h-60 bg-green-500/30 rounded-full blur-3xl"></div>
         </div>
-        <div class="relative max-w-5xl mx-auto px-4">
+        <div class="relative max-w-5xl mx-auto px-4 reveal">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-4">
                     @if($tournament->settings?->logo)
@@ -200,7 +200,7 @@
     <section class="py-8 md:py-12 bg-gray-900 min-h-screen">
         <div class="max-w-5xl mx-auto px-4 space-y-8">
             @forelse($pointTableByGroups as $groupName => $entries)
-                <div id="group-{{ Str::slug($groupName) }}" class="group-card rounded-xl">
+                <div id="group-{{ Str::slug($groupName) }}" class="group-card reveal rounded-xl">
                     {{-- Group Name Header --}}
                     @if($groupName !== 'default')
                         <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between">
@@ -238,7 +238,7 @@
                                     <th class="w-14">PTS</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="stagger-children">
                                 @forelse($entries as $index => $entry)
                                     @php
                                         $pos = $entry->position ?? ($index + 1);
@@ -247,7 +247,7 @@
                                     <tr class="{{ $isQualified ? 'qualified-row' : '' }}">
                                         {{-- Position --}}
                                         <td>
-                                            <span class="pos-badge {{ $pos <= 3 ? 'pos-' . $pos : 'pos-default' }}">
+                                            <span class="pos-badge {{ $pos <= 3 ? 'pos-' . $pos : 'pos-default' }} {{ $pos === 1 ? 'bounce-badge' : '' }}">
                                                 {{ $pos }}
                                             </span>
                                         </td>

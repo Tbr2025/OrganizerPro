@@ -174,12 +174,12 @@
                 {{-- Stage Pills --}}
                 <div class="flex items-center gap-2 overflow-x-auto pb-1">
                     <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'group_id' => $selectedGroupId]) }}"
-                       class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ !$selectedStage ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                       class="filter-pill btn-ripple px-4 py-2 rounded-full text-sm whitespace-nowrap {{ !$selectedStage ? 'active' : 'text-gray-400 bg-gray-800' }}">
                         All Matches
                     </a>
                     @foreach($stages as $stage)
                         <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'stage' => $stage, 'group_id' => $selectedGroupId]) }}"
-                           class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ $selectedStage === $stage ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                           class="filter-pill btn-ripple px-4 py-2 rounded-full text-sm whitespace-nowrap {{ $selectedStage === $stage ? 'active' : 'text-gray-400 bg-gray-800' }}">
                             {{ ucwords(str_replace('_', ' ', $stage)) }}
                         </a>
                     @endforeach
@@ -190,12 +190,12 @@
                     <div class="h-6 w-px bg-gray-700 hidden md:block"></div>
                     <div class="flex items-center gap-2 overflow-x-auto pb-1">
                         <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'stage' => $selectedStage]) }}"
-                           class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ !$selectedGroupId ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                           class="filter-pill btn-ripple px-4 py-2 rounded-full text-sm whitespace-nowrap {{ !$selectedGroupId ? 'active' : 'text-gray-400 bg-gray-800' }}">
                             All Groups
                         </a>
                         @foreach($groups as $group)
                             <a href="{{ route('public.tournament.fixtures', ['tournament' => $tournament->slug, 'stage' => $selectedStage, 'group_id' => $group->id]) }}"
-                               class="filter-pill px-4 py-2 rounded-full text-sm whitespace-nowrap {{ $selectedGroupId == $group->id ? 'active' : 'text-gray-400 bg-gray-800' }}">
+                               class="filter-pill btn-ripple px-4 py-2 rounded-full text-sm whitespace-nowrap {{ $selectedGroupId == $group->id ? 'active' : 'text-gray-400 bg-gray-800' }}">
                                 {{ $group->name }}
                             </a>
                         @endforeach
@@ -211,7 +211,7 @@
         <div class="max-w-5xl mx-auto px-4">
             @forelse($matchesByDate as $date => $dayMatches)
                 {{-- Date Header --}}
-                <div class="date-header pl-5 mb-5 {{ !$loop->first ? 'mt-10' : '' }}">
+                <div class="date-header reveal-left pl-5 mb-5 {{ !$loop->first ? 'mt-10' : '' }}">
                     <div class="flex items-center gap-3">
                         <h2 class="text-lg md:text-xl font-bold text-white">
                             {{ \Carbon\Carbon::parse($date)->format('D, d M Y') }}
@@ -237,7 +237,7 @@
                             $teamAWon = $match->winner_team_id === $match->team_a_id;
                             $teamBWon = $match->winner_team_id === $match->team_b_id;
                         @endphp
-                        <a href="{{ route('public.match.show', $match->slug) }}" class="block match-card {{ $cardClass }} rounded-xl">
+                        <a href="{{ route('public.match.show', $match->slug) }}" class="block match-card reveal {{ $cardClass }} rounded-xl {{ $isLive ? 'live-border' : '' }}">
                             {{-- Top bar: match info --}}
                             <div class="px-4 md:px-5 py-2.5 flex flex-wrap items-center gap-2 border-b border-white/5">
                                 <div class="flex items-center gap-2 flex-wrap">

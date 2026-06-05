@@ -24,7 +24,7 @@
     }
     .team-card:hover .team-logo-container {
         border-color: rgba(251, 191, 36, 0.5);
-        box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+        box-shadow: 0 0 30px rgba(251, 191, 36, 0.3), 0 0 60px rgba(251, 191, 36, 0.1);
     }
     .stat-item {
         background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
@@ -98,7 +98,7 @@
             <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
             <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-500/20 rounded-full blur-3xl"></div>
         </div>
-        <div class="relative max-w-6xl mx-auto px-4">
+        <div class="relative max-w-6xl mx-auto px-4 reveal">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
                     <span class="inline-block px-4 py-2 bg-blue-500/20 text-blue-400 rounded-full text-sm font-semibold mb-4">
@@ -128,13 +128,13 @@
     <section class="py-12 bg-gray-900 min-h-screen">
         <div class="max-w-6xl mx-auto px-4">
             @if($teams->count() > 0)
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
                     @foreach($teams as $index => $team)
                         @php
                             $teamEntry = $tournament->pointTableEntries->where('actual_team_id', $team->id)->first();
                             $position = $teamEntry?->position;
                         @endphp
-                        <div class="team-card rounded-2xl overflow-hidden animate-fadeInUp" style="animation-delay: {{ $index * 0.1 }}s">
+                        <div class="team-card tilt-card rounded-2xl overflow-hidden">
                             {{-- Team Header --}}
                             <div class="p-6 text-center relative">
                                 {{-- Position Badge (if in point table) --}}
@@ -175,19 +175,19 @@
                             <div class="px-4 pb-4">
                                 <div class="grid grid-cols-4 gap-2">
                                     <div class="stat-item text-center">
-                                        <p class="text-xl font-bold text-blue-400">{{ $team->players->count() }}</p>
+                                        <p class="text-xl font-bold text-blue-400 count-up" data-count="{{ $team->players->count() }}">0</p>
                                         <p class="text-xs text-gray-500">Players</p>
                                     </div>
                                     <div class="stat-item text-center">
-                                        <p class="text-xl font-bold text-gray-300">{{ $teamEntry?->matches_played ?? 0 }}</p>
+                                        <p class="text-xl font-bold text-gray-300 count-up" data-count="{{ $teamEntry?->matches_played ?? 0 }}">0</p>
                                         <p class="text-xs text-gray-500">Played</p>
                                     </div>
                                     <div class="stat-item text-center">
-                                        <p class="text-xl font-bold text-green-400">{{ $teamEntry?->won ?? 0 }}</p>
+                                        <p class="text-xl font-bold text-green-400 count-up" data-count="{{ $teamEntry?->won ?? 0 }}">0</p>
                                         <p class="text-xs text-gray-500">Won</p>
                                     </div>
                                     <div class="stat-item text-center">
-                                        <p class="text-xl font-bold text-red-400">{{ $teamEntry?->lost ?? 0 }}</p>
+                                        <p class="text-xl font-bold text-red-400 count-up" data-count="{{ $teamEntry?->lost ?? 0 }}">0</p>
                                         <p class="text-xs text-gray-500">Lost</p>
                                     </div>
                                 </div>

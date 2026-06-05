@@ -47,9 +47,9 @@
         font-weight: bold;
         font-size: 14px;
     }
-    .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1f2937; }
-    .rank-2 { background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%); color: white; }
-    .rank-3 { background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%); color: white; }
+    .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1f2937; box-shadow: 0 0 12px rgba(251, 191, 36, 0.4); }
+    .rank-2 { background: linear-gradient(135deg, #c0c0c0 0%, #94a3b8 100%); color: #1f2937; box-shadow: 0 0 8px rgba(148, 163, 184, 0.3); }
+    .rank-3 { background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%); color: white; box-shadow: 0 0 8px rgba(205, 127, 50, 0.3); }
     .rank-other { background: rgba(255, 255, 255, 0.1); color: #9ca3af; }
     .player-avatar {
         background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
@@ -73,7 +73,7 @@
             <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
             <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-500/20 rounded-full blur-3xl"></div>
         </div>
-        <div class="relative max-w-6xl mx-auto px-4">
+        <div class="relative max-w-6xl mx-auto px-4 reveal">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
                     <span class="inline-block px-4 py-2 bg-purple-500/20 text-purple-400 rounded-full text-sm font-semibold mb-4">
@@ -103,19 +103,19 @@
         <div class="max-w-6xl mx-auto px-4">
             <div class="flex flex-wrap gap-3 justify-center">
                 <a href="{{ route('public.tournament.statistics', [$tournament->slug, 'tab' => 'batting']) }}"
-                   class="tab-btn px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'batting' ? 'active' : 'bg-gray-800 text-white' }}">
+                   class="tab-btn btn-ripple px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'batting' ? 'active' : 'bg-gray-800 text-white' }}">
                     <i class="fas fa-baseball-ball mr-2"></i>Batting
                 </a>
                 <a href="{{ route('public.tournament.statistics', [$tournament->slug, 'tab' => 'bowling']) }}"
-                   class="tab-btn px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'bowling' ? 'active' : 'bg-gray-800 text-white' }}">
+                   class="tab-btn btn-ripple px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'bowling' ? 'active' : 'bg-gray-800 text-white' }}">
                     <i class="fas fa-bowling-ball mr-2"></i>Bowling
                 </a>
                 <a href="{{ route('public.tournament.statistics', [$tournament->slug, 'tab' => 'sixes']) }}"
-                   class="tab-btn px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'sixes' ? 'active' : 'bg-gray-800 text-white' }}">
+                   class="tab-btn btn-ripple px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'sixes' ? 'active' : 'bg-gray-800 text-white' }}">
                     <i class="fas fa-bolt mr-2"></i>Most Sixes
                 </a>
                 <a href="{{ route('public.tournament.statistics', [$tournament->slug, 'tab' => 'fielding']) }}"
-                   class="tab-btn px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'fielding' ? 'active' : 'bg-gray-800 text-white' }}">
+                   class="tab-btn btn-ripple px-6 py-3 rounded-xl font-semibold transition {{ $tab === 'fielding' ? 'active' : 'bg-gray-800 text-white' }}">
                     <i class="fas fa-hands mr-2"></i>Fielding
                 </a>
             </div>
@@ -150,9 +150,9 @@
                                     <th class="px-4 py-4 text-center">100s</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="stagger-children">
                                 @forelse($topBatsmen as $index => $stat)
-                                    <tr class="table-row {{ $index === 0 ? 'top-player-row' : '' }}">
+                                    <tr class="table-row {{ $index === 0 ? 'top-player-row gold-glow' : '' }}">
                                         <td class="px-4 py-4">
                                             <div class="rank-badge {{ $index < 3 ? 'rank-' . ($index + 1) : 'rank-other' }}">
                                                 {{ $index + 1 }}
@@ -237,9 +237,9 @@
                                     <th class="px-4 py-4 text-center">5W</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="stagger-children">
                                 @forelse($topBowlers as $index => $stat)
-                                    <tr class="table-row {{ $index === 0 ? 'top-player-row' : '' }}">
+                                    <tr class="table-row {{ $index === 0 ? 'top-player-row gold-glow' : '' }}">
                                         <td class="px-4 py-4">
                                             <div class="rank-badge {{ $index < 3 ? 'rank-' . ($index + 1) : 'rank-other' }}">
                                                 {{ $index + 1 }}
@@ -320,9 +320,9 @@
                                     <th class="px-4 py-4 text-center">Fours</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="stagger-children">
                                 @forelse($topSixHitters as $index => $stat)
-                                    <tr class="table-row {{ $index === 0 ? 'top-player-row' : '' }}">
+                                    <tr class="table-row {{ $index === 0 ? 'top-player-row gold-glow' : '' }}">
                                         <td class="px-4 py-4">
                                             <div class="rank-badge {{ $index < 3 ? 'rank-' . ($index + 1) : 'rank-other' }}">
                                                 {{ $index + 1 }}
@@ -388,9 +388,9 @@
                                     <th class="px-4 py-4 text-center"><span class="stat-highlight">Total</span></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="stagger-children">
                                 @forelse($topFielders as $index => $stat)
-                                    <tr class="table-row {{ $index === 0 ? 'top-player-row' : '' }}">
+                                    <tr class="table-row {{ $index === 0 ? 'top-player-row gold-glow' : '' }}">
                                         <td class="px-4 py-4">
                                             <div class="rank-badge {{ $index < 3 ? 'rank-' . ($index + 1) : 'rank-other' }}">
                                                 {{ $index + 1 }}
