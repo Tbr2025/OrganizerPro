@@ -3,12 +3,12 @@
 @section('title', 'Generate Poster | ' . $tournament->name)
 
 @section('admin-content')
-<x-breadcrumbs :breadcrumbs="[
+<x-breadcrumbs :breadcrumbs="array_filter([
     ['name' => 'Tournaments', 'route' => route('admin.tournaments.index')],
     ['name' => $tournament->name, 'route' => route('admin.tournaments.dashboard', $tournament)],
-    ['name' => 'Templates', 'route' => route('admin.tournaments.templates.index', $tournament)],
+    auth()->user()->hasRole('Superadmin') ? ['name' => 'Templates', 'route' => route('admin.tournaments.templates.index', $tournament)] : null,
     ['name' => 'Generate Poster']
-]" />
+])" />
 
 <div class="max-w-6xl mx-auto">
     {{-- Header --}}
@@ -27,7 +27,7 @@
                     Select Poster Type
                 </h3>
 
-                <div class="grid grid-cols-2 md:grid-cols-6 gap-3" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
                     <button type="button" @click="type = 'match_poster'; updateType('match_poster')"
                             :class="type === 'match_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
                             class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
@@ -80,6 +80,24 @@
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         </div>
                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Fixtures</span>
+                    </button>
+
+                    <button type="button" @click="type = 'flyer'; updateType('flyer')"
+                            :class="type === 'flyer' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
+                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
+                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-orange-500 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Flyer</span>
+                    </button>
+
+                    <button type="button" @click="type = 'champions_poster'; updateType('champions_poster')"
+                            :class="type === 'champions_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
+                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
+                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-amber-500 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Champions</span>
                     </button>
                 </div>
             </div>
