@@ -51,6 +51,63 @@
     @endrole
 
     @hasanyrole('Admin|Superadmin|Organizer')
+        {{-- Superadmin: Multi-tenant Organization Overview --}}
+        @if($is_superadmin && $organizations->count() > 0)
+        <div class="mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                        </svg>
+                    </div>
+                    Organizations ({{ $organizations->count() }})
+                </h3>
+                <a href="{{ route('admin.organizations.index') }}" class="text-sm text-blue-500 hover:text-blue-600 font-medium">Manage All</a>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                @foreach($organizations as $org)
+                <a href="{{ route('admin.organizations.edit', $org) }}" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition group">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                {{ strtoupper(substr($org->name, 0, 2)) }}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ $org->name }}</p>
+                                <span class="inline-block px-2 py-0.5 text-[10px] font-medium rounded-full {{ $org->package_badge_class }}">{{ $org->package_label }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $org->tournaments_count }}</p>
+                            <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tournaments</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2 text-center">
+                            <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $org->actual_teams_count }}</p>
+                            <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Teams</p>
+                        </div>
+                    </div>
+                </a>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        {{-- Admin: Show org name --}}
+        @if(!$is_superadmin && $org_name)
+        <div class="mb-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                {{ strtoupper(substr($org_name, 0, 2)) }}
+            </div>
+            <div>
+                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $org_name }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Your organization dashboard</p>
+            </div>
+        </div>
+        @endif
+
         {{-- Live Matches Alert --}}
         @if($live_matches->count() > 0)
         <div class="mb-6 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-4 shadow-lg">

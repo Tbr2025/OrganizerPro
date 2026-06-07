@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Matches;
+use App\Models\Organization;
 use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
@@ -108,6 +109,11 @@ class DashboardController extends Controller
                 'upcoming_matches' => $upcomingMatches,
                 'recent_tournaments' => $recentTournaments,
                 'live_matches' => $liveMatches,
+
+                // Superadmin multi-tenant data
+                'is_superadmin' => $isSuperadmin,
+                'organizations' => $isSuperadmin ? Organization::withCount(['tournaments', 'actualTeams'])->get() : collect(),
+                'org_name' => !$isSuperadmin && $orgId ? Organization::find($orgId)?->name : null,
 
                 // Original stats
                 'total_users' => number_format($isSuperadmin ? User::count() : User::where('organization_id', $orgId)->count()),

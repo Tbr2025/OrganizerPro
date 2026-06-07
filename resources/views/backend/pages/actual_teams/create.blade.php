@@ -5,7 +5,7 @@
 @section('admin-content')
     <x-breadcrumbs :breadcrumbs="[
         ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
-        ['name' => 'Teams'],
+        ['name' => 'Teams', 'route' => route('admin.actual-teams.index')],
         ['name' => 'Create']
     ]" />
 
