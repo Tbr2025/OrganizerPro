@@ -450,67 +450,96 @@
         {{-- ======================================================= --}}
         <div x-data="playerRosterHandler()" class="mb-8">
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Player Roster</h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Manage players and their tournament-team assignments</p>
-                    </div>
-                    <button type="button" @click="openAddDrawer()" class="btn btn-primary">
-                        <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
-                        Add Player
-                    </button>
+                <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Player Roster</h2>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Manage players and their tournament-team assignments</p>
                 </div>
 
                 <div class="p-5">
                     @if($effectiveTournaments->count() > 0)
-                        @foreach($effectiveTournaments as $tournament)
-                            <div class="mb-6 last:mb-0">
-                                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                                    <span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
-                                    {{ $tournament->name }}
-                                </h3>
+                        <div class="space-y-3">
+                            @foreach($effectiveTournaments as $tournament)
                                 @php
                                     $tournamentPlayers = $teamPlayersByTournament->get($tournament->id, collect());
                                 @endphp
-                                @if($tournamentPlayers->count() > 0)
-                                    <div class="space-y-2">
-                                        @foreach($tournamentPlayers as $assignment)
-                                            @php $p = $playersMap->get($assignment->player_id); @endphp
-                                            @if($p)
-                                                <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                                    <div class="flex items-center gap-3">
-                                                        <img class="h-10 w-10 rounded-full object-cover"
-                                                            src="{{ $p->image_path ? asset('storage/' . $p->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($p->name) . '&color=7F9CF5&background=EBF4FF' }}"
-                                                            alt="{{ $p->name }}">
-                                                        <div>
-                                                            <p class="font-medium text-gray-800 dark:text-white text-sm">{{ $p->name }}</p>
-                                                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $p->mobile_number_full ?? 'No phone' }}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex items-center gap-2">
-                                                        @if($assignment->role)
-                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                                                                {{ ucfirst($assignment->role) }}
-                                                            </span>
+                                <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden"
+                                     :class="activeAccordions[{{ $tournament->id }}] ? 'border-l-4 border-l-blue-500' : ''">
+                                    {{-- Accordion Header --}}
+                                    <button type="button"
+                                        @click="toggleAccordion({{ $tournament->id }})"
+                                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-200"
+                                                 :class="activeAccordions[{{ $tournament->id }}] ? 'rotate-90' : ''"
+                                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                            </svg>
+                                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ $tournament->name }}</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                                  x-text="playerCounts[{{ $tournament->id }}] ?? {{ $tournamentPlayers->count() }}"
+                                                  id="badge-tournament-{{ $tournament->id }}">
+                                                {{ $tournamentPlayers->count() }}
+                                            </span>
+                                        </div>
+                                        <span @click.stop="openAddDrawer({{ $tournament->id }})"
+                                            class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
+                                            Add Player
+                                        </span>
+                                    </button>
+
+                                    {{-- Accordion Body --}}
+                                    <div x-show="activeAccordions[{{ $tournament->id }}]"
+                                         x-transition:enter="transition ease-out duration-200"
+                                         x-transition:enter-start="opacity-0 -translate-y-1"
+                                         x-transition:enter-end="opacity-100 translate-y-0"
+                                         x-transition:leave="transition ease-in duration-150"
+                                         x-transition:leave-start="opacity-100 translate-y-0"
+                                         x-transition:leave-end="opacity-0 -translate-y-1"
+                                         x-cloak>
+                                        <div class="p-4" id="roster-tournament-{{ $tournament->id }}">
+                                            @if($tournamentPlayers->count() > 0)
+                                                <div class="space-y-2">
+                                                    @foreach($tournamentPlayers as $assignment)
+                                                        @php $p = $playersMap->get($assignment->player_id); @endphp
+                                                        @if($p)
+                                                            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg player-card" data-player-id="{{ $p->id }}">
+                                                                <div class="flex items-center gap-3">
+                                                                    <img class="h-10 w-10 rounded-full object-cover"
+                                                                        src="{{ $p->image_path ? asset('storage/' . $p->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($p->name) . '&color=7F9CF5&background=EBF4FF' }}"
+                                                                        alt="{{ $p->name }}">
+                                                                    <div>
+                                                                        <p class="font-medium text-gray-800 dark:text-white text-sm">{{ $p->name }}</p>
+                                                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $p->mobile_number_full ?? 'No phone' }}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex items-center gap-2">
+                                                                    @if($assignment->role)
+                                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                                                            {{ ucfirst($assignment->role) }}
+                                                                        </span>
+                                                                    @endif
+                                                                    <button type="button"
+                                                                        @click="removePlayer({{ $p->id }}, '{{ addslashes($p->name) }}')"
+                                                                        class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
+                                                                        title="Remove player">
+                                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                                        </svg>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         @endif
-                                                        <button type="button"
-                                                            @click="removePlayer({{ $p->id }}, '{{ addslashes($p->name) }}')"
-                                                            class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
-                                                            title="Remove player">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                            </svg>
-                                                        </button>
-                                                    </div>
+                                                    @endforeach
                                                 </div>
+                                            @else
+                                                <p class="text-sm text-gray-400 italic empty-message">No players assigned for this tournament.</p>
                                             @endif
-                                        @endforeach
+                                        </div>
                                     </div>
-                                @else
-                                    <p class="text-sm text-gray-400 italic pl-4">No players assigned for this tournament.</p>
-                                @endif
-                            </div>
-                        @endforeach
+                                </div>
+                            @endforeach
+                        </div>
                     @else
                         <p class="text-center text-gray-500 py-4">No tournaments configured. Set a team scope above to manage players.</p>
                     @endif
@@ -593,8 +622,12 @@
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament-Team Assignments</label>
                                     <div class="space-y-3">
                                         @foreach($effectiveTournaments as $idx => $tournament)
-                                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $tournament->name }}</p>
+                                            <div class="p-3 rounded-lg transition-colors"
+                                                 :class="targetTournamentId === {{ $tournament->id }} ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-300 dark:ring-blue-700' : 'bg-gray-50 dark:bg-gray-700'">
+                                                <p class="text-sm font-medium mb-1"
+                                                   :class="targetTournamentId === {{ $tournament->id }} ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'">
+                                                    {{ $tournament->name }}
+                                                </p>
                                                 <input type="hidden" x-bind:name="'tournament_assignments[' + {{ $idx }} + '][tournament_id]'" value="{{ $tournament->id }}">
                                                 <select x-model="newPlayer.assignments[{{ $tournament->id }}]"
                                                     class="form-control text-sm">
@@ -759,6 +792,17 @@
                     lookupResult: '',
                     imagePreview: '',
                     imageFile: null,
+                    targetTournamentId: null,
+                    activeAccordions: {
+                        @foreach($effectiveTournaments as $tournament)
+                            {{ $tournament->id }}: true,
+                        @endforeach
+                    },
+                    playerCounts: {
+                        @foreach($effectiveTournaments as $tournament)
+                            {{ $tournament->id }}: {{ $teamPlayersByTournament->get($tournament->id, collect())->count() }},
+                        @endforeach
+                    },
                     newPlayer: {
                         name: '',
                         email: '',
@@ -770,7 +814,12 @@
                         }
                     },
 
-                    openAddDrawer() {
+                    toggleAccordion(id) {
+                        this.activeAccordions[id] = !this.activeAccordions[id];
+                    },
+
+                    openAddDrawer(tournamentId = null) {
+                        this.targetTournamentId = tournamentId;
                         this.newPlayer = {
                             name: '',
                             email: '',
@@ -799,9 +848,59 @@
                     async lookupPlayer() {
                         this.lookupResult = '';
                         if (!this.newPlayer.phone || this.newPlayer.phone.length < 5) return;
+                    },
 
-                        // Simple lookup — the backend handles this during save
-                        // This is just a UX hint
+                    insertPlayerCard(tournamentId, player) {
+                        const container = document.getElementById('roster-tournament-' + tournamentId);
+                        if (!container) return;
+
+                        // Remove empty message if present
+                        const emptyMsg = container.querySelector('.empty-message');
+                        if (emptyMsg) emptyMsg.remove();
+
+                        // Get or create the space-y-2 wrapper
+                        let wrapper = container.querySelector('.space-y-2');
+                        if (!wrapper) {
+                            wrapper = document.createElement('div');
+                            wrapper.className = 'space-y-2';
+                            container.appendChild(wrapper);
+                        }
+
+                        const avatarUrl = player.image
+                            ? player.image
+                            : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(player.name) + '&color=7F9CF5&background=EBF4FF';
+
+                        const card = document.createElement('div');
+                        card.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg player-card';
+                        card.setAttribute('data-player-id', player.id);
+                        const escapedName = player.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        card.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <img class="h-10 w-10 rounded-full object-cover" src="${avatarUrl}" alt="${escapedName}">
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white text-sm">${player.name}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${player.phone || 'No phone'}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 remove-player-btn" title="Remove player"
+                                    data-player-id="${player.id}" data-player-name="${escapedName}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>`;
+                        // Bind remove handler
+                        card.querySelector('.remove-player-btn').addEventListener('click', () => {
+                            this.removePlayer(player.id, player.name);
+                        });
+                        wrapper.appendChild(card);
+
+                        // Update badge count
+                        this.playerCounts[tournamentId] = (this.playerCounts[tournamentId] || 0) + 1;
+
+                        // Expand the accordion if collapsed
+                        this.activeAccordions[tournamentId] = true;
                     },
 
                     async savePlayer() {
@@ -849,8 +948,13 @@
                             const data = await res.json();
 
                             if (data.success) {
+                                // Insert player card into each assigned tournament accordion
+                                for (const [tournamentId, teamId] of Object.entries(this.newPlayer.assignments)) {
+                                    if (String(teamId) === '{{ $actualTeam->id }}') {
+                                        this.insertPlayerCard(parseInt(tournamentId), data.player);
+                                    }
+                                }
                                 this.showDrawer = false;
-                                window.location.reload();
                             } else {
                                 this.error = data.message || 'Failed to add player.';
                             }
@@ -877,7 +981,26 @@
                             const data = await res.json();
 
                             if (data.success) {
-                                window.location.reload();
+                                // Remove player cards from DOM and update counts
+                                document.querySelectorAll(`.player-card[data-player-id="${playerId}"]`).forEach(card => {
+                                    const container = card.closest('[id^="roster-tournament-"]');
+                                    if (container) {
+                                        const tId = parseInt(container.id.replace('roster-tournament-', ''));
+                                        this.playerCounts[tId] = Math.max(0, (this.playerCounts[tId] || 1) - 1);
+
+                                        card.remove();
+
+                                        // Show empty message if no more players
+                                        const wrapper = container.querySelector('.space-y-2');
+                                        if (wrapper && wrapper.children.length === 0) {
+                                            wrapper.remove();
+                                            const msg = document.createElement('p');
+                                            msg.className = 'text-sm text-gray-400 italic empty-message';
+                                            msg.textContent = 'No players assigned for this tournament.';
+                                            container.appendChild(msg);
+                                        }
+                                    }
+                                });
                             } else {
                                 alert(data.message || 'Failed to remove player.');
                             }

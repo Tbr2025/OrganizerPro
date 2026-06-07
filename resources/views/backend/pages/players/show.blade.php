@@ -201,76 +201,214 @@
                     </div>
                 </div>
 
-                <!-- Additional Information -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-                    <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="font-semibold text-lg text-gray-800 dark:text-white">Additional Information</h3>
-                    </div>
-                    <div class="p-5 space-y-4">
-                        <div class="flex items-center gap-3">
-                            @if ($player->is_wicket_keeper)
-                                <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clip-rule="evenodd" />
-                                </svg>
-                            @else
-                                <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            @endif
-                            <span class="text-md text-gray-800 dark:text-gray-200">Wicket Keeper</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            @if ($player->transportation_required)
-                                <svg class="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clip-rule="evenodd" />
-                                </svg>
-                            @else
-                                <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            @endif
-                            <span class="text-md text-gray-800 dark:text-gray-200">Requires Transportation</span>
-                        </div>
-                        <div class="flex items-start gap-3">
-                            @if (!$player->no_travel_plan)
-                                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clip-rule="evenodd" />
-                                </svg>
-                                <div>
-                                    <span class="text-md text-gray-800 dark:text-gray-200">Unavailable</span>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        From:
-                                        <strong>{{ $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('M d, Y') : 'N/A' }}</strong>
-                                        To:
-                                        <strong>{{ $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('M d, Y') : 'N/A' }}</strong>
-                                    </p>
-                                </div>
-                            @else
-                                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="currentColor"
-                                    viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clip-rule="evenodd" />
-                                </svg>
-                                <div>
-                                    <span class="text-md text-gray-800 dark:text-gray-200">Available</span>
-
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
+
+        {{-- TOURNAMENT STATISTICS (Full Width) --}}
+        @if($tournamentAssignments->count() > 0)
+            <div class="mt-8 space-y-6" x-data="{ openTab: {{ $tournamentAssignments->first()->tournament_id }} }">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white">Tournament Statistics</h2>
+
+                {{-- Tournament Tabs --}}
+                <div class="border-b border-gray-200 dark:border-gray-700">
+                    <nav class="flex flex-wrap gap-2 -mb-px">
+                        @foreach($tournamentAssignments as $assignment)
+                            <button type="button"
+                                @click="openTab = {{ $assignment->tournament_id }}"
+                                :class="openTab === {{ $assignment->tournament_id }}
+                                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'"
+                                class="inline-flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors">
+                                {{ $assignment->tournament_name }}
+                                <span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                    {{ $assignment->team_name }}
+                                </span>
+                                @if($assignment->role)
+                                    <span class="px-2 py-0.5 rounded-full text-xs bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300">
+                                        {{ ucfirst($assignment->role) }}
+                                    </span>
+                                @endif
+                            </button>
+                        @endforeach
+                    </nav>
+                </div>
+
+                {{-- Tab Content --}}
+                @foreach($tournamentAssignments as $assignment)
+                    @php $stats = $tournamentStats->get($assignment->tournament_id); @endphp
+                    <div x-show="openTab === {{ $assignment->tournament_id }}"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0"
+                         x-transition:enter-end="opacity-100"
+                         x-cloak>
+                        @if($stats)
+                            {{-- Quick Stats Row --}}
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
+                                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $stats->matches }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Matches</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
+                                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $stats->runs }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Runs</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
+                                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $stats->wickets }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Wickets</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 text-center">
+                                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $stats->catches + $stats->stumpings + $stats->run_outs }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Dismissals (Field)</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {{-- Batting Stats --}}
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+                                    <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                        </svg>
+                                        <h3 class="font-semibold text-gray-800 dark:text-white">Batting</h3>
+                                    </div>
+                                    <div class="p-4">
+                                        <table class="w-full text-sm">
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Innings</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->innings_batted }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Runs</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->runs }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Balls Faced</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->balls_faced }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Highest Score</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->highest_score_display }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Average</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->batting_average }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Strike Rate</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->strike_rate }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">4s / 6s</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->fours }} / {{ $stats->sixes }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">50s / 100s</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->fifties }} / {{ $stats->hundreds }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Not Outs</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->not_outs }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Ducks</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->ducks }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {{-- Bowling Stats --}}
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+                                    <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        <h3 class="font-semibold text-gray-800 dark:text-white">Bowling</h3>
+                                    </div>
+                                    <div class="p-4">
+                                        <table class="w-full text-sm">
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Innings</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->innings_bowled }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Overs</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->overs_bowled }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Wickets</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->wickets }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Runs Conceded</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->runs_conceded }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Best Bowling</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->best_bowling ?? '-' }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Average</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->bowling_average }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Economy</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->economy_rate }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Maidens</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->maidens }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">4W / 5W</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->four_wickets }} / {{ $stats->five_wickets }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {{-- Fielding Stats --}}
+                                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg lg:col-span-2">
+                                    <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"/>
+                                        </svg>
+                                        <h3 class="font-semibold text-gray-800 dark:text-white">Fielding</h3>
+                                    </div>
+                                    <div class="p-4">
+                                        <div class="grid grid-cols-3 gap-6 text-center">
+                                            <div>
+                                                <p class="text-2xl font-bold text-gray-800 dark:text-white">{{ $stats->catches }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Catches</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-2xl font-bold text-gray-800 dark:text-white">{{ $stats->stumpings }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Stumpings</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-2xl font-bold text-gray-800 dark:text-white">{{ $stats->run_outs }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Run Outs</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
+                            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
+                                <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                                <p class="text-gray-500 dark:text-gray-400">No statistics recorded for this tournament yet.</p>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
     </div>
     </div>
 @endsection

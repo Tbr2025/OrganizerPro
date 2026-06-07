@@ -542,6 +542,25 @@ class PlayerController extends Controller
             'image_path' => (bool) $player->verified_image_path,
         ];
 
+        // Load tournament assignments with tournament details
+        $tournamentAssignments = \DB::table('player_actual_team_tournament')
+            ->join('tournaments', 'tournaments.id', '=', 'player_actual_team_tournament.tournament_id')
+            ->join('actual_teams', 'actual_teams.id', '=', 'player_actual_team_tournament.actual_team_id')
+            ->where('player_actual_team_tournament.player_id', $player->id)
+            ->select(
+                'player_actual_team_tournament.*',
+                'tournaments.name as tournament_name',
+                'actual_teams.name as team_name',
+                'actual_teams.team_logo'
+            )
+            ->get();
+
+        // Load per-tournament statistics
+        $tournamentStats = \App\Models\PlayerStatistic::where('player_id', $player->id)
+            ->with('tournament')
+            ->get()
+            ->keyBy('tournament_id');
+
         return view('backend.pages.players.show', [
             'player' => $player,
             'teams' => Team::all(),
@@ -558,7 +577,9 @@ class PlayerController extends Controller
                 ],
             ],
             'verifiedFields' => $verifiedFields,
-            'verifiedProfile' => $player->allFieldsVerified()
+            'verifiedProfile' => $player->allFieldsVerified(),
+            'tournamentAssignments' => $tournamentAssignments,
+            'tournamentStats' => $tournamentStats,
         ]);
     }
 
