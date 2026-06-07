@@ -167,6 +167,7 @@
                     </div>
                 </div>
 
+                @role('Superadmin')
                 {{-- Registration Form Fields Configuration --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{
                     fields: @js($fieldConfig),
@@ -292,6 +293,8 @@
                     </div>
                 </div>
 
+                @endrole
+
                 {{-- Match Settings --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Match Settings</h3>
@@ -344,6 +347,7 @@
                     </div>
                 </div>
 
+                @role('Superadmin')
                 {{-- Match Summary Settings --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Match Summary Settings</h3>
@@ -392,6 +396,8 @@
                         </div>
                     </div>
                 </div>
+
+                @endrole
 
                 {{-- Contact Information --}}
                 <div class="pb-6">

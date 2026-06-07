@@ -61,7 +61,7 @@
                                             {{ __('All Roles') }}
                                         </li>
                                         @foreach ($roles as $id => $name)
-                                            @if ($name !== 'Player')
+                                            @if ($name !== 'Player' && $name !== 'Superadmin')
                                             <li class="cursor-pointer text-sm text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 px-2 py-1.5 rounded {{ request('role') === $name ? 'bg-gray-200 dark:bg-gray-600' : '' }}"
                                                 onclick="handleRoleFilter('{{ $name }}')">
                                                 {{ ucfirst($name) }}

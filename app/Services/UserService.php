@@ -19,6 +19,11 @@ class UserService
         // Use the QueryBuilderTrait methods directly from the User model
         $query = User::applyFilters($filters);
 
+        // Always hide Superadmin users from the list
+        $query->whereDoesntHave('roles', function ($q) {
+            $q->where('name', 'Superadmin');
+        });
+
         // Exclude users with the "Player" role — they belong in the Players section
         if (empty($filters['role']) || $filters['role'] !== 'Player') {
             $query->whereDoesntHave('roles', function ($q) {
