@@ -872,14 +872,7 @@
                     selectedExistingPlayerId: null,
                     squadSearch: '',
                     playerRole: '',
-                    squadPlayers: @json($currentPlayerMembers->map(fn($m) => [
-                        'id' => $m->player?->id,
-                        'user_id' => $m->id,
-                        'name' => $m->name,
-                        'email' => $m->email,
-                        'phone' => $m->player?->mobile_number_full ?? '',
-                        'image' => $m->player?->image_path ? asset('storage/' . $m->player->image_path) : null,
-                    ])->filter(fn($p) => $p['id'])->values()),
+                    squadPlayers: @json($squadPlayersJson),
                     activeAccordions: {
                         @foreach($effectiveTournaments as $tournament)
                             {{ $tournament->id }}: true,

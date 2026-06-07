@@ -511,6 +511,19 @@ class ActualTeamController extends Controller
             })->get();
         }
 
+        // Build squad players JSON for the roster "From Squad" picker
+        $squadPlayersJson = $currentPlayerMembers
+            ->filter(fn($m) => $m->player)
+            ->map(fn($m) => [
+                'id' => $m->player->id,
+                'user_id' => $m->id,
+                'name' => $m->name,
+                'email' => $m->email,
+                'phone' => $m->player->mobile_number_full ?? '',
+                'image' => $m->player->image_path ? asset('storage/' . $m->player->image_path) : null,
+            ])
+            ->values();
+
         // --- Return the View ---
         return view('backend.pages.actual_teams.edit', compact(
             'actualTeam',
@@ -529,7 +542,8 @@ class ActualTeamController extends Controller
             'effectiveTournaments',
             'teamPlayersByTournament',
             'playersMap',
-            'allTeamsForTournaments'
+            'allTeamsForTournaments',
+            'squadPlayersJson'
         ));
     }
 
