@@ -1025,57 +1025,74 @@ class ActualTeamController extends Controller
      */
     public function addPlayer(Request $request, ActualTeam $actualTeam)
     {
-        $request->validate([
-            'name'                          => 'required|string|max:255',
-            'email'                         => 'required|email|max:255',
-            'phone'                         => 'required|string|max:20',
-            'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'tournament_assignments'        => 'nullable|array',
-            'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
-            'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
-        ]);
+        // If adding an existing player from squad, use relaxed validation
+        if ($request->filled('existing_player_id')) {
+            $request->validate([
+                'existing_player_id'            => 'required|exists:players,id',
+                'tournament_assignments'        => 'nullable|array',
+                'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
+                'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
+                'tournament_assignments.*.role' => 'nullable|string|max:50',
+            ]);
+        } else {
+            $request->validate([
+                'name'                          => 'required|string|max:255',
+                'email'                         => 'required|email|max:255',
+                'phone'                         => 'required|string|max:20',
+                'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+                'tournament_assignments'        => 'nullable|array',
+                'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
+                'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
+                'tournament_assignments.*.role' => 'nullable|string|max:50',
+            ]);
+        }
 
         try {
             DB::beginTransaction();
 
             $player = null;
 
-            // Look up existing player by phone number
-            if ($request->filled('phone')) {
-                $player = Player::where('mobile_number_full', $request->phone)->first();
-            }
-
-            // If no existing player, create new Player + User
-            if (!$player) {
-                // Check if a user with this email already exists
-                $existingUser = User::where('email', $request->email)->first();
-                $user = $existingUser ?? User::create([
-                    'name'              => $request->name,
-                    'email'             => strtolower($request->email),
-                    'username'          => Str::slug($request->name) . '_' . Str::random(4),
-                    'password'          => Hash::make(Str::random(16)),
-                    'organization_id'   => $actualTeam->organization_id,
-                    'email_verified_at' => now(),
-                ]);
-
-                $player = Player::create([
-                    'name'               => $request->name,
-                    'mobile_number_full' => $request->phone,
-                    'user_id'            => $user->id,
-                    'actual_team_id'     => $actualTeam->id,
-                    'status'             => 'approved',
-                ]);
+            // If existing player ID is provided, use that directly
+            if ($request->filled('existing_player_id')) {
+                $player = Player::findOrFail($request->existing_player_id);
             } else {
-                // Update phone if different
-                if ($request->filled('phone') && $player->mobile_number_full !== $request->phone) {
-                    $player->mobile_number_full = $request->phone;
+                // Look up existing player by phone number
+                if ($request->filled('phone')) {
+                    $player = Player::where('mobile_number_full', $request->phone)->first();
                 }
-                // Only set home team if player doesn't already have one
-                if (!$player->actual_team_id) {
-                    $player->actual_team_id = $actualTeam->id;
+
+                // If no existing player, create new Player + User
+                if (!$player) {
+                    // Check if a user with this email already exists
+                    $existingUser = User::where('email', $request->email)->first();
+                    $user = $existingUser ?? User::create([
+                        'name'              => $request->name,
+                        'email'             => strtolower($request->email),
+                        'username'          => Str::slug($request->name) . '_' . Str::random(4),
+                        'password'          => Hash::make(Str::random(16)),
+                        'organization_id'   => $actualTeam->organization_id,
+                        'email_verified_at' => now(),
+                    ]);
+
+                    $player = Player::create([
+                        'name'               => $request->name,
+                        'mobile_number_full' => $request->phone,
+                        'user_id'            => $user->id,
+                        'actual_team_id'     => $actualTeam->id,
+                        'status'             => 'approved',
+                    ]);
+                } else {
+                    // Update phone if different
+                    if ($request->filled('phone') && $player->mobile_number_full !== $request->phone) {
+                        $player->mobile_number_full = $request->phone;
+                    }
+                    // Only set home team if player doesn't already have one
+                    if (!$player->actual_team_id) {
+                        $player->actual_team_id = $actualTeam->id;
+                    }
+                    $player->status = 'approved';
+                    $player->save();
                 }
-                $player->status = 'approved';
-                $player->save();
             }
 
             // Handle image upload

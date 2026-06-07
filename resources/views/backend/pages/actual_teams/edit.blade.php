@@ -567,54 +567,129 @@
 
                             {{-- Content --}}
                             <div class="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-                                {{-- Player Name --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Name <span class="text-red-500">*</span></label>
-                                    <input type="text" x-model="newPlayer.name" class="form-control mt-1" placeholder="Enter player name">
+                                {{-- Mode Toggle --}}
+                                <div class="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                                    <button type="button" @click="addMode = 'existing'; selectedExistingPlayerId = null; squadSearch = ''"
+                                        :class="addMode === 'existing' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                                        class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors text-center">
+                                        From Squad
+                                    </button>
+                                    <button type="button" @click="addMode = 'new'"
+                                        :class="addMode === 'new' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                                        class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors text-center">
+                                        New Player
+                                    </button>
                                 </div>
 
-                                {{-- Email --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email Address <span class="text-red-500">*</span></label>
-                                    <input type="email" x-model="newPlayer.email" class="form-control mt-1" placeholder="e.g., player@example.com">
-                                </div>
-
-                                {{-- Phone --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number <span class="text-red-500">*</span></label>
-                                    <input type="text" x-model="newPlayer.phone" class="form-control mt-1" placeholder="e.g., +919876543210"
-                                        @blur="lookupPlayer()">
-                                    <p class="text-xs text-gray-500 mt-1">If an existing player is found by phone, they will be linked instead of creating a new one.</p>
-                                    <template x-if="lookupResult">
-                                        <div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-700 dark:text-green-300">
-                                            Found existing player: <strong x-text="lookupResult"></strong>
+                                {{-- EXISTING PLAYER MODE --}}
+                                <template x-if="addMode === 'existing'">
+                                    <div class="space-y-4">
+                                        {{-- Search --}}
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Squad</label>
+                                            <input type="text" x-model="squadSearch" class="form-control mt-1" placeholder="Search by name or phone...">
                                         </div>
-                                    </template>
-                                </div>
 
-                                {{-- Player Image --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Image</label>
-                                    <div class="mt-2 flex items-center gap-4">
-                                        <template x-if="imagePreview">
-                                            <img :src="imagePreview" class="h-16 w-16 rounded-full object-cover">
-                                        </template>
-                                        <template x-if="!imagePreview">
-                                            <div class="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                                <svg class="w-8 h-8 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                        {{-- Player List --}}
+                                        <div class="max-h-52 overflow-y-auto space-y-1 border border-gray-200 dark:border-gray-600 rounded-lg p-2">
+                                            <template x-for="sp in filteredSquadPlayers" :key="sp.id">
+                                                <button type="button" @click="selectedExistingPlayerId = sp.id"
+                                                    :class="selectedExistingPlayerId === sp.id ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                                    class="w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors text-left">
+                                                    <img :src="sp.image || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(sp.name) + '&color=7F9CF5&background=EBF4FF')"
+                                                         class="h-9 w-9 rounded-full object-cover flex-shrink-0" :alt="sp.name">
+                                                    <div class="min-w-0 flex-1">
+                                                        <p class="text-sm font-medium text-gray-800 dark:text-white truncate" x-text="sp.name"></p>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="sp.phone || sp.email"></p>
+                                                    </div>
+                                                    <svg x-show="selectedExistingPlayerId === sp.id" class="w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                            </template>
+                                            <template x-if="filteredSquadPlayers.length === 0">
+                                                <p class="text-sm text-gray-400 italic text-center py-3">No squad players found.</p>
+                                            </template>
+                                        </div>
+
+                                        {{-- Selected Player Preview --}}
+                                        <template x-if="selectedSquadPlayer">
+                                            <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-3">
+                                                <img :src="selectedSquadPlayer.image || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(selectedSquadPlayer.name) + '&color=7F9CF5&background=EBF4FF')"
+                                                     class="h-10 w-10 rounded-full object-cover" :alt="selectedSquadPlayer.name">
+                                                <div>
+                                                    <p class="text-sm font-semibold text-green-800 dark:text-green-200" x-text="selectedSquadPlayer.name"></p>
+                                                    <p class="text-xs text-green-600 dark:text-green-400" x-text="selectedSquadPlayer.phone || selectedSquadPlayer.email"></p>
+                                                </div>
                                             </div>
                                         </template>
-                                        <label class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                            <span>Upload</span>
-                                            <input type="file" class="sr-only" accept="image/*" @change="handleImageChange($event)">
-                                        </label>
                                     </div>
-                                </div>
+                                </template>
 
-                                {{-- Home Team (read-only) --}}
+                                {{-- NEW PLAYER MODE --}}
+                                <template x-if="addMode === 'new'">
+                                    <div class="space-y-5">
+                                        {{-- Player Name --}}
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Name <span class="text-red-500">*</span></label>
+                                            <input type="text" x-model="newPlayer.name" class="form-control mt-1" placeholder="Enter player name">
+                                        </div>
+
+                                        {{-- Email --}}
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email Address <span class="text-red-500">*</span></label>
+                                            <input type="email" x-model="newPlayer.email" class="form-control mt-1" placeholder="e.g., player@example.com">
+                                        </div>
+
+                                        {{-- Phone --}}
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number <span class="text-red-500">*</span></label>
+                                            <input type="text" x-model="newPlayer.phone" class="form-control mt-1" placeholder="e.g., +919876543210"
+                                                @blur="lookupPlayer()">
+                                            <p class="text-xs text-gray-500 mt-1">If an existing player is found by phone, they will be linked instead of creating a new one.</p>
+                                            <template x-if="lookupResult">
+                                                <div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-700 dark:text-green-300">
+                                                    Found existing player: <strong x-text="lookupResult"></strong>
+                                                </div>
+                                            </template>
+                                        </div>
+
+                                        {{-- Player Image --}}
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Image</label>
+                                            <div class="mt-2 flex items-center gap-4">
+                                                <template x-if="imagePreview">
+                                                    <img :src="imagePreview" class="h-16 w-16 rounded-full object-cover">
+                                                </template>
+                                                <template x-if="!imagePreview">
+                                                    <div class="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                                        <svg class="w-8 h-8 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                                    </div>
+                                                </template>
+                                                <label class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                                    <span>Upload</span>
+                                                    <input type="file" class="sr-only" accept="image/*" @change="handleImageChange($event)">
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {{-- Home Team (read-only) --}}
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Home Team</label>
+                                            <input type="text" value="{{ $actualTeam->name }}" class="form-control mt-1 bg-gray-50 dark:bg-gray-700" readonly>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {{-- Player Role --}}
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Home Team</label>
-                                    <input type="text" value="{{ $actualTeam->name }}" class="form-control mt-1 bg-gray-50 dark:bg-gray-700" readonly>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Role</label>
+                                    <select x-model="playerRole" class="form-control mt-1 text-sm">
+                                        <option value="">-- None --</option>
+                                        <option value="captain">Captain</option>
+                                        <option value="vice_captain">Vice Captain</option>
+                                        <option value="wicket_keeper">Wicket Keeper</option>
+                                    </select>
                                 </div>
 
                                 {{-- Tournament Assignments --}}
@@ -793,6 +868,18 @@
                     imagePreview: '',
                     imageFile: null,
                     targetTournamentId: null,
+                    addMode: 'new', // 'new' or 'existing'
+                    selectedExistingPlayerId: null,
+                    squadSearch: '',
+                    playerRole: '',
+                    squadPlayers: @json($currentPlayerMembers->map(fn($m) => [
+                        'id' => $m->player?->id,
+                        'user_id' => $m->id,
+                        'name' => $m->name,
+                        'email' => $m->email,
+                        'phone' => $m->player?->mobile_number_full ?? '',
+                        'image' => $m->player?->image_path ? asset('storage/' . $m->player->image_path) : null,
+                    ])->filter(fn($p) => $p['id'])->values()),
                     activeAccordions: {
                         @foreach($effectiveTournaments as $tournament)
                             {{ $tournament->id }}: true,
@@ -814,12 +901,28 @@
                         }
                     },
 
+                    get filteredSquadPlayers() {
+                        if (!this.squadSearch) return this.squadPlayers;
+                        const q = this.squadSearch.toLowerCase();
+                        return this.squadPlayers.filter(p =>
+                            p.name.toLowerCase().includes(q) || (p.phone && p.phone.includes(q))
+                        );
+                    },
+
+                    get selectedSquadPlayer() {
+                        return this.squadPlayers.find(p => p.id === this.selectedExistingPlayerId);
+                    },
+
                     toggleAccordion(id) {
                         this.activeAccordions[id] = !this.activeAccordions[id];
                     },
 
                     openAddDrawer(tournamentId = null) {
                         this.targetTournamentId = tournamentId;
+                        this.addMode = 'new';
+                        this.selectedExistingPlayerId = null;
+                        this.squadSearch = '';
+                        this.playerRole = '';
                         this.newPlayer = {
                             name: '',
                             email: '',
@@ -904,17 +1007,24 @@
                     },
 
                     async savePlayer() {
-                        if (!this.newPlayer.name.trim()) {
-                            this.error = 'Player name is required.';
-                            return;
-                        }
-                        if (!this.newPlayer.email.trim()) {
-                            this.error = 'Email address is required.';
-                            return;
-                        }
-                        if (!this.newPlayer.phone.trim()) {
-                            this.error = 'Phone number is required.';
-                            return;
+                        if (this.addMode === 'new') {
+                            if (!this.newPlayer.name.trim()) {
+                                this.error = 'Player name is required.';
+                                return;
+                            }
+                            if (!this.newPlayer.email.trim()) {
+                                this.error = 'Email address is required.';
+                                return;
+                            }
+                            if (!this.newPlayer.phone.trim()) {
+                                this.error = 'Phone number is required.';
+                                return;
+                            }
+                        } else {
+                            if (!this.selectedExistingPlayerId) {
+                                this.error = 'Please select a player from the squad.';
+                                return;
+                            }
                         }
 
                         this.saving = true;
@@ -922,11 +1032,16 @@
 
                         try {
                             const formData = new FormData();
-                            formData.append('name', this.newPlayer.name);
-                            formData.append('email', this.newPlayer.email);
-                            formData.append('phone', this.newPlayer.phone);
-                            if (this.imageFile) {
-                                formData.append('player_image', this.imageFile);
+
+                            if (this.addMode === 'existing') {
+                                formData.append('existing_player_id', this.selectedExistingPlayerId);
+                            } else {
+                                formData.append('name', this.newPlayer.name);
+                                formData.append('email', this.newPlayer.email);
+                                formData.append('phone', this.newPlayer.phone);
+                                if (this.imageFile) {
+                                    formData.append('player_image', this.imageFile);
+                                }
                             }
 
                             // Build tournament assignments
@@ -934,6 +1049,9 @@
                             for (const [tournamentId, teamId] of Object.entries(this.newPlayer.assignments)) {
                                 formData.append(`tournament_assignments[${idx}][tournament_id]`, tournamentId);
                                 formData.append(`tournament_assignments[${idx}][team_id]`, teamId);
+                                if (this.playerRole) {
+                                    formData.append(`tournament_assignments[${idx}][role]`, this.playerRole);
+                                }
                                 idx++;
                             }
 
