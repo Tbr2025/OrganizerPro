@@ -692,8 +692,8 @@
                                     </select>
                                 </div>
 
-                                {{-- Tournament Assignments --}}
-                                <div>
+                                {{-- Tournament Assignments (only for new player mode) --}}
+                                <div x-show="addMode === 'new'">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament-Team Assignments</label>
                                     <div class="space-y-3">
                                         @foreach($effectiveTournaments as $idx => $tournament)
@@ -713,6 +713,14 @@
                                             </div>
                                         @endforeach
                                     </div>
+                                </div>
+
+                                {{-- Info for existing player mode --}}
+                                <div x-show="addMode === 'existing'" x-cloak class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                                    <p class="text-sm text-blue-700 dark:text-blue-300">
+                                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                                        Player will be added to all tournament rosters for this team.
+                                    </p>
                                 </div>
 
                                 {{-- Error display --}}
@@ -1059,11 +1067,9 @@
                             const data = await res.json();
 
                             if (data.success) {
-                                // Insert player card into each assigned tournament accordion
+                                // Insert player card into all assigned tournament accordions
                                 for (const [tournamentId, teamId] of Object.entries(this.newPlayer.assignments)) {
-                                    if (String(teamId) === '{{ $actualTeam->id }}') {
-                                        this.insertPlayerCard(parseInt(tournamentId), data.player);
-                                    }
+                                    this.insertPlayerCard(parseInt(tournamentId), data.player);
                                 }
                                 this.showDrawer = false;
                             } else {
