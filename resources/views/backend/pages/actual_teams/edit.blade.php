@@ -510,15 +510,18 @@
                                                                         alt="{{ $p->name }}">
                                                                     <div>
                                                                         <p class="font-medium text-gray-800 dark:text-white text-sm">{{ $p->name }}</p>
-                                                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $p->mobile_number_full ?? 'No phone' }}</p>
+                                                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $p->user->email ?? $p->mobile_number_full ?? 'No contact' }}</p>
                                                                     </div>
                                                                 </div>
                                                                 <div class="flex items-center gap-2">
                                                                     @if($assignment->role)
                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                                                                            {{ ucfirst($assignment->role) }}
+                                                                            {{ ucfirst(str_replace('_', ' ', $assignment->role)) }}
                                                                         </span>
                                                                     @endif
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                                                        Player
+                                                                    </span>
                                                                     <button type="button"
                                                                         @click="removePlayer({{ $p->id }}, '{{ addslashes($p->name) }}')"
                                                                         class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
@@ -978,15 +981,19 @@
                         card.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg player-card';
                         card.setAttribute('data-player-id', player.id);
                         const escapedName = player.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        const roleLabel = this.playerRole ? this.playerRole.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
+                        const roleBadge = roleLabel ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">${roleLabel}</span>` : '';
                         card.innerHTML = `
                             <div class="flex items-center gap-3">
                                 <img class="h-10 w-10 rounded-full object-cover" src="${avatarUrl}" alt="${escapedName}">
                                 <div>
                                     <p class="font-medium text-gray-800 dark:text-white text-sm">${player.name}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">${player.phone || 'No phone'}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${player.email || player.phone || 'No contact'}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
+                                ${roleBadge}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Player</span>
                                 <button type="button" class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 remove-player-btn" title="Remove player"
                                     data-player-id="${player.id}" data-player-name="${escapedName}">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

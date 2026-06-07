@@ -497,7 +497,7 @@ class ActualTeamController extends Controller
 
         // Get all player details
         $playerIds = $teamPlayers->pluck('player_id')->unique()->toArray();
-        $playersMap = Player::whereIn('id', $playerIds)->get()->keyBy('id');
+        $playersMap = Player::with('user')->whereIn('id', $playerIds)->get()->keyBy('id');
 
         // Get all teams for each effective tournament (for the playing-team dropdown)
         $allTeamsForTournaments = [];
@@ -1172,6 +1172,7 @@ class ActualTeamController extends Controller
                 'player'  => [
                     'id'    => $player->id,
                     'name'  => $player->name,
+                    'email' => $player->user->email ?? '',
                     'phone' => $player->mobile_number_full,
                     'image' => $player->image_path ? asset('storage/' . $player->image_path) : null,
                 ],
