@@ -747,6 +747,22 @@ class ActualTeamController extends Controller
                         $player->actual_team_id = $actualTeam->id;
                     }
                     $player->save();
+
+                    // Auto-add to all tournament rosters for this team
+                    $effectiveTournaments = $actualTeam->effective_tournaments;
+                    foreach ($effectiveTournaments as $tournament) {
+                        DB::table('player_actual_team_tournament')->updateOrInsert(
+                            [
+                                'player_id'     => $player->id,
+                                'tournament_id' => $tournament->id,
+                            ],
+                            [
+                                'actual_team_id' => $actualTeam->id,
+                                'updated_at'     => now(),
+                                'created_at'     => now(),
+                            ]
+                        );
+                    }
                 } else {
                     Log::warning("User {$userId} added as Player to team {$actualTeam->id}, but no player record found.");
                     // Optionally create the record if needed
