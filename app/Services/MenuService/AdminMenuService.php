@@ -509,13 +509,7 @@ class AdminMenuService
                     'active' => Route::is('admin.tournaments.create'),
                     'priority' => 20,
                     'permissions' => 'tournament.create',
-                ],
-                [
-                    'label' => __('Generate Poster'),
-                    'route' => route('admin.image-templates.index'),
-                    'active' => Route::is('admin.image-templates.*'),
-                    'priority' => 30,
-                    'permissions' => ['tournament.view', 'image-templates.edit'],
+                    'superadmin_only' => true,
                 ],
             ],
         ]);
@@ -592,9 +586,9 @@ class AdminMenuService
             'label' => __('Settings'),
             'icon' => 'lucide:settings',
             'id' => 'settings-submenu',
-            'active' => Route::is('admin.settings.*') || Route::is('admin.translations.*') || Route::is('admin.image-templates.*'),
+            'active' => Route::is('admin.settings.*') || Route::is('admin.translations.*'),
             'priority' => 1,
-            'permissions' => ['settings.edit', 'translations.view', 'image-templates.edit'],
+            'permissions' => ['settings.edit', 'translations.view'],
             'children' => [
                 [
                     'label' => __('General Settings'),
@@ -602,14 +596,6 @@ class AdminMenuService
                     'active' => Route::is('admin.settings.index'),
                     'priority' => 20,
                     'permissions' => 'settings.edit',
-                ],
-                [
-                    'label' => __('Templates'),
-                    'route' => route('admin.image-templates.index'),
-                    'active' => Route::is('admin.image-templates.*'),
-                    'priority' => 21,
-                    'permissions' => 'image-templates.edit',
-                    'superadmin_only' => true,
                 ],
                 [
                     'label' => __('Translations'),

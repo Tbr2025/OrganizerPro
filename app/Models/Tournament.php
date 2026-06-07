@@ -95,6 +95,11 @@ class Tournament extends Model
         return $this->hasMany(TournamentTemplate::class);
     }
 
+    public function generatedPosters(): HasMany
+    {
+        return $this->hasMany(GeneratedPoster::class);
+    }
+
     public function timeSlots(): HasMany
     {
         return $this->hasMany(MatchTimeSlot::class);

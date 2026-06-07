@@ -10,102 +10,89 @@
     ['name' => 'Generate Poster']
 ])" />
 
-<div class="max-w-6xl mx-auto">
+<div class="max-w-7xl mx-auto">
     {{-- Header --}}
-    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-6 mb-6">
-        <h1 class="text-2xl font-bold text-white mb-2">Generate Poster</h1>
-        <p class="text-purple-100">Select data and template to create a poster with real tournament information</p>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {{-- Left: Data Selection --}}
-        <div class="lg:col-span-2 space-y-6">
-            {{-- Poster Type Selection --}}
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <span class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 flex items-center justify-center mr-3 text-sm font-bold">1</span>
-                    Select Poster Type
-                </h3>
-
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
-                    <button type="button" @click="type = 'match_poster'; updateType('match_poster')"
-                            :class="type === 'match_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-cyan-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Match Poster</span>
-                    </button>
-
-                    <button type="button" @click="type = 'match_summary'; updateType('match_summary')"
-                            :class="type === 'match_summary' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-yellow-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Match Summary</span>
-                    </button>
-
-                    <button type="button" @click="type = 'award_poster'; updateType('award_poster')"
-                            :class="type === 'award_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-red-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Award Poster</span>
-                    </button>
-
-                    <button type="button" @click="type = 'welcome_card'; updateType('welcome_card')"
-                            :class="type === 'welcome_card' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-green-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Welcome Card</span>
-                    </button>
-
-                    <button type="button" @click="type = 'point_table'; updateType('point_table')"
-                            :class="type === 'point_table' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-blue-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Point Table</span>
-                    </button>
-
-                    <button type="button" @click="type = 'fixtures_poster'; updateType('fixtures_poster')"
-                            :class="type === 'fixtures_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-teal-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Fixtures</span>
-                    </button>
-
-                    <button type="button" @click="type = 'flyer'; updateType('flyer')"
-                            :class="type === 'flyer' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-orange-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Flyer</span>
-                    </button>
-
-                    <button type="button" @click="type = 'champions_poster'; updateType('champions_poster')"
-                            :class="type === 'champions_poster' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30' : 'border-gray-200 dark:border-gray-700'"
-                            class="p-4 rounded-xl border-2 text-center transition hover:border-purple-300">
-                        <div class="w-10 h-10 mx-auto mb-2 rounded-lg bg-amber-500 flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Champions</span>
-                    </button>
+    <div class="relative overflow-hidden bg-gradient-to-br from-purple-700 via-indigo-600 to-purple-800 rounded-2xl p-8 mb-8">
+        <div class="absolute inset-0 opacity-10">
+            <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" stroke-width="0.5"/></pattern></defs><rect width="400" height="200" fill="url(#grid)"/></svg>
+        </div>
+        <div class="relative flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-1">Generate Poster</h1>
+                <p class="text-purple-200 text-sm">Create professional posters with real tournament data</p>
+            </div>
+            <div class="hidden md:flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 </div>
             </div>
+        </div>
+    </div>
+
+    {{-- Poster Type Selection - Horizontal Pill Tabs --}}
+    <div class="mb-6" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button type="button" @click="type = 'match_poster'; updateType('match_poster')"
+                    :class="type === 'match_poster' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-cyan-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Match Poster
+            </button>
+            <button type="button" @click="type = 'match_summary'; updateType('match_summary')"
+                    :class="type === 'match_summary' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-yellow-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Summary
+            </button>
+            <button type="button" @click="type = 'award_poster'; updateType('award_poster')"
+                    :class="type === 'award_poster' ? 'bg-red-500 text-white shadow-lg shadow-red-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-red-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                Award
+            </button>
+            <button type="button" @click="type = 'welcome_card'; updateType('welcome_card')"
+                    :class="type === 'welcome_card' ? 'bg-green-500 text-white shadow-lg shadow-green-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-green-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                Welcome
+            </button>
+            <button type="button" @click="type = 'point_table'; updateType('point_table')"
+                    :class="type === 'point_table' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-blue-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
+                Points
+            </button>
+            <button type="button" @click="type = 'fixtures_poster'; updateType('fixtures_poster')"
+                    :class="type === 'fixtures_poster' ? 'bg-teal-500 text-white shadow-lg shadow-teal-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-teal-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Fixtures
+            </button>
+            <button type="button" @click="type = 'flyer'; updateType('flyer')"
+                    :class="type === 'flyer' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-orange-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                Flyer
+            </button>
+            <button type="button" @click="type = 'champions_poster'; updateType('champions_poster')"
+                    :class="type === 'champions_poster' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-amber-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                Champions
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {{-- Left: Data Selection --}}
+        <div class="lg:col-span-3 space-y-5">
 
             {{-- Data Selection Based on Type --}}
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <span class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 flex items-center justify-center mr-3 text-sm font-bold">2</span>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center text-sm">
+                    <span class="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-600 flex items-center justify-center mr-2.5 text-xs font-bold">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6M12 9v6"/></svg>
+                    </span>
                     Select Data
                 </h3>
 
@@ -342,22 +329,101 @@
                         </div>
 
                         {{-- Player Override Section --}}
-                        <div id="awardPlayerOverride" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div id="awardPlayerOverride" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700"
+                             x-data="awardImageCropper()" x-cloak>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Player Details</label>
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs text-gray-500 mb-1">Player Name</label>
                                     <input type="text" id="awardPlayerName" placeholder="Auto from award" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
                                     <p class="text-xs text-gray-400 mt-1">Leave empty to use award data</p>
                                 </div>
                                 <div>
-                                    <label class="block text-xs text-gray-500 mb-1">Player Image</label>
+                                    <label class="block text-xs font-medium text-gray-500 mb-1.5">Player Image</label>
+                                    {{-- DB image preview --}}
                                     <div id="awardPlayerImagePreview" class="hidden mb-2">
-                                        <img id="awardPlayerImageThumb" src="" alt="Player" class="w-12 h-12 rounded-full object-cover border-2 border-purple-300 inline-block align-middle">
-                                        <span id="awardPlayerImageLabel" class="text-xs text-green-600 ml-2 align-middle">From database</span>
+                                        <div class="flex items-center gap-2">
+                                            <img id="awardPlayerImageThumb" src="" alt="Player" class="w-10 h-10 rounded-lg object-cover border border-gray-200 dark:border-gray-600">
+                                            <span id="awardPlayerImageLabel" class="text-xs text-green-600">From database</span>
+                                        </div>
                                     </div>
-                                    <input type="file" id="awardPlayerImageUpload" accept="image/*" class="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100 dark:file:bg-purple-900/30 dark:file:text-purple-300">
-                                    <p class="text-xs text-gray-400 mt-1">Upload to override. BG auto-removed.</p>
+
+                                    {{-- Custom upload preview --}}
+                                    <template x-if="croppedPreview">
+                                        <div class="relative group mb-2">
+                                            <img :src="croppedPreview" alt="Cropped" class="w-full h-28 object-contain rounded-lg border border-gray-200 dark:border-gray-600" :class="isTransparent ? 'bg-[url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAADFJREFUOI1jfPbs2X8GKgImahkAAcMoA0YYMDIQ+QIjIyMjVQMRbACxXjBkDCBXMwCbHQgR0+clpgAAAABJRU5ErkJggg==)]' : 'bg-gray-50 dark:bg-gray-800'">
+                                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-lg flex items-center justify-center gap-2">
+                                                <button type="button" @click="openFilePicker()" class="px-2.5 py-1 bg-white rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-100">Change</button>
+                                                <button type="button" @click="removeCropped()" class="px-2.5 py-1 bg-red-500 rounded-lg text-xs font-semibold text-white hover:bg-red-600">Remove</button>
+                                            </div>
+                                            <div x-show="skipBgRemoval" class="absolute bottom-1 right-1 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Transparent</div>
+                                        </div>
+                                    </template>
+
+                                    {{-- Dropzone --}}
+                                    <template x-if="!croppedPreview">
+                                        <div @click="openFilePicker()"
+                                             @dragover.prevent="isDragging = true"
+                                             @dragleave.prevent="isDragging = false"
+                                             @drop.prevent="handleDrop($event)"
+                                             :class="isDragging ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-purple-300'"
+                                             class="border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition">
+                                            <svg class="w-6 h-6 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                            <p class="text-xs text-gray-500">Drop image or click to browse</p>
+                                            <p class="text-[10px] text-gray-400 mt-0.5">Crop & BG removal available</p>
+                                        </div>
+                                    </template>
+
+                                    {{-- Hidden file input --}}
+                                    <input type="file" x-ref="fileInput" @change="onFileSelected($event)" accept="image/*" class="hidden">
+                                    {{-- Hidden input to store cropped blob for FormData --}}
+                                    <input type="file" id="awardPlayerImageUpload" class="hidden">
+                                </div>
+                            </div>
+
+                            {{-- Crop Modal --}}
+                            <div x-show="showCropModal" x-transition.opacity class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @keydown.escape.window="closeCropModal()">
+                                <div @click.outside="closeCropModal()" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                                    {{-- Modal Header --}}
+                                    <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <h4 class="font-semibold text-gray-900 dark:text-white text-sm">Crop Player Image</h4>
+                                        <button type="button" @click="closeCropModal()" class="text-gray-400 hover:text-gray-600 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                                    </div>
+
+                                    {{-- Aspect Ratio Selection --}}
+                                    <div class="px-5 pt-3 flex items-center gap-2">
+                                        <span class="text-xs text-gray-500 mr-1">Ratio:</span>
+                                        <template x-for="r in ratios" :key="r.value">
+                                            <button type="button" @click="setAspectRatio(r.value)"
+                                                    :class="activeRatio === r.value ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'"
+                                                    class="px-2.5 py-1 rounded-lg text-xs font-semibold transition" x-text="r.label"></button>
+                                        </template>
+                                    </div>
+
+                                    {{-- Crop Area --}}
+                                    <div class="px-5 py-3">
+                                        <div class="bg-gray-900 rounded-lg overflow-hidden" style="max-height: 400px;">
+                                            <img x-ref="cropImage" :src="cropImageSrc" alt="Crop" class="max-w-full" style="display: block; max-height: 400px;">
+                                        </div>
+                                    </div>
+
+                                    {{-- Modal Footer --}}
+                                    <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <label class="flex items-center gap-2 cursor-pointer" x-show="!isTransparent">
+                                            <input type="checkbox" x-model="removeBg" class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                                            <span class="text-xs text-gray-600 dark:text-gray-400">Remove Background</span>
+                                        </label>
+                                        <span x-show="isTransparent" class="text-xs text-green-600 flex items-center gap-1">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                            Transparent — no BG removal needed
+                                        </span>
+                                        <div class="flex gap-2">
+                                            <button type="button" @click="closeCropModal()" class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg">Cancel</button>
+                                            <button type="button" @click="applyCrop()" class="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-lg transition">
+                                                Apply Crop
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -514,135 +580,507 @@
             </div>
 
             {{-- Template Selection --}}
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <span class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 flex items-center justify-center mr-3 text-sm font-bold">3</span>
-                    Select Template
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center text-sm">
+                    <span class="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 flex items-center justify-center mr-2.5 text-xs font-bold">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+                    </span>
+                    Choose Template
                 </h3>
 
-                <div id="templatesList" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div id="templatesList" class="grid grid-cols-2 md:grid-cols-3 gap-3">
                     @forelse($templates as $template)
-                        <div class="relative">
-                            <label class="cursor-pointer">
+                        <div class="relative group">
+                            <label class="cursor-pointer block">
                                 <input type="radio" name="template_id" value="{{ $template->id }}" class="hidden peer" {{ $loop->first ? 'checked' : '' }}>
-                                <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3 transition peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 hover:border-purple-300">
+                                <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden transition-all peer-checked:border-purple-500 peer-checked:ring-2 peer-checked:ring-purple-500/20 hover:border-purple-300 hover:shadow-md">
                                     @if($template->background_image)
-                                        <img src="{{ $template->background_image_url }}" alt="{{ $template->name }}" class="w-full h-24 object-cover rounded-lg mb-2">
+                                        <img src="{{ $template->background_image_url }}" alt="{{ $template->name }}" class="w-full h-36 object-cover">
                                     @else
-                                        <div class="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center">
-                                            <span class="text-gray-400 text-xs">No preview</span>
+                                        <div class="w-full h-36 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                                            <svg class="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                         </div>
                                     @endif
-                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ $template->name }}</p>
-                                    @if($template->is_default)
-                                        <span class="text-xs text-purple-600">Default</span>
-                                    @endif
+                                    <div class="px-3 py-2 flex items-center justify-between">
+                                        <p class="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">{{ $template->name }}</p>
+                                        @if($template->is_default)
+                                            <span class="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-600 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ml-1">Default</span>
+                                        @endif
+                                    </div>
+                                </div>
+                                {{-- Selected indicator (sibling of input.peer) --}}
+                                <div class="absolute top-2 left-2 w-5 h-5 rounded-full bg-purple-500 text-white hidden peer-checked:flex items-center justify-center shadow-lg z-10">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                 </div>
                             </label>
+                            @role('Superadmin')
                             <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
-                               class="absolute top-1 right-1 p-1.5 rounded-lg bg-white/90 dark:bg-gray-800/90 text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 shadow-sm transition z-10"
+                               class="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 backdrop-blur text-white opacity-0 group-hover:opacity-100 hover:bg-black/70 shadow-sm transition-all z-10"
                                title="Edit Template">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                             </a>
+                            @endrole
                         </div>
                     @empty
                         <div class="col-span-full text-center py-8 text-gray-500">
-                            <p>No templates found for this type.</p>
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z"/></svg>
+                            <p class="text-sm">No templates found for this type.</p>
+                            @role('Superadmin')
                             <a href="{{ route('admin.tournaments.templates.create', ['tournament' => $tournament, 'type' => request('type', 'match_poster')]) }}"
-                               class="text-purple-600 hover:underline mt-2 inline-block">Create a template</a>
+                               class="text-purple-600 hover:underline mt-2 inline-block text-sm">Create a template</a>
+                            @endrole
                         </div>
                     @endforelse
                 </div>
             </div>
 
             {{-- Field Visibility Toggles --}}
-            <div id="fieldTogglesSection" class="hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center cursor-pointer" onclick="document.getElementById('togglesBody').classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
-                    <span class="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 flex items-center justify-center mr-3 text-sm font-bold">4</span>
+            <div id="fieldTogglesSection" class="hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center text-sm cursor-pointer" onclick="document.getElementById('togglesBody').classList.toggle('hidden'); this.querySelector('.chevron-icon').classList.toggle('rotate-180')">
+                    <span class="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 flex items-center justify-center mr-2.5 text-xs font-bold">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    </span>
                     Field Visibility
-                    <svg class="w-4 h-4 ml-auto text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    <span class="ml-auto text-xs text-gray-400 font-normal mr-2">Toggle fields on/off</span>
+                    <svg class="w-4 h-4 text-gray-400 transition-transform chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </h3>
-                <p class="text-xs text-gray-500 mb-3">Toggle off fields you don't want on the poster</p>
-                <div id="togglesBody" class="grid grid-cols-2 gap-x-4 gap-y-2 max-h-[300px] overflow-y-auto">
+                <div id="togglesBody" class="grid grid-cols-2 gap-x-4 gap-y-1.5 max-h-[250px] overflow-y-auto">
                     {{-- Populated by JS --}}
                 </div>
             </div>
         </div>
 
         {{-- Right: Preview & Actions --}}
-        <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 sticky top-4">
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-4">Preview & Generate</h3>
+        <div class="lg:col-span-2">
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 sticky top-4 overflow-hidden">
+                {{-- Preview Header --}}
+                <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h3 class="font-semibold text-gray-900 dark:text-white text-sm flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        Preview
+                    </h3>
+                    <span id="previewStatus" class="text-xs text-gray-400 font-medium">Ready</span>
+                </div>
 
                 {{-- Preview Area --}}
-                <div id="previewArea" class="bg-gray-100 dark:bg-gray-900 rounded-xl p-4 mb-4 min-h-[300px] flex items-center justify-center">
-                    <div id="previewPlaceholder" class="text-center text-gray-400">
-                        <svg class="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
-                        <p class="text-sm">Select data to preview</p>
+                <div id="previewArea" class="bg-gray-50 dark:bg-gray-900/50 p-4 min-h-[350px] flex items-center justify-center">
+                    <div id="previewPlaceholder" class="text-center text-gray-400 py-8">
+                        <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No preview yet</p>
+                        <p class="text-xs text-gray-400 mt-1">Select data and click Generate</p>
                     </div>
-                    <img id="previewImage" src="" alt="Preview" class="hidden max-w-full rounded-lg shadow-lg">
-                    <div id="previewLoading" class="hidden text-center">
-                        <svg class="w-10 h-10 mx-auto animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="text-sm text-gray-500 mt-2">Generating preview...</p>
+                    <img id="previewImage" src="" alt="Preview" class="hidden max-w-full max-h-[500px] rounded-lg shadow-xl ring-1 ring-black/5">
+                    <div id="previewLoading" class="hidden text-center py-8">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center">
+                            <svg class="w-8 h-8 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Generating poster...</p>
+                        <p class="text-xs text-gray-400 mt-1">This may take a few seconds</p>
                     </div>
                 </div>
 
                 {{-- Data Summary --}}
-                <div id="dataSummary" class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 mb-4 hidden">
-                    <h4 class="text-xs font-semibold text-gray-500 uppercase mb-2">Selected Data</h4>
-                    <div id="summaryContent" class="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                <div id="dataSummary" class="border-t border-gray-100 dark:border-gray-700 px-5 py-3 hidden">
+                    <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Selected Data</h4>
+                    <div id="summaryContent" class="text-xs text-gray-600 dark:text-gray-300 space-y-0.5">
                         <!-- Populated by JS -->
                     </div>
                 </div>
 
                 {{-- Innings Selector --}}
-                <div id="inningsSelector" class="mb-4 hidden">
-                    <label class="flex items-center text-sm font-semibold text-purple-700 dark:text-purple-300 mb-2">
-                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div id="inningsSelector" class="border-t border-gray-100 dark:border-gray-700 px-5 py-3 hidden">
+                    <label class="flex items-center text-xs font-semibold text-purple-700 dark:text-purple-300 mb-1.5">
+                        <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                         </svg>
                         Innings View
                     </label>
                     <select id="inningsSelect" onchange="onInningsChange()"
-                            class="w-full rounded-lg border-2 border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                            class="w-full rounded-lg border border-purple-200 dark:border-purple-700 bg-purple-50 dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
                         <option value="1">1st Innings (Batting First on Left)</option>
                         <option value="2">2nd Innings (Chasing Team on Left)</option>
                     </select>
                 </div>
 
                 {{-- Action Buttons --}}
-                <div class="space-y-3">
+                <div class="border-t border-gray-100 dark:border-gray-700 p-4 flex gap-3">
                     <button type="button" onclick="generatePreview()" id="previewBtn"
-                            class="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-xl transition flex items-center justify-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 text-sm flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
-                        Generate Preview
+                        Generate
                     </button>
 
                     <button type="button" onclick="downloadPoster()" id="downloadBtn" disabled
-                            class="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-xl transition flex items-center justify-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25 text-sm flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                         </svg>
-                        Download Poster
+                        Download
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Saved Posters Gallery --}}
+    <div class="mt-8" x-data="posterGallery()" x-cloak>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                Generated Posters
+                <span class="ml-2 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded-full" id="posterCount">{{ $savedPosters->count() }}</span>
+            </h2>
+            {{-- Filter tabs --}}
+            <div class="flex items-center gap-1.5">
+                <button @click="filter = 'all'" :class="filter === 'all' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium transition">All</button>
+                <button @click="filter = 'match_poster'" :class="filter === 'match_poster' ? 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium transition">Match</button>
+                <button @click="filter = 'match_summary'" :class="filter === 'match_summary' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium transition">Summary</button>
+                <button @click="filter = 'award_poster'" :class="filter === 'award_poster' ? 'bg-red-100 dark:bg-red-900/40 text-red-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium transition">Award</button>
+                <button @click="filter = 'other'" :class="filter === 'other' ? 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" class="px-2.5 py-1 rounded-lg text-xs font-medium transition">Other</button>
+            </div>
+        </div>
+
+        <div id="postersGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            @forelse($savedPosters as $poster)
+                <div class="poster-card group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-all"
+                     data-poster-id="{{ $poster->id }}"
+                     data-poster-type="{{ $poster->type }}"
+                     x-show="filter === 'all' || filter === '{{ $poster->type }}' || (filter === 'other' && !['match_poster','match_summary','award_poster'].includes('{{ $poster->type }}'))">
+                    {{-- Thumbnail --}}
+                    <div class="relative cursor-pointer" @click="viewPoster('{{ $poster->image_url }}', '{{ addslashes($poster->label) }}')">
+                        <img src="{{ $poster->image_url }}" alt="{{ $poster->label }}" class="w-full h-40 object-cover" loading="lazy">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <span class="bg-white/90 backdrop-blur rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 shadow">
+                                <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                View
+                            </span>
+                        </div>
+                        {{-- Type badge --}}
+                        @php
+                            $typeColors = [
+                                'match_poster' => 'bg-cyan-500',
+                                'match_summary' => 'bg-yellow-500',
+                                'award_poster' => 'bg-red-500',
+                                'welcome_card' => 'bg-green-500',
+                                'point_table' => 'bg-blue-500',
+                                'fixtures_poster' => 'bg-teal-500',
+                                'flyer' => 'bg-orange-500',
+                                'champions_poster' => 'bg-amber-500',
+                            ];
+                        @endphp
+                        <span class="absolute top-2 left-2 {{ $typeColors[$poster->type] ?? 'bg-gray-500' }} text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider">{{ str_replace('_', ' ', Str::limit($poster->type, 10, '')) }}</span>
+                    </div>
+
+                    {{-- Info & Actions --}}
+                    <div class="px-3 py-2">
+                        <p class="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate" title="{{ $poster->label }}">{{ $poster->label ?: 'Poster' }}</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5">{{ $poster->created_at->format('M d, h:i A') }}</p>
+                        <div class="flex items-center gap-1.5 mt-2">
+                            <a href="{{ $poster->image_url }}" download="poster-{{ $poster->id }}.png" class="flex-1 text-center px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-lg text-[10px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition">
+                                <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                Download
+                            </a>
+                            <button @click="deletePoster({{ $poster->id }}, $el)" class="px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-lg text-[10px] font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div id="emptyPostersMsg" class="col-span-full text-center py-10">
+                    <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    </div>
+                    <p class="text-sm text-gray-500 font-medium">No posters generated yet</p>
+                    <p class="text-xs text-gray-400 mt-1">Generated posters will appear here</p>
+                </div>
+            @endforelse
+        </div>
+
+        {{-- Lightbox Modal --}}
+        <div x-show="showLightbox" x-transition.opacity class="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" @click.self="showLightbox = false" @keydown.escape.window="showLightbox = false">
+            <div class="relative max-w-4xl w-full">
+                <button @click="showLightbox = false" class="absolute -top-10 right-0 text-white/70 hover:text-white transition">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                <img :src="lightboxSrc" :alt="lightboxLabel" class="max-w-full max-h-[85vh] mx-auto rounded-xl shadow-2xl">
+                <div class="text-center mt-3">
+                    <p class="text-white/90 font-semibold text-sm" x-text="lightboxLabel"></p>
+                    <a :href="lightboxSrc" :download="'poster-' + Date.now() + '.png'" class="inline-flex items-center gap-1.5 mt-2 px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg backdrop-blur transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+@push('styles')
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+@endpush
+
 @push('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script>
+// Cropped image blob for award poster
+let awardCroppedBlob = null;
+
+function awardImageCropper() {
+    return {
+        showCropModal: false,
+        cropImageSrc: '',
+        cropper: null,
+        croppedPreview: null,
+        isDragging: false,
+        isTransparent: false,
+        skipBgRemoval: false,
+        removeBg: true,
+        activeRatio: '0.75',
+        ratios: [
+            { label: '3:4', value: '0.75' },
+            { label: '4:3', value: '1.333' },
+            { label: '1:1', value: '1' },
+            { label: 'Free', value: 'free' },
+        ],
+
+        openFilePicker() {
+            this.$refs.fileInput.click();
+        },
+
+        onFileSelected(e) {
+            const file = e.target.files[0];
+            if (file) this.loadImage(file);
+        },
+
+        handleDrop(e) {
+            this.isDragging = false;
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) this.loadImage(file);
+        },
+
+        loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.cropImageSrc = e.target.result;
+                this.detectTransparency(e.target.result);
+                this.showCropModal = true;
+                this.$nextTick(() => this.initCropper());
+            };
+            reader.readAsDataURL(file);
+        },
+
+        detectTransparency(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const corners = [
+                    ctx.getImageData(0, 0, 1, 1).data,
+                    ctx.getImageData(img.width - 1, 0, 1, 1).data,
+                    ctx.getImageData(0, img.height - 1, 1, 1).data,
+                    ctx.getImageData(img.width - 1, img.height - 1, 1, 1).data,
+                ];
+                this.isTransparent = corners.some(c => c[3] < 10);
+                this.removeBg = !this.isTransparent;
+                this.skipBgRemoval = this.isTransparent;
+            };
+            img.src = dataUrl;
+        },
+
+        initCropper() {
+            if (this.cropper) this.cropper.destroy();
+            const imgEl = this.$refs.cropImage;
+            if (!imgEl) return;
+            this.cropper = new Cropper(imgEl, {
+                viewMode: 1,
+                dragMode: 'move',
+                aspectRatio: this.activeRatio === 'free' ? NaN : parseFloat(this.activeRatio),
+                autoCropArea: 0.9,
+                responsive: true,
+                background: true,
+            });
+        },
+
+        setAspectRatio(ratio) {
+            this.activeRatio = ratio;
+            if (this.cropper) {
+                this.cropper.setAspectRatio(ratio === 'free' ? NaN : parseFloat(ratio));
+            }
+        },
+
+        applyCrop() {
+            if (!this.cropper) return;
+            const canvas = this.cropper.getCroppedCanvas({ maxWidth: 800, maxHeight: 1000, imageSmoothingQuality: 'high' });
+            this.croppedPreview = canvas.toDataURL('image/png');
+            canvas.toBlob((blob) => {
+                awardCroppedBlob = blob;
+                // Create a new File from blob and set it on the hidden input
+                const dt = new DataTransfer();
+                dt.items.add(new File([blob], 'cropped-player.png', { type: 'image/png' }));
+                document.getElementById('awardPlayerImageUpload').files = dt.files;
+                // Update existing preview elements
+                const thumb = document.getElementById('awardPlayerImageThumb');
+                const label = document.getElementById('awardPlayerImageLabel');
+                const preview = document.getElementById('awardPlayerImagePreview');
+                if (thumb) thumb.src = this.croppedPreview;
+                if (label) { label.textContent = 'Custom crop'; label.className = 'text-xs text-purple-600'; }
+                if (preview) preview.classList.remove('hidden');
+            }, 'image/png');
+            this.closeCropModal();
+        },
+
+        removeCropped() {
+            this.croppedPreview = null;
+            awardCroppedBlob = null;
+            this.isTransparent = false;
+            this.skipBgRemoval = false;
+            document.getElementById('awardPlayerImageUpload').value = '';
+            this.$refs.fileInput.value = '';
+        },
+
+        closeCropModal() {
+            this.showCropModal = false;
+            if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
+        },
+    };
+}
+
+// Poster gallery component
+function posterGallery() {
+    return {
+        filter: 'all',
+        showLightbox: false,
+        lightboxSrc: '',
+        lightboxLabel: '',
+
+        viewPoster(url, label) {
+            this.lightboxSrc = url;
+            this.lightboxLabel = label;
+            this.showLightbox = true;
+        },
+
+        deletePoster(id, el) {
+            if (!confirm('Delete this poster?')) return;
+            _deletePosterById(id, el);
+        },
+    };
+}
+
+function _deletePosterById(id, el) {
+    fetch(`{{ url('admin/tournaments/' . $tournament->id) }}/generated-posters/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+            'Accept': 'application/json',
+        },
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.success) {
+            const card = el.closest('.poster-card');
+            if (card) {
+                card.style.transition = 'all 0.3s';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.9)';
+                setTimeout(() => card.remove(), 300);
+            }
+            const countEl = document.getElementById('posterCount');
+            if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent) - 1);
+        }
+    })
+    .catch(err => console.error('Delete failed:', err));
+}
+
+function _viewPoster(url, label) {
+    const galleryEl = document.querySelector('[x-data]');
+    // Find the posterGallery Alpine instance
+    document.querySelectorAll('[x-data]').forEach(el => {
+        if (el._x_dataStack && el._x_dataStack[0] && typeof el._x_dataStack[0].showLightbox !== 'undefined') {
+            el._x_dataStack[0].lightboxSrc = url;
+            el._x_dataStack[0].lightboxLabel = label;
+            el._x_dataStack[0].showLightbox = true;
+        }
+    });
+}
+
+// Add newly generated poster to gallery
+function addPosterToGallery(data) {
+    const grid = document.getElementById('postersGrid');
+    if (!grid) return;
+
+    // Remove empty message if present
+    const emptyMsg = document.getElementById('emptyPostersMsg');
+    if (emptyMsg) emptyMsg.remove();
+
+    const typeColors = {
+        'match_poster': 'bg-cyan-500', 'match_summary': 'bg-yellow-500', 'award_poster': 'bg-red-500',
+        'welcome_card': 'bg-green-500', 'point_table': 'bg-blue-500', 'fixtures_poster': 'bg-teal-500',
+        'flyer': 'bg-orange-500', 'champions_poster': 'bg-amber-500',
+    };
+    const badgeColor = typeColors[data.poster_type] || 'bg-gray-500';
+    const typeLabel = (data.poster_type || '').replace(/_/g, ' ').substring(0, 10).toUpperCase();
+
+    const card = document.createElement('div');
+    card.className = 'poster-card group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-all';
+    card.dataset.posterId = data.poster_id;
+    card.dataset.posterType = data.poster_type;
+    card.style.opacity = '0';
+    card.style.transform = 'scale(0.95)';
+    const safeLabel = (data.poster_label || 'Poster').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    card.innerHTML = `
+        <div class="relative cursor-pointer" onclick="_viewPoster('${data.download_url}', '${safeLabel}')">
+            <img src="${data.download_url}" alt="${data.poster_label || 'Poster'}" class="w-full h-40 object-cover" loading="lazy">
+            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <span class="bg-white/90 backdrop-blur rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 shadow">
+                    <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    View
+                </span>
+            </div>
+            <span class="absolute top-2 left-2 ${badgeColor} text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider">${typeLabel}</span>
+        </div>
+        <div class="px-3 py-2">
+            <p class="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">${data.poster_label || 'Poster'}</p>
+            <p class="text-[10px] text-gray-400 mt-0.5">${data.poster_created || 'Just now'}</p>
+            <div class="flex items-center gap-1.5 mt-2">
+                <a href="${data.download_url}" download="poster-${data.poster_id}.png" class="flex-1 text-center px-2 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-lg text-[10px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition">
+                    <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Download
+                </a>
+                <button onclick="_deletePosterById(${data.poster_id}, this)" class="px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-lg text-[10px] font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </div>
+        </div>
+    `;
+    grid.prepend(card);
+    // Animate in
+    requestAnimationFrame(() => {
+        card.style.transition = 'all 0.3s';
+        card.style.opacity = '1';
+        card.style.transform = 'scale(1)';
+    });
+    // Update count
+    const countEl = document.getElementById('posterCount');
+    if (countEl) countEl.textContent = parseInt(countEl.textContent || '0') + 1;
+}
+
 let currentType = '{{ request('type', 'match_poster') }}';
 let generatedImageUrl = null;
+let savedDownloadUrl = null;
 
 function updateType(type) {
     currentType = type;
@@ -674,22 +1112,25 @@ function loadTemplates(type) {
             const container = document.getElementById('templatesList');
             if (data.templates && data.templates.length > 0) {
                 const editBaseUrl = `{{ url('admin/tournaments/' . $tournament->id . '/templates') }}`;
+                const isSuperadmin = {{ auth()->user()->hasRole('Superadmin') ? 'true' : 'false' }};
                 container.innerHTML = data.templates.map((t, i) => `
-                    <div class="relative">
-                        <label class="cursor-pointer">
+                    <div class="relative group">
+                        <label class="cursor-pointer block">
                             <input type="radio" name="template_id" value="${t.id}" class="hidden peer" ${i === 0 ? 'checked' : ''}>
-                            <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3 transition peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 hover:border-purple-300">
+                            <div class="border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden transition-all peer-checked:border-purple-500 peer-checked:ring-2 peer-checked:ring-purple-500/20 hover:border-purple-300 hover:shadow-md">
                                 ${t.background_image_url ?
-                                    `<img src="${t.background_image_url}" alt="${t.name}" class="w-full h-24 object-cover rounded-lg mb-2">` :
-                                    `<div class="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-lg mb-2 flex items-center justify-center"><span class="text-gray-400 text-xs">No preview</span></div>`
+                                    `<img src="${t.background_image_url}" alt="${t.name}" class="w-full h-36 object-cover">` :
+                                    `<div class="w-full h-36 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center"><svg class="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div>`
                                 }
-                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${t.name}</p>
-                                ${t.is_default ? '<span class="text-xs text-purple-600">Default</span>' : ''}
+                                <div class="px-3 py-2 flex items-center justify-between">
+                                    <p class="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate">${t.name}</p>
+                                    ${t.is_default ? '<span class="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-600 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 ml-1">Default</span>' : ''}
+                                </div>
                             </div>
                         </label>
-                        <a href="${editBaseUrl}/${t.id}/edit" class="absolute top-1 right-1 p-1.5 rounded-lg bg-white/90 dark:bg-gray-800/90 text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 shadow-sm transition z-10" title="Edit Template">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                        </a>
+                        ${isSuperadmin ? `<a href="${editBaseUrl}/${t.id}/edit" class="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 backdrop-blur text-white opacity-0 group-hover:opacity-100 hover:bg-black/70 shadow-sm transition-all z-10" title="Edit Template">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        </a>` : ''}
                     </div>
                 `).join('');
                 // Show first template's background as preview
@@ -697,9 +1138,10 @@ function loadTemplates(type) {
             } else {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-8 text-gray-500">
-                        <p>No templates found for this type.</p>
-                        <a href="{{ route('admin.tournaments.templates.create', $tournament) }}?type=${type}"
-                           class="text-purple-600 hover:underline mt-2 inline-block">Create a template</a>
+                        <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z"/></svg>
+                        <p class="text-sm">No templates found for this type.</p>
+                        ${isSuperadmin ? `<a href="{{ route('admin.tournaments.templates.create', $tournament) }}?type=${type}"
+                           class="text-purple-600 hover:underline mt-2 inline-block text-sm">Create a template</a>` : ''}
                     </div>
                 `;
             }
@@ -713,7 +1155,10 @@ function resetPreview() {
     document.getElementById('previewLoading').classList.add('hidden');
     document.getElementById('dataSummary').classList.add('hidden');
     document.getElementById('downloadBtn').disabled = true;
+    document.getElementById('previewStatus').textContent = 'Ready';
+    document.getElementById('previewStatus').className = 'text-xs text-gray-400 font-medium';
     generatedImageUrl = null;
+    savedDownloadUrl = null;
 }
 
 // Show selected template's background image as preview
@@ -862,6 +1307,11 @@ function getSelectedData() {
         const customImageFile = document.getElementById('awardPlayerImageUpload')?.files?.[0];
         if (customImageFile) {
             data._hasCustomPlayerImage = true;
+            // Send skip_bg_removal flag from cropper's transparency detection
+            const cropperEl = document.getElementById('awardPlayerOverride');
+            if (cropperEl && cropperEl._x_dataStack && cropperEl._x_dataStack[0]) {
+                data.skip_bg_removal = cropperEl._x_dataStack[0].skipBgRemoval ? '1' : '0';
+            }
         }
 
         // Manual stat fields
@@ -1080,9 +1530,11 @@ function generatePreview() {
     document.getElementById('previewPlaceholder').classList.add('hidden');
     document.getElementById('previewImage').classList.add('hidden');
     document.getElementById('previewLoading').classList.remove('hidden');
+    document.getElementById('previewStatus').textContent = 'Generating...';
+    document.getElementById('previewStatus').className = 'text-xs text-purple-500 font-medium animate-pulse';
     document.getElementById('previewBtn').disabled = true;
     document.getElementById('previewBtn').innerHTML = `
-        <svg class="w-5 h-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
@@ -1159,9 +1611,18 @@ function generatePreview() {
             document.getElementById('previewImage').src = result.image;
             document.getElementById('previewImage').classList.remove('hidden');
             document.getElementById('downloadBtn').disabled = false;
+            document.getElementById('previewStatus').textContent = 'Generated';
+            document.getElementById('previewStatus').className = 'text-xs text-emerald-500 font-medium';
             generatedImageUrl = result.image;
+            savedDownloadUrl = result.download_url || null;
+            // Add to saved posters gallery
+            if (result.poster_id && result.download_url) {
+                addPosterToGallery(result);
+            }
         } else {
             document.getElementById('previewPlaceholder').classList.remove('hidden');
+            document.getElementById('previewStatus').textContent = 'Error';
+            document.getElementById('previewStatus').className = 'text-xs text-red-500 font-medium';
             alert(result.error || 'Failed to generate preview');
         }
     })
@@ -1170,6 +1631,8 @@ function generatePreview() {
         resetPreviewBtn();
         document.getElementById('previewLoading').classList.add('hidden');
         document.getElementById('previewPlaceholder').classList.remove('hidden');
+        document.getElementById('previewStatus').textContent = 'Error';
+        document.getElementById('previewStatus').className = 'text-xs text-red-500 font-medium';
         console.error('Generation Error:', err);
 
         let errorMsg = 'Failed to generate preview: ';
@@ -1188,21 +1651,48 @@ function resetPreviewBtn() {
     const btn = document.getElementById('previewBtn');
     btn.disabled = false;
     btn.innerHTML = `
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
         </svg>
-        Generate Preview
+        Generate
     `;
 }
 
 function downloadPoster() {
-    if (!generatedImageUrl) return;
+    if (!generatedImageUrl && !savedDownloadUrl) return;
 
     const innings = document.getElementById('inningsSelect')?.value || '1';
+    const filename = `poster-${currentType}-innings${innings}-${Date.now()}.png`;
+
+    // Prefer saved server URL for faster download
+    if (savedDownloadUrl) {
+        fetch(savedDownloadUrl)
+            .then(r => r.blob())
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            })
+            .catch(() => {
+                // Fallback to base64
+                downloadViaBase64(filename);
+            });
+    } else {
+        downloadViaBase64(filename);
+    }
+}
+
+function downloadViaBase64(filename) {
+    if (!generatedImageUrl) return;
     const link = document.createElement('a');
     link.href = generatedImageUrl;
-    link.download = `poster-${currentType}-innings${innings}-${Date.now()}.png`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1383,17 +1873,28 @@ document.getElementById('awardPlayerSelect')?.addEventListener('change', functio
         if (playerData.player_image) {
             imageThumb.src = '/storage/' + playerData.player_image;
             imageLabel.textContent = 'From database';
-            imageLabel.className = 'text-xs text-green-600 ml-2 align-middle';
+            imageLabel.className = 'text-xs text-green-600';
             imagePreview.classList.remove('hidden');
         } else {
             imageThumb.src = '';
             imageLabel.textContent = 'No image — upload or use default';
-            imageLabel.className = 'text-xs text-amber-500 ml-2 align-middle';
+            imageLabel.className = 'text-xs text-amber-500';
             imagePreview.classList.remove('hidden');
         }
 
-        // Reset file upload
+        // Reset file upload and crop component
         imageUpload.value = '';
+        awardCroppedBlob = null;
+        // Reset Alpine crop component if exists
+        const cropperEl = document.getElementById('awardPlayerOverride');
+        if (cropperEl && cropperEl._x_dataStack) {
+            const alpineData = cropperEl._x_dataStack[0];
+            if (alpineData) {
+                alpineData.croppedPreview = null;
+                alpineData.isTransparent = false;
+                alpineData.skipBgRemoval = false;
+            }
+        }
 
         overrideSection.classList.remove('hidden');
         showDataSummary(getSelectedData());
@@ -1402,7 +1903,7 @@ document.getElementById('awardPlayerSelect')?.addEventListener('change', functio
     }
 });
 
-// Update preview label when user uploads a custom image
+// Update preview label when user uploads a custom image (via crop component)
 document.getElementById('awardPlayerImageUpload')?.addEventListener('change', function() {
     const imagePreview = document.getElementById('awardPlayerImagePreview');
     const imageThumb = document.getElementById('awardPlayerImageThumb');

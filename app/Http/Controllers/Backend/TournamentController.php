@@ -270,6 +270,8 @@ class TournamentController extends Controller
             'organization_id' => 'required|exists:organizations,id',
             'zone_id'        => 'nullable|exists:zones,id',
             'name'           => 'required|string|max:255',
+            'logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'logo_cropped'   => 'nullable|string',
             'start_date'     => 'required|date|after_or_equal:today',
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
@@ -294,6 +296,14 @@ class TournamentController extends Controller
         if (empty($validated['status'])) {
             $validated['status'] = 'draft';
         }
+
+        // Handle logo upload — prefer cropped data, fallback to raw file
+        if ($request->filled('logo_cropped')) {
+            $validated['logo'] = LogoProcessingService::processBase64Logo($request->input('logo_cropped'), 'tournaments/logos', null, false);
+        } elseif ($request->hasFile('logo')) {
+            $validated['logo'] = LogoProcessingService::processLogo($request->file('logo'), 'tournaments/logos');
+        }
+        unset($validated['logo_cropped']);
 
         Tournament::create($validated);
 
@@ -337,6 +347,7 @@ class TournamentController extends Controller
             'zone_id'        => 'nullable|exists:zones,id',
             'name'           => 'required|string|max:255',
             'logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'logo_cropped'   => 'nullable|string',
             'start_date'     => 'required|date',
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
@@ -348,10 +359,13 @@ class TournamentController extends Controller
             $validated['zone_id'] = null;
         }
 
-        // Handle logo upload
-        if ($request->hasFile('logo')) {
+        // Handle logo upload — prefer cropped data, fallback to raw file
+        if ($request->filled('logo_cropped')) {
+            $validated['logo'] = LogoProcessingService::processBase64Logo($request->input('logo_cropped'), 'tournaments/logos', $tournament->logo, false);
+        } elseif ($request->hasFile('logo')) {
             $validated['logo'] = LogoProcessingService::processLogo($request->file('logo'), 'tournaments/logos', $tournament->logo);
         }
+        unset($validated['logo_cropped']);
 
         $tournament->update($validated);
 

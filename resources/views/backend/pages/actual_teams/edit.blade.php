@@ -107,31 +107,14 @@
                         </div>
 
                         {{-- Sponsor Logo Upload --}}
-                        <div x-data="{
-                            sponsorPreviewUrl: '{{ $actualTeam->sponsor_logo ? Storage::url($actualTeam->sponsor_logo) : '' }}',
-                            handleSponsorFileChange(event) {
-                                const file = event.target.files[0];
-                                if (file && file.type.startsWith('image/')) {
-                                    this.sponsorPreviewUrl = URL.createObjectURL(file);
-                                }
-                            }
-                        }">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Sponsor Logo</label>
-                            <div class="mt-2 flex items-center gap-4">
-                                <span class="inline-block h-16 w-32 rounded overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                    <template x-if="!sponsorPreviewUrl">
-                                        <span class="text-xs text-gray-400">No Logo</span>
-                                    </template>
-                                    <template x-if="sponsorPreviewUrl">
-                                        <img :src="sponsorPreviewUrl" alt="Sponsor Logo Preview" class="h-full w-full object-contain">
-                                    </template>
-                                </span>
-                                <label for="sponsor_logo" class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <span>Upload Sponsor Logo</span>
-                                    <input id="sponsor_logo" name="sponsor_logo" type="file" class="sr-only" @change="handleSponsorFileChange" accept="image/*">
-                                </label>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">Displayed on match posters below team name</p>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team Sponsor Logo</label>
+                            <x-image-dropzone
+                                name="sponsor_logo"
+                                :existingImage="$actualTeam->sponsor_logo"
+                                hint="Displayed on match posters below team name"
+                                previewHeight="h-32"
+                            />
                             @error('sponsor_logo')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror
@@ -170,33 +153,13 @@
                         </div>
 
                         {{-- Captain Image Upload --}}
-                        <div x-data="{
-                            captainPreviewUrl: '{{ $actualTeam->captain_image ? Storage::url($actualTeam->captain_image) : '' }}',
-                            handleCaptainFileChange(event) {
-                                const file = event.target.files[0];
-                                if (file && file.type.startsWith('image/')) {
-                                    this.captainPreviewUrl = URL.createObjectURL(file);
-                                }
-                            }
-                        }">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Captain / Featured Player Image</label>
-                            <div class="mt-2 flex items-center gap-4">
-                                <span class="inline-block h-24 w-20 rounded overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                    <template x-if="!captainPreviewUrl">
-                                        <svg class="h-12 w-12 text-gray-300 dark:text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-                                        </svg>
-                                    </template>
-                                    <template x-if="captainPreviewUrl">
-                                        <img :src="captainPreviewUrl" alt="Captain Image Preview" class="h-full w-full object-cover">
-                                    </template>
-                                </span>
-                                <label for="captain_image" class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                    <span>Upload Captain Image</span>
-                                    <input id="captain_image" name="captain_image" type="file" class="sr-only" @change="handleCaptainFileChange" accept="image/*">
-                                </label>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">Featured on match posters. Recommended: Portrait orientation, 400x500px. Background will be auto-removed.</p>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Captain / Featured Player Image</label>
+                            <x-player-image-upload
+                                name="captain_image"
+                                :existingImage="$actualTeam->captain_image"
+                                mode="captain"
+                            />
                             @error('captain_image')
                                 <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                             @enderror

@@ -56,9 +56,12 @@
 
             <!-- Image Upload -->
             <div>
-                <label for="image" class="block text-sm font-medium text-gray-700">Optional Image</label>
-                <input type="file" name="image" id="image"
-                    class="mt-1 block w-full text-sm text-gray-500 file:border file:border-gray-300 file:rounded file:px-4 file:py-2 file:bg-gray-100 hover:file:bg-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Optional Image</label>
+                <x-image-dropzone
+                    name="image"
+                    previewHeight="h-32"
+                    previewAspect="cover"
+                />
                 @error('image')
                     <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                 @enderror

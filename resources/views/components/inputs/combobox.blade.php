@@ -169,17 +169,32 @@
         },
 
         positionDropdown() {
-            // On mobile (< 640px), use fixed bottom sheet style
+            const dd = this.$refs.dropdown;
+            if (!dd) return;
+
             if (window.innerWidth < 640) {
-                const dd = this.$refs.dropdown;
-                if (dd) {
-                    dd.style.position = 'fixed';
-                    dd.style.left = '0';
-                    dd.style.right = '0';
-                    dd.style.bottom = '0';
-                    dd.style.top = 'auto';
-                    dd.style.width = '100%';
-                }
+                // Mobile: bottom sheet style
+                dd.style.position = 'fixed';
+                dd.style.left = '0';
+                dd.style.right = '0';
+                dd.style.bottom = '0';
+                dd.style.top = 'auto';
+                dd.style.width = '100%';
+                dd.style.maxWidth = '';
+            } else {
+                // Desktop: fixed position below trigger, avoids overflow clipping
+                const trigger = dd.previousElementSibling?.matches?.('input')
+                    ? dd.closest('.relative')?.querySelector('button[role=combobox]')
+                    : dd.closest('.relative')?.querySelector('button[role=combobox]');
+                if (!trigger) return;
+                const rect = trigger.getBoundingClientRect();
+                dd.style.position = 'fixed';
+                dd.style.left = rect.left + 'px';
+                dd.style.top = (rect.bottom + 4) + 'px';
+                dd.style.bottom = 'auto';
+                dd.style.right = 'auto';
+                dd.style.width = rect.width + 'px';
+                dd.style.maxWidth = '320px';
             }
         },
 
@@ -255,7 +270,7 @@
             x-show="isOpen || openedWithKeyboard"
             x-ref="dropdown"
             x-init="$watch('isOpen', (val) => { if (val) $nextTick(() => positionDropdown()) })"
-            class="fixed sm:absolute z-[9999] sm:z-50 left-0 right-0 sm:right-auto bottom-0 sm:bottom-auto sm:top-full sm:mt-1 w-full overflow-hidden rounded-t-xl sm:rounded-xl sm:rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            class="fixed z-[9999] left-0 right-0 bottom-0 sm:bottom-auto sm:right-auto w-full overflow-hidden rounded-t-xl sm:rounded-xl sm:rounded-md border border-gray-300 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
             @click.outside="isOpen = false; openedWithKeyboard = false;"
             x-on:keydown.down.prevent="$focus.wrap().next()"
             x-on:keydown.up.prevent="$focus.wrap().previous()"

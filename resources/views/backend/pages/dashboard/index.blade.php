@@ -317,6 +317,7 @@
                     Quick Actions
                 </h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    @role('Superadmin')
                     <a href="{{ route('admin.tournaments.create') }}" class="flex flex-col items-center justify-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900/30 transition group">
                         <div class="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center mb-2 group-hover:scale-110 transition">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,6 +326,7 @@
                         </div>
                         <span class="text-xs font-medium text-purple-700 dark:text-purple-300 text-center">New Tournament</span>
                     </a>
+                    @endrole
                     <a href="{{ route('admin.actual-teams.create') }}" class="flex flex-col items-center justify-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/30 transition group">
                         <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center mb-2 group-hover:scale-110 transition">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

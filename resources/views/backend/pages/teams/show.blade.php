@@ -52,8 +52,12 @@
                             </div>
 
                             <div>
-                                <label for="image" class="form-label">Player Image</label>
-                                <input type="file" name="image" id="image" class="form-control" accept="image/*">
+                                <label class="form-label mb-2">Player Image</label>
+                                <x-image-dropzone
+                                    name="image"
+                                    previewHeight="h-32"
+                                    previewAspect="cover"
+                                />
                             </div>
                         </div>
 

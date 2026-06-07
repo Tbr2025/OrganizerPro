@@ -8,15 +8,15 @@
     <meta property="og:url" content="{{ route('public.tournament.show', $tournament->slug) }}" />
     <meta property="og:title" content="{{ $tournament->name }}" />
     <meta property="og:description" content="{{ $tournament->description ?? 'Cricket Tournament' }}" />
-    @if($settings?->logo)
-        <meta property="og:image" content="{{ Storage::url($settings->logo) }}" />
+    @if(($settings?->logo ?? $tournament->logo))
+        <meta property="og:image" content="{{ Storage::url($settings?->logo ?? $tournament->logo) }}" />
     @endif
 @endsection
 
 @push('styles')
 <style>
     .hero-section {
-        background: linear-gradient(160deg, #0a0e1a 0%, #111827 40%, #0f172a 100%);
+        background: linear-gradient(160deg, var(--primary) 0%, var(--secondary) 40%, var(--primary) 100%);
         position: relative;
         overflow: hidden;
     }
@@ -27,7 +27,7 @@
         left: -20%;
         width: 70%;
         height: 200%;
-        background: radial-gradient(ellipse, rgba(251,191,36,0.06) 0%, transparent 60%);
+        background: radial-gradient(ellipse, rgba(var(--accent-rgb),0.06) 0%, transparent 60%);
         pointer-events: none;
     }
     .hero-section::after {
@@ -41,7 +41,7 @@
         pointer-events: none;
     }
     .gradient-text {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 40%, #fbbf24 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 40%, var(--accent) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -53,7 +53,7 @@
     }
     .glass-card:hover {
         background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(251, 191, 36, 0.2);
+        border-color: rgba(var(--accent-rgb), 0.2);
     }
     .stat-card {
         background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
@@ -62,18 +62,18 @@
     }
     .stat-card:hover {
         transform: translateY(-4px);
-        border-color: rgba(251, 191, 36, 0.3);
+        border-color: rgba(var(--accent-rgb), 0.3);
         box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
     }
     .match-card {
-        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(145deg, var(--secondary) 0%, var(--primary) 100%);
         border: 1px solid rgba(255, 255, 255, 0.06);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .match-card:hover {
         transform: translateY(-3px);
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-        border-color: rgba(251, 191, 36, 0.25);
+        border-color: rgba(var(--accent-rgb), 0.25);
     }
     .team-logo-box {
         background: rgba(255, 255, 255, 0.05);
@@ -111,7 +111,7 @@
         left: 0;
         width: 48px;
         height: 3px;
-        background: linear-gradient(90deg, #fbbf24, transparent);
+        background: linear-gradient(90deg, var(--accent), transparent);
         border-radius: 2px;
     }
     .section-title.center::after {
@@ -156,19 +156,19 @@
     {{-- Hero Section --}}
     <section class="hero-section pt-16 pb-20 md:pt-24 md:pb-28">
         {{-- Floating gradient orbs --}}
-        <div class="absolute top-0 left-1/4 w-72 h-72 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" style="animation: float 8s ease-in-out infinite;"></div>
+        <div class="absolute top-0 left-1/4 w-72 h-72 rounded-full blur-3xl pointer-events-none" style="background: rgba(var(--accent-rgb), 0.1); animation: float 8s ease-in-out infinite;"></div>
         <div class="absolute bottom-0 right-1/4 w-60 h-60 bg-blue-500/8 rounded-full blur-3xl pointer-events-none" style="animation: float 8s ease-in-out infinite; animation-delay: -3s;"></div>
         @if($settings?->background_image)
             <div class="absolute inset-0 bg-cover bg-center opacity-20" style="background-image: url('{{ Storage::url($settings->background_image) }}');"></div>
-            <div class="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/60 to-gray-900"></div>
+            <div class="absolute inset-0" style="background: linear-gradient(to bottom, transparent, rgba(var(--primary-rgb), 0.6), var(--primary));"></div>
         @endif
         <div class="relative z-10 max-w-5xl mx-auto px-4">
             <div class="text-center reveal">
                 {{-- Logo --}}
-                @if($settings?->logo)
+                @if(($settings?->logo ?? $tournament->logo))
                     <div class="mb-6">
-                        <div class="inline-block p-1.5 rounded-2xl bg-gradient-to-br from-yellow-400/20 to-orange-500/10 shadow-lg shadow-yellow-500/10">
-                            <img src="{{ Storage::url($settings->logo) }}"
+                        <div class="inline-block p-1.5 rounded-2xl shadow-lg" style="background: linear-gradient(to bottom right, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-dark-rgb), 0.1)); box-shadow: 0 10px 15px rgba(var(--accent-rgb), 0.1);">
+                            <img src="{{ Storage::url($settings?->logo ?? $tournament->logo) }}"
                                  alt="{{ $tournament->name }}"
                                  class="h-24 md:h-32 w-auto object-contain rounded-xl">
                         </div>
@@ -195,13 +195,13 @@
                             Registration Open
                         </span>
                     @elseif($isLive)
-                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold" style="background: rgba(var(--accent-rgb), 0.2); color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.3);">
                             <span class="w-2.5 h-2.5 bg-red-500 rounded-full mr-2.5 live-indicator"></span>
                             Tournament Live
                         </span>
                     @elseif($tournament->status === 'completed')
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
-                            <i class="fas fa-trophy text-yellow-400 mr-2"></i>
+                            <i class="fas fa-trophy text-accent mr-2"></i>
                             Completed
                         </span>
                     @endif
@@ -284,7 +284,7 @@
     </section>
 
     {{-- Quick Stats Strip --}}
-    <section class="py-1 bg-gray-900 border-t border-b border-gray-800 reveal">
+    <section class="py-1 border-t border-b border-gray-800 reveal" style="background-color: var(--primary);">
         <div class="max-w-5xl mx-auto px-4">
             <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-800">
                 <div class="py-6 text-center">
@@ -314,17 +314,17 @@
 
     {{-- Champion Section --}}
     @if($tournament->status === 'completed' && $tournament->champion)
-        <section class="py-16 bg-gradient-to-r from-yellow-600/90 via-amber-500/90 to-yellow-600/90 relative overflow-hidden">
+        <section class="py-16 relative overflow-hidden" style="background: linear-gradient(to right, rgba(var(--accent-dark-rgb), 0.9), rgba(var(--accent-rgb), 0.9), rgba(var(--accent-dark-rgb), 0.9));">
             <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cg%20fill%3D%22%23000%22%20fill-opacity%3D%220.05%22%3E%3Ccircle%20cx%3D%2210%22%20cy%3D%2210%22%20r%3D%221%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E')] opacity-50"></div>
             <div class="relative max-w-4xl mx-auto px-4 text-center">
-                <p class="text-yellow-900/60 font-bold text-sm uppercase tracking-widest mb-3">Champions</p>
+                <p class="font-bold text-sm uppercase tracking-widest mb-3" style="color: rgba(0,0,0,0.4);">Champions</p>
                 <div class="inline-flex items-center gap-5 bg-white/95 rounded-2xl px-8 py-6 shadow-2xl reveal-scale glow-ring">
                     @if($tournament->champion->logo)
                         <img src="{{ Storage::url($tournament->champion->logo) }}"
                              alt="{{ $tournament->champion->name }}"
-                             class="h-16 w-16 object-contain rounded-full border-2 border-yellow-400">
+                             class="h-16 w-16 object-contain rounded-full border-2 border-accent">
                     @else
-                        <div class="h-16 w-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                        <div class="h-16 w-16 rounded-full flex items-center justify-center flex-shrink-0" style="background: linear-gradient(to bottom right, var(--accent), var(--accent-dark));">
                             <i class="fas fa-trophy text-2xl text-white"></i>
                         </div>
                     @endif
@@ -344,14 +344,14 @@
 
     {{-- Upcoming Matches --}}
     @if($upcomingMatches->count() > 0)
-        <section class="py-14 bg-gray-900">
+        <section class="py-14" style="background-color: var(--primary);">
             <div class="max-w-5xl mx-auto px-4">
                 <div class="flex items-center justify-between mb-8">
                     <div>
                         <h2 class="section-title text-2xl font-bold text-white">Upcoming</h2>
                     </div>
                     <a href="{{ route('public.tournament.fixtures', $tournament->slug) }}"
-                       class="text-sm text-yellow-400 hover:text-yellow-300 font-medium transition">
+                       class="text-sm font-medium transition accent-link">
                         View All <i class="fas fa-arrow-right ml-1"></i>
                     </a>
                 </div>
@@ -370,7 +370,7 @@
                                     @endif
                                 </div>
                                 @if($match->start_time)
-                                    <span class="text-xs font-semibold text-yellow-400">
+                                    <span class="text-xs font-semibold text-accent">
                                         {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
                                     </span>
                                 @endif
@@ -390,7 +390,7 @@
                                         <p class="font-semibold text-white text-sm truncate">{{ $match->teamA?->name ?? 'TBA' }}</p>
                                     </div>
 
-                                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                                    <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style="background: linear-gradient(to bottom right, var(--accent), var(--accent-dark));">
                                         <span class="text-[9px] font-black text-gray-900">VS</span>
                                     </div>
 
@@ -423,14 +423,14 @@
 
     {{-- Recent Results --}}
     @if($recentResults->count() > 0)
-        <section class="py-14 bg-gray-900 {{ $upcomingMatches->count() > 0 ? 'border-t border-gray-800' : '' }}">
+        <section class="py-14 {{ $upcomingMatches->count() > 0 ? 'border-t border-gray-800' : '' }}" style="background-color: var(--primary);">
             <div class="max-w-5xl mx-auto px-4">
                 <div class="flex items-center justify-between mb-8">
                     <div>
                         <h2 class="section-title text-2xl font-bold text-white">Recent Results</h2>
                     </div>
                     <a href="{{ route('public.tournament.fixtures', $tournament->slug) }}"
-                       class="text-sm text-yellow-400 hover:text-yellow-300 font-medium transition">
+                       class="text-sm font-medium transition accent-link">
                         All Results <i class="fas fa-arrow-right ml-1"></i>
                     </a>
                 </div>
@@ -457,7 +457,7 @@
                                         <div class="min-w-0">
                                             <p class="font-bold text-sm truncate {{ $teamAWon ? 'text-green-400' : 'text-white' }}">
                                                 {{ $match->teamA?->name ?? 'TBA' }}
-                                                @if($teamAWon) <i class="fas fa-trophy text-yellow-400 text-[10px] ml-1"></i> @endif
+                                                @if($teamAWon) <i class="fas fa-trophy text-accent text-[10px] ml-1"></i> @endif
                                             </p>
                                             @if($match->result)
                                                 <p class="score-text text-base md:text-lg font-black {{ $teamAWon ? 'text-white' : 'text-gray-400' }}">
@@ -485,7 +485,7 @@
                                         <div class="min-w-0">
                                             <p class="font-bold text-sm truncate {{ $teamBWon ? 'text-green-400' : 'text-white' }}">
                                                 {{ $match->teamB?->name ?? 'TBA' }}
-                                                @if($teamBWon) <i class="fas fa-trophy text-yellow-400 text-[10px] ml-1"></i> @endif
+                                                @if($teamBWon) <i class="fas fa-trophy text-accent text-[10px] ml-1"></i> @endif
                                             </p>
                                             @if($match->result)
                                                 <p class="score-text text-base md:text-lg font-black {{ $teamBWon ? 'text-white' : 'text-gray-400' }}">
@@ -500,8 +500,8 @@
                                 {{-- Result Summary --}}
                                 @if($match->result?->result_summary)
                                     <div class="mt-3 pt-3 border-t border-white/5">
-                                        <p class="text-xs text-yellow-400/80 font-medium">
-                                            <i class="fas fa-star text-yellow-500/50 mr-1"></i>
+                                        <p class="text-xs font-medium" style="color: var(--accent); opacity: 0.8;">
+                                            <i class="fas fa-star mr-1" style="color: var(--accent); opacity: 0.5;"></i>
                                             {{ $match->result->result_summary }}
                                         </p>
                                     </div>
@@ -515,7 +515,7 @@
     @endif
 
     {{-- Explore Tournament Navigation --}}
-    <section class="py-14 bg-gray-900 border-t border-gray-800">
+    <section class="py-14 border-t border-gray-800" style="background-color: var(--primary);">
         <div class="max-w-5xl mx-auto px-4">
             <div class="text-center mb-10">
                 <h2 class="text-2xl font-bold text-white">Explore</h2>
@@ -563,7 +563,7 @@
 
     {{-- Tournament Info Footer --}}
     @if($tournament->start_date || $tournament->location)
-        <section class="py-10 bg-gray-900 border-t border-gray-800">
+        <section class="py-10 border-t border-gray-800" style="background-color: var(--primary);">
             <div class="max-w-5xl mx-auto px-4">
                 <div class="flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500">
                     @if($tournament->start_date)

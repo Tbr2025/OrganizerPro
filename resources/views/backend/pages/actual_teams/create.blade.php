@@ -27,22 +27,95 @@
                 <div class="p-6 space-y-6">
                     {{-- Team Logo Upload with Cropper --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Logo</label>
-                        <div class="mt-2">
-                            <x-logo-cropper name="team_logo" />
-                        </div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team Logo</label>
+                        <x-logo-cropper name="team_logo" />
                         @error('team_logo')
                             <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    {{-- Team Name --}}
+                    {{-- Team Name & Short Name --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Name
+                                <span class="text-red-500">*</span></label>
+                            <input type="text" id="name" name="name" value="{{ old('name') }}" required
+                                class="form-control mt-1">
+                            @error('name')
+                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="short_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Short Name</label>
+                            <input type="text" id="short_name" name="short_name" value="{{ old('short_name') }}"
+                                class="form-control mt-1" placeholder="e.g., MCC">
+                            @error('short_name')
+                                <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+
+                    {{-- Location --}}
                     <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Name
-                            <span class="text-red-500">*</span></label>
-                        <input type="text" id="name" name="name" value="{{ old('name') }}" required
-                            class="form-control mt-1">
-                        @error('name')
+                        <label for="location" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Location / District</label>
+                        <input type="text" id="location" name="location" value="{{ old('location') }}"
+                            class="form-control mt-1" placeholder="e.g., Ernakulam">
+                        <p class="text-xs text-gray-500 mt-1">Displayed on match posters</p>
+                        @error('location')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Team Colors --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="primary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Primary Color</label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input type="color" id="primary_color" name="primary_color"
+                                    value="{{ old('primary_color', '#00BCD4') }}"
+                                    class="w-12 h-10 rounded cursor-pointer border-0"
+                                    oninput="document.getElementById('primary_color_text_c').value = this.value">
+                                <input type="text" id="primary_color_text_c"
+                                    value="{{ old('primary_color', '#00BCD4') }}"
+                                    class="form-control flex-1" readonly>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Used for poster background accent</p>
+                        </div>
+                        <div>
+                            <label for="secondary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Secondary Color</label>
+                            <div class="flex items-center gap-2 mt-1">
+                                <input type="color" id="secondary_color" name="secondary_color"
+                                    value="{{ old('secondary_color', '#ffffff') }}"
+                                    class="w-12 h-10 rounded cursor-pointer border-0"
+                                    oninput="document.getElementById('secondary_color_text_c').value = this.value">
+                                <input type="text" id="secondary_color_text_c"
+                                    value="{{ old('secondary_color', '#ffffff') }}"
+                                    class="form-control flex-1" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Sponsor Logo Upload --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Team Sponsor Logo</label>
+                        <x-image-dropzone
+                            name="sponsor_logo"
+                            hint="Displayed on match posters below team name"
+                            previewHeight="h-32"
+                        />
+                        @error('sponsor_logo')
+                            <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    {{-- Captain Image Upload --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Captain / Featured Player Image</label>
+                        <x-player-image-upload
+                            name="captain_image"
+                            mode="captain"
+                        />
+                        @error('captain_image')
                             <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                         @enderror
                     </div>
@@ -129,6 +202,4 @@
         </div>
     </div>
 
-    {{-- This script is needed for the image preview --}}
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 @endsection

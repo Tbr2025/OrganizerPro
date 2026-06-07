@@ -5,17 +5,17 @@
 @push('styles')
 <style>
     .page-header {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d1b2a 100%);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--primary) 100%);
     }
     .team-card {
-        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(145deg, var(--secondary) 0%, var(--primary) 100%);
         border: 1px solid rgba(255, 255, 255, 0.1);
         transition: all 0.4s ease;
     }
     .team-card:hover {
         transform: translateY(-8px);
-        border-color: rgba(251, 191, 36, 0.5);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(251, 191, 36, 0.1);
+        border-color: rgba(var(--accent-rgb), 0.5);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(var(--accent-rgb), 0.1);
     }
     .team-logo-container {
         background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
@@ -23,8 +23,8 @@
         transition: all 0.3s ease;
     }
     .team-card:hover .team-logo-container {
-        border-color: rgba(251, 191, 36, 0.5);
-        box-shadow: 0 0 30px rgba(251, 191, 36, 0.3), 0 0 60px rgba(251, 191, 36, 0.1);
+        border-color: rgba(var(--accent-rgb), 0.5);
+        box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.3), 0 0 60px rgba(var(--accent-rgb), 0.1);
     }
     .stat-item {
         background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
@@ -32,16 +32,16 @@
         padding: 16px 12px;
     }
     .squad-header {
-        background: linear-gradient(90deg, rgba(251, 191, 36, 0.1) 0%, transparent 100%);
+        background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.1) 0%, transparent 100%);
     }
     .player-row {
         transition: all 0.2s ease;
     }
     .player-row:hover {
-        background: rgba(251, 191, 36, 0.1);
+        background: rgba(var(--accent-rgb), 0.1);
     }
     .captain-badge {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
         color: #1f2937;
     }
     .vice-captain-badge {
@@ -68,7 +68,7 @@
         font-weight: bold;
         font-size: 12px;
     }
-    .position-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1f2937; }
+    .position-1 { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%); color: #1f2937; }
     .position-2 { background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%); color: white; }
     .position-3 { background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%); color: white; }
     .position-other { background: rgba(255, 255, 255, 0.1); color: #9ca3af; }
@@ -96,7 +96,7 @@
     <section class="page-header py-16 relative overflow-hidden">
         <div class="absolute inset-0 opacity-30">
             <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
-            <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-500/20 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl" style="background: rgba(var(--accent-rgb), 0.2);"></div>
         </div>
         <div class="relative max-w-6xl mx-auto px-4 reveal">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -125,7 +125,7 @@
     </section>
 
     {{-- Teams Grid --}}
-    <section class="py-12 bg-gray-900 min-h-screen">
+    <section class="py-12 min-h-screen" style="background-color: var(--primary);">
         <div class="max-w-6xl mx-auto px-4">
             @if($teams->count() > 0)
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-children">
@@ -197,7 +197,7 @@
                                     <div class="mt-3 flex justify-between items-center bg-gray-800/50 rounded-xl px-4 py-3">
                                         <div class="flex items-center gap-2">
                                             <span class="text-gray-500 text-sm">Points:</span>
-                                            <span class="text-yellow-400 font-bold text-lg">{{ $teamEntry->points }}</span>
+                                            <span class="text-accent font-bold text-lg">{{ $teamEntry->points }}</span>
                                         </div>
                                         <div class="flex items-center gap-2">
                                             <span class="text-gray-500 text-sm">NRR:</span>
@@ -214,7 +214,7 @@
                                 <button @click="expanded = !expanded"
                                         class="squad-header w-full px-4 py-4 flex justify-between items-center text-gray-300 hover:text-white transition">
                                     <span class="font-semibold flex items-center gap-2">
-                                        <i class="fas fa-shirt text-yellow-400"></i>
+                                        <i class="fas fa-shirt text-accent"></i>
                                         View Squad
                                         <span class="text-gray-500 text-sm font-normal">({{ $team->players->count() }})</span>
                                     </span>
@@ -290,15 +290,15 @@
 
     {{-- Tournament Info Footer --}}
     @if($teams->count() > 0)
-        <section class="py-12 bg-gray-800">
+        <section class="py-12" style="background-color: var(--secondary);">
             <div class="max-w-4xl mx-auto px-4 text-center">
                 <div class="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 rounded-2xl p-8 border border-blue-500/30">
-                    <i class="fas fa-trophy text-3xl text-yellow-400 mb-4"></i>
+                    <i class="fas fa-trophy text-3xl text-accent mb-4"></i>
                     <h3 class="text-xl font-bold text-white mb-2">Tournament Overview</h3>
                     <p class="text-gray-300">
                         {{ $teams->count() }} teams competing for glory in {{ $tournament->name }}.
                         @if($tournament->pointTableEntries->count() > 0)
-                            Check the <a href="{{ route('public.tournament.point-table', $tournament->slug) }}" class="text-yellow-400 hover:underline">Point Table</a> for current standings.
+                            Check the <a href="{{ route('public.tournament.point-table', $tournament->slug) }}" class="accent-link hover:underline">Point Table</a> for current standings.
                         @endif
                     </p>
                 </div>

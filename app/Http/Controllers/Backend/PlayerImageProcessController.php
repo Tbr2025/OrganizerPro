@@ -50,7 +50,8 @@ class PlayerImageProcessController extends Controller
         $relativePath = 'player_images/' . $outputFilename;
 
         // Check if image already has transparency — skip bg removal if so
-        $needsBgRemoval = !$this->hasTransparency($outputPath);
+        $skipBgRemoval = $request->boolean('skip_bg_removal', false);
+        $needsBgRemoval = !$skipBgRemoval && !$this->hasTransparency($outputPath);
 
         if ($needsBgRemoval) {
             // Dispatch to queue instead of running synchronously

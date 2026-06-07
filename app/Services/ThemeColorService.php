@@ -59,4 +59,19 @@ class ThemeColorService
 
         return $palette;
     }
+
+    /**
+     * Convert hex color to "R, G, B" string for use in rgba() CSS functions
+     */
+    public static function hexToRgb(string $hex): string
+    {
+        $hex = ltrim($hex, '#');
+
+        return sprintf(
+            '%d, %d, %d',
+            hexdec(substr($hex, 0, 2)),
+            hexdec(substr($hex, 2, 2)),
+            hexdec(substr($hex, 4, 2))
+        );
+    }
 }

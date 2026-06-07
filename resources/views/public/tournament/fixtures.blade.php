@@ -5,17 +5,17 @@
 @push('styles')
 <style>
     .page-header {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d1b2a 100%);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--primary) 100%);
     }
     .match-card {
-        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(145deg, var(--secondary) 0%, var(--primary) 100%);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         border: 1px solid rgba(255, 255, 255, 0.06);
     }
     .match-card:hover {
         transform: translateY(-3px);
         box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-        border-color: rgba(251, 191, 36, 0.3);
+        border-color: rgba(var(--accent-rgb), 0.3);
     }
     .match-card.completed-card {
         border-left: 3px solid #22c55e;
@@ -38,7 +38,7 @@
         transform: translateY(-50%);
         width: 4px;
         height: 60%;
-        background: linear-gradient(180deg, #fbbf24, #f59e0b);
+        background: linear-gradient(180deg, var(--accent), var(--accent-dark));
         border-radius: 2px;
     }
     .team-logo-box {
@@ -49,7 +49,7 @@
         font-variant-numeric: tabular-nums;
     }
     .vs-circle {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
     }
     .live-pulse {
         animation: livePulse 2s ease-in-out infinite;
@@ -62,14 +62,14 @@
         transition: all 0.2s ease;
     }
     .filter-pill:hover {
-        background: rgba(251, 191, 36, 0.15);
-        color: #fbbf24;
+        background: rgba(var(--accent-rgb), 0.15);
+        color: var(--accent);
     }
     .filter-pill.active {
-        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
         color: #111827;
         font-weight: 700;
-        box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+        box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
     }
     .winner-highlight {
         position: relative;
@@ -123,18 +123,18 @@
     {{-- Page Header --}}
     <section class="page-header py-12 md:py-16 relative overflow-hidden">
         <div class="absolute inset-0 opacity-20">
-            <div class="absolute top-0 left-1/4 w-72 h-72 bg-yellow-500/30 rounded-full blur-3xl"></div>
+            <div class="absolute top-0 left-1/4 w-72 h-72 rounded-full blur-3xl" style="background: rgba(var(--accent-rgb), 0.3);"></div>
             <div class="absolute bottom-0 right-1/4 w-72 h-72 bg-blue-500/30 rounded-full blur-3xl"></div>
         </div>
         <div class="relative max-w-5xl mx-auto px-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div class="flex items-center gap-5">
-                    @if($tournament->settings?->logo)
-                        <img src="{{ Storage::url($tournament->settings->logo) }}" alt="{{ $tournament->name }}"
+                    @if($tournament->settings?->logo || $tournament->logo)
+                        <img src="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" alt="{{ $tournament->name }}"
                              class="w-16 h-16 md:w-20 md:h-20 rounded-xl object-contain bg-white/10 p-2">
                     @endif
                     <div>
-                        <p class="text-yellow-400 text-sm font-semibold tracking-wide uppercase mb-1">{{ $tournament->name }}</p>
+                        <p class="text-accent text-sm font-semibold tracking-wide uppercase mb-1">{{ $tournament->name }}</p>
                         <h1 class="text-3xl md:text-4xl font-extrabold text-white">Fixtures & Results</h1>
                     </div>
                 </div>
@@ -168,7 +168,7 @@
         $stages = $matches->pluck('stage')->unique()->filter()->values();
     @endphp
     @if($stages->count() > 1 || $groups->count() > 0)
-    <section class="py-4 bg-gray-900/95 sticky top-16 z-40 border-b border-gray-800 backdrop-blur-sm">
+    <section class="py-4 sticky top-16 z-40 border-b border-gray-800 backdrop-blur-sm" style="background-color: rgba(var(--primary-rgb), 0.95);">
         <div class="max-w-5xl mx-auto px-4">
             <div class="flex flex-wrap items-center gap-3">
                 {{-- Stage Pills --}}
@@ -207,7 +207,7 @@
     @endif
 
     {{-- Matches by Date --}}
-    <section class="py-10 bg-gray-900 min-h-screen">
+    <section class="py-10 min-h-screen" style="background-color: var(--primary);">
         <div class="max-w-5xl mx-auto px-4">
             @forelse($matchesByDate as $date => $dayMatches)
                 {{-- Date Header --}}
@@ -220,7 +220,7 @@
                             {{ $dayMatches->count() }} {{ Str::plural('match', $dayMatches->count()) }}
                         </span>
                         @if(\Carbon\Carbon::parse($date)->isToday())
-                            <span class="text-xs font-bold text-yellow-400 bg-yellow-500/20 px-2.5 py-1 rounded-full">
+                            <span class="text-xs font-bold rounded-full px-2.5 py-1" style="color: var(--accent); background: rgba(var(--accent-rgb), 0.2);">
                                 TODAY
                             </span>
                         @endif
@@ -274,7 +274,7 @@
                                             COMPLETED
                                         </span>
                                     @elseif($match->start_time)
-                                        <span class="text-xs font-semibold text-yellow-400">
+                                        <span class="text-xs font-semibold text-accent">
                                             {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
                                         </span>
                                     @endif
@@ -299,7 +299,7 @@
                                             <p class="font-bold text-sm md:text-base truncate {{ $teamAWon ? 'text-green-400' : 'text-white' }}">
                                                 {{ $match->teamA?->name ?? 'TBA' }}
                                                 @if($teamAWon)
-                                                    <i class="fas fa-trophy text-yellow-400 text-xs ml-1"></i>
+                                                    <i class="fas fa-trophy text-accent text-xs ml-1"></i>
                                                 @endif
                                             </p>
                                             @if($match->result)
@@ -349,7 +349,7 @@
                                             <p class="font-bold text-sm md:text-base truncate {{ $teamBWon ? 'text-green-400' : 'text-white' }}">
                                                 {{ $match->teamB?->name ?? 'TBA' }}
                                                 @if($teamBWon)
-                                                    <i class="fas fa-trophy text-yellow-400 text-xs ml-1"></i>
+                                                    <i class="fas fa-trophy text-accent text-xs ml-1"></i>
                                                 @endif
                                             </p>
                                             @if($match->result)
@@ -367,8 +367,8 @@
                                 {{-- Result Summary --}}
                                 @if($match->result?->result_summary)
                                     <div class="mt-3 pt-3 border-t border-white/5">
-                                        <p class="text-xs md:text-sm text-yellow-400/90 font-medium">
-                                            <i class="fas fa-star text-yellow-500/60 mr-1.5"></i>
+                                        <p class="text-xs md:text-sm font-medium" style="color: var(--accent); opacity: 0.9;">
+                                            <i class="fas fa-star mr-1.5" style="color: var(--accent); opacity: 0.6;"></i>
                                             {{ $match->result->result_summary }}
                                         </p>
                                     </div>
@@ -403,7 +403,7 @@
         @php
             $shareMessage = "Fixtures & Results - {$tournament->name}\n" . request()->url();
         @endphp
-        <button onclick="shareFixtures()" class="w-14 h-14 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center text-gray-900 hover:scale-110">
+        <button onclick="shareFixtures()" class="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center text-gray-900 hover:scale-110" style="background: linear-gradient(to right, var(--accent), var(--accent-dark));">
             <i class="fas fa-share-alt text-lg"></i>
         </button>
     </div>

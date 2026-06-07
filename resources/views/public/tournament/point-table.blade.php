@@ -5,10 +5,10 @@
 @push('styles')
 <style>
     .page-header {
-        background: linear-gradient(160deg, #0a0e1a 0%, #111827 40%, #0f172a 100%);
+        background: linear-gradient(160deg, var(--primary) 0%, var(--secondary) 40%, var(--primary) 100%);
     }
     .group-card {
-        background: #111827;
+        background: var(--secondary);
         border: 1px solid rgba(255, 255, 255, 0.06);
         overflow: hidden;
     }
@@ -16,14 +16,14 @@
         transition: all 0.2s ease;
     }
     .group-tab:hover {
-        background: rgba(251, 191, 36, 0.15);
-        color: #fbbf24;
+        background: rgba(var(--accent-rgb), 0.15);
+        color: var(--accent);
     }
     .group-tab.active {
-        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
         color: #111827;
         font-weight: 700;
-        box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+        box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
     }
 
     /* Table styles */
@@ -54,7 +54,7 @@
         border-bottom: none;
     }
     .pt-table tbody tr:hover {
-        background: rgba(251, 191, 36, 0.05);
+        background: rgba(var(--accent-rgb), 0.05);
     }
     .pt-table tbody tr.qualified-row {
         background: rgba(34, 197, 94, 0.05);
@@ -84,7 +84,7 @@
         font-weight: 700;
         font-size: 12px;
     }
-    .pos-1 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1f2937; }
+    .pos-1 { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #1f2937; }
     .pos-2 { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff; }
     .pos-3 { background: linear-gradient(135deg, #cd7f32, #b8860b); color: #fff; }
     .pos-default { background: rgba(255, 255, 255, 0.08); color: #6b7280; }
@@ -111,7 +111,7 @@
     .pts-value {
         font-weight: 800;
         font-size: 18px;
-        color: #fbbf24;
+        color: var(--accent);
     }
 
     /* NRR colors */
@@ -120,7 +120,7 @@
 
     /* Mobile scroll hint */
     .scroll-hint {
-        background: linear-gradient(90deg, transparent 0%, #111827 100%);
+        background: linear-gradient(90deg, transparent 0%, var(--secondary) 100%);
         pointer-events: none;
     }
 
@@ -157,12 +157,12 @@
         <div class="relative max-w-5xl mx-auto px-4 reveal">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-4">
-                    @if($tournament->settings?->logo)
-                        <img src="{{ Storage::url($tournament->settings->logo) }}" alt="{{ $tournament->name }}"
+                    @if($tournament->settings?->logo || $tournament->logo)
+                        <img src="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" alt="{{ $tournament->name }}"
                              class="w-12 h-12 md:w-14 md:h-14 rounded-xl object-contain bg-white/10 p-1.5">
                     @endif
                     <div>
-                        <p class="text-yellow-400 text-xs font-semibold uppercase tracking-wider">{{ $tournament->name }}</p>
+                        <p class="text-accent text-xs font-semibold uppercase tracking-wider">{{ $tournament->name }}</p>
                         <h1 class="text-2xl md:text-3xl font-extrabold text-white">Points Table</h1>
                     </div>
                 </div>
@@ -180,7 +180,7 @@
 
     {{-- Group Tabs --}}
     @if($pointTableByGroups->count() > 1)
-        <section class="bg-gray-900 sticky top-16 z-40 border-b border-gray-800 backdrop-blur-sm">
+        <section class="sticky top-16 z-40 border-b border-gray-800 backdrop-blur-sm" style="background-color: var(--primary);">
             <div class="max-w-5xl mx-auto px-4">
                 <div class="flex items-center gap-2 py-3 overflow-x-auto">
                     @foreach($pointTableByGroups->keys() as $groupName)
@@ -197,7 +197,7 @@
     @endif
 
     {{-- Tables --}}
-    <section class="py-8 md:py-12 bg-gray-900 min-h-screen">
+    <section class="py-8 md:py-12 min-h-screen" style="background-color: var(--primary);">
         <div class="max-w-5xl mx-auto px-4 space-y-8">
             @forelse($pointTableByGroups as $groupName => $entries)
                 <div id="group-{{ Str::slug($groupName) }}" class="group-card reveal rounded-xl">

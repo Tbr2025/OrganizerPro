@@ -13,52 +13,224 @@
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl p-6">
             <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">{{ $tournament->name }} - Settings</h2>
 
+            @unlessrole('Superadmin')
+            <div class="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-4">
+                <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H10m12-6a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-amber-800 dark:text-amber-300">View Only</h3>
+                        <p class="text-sm text-amber-700 dark:text-amber-400 mt-0.5">These settings can only be modified by a Super Admin. Contact your Super Admin to make changes.</p>
+                    </div>
+                </div>
+            </div>
+            @endunlessrole
+
             <form method="POST" action="{{ route('admin.tournaments.settings.update', $tournament) }}" class="space-y-8" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
-                {{-- Branding Section --}}
+                {{-- Branding & Design Section --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Branding</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Branding & Design</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Configure the public tournament page appearance</p>
+
+                    @role('Superadmin')
+                    <div x-data="{
+                        primary: '{{ old('primary_color', $settings->primary_color ?? '#1a56db') }}',
+                        secondary: '{{ old('secondary_color', $settings->secondary_color ?? '#ffffff') }}',
+                        accent: '{{ old('accent_color', $settings->accent_color ?? '#fbbf24') }}',
+                        activePreset: null,
+                        presets: [
+                            { name: 'Classic Gold', icon: 'fas fa-trophy', primary: '#1a1a2e', secondary: '#16213e', accent: '#fbbf24' },
+                            { name: 'IPL', icon: 'fas fa-star', primary: '#1b0a3c', secondary: '#2d1b69', accent: '#e23744' },
+                            { name: 'T20 World Cup', icon: 'fas fa-globe', primary: '#0c1445', secondary: '#1a237e', accent: '#00bcd4' },
+                            { name: 'Big Bash', icon: 'fas fa-fire', primary: '#1a1a2e', secondary: '#2d2d44', accent: '#00e676' },
+                            { name: 'PSL', icon: 'fas fa-bolt', primary: '#0d1b2a', secondary: '#1b3a4b', accent: '#4fc3f7' },
+                            { name: 'Caribbean Premier', icon: 'fas fa-sun', primary: '#1a0a2e', secondary: '#2e1065', accent: '#ff6f00' },
+                            { name: 'The Hundred', icon: 'fas fa-circle-half-stroke', primary: '#121212', secondary: '#1e1e1e', accent: '#e91e63' },
+                            { name: 'SA20', icon: 'fas fa-flag', primary: '#003d00', secondary: '#1b5e20', accent: '#fdd835' },
+                        ],
+                        applyPreset(preset) {
+                            this.primary = preset.primary;
+                            this.secondary = preset.secondary;
+                            this.accent = preset.accent;
+                            this.activePreset = preset.name;
+                            document.getElementById('primary_color').value = preset.primary;
+                            document.getElementById('secondary_color').value = preset.secondary;
+                            document.getElementById('accent_color').value = preset.accent;
+                        }
+                    }">
+
+                    {{-- Template Presets --}}
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Quick Presets</label>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <template x-for="preset in presets" :key="preset.name">
+                                <button type="button"
+                                    @click="applyPreset(preset)"
+                                    :class="activePreset === preset.name ? 'ring-2 ring-offset-2 ring-indigo-500 dark:ring-offset-gray-900' : ''"
+                                    class="relative group flex flex-col items-center gap-1.5 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all cursor-pointer">
+                                    {{-- Color preview dots --}}
+                                    <div class="flex items-center gap-1">
+                                        <span class="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm" :style="'background:' + preset.primary"></span>
+                                        <span class="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm" :style="'background:' + preset.secondary"></span>
+                                        <span class="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm" :style="'background:' + preset.accent"></span>
+                                    </div>
+                                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 text-center leading-tight" x-text="preset.name"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    {{-- Live Preview --}}
+                    <div class="mb-6 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+                        <div class="relative h-28" :style="'background: linear-gradient(135deg, ' + primary + ' 0%, ' + secondary + ' 100%);'">
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <div class="text-center">
+                                    @if($settings->logo || $tournament->logo)
+                                        <img src="{{ Storage::url($settings->logo ?? $tournament->logo) }}" alt="Logo" class="h-12 w-12 object-contain rounded-lg mx-auto mb-1 bg-white/20 p-1">
+                                    @endif
+                                    <p class="text-white font-bold text-sm drop-shadow">{{ $tournament->name }}</p>
+                                    <p class="text-xs mt-0.5 font-semibold" :style="'color: ' + accent">Live Preview</p>
+                                </div>
+                            </div>
+                            {{-- Accent bar at bottom --}}
+                            <div class="absolute bottom-0 left-0 right-0 h-1" :style="'background: ' + accent"></div>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {{-- Logo --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament Logo</label>
-                            @if($settings->logo)
-                                <img src="{{ Storage::url($settings->logo) }}" alt="Logo" class="w-20 h-20 object-cover rounded-lg mb-2">
-                            @endif
-                            <input type="file" name="logo" accept="image/*"
-                                class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900 dark:file:text-indigo-300">
+                            <x-image-dropzone
+                                name="logo"
+                                :existingImage="$settings->logo ?? $tournament->logo"
+                                previewHeight="h-32"
+                            />
                             @error('logo') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         {{-- Background Image --}}
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Background Image</label>
-                            @if($settings->background_image)
-                                <img src="{{ Storage::url($settings->background_image) }}" alt="Background" class="w-32 h-20 object-cover rounded-lg mb-2">
-                            @endif
-                            <input type="file" name="background_image" accept="image/*"
-                                class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-indigo-900 dark:file:text-indigo-300">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Hero Background Image</label>
+                            <x-image-dropzone
+                                name="background_image"
+                                :existingImage="$settings->background_image"
+                                hint="Displayed behind the hero section on the public page"
+                                previewHeight="h-32"
+                                previewAspect="cover"
+                            />
                             @error('background_image') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
                         </div>
 
-                        {{-- Primary Color --}}
+                        {{-- Flyer Image --}}
                         <div>
-                            <label for="primary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Primary Color</label>
-                            <input type="color" name="primary_color" id="primary_color"
-                                value="{{ old('primary_color', $settings->primary_color ?? '#4F46E5') }}"
-                                class="mt-1 h-10 w-full rounded border border-gray-300 dark:border-gray-700">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Flyer Image</label>
+                            <x-image-dropzone
+                                name="flyer_image"
+                                :existingImage="$settings->flyer_image"
+                                hint="Tournament flyer sent with registration confirmations"
+                                previewHeight="h-40"
+                                previewAspect="cover"
+                            />
+                            @error('flyer_image') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
                         </div>
 
-                        {{-- Secondary Color --}}
-                        <div>
-                            <label for="secondary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Secondary Color</label>
-                            <input type="color" name="secondary_color" id="secondary_color"
-                                value="{{ old('secondary_color', $settings->secondary_color ?? '#10B981') }}"
-                                class="mt-1 h-10 w-full rounded border border-gray-300 dark:border-gray-700">
+                        <div class="space-y-4">
+                            {{-- Primary Color --}}
+                            <div>
+                                <label for="primary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Primary Color</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <input type="color" name="primary_color" id="primary_color"
+                                        :value="primary"
+                                        @input="primary = $event.target.value; activePreset = null"
+                                        class="h-10 w-16 rounded border border-gray-300 dark:border-gray-700 cursor-pointer">
+                                    <span class="text-xs text-gray-500" x-text="primary"></span>
+                                </div>
+                            </div>
+
+                            {{-- Secondary Color --}}
+                            <div>
+                                <label for="secondary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Secondary Color</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <input type="color" name="secondary_color" id="secondary_color"
+                                        :value="secondary"
+                                        @input="secondary = $event.target.value; activePreset = null"
+                                        class="h-10 w-16 rounded border border-gray-300 dark:border-gray-700 cursor-pointer">
+                                    <span class="text-xs text-gray-500" x-text="secondary"></span>
+                                </div>
+                            </div>
+
+                            {{-- Accent Color --}}
+                            <div>
+                                <label for="accent_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Accent Color</label>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <input type="color" name="accent_color" id="accent_color"
+                                        :value="accent"
+                                        @input="accent = $event.target.value; activePreset = null"
+                                        class="h-10 w-16 rounded border border-gray-300 dark:border-gray-700 cursor-pointer">
+                                    <span class="text-xs text-gray-500" x-text="accent"></span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Used for highlights, badges, and links on the public page</p>
+                            </div>
                         </div>
                     </div>
+                    </div>
+                    @else
+                    {{-- Admin: Read-only branding view --}}
+                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="text-sm text-amber-700 dark:text-amber-300">Branding is managed by Super Admin</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {{-- Logo Preview --}}
+                        <div>
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament Logo</p>
+                            @if($settings->logo)
+                                <img src="{{ Storage::url($settings->logo) }}" alt="Logo" class="w-20 h-20 object-cover rounded-lg">
+                            @elseif($tournament->logo)
+                                <img src="{{ Storage::url($tournament->logo) }}" alt="Logo" class="w-20 h-20 object-cover rounded-lg">
+                            @else
+                                <p class="text-sm text-gray-400">No logo set</p>
+                            @endif
+                        </div>
+
+                        {{-- Color Swatches --}}
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600" style="background-color: {{ $settings->primary_color ?? '#1a56db' }};"></div>
+                                <div>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Primary</p>
+                                    <p class="text-xs text-gray-500">{{ $settings->primary_color ?? '#1a56db' }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600" style="background-color: {{ $settings->secondary_color ?? '#ffffff' }};"></div>
+                                <div>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Secondary</p>
+                                    <p class="text-xs text-gray-500">{{ $settings->secondary_color ?? '#ffffff' }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600" style="background-color: {{ $settings->accent_color ?? '#fbbf24' }};"></div>
+                                <div>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Accent</p>
+                                    <p class="text-xs text-gray-500">{{ $settings->accent_color ?? '#fbbf24' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endrole
                 </div>
 
                 {{-- Registration Section --}}
@@ -167,7 +339,6 @@
                     </div>
                 </div>
 
-                @role('Superadmin')
                 {{-- Registration Form Fields Configuration --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{
                     fields: @js($fieldConfig),
@@ -293,8 +464,6 @@
                     </div>
                 </div>
 
-                @endrole
-
                 {{-- Match Settings --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Match Settings</h3>
@@ -347,7 +516,6 @@
                     </div>
                 </div>
 
-                @role('Superadmin')
                 {{-- Match Summary Settings --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Match Summary Settings</h3>
@@ -397,8 +565,6 @@
                     </div>
                 </div>
 
-                @endrole
-
                 {{-- Contact Information --}}
                 <div class="pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contact Information</h3>
@@ -426,6 +592,7 @@
                 </div>
 
                 {{-- Actions --}}
+                @role('Superadmin')
                 <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <a href="{{ route('admin.tournaments.index') }}"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -437,11 +604,28 @@
                         Save Settings
                     </button>
                 </div>
+                @endrole
             </form>
         </div>
     </div>
 
 @push('scripts')
+@unlessrole('Superadmin')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form[action*="settings"]');
+        if (!form) return;
+        form.querySelectorAll('input, select, textarea').forEach(el => {
+            el.disabled = true;
+            el.classList.add('opacity-60', 'cursor-not-allowed');
+        });
+        form.querySelectorAll('button[type="button"]').forEach(el => {
+            el.disabled = true;
+            el.classList.add('opacity-40', 'pointer-events-none');
+        });
+    });
+</script>
+@endunlessrole
 <script>
 function copyLink(inputId) {
     const input = document.getElementById(inputId);

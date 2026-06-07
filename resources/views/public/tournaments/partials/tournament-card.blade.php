@@ -1,6 +1,7 @@
 @php
     $settings = $tournament->settings;
-    $logo = $settings?->logo ? Storage::url($settings->logo) : null;
+    $logoPath = $settings?->logo ?? $tournament->logo;
+    $logo = $logoPath ? Storage::url($logoPath) : null;
     $regActuallyOpen = $tournament->status === 'registration' && ($settings?->isRegistrationOpen() ?? false);
 @endphp
 

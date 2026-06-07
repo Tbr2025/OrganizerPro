@@ -52,8 +52,10 @@ class TournamentSettingsController extends Controller
             // Branding
             'logo' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'background_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+            'flyer_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
             'primary_color' => 'nullable|string|max:7',
             'secondary_color' => 'nullable|string|max:7',
+            'accent_color' => 'nullable|string|max:7',
 
             // Registration
             'player_registration_open' => 'boolean',
@@ -144,6 +146,13 @@ class TournamentSettingsController extends Controller
                 Storage::disk('public')->delete($settings->background_image);
             }
             $validated['background_image'] = $request->file('background_image')->store('tournament_backgrounds', 'public');
+        }
+
+        if ($request->hasFile('flyer_image')) {
+            if ($settings->flyer_image) {
+                Storage::disk('public')->delete($settings->flyer_image);
+            }
+            $validated['flyer_image'] = $request->file('flyer_image')->store('tournament_flyers', 'public');
         }
 
         // Handle boolean fields

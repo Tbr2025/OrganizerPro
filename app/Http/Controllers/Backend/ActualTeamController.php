@@ -187,10 +187,16 @@ class ActualTeamController extends Controller
         $teamScope = $request->input('team_scope', 'tournament');
 
         $rules = [
-            'organization_id' => 'required|exists:organizations,id',
-            'name'            => 'required|string|max:255|unique:actual_teams,name',
-            'team_logo'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'team_scope'      => 'required|in:tournament,global',
+            'organization_id'  => 'required|exists:organizations,id',
+            'name'             => 'required|string|max:255|unique:actual_teams,name',
+            'team_logo'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'short_name'       => 'nullable|string|max:50',
+            'location'         => 'nullable|string|max:100',
+            'primary_color'    => 'nullable|string|max:7',
+            'secondary_color'  => 'nullable|string|max:7',
+            'sponsor_logo'     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'captain_image'    => 'nullable|string|max:500',
+            'team_scope'       => 'required|in:tournament,global',
         ];
 
         if ($teamScope === 'tournament') {
@@ -205,6 +211,19 @@ class ActualTeamController extends Controller
             $validated['team_logo'] = LogoProcessingService::processBase64Logo($request->input('team_logo_cropped'), 'team-logos');
         } elseif ($request->hasFile('team_logo')) {
             $validated['team_logo'] = LogoProcessingService::processLogo($request->file('team_logo'), 'team-logos');
+        }
+
+        // Handle Sponsor Logo Upload
+        if ($request->hasFile('sponsor_logo')) {
+            $validated['sponsor_logo'] = $request->file('sponsor_logo')->store('team-sponsors', 'public');
+        }
+
+        // Handle Captain Image — processed path from player-image-upload component
+        if ($request->filled('captain_image')) {
+            $captainPath = $request->input('captain_image');
+            if (Storage::disk('public')->exists($captainPath)) {
+                $validated['captain_image'] = $captainPath;
+            }
         }
 
         unset($validated['team_scope']);
@@ -530,7 +549,7 @@ class ActualTeamController extends Controller
             'team_scope' => 'required|in:tournament,global',
             'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'sponsor_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'captain_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:4096',
+            'captain_image' => 'nullable|string|max:500',
             'primary_color' => 'nullable|string|max:7',
             'secondary_color' => 'nullable|string|max:7',
             'captain_user_id' => 'nullable|exists:users,id',
@@ -558,21 +577,16 @@ class ActualTeamController extends Controller
             $validated['sponsor_logo'] = $request->file('sponsor_logo')->store('team-sponsors', 'public');
         }
 
-        // Handle Captain Image Upload — background removal runs async via queue
-        if ($request->hasFile('captain_image')) {
-            if ($actualTeam->captain_image) {
-                Storage::disk('public')->delete($actualTeam->captain_image);
+        // Handle Captain Image — processed path from player-image-upload component
+        if ($request->filled('captain_image') && $request->input('captain_image') !== $actualTeam->captain_image) {
+            $newCaptainPath = $request->input('captain_image');
+            // Only accept if the file actually exists in storage (processed by PlayerImageProcessController)
+            if (Storage::disk('public')->exists($newCaptainPath)) {
+                if ($actualTeam->captain_image && $actualTeam->captain_image !== $newCaptainPath) {
+                    Storage::disk('public')->delete($actualTeam->captain_image);
+                }
+                $validated['captain_image'] = $newCaptainPath;
             }
-            $captainImagePath = $request->file('captain_image')->store('team-captains', 'public');
-            $validated['captain_image'] = $captainImagePath;
-
-            // Dispatch background removal as a queued job (won't block the request)
-            \App\Jobs\RemoveImageBackground::dispatch(
-                $captainImagePath,
-                ActualTeam::class,
-                $actualTeam->id,
-                'captain_image'
-            );
         }
 
         // 4. Update the main team details based on scope

@@ -13,8 +13,8 @@
         <meta property="og:type" content="website" />
         <meta property="og:title" content="{{ $tournament->name ?? 'Tournament' }}" />
         <meta property="og:description" content="{{ $tournament->description ?? 'Cricket Tournament' }}" />
-        @if(isset($tournament) && $tournament->settings?->logo)
-            <meta property="og:image" content="{{ Storage::url($tournament->settings->logo) }}" />
+        @if(isset($tournament) && ($tournament->settings?->logo ?? $tournament->logo))
+            <meta property="og:image" content="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" />
         @endif
     @endif
 
@@ -22,7 +22,36 @@
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
+    @php
+        $accentColor = $tournament->settings?->accent_color ?? '#fbbf24';
+        $primaryColor = $tournament->settings?->primary_color ?? '#1a1a2e';
+        $secondaryColor = $tournament->settings?->secondary_color ?? '#16213e';
+        $accentRgb = \App\Services\ThemeColorService::hexToRgb($accentColor);
+        $accentPalette = \App\Services\ThemeColorService::generateColorPalette($accentColor);
+        $accentDark = $accentPalette[600] ?? $accentColor;
+        $accentDarkRgb = \App\Services\ThemeColorService::hexToRgb($accentDark);
+        $primaryRgb = \App\Services\ThemeColorService::hexToRgb($primaryColor);
+        $secondaryRgb = \App\Services\ThemeColorService::hexToRgb($secondaryColor);
+    @endphp
     <style>
+        :root {
+            --accent: {{ $accentColor }};
+            --accent-dark: {{ $accentDark }};
+            --accent-rgb: {{ $accentRgb }};
+            --accent-dark-rgb: {{ $accentDarkRgb }};
+            --primary: {{ $primaryColor }};
+            --secondary: {{ $secondaryColor }};
+            --primary-rgb: {{ $primaryRgb }};
+            --secondary-rgb: {{ $secondaryRgb }};
+        }
+
+        /* Utility classes */
+        .text-accent { color: var(--accent) !important; }
+        .bg-accent { background-color: var(--accent) !important; }
+        .border-accent { border-color: var(--accent) !important; }
+        .accent-link { color: var(--accent); transition: opacity 0.2s; }
+        .accent-link:hover { opacity: 0.8; }
+
         body {
             font-family: 'Roboto', sans-serif;
         }
@@ -30,16 +59,16 @@
             font-family: 'Oswald', sans-serif;
         }
         .tournament-primary {
-            background-color: {{ $tournament->settings?->primary_color ?? '#1f2937' }};
+            background-color: var(--primary);
         }
         .tournament-secondary {
-            background-color: {{ $tournament->settings?->secondary_color ?? '#374151' }};
+            background-color: var(--secondary);
         }
         .tournament-accent {
-            color: {{ $tournament->settings?->accent_color ?? '#fbbf24' }};
+            color: var(--accent);
         }
         .tournament-accent-bg {
-            background-color: {{ $tournament->settings?->accent_color ?? '#fbbf24' }};
+            background-color: var(--accent);
         }
         .gradient-overlay {
             background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0.9));
@@ -47,7 +76,7 @@
 
         /* Navigation Enhancements */
         .nav-wrapper {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         .nav-link {
@@ -57,12 +86,12 @@
             transition: all 0.3s ease;
         }
         .nav-link:hover {
-            background: rgba(251, 191, 36, 0.1);
-            color: #fbbf24;
+            background: rgba(var(--accent-rgb), 0.1);
+            color: var(--accent);
         }
         .nav-link.active {
-            color: #fbbf24;
-            background: rgba(251, 191, 36, 0.15);
+            color: var(--accent);
+            background: rgba(var(--accent-rgb), 0.15);
         }
         .nav-link.active::after {
             content: '';
@@ -72,7 +101,7 @@
             transform: translateX(-50%);
             width: 20px;
             height: 3px;
-            background: linear-gradient(90deg, #fbbf24, #f59e0b);
+            background: linear-gradient(90deg, var(--accent), var(--accent-dark));
             border-radius: 2px;
         }
         .mobile-menu-overlay {
@@ -86,14 +115,14 @@
             transition: all 0.3s ease;
         }
         .mobile-nav-link:hover {
-            background: rgba(251, 191, 36, 0.1);
-            color: #fbbf24;
+            background: rgba(var(--accent-rgb), 0.1);
+            color: var(--accent);
             padding-left: 2rem;
         }
         .mobile-nav-link.active {
-            color: #fbbf24;
-            background: rgba(251, 191, 36, 0.15);
-            border-left: 4px solid #fbbf24;
+            color: var(--accent);
+            background: rgba(var(--accent-rgb), 0.15);
+            border-left: 4px solid var(--accent);
         }
 
         /* Logo Enhancement */
@@ -119,7 +148,7 @@
 
         /* Footer Enhancement */
         .footer-wrapper {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         .footer-link {
@@ -127,7 +156,7 @@
             transition: all 0.3s ease;
         }
         .footer-link:hover {
-            color: #fbbf24;
+            color: var(--accent);
         }
 
         /* Hide scrollbar for Chrome, Safari and Opera */
@@ -202,12 +231,12 @@
         }
         .glass-hover:hover {
             background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(251, 191, 36, 0.25);
+            border-color: rgba(var(--accent-rgb), 0.25);
         }
 
-        /* Gold gradient text */
+        /* Accent gradient text */
         .gradient-gold {
-            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -221,7 +250,7 @@
         }
         .tilt-card:hover {
             transform: rotateX(2deg) rotateY(-2deg) translateY(-6px);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 20px rgba(251, 191, 36, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 20px rgba(var(--accent-rgb), 0.08);
         }
 
         /* Ripple button */
@@ -232,7 +261,7 @@
         .btn-ripple .ripple-effect {
             position: absolute;
             border-radius: 50%;
-            background: rgba(251, 191, 36, 0.3);
+            background: rgba(var(--accent-rgb), 0.3);
             transform: scale(0);
             animation: rippleAnim 0.6s linear;
             pointer-events: none;
@@ -253,21 +282,21 @@
             100% { background-position: 0% 50%; }
         }
         .live-border {
-            background: linear-gradient(90deg, #ef4444, #fbbf24, #ef4444);
+            background: linear-gradient(90deg, #ef4444, var(--accent), #ef4444);
             background-size: 200% 200%;
             animation: rotateBorder 3s ease infinite;
             padding: 2px;
             border-radius: 0.75rem;
         }
         .live-border > * {
-            background: #0f172a;
+            background: var(--primary);
             border-radius: 0.65rem;
         }
 
         /* Champion glow ring */
         @keyframes glowPulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
-            50% { box-shadow: 0 0 40px rgba(251, 191, 36, 0.6); }
+            0%, 100% { box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3); }
+            50% { box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.6); }
         }
         .glow-ring {
             animation: glowPulse 2.5s ease-in-out infinite;
@@ -275,8 +304,8 @@
 
         /* Top player gold glow */
         @keyframes goldGlow {
-            0%, 100% { box-shadow: inset 0 0 20px rgba(251, 191, 36, 0.05); }
-            50% { box-shadow: inset 0 0 30px rgba(251, 191, 36, 0.12); }
+            0%, 100% { box-shadow: inset 0 0 20px rgba(var(--accent-rgb), 0.05); }
+            50% { box-shadow: inset 0 0 30px rgba(var(--accent-rgb), 0.12); }
         }
         .gold-glow {
             animation: goldGlow 3s ease-in-out infinite;
@@ -294,17 +323,17 @@
     @stack('styles')
 </head>
 
-<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+<body class="text-gray-100 min-h-screen flex flex-col" style="background-color: var(--primary);">
     {{-- Navigation --}}
     <nav class="nav-wrapper shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex justify-between items-center h-16">
                 {{-- Logo/Title --}}
                 <a href="{{ route('public.tournament.show', $tournament->slug) }}" class="logo-container">
-                    @if($tournament->settings?->logo)
-                        <img src="{{ Storage::url($tournament->settings->logo) }}" alt="{{ $tournament->name }}" class="logo-image">
+                    @if(($tournament->settings?->logo ?? $tournament->logo))
+                        <img src="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" alt="{{ $tournament->name }}" class="logo-image">
                     @else
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(to bottom right, var(--accent), var(--accent-dark));">
                             <i class="fas fa-trophy text-gray-900"></i>
                         </div>
                     @endif
@@ -374,12 +403,12 @@
 
     {{-- Tournament Info Bar --}}
     @if($tournament->start_date || $tournament->location)
-    <div class="bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800 border-b border-gray-700/50">
+    <div class="border-b border-gray-700/50" style="background: linear-gradient(to right, var(--secondary), var(--primary), var(--secondary));">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 py-2 text-xs sm:text-sm text-gray-300">
                 @if($tournament->start_date)
                 <div class="flex items-center gap-1.5">
-                    <i class="far fa-calendar-alt text-yellow-400"></i>
+                    <i class="far fa-calendar-alt text-accent"></i>
                     <span>
                         {{ $tournament->start_date->format('d M Y') }}
                         @if($tournament->end_date && $tournament->end_date->ne($tournament->start_date))
@@ -391,7 +420,7 @@
 
                 @if($tournament->location)
                 <div class="flex items-center gap-1.5">
-                    <i class="fas fa-map-marker-alt text-yellow-400"></i>
+                    <i class="fas fa-map-marker-alt text-accent"></i>
                     <span>{{ $tournament->location }}</span>
                 </div>
                 @endif
@@ -409,7 +438,7 @@
                         ' \u2022 ' +
                         new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
                 ">
-                    <i class="far fa-clock text-yellow-400"></i>
+                    <i class="far fa-clock text-accent"></i>
                     <span data-live-time class="tabular-nums"></span>
                 </div>
             </div>
@@ -439,10 +468,10 @@
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div class="flex items-center gap-3">
-                    @if($tournament->settings?->logo)
-                        <img src="{{ Storage::url($tournament->settings->logo) }}" alt="{{ $tournament->name }}" class="h-8 w-8 object-contain rounded">
+                    @if(($tournament->settings?->logo ?? $tournament->logo))
+                        <img src="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" alt="{{ $tournament->name }}" class="h-8 w-8 object-contain rounded">
                     @else
-                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
+                        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(to bottom right, var(--accent), var(--accent-dark));">
                             <i class="fas fa-trophy text-gray-900 text-sm"></i>
                         </div>
                     @endif
@@ -454,7 +483,7 @@
                     <a href="{{ route('public.tournament.teams', $tournament->slug) }}" class="footer-link text-sm">Teams</a>
                 </div>
                 <p class="text-gray-600 text-sm">
-                    Powered by <span class="text-yellow-400">{{ config('app.name') }}</span>
+                    Powered by <span class="text-accent">{{ config('app.name') }}</span>
                 </p>
             </div>
         </div>

@@ -57,23 +57,15 @@
                         @enderror
                     </div>
 
-                    {{-- Current Logo --}}
-                    @if($zone->logo)
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Current Logo
-                            </label>
-                            <img src="{{ asset('storage/' . $zone->logo) }}" alt="{{ $zone->name }}" class="w-20 h-20 rounded-lg object-cover">
-                        </div>
-                    @endif
-
                     {{-- Logo --}}
                     <div>
-                        <label for="logo" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {{ $zone->logo ? 'Change Logo' : 'Zone Logo' }}
-                        </label>
-                        <input type="file" name="logo" id="logo" class="form-control mt-1" accept="image/*">
-                        <p class="text-xs text-gray-500 mt-1">Recommended: Square image, max 2MB</p>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zone Logo</label>
+                        <x-image-dropzone
+                            name="logo"
+                            :existingImage="$zone->logo"
+                            hint="Recommended: Square image, max 2MB"
+                            previewHeight="h-32"
+                        />
                         @error('logo')
                             <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                         @enderror

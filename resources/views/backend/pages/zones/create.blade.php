@@ -58,11 +58,12 @@
 
                     {{-- Logo --}}
                     <div>
-                        <label for="logo" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Zone Logo
-                        </label>
-                        <input type="file" name="logo" id="logo" class="form-control mt-1" accept="image/*">
-                        <p class="text-xs text-gray-500 mt-1">Recommended: Square image, max 2MB</p>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Zone Logo</label>
+                        <x-image-dropzone
+                            name="logo"
+                            hint="Recommended: Square image, max 2MB"
+                            previewHeight="h-32"
+                        />
                         @error('logo')
                             <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                         @enderror

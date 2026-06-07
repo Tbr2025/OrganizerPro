@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Matches;
 use App\Models\Player;
 use App\Models\Tournament;
+use App\Models\GeneratedPoster;
 use App\Models\TournamentTemplate;
 use App\Services\ImageBackgroundRemovalService;
 use App\Services\Poster\FixturesPosterService;
@@ -17,6 +18,29 @@ use Illuminate\Support\Facades\Storage;
 
 class TournamentTemplateController extends Controller
 {
+    public function __construct()
+    {
+        // Template management (CRUD) is Superadmin only
+        // AJAX requests to index/edit are allowed for Admin (used by generate poster page)
+        $this->middleware(function ($request, $next) {
+            if (!auth()->user()->hasRole('Superadmin')) {
+                // Allow AJAX template list queries (used by generate poster page to load templates)
+                if (($request->ajax() || $request->has('ajax')) && $request->isMethod('GET')) {
+                    return $next($request);
+                }
+                // Allow AJAX layout queries (used by field visibility toggles)
+                if ($request->has('ajax_layout') && $request->isMethod('GET')) {
+                    return $next($request);
+                }
+                abort(403, 'Only Super Admin can manage templates.');
+            }
+            return $next($request);
+        })->only([
+            'index', 'create', 'store', 'edit', 'update', 'destroy',
+            'duplicate', 'setDefault', 'uploadOverlay', 'deleteOverlay', 'updateSize',
+        ]);
+    }
+
     /**
      * Display list of templates for a tournament
      */
@@ -104,13 +128,20 @@ class TournamentTemplateController extends Controller
         // Load groups for point table type
         $groups = $tournament->groups;
 
+        // Load saved/generated posters
+        $savedPosters = $tournament->generatedPosters()
+            ->latest()
+            ->limit(50)
+            ->get();
+
         return view('backend.pages.tournaments.templates.generate', compact(
             'tournament',
             'type',
             'templates',
             'matches',
             'players',
-            'groups'
+            'groups',
+            'savedPosters'
         ));
     }
 
@@ -407,6 +438,40 @@ class TournamentTemplateController extends Controller
                 || $template->type === TournamentTemplate::TYPE_FIXTURES_POSTER;
             $base64Image = $renderService->renderToBase64($template, $data, true, (bool) $hasMatchData);
 
+            // Save poster to storage and database
+            $savedPoster = null;
+            try {
+                $filename = 'poster-' . $template->type . '-' . now()->format('YmdHis') . '-' . uniqid() . '.png';
+                $savePath = 'generated_posters/' . $tournament->id . '/' . $filename;
+                $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64Image));
+                Storage::disk('public')->put($savePath, $imageData);
+
+                // Build a descriptive label
+                $label = match($template->type) {
+                    TournamentTemplate::TYPE_MATCH_POSTER, TournamentTemplate::TYPE_MATCH_SUMMARY =>
+                        ($data['team_a_name'] ?? '') . ' vs ' . ($data['team_b_name'] ?? ''),
+                    TournamentTemplate::TYPE_AWARD_POSTER =>
+                        ($data['player_name'] ?? 'Player') . ' - ' . ($data['award_name'] ?? 'Award'),
+                    TournamentTemplate::TYPE_WELCOME_CARD =>
+                        ($data['player_name'] ?? 'Player') . ' - Welcome',
+                    TournamentTemplate::TYPE_POINT_TABLE =>
+                        ($data['group_name'] ?? 'Points Table'),
+                    TournamentTemplate::TYPE_FIXTURES_POSTER => 'Fixtures',
+                    default => ucwords(str_replace('_', ' ', $template->type)),
+                };
+
+                $savedPoster = GeneratedPoster::create([
+                    'tournament_id' => $tournament->id,
+                    'user_id' => auth()->id(),
+                    'type' => $template->type,
+                    'image_path' => $savePath,
+                    'label' => $label,
+                    'template_id' => $template->id,
+                ]);
+            } catch (\Exception $e) {
+                // Non-critical: poster still works via base64
+            }
+
             // Clean up temp uploaded files
             foreach ($tempFiles as $tempPath) {
                 Storage::disk('public')->delete($tempPath);
@@ -415,6 +480,11 @@ class TournamentTemplateController extends Controller
             return response()->json([
                 'success' => true,
                 'image' => $base64Image,
+                'download_url' => $savedPoster ? asset('storage/' . $savedPoster->image_path) : null,
+                'poster_id' => $savedPoster?->id,
+                'poster_label' => $savedPoster?->label,
+                'poster_type' => $template->type,
+                'poster_created' => $savedPoster?->created_at?->format('M d, h:i A'),
             ]);
         } catch (\Exception $e) {
             // Clean up temp files on error too
@@ -426,6 +496,19 @@ class TournamentTemplateController extends Controller
                 'error' => 'Failed to generate: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Delete a generated poster
+     */
+    public function deleteGeneratedPoster(Tournament $tournament, GeneratedPoster $poster)
+    {
+        abort_if($poster->tournament_id !== $tournament->id, 404);
+
+        $poster->deleteImage();
+        $poster->delete();
+
+        return response()->json(['success' => true]);
     }
 
     /**

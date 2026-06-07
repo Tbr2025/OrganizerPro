@@ -1,12 +1,14 @@
 @extends('backend.layouts.app')
 
-@section('title', 'Edit Tournament | ' . config('app.name'))
+@section('title', (auth()->user()->hasRole('Superadmin') ? 'Edit' : 'View') . ' Tournament | ' . config('app.name'))
+
+@php $isSuperadmin = auth()->user()->hasRole('Superadmin'); @endphp
 
 @section('admin-content')
     <div class="p-4 mx-auto max-w-2xl md:p-6">
         <x-breadcrumbs :breadcrumbs="[
             ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
-            ['label' => 'Edit']
+            ['label' => $isSuperadmin ? 'Edit' : 'View']
         ]" />
 
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl p-6">
@@ -14,31 +16,26 @@
                 @csrf
                 @method('PUT')
 
+                <fieldset {{ $isSuperadmin ? '' : 'disabled' }}>
+
                 {{-- Logo --}}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament Logo</label>
-                    <div class="flex items-start gap-4">
-                        @if($tournament->logo)
-                            <div class="flex-shrink-0">
-                                <img src="{{ Storage::url($tournament->logo) }}" alt="{{ $tournament->name }}" class="w-24 h-24 object-cover rounded-xl border border-gray-200 dark:border-gray-700">
-                                <p class="text-xs text-gray-500 mt-1">Current logo</p>
-                            </div>
-                        @endif
-                        <div class="flex-1">
-                            <input type="file" name="logo" id="logo" accept="image/*"
-                                class="block w-full text-sm text-gray-500 dark:text-gray-400
-                                    file:mr-4 file:py-2 file:px-4
-                                    file:rounded-lg file:border-0
-                                    file:text-sm file:font-semibold
-                                    file:bg-indigo-50 file:text-indigo-700
-                                    hover:file:bg-indigo-100
-                                    dark:file:bg-indigo-900 dark:file:text-indigo-300">
-                            <p class="text-xs text-gray-500 mt-1">Recommended: Square image, 512x512px, PNG or JPG</p>
-                            @error('logo')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                    </div>
+                    @if($isSuperadmin)
+                        <x-logo-cropper name="logo" :existingImage="$tournament->logo" :circular="false" :ratios="[
+                            ['label' => 'Square 1:1', 'value' => 1],
+                            ['label' => 'Wide 16:9', 'value' => 16/9],
+                            ['label' => 'Free', 'value' => 'free'],
+                        ]" />
+                        <p class="text-xs text-gray-500 mt-1">Recommended: 512x512px, PNG or JPG</p>
+                    @elseif($tournament->logo)
+                        <img src="{{ Storage::url($tournament->logo) }}" alt="{{ $tournament->name }}" class="w-24 h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                    @else
+                        <p class="text-sm text-gray-500">No logo uploaded</p>
+                    @endif
+                    @error('logo')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 {{-- Organization --}}
@@ -136,17 +133,21 @@
                     @enderror
                 </div>
 
+                </fieldset>
+
                 {{-- Actions --}}
                 <div class="flex items-center justify-end space-x-3 pt-4">
                     <a href="{{ route('admin.tournaments.index') }}"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700">
-                        Cancel
+                        {{ $isSuperadmin ? 'Cancel' : 'Back' }}
                     </a>
 
+                    @if($isSuperadmin)
                     <button type="submit"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Update Tournament
                     </button>
+                    @endif
                 </div>
             </form>
         </div>

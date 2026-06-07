@@ -107,8 +107,8 @@
             {{-- Tournament Badge --}}
             <div class="text-center mb-6">
                 <a href="{{ route('public.tournament.show', $tournament->slug) }}" class="inline-flex items-center gap-3 px-5 py-2 glass-card rounded-full hover:bg-white/10 transition">
-                    @if($tournament->settings?->logo)
-                        <img src="{{ Storage::url($tournament->settings->logo) }}" alt="{{ $tournament->name }}" class="w-8 h-8 rounded-full object-cover">
+                    @if($tournament->settings?->logo || $tournament->logo)
+                        <img src="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" alt="{{ $tournament->name }}" class="w-8 h-8 rounded-full object-cover">
                     @endif
                     <span class="text-gray-300 font-medium">{{ $tournament->name }}</span>
                 </a>

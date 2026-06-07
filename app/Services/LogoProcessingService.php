@@ -95,7 +95,7 @@ class LogoProcessingService
     /**
      * Process a base64-encoded cropped logo (from Cropper.js).
      */
-    public static function processBase64Logo(string $base64Data, string $directory = 'team-logos', ?string $oldPath = null): string
+    public static function processBase64Logo(string $base64Data, string $directory = 'team-logos', ?string $oldPath = null, bool $circular = true): string
     {
         // Delete old logo if exists
         if ($oldPath && Storage::disk('public')->exists($oldPath)) {
@@ -126,47 +126,52 @@ class LogoProcessingService
         $origWidth = imagesx($sourceImage);
         $origHeight = imagesy($sourceImage);
 
-        // Resize to 200x200 (already cropped square by Cropper.js)
-        $outputSize = 200;
-        $resizedImage = imagecreatetruecolor($outputSize, $outputSize);
-        imagealphablending($resizedImage, false);
-        imagesavealpha($resizedImage, true);
-        imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $outputSize, $outputSize, $origWidth, $origHeight);
-
-        // Apply circular clipping mask
-        $circularImage = imagecreatetruecolor($outputSize, $outputSize);
-        imagealphablending($circularImage, false);
-        imagesavealpha($circularImage, true);
-
-        $transparent = imagecolorallocatealpha($circularImage, 0, 0, 0, 127);
-        imagefill($circularImage, 0, 0, $transparent);
-        imagealphablending($circularImage, true);
-
-        $center = $outputSize / 2;
-        $radius = $outputSize / 2;
-
-        for ($x = 0; $x < $outputSize; $x++) {
-            for ($y = 0; $y < $outputSize; $y++) {
-                $dist = sqrt(($x - $center) ** 2 + ($y - $center) ** 2);
-                if ($dist <= $radius) {
-                    $color = imagecolorat($resizedImage, $x, $y);
-                    imagesetpixel($circularImage, $x, $y, $color);
-                }
-            }
-        }
-
-        // Save as PNG
+        // Save as PNG (already cropped by Cropper.js)
         $filename = uniqid('logo_') . '.png';
         $storagePath = storage_path('app/public/' . $directory);
         if (!is_dir($storagePath)) {
             mkdir($storagePath, 0775, true);
         }
 
-        imagepng($circularImage, $storagePath . '/' . $filename, 8);
+        if ($circular) {
+            // Resize to 200x200 square for circular mask
+            $outputSize = 200;
+            $resizedImage = imagecreatetruecolor($outputSize, $outputSize);
+            imagealphablending($resizedImage, false);
+            imagesavealpha($resizedImage, true);
+            imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $outputSize, $outputSize, $origWidth, $origHeight);
+
+            // Apply circular clipping mask
+            $circularImage = imagecreatetruecolor($outputSize, $outputSize);
+            imagealphablending($circularImage, false);
+            imagesavealpha($circularImage, true);
+
+            $transparent = imagecolorallocatealpha($circularImage, 0, 0, 0, 127);
+            imagefill($circularImage, 0, 0, $transparent);
+            imagealphablending($circularImage, true);
+
+            $center = $outputSize / 2;
+            $radius = $outputSize / 2;
+
+            for ($x = 0; $x < $outputSize; $x++) {
+                for ($y = 0; $y < $outputSize; $y++) {
+                    $dist = sqrt(($x - $center) ** 2 + ($y - $center) ** 2);
+                    if ($dist <= $radius) {
+                        $color = imagecolorat($resizedImage, $x, $y);
+                        imagesetpixel($circularImage, $x, $y, $color);
+                    }
+                }
+            }
+
+            imagepng($circularImage, $storagePath . '/' . $filename, 8);
+            imagedestroy($resizedImage);
+            imagedestroy($circularImage);
+        } else {
+            // Save directly (already cropped/resized by Cropper.js)
+            imagepng($sourceImage, $storagePath . '/' . $filename, 8);
+        }
 
         imagedestroy($sourceImage);
-        imagedestroy($resizedImage);
-        imagedestroy($circularImage);
 
         return $directory . '/' . $filename;
     }

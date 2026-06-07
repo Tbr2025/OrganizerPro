@@ -34,8 +34,8 @@
                 @if($team->team_logo)
                     <img src="{{ asset('storage/' . $team->team_logo) }}" alt="{{ $team->name }}"
                          class="w-20 h-20 rounded-full mx-auto mb-3 object-contain bg-white p-1 border-2 border-white">
-                @elseif($team->tournament?->settings?->logo)
-                    <img src="{{ Storage::url($team->tournament->settings->logo) }}" alt="{{ $team->tournament->name }}"
+                @elseif($team->tournament?->settings?->logo || $team->tournament?->logo)
+                    <img src="{{ Storage::url($team->tournament->settings?->logo ?? $team->tournament->logo) }}" alt="{{ $team->tournament->name }}"
                          class="w-20 h-20 rounded-full mx-auto mb-3 object-contain bg-white p-1 border-2 border-white">
                 @endif
                 <h1 class="text-2xl font-bold text-white">Join {{ $team->name }}</h1>

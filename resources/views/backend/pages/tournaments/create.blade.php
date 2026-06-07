@@ -31,8 +31,23 @@
         @endif
 
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl p-6">
-            <form method="POST" action="{{ route('admin.tournaments.store') }}" class="space-y-6">
+            <form method="POST" action="{{ route('admin.tournaments.store') }}" class="space-y-6" enctype="multipart/form-data">
                 @csrf
+
+                {{-- Logo --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament Logo</label>
+                    <x-logo-cropper name="logo" :circular="false" :ratios="[
+                        ['label' => 'Square 1:1', 'value' => 1],
+                        ['label' => 'Wide 16:9', 'value' => 16/9],
+                        ['label' => 'Free', 'value' => 'free'],
+                    ]" />
+                    <p class="text-xs text-gray-500 mt-1">Recommended: 512x512px, PNG or JPG</p>
+                    @error('logo')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 {{-- Organization --}}
                 <div>
                     <label for="organization_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization <span class="text-red-500">*</span></label>

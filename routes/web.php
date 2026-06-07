@@ -804,12 +804,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/point-table/initialize', [PointTableController::class, 'initialize'])->name('point-table.initialize');
         Route::post('/point-table/qualified', [PointTableController::class, 'updateQualified'])->name('point-table.qualified');
 
-        // Template Editor (Superadmin only)
+        // Template Editor (Superadmin only for CRUD)
         Route::middleware(['role:Superadmin'])->group(function () {
-            Route::get('/templates', [TournamentTemplateController::class, 'index'])->name('templates.index');
             Route::get('/templates/create', [TournamentTemplateController::class, 'create'])->name('templates.create');
             Route::post('/templates', [TournamentTemplateController::class, 'store'])->name('templates.store');
-            Route::get('/templates/{template}/edit', [TournamentTemplateController::class, 'edit'])->name('templates.edit');
             Route::put('/templates/{template}', [TournamentTemplateController::class, 'update'])->name('templates.update');
             Route::delete('/templates/{template}', [TournamentTemplateController::class, 'destroy'])->name('templates.destroy');
             Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');
@@ -820,14 +818,18 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
         });
 
-        // Template Generate/Download (Superadmin & Admin)
+        // Template listing, viewing, generate & download (Superadmin & Admin)
+        // index/edit have controller middleware allowing only AJAX for Admin
         Route::middleware(['role:Superadmin|Admin'])->group(function () {
+            Route::get('/templates', [TournamentTemplateController::class, 'index'])->name('templates.index');
+            Route::get('/templates/{template}/edit', [TournamentTemplateController::class, 'edit'])->name('templates.edit');
             Route::get('/templates/generate', [TournamentTemplateController::class, 'generate'])->name('templates.generate');
             Route::post('/templates/generate-preview', [TournamentTemplateController::class, 'generatePreview'])->name('templates.generate-preview');
             Route::post('/templates/{template}/render-preview', [TournamentTemplateController::class, 'renderPreview'])->name('templates.render-preview');
             Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download');
             Route::get('/matches/{match}/awards', [TournamentTemplateController::class, 'getMatchAwards'])->name('matches.get-awards');
             Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster');
+            Route::delete('/generated-posters/{poster}', [TournamentTemplateController::class, 'deleteGeneratedPoster'])->name('generated-posters.destroy');
         });
 
         // Tournament Calendar (Calendar-based fixture scheduling)

@@ -18,6 +18,7 @@ class TournamentSetting extends Model
         'flyer_image',
         'primary_color',
         'secondary_color',
+        'accent_color',
         // Registration
         'player_registration_open',
         'team_registration_open',

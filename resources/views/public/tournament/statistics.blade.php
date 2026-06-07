@@ -5,10 +5,10 @@
 @push('styles')
 <style>
     .page-header {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d1b2a 100%);
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--primary) 100%);
     }
     .stat-card {
-        background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        background: linear-gradient(145deg, var(--secondary) 0%, var(--primary) 100%);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
     .tab-btn {
@@ -16,9 +16,9 @@
         position: relative;
     }
     .tab-btn.active {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
         color: #1f2937;
-        box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
+        box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.4);
     }
     .tab-btn:not(.active):hover {
         background: rgba(255, 255, 255, 0.1);
@@ -31,11 +31,11 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
     .table-row:hover {
-        background: rgba(251, 191, 36, 0.1);
+        background: rgba(var(--accent-rgb), 0.1);
     }
     .top-player-row {
-        background: linear-gradient(90deg, rgba(251, 191, 36, 0.15) 0%, transparent 100%);
-        border-left: 4px solid #fbbf24;
+        background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.15) 0%, transparent 100%);
+        border-left: 4px solid var(--accent);
     }
     .rank-badge {
         width: 32px;
@@ -47,7 +47,7 @@
         font-weight: bold;
         font-size: 14px;
     }
-    .rank-1 { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1f2937; box-shadow: 0 0 12px rgba(251, 191, 36, 0.4); }
+    .rank-1 { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%); color: #1f2937; box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.4); }
     .rank-2 { background: linear-gradient(135deg, #c0c0c0 0%, #94a3b8 100%); color: #1f2937; box-shadow: 0 0 8px rgba(148, 163, 184, 0.3); }
     .rank-3 { background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%); color: white; box-shadow: 0 0 8px rgba(205, 127, 50, 0.3); }
     .rank-other { background: rgba(255, 255, 255, 0.1); color: #9ca3af; }
@@ -55,13 +55,13 @@
         background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
     }
     .stat-highlight {
-        background: linear-gradient(145deg, rgba(251, 191, 36, 0.2) 0%, rgba(251, 191, 36, 0.05) 100%);
+        background: linear-gradient(145deg, rgba(var(--accent-rgb), 0.2) 0%, rgba(var(--accent-rgb), 0.05) 100%);
         border-radius: 8px;
         padding: 4px 12px;
     }
     .section-header {
-        background: linear-gradient(90deg, rgba(251, 191, 36, 0.2) 0%, transparent 100%);
-        border-left: 4px solid #fbbf24;
+        background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.2) 0%, transparent 100%);
+        border-left: 4px solid var(--accent);
     }
 </style>
 @endpush
@@ -71,7 +71,7 @@
     <section class="page-header py-16 relative overflow-hidden">
         <div class="absolute inset-0 opacity-30">
             <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
-            <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-500/20 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 right-1/4 w-96 h-96 rounded-full blur-3xl" style="background: rgba(var(--accent-rgb), 0.2);"></div>
         </div>
         <div class="relative max-w-6xl mx-auto px-4 reveal">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -99,7 +99,7 @@
     </section>
 
     {{-- Category Tabs --}}
-    <section class="py-6 bg-gray-900 sticky top-16 z-40 border-b border-gray-800">
+    <section class="py-6 sticky top-16 z-40 border-b border-gray-800" style="background-color: var(--primary);">
         <div class="max-w-6xl mx-auto px-4">
             <div class="flex flex-wrap gap-3 justify-center">
                 <a href="{{ route('public.tournament.statistics', [$tournament->slug, 'tab' => 'batting']) }}"
@@ -123,14 +123,14 @@
     </section>
 
     {{-- Stats Content --}}
-    <section class="py-12 bg-gray-900 min-h-screen">
+    <section class="py-12 min-h-screen" style="background-color: var(--primary);">
         <div class="max-w-6xl mx-auto px-4">
             {{-- Batting Stats --}}
             @if($tab === 'batting')
                 <div class="stat-card rounded-2xl overflow-hidden">
                     <div class="section-header px-6 py-5">
                         <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                            <i class="fas fa-baseball-ball text-yellow-400"></i>
+                            <i class="fas fa-baseball-ball text-accent"></i>
                             Top Run Scorers
                         </h2>
                     </div>
@@ -176,7 +176,7 @@
                                         <td class="px-4 py-4 text-gray-400 hidden md:table-cell">{{ $stat->team?->short_name ?? '-' }}</td>
                                         <td class="px-4 py-4 text-center text-gray-300">{{ $stat->matches }}</td>
                                         <td class="px-4 py-4 text-center">
-                                            <span class="stat-highlight text-xl font-black text-yellow-400">{{ $stat->runs }}</span>
+                                            <span class="stat-highlight text-xl font-black text-accent">{{ $stat->runs }}</span>
                                         </td>
                                         <td class="px-4 py-4 text-center text-white font-semibold">{{ $stat->highest_score }}{{ $stat->highest_not_out ? '*' : '' }}</td>
                                         <td class="px-4 py-4 text-center text-gray-300 hidden md:table-cell">{{ number_format($stat->batting_average, 2) }}</td>
@@ -217,7 +217,7 @@
                 <div class="stat-card rounded-2xl overflow-hidden">
                     <div class="section-header px-6 py-5">
                         <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                            <i class="fas fa-bowling-ball text-yellow-400"></i>
+                            <i class="fas fa-bowling-ball text-accent"></i>
                             Top Wicket Takers
                         </h2>
                     </div>
@@ -263,7 +263,7 @@
                                         <td class="px-4 py-4 text-gray-400 hidden md:table-cell">{{ $stat->team?->short_name ?? '-' }}</td>
                                         <td class="px-4 py-4 text-center text-gray-300">{{ $stat->matches }}</td>
                                         <td class="px-4 py-4 text-center">
-                                            <span class="stat-highlight text-xl font-black text-yellow-400">{{ $stat->wickets }}</span>
+                                            <span class="stat-highlight text-xl font-black text-accent">{{ $stat->wickets }}</span>
                                         </td>
                                         <td class="px-4 py-4 text-center text-white font-semibold">{{ $stat->best_bowling ?? '-' }}</td>
                                         <td class="px-4 py-4 text-center text-gray-300 hidden md:table-cell">{{ $stat->wickets > 0 ? number_format($stat->bowling_average, 2) : '-' }}</td>
@@ -304,7 +304,7 @@
                 <div class="stat-card rounded-2xl overflow-hidden">
                     <div class="section-header px-6 py-5">
                         <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                            <i class="fas fa-bolt text-yellow-400"></i>
+                            <i class="fas fa-bolt text-accent"></i>
                             Most Sixes
                         </h2>
                     </div>
@@ -346,7 +346,7 @@
                                         <td class="px-4 py-4 text-gray-400 hidden md:table-cell">{{ $stat->team?->short_name ?? '-' }}</td>
                                         <td class="px-4 py-4 text-center text-gray-300">{{ $stat->matches }}</td>
                                         <td class="px-4 py-4 text-center">
-                                            <span class="stat-highlight text-xl font-black text-yellow-400">{{ $stat->sixes }}</span>
+                                            <span class="stat-highlight text-xl font-black text-accent">{{ $stat->sixes }}</span>
                                         </td>
                                         <td class="px-4 py-4 text-center text-blue-400 font-semibold">{{ $stat->fours }}</td>
                                     </tr>
@@ -371,7 +371,7 @@
                 <div class="stat-card rounded-2xl overflow-hidden">
                     <div class="section-header px-6 py-5">
                         <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                            <i class="fas fa-hands text-yellow-400"></i>
+                            <i class="fas fa-hands text-accent"></i>
                             Top Fielders
                         </h2>
                     </div>
@@ -416,7 +416,7 @@
                                         <td class="px-4 py-4 text-center text-blue-400 font-semibold">{{ $stat->stumpings }}</td>
                                         <td class="px-4 py-4 text-center text-purple-400 font-semibold">{{ $stat->run_outs }}</td>
                                         <td class="px-4 py-4 text-center">
-                                            <span class="stat-highlight text-xl font-black text-yellow-400">
+                                            <span class="stat-highlight text-xl font-black text-accent">
                                                 {{ $stat->catches + $stat->stumpings + $stat->run_outs }}
                                             </span>
                                         </td>
