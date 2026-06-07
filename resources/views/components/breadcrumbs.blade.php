@@ -1,5 +1,31 @@
 @php
     $breadcrumbs = $breadcrumbs ?? [];
+
+    // Detect format: indexed array of ['name'=>..., 'route'=>...] vs associative ['title'=>..., 'items'=>...]
+    $isIndexedArray = !empty($breadcrumbs) && isset($breadcrumbs[0]);
+
+    if ($isIndexedArray) {
+        // Filter out null entries
+        $breadcrumbs = array_filter($breadcrumbs);
+        // Last item becomes the title/current page
+        $lastItem = end($breadcrumbs);
+        $parsedTitle = $lastItem['name'] ?? $lastItem['label'] ?? '';
+        // All items except last become navigation items
+        $parsedItems = array_slice($breadcrumbs, 0, -1);
+        // Normalize keys: name->label, route->url
+        $parsedItems = array_map(function ($item) {
+            return [
+                'label' => $item['label'] ?? $item['name'] ?? '',
+                'url' => $item['url'] ?? $item['route'] ?? '#',
+            ];
+        }, $parsedItems);
+        // Override breadcrumbs to associative format
+        $breadcrumbs = [
+            'title' => $parsedTitle,
+            'items' => $parsedItems,
+            'show_home' => false, // First item usually is Dashboard, no need for extra Home
+        ];
+    }
 @endphp
 
 @props([
