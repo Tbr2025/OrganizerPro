@@ -80,8 +80,9 @@ class FontService
             . ':' . implode(',', $variantParams);
 
         $response = Http::withHeaders([
-            // Old Chrome UA => Google returns plain .ttf (one @font-face per variant).
-            'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.742.112 Safari/534.30',
+            // Old Android UA => Google serves plain .ttf (one @font-face per
+            // variant). Newer UAs return .woff/.woff2 which GD cannot read.
+            'User-Agent' => 'Mozilla/5.0 (Linux; U; Android 2.3.7; en-us; Nexus One Build/FRF91) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1',
         ])->timeout(30)->get($url);
 
         if (!$response->ok()) {
