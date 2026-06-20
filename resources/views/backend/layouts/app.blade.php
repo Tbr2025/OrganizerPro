@@ -24,6 +24,20 @@
                 font-size: 16px; /* Prevents iOS zoom on focus */
             }
         }
+        /* Mobile: the sidebar uses h-screen (100vh), but on mobile 100vh is
+           taller than the visible area (browser + device nav bars), pushing the
+           lower menu items off-screen and making them unreachable. Use the
+           dynamic viewport height so the menu list scrolls within view. */
+        @media (max-width: 1023px) {
+            #appSidebar {
+                height: 100vh;        /* fallback */
+                height: 100dvh;
+            }
+            #appSidebar > .overflow-y-auto {
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+        }
     </style>
 
     @viteReactRefresh
