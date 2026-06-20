@@ -560,6 +560,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::delete('users/delete/bulk-delete', [UsersController::class, 'bulkDelete'])->name('users.bulk-delete');
     Route::get('users/{id}/login-as', [UserLoginAsController::class, 'loginAs'])->name('users.login-as');
 
+    // Font Manager (Superadmin only) — manage Google/custom fonts for templates.
+    Route::middleware(['role:Superadmin'])->group(function () {
+        Route::get('fonts', [\App\Http\Controllers\Backend\FontController::class, 'index'])->name('fonts.index');
+        Route::post('fonts/google', [\App\Http\Controllers\Backend\FontController::class, 'storeGoogle'])->name('fonts.google');
+        Route::post('fonts/custom', [\App\Http\Controllers\Backend\FontController::class, 'storeCustom'])->name('fonts.custom');
+        Route::delete('fonts/{font}', [\App\Http\Controllers\Backend\FontController::class, 'destroy'])->name('fonts.destroy');
+    });
+
     // Action Log Routes.
     Route::get('/action-log', [ActionLogController::class, 'index'])->name('actionlog.index');
     Route::delete('/action-log', [ActionLogController::class, 'clear'])->name('actionlog.clear');

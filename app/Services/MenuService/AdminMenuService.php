@@ -611,6 +611,13 @@ class AdminMenuService
                     'priority' => 10,
                     'permissions' => ['backups.view', 'backups.edit'],
                 ],
+                [
+                    'label' => __('Fonts'),
+                    'route' => route('admin.fonts.index'),
+                    'active' => Route::is('admin.fonts.*'),
+                    'priority' => 5,
+                    'superadmin_only' => true,
+                ],
             ],
         ], __('More'));
 

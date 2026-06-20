@@ -4,6 +4,9 @@
 
 @push('styles')
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Open+Sans:wght@300;400;600;700&family=Montserrat:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&family=Oswald:wght@300;400;500;600;700&family=Bebas+Neue&family=Anton&family=Bangers&display=swap" rel="stylesheet">
+{{-- Installed fonts (Font Manager): same TTF files the server renders with, so
+     the live preview matches the generated poster exactly. --}}
+<style id="installedFontFaces">{!! app(\App\Services\Fonts\FontService::class)->fontFaceCss() !!}</style>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 <style>
     .editor-container { height: calc(100vh - 64px); display: flex; flex-direction: column; background: #0f0f1a; overflow: hidden; }
@@ -607,17 +610,11 @@
                     </div>
                     <div class="prop-group">
                         <label class="prop-label">Font Family</label>
+                        @php($editorFonts = app(\App\Services\Fonts\FontService::class)->editorFontList())
                         <select id="propFontFamily" class="prop-input" onchange="editor.updateText('fontFamily', this.value)">
-                            <option value="Arial">Arial</option>
-                            <option value="Roboto">Roboto</option>
-                            <option value="Open Sans">Open Sans</option>
-                            <option value="Montserrat">Montserrat</option>
-                            <option value="Poppins">Poppins</option>
-                            <option value="Oswald">Oswald</option>
-                            <option value="Bebas Neue">Bebas Neue</option>
-                            <option value="Anton">Anton</option>
-                            <option value="Impact">Impact</option>
-                            <option value="Bangers">Bangers</option>
+                            @foreach ($editorFonts as $fontName)
+                                <option value="{{ $fontName }}">{{ $fontName }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="prop-input-row">
@@ -1395,8 +1392,12 @@ const editor = {
 
         // Preload all Google Fonts before rendering template text
         // (display=swap makes fonts lazy; explicitly loading ensures they're ready)
-        const fontFamilies = ['Roboto', 'Open Sans', 'Montserrat', 'Poppins', 'Oswald', 'Bebas Neue', 'Anton', 'Bangers'];
-        const fontLoads = fontFamilies.map(f => document.fonts.load(`16px "${f}"`).catch(() => {}));
+        const fontFamilies = @json(app(\App\Services\Fonts\FontService::class)->editorFontList());
+        // Load each at normal + bold so weighted text measures correctly before render.
+        const fontLoads = fontFamilies.flatMap(f => [
+            document.fonts.load(`16px "${f}"`).catch(() => {}),
+            document.fonts.load(`700 16px "${f}"`).catch(() => {}),
+        ]);
         Promise.all(fontLoads).then(() => {
             // Load existing data
             @if($template && $template->layout_json)

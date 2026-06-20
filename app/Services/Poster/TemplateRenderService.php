@@ -12,6 +12,9 @@ class TemplateRenderService extends PosterGeneratorService
     protected bool $skipBlanks = false;
     protected int $renderScale = 1;
 
+    /** Memoized font registry for resolving installed fonts to TTF files. */
+    protected ?\App\Services\Fonts\FontService $fontService = null;
+
     /**
      * Generate poster from template model (required by abstract)
      */
@@ -1803,6 +1806,19 @@ class TemplateRenderService extends PosterGeneratorService
     {
         $w = (int) $weight;
 
+        // 1. Installed fonts (Font Manager) win — resolved to the SAME TTF the
+        //    editor previews with, so generated posters match the live preview.
+        try {
+            $this->fontService ??= app(\App\Services\Fonts\FontService::class);
+            $installed = $this->fontService->resolveFontFile($fontFamily, $w, $fontStyle);
+            if ($installed) {
+                return $installed;
+            }
+        } catch (\Throwable $e) {
+            // Fall through to built-in fonts if anything goes wrong.
+        }
+
+        // 2. Built-in fonts shipped in public/fonts (existing behaviour).
         $fontMap = [
             'montserrat' => ['regular' => 'Montserrat-Medium.ttf', 'bold' => 'Montserrat-Bold.ttf'],
             'roboto' => ['regular' => 'Roboto-Regular.ttf', 'medium' => 'Roboto-Medium.ttf', 'bold' => 'Roboto-Bold.ttf'],
