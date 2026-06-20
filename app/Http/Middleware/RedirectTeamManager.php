@@ -12,8 +12,9 @@ class RedirectTeamManager
         $user = $request->user();
 
         if ($user && $user->hasRole('Team Manager') && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
-            // Allow access to team-manager routes
-            if ($request->is('admin/team-manager*')) {
+            // Allow access to team-manager routes, and always allow exiting an
+            // impersonation session (switch-back) so an admin is never trapped.
+            if ($request->is('admin/team-manager*') || $request->routeIs('admin.users.switch-back')) {
                 return $next($request);
             }
 

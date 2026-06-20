@@ -114,14 +114,11 @@
                             $originalUser = \App\Models\User::find(session('original_user_id'));
                         @endphp
                         @if ($originalUser)
-                            <form method="POST" action="{{ route('admin.users.switch-back') }}" class="inline">
-                                @csrf
-                                <button type="submit"
-                                    class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-400 mt-1 w-full">
-                                    <iconify-icon icon="lucide:arrow-left" width="16" height="16"></iconify-icon>
-                                    {{ __('Switch back to') }} {{ $originalUser->name }}
-                                </button>
-                            </form>
+                            <a href="{{ route('admin.users.switch-back') }}"
+                                class="group flex items-center gap-3 rounded-md px-3 py-2 text-theme-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-400 mt-1 w-full">
+                                <iconify-icon icon="lucide:arrow-left" width="16" height="16"></iconify-icon>
+                                {{ __('Switch back to') }} {{ $originalUser->name }}
+                            </a>
                         @endif
                     @endif
                 </div>

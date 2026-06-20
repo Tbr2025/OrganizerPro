@@ -21,10 +21,6 @@
             'title' => 'Captain / Featured Player Image',
             'ratios' => [
                 ['label' => '3:4', 'value' => '0.75', 'icon' => 'fa-portrait'],
-                ['label' => '4:3', 'value' => '1.333', 'icon' => 'fa-image'],
-                ['label' => '16:9', 'value' => '1.778', 'icon' => 'fa-tv'],
-                ['label' => '1:1', 'value' => '1', 'icon' => 'fa-square'],
-                ['label' => 'Free', 'value' => 'free', 'icon' => 'fa-crop'],
             ],
             'guidelines' => [
                 'Portrait orientation recommended',
@@ -38,8 +34,6 @@
             'title' => 'Player Photo',
             'ratios' => [
                 ['label' => '3:4', 'value' => '0.75', 'icon' => 'fa-portrait'],
-                ['label' => '1:1', 'value' => '1', 'icon' => 'fa-square'],
-                ['label' => 'Free', 'value' => 'free', 'icon' => 'fa-crop'],
             ],
             'guidelines' => [
                 'Clear, front-facing photo',

@@ -23,7 +23,18 @@ class UserLoginAsController extends Controller
 
         session()->flash('success', __('You are now logged in as :name.', ['name' => $user->name]));
 
-        return redirect()->route('admin.dashboard');
+        // Send the impersonated user to a landing page their role can actually
+        // access. The admin dashboard requires the "dashboard.view" permission,
+        // so users without it (e.g. Players) would otherwise hit a 403.
+        if ($user->hasRole('Team Manager') && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return redirect()->route('team-manager.dashboard');
+        }
+
+        if ($user->can('dashboard.view')) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        return redirect()->route('home');
     }
 
     public function switchBack(): RedirectResponse

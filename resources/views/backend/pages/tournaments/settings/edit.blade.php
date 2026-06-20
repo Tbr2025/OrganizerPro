@@ -23,7 +23,7 @@
                     </div>
                     <div>
                         <h3 class="font-semibold text-amber-800 dark:text-amber-300">View Only</h3>
-                        <p class="text-sm text-amber-700 dark:text-amber-400 mt-0.5">These settings can only be modified by a Super Admin. Contact your Super Admin to make changes.</p>
+                        <p class="text-sm text-amber-700 dark:text-amber-400 mt-0.5">These settings can only be modified by {{ get_setting('app_name') }}. Contact {{ get_setting('app_name') }} to make changes.</p>
                     </div>
                 </div>
             </div>
@@ -188,7 +188,7 @@
                             <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <span class="text-sm text-amber-700 dark:text-amber-300">Branding is managed by Super Admin</span>
+                            <span class="text-sm text-amber-700 dark:text-amber-300">Branding is managed by {{ get_setting('app_name') }}</span>
                         </div>
                     </div>
 

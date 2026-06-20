@@ -125,7 +125,8 @@
                         <label for="organization_id"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Organization <span
                                 class="text-red-500">*</span></label>
-                        <select id="organization_id" name="organization_id" required class="form-control mt-1">
+                        <select id="organization_id" name="organization_id" required class="form-control mt-1"
+                            onchange="window.dispatchEvent(new CustomEvent('combobox-set-group', { detail: { name: 'tournament_ids[]', group: this.value } }))">
                             <option value="">Select Organization</option>
                             @foreach ($organizations as $org)
                                 <option value="{{ $org->id }}"
@@ -171,8 +172,9 @@
                                 name="tournament_ids[]"
                                 label="Tournaments"
                                 placeholder="Select Tournaments"
-                                :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name])->toArray()"
+                                :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name, 'group' => (string) $t->organization_id])->toArray()"
                                 :selected="old('tournament_ids', [])"
+                                :initialGroup="old('organization_id')"
                                 :multiple="true"
                                 :searchable="true"
                                 :required="false"

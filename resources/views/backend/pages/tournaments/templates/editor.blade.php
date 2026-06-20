@@ -127,6 +127,29 @@
     .preview-modal img { max-width: 90%; max-height: 80vh; border-radius: 8px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
     .preview-modal .close-btn { position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: #fff; border: none; cursor: pointer; font-size: 20px; }
     .preview-modal .actions { margin-top: 20px; display: flex; gap: 10px; }
+
+    /* Mobile: keep the Save/Preview actions always visible and let the
+       middle toolbar scroll horizontally instead of pushing them off-screen. */
+    @media (max-width: 768px) {
+        .editor-header { gap: 8px; padding: 0 8px; }
+        .header-title { flex: 0 1 auto; min-width: 0; gap: 8px; }
+        .header-title #templateName { min-width: 0 !important; width: 100px; }
+        .header-title > span { display: none; } /* hide the type badge */
+        .toolbar-center {
+            flex: 1 1 0;
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .toolbar-center::-webkit-scrollbar { display: none; }
+        .toolbar-group { padding: 0 6px; }
+        .header-actions { flex: 0 0 auto; gap: 6px; }
+        /* Show buttons as compact icons on mobile so both fit */
+        .header-actions .btn-label { display: none; }
+        .header-actions .prop-btn { padding: 8px; }
+    }
 </style>
 @endpush
 
@@ -134,7 +157,7 @@
 <div class="editor-container" id="editorApp">
     {{-- Header --}}
     <div class="editor-header">
-        <div class="flex items-center gap-4 flex-1">
+        <div class="flex items-center gap-4 flex-1 header-title">
             <a href="{{ route('admin.tournaments.templates.index', $tournament) }}" class="toolbar-btn" title="Back">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             </a>
@@ -142,7 +165,7 @@
             <span class="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}</span>
         </div>
 
-        <div class="flex items-center">
+        <div class="flex items-center toolbar-center">
             <div class="toolbar-group">
                 <button class="toolbar-btn" onclick="editor.undo()" title="Undo"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg></button>
                 <button class="toolbar-btn" onclick="editor.redo()" title="Redo"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"/></svg></button>
@@ -184,14 +207,14 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-3 flex-1 justify-end">
+        <div class="flex items-center gap-3 flex-1 justify-end header-actions">
             <button onclick="editor.showPreview()" class="prop-btn prop-btn-secondary">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                Preview
+                <span class="btn-label">Preview</span>
             </button>
             <button onclick="editor.save()" id="saveBtn" class="prop-btn prop-btn-primary">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                Save Template
+                <span class="btn-label">Save Template</span>
             </button>
         </div>
     </div>

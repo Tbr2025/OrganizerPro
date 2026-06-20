@@ -88,6 +88,8 @@ class="bg-gray-50 dark:bg-dark-bg">
 
             @include('backend.layouts.partials.header')
 
+            @include('backend.layouts.partials.impersonation-banner')
+
             <!-- Main Content -->
             <main class="min-h-[calc(100vh-80px)] p-4 lg:p-6">
                 @yield('admin-content')

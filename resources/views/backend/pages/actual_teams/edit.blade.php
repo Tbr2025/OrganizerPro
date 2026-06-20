@@ -173,7 +173,8 @@
                                 @endif
                             </label>
                             <select id="organization_id" name="organization_id" required class="form-control mt-1"
-                                @unless(auth()->user()->hasRole('Superadmin')) disabled @endunless>
+                                @unless(auth()->user()->hasRole('Superadmin')) disabled @endunless
+                                onchange="window.dispatchEvent(new CustomEvent('combobox-set-group', { detail: { name: 'tournament_ids[]', group: this.value } }))">
                                 @foreach ($organizations as $org)
                                     <option value="{{ $org->id }}"
                                         {{ old('organization_id', $actualTeam->organization_id) == $org->id ? 'selected' : '' }}>
@@ -223,8 +224,9 @@
                                     name="tournament_ids[]"
                                     label="Tournaments"
                                     placeholder="Select Tournaments"
-                                    :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name])->toArray()"
+                                    :options="$tournaments->map(fn($t) => ['value' => (string) $t->id, 'label' => $t->name, 'group' => (string) $t->organization_id])->toArray()"
                                     :selected="old('tournament_ids', array_map('strval', $selectedTournamentIds))"
+                                    :initialGroup="old('organization_id', $actualTeam->organization_id)"
                                     :multiple="true"
                                     :searchable="true"
                                     :required="false"
@@ -1066,21 +1068,27 @@
                             const res = await fetch('{{ route("admin.actual-teams.add-player", $actualTeam->id) }}', {
                                 method: 'POST',
                                 headers: {
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    // Ensure Laravel returns JSON (incl. 422 validation errors)
+                                    // instead of an HTML redirect, so real messages are shown.
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
                                 },
                                 body: formData
                             });
 
                             const data = await res.json();
 
-                            if (data.success) {
+                            if (res.ok && data.success) {
                                 // Insert player card into all assigned tournament accordions
                                 for (const [tournamentId, teamId] of Object.entries(this.newPlayer.assignments)) {
                                     this.insertPlayerCard(parseInt(tournamentId), data.player);
                                 }
                                 this.showDrawer = false;
                             } else {
-                                this.error = data.message || 'Failed to add player.';
+                                // Surface the first validation error if present
+                                const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                                this.error = firstError || data.message || 'Failed to add player.';
                             }
                         } catch (e) {
                             this.error = 'An error occurred. Please try again.';

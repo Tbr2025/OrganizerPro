@@ -551,10 +551,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/translations/create', [TranslationController::class, 'create'])->name('translations.create');
 
     // Login as & Switch back
+    // NOTE: switch-back must be declared BEFORE the users resource, otherwise the
+    // resource's GET users/{user} (show) route swallows "users/switch-back".
+    // GET (like login-as) so exiting impersonation never fails CSRF/419, and so
+    // it works for any impersonated role. Restoring your own session is harmless.
+    Route::get('users/switch-back', [UserLoginAsController::class, 'switchBack'])->name('users.switch-back');
     Route::resource('users', UsersController::class);
     Route::delete('users/delete/bulk-delete', [UsersController::class, 'bulkDelete'])->name('users.bulk-delete');
     Route::get('users/{id}/login-as', [UserLoginAsController::class, 'loginAs'])->name('users.login-as');
-    Route::post('users/switch-back', [UserLoginAsController::class, 'switchBack'])->name('users.switch-back');
 
     // Action Log Routes.
     Route::get('/action-log', [ActionLogController::class, 'index'])->name('actionlog.index');

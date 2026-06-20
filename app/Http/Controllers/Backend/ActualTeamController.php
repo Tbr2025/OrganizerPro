@@ -375,8 +375,17 @@ class ActualTeamController extends Controller
         }
 
         // --- Data Loading ---
-        $organizations = Organization::all();
-        $tournaments = Tournament::all();
+        // Superadmin can reassign the team's organization, so they need every
+        // organization and every tournament (the tournaments dropdown is then
+        // filtered client-side to the selected organization). Other users are
+        // strictly scoped to their own organization.
+        if (auth()->user()->hasRole('Superadmin')) {
+            $organizations = Organization::all();
+            $tournaments = Tournament::all();
+        } else {
+            $organizations = Organization::where('id', auth()->user()->organization_id)->get();
+            $tournaments = Tournament::where('organization_id', auth()->user()->organization_id)->get();
+        }
 
         // Filter roles that should be available for selection in the UI
         $availableRolesForSelection = Role::whereNotIn('name', [
@@ -1069,7 +1078,7 @@ class ActualTeamController extends Controller
                 'name'                          => 'required|string|max:255',
                 'email'                         => 'required|email|max:255',
                 'phone'                         => 'required|string|max:20',
-                'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+                'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:6144',
                 'tournament_assignments'        => 'nullable|array',
                 'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
                 'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',

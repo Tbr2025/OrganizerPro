@@ -283,9 +283,16 @@ class CricHeroesScraper
             ])->toArray();
 
             $bowling = collect($inn['bowling'] ?? [])->map(function ($bw) {
-                $overs = (int) ($bw['overs'] ?? 0);
-                $remainingBalls = (int) ($bw['balls'] ?? 0);
-                $oversDisplay = $remainingBalls > 0 ? "{$overs}.{$remainingBalls}" : (string) $overs;
+                // CricHeroes returns overs already in cricket notation (e.g. "0.4"
+                // = 0 overs, 4 balls). Casting to int dropped the balls, so use the
+                // raw value directly and only fall back to a balls count if needed.
+                $oversRaw = $bw['overs'] ?? null;
+                if ($oversRaw !== null && $oversRaw !== '') {
+                    $oversDisplay = (string) $oversRaw;
+                } else {
+                    $balls = (int) ($bw['balls'] ?? 0);
+                    $oversDisplay = intdiv($balls, 6) . '.' . ($balls % 6);
+                }
 
                 return [
                     'name' => $bw['name'] ?? '',

@@ -12,6 +12,10 @@
     // New functional props
     'queryParam' => null,
     'refreshPage' => false,
+    // Optional: restrict visible options to those whose `group` matches this
+    // value. Options must include a `group` key. Can be changed at runtime by
+    // dispatching a `combobox-set-group` window event with { name, group }.
+    'initialGroup' => null,
 ])
 
 @php
@@ -31,6 +35,7 @@
         queryParam: '{{ $queryParam }}',
         refreshPage: {{ $refreshPage ? 'true' : 'false' }},
         searchQuery: '',
+        groupFilter: {{ $initialGroup !== null && $initialGroup !== '' ? json_encode((string) $initialGroup) : 'null' }},
 
         setLabelText() {
             // Helper function to find option by value
@@ -126,13 +131,38 @@
 
         getFilteredOptions(query) {
             this.searchQuery = query;
+            this.applyFilters();
+        },
 
-            if (!this.searchable || !query) {
-                this.options = this.allOptions;
-            } else {
-                this.options = this.allOptions.filter(option =>
-                    option.label.toLowerCase().includes(query.toLowerCase())
+        applyFilters() {
+            let base = Array.isArray(this.allOptions) ? this.allOptions : [];
+            // Restrict to the active group (e.g. selected organization) first
+            if (this.groupFilter !== null && this.groupFilter !== '') {
+                base = base.filter(o => String(o.group ?? '') === String(this.groupFilter));
+            }
+            // Then apply the search query
+            if (this.searchable && this.searchQuery) {
+                const q = this.searchQuery.toLowerCase();
+                base = base.filter(o => (o.label || '').toLowerCase().includes(q));
+            }
+            this.options = base;
+        },
+
+        setGroupFilter(group) {
+            this.groupFilter = (group === null || group === undefined || group === '') ? null : String(group);
+            this.applyFilters();
+            // Drop selections that no longer belong to the active group
+            if (this.groupFilter !== null) {
+                const valid = new Set(
+                    (Array.isArray(this.allOptions) ? this.allOptions : [])
+                        .filter(o => String(o.group ?? '') === String(this.groupFilter))
+                        .map(o => String(o.value))
                 );
+                this.selectedOptions = this.selectedOptions.filter(v => valid.has(String(v)));
+                if (this.selectedOption && !valid.has(String(this.selectedOption))) {
+                    this.selectedOption = null;
+                    if (this.$refs.hiddenTextField) this.$refs.hiddenTextField.value = '';
+                }
             }
         },
 
@@ -213,11 +243,15 @@
                     }
                 }
             }
+
+            // Apply any initial group filter to the rendered options
+            this.applyFilters();
         }
     }"
     class="w-full flex flex-col gap-1 {{ $class }}"
     x-on:keydown="highlightFirstMatchingOption($event.key)"
     x-on:keydown.esc.window="isOpen = false, openedWithKeyboard = false"
+    x-on:combobox-set-group.window="if ($event.detail && $event.detail.name === '{{ $name }}') setGroupFilter($event.detail.group)"
     {{ $attributes->whereStartsWith('x-on:') }}>
 
     @if($label)

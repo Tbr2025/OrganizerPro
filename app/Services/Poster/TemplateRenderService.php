@@ -219,8 +219,12 @@ class TemplateRenderService extends PosterGeneratorService
             $tempCanvas = imagecreatetruecolor($canvasW, $canvasH);
             imagealphablending($tempCanvas, true);
             imagesavealpha($tempCanvas, true);
-            $transparent = imagecolorallocatealpha($tempCanvas, 0, 0, 0, 127);
-            imagefill($tempCanvas, 0, 0, $transparent);
+            // Copy the current canvas into the temp so that areas WITHOUT this
+            // element stay identical to the existing layers. imagecopymerge()
+            // ignores the source alpha channel, so a transparent fill would be
+            // treated as opaque black and darken the whole poster — copying the
+            // canvas first keeps the opacity change scoped to this element only.
+            imagecopy($tempCanvas, $canvas, 0, 0, 0, 0, $canvasW, $canvasH);
 
             // Draw shadow on temp canvas if enabled
             if ($shadow) {
@@ -751,8 +755,11 @@ class TemplateRenderService extends PosterGeneratorService
             $tempCanvas = imagecreatetruecolor($canvasW, $canvasH);
             imagealphablending($tempCanvas, true);
             imagesavealpha($tempCanvas, true);
-            $transparent = imagecolorallocatealpha($tempCanvas, 0, 0, 0, 127);
-            imagefill($tempCanvas, 0, 0, $transparent);
+            // Copy the current canvas into the temp so the opacity change stays
+            // scoped to this shape only. imagecopymerge() ignores the source
+            // alpha channel, so filling with transparent black would blend over
+            // every other layer and darken the whole poster.
+            imagecopy($tempCanvas, $canvas, 0, 0, 0, 0, $canvasW, $canvasH);
 
             // Render shape at full opacity onto temp canvas, then merge
             $tempElement = $element;
@@ -1733,7 +1740,60 @@ class TemplateRenderService extends PosterGeneratorService
     {
         $bgService = new ImageBackgroundRemovalService();
         $noBgPath = $bgService->removeBackgroundNonDestructive($storagePath);
-        return $noBgPath ?? $storagePath;
+
+        // Player cut-outs tend to look flat/low-contrast after background removal
+        // and scaling, so give them a mild auto-enhance (contrast + brightness).
+        return $this->enhancePlayerImage($noBgPath ?? $storagePath);
+    }
+
+    /**
+     * Apply a subtle, alpha-preserving contrast/brightness boost to a player
+     * photo so it reads more punchy on the poster. The result is cached on the
+     * public disk keyed by source path + mtime. Falls back to the original path
+     * on any failure so rendering never breaks.
+     */
+    protected function enhancePlayerImage(string $storagePath): string
+    {
+        try {
+            if (!Storage::disk('public')->exists($storagePath)) {
+                return $storagePath;
+            }
+
+            $fullSource = Storage::disk('public')->path($storagePath);
+            $cacheDir = 'poster-cache/enhanced';
+            $cachePath = $cacheDir . '/' . md5($storagePath . '|' . @filemtime($fullSource)) . '.png';
+
+            if (Storage::disk('public')->exists($cachePath)) {
+                return $cachePath;
+            }
+
+            $img = $this->loadBackground($storagePath);
+            if (!$img) {
+                return $storagePath;
+            }
+
+            // Preserve transparency through the filters.
+            imagealphablending($img, false);
+            imagesavealpha($img, true);
+
+            // In GD a NEGATIVE contrast value increases contrast.
+            imagefilter($img, IMG_FILTER_CONTRAST, -14);
+            // Small brightness lift to stop the contrast boost crushing shadows.
+            imagefilter($img, IMG_FILTER_BRIGHTNESS, 6);
+
+            Storage::disk('public')->makeDirectory($cacheDir);
+            $tmp = tempnam(sys_get_temp_dir(), 'enh') . '.png';
+            imagepng($img, $tmp);
+            imagedestroy($img);
+
+            Storage::disk('public')->put($cachePath, file_get_contents($tmp));
+            @unlink($tmp);
+
+            return $cachePath;
+        } catch (\Throwable $e) {
+            \Log::warning('Player image enhancement failed: ' . $e->getMessage());
+            return $storagePath;
+        }
     }
 
     /**

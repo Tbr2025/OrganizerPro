@@ -120,7 +120,7 @@ class MatchSummaryPosterService extends PosterGeneratorService
                     ])->values()->toArray();
                 }
                 if (!empty($innings[0]['bowling'])) {
-                    $data['bowling_table_b'] = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                    $data['bowling_table_b'] = collect($innings[0]['bowling'])->sort(fn ($x, $y) => (($y['wickets'] ?? 0) <=> ($x['wickets'] ?? 0)) ?: ((float) ($x['economy'] ?? 0) <=> (float) ($y['economy'] ?? 0)))->take(3)->map(fn($b) => [
                         'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                         'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                     ])->values()->toArray();
@@ -132,7 +132,7 @@ class MatchSummaryPosterService extends PosterGeneratorService
                     ])->values()->toArray();
                 }
                 if (!empty($innings[1]['bowling'])) {
-                    $data['bowling_table_a'] = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                    $data['bowling_table_a'] = collect($innings[1]['bowling'])->sort(fn ($x, $y) => (($y['wickets'] ?? 0) <=> ($x['wickets'] ?? 0)) ?: ((float) ($x['economy'] ?? 0) <=> (float) ($y['economy'] ?? 0)))->take(3)->map(fn($b) => [
                         'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                         'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                     ])->values()->toArray();
