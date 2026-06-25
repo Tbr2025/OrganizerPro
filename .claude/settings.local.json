@@ -189,7 +189,11 @@
       "Bash(ps -o pid=,command= -p 52813)",
       "Bash(kill 52813)",
       "Bash(lsof -nP -iTCP:8000 -sTCP:LISTEN -t)",
-      "Bash(break)"
+      "Bash(break)",
+      "Bash(xargs -I{} sed -n '{}p' storage/logs/laravel.log)",
+      "Bash(/opt/homebrew/opt/mysql/bin/mysql --version)",
+      "Bash(/usr/local/mysql/bin/mysql --version)",
+      "Bash(grep -n 'password.*=>.*hashed\\\\|'\\\\''hashed'\\\\''\\\\|function casts\\\\|protected $casts\\\\|guard_name\\\\|'\\\\''name'\\\\''' app/Models/User.php)"
     ]
   }
 }
