@@ -15,16 +15,23 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Database Backups</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Create, download, and restore database backups</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Create, download, restore, export, and import database backups</p>
             </div>
-            <form action="{{ route('admin.backups.create') }}" method="POST">
-                @csrf
-                <button type="submit" id="createBackupBtn" onclick="this.disabled=true; this.innerHTML='<svg class=\'w-5 h-5 mr-2 animate-spin\' fill=\'none\' viewBox=\'0 0 24 24\'><circle class=\'opacity-25\' cx=\'12\' cy=\'12\' r=\'10\' stroke=\'currentColor\' stroke-width=\'4\'></circle><path class=\'opacity-75\' fill=\'currentColor\' d=\'M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\'></path></svg> Creating...'; this.form.submit();"
-                        class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition text-sm">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Create Backup
-                </button>
-            </form>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <a href="{{ route('admin.backups.export') }}"
+                   class="inline-flex items-center justify-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition text-sm">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Export Database
+                </a>
+                <form action="{{ route('admin.backups.create') }}" method="POST">
+                    @csrf
+                    <button type="submit" id="createBackupBtn" onclick="this.disabled=true; this.innerHTML='<svg class=\'w-5 h-5 mr-2 animate-spin\' fill=\'none\' viewBox=\'0 0 24 24\'><circle class=\'opacity-25\' cx=\'12\' cy=\'12\' r=\'10\' stroke=\'currentColor\' stroke-width=\'4\'></circle><path class=\'opacity-75\' fill=\'currentColor\' d=\'M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\'></path></svg> Creating...'; this.form.submit();"
+                            class="inline-flex items-center justify-center w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition text-sm">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Create Backup
+                    </button>
+                </form>
+            </div>
         </div>
 
         {{-- Backup Files Table --}}
@@ -108,6 +115,31 @@
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Create your first database backup using the button above.</p>
             </div>
             @endif
+        </div>
+
+        {{-- Import Database (Caution) --}}
+        <div class="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+            <div class="flex">
+                <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <div class="ml-3 w-full">
+                    <p class="text-sm font-semibold text-red-800 dark:text-red-300">Import Database — Use With Caution</p>
+                    <p class="mt-1 text-sm text-red-700 dark:text-red-300">Uploading and importing a <code>.sql</code> file will <strong>replace data</strong> in the current database. A safety backup is created automatically before the import runs. Max file size: 100&nbsp;MB.</p>
+                    <form action="{{ route('admin.backups.import') }}" method="POST" enctype="multipart/form-data" class="mt-3 flex flex-col sm:flex-row sm:items-center gap-3"
+                          onsubmit="return confirm('⚠ CAUTION: Importing will REPLACE data in the current database with the contents of the uploaded file. A safety backup will be created first. Continue?');">
+                        @csrf
+                        <input type="file" name="sql_file" accept=".sql" required
+                               class="block text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-red-100 file:text-red-700 hover:file:bg-red-200 dark:file:bg-red-900/40 dark:file:text-red-300 cursor-pointer">
+                        <button type="submit"
+                                class="inline-flex items-center justify-center px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition text-sm whitespace-nowrap">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                            Import Database
+                        </button>
+                    </form>
+                    @error('sql_file')
+                        <p class="mt-2 text-sm text-red-700 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
         </div>
 
         {{-- Info Note --}}

@@ -118,6 +118,77 @@ class BackupController extends Controller
     }
 
     /**
+     * Export the database as a fresh dump and stream it to the browser.
+     */
+    public function export(): \Symfony\Component\HttpFoundation\BinaryFileResponse|RedirectResponse
+    {
+        $database = config('database.connections.mysql.database');
+        $fileName = 'export-' . $database . '-' . date('Ymd-His') . '.sql';
+        $filePath = storage_path('app/backups/' . $fileName);
+
+        $this->ensureBackupDir();
+
+        $command = $this->buildDumpCommand($filePath);
+
+        exec($command, $output, $returnVar);
+
+        if ($returnVar !== 0 || !file_exists($filePath)) {
+            Log::error('Database export failed', ['output' => $output, 'code' => $returnVar]);
+            @unlink($filePath);
+            return redirect()->back()->with('error', __('Export failed. Check server logs for details.'));
+        }
+
+        return response()->download($filePath, $fileName, ['Content-Type' => 'application/sql'])
+            ->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Import an uploaded SQL file into the database.
+     */
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'sql_file' => ['required', 'file', 'max:102400'], // 100 MB
+        ]);
+
+        $file = $request->file('sql_file');
+
+        if (strtolower((string) $file->getClientOriginalExtension()) !== 'sql') {
+            return redirect()->back()->with('error', __('Invalid file. Only .sql files can be imported.'));
+        }
+
+        $this->ensureBackupDir();
+
+        $importDir = storage_path('app/backups/imports');
+        if (!is_dir($importDir)) {
+            mkdir($importDir, 0755, true);
+        }
+
+        $importName = 'import-' . date('Ymd-His') . '.sql';
+        $importPath = $importDir . '/' . $importName;
+
+        $file->move($importDir, $importName);
+
+        // Create a safety backup before importing
+        $this->createSafetyBackup();
+
+        $command = $this->buildImportCommand($importPath);
+
+        exec($command, $output, $returnVar);
+
+        @unlink($importPath);
+
+        if ($returnVar !== 0) {
+            Log::error('Database import failed', ['output' => $output, 'code' => $returnVar]);
+            return redirect()->back()->with('error', __('Import failed. A safety backup was created before the attempt. Check server logs.'));
+        }
+
+        Log::info('Database imported from uploaded file');
+
+        return redirect()->back()->with('success', __('Database imported successfully. A safety backup of the previous state was created.'));
+    }
+
+    /**
      * Delete a backup file.
      */
     public function delete(Request $request): RedirectResponse
