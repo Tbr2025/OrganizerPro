@@ -174,7 +174,9 @@
       "Bash(brew services *)",
       "Bash(lsof -nP -iTCP:3306 -sTCP:LISTEN)",
       "Bash(mysql *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(git ls-remote *)",
+      "Bash(GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=20\" git push origin main)"
     ]
   }
 }
