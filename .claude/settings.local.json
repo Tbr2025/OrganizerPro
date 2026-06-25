@@ -176,7 +176,20 @@
       "Bash(mysql *)",
       "Bash(git check-ignore *)",
       "Bash(git ls-remote *)",
-      "Bash(GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=20\" git push origin main)"
+      "Bash(GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=20\" git push origin main)",
+      "Bash(echo \"PUSH_EXIT=$?\")",
+      "Bash(ssh-keygen -t ed25519 -C \"navasfazil@gmail.com\" -f ~/.ssh/id_ed25519_navasfazil1004 -N \"\" -q)",
+      "Bash(touch ~/.ssh/config)",
+      "Bash(chmod 600 ~/.ssh/config)",
+      "Bash(cat)",
+      "Bash(lsof -nP -iTCP:8000 -sTCP:LISTEN)",
+      "Read(//opt/homebrew/etc/php/8.3/**)",
+      "Bash(ps -o lstart= -p 52824)",
+      "Bash(ps -o command= -p 52824)",
+      "Bash(ps -o pid=,command= -p 52813)",
+      "Bash(kill 52813)",
+      "Bash(lsof -nP -iTCP:8000 -sTCP:LISTEN -t)",
+      "Bash(break)"
     ]
   }
 }
