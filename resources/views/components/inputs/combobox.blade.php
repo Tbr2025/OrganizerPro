@@ -328,7 +328,8 @@
             @endif
 
             <!-- Options list -->
-            <ul class="max-h-[50vh] sm:max-h-60 overflow-y-auto py-1 overscroll-contain">
+            <ul class="max-h-[50vh] sm:max-h-60 overflow-y-auto py-1 overscroll-contain"
+                style="max-height: min(60vh, 20rem); overflow-y: auto;">
                 <template x-for="(item, index) in options" x-bind:key="item.value">
                     @if($multiple)
                     <li role="option">
