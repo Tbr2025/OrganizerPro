@@ -17,11 +17,7 @@ class CricHeroesScraper
     {
         $this->validateUrl($url);
 
-        // Ensure URL ends with /scorecard
-        $url = rtrim($url, '/');
-        if (!str_ends_with($url, '/scorecard')) {
-            $url .= '/scorecard';
-        }
+        $url = $this->normalizeScorecardUrl($url);
 
         $html = $this->fetchPage($url);
         $data = $this->extractNextData($html);
@@ -100,10 +96,7 @@ class CricHeroesScraper
     {
         $this->validateUrl($url);
 
-        $url = rtrim($url, '/');
-        if (!str_ends_with($url, '/scorecard')) {
-            $url .= '/scorecard';
-        }
+        $url = $this->normalizeScorecardUrl($url);
 
         $html = $this->fetchPage($url);
         $pageProps = $this->extractNextData($html);
@@ -138,6 +131,32 @@ class CricHeroesScraper
         }
     }
 
+    /**
+     * Normalise a CricHeroes match URL to its `/scorecard` tab.
+     *
+     * Match URLs end with a tab segment (summary, scorecard, commentary, …).
+     * Blindly appending `/scorecard` to e.g. a `/summary` URL produces an
+     * invalid path that 404s, so we strip any trailing tab first, then ensure
+     * the URL ends with the `/scorecard` tab.
+     */
+    private function normalizeScorecardUrl(string $url): string
+    {
+        $url = rtrim($url, '/');
+
+        $tabs = ['summary', 'scorecard', 'commentary', 'insights', 'live', 'team-comparison', 'overs', 'mvp', 'analysis'];
+        $segments = explode('/', $url);
+        if (in_array(strtolower((string) end($segments)), $tabs, true)) {
+            array_pop($segments);
+            $url = implode('/', $segments);
+        }
+
+        if (!str_ends_with($url, '/scorecard')) {
+            $url .= '/scorecard';
+        }
+
+        return $url;
+    }
+
     private function fetchPage(string $url): string
     {
         $response = Http::timeout(15)
@@ -158,7 +177,10 @@ class CricHeroesScraper
     private function extractNextData(string $html): array
     {
         if (!preg_match('/__NEXT_DATA__[^>]*>(.*?)<\/script>/s', $html, $match)) {
-            throw new \RuntimeException('Could not find match data on the CricHeroes page.');
+            // CricHeroes migrated to the Next.js App Router: the page no longer
+            // embeds match data in __NEXT_DATA__ and instead loads it client-side
+            // via their API. Server-side HTML scraping can no longer read it.
+            throw new \RuntimeException('CricHeroes no longer embeds match data in the page (site updated). Use "Or paste scorecard text manually" instead, or import via the CricHeroes API.');
         }
 
         $json = json_decode($match[1], true);
