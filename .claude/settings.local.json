@@ -156,7 +156,25 @@
       "Bash(cat << 'EOF'\n=== Summary of Controllers NOT Passing Breadcrumbs ===\n\n1. TournamentTemplateController::edit\\(\\) - tournaments/templates/editor.blade.php\n2. AuctionOrganizerController::showPanel\\(\\) - auction/organizer-panel.blade.php\n3. AuctionOrganizerController::showOfflinePanel\\(\\) - auction/offline-panel.blade.php\n4. AuctionBiddingController::showBiddingPage\\(\\) - auction/bidding-page.blade.php\n5. AuctionBiddingController::selectBiddingTeam\\(\\) - auction/bidding-team-selector.blade.php\n6. AuctionController::edit\\(\\) - auctions/edit.blade.php \\(needs verification\\)\n7. AuctionController::show\\(\\) - auctions/show.blade.php \\(needs verification\\)\n8. AuctionLiveController \\(but has breadcrumbs for some methods\\)\n9. ClosedBidController::index\\(\\) - auctions/closed-bids.blade.php\n10. TeamManagerController - team-manager/auctions.blade.php, team-manager/create-player.blade.php, team-manager/no-team.blade.php\n11. MatchesController::liveTickerIndex\\(\\) - matches/live-ticker-index.blade.php\n12. AdminNotificationController::index\\(\\) \\(partially - notification list partial doesn't need it\\)\n13. TournamentSettingsController \\(but appears to have breadcrumbs\\)\n14. PlayerController::editor\\(\\) - players/image-editor.blade.php\n15. ImageTemplateController::show\\(\\) - image-templates/show.blade.php\n16. BallController::create\\(\\) - balls/create.blade.php\n17. BallController - balls/live.blade.php \\(may not exist in this controller\\)\n18. AppreciationController - appreciations/editor.blade.php\n\nEOF)",
       "Bash(echo \"=== Verifying AuctionController methods ===\"\ngrep -A 20 \"public function edit\\\\|public function show\" /Users/navasfazil/OrganizerPro/app/Http/Controllers/Backend/AuctionController.php | grep -E \"public function|return view|breadcrumbs\")",
       "Bash(echo \"=== Verifying AuctionBiddingController methods ===\"\ngrep -A 10 \"public function\" /Users/navasfazil/OrganizerPro/app/Http/Controllers/Backend/AuctionBiddingController.php | grep -E \"public function|return view|breadcrumbs\")",
-      "Bash(echo \"=== Verifying BallController methods ===\"\ngrep -A 10 \"public function\" /Users/navasfazil/OrganizerPro/app/Http/Controllers/Backend/BallController.php | grep -E \"public function|return view|breadcrumbs\")"
+      "Bash(echo \"=== Verifying BallController methods ===\"\ngrep -A 10 \"public function\" /Users/navasfazil/OrganizerPro/app/Http/Controllers/Backend/BallController.php | grep -E \"public function|return view|breadcrumbs\")",
+      "Bash(grep -r \"Tailwind\\\\|tailwind\\\\|@tailwind\" /Users/navasfazil/OrganizerPro/resources/css --include=\"*.css\" 2>/dev/null | head -5)",
+      "Bash(git status -u)",
+      "Bash(grep -r \"x-data\\\\|x-show\\\\|x-transition\\\\|@click\" /Users/navasfazil/OrganizerPro/resources/views/public/tournament/*.blade.php | head -20)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro diff --stat)",
+      "Bash(grep -r \"fabricjs\\\\|fabric.js\\\\|fabric\\\\.util\" /Users/navasfazil/OrganizerPro/resources /Users/navasfazil/OrganizerPro/app --include=\"*.js\" --include=\"*.php\" 2>/dev/null | head -10)",
+      "Bash(grep -l \"save\\\\|store\\\\|update\" /Users/navasfazil/OrganizerPro/app/Http/Controllers/Backend/Tournament/*.php)",
+      "mcp__ide__getDiagnostics",
+      "Bash(grep -r \"Cropper\\\\|cropper\\\\|cropperjs\" /Users/navasfazil/OrganizerPro/resources --include=\"*.php\" --include=\"*.js\" --include=\"*.blade.php\" -n 2>/dev/null | head -50)",
+      "Bash(grep -r \"cdn\\\\|CDN\\\\|script src\\\\|link rel\" /Users/navasfazil/OrganizerPro/resources/views/components/*.blade.php | grep -i \"crop\\\\|image\" | head -20)",
+      "Bash(grep -l \"accent_color\\\\|color\\\\|design\\\\|brand\\\\|theme\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
+      "Bash(grep -r \"accent_color\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
+      "WebFetch(domain:cdnjs.cloudflare.com)",
+      "Bash(grep -r \"global_custom_css\\\\|global_custom_js\\\\|sidebar.*color\\\\|menu.*color\" /Users/navasfazil/OrganizerPro/config /Users/navasfazil/OrganizerPro/database --include=\"*.php\" 2>/dev/null | head -20)",
+      "Bash(mysql.server status *)",
+      "Bash(brew services *)",
+      "Bash(lsof -nP -iTCP:3306 -sTCP:LISTEN)",
+      "Bash(mysql *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
