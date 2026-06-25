@@ -120,8 +120,9 @@ class BackupController extends Controller
     /**
      * Export the database as a fresh dump and stream it to the browser.
      */
-    public function export(): \Symfony\Component\HttpFoundation\BinaryFileResponse|RedirectResponse
+    public function export(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|RedirectResponse
     {
+        $compress = $request->boolean('compress');
         $database = config('database.connections.mysql.database');
         $fileName = 'export-' . $database . '-' . date('Ymd-His') . '.sql';
         $filePath = storage_path('app/backups/' . $fileName);
@@ -138,6 +139,21 @@ class BackupController extends Controller
             return redirect()->back()->with('error', __('Export failed. Check server logs for details.'));
         }
 
+        // Optionally gzip the dump so it downloads/uploads far smaller.
+        if ($compress) {
+            exec(sprintf('gzip -f %s', escapeshellarg($filePath)), $gzOutput, $gzReturn);
+
+            if ($gzReturn !== 0 || !file_exists($filePath . '.gz')) {
+                Log::error('Database export compression failed', ['output' => $gzOutput, 'code' => $gzReturn]);
+                @unlink($filePath);
+                @unlink($filePath . '.gz');
+                return redirect()->back()->with('error', __('Export compression failed. Check server logs for details.'));
+            }
+
+            return response()->download($filePath . '.gz', $fileName . '.gz', ['Content-Type' => 'application/gzip'])
+                ->deleteFileAfterSend(true);
+        }
+
         return response()->download($filePath, $fileName, ['Content-Type' => 'application/sql'])
             ->deleteFileAfterSend(true);
     }
@@ -148,13 +164,18 @@ class BackupController extends Controller
     public function import(Request $request): RedirectResponse
     {
         $request->validate([
-            'sql_file' => ['required', 'file', 'max:102400'], // 100 MB
+            'sql_file' => ['required', 'file', 'max:1048576'], // 1 GB
         ]);
 
         $file = $request->file('sql_file');
 
-        if (strtolower((string) $file->getClientOriginalExtension()) !== 'sql') {
-            return redirect()->back()->with('error', __('Invalid file. Only .sql files can be imported.'));
+        // Accept a plain .sql dump or a gzip-compressed .sql.gz / .gz dump.
+        $originalName = strtolower((string) $file->getClientOriginalName());
+        $isGzipped = str_ends_with($originalName, '.gz');
+        $isSql = str_ends_with($originalName, '.sql') || str_ends_with($originalName, '.sql.gz');
+
+        if (!$isSql && !$isGzipped) {
+            return redirect()->back()->with('error', __('Invalid file. Only .sql or .sql.gz files can be imported.'));
         }
 
         $this->ensureBackupDir();
@@ -164,7 +185,7 @@ class BackupController extends Controller
             mkdir($importDir, 0755, true);
         }
 
-        $importName = 'import-' . date('Ymd-His') . '.sql';
+        $importName = 'import-' . date('Ymd-His') . ($isGzipped ? '.sql.gz' : '.sql');
         $importPath = $importDir . '/' . $importName;
 
         $file->move($importDir, $importName);
@@ -172,7 +193,7 @@ class BackupController extends Controller
         // Create a safety backup before importing
         $this->createSafetyBackup();
 
-        $command = $this->buildImportCommand($importPath);
+        $command = $this->buildImportCommand($importPath, $isGzipped);
 
         exec($command, $output, $returnVar);
 
@@ -261,11 +282,15 @@ class BackupController extends Controller
      */
     private function buildDumpCommand(string $outputPath): string
     {
+        // Pass the password via MYSQL_PWD so mysqldump does not emit the
+        // "Using a password ... is insecure" warning. Send stdout (the SQL)
+        // to the file and let stderr flow to exec()'s captured output, so a
+        // warning can never end up inside the dump and corrupt it.
         return sprintf(
-            '%s --user=%s --password=%s --host=%s --port=%s --single-transaction %s > %s 2>&1',
+            'MYSQL_PWD=%s %s --user=%s --host=%s --port=%s --single-transaction %s 2>&1 1>%s',
+            escapeshellarg(config('database.connections.mysql.password')),
             $this->findMysqlDump(),
             escapeshellarg(config('database.connections.mysql.username')),
-            escapeshellarg(config('database.connections.mysql.password')),
             escapeshellarg(config('database.connections.mysql.host', '127.0.0.1')),
             escapeshellarg(config('database.connections.mysql.port', '3306')),
             escapeshellarg(config('database.connections.mysql.database')),
@@ -276,17 +301,29 @@ class BackupController extends Controller
     /**
      * Build the mysql import command string.
      */
-    private function buildImportCommand(string $inputPath): string
+    private function buildImportCommand(string $inputPath, bool $gzipped = false): string
     {
+        // Source the SQL: decompress on the fly for .gz, otherwise cat the file.
+        $source = $gzipped
+            ? sprintf('gzip -dc %s', escapeshellarg($inputPath))
+            : sprintf('cat %s', escapeshellarg($inputPath));
+
+        // Strip any leading mysqldump/mysql warning lines that older buggy
+        // dumps may have written into the file (these would otherwise be run
+        // as SQL and fail with a syntax error on line 1), then pipe the clean
+        // SQL into mysql. MYSQL_PWD avoids the password warning.
         return sprintf(
-            '%s --user=%s --password=%s --host=%s --port=%s %s < %s 2>&1',
+            '%s | sed -e %s -e %s -e %s | MYSQL_PWD=%s %s --user=%s --host=%s --port=%s %s 2>&1',
+            $source,
+            escapeshellarg('/^mysqldump: /d'),
+            escapeshellarg('/^mysql: /d'),
+            escapeshellarg('/^Warning: /d'),
+            escapeshellarg(config('database.connections.mysql.password')),
             $this->findMysql(),
             escapeshellarg(config('database.connections.mysql.username')),
-            escapeshellarg(config('database.connections.mysql.password')),
             escapeshellarg(config('database.connections.mysql.host', '127.0.0.1')),
             escapeshellarg(config('database.connections.mysql.port', '3306')),
-            escapeshellarg(config('database.connections.mysql.database')),
-            escapeshellarg($inputPath)
+            escapeshellarg(config('database.connections.mysql.database'))
         );
     }
 
