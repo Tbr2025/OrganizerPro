@@ -3,7 +3,14 @@
 @section('title', ($template ? 'Edit' : 'Create') . ' Template | ' . $tournament->name)
 
 @push('styles')
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Open+Sans:wght@300;400;600;700&family=Montserrat:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&family=Oswald:wght@300;400;500;600;700&family=Bebas+Neue&family=Anton&family=Bangers&display=swap" rel="stylesheet">
+{{-- Built-in fonts served from the SAME local TTFs the GD renderer uses, so the
+     editor preview matches the generated poster exactly (no Google CDN cut drift,
+     and every weight is available — not just 400/700). --}}
+<style id="builtinFontFaces">{!! app(\App\Services\Fonts\FontService::class)->builtinFontFaceCss() !!}</style>
+{{-- Never let the browser fake bold/italic — every weight has a real @font-face
+     above mapping to the exact TTF the server renders with, so synthesized
+     faces would only diverge the preview from the generated poster. --}}
+<style>html, body, canvas { font-synthesis: none; -webkit-font-synthesis: none; }</style>
 {{-- Installed fonts (Font Manager): same TTF files the server renders with, so
      the live preview matches the generated poster exactly. --}}
 <style id="installedFontFaces">{!! app(\App\Services\Fonts\FontService::class)->fontFaceCss() !!}</style>
@@ -634,6 +641,12 @@
                                 <option value="900">Black</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propAutoSize" onchange="editor.updateText('autoSize', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Auto Size <span class="text-[10px] text-gray-500">(shrink font to fit box width; off = wrap lines)</span></span>
+                        </label>
                     </div>
                     <div class="prop-group">
                         <label class="prop-label">Color</label>
@@ -1393,11 +1406,12 @@ const editor = {
         // Preload all Google Fonts before rendering template text
         // (display=swap makes fonts lazy; explicitly loading ensures they're ready)
         const fontFamilies = @json(app(\App\Services\Fonts\FontService::class)->editorFontList());
-        // Load each at normal + bold so weighted text measures correctly before render.
-        const fontLoads = fontFamilies.flatMap(f => [
-            document.fonts.load(`16px "${f}"`).catch(() => {}),
-            document.fonts.load(`700 16px "${f}"`).catch(() => {}),
-        ]);
+        // Load every weight we render with so weighted text (500/600/etc.) measures
+        // and paints with the real font instead of a fallback before first render.
+        const fontWeights = [300, 400, 500, 600, 700, 800, 900];
+        const fontLoads = fontFamilies.flatMap(f =>
+            fontWeights.map(w => document.fonts.load(`${w} 16px "${f}"`).catch(() => {}))
+        );
         Promise.all(fontLoads).then(() => {
             // Load existing data
             @if($template && $template->layout_json)
@@ -1429,7 +1443,30 @@ const editor = {
         this.canvas.on('selection:created', (e) => this.showProperties(e.selected[0]));
         this.canvas.on('selection:updated', (e) => this.showProperties(e.selected[0]));
         this.canvas.on('selection:cleared', () => this.hideProperties());
-        this.canvas.on('object:modified', () => { this.saveHistory(); this.updateProperties(); this.updateLayers(); });
+        this.canvas.on('object:modified', (e) => {
+            const o = e && e.target;
+            if (o && o.elementType === 'text') {
+                // Normalize any scaling into the box width so width is the single
+                // source of truth (side handles already do this; corners scale).
+                const sx = o.scaleX || 1;
+                if (sx !== 1) o.set('width', Math.max(20, o.width * sx));
+                o.set({ scaleX: 1, scaleY: 1 });
+                if (o.autoSize) this.fitTextToWidth(o);
+            }
+            this.saveHistory(); this.updateProperties(); this.updateLayers();
+        });
+        this.canvas.on('object:scaling', (e) => {
+            const o = e && e.target;
+            if (o && o.elementType === 'text' && o.autoSize) this.fitTextToWidth(o);
+        });
+        this.canvas.on('text:changed', (e) => {
+            const o = e && e.target;
+            if (o && o.elementType === 'text' && o.autoSize && !o._fitting) {
+                o._fitting = true;
+                this.fitTextToWidth(o);
+                o._fitting = false;
+            }
+        });
         this.canvas.on('object:added', () => this.updateLayers());
         this.canvas.on('object:removed', () => this.updateLayers());
 
@@ -1518,7 +1555,7 @@ const editor = {
 
     // Add elements
     addText(placeholder, x, y) {
-        const text = new fabric.IText(getExampleText(placeholder), {
+        const text = new fabric.Textbox(getExampleText(placeholder), {
             left: x, top: y,
             fontSize: 36,
             fontFamily: 'Montserrat',
@@ -1526,9 +1563,13 @@ const editor = {
             fill: '#ffffff',
             originX: 'center', originY: 'center',
             textAlign: 'center',
+            splitByGrapheme: false,
         });
         text.placeholder = placeholder;
         text.elementType = 'text';
+        text.autoSize = false;
+        text.baseFontSize = 36;
+        this.fitBoxToContent(text);
         this.canvas.add(text);
         this.canvas.setActiveObject(text);
         this.saveHistory();
@@ -1537,7 +1578,7 @@ const editor = {
     addCustomText() {
         const cx = this.canvasWidth / 2;
         const cy = this.canvasHeight / 2;
-        const text = new fabric.IText('Your Text Here', {
+        const text = new fabric.Textbox('Your Text Here', {
             left: cx, top: cy,
             fontSize: 36,
             fontFamily: 'Montserrat',
@@ -1545,9 +1586,13 @@ const editor = {
             fill: '#ffffff',
             originX: 'center', originY: 'center',
             textAlign: 'center',
+            splitByGrapheme: false,
         });
         text.placeholder = '';
         text.elementType = 'text';
+        text.autoSize = false;
+        text.baseFontSize = 36;
+        this.fitBoxToContent(text);
         this.canvas.add(text);
         this.canvas.setActiveObject(text);
         this.canvas.renderAll();
@@ -1555,6 +1600,45 @@ const editor = {
         text.enterEditing();
         text.selectAll();
         this.saveHistory();
+    },
+
+    // Measure the natural single-line width of a text object's content at a
+    // given font size, using a throwaway fabric.Text (no wrapping). This mirrors
+    // the server renderer's imagettfbbox measurement so editor and poster agree.
+    measureLineWidth(obj, fontSize) {
+        const probe = new fabric.Text(obj.text || '', {
+            fontSize: fontSize,
+            fontFamily: obj.fontFamily,
+            fontWeight: obj.fontWeight,
+            fontStyle: obj.fontStyle || 'normal',
+        });
+        return probe.width || 1;
+    },
+
+    // Size a text box's width to exactly fit its content on one line.
+    fitBoxToContent(obj) {
+        const w = this.measureLineWidth(obj, obj.fontSize || obj.baseFontSize || 24);
+        obj.set('width', Math.max(20, Math.ceil(w) + 2));
+    },
+
+    // Recompute a text element's displayed font size based on Auto Size:
+    //  - ON  -> shrink (never grow) so the full text fits one line in the box
+    //  - OFF -> restore the chosen base size and let the Textbox wrap lines
+    fitTextToWidth(obj) {
+        if (!obj || obj.elementType !== 'text') return;
+        const base = obj.baseFontSize || obj.fontSize || 24;
+        if (obj.autoSize) {
+            const boxW = (obj.width || 1) * (obj.scaleX || 1);
+            const natural = this.measureLineWidth(obj, base);
+            let size = base;
+            if (natural > boxW) {
+                size = Math.max(6, Math.floor(base * (boxW / natural)));
+            }
+            obj.set('fontSize', size);
+        } else {
+            obj.set('fontSize', base);
+        }
+        this.canvas.requestRenderAll();
     },
 
     addIcon(unicode, name) {
@@ -2144,7 +2228,8 @@ const editor = {
                 placeholderInfoEl.classList.add('hidden');
             }
             document.getElementById('propFontFamily').value = obj.fontFamily || 'Arial';
-            document.getElementById('propFontSize').value = Math.round(obj.fontSize || 24);
+            document.getElementById('propFontSize').value = Math.round(obj.baseFontSize || obj.fontSize || 24);
+            document.getElementById('propAutoSize').checked = !!obj.autoSize;
             document.getElementById('propFontWeight').value = obj.fontWeight || '400';
             document.getElementById('propTextColor').value = obj.fill || '#ffffff';
             document.getElementById('propTextTransform').value = obj.textTransform || 'none';
@@ -2268,7 +2353,20 @@ const editor = {
     updateText(prop, value) {
         const obj = this.canvas.getActiveObject();
         if (!obj) return;
-        obj.set(prop, value);
+        if (prop === 'fontSize') {
+            // The Size field sets the chosen (base) size; Auto Size derives the display size.
+            obj.baseFontSize = value;
+            obj.set('fontSize', value);
+            this.fitTextToWidth(obj);
+        } else if (prop === 'autoSize') {
+            obj.autoSize = value;
+            this.fitTextToWidth(obj);
+        } else {
+            obj.set(prop, value);
+            if (prop === 'fontFamily' || prop === 'fontWeight') {
+                this.fitTextToWidth(obj);
+            }
+        }
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -2290,6 +2388,7 @@ const editor = {
         const btn = document.getElementById('propBoldBtn');
         if (newWeight === '700') { btn.classList.remove('prop-btn-secondary'); btn.classList.add('prop-btn-primary'); }
         else { btn.classList.remove('prop-btn-primary'); btn.classList.add('prop-btn-secondary'); }
+        this.fitTextToWidth(obj);
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -2302,6 +2401,7 @@ const editor = {
         const btn = document.getElementById('propItalicBtn');
         if (newStyle === 'italic') { btn.classList.remove('prop-btn-secondary'); btn.classList.add('prop-btn-primary'); }
         else { btn.classList.remove('prop-btn-primary'); btn.classList.add('prop-btn-secondary'); }
+        this.fitTextToWidth(obj);
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -2753,7 +2853,7 @@ const editor = {
 
     // History
     saveHistory() {
-        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'fillOpacity', 'tableConfig', 'textTransform', 'iconName', 'iconUnicode', 'iconType', 'iconColor']);
+        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'fillOpacity', 'tableConfig', 'textTransform', 'iconName', 'iconUnicode', 'iconType', 'iconColor', 'autoSize', 'baseFontSize']);
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(JSON.stringify(json));
         this.historyIndex++;
@@ -2909,7 +3009,7 @@ const editor = {
             const y = (item.y / 100) * this.canvasHeight;
 
             if (item.type === 'text' || item.type === 'i-text') {
-                const text = new fabric.IText(item.placeholder ? getExampleText(item.placeholder) : (item.text || 'Text'), {
+                const text = new fabric.Textbox(item.placeholder ? getExampleText(item.placeholder) : (item.text || 'Text'), {
                     left: x, top: y,
                     fontSize: item.fontSize || 24,
                     fontFamily: item.fontFamily || 'Arial',
@@ -2923,6 +3023,7 @@ const editor = {
                     opacity: (item.opacity ?? 100) / 100,
                     textAlign: item.textAlign || 'center',
                     originX: 'center', originY: 'center',
+                    splitByGrapheme: false,
                 });
                 if (item.shadow) text.shadow = new fabric.Shadow({ color: item.shadow.color || '#000000', blur: item.shadow.blur || 5, offsetX: item.shadow.offsetX || 2, offsetY: item.shadow.offsetY || 2 });
                 if (item.stroke) text.set('stroke', item.stroke);
@@ -2930,7 +3031,17 @@ const editor = {
                 text.placeholder = item.placeholder;
                 text.elementType = 'text';
                 text.textTransform = item.textTransform || 'none';
+                text.autoSize = item.autoSize || false;
+                text.baseFontSize = item.baseFontSize || item.fontSize || 24;
                 text._layoutIndex = layoutIndex;
+                // Box width: use stored width, else (legacy items) size to the
+                // natural single-line width so they look exactly as before.
+                if (item.width && item.width > 0) {
+                    text.set('width', item.width);
+                } else {
+                    this.fitBoxToContent(text);
+                }
+                if (text.autoSize) this.fitTextToWidth(text);
                 this.canvas.add(text);
             } else if (item.type === 'image') {
                 const w = item.width || 150, h = item.height || 150;
@@ -3204,7 +3315,7 @@ const editor = {
             } else if (obj.elementType === 'text' || obj.type === 'i-text') {
                 // Save the actual text content — needed for custom/static text that has no placeholder
                 const textContent = obj.text || '';
-                return { ...base, text: textContent, fontSize: obj.fontSize, fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', underline: obj.underline || false, linethrough: obj.linethrough || false, skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY, color: obj.shadow.color || '#000000' } : null, stroke: obj.stroke || null, strokeWidth: obj.strokeWidth || 0 };
+                return { ...base, text: textContent, fontSize: obj.fontSize, baseFontSize: obj.baseFontSize || obj.fontSize, autoSize: obj.autoSize || false, width: (obj.width || 0) * (obj.scaleX || 1), fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', underline: obj.underline || false, linethrough: obj.linethrough || false, skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY, color: obj.shadow.color || '#000000' } : null, stroke: obj.stroke || null, strokeWidth: obj.strokeWidth || 0 };
             } else if (obj.elementType === 'image') {
                 return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'shape') {

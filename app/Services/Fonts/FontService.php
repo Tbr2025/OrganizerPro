@@ -29,6 +29,156 @@ class FontService
         'Oswald', 'Bebas Neue', 'Anton', 'Bangers',
     ];
 
+    /**
+     * Built-in family => [weight => bundled TTF file]. These are the SAME files
+     * the GD renderer resolves to (see TemplateRenderService::getFontFile), so
+     * emitting @font-face from them makes the editor preview byte-identical to
+     * the generated poster (instead of loading a possibly-different CDN cut and
+     * falling back for weights that were never preloaded).
+     */
+    public const BUILTIN_VARIANTS = [
+        'Montserrat' => [300 => 'Montserrat-Light.ttf', 400 => 'Montserrat-Regular.ttf', 500 => 'Montserrat-Medium.ttf', 600 => 'Montserrat-SemiBold.ttf', 700 => 'Montserrat-Bold.ttf', 800 => 'Montserrat-ExtraBold.ttf', 900 => 'Montserrat-Black.ttf'],
+        'Oswald' => [200 => 'Oswald-ExtraLight.ttf', 300 => 'Oswald-Light.ttf', 400 => 'Oswald-Regular.ttf', 500 => 'Oswald-Medium.ttf', 600 => 'Oswald-SemiBold.ttf', 700 => 'Oswald-Bold.ttf'],
+        'Poppins' => [400 => 'Poppins-Regular.ttf', 500 => 'Poppins-Medium.ttf', 700 => 'Poppins-Bold.ttf'],
+        'Roboto' => [400 => 'Roboto-Regular.ttf', 500 => 'Roboto-Medium.ttf', 700 => 'Roboto-Bold.ttf'],
+        'Open Sans' => [400 => 'OpenSans-Regular.ttf', 600 => 'OpenSans-SemiBold.ttf', 700 => 'OpenSans-Bold.ttf'],
+        'Bebas Neue' => [400 => 'BebasNeue-Regular.ttf'],
+        'Anton' => [400 => 'Anton-Regular.ttf'],
+        'Bangers' => [400 => 'Bangers-Regular.ttf'],
+    ];
+
+    /**
+     * Italic variants available among the bundled built-ins.
+     */
+    public const BUILTIN_ITALICS = [
+        'Montserrat' => [400 => 'Montserrat-Italic.ttf', 700 => 'Montserrat-BoldItalic.ttf'],
+    ];
+
+    /**
+     * Resolve a built-in family + weight to its bundled TTF — the single source
+     * of truth shared by the GD renderer (TemplateRenderService::getFontFile)
+     * and the editor's @font-face CSS, so both pick the IDENTICAL file for any
+     * (family, weight). Returns null if the family isn't a built-in.
+     *
+     * Picks the nearest available weight (ties prefer the heavier), since a
+     * bundled family may only ship a subset of weights.
+     */
+    public function builtinFontFile(string $family, int $weight, string $style = 'normal'): ?string
+    {
+        $key = $this->builtinFamilyKey($family);
+        if ($key === null) {
+            return null;
+        }
+
+        if ($style === 'italic' && !empty(self::BUILTIN_ITALICS[$key])) {
+            return $this->pickNearestWeight(self::BUILTIN_ITALICS[$key], $weight);
+        }
+
+        return $this->pickNearestWeight(self::BUILTIN_VARIANTS[$key] ?? [], $weight);
+    }
+
+    /** Case-insensitive match of a family name to a BUILTIN_VARIANTS key. */
+    private function builtinFamilyKey(string $family): ?string
+    {
+        foreach (array_keys(self::BUILTIN_VARIANTS) as $key) {
+            if (strcasecmp($key, $family) === 0) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * From a [weight => file] map, return the file for the weight closest to
+     * the requested one (ties resolve to the heavier weight).
+     *
+     * @param  array<int|string, string>  $weightToFile
+     */
+    private function pickNearestWeight(array $weightToFile, int $weight): ?string
+    {
+        $bestWeight = null;
+        foreach (array_keys($weightToFile) as $w) {
+            $w = (int) $w;
+            if ($bestWeight === null) {
+                $bestWeight = $w;
+                continue;
+            }
+            $d = abs($w - $weight);
+            $bd = abs($bestWeight - $weight);
+            if ($d < $bd || ($d === $bd && $w > $bestWeight)) {
+                $bestWeight = $w;
+            }
+        }
+
+        return $bestWeight === null ? null : ($weightToFile[$bestWeight] ?? null);
+    }
+
+    /**
+     * @font-face CSS for the built-in families. Each face spans a FULL weight
+     * range (not just the bundled weights) so the browser always finds an exact
+     * match for any requested weight — pointing at the SAME bundled TTF the GD
+     * renderer resolves to. This prevents the browser from synthesizing a
+     * faux-bold (or falling back) for a weight the renderer can't produce, which
+     * was making the editor preview differ from the generated poster.
+     */
+    public function builtinFontFaceCss(): string
+    {
+        $css = '';
+        foreach (array_keys(self::BUILTIN_VARIANTS) as $family) {
+            $css .= $this->familyFaceRanges($family, 'normal');
+            if (!empty(self::BUILTIN_ITALICS[$family])) {
+                $css .= $this->familyFaceRanges($family, 'italic');
+            }
+        }
+
+        return $css;
+    }
+
+    /**
+     * Emit @font-face rules for one family/style, partitioning the 1..1000
+     * weight axis into contiguous ranges that each map (via the shared
+     * resolver) to a single bundled TTF.
+     */
+    private function familyFaceRanges(string $family, string $style): string
+    {
+        $variants = $style === 'italic'
+            ? (self::BUILTIN_ITALICS[$family] ?? [])
+            : (self::BUILTIN_VARIANTS[$family] ?? []);
+
+        // Keep only weights whose file actually exists on disk.
+        $variants = array_filter($variants, fn ($file) => File::exists($this->fontsPath($file)));
+        if (empty($variants)) {
+            return '';
+        }
+
+        $css = '';
+        $currentFile = null;
+        $rangeLo = 1;
+        for ($w = 1; $w <= 1000; $w++) {
+            $file = $this->pickNearestWeight($variants, $w);
+            if ($file !== $currentFile) {
+                if ($currentFile !== null) {
+                    $css .= $this->fontFaceRule($family, $currentFile, $style, $rangeLo, $w - 1);
+                }
+                $currentFile = $file;
+                $rangeLo = $w;
+            }
+        }
+        $css .= $this->fontFaceRule($family, $currentFile, $style, $rangeLo, 1000);
+
+        return $css;
+    }
+
+    private function fontFaceRule(string $family, string $file, string $style, int $lo, int $hi): string
+    {
+        $url = asset('fonts/' . $file);
+
+        return "@font-face{font-family:'" . addslashes($family) . "';"
+            . "font-style:{$style};font-weight:{$lo} {$hi};font-display:swap;"
+            . "src:url('{$url}') format('truetype');}\n";
+    }
+
     /** Memoized active fonts (avoids a DB query per rendered text element). */
     private ?\Illuminate\Support\Collection $activeFontsCache = null;
 

@@ -209,11 +209,38 @@ class TemplateRenderService extends PosterGeneratorService
         $fontFamily = $element['fontFamily'] ?? 'Montserrat';
         $fontFile = $this->getFontFile($fontWeight, $fontStyle, $fontFamily);
 
+        // Auto Size / box width support.
+        //  - autoSize ON  -> shrink the font so the full text fits one line in the box.
+        //  - autoSize OFF -> keep the chosen size and wrap the text onto multiple lines.
+        // baseFontSize is the user-chosen size; the stored fontSize may already be a
+        // shrunk value from the editor (computed against example text), so always work
+        // from baseFontSize here and re-fit against the real value.
+        $autoSize = (bool) ($element['autoSize'] ?? false);
+        $boxWidth = (float) ($element['width'] ?? 0) * $this->renderScale;
+        $baseFontSize = (int) (($element['baseFontSize'] ?? ($element['fontSize'] ?? 24)) * $this->renderScale);
+        $fontSize = $baseFontSize;
+        if ($autoSize && $boxWidth > 0) {
+            $fontSize = $this->shrinkFontToWidth($text, $fontFile, $baseFontSize, $boxWidth);
+        }
+
         // If skew is applied, render to temp canvas and apply affine shear
         if ($skewX != 0) {
             $this->renderSkewedText($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, $rotation, $skewX, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth);
             return;
         }
+
+        // Determine the line(s) to draw. Wrap mode (autoSize OFF, box width set)
+        // splits the text into multiple lines that fit the box width.
+        if (!$autoSize && $boxWidth > 0) {
+            $lines = $this->wrapTextToWidth($text, $fontFile, $fontSize, $boxWidth);
+        } else {
+            $lines = [$text];
+        }
+        $lineHeight = (int) round($fontSize * 1.16);
+        $blockHeight = $lineHeight * max(1, count($lines));
+        // Vertically centre the block on the element's y (origin is center), so a
+        // single line lands exactly at $y (matching the previous behaviour).
+        $firstCenterY = $y - intdiv($blockHeight, 2) + intdiv($lineHeight, 2);
 
         // If opacity < 100, render text onto a temp canvas and merge with opacity
         if ($opacity < 100) {
@@ -229,22 +256,9 @@ class TemplateRenderService extends PosterGeneratorService
             // canvas first keeps the opacity change scoped to this element only.
             imagecopy($tempCanvas, $canvas, 0, 0, 0, 0, $canvasW, $canvasH);
 
-            // Draw shadow on temp canvas if enabled
-            if ($shadow) {
-                $this->addText($tempCanvas, $text, $x + $shadowX, $y + $shadowY, $fontSize, $shadowColor, $fontFile, $textAlign, -$rotation);
-            }
-
-            // Draw stroke on temp canvas if enabled
-            if ($strokeColor && $strokeWidth > 0) {
-                $this->renderTextStroke($tempCanvas, $text, $x, $y, $fontSize, $strokeColor, $strokeWidth, $fontFile, $textAlign, -$rotation);
-            }
-
-            // Draw main text on temp canvas
-            $this->addText($tempCanvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, -$rotation);
-
-            // Draw decorations on temp canvas
-            if ($underline || $linethrough) {
-                $this->renderTextDecoration($tempCanvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, -$rotation, $underline, $linethrough);
+            foreach ($lines as $i => $line) {
+                $ly = $firstCenterY + $i * $lineHeight;
+                $this->drawTextLine($tempCanvas, $line, $x, $ly, $fontSize, $color, $fontFile, $textAlign, -$rotation, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth, $underline, $linethrough);
             }
 
             // Merge temp canvas onto main canvas with opacity
@@ -253,43 +267,113 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
-        // Draw shadow first if enabled
+        foreach ($lines as $i => $line) {
+            $ly = $firstCenterY + $i * $lineHeight;
+            $this->drawTextLine($canvas, $line, $x, $ly, $fontSize, $color, $fontFile, $textAlign, -$rotation, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth, $underline, $linethrough);
+        }
+    }
+
+    /**
+     * Draw a single line of text including shadow, stroke, the fill, and
+     * underline/linethrough decorations. $y is the vertical centre of the line.
+     */
+    protected function drawTextLine(\GdImage $canvas, string $text, int $x, int $y, int $fontSize, string $color, string $fontFile, string $textAlign, float $angle, bool $shadow, int $shadowX, int $shadowY, string $shadowColor, ?string $strokeColor, int $strokeWidth, bool $underline, bool $linethrough): void
+    {
         if ($shadow) {
-            $this->addText(
-                $canvas,
-                $text,
-                $x + $shadowX,
-                $y + $shadowY,
-                $fontSize,
-                $shadowColor,
-                $fontFile,
-                $textAlign,
-                -$rotation
-            );
+            $this->addText($canvas, $text, $x + $shadowX, $y + $shadowY, $fontSize, $shadowColor, $fontFile, $textAlign, $angle);
         }
-
-        // Draw stroke before main text
         if ($strokeColor && $strokeWidth > 0) {
-            $this->renderTextStroke($canvas, $text, $x, $y, $fontSize, $strokeColor, $strokeWidth, $fontFile, $textAlign, -$rotation);
+            $this->renderTextStroke($canvas, $text, $x, $y, $fontSize, $strokeColor, $strokeWidth, $fontFile, $textAlign, $angle);
         }
-
-        // Draw main text
-        $this->addText(
-            $canvas,
-            $text,
-            $x,
-            $y,
-            $fontSize,
-            $color,
-            $fontFile,
-            $textAlign,
-            -$rotation
-        );
-
-        // Draw underline / linethrough decorations
+        $this->addText($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, $angle);
         if ($underline || $linethrough) {
-            $this->renderTextDecoration($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, -$rotation, $underline, $linethrough);
+            $this->renderTextDecoration($canvas, $text, $x, $y, $fontSize, $color, $fontFile, $textAlign, $angle, $underline, $linethrough);
         }
+    }
+
+    /**
+     * Resolve a usable TTF path for a font file (mirrors PosterGeneratorService::addText
+     * fallback) so width measurement and drawing use the identical font.
+     */
+    protected function fontPathFor(string $fontFile): ?string
+    {
+        $path = public_path('fonts/' . $fontFile);
+        if (file_exists($path)) {
+            return $path;
+        }
+        foreach (['Oswald-Bold.ttf', 'Montserrat-Medium.ttf'] as $fallback) {
+            $path = public_path('fonts/' . $fallback);
+            if (file_exists($path)) {
+                return $path;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Shrink a font size (never grow above $maxSize) until the single-line text
+     * width fits within $boxWidth. Returns the fitted size (floored at $minSize).
+     */
+    protected function shrinkFontToWidth(string $text, string $fontFile, int $maxSize, float $boxWidth, int $minSize = 8): int
+    {
+        if ($text === '' || $boxWidth <= 0) {
+            return $maxSize;
+        }
+        $fontPath = $this->fontPathFor($fontFile);
+        if (!$fontPath) {
+            return $maxSize;
+        }
+        $size = $maxSize;
+        // Proportional first guess to avoid a long step-down loop.
+        $bbox = @imagettfbbox($size, 0, $fontPath, $text);
+        if ($bbox) {
+            $width = abs($bbox[2] - $bbox[0]);
+            if ($width > $boxWidth && $width > 0) {
+                $size = (int) max($minSize, floor($size * ($boxWidth / $width)));
+            }
+        }
+        // Verify and step down for the last few pixels.
+        while ($size > $minSize) {
+            $bbox = @imagettfbbox($size, 0, $fontPath, $text);
+            if (!$bbox) {
+                break;
+            }
+            if (abs($bbox[2] - $bbox[0]) <= $boxWidth) {
+                break;
+            }
+            $size--;
+        }
+        return $size;
+    }
+
+    /**
+     * Greedy word-wrap: split text into lines that each fit within $boxWidth at
+     * the given font size. Explicit newlines in the source are preserved.
+     */
+    protected function wrapTextToWidth(string $text, string $fontFile, int $fontSize, float $boxWidth): array
+    {
+        $fontPath = $this->fontPathFor($fontFile);
+        if (!$fontPath || $boxWidth <= 0) {
+            return [$text];
+        }
+        $lines = [];
+        foreach (preg_split('/\r\n|\r|\n/', $text) as $paragraph) {
+            $words = explode(' ', $paragraph);
+            $line = '';
+            foreach ($words as $word) {
+                $candidate = $line === '' ? $word : $line . ' ' . $word;
+                $bbox = @imagettfbbox($fontSize, 0, $fontPath, $candidate);
+                $width = $bbox ? abs($bbox[2] - $bbox[0]) : 0;
+                if ($width > $boxWidth && $line !== '') {
+                    $lines[] = $line;
+                    $line = $word;
+                } else {
+                    $line = $candidate;
+                }
+            }
+            $lines[] = $line;
+        }
+        return $lines ?: [$text];
     }
 
     /**
@@ -1818,35 +1902,26 @@ class TemplateRenderService extends PosterGeneratorService
             // Fall through to built-in fonts if anything goes wrong.
         }
 
-        // 2. Built-in fonts shipped in public/fonts (existing behaviour).
-        $fontMap = [
-            'montserrat' => ['regular' => 'Montserrat-Medium.ttf', 'bold' => 'Montserrat-Bold.ttf'],
-            'roboto' => ['regular' => 'Roboto-Regular.ttf', 'medium' => 'Roboto-Medium.ttf', 'bold' => 'Roboto-Bold.ttf'],
-            'open sans' => ['regular' => 'OpenSans-Regular.ttf', 'semibold' => 'OpenSans-SemiBold.ttf', 'bold' => 'OpenSans-Bold.ttf'],
-            'poppins' => ['regular' => 'Poppins-Regular.ttf', 'medium' => 'Poppins-Medium.ttf', 'bold' => 'Poppins-Bold.ttf'],
-            'oswald' => ['light' => 'Oswald-Light.ttf', 'regular' => 'Oswald-Regular.ttf', 'medium' => 'Oswald-Medium.ttf', 'semibold' => 'Oswald-SemiBold.ttf', 'bold' => 'Oswald-Bold.ttf'],
-            'bebas neue' => ['regular' => 'BebasNeue-Regular.ttf'],
-            'anton' => ['regular' => 'Anton-Regular.ttf'],
-            'bangers' => ['regular' => 'Bangers-Regular.ttf'],
-        ];
-
-        // Handle italic (only Montserrat has italic TTFs)
+        // 2. Built-in fonts shipped in public/fonts. Resolution is delegated to
+        //    FontService::builtinFontFile() — the SAME mapping the editor's
+        //    @font-face CSS uses — so the live preview and the generated poster
+        //    pick the identical TTF for any (family, weight).
         if ($fontStyle === 'italic') {
+            $italic = $this->fontService?->builtinFontFile($fontFamily, $w, 'italic');
+            if ($italic && str_contains($italic, 'Italic')) {
+                return $italic;
+            }
+            // Families without true italics fall back to Montserrat italic.
             return $w >= 600 ? 'Montserrat-BoldItalic.ttf' : 'Montserrat-Italic.ttf';
         }
 
-        // Look up font family
-        $family = $fontMap[strtolower($fontFamily)] ?? null;
-        if (!$family) {
-            // Default fallback
-            return $w >= 700 ? 'Montserrat-Bold.ttf' : 'Montserrat-Medium.ttf';
+        $builtin = $this->fontService?->builtinFontFile($fontFamily, $w, 'normal');
+        if ($builtin) {
+            return $builtin;
         }
 
-        // Select weight variant
-        if ($w >= 700) return $family['bold'] ?? $family['regular'];
-        if ($w >= 600) return $family['semibold'] ?? $family['bold'] ?? $family['regular'];
-        if ($w >= 500) return $family['medium'] ?? $family['regular'];
-        return $family['regular'] ?? $family['bold'] ?? 'Montserrat-Medium.ttf';
+        // 3. Default fallback for unknown families.
+        return $w >= 700 ? 'Montserrat-Bold.ttf' : 'Montserrat-Medium.ttf';
     }
 
     /**
