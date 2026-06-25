@@ -13,7 +13,7 @@
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl p-6">
             <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">{{ $tournament->name }} - Settings</h2>
 
-            @unlessrole('Superadmin')
+            @cannot('tournament.settings')
             <div class="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-4">
                 <div class="flex items-start gap-3">
                     <div class="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
@@ -27,7 +27,7 @@
                     </div>
                 </div>
             </div>
-            @endunlessrole
+            @endcannot
 
             <form method="POST" action="{{ route('admin.tournaments.settings.update', $tournament) }}" class="space-y-8" enctype="multipart/form-data">
                 @csrf
@@ -38,7 +38,7 @@
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Branding & Design</h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Configure the public tournament page appearance</p>
 
-                    @role('Superadmin')
+                    @can('tournament.settings')
                     <div x-data="{
                         primary: '{{ old('primary_color', $settings->primary_color ?? '#1a56db') }}',
                         secondary: '{{ old('secondary_color', $settings->secondary_color ?? '#ffffff') }}',
@@ -230,7 +230,7 @@
                             </div>
                         </div>
                     </div>
-                    @endrole
+                    @endcan
                 </div>
 
                 {{-- Registration Section --}}
@@ -592,7 +592,7 @@
                 </div>
 
                 {{-- Actions --}}
-                @role('Superadmin')
+                @can('tournament.settings')
                 <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <a href="{{ route('admin.tournaments.index') }}"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -604,13 +604,13 @@
                         Save Settings
                     </button>
                 </div>
-                @endrole
+                @endcan
             </form>
         </div>
     </div>
 
 @push('scripts')
-@unlessrole('Superadmin')
+@cannot('tournament.settings')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.querySelector('form[action*="settings"]');
@@ -625,7 +625,7 @@
         });
     });
 </script>
-@endunlessrole
+@endcannot
 <script>
 function copyLink(inputId) {
     const input = document.getElementById(inputId);

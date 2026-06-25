@@ -204,6 +204,9 @@ class TournamentController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        // Permission gate: only users granted tournament.create may proceed.
+        $this->checkAuthorization($user, ['tournament.create']);
+
         // 2. Check if the user has the 'Superadmin' role
         if ($user->hasRole('Superadmin')) {
             // Superadmin can see ALL organizations to choose from.
@@ -266,6 +269,8 @@ class TournamentController extends Controller
     }
     public function store(Request $request)
     {
+        $this->checkAuthorization(auth()->user(), ['tournament.create']);
+
         $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
             'zone_id'        => 'nullable|exists:zones,id',
@@ -315,6 +320,7 @@ class TournamentController extends Controller
     public function edit(Tournament $tournament)
     {
         $user = Auth::user();
+        $this->checkAuthorization($user, ['tournament.view']);
 
         if ($user->hasRole('Superadmin')) {
             $organizations = Organization::all();
@@ -342,6 +348,8 @@ class TournamentController extends Controller
 
     public function update(Request $request, Tournament $tournament)
     {
+        $this->checkAuthorization(auth()->user(), ['tournament.edit']);
+
         $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
             'zone_id'        => 'nullable|exists:zones,id',
@@ -377,6 +385,8 @@ class TournamentController extends Controller
 
     public function destroy(Tournament $tournament)
     {
+        $this->checkAuthorization(auth()->user(), ['tournament.delete']);
+
         $tournament->delete();
 
         return redirect()

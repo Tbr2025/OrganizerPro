@@ -1,14 +1,14 @@
 @extends('backend.layouts.app')
 
-@section('title', (auth()->user()->hasRole('Superadmin') ? 'Edit' : 'View') . ' Tournament | ' . config('app.name'))
+@section('title', (auth()->user()->can('tournament.edit') ? 'Edit' : 'View') . ' Tournament | ' . config('app.name'))
 
-@php $isSuperadmin = auth()->user()->hasRole('Superadmin'); @endphp
+@php $canEdit = auth()->user()->can('tournament.edit'); @endphp
 
 @section('admin-content')
     <div class="p-4 mx-auto max-w-2xl md:p-6">
         <x-breadcrumbs :breadcrumbs="[
             ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
-            ['label' => $isSuperadmin ? 'Edit' : 'View']
+            ['label' => $canEdit ? 'Edit' : 'View']
         ]" />
 
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl p-6">
@@ -16,12 +16,12 @@
                 @csrf
                 @method('PUT')
 
-                <fieldset {{ $isSuperadmin ? '' : 'disabled' }}>
+                <fieldset {{ $canEdit ? '' : 'disabled' }}>
 
                 {{-- Logo --}}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tournament Logo</label>
-                    @if($isSuperadmin)
+                    @if($canEdit)
                         <x-logo-cropper name="logo" :existingImage="$tournament->logo" :circular="false" :ratios="[
                             ['label' => 'Square 1:1', 'value' => 1],
                             ['label' => 'Wide 16:9', 'value' => 16/9],
@@ -139,10 +139,10 @@
                 <div class="flex items-center justify-end space-x-3 pt-4">
                     <a href="{{ route('admin.tournaments.index') }}"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white dark:bg-gray-800 dark:text-white border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700">
-                        {{ $isSuperadmin ? 'Cancel' : 'Back' }}
+                        {{ $canEdit ? 'Cancel' : 'Back' }}
                     </a>
 
-                    @if($isSuperadmin)
+                    @if($canEdit)
                     <button type="submit"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Update Tournament

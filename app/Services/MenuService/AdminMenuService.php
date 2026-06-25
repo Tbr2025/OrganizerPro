@@ -509,7 +509,6 @@ class AdminMenuService
                     'active' => Route::is('admin.tournaments.create'),
                     'priority' => 20,
                     'permissions' => 'tournament.create',
-                    'superadmin_only' => true,
                 ],
             ],
         ]);

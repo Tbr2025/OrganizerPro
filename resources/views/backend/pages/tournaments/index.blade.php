@@ -21,7 +21,7 @@
                 </svg>
                 Public Page
             </a>
-            @role('Superadmin')
+            @can('tournament.create')
                 <a href="{{ route('admin.tournaments.create') }}"
                     class="btn btn-primary inline-flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -29,7 +29,7 @@
                     </svg>
                     New Tournament
                 </a>
-            @endrole
+            @endcan
         </div>
     </div>
 
