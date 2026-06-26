@@ -888,5 +888,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/{match}/result/quick', [MatchResultController::class, 'quickUpdate'])->name('matches.result.quick');
     Route::post('/matches/{match}/result/cricheroes', [MatchResultController::class, 'fetchCricHeroesData'])->name('matches.result.cricheroes');
     Route::post('/matches/{match}/sync-cricheroes', [MatchResultController::class, 'syncCricHeroesScore'])->name('matches.sync-cricheroes');
+    Route::post('/matches/{match}/result/scorecard-pdf', [MatchResultController::class, 'importScorecardPdf'])->name('matches.result.scorecard-pdf');
     Route::delete('/matches/{match}/result/scorecard-data', [MatchResultController::class, 'clearScorecardData'])->name('matches.result.clear-scorecard');
 });

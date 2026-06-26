@@ -98,6 +98,11 @@ class MatchPublicController extends Controller
 
         if ($match->result?->scorecard_data) {
             $scorecardData = $match->result->scorecard_data;
+            // scorecard_data may be wrapped as ['innings' => [...], 'cricheroes_heroes' => [...]]
+            // (PDF/CricHeroes import) — the view expects a flat innings array.
+            if (is_array($scorecardData) && isset($scorecardData['innings'])) {
+                $scorecardData = $scorecardData['innings'];
+            }
             $balls = collect();
         } else {
             // Fall back to expensive ball-by-ball queries

@@ -16,10 +16,13 @@ use App\Services\Poster\TemplateRenderService;
 use App\Services\Notification\TournamentNotificationService;
 use App\Services\Tournament\PlayerStatisticService;
 use App\Services\Tournament\PointTableService;
+use App\Traits\CalculatesMatchBallStats;
 use Illuminate\Http\Request;
 
 class MatchSummaryController extends Controller
 {
+    use CalculatesMatchBallStats;
+
     protected MatchSummaryPosterService $posterService;
     protected TournamentNotificationService $notificationService;
     protected PlayerStatisticService $playerStatisticService;
@@ -78,7 +81,40 @@ class MatchSummaryController extends Controller
             $templatePlaceholderMap[$tmpl->id] = $placeholders;
         }
 
-        return view('backend.pages.matches.summary-editor', compact(
+        // Result-tab data (mirrors the former MatchResultController::edit pre-fill
+        // from live ball data when no result has been recorded yet).
+        $result = $match->result ?? new MatchResult();
+        $ballStats = $this->calculateBallStats($match);
+        if (!$match->result && $ballStats['hasBallData']) {
+            if ($ballStats['bothInningsComplete']) {
+                $result->team_a_score = $ballStats['teamA']['runs'];
+                $result->team_a_wickets = $ballStats['teamA']['wickets'];
+                $result->team_a_overs = $ballStats['teamA']['overs'];
+                $result->team_a_extras = $ballStats['teamA']['extras'];
+                $result->team_b_score = $ballStats['teamB']['runs'];
+                $result->team_b_wickets = $ballStats['teamB']['wickets'];
+                $result->team_b_overs = $ballStats['teamB']['overs'];
+                $result->team_b_extras = $ballStats['teamB']['extras'];
+                if ($ballStats['teamA']['runs'] > $ballStats['teamB']['runs']) {
+                    $result->winner_team_id = $match->team_a_id;
+                    $result->result_type = 'runs';
+                    $result->margin = $ballStats['teamA']['runs'] - $ballStats['teamB']['runs'];
+                } elseif ($ballStats['teamB']['runs'] > $ballStats['teamA']['runs']) {
+                    $result->winner_team_id = $match->team_b_id;
+                    $result->result_type = 'wickets';
+                    $result->margin = 10 - $ballStats['teamB']['wickets'];
+                } else {
+                    $result->result_type = 'tie';
+                }
+            } elseif ($ballStats['firstInningsComplete'] && !$ballStats['secondInningsStarted']) {
+                $result->team_a_score = $ballStats['teamA']['runs'];
+                $result->team_a_wickets = $ballStats['teamA']['wickets'];
+                $result->team_a_overs = $ballStats['teamA']['overs'];
+                $result->team_a_extras = $ballStats['teamA']['extras'];
+            }
+        }
+
+        return view('backend.pages.matches.manage', compact(
             'match',
             'summary',
             'tournament',
@@ -86,7 +122,9 @@ class MatchSummaryController extends Controller
             'tournamentAwards',
             'teamAPlayers',
             'teamBPlayers',
-            'templatePlaceholderMap'
+            'templatePlaceholderMap',
+            'result',
+            'ballStats'
         ));
     }
 
@@ -272,16 +310,8 @@ class MatchSummaryController extends Controller
                 ->with('error', 'Please select a player or enter a custom player name.');
         }
 
-        // Check if award already assigned
-        $exists = $match->matchAwards()
-            ->where('tournament_award_id', $validated['tournament_award_id'])
-            ->exists();
-
-        if ($exists) {
-            return redirect()
-                ->back()
-                ->with('error', 'This award has already been assigned for this match.');
-        }
+        // Re-selecting an already-assigned award updates it (set or change),
+        // handled by updateOrCreate below — no longer blocked.
 
         // Handle custom player image upload
         $imagePath = null;
@@ -349,21 +379,44 @@ class MatchSummaryController extends Controller
         // Remove non-model field before creating
         unset($validated['custom_player_team']);
 
-        $match->matchAwards()->create($validated);
+        $match->matchAwards()->updateOrCreate(
+            ['tournament_award_id' => $validated['tournament_award_id']],
+            $validated
+        );
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return $this->awardsListJson($match, 'Award saved successfully.');
+        }
 
         return redirect()
             ->back()
-            ->with('success', 'Award assigned successfully.');
+            ->with('success', 'Award saved successfully.');
+    }
+
+    /**
+     * JSON response with the freshly-rendered awards list for AJAX add/edit/delete.
+     */
+    private function awardsListJson(Matches $match, string $message)
+    {
+        $awards = $match->matchAwards()->with('player', 'tournamentAward')->get();
+        $tournament = $match->tournament;
+        $html = view('backend.pages.matches.partials.awards-list', compact('awards', 'match', 'tournament'))->render();
+
+        return response()->json(['success' => true, 'message' => $message, 'html' => $html]);
     }
 
     /**
      * Remove an award
      */
-    public function removeAward(Matches $match, MatchAward $award)
+    public function removeAward(Matches $match, MatchAward $award, Request $request)
     {
         abort_if($award->match_id !== $match->id, 404);
 
         $award->delete();
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return $this->awardsListJson($match, 'Award removed successfully.');
+        }
 
         return redirect()
             ->back()

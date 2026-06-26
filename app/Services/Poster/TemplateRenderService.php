@@ -144,7 +144,15 @@ class TemplateRenderService extends PosterGeneratorService
                 // Custom/static text — use the text typed by the user in the editor
                 $value = $staticText;
             } elseif ($placeholder && ($value === '' || $value === null)) {
-                return; // Skip blank fields
+                // Blank data-bound field: hide it on generation so unresolved
+                // placeholders never show. Exception: person-photo placeholders
+                // keep their silhouette fallback (a deliberate design default,
+                // not a leftover placeholder box).
+                if ($type === 'image' && $this->shouldRemoveBackground($placeholder)) {
+                    // fall through with empty $value → silhouette in renderImageElement
+                } else {
+                    return; // Skip blank text + generic image placeholder boxes
+                }
             }
         } else {
             $value = $data[$placeholder] ?? ($staticText ?: $this->getDisplayValue($placeholder));
@@ -2600,9 +2608,12 @@ class TemplateRenderService extends PosterGeneratorService
     /**
      * Render and save permanently
      */
-    public function renderAndSave(TournamentTemplate $template, array $data, string $customFilename = null): string
+    public function renderAndSave(TournamentTemplate $template, array $data, string $customFilename = null, bool $skipBlanks = true): string
     {
-        $path = $this->renderTemplate($template, $data, false);
+        // skipBlanks defaults to true: real poster generation should hide any
+        // placeholder whose value is empty instead of falling back to the
+        // editor's sample text (e.g. "John Doe").
+        $path = $this->renderTemplate($template, $data, false, $skipBlanks);
 
         if ($customFilename && Storage::disk('public')->exists($path)) {
             $newPath = $this->outputDirectory . '/' . $customFilename;

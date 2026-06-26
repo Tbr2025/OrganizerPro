@@ -347,13 +347,13 @@
                 <div class="motm-card rounded-3xl p-8 md:p-12 text-white text-center gold-glow">
                     <div class="relative inline-block mb-6">
                         <div class="w-36 h-36 md:w-44 md:h-44 mx-auto rounded-full bg-white/10 p-1 ring-4 ring-yellow-400 ring-offset-4 ring-offset-purple-900">
-                            @if($motmAward->player?->image_path)
-                                <img src="{{ Storage::url($motmAward->player->image_path) }}"
-                                     alt="{{ $motmAward->player->name }}"
+                            @if($motmAward->display_image)
+                                <img src="{{ Storage::url($motmAward->display_image) }}"
+                                     alt="{{ $motmAward->display_name }}"
                                      class="w-full h-full rounded-full object-cover">
                             @else
                                 <div class="w-full h-full rounded-full bg-purple-800 flex items-center justify-center">
-                                    <span class="text-5xl font-bold text-purple-300">{{ substr($motmAward->player?->name ?? 'M', 0, 1) }}</span>
+                                    <span class="text-5xl font-bold text-purple-300">{{ substr($motmAward->display_name, 0, 1) }}</span>
                                 </div>
                             @endif
                         </div>
@@ -362,7 +362,7 @@
                         </div>
                     </div>
 
-                    <h3 class="text-3xl md:text-4xl font-bold mb-2">{{ $motmAward->player?->name ?? 'Unknown Player' }}</h3>
+                    <h3 class="text-3xl md:text-4xl font-bold mb-2">{{ $motmAward->display_name }}</h3>
 
                     @if($motmAward->remarks)
                         <p class="text-lg text-purple-200 max-w-md mx-auto mt-4">{{ $motmAward->remarks }}</p>
@@ -395,16 +395,16 @@
                             <p class="text-sm text-yellow-400 font-semibold uppercase tracking-wider mb-3">{{ $award->tournamentAward?->name ?? 'Award' }}</p>
 
                             <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-800 overflow-hidden border-2 border-yellow-500/50">
-                                @if($award->player?->image_path)
-                                    <img src="{{ Storage::url($award->player->image_path) }}" alt="{{ $award->player->name }}" class="w-full h-full object-cover">
+                                @if($award->display_image)
+                                    <img src="{{ Storage::url($award->display_image) }}" alt="{{ $award->display_name }}" class="w-full h-full object-cover">
                                 @else
                                     <div class="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-500">
-                                        {{ substr($award->player?->name ?? '?', 0, 1) }}
+                                        {{ substr($award->display_name, 0, 1) }}
                                     </div>
                                 @endif
                             </div>
 
-                            <h4 class="text-xl font-bold text-white">{{ $award->player?->name ?? 'Unknown' }}</h4>
+                            <h4 class="text-xl font-bold text-white">{{ $award->display_name }}</h4>
 
                             @if($award->remarks)
                                 <p class="text-sm text-gray-400 mt-2">{{ $award->remarks }}</p>

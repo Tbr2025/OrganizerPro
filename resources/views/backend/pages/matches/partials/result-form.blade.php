@@ -1,14 +1,4 @@
-@extends('backend.layouts.app')
-
-@section('title', 'Record Match Result | ' . config('app.name'))
-
-@section('admin-content')
-<x-breadcrumbs :breadcrumbs="[
-    ['name' => 'Matches', 'route' => route('admin.matches.index')],
-    ['name' => $match->match_title ?? 'Match', 'route' => route('admin.matches.show', $match)],
-    ['name' => 'Record Result']
-]" />
-
+{{-- Result entry form — included as the "Result" tab of matches/manage.blade.php --}}
 @php
     $teamABatsFirst = $result->team_a_batting_first ?? true;
     $firstTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
@@ -128,83 +118,6 @@
         @endif
     @endif
 
-    <!-- CricHeroes Sync Panel -->
-    <div class="card rounded-2xl overflow-hidden mb-6">
-        <div class="bg-gradient-to-r from-teal-500 to-cyan-500 px-6 py-4">
-            <h3 class="text-white font-bold text-lg flex items-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-                Import from CricHeroes
-            </h3>
-        </div>
-        <div class="p-6 space-y-4">
-            <!-- Fetch from URL (primary) -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CricHeroes Match URL</label>
-                <div class="flex gap-2">
-                    <input type="text" id="cricheroes_url"
-                           value="{{ $match->cricheroes_match_url ?? '' }}"
-                           class="form-control flex-1"
-                           placeholder="https://cricheroes.com/scorecard/...">
-                    <button type="button" id="cricheroes-fetch-btn"
-                            class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition flex items-center whitespace-nowrap">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                        Fetch Scorecard
-                    </button>
-                </div>
-            </div>
-
-            <!-- Paste fallback -->
-            <details class="group">
-                <summary class="cursor-pointer text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1">
-                    <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                    Or paste scorecard text manually
-                </summary>
-                <div class="mt-3 space-y-2">
-                    <textarea id="cricheroes_paste" rows="4"
-                              class="form-control text-sm"
-                              placeholder="Paste text from CricHeroes scorecard page, e.g.:&#10;ASIAN ROYALS CC 156/8 (20.0 Ov)&#10;EVEXIA ALL STARS 139/9 (20.0 Ov)&#10;Toss: Evexia All Stars opt to field&#10;Asian ROYALS CC won by 17 runs"></textarea>
-                    <button type="button" id="cricheroes-parse-btn"
-                            class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition text-sm">
-                        Parse Scorecard
-                    </button>
-                </div>
-            </details>
-
-            <label class="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <input type="checkbox" id="cricheroes-override" class="rounded border-gray-300" checked>
-                Override existing values
-            </label>
-
-            <!-- Status message -->
-            <div id="cricheroes-status" class="text-sm"></div>
-
-            @if($match->result?->scorecard_data)
-                <div class="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                    <div class="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Detailed scorecard data imported
-                    </div>
-                    <form action="{{ route('admin.matches.result.clear-scorecard', $match) }}" method="POST"
-                          onsubmit="return confirm('Clear imported scorecard data? The public scorecard page will show placeholders instead.')">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="px-3 py-1 text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition">
-                            Clear Scorecard Data
-                        </button>
-                    </form>
-                </div>
-            @endif
-        </div>
-    </div>
-
     <!-- Result Form -->
     <form action="{{ route('admin.matches.result.update', $match) }}" method="POST">
         @csrf
@@ -247,10 +160,30 @@
                         </select>
                     </div>
                 </div>
+
+                {{-- Batting First — auto-set from the toss, but overridable here --}}
+                <div class="mt-5 pt-5 border-t border-gray-200 dark:border-gray-700">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Batting First <span class="text-xs font-normal text-gray-400">— who batted the 1st innings</span>
+                    </label>
+                    <input type="hidden" name="team_a_batting_first" id="team_a_batting_first"
+                           value="{{ old('team_a_batting_first', $teamABatsFirst ? 1 : 0) }}">
+                    <div class="inline-flex rounded-xl border border-gray-300 dark:border-gray-600 p-1 bg-gray-50 dark:bg-gray-800">
+                        <button type="button" data-bats-first="1"
+                                class="bats-first-btn px-4 py-2 rounded-lg text-sm font-semibold transition">
+                            {{ $match->teamA?->name ?? 'Team A' }}
+                        </button>
+                        <button type="button" data-bats-first="0"
+                                class="bats-first-btn px-4 py-2 rounded-lg text-sm font-semibold transition">
+                            {{ $match->teamB?->name ?? 'Team B' }}
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1.5">Changing the toss updates this automatically; pick a team here to override.</p>
+                </div>
             </div>
         </div>
 
-        <!-- Score Cards Container (order swaps dynamically based on toss) -->
+        <!-- Score Cards Container (order swaps dynamically based on toss / batting-first toggle) -->
         <div id="score-cards-container" class="flex flex-col">
             <!-- Team A Score Card -->
             <div id="score-card-a" class="card rounded-2xl overflow-hidden mb-6" style="order: {{ $teamABatsFirst ? 1 : 2 }};">
@@ -536,6 +469,9 @@
             </button>
         </div>
     </form>
+
+    {{-- Full imported scorecard (batting / bowling / FoW for both innings) --}}
+    @include('backend.pages.matches.partials.scorecard-detail')
 </div>
 
 <!-- Import Preview Modal -->
@@ -615,39 +551,53 @@ document.addEventListener('DOMContentLoaded', function() {
     const scoreCardAInnings = document.getElementById('score-card-a-innings');
     const scoreCardBInnings = document.getElementById('score-card-b-innings');
 
-    function updateScoreCardOrder() {
-        const tossWinner = tossWonBy.value;
-        const decision = tossDecision.value;
+    const battingFirstInput = document.getElementById('team_a_batting_first');
+    const batsFirstBtns = document.querySelectorAll('.bats-first-btn');
 
-        if (!tossWinner || !decision) return;
+    function styleBatsFirstButtons(teamABatsFirst) {
+        batsFirstBtns.forEach(b => {
+            const on = (b.dataset.batsFirst === '1') === teamABatsFirst;
+            b.classList.toggle('bg-teal-600', on);
+            b.classList.toggle('text-white', on);
+            b.classList.toggle('shadow', on);
+            b.classList.toggle('text-gray-600', !on);
+            b.classList.toggle('dark:text-gray-300', !on);
+        });
+    }
 
-        // Determine if Team A bats first
-        let teamABatsFirst;
-        if (tossWinner === teamAId) {
-            teamABatsFirst = (decision === 'bat');
-        } else {
-            teamABatsFirst = (decision === 'bowl');
-        }
-
-        // Update visual order
+    // Single source of truth: set batting order everywhere (cards, labels,
+    // hidden input, toggle styling).
+    function applyBattingOrder(teamABatsFirst) {
         scoreCardA.style.order = teamABatsFirst ? 1 : 2;
         scoreCardB.style.order = teamABatsFirst ? 2 : 1;
-
-        // Update header colors (green = 1st innings, orange = 2nd innings)
         scoreCardAHeader.className = 'bg-gradient-to-r ' +
-            (teamABatsFirst ? 'from-green-500 to-emerald-500' : 'from-orange-500 to-red-500') +
-            ' px-6 py-4';
+            (teamABatsFirst ? 'from-green-500 to-emerald-500' : 'from-orange-500 to-red-500') + ' px-6 py-4';
         scoreCardBHeader.className = 'bg-gradient-to-r ' +
-            (teamABatsFirst ? 'from-orange-500 to-red-500' : 'from-green-500 to-emerald-500') +
-            ' px-6 py-4';
-
-        // Update innings labels
+            (teamABatsFirst ? 'from-orange-500 to-red-500' : 'from-green-500 to-emerald-500') + ' px-6 py-4';
         scoreCardAInnings.textContent = (teamABatsFirst ? '1st' : '2nd') + ' Innings';
         scoreCardBInnings.textContent = (teamABatsFirst ? '2nd' : '1st') + ' Innings';
+        if (battingFirstInput) battingFirstInput.value = teamABatsFirst ? '1' : '0';
+        styleBatsFirstButtons(teamABatsFirst);
+    }
+
+    function battingFirstFromToss() {
+        const tossWinner = tossWonBy.value;
+        const decision = tossDecision.value;
+        if (!tossWinner || !decision) return null;
+        return tossWinner === teamAId ? (decision === 'bat') : (decision === 'bowl');
+    }
+
+    function updateScoreCardOrder() {
+        const tba = battingFirstFromToss();
+        if (tba !== null) applyBattingOrder(tba);
     }
 
     tossWonBy.addEventListener('change', updateScoreCardOrder);
     tossDecision.addEventListener('change', updateScoreCardOrder);
+    batsFirstBtns.forEach(b => b.addEventListener('click', () => applyBattingOrder(b.dataset.batsFirst === '1')));
+
+    // Initialise toggle styling from the current value.
+    applyBattingOrder((battingFirstInput?.value ?? '1') === '1');
 
     // Auto-calculate winner when scores change
     function autoCalculateResult() {
@@ -1074,5 +1024,51 @@ document.addEventListener('DOMContentLoaded', function() {
     @endif
 });
 </script>
+<script>
+// --- Scorecard PDF Import (parse + apply, then reload to show populated form) ---
+(function() {
+    const btn = document.getElementById('result-pdf-btn');
+    if (!btn) return;
+    const fileInput = document.getElementById('result-pdf-file');
+    const swapInput = document.getElementById('result-pdf-swap');
+    const statusEl = document.getElementById('cricheroes-status');
+
+    btn.addEventListener('click', async () => {
+        const file = fileInput?.files?.[0];
+        if (!file) { statusEl.innerHTML = '<span class="text-red-500">Choose a scorecard PDF first.</span>'; return; }
+
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Importing...';
+        statusEl.innerHTML = '<span class="text-blue-500">Reading the scorecard PDF...</span>';
+
+        try {
+            const fd = new FormData();
+            fd.append('scorecard_pdf', file);
+            fd.append('swap_teams', swapInput?.checked ? '1' : '0');
+            fd.append('_token', '{{ csrf_token() }}');
+
+            const res = await fetch('{{ route("admin.matches.result.scorecard-pdf", $match) }}', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                body: fd,
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                statusEl.innerHTML = `<span class="text-red-500">${data.message || 'Import failed.'}</span>`;
+                btn.disabled = false; btn.innerHTML = original;
+                return;
+            }
+
+            const d = data.data;
+            statusEl.innerHTML = `<span class="text-green-600 font-semibold">Imported: ${d.team_a_score} vs ${d.team_b_score} — ${d.result_summary || ''}. Reloading…</span>`;
+            setTimeout(() => window.location.reload(), 1200);
+        } catch (err) {
+            statusEl.innerHTML = `<span class="text-red-500">Error: ${err.message}</span>`;
+            btn.disabled = false; btn.innerHTML = original;
+        }
+    });
+})();
+</script>
 @endpush
-@endsection

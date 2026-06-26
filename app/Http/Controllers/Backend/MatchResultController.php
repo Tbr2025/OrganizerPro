@@ -11,6 +11,7 @@ use App\Models\Player;
 use App\Models\TournamentAward;
 use App\Services\CricHeroes\CricHeroesScraper;
 use App\Services\Tournament\PointTableService;
+use App\Traits\CalculatesMatchBallStats;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,145 +20,23 @@ use Illuminate\View\View;
 
 class MatchResultController extends Controller
 {
+    use CalculatesMatchBallStats;
+
     public function __construct(
         private readonly PointTableService $pointTableService
     ) {}
 
-    public function edit(Matches $match): View
+    public function edit(Matches $match): RedirectResponse
     {
-        $this->checkAuthorization(Auth::user(), ['match.edit']);
-
-        $match->load(['tournament', 'teamA', 'teamB', 'result', 'matchAwards.player', 'matchAwards.tournamentAward']);
-
-        $result = $match->result ?? new MatchResult();
-
-        // Auto-calculate scores from ball data
-        $ballStats = $this->calculateBallStats($match);
-
-        // If we have ball data from BOTH innings and result is empty, pre-fill from ball stats
-        if ($ballStats['hasBallData'] && $ballStats['bothInningsComplete'] && !$match->result) {
-            $result->team_a_score = $ballStats['teamA']['runs'];
-            $result->team_a_wickets = $ballStats['teamA']['wickets'];
-            $result->team_a_overs = $ballStats['teamA']['overs'];
-            $result->team_a_extras = $ballStats['teamA']['extras'];
-
-            $result->team_b_score = $ballStats['teamB']['runs'];
-            $result->team_b_wickets = $ballStats['teamB']['wickets'];
-            $result->team_b_overs = $ballStats['teamB']['overs'];
-            $result->team_b_extras = $ballStats['teamB']['extras'];
-
-            // Auto-determine winner
-            if ($ballStats['teamA']['runs'] > $ballStats['teamB']['runs']) {
-                $result->winner_team_id = $match->team_a_id;
-                $result->result_type = 'runs';
-                $result->margin = $ballStats['teamA']['runs'] - $ballStats['teamB']['runs'];
-            } elseif ($ballStats['teamB']['runs'] > $ballStats['teamA']['runs']) {
-                $result->winner_team_id = $match->team_b_id;
-                $result->result_type = 'wickets';
-                $result->margin = 10 - $ballStats['teamB']['wickets'];
-            } else {
-                $result->result_type = 'tie';
-            }
-        }
-        // If only first innings is complete, pre-fill Team A data only
-        elseif ($ballStats['hasBallData'] && $ballStats['firstInningsComplete'] && !$ballStats['secondInningsStarted'] && !$match->result) {
-            $result->team_a_score = $ballStats['teamA']['runs'];
-            $result->team_a_wickets = $ballStats['teamA']['wickets'];
-            $result->team_a_overs = $ballStats['teamA']['overs'];
-            $result->team_a_extras = $ballStats['teamA']['extras'];
-        }
-
-        return view('backend.pages.matches.result.edit', [
-            'match' => $match,
-            'result' => $result,
-            'ballStats' => $ballStats,
-            'breadcrumbs' => [
-                'title' => __('Match Result'),
-                'items' => [
-                    ['label' => __('Matches'), 'url' => route('admin.matches.index')],
-                    ['label' => $match->name, 'url' => route('admin.matches.show', $match)],
-                ],
-            ],
-        ]);
+        // Result entry now lives on the unified match-management page (Result tab).
+        return redirect()->route('admin.matches.summary.edit', ['match' => $match, 'tab' => 'result']);
     }
 
     /**
      * Calculate match statistics from ball-by-ball data
      */
-    private function calculateBallStats(Matches $match): array
-    {
-        $balls = Ball::where('match_id', $match->id)
-            ->orderBy('over')
-            ->orderBy('ball_in_over')
-            ->get();
-
-        if ($balls->isEmpty()) {
-            return [
-                'hasBallData' => false,
-                'bothInningsComplete' => false,
-                'firstInningsComplete' => false,
-                'teamA' => ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'extras' => 0],
-                'teamB' => ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'extras' => 0],
-            ];
-        }
-
-        // Get team A player IDs (batting team for first innings)
-        $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
-        $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
-
-        // Calculate Team A stats (first innings - Team A batting)
-        $teamABalls = $balls->filter(fn($b) => in_array($b->batsman_id, $teamAPlayerIds));
-        $teamAStats = $this->calculateInningsStats($teamABalls);
-
-        // Calculate Team B stats (second innings - Team B batting)
-        $teamBBalls = $balls->filter(fn($b) => in_array($b->batsman_id, $teamBPlayerIds));
-        $teamBStats = $this->calculateInningsStats($teamBBalls);
-
-        // Check if first innings is complete (Team A batted)
-        $firstInningsComplete = $teamABalls->isNotEmpty();
-
-        // Check if second innings has started (Team B batted)
-        $secondInningsStarted = $teamBBalls->isNotEmpty();
-
-        // Both innings complete if both teams have batted
-        $bothInningsComplete = $firstInningsComplete && $secondInningsStarted;
-
-        return [
-            'hasBallData' => true,
-            'bothInningsComplete' => $bothInningsComplete,
-            'firstInningsComplete' => $firstInningsComplete,
-            'secondInningsStarted' => $secondInningsStarted,
-            'teamA' => $teamAStats,
-            'teamB' => $teamBStats,
-        ];
-    }
-
-    /**
-     * Calculate innings statistics from balls collection
-     */
-    private function calculateInningsStats($balls): array
-    {
-        if ($balls->isEmpty()) {
-            return ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'extras' => 0];
-        }
-
-        $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
-        $totalWickets = $balls->where('is_wicket', 1)->count();
-        $totalExtras = $balls->sum('extra_runs');
-
-        // Calculate overs (legal deliveries only)
-        $legalBalls = $balls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
-        $completedOvers = floor($legalBalls / 6);
-        $ballsInOver = $legalBalls % 6;
-        $overs = $completedOvers + ($ballsInOver / 10); // Format: 10.3 means 10 overs 3 balls
-
-        return [
-            'runs' => $totalRuns,
-            'wickets' => $totalWickets,
-            'overs' => round($overs, 1),
-            'extras' => $totalExtras,
-        ];
-    }
+    // calculateBallStats() / calculateInningsStats() now live in
+    // App\Traits\CalculatesMatchBallStats (shared with MatchSummaryController).
 
     public function update(Request $request, Matches $match): RedirectResponse
     {
@@ -186,6 +65,9 @@ class MatchResultController extends Controller
             'toss_won_by' => 'nullable|exists:actual_teams,id',
             'toss_decision' => 'nullable|in:bat,bowl',
 
+            // Batting order (explicit toggle; overrides toss-derived value)
+            'team_a_batting_first' => 'nullable|boolean',
+
             // Notes
             'match_notes' => 'nullable|string|max:2000',
         ]);
@@ -197,12 +79,16 @@ class MatchResultController extends Controller
             }
         }
 
-        // Auto-derive batting order from toss data
-        $validated['team_a_batting_first'] = MatchResult::deriveTeamABattingFirst(
-            $validated['toss_won_by'] ?? null,
-            $validated['toss_decision'] ?? null,
-            $match->team_a_id
-        );
+        // Batting order: use the explicit toggle if submitted, else derive from toss.
+        if ($request->has('team_a_batting_first') && $request->input('team_a_batting_first') !== null) {
+            $validated['team_a_batting_first'] = $request->boolean('team_a_batting_first');
+        } else {
+            $validated['team_a_batting_first'] = MatchResult::deriveTeamABattingFirst(
+                $validated['toss_won_by'] ?? null,
+                $validated['toss_decision'] ?? null,
+                $match->team_a_id
+            );
+        }
 
         // Preserve existing scorecard_data when updating
         $existing = MatchResult::where('match_id', $match->id)->first();
@@ -409,70 +295,141 @@ class MatchResultController extends Controller
             ], 422);
         }
 
+        $result = $this->applyParsedScorecard($match, $data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Scores synced successfully from CricHeroes!',
+            'data' => [
+                'team_a_score' => $result->team_a_score . '/' . $result->team_a_wickets . ' (' . $result->team_a_overs . ')',
+                'team_b_score' => $result->team_b_score . '/' . $result->team_b_wickets . ' (' . $result->team_b_overs . ')',
+                'result_summary' => $result->result_summary,
+            ],
+        ]);
+    }
+
+    /**
+     * Import a CricHeroes scorecard PDF: parse it (same canonical shape as the
+     * scraper) and apply it to the match. Replaces the unreliable URL scraping.
+     */
+    public function importScorecardPdf(Request $request, Matches $match): JsonResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['match.edit']);
+
+        $request->validate([
+            'scorecard_pdf' => 'required|file|mimes:pdf|max:20480',
+            'swap_teams' => 'nullable|boolean',
+        ]);
+
+        try {
+            $data = (new \App\Services\Scorecard\ScorecardPdfParser())
+                ->parse($request->file('scorecard_pdf')->getRealPath());
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not parse the scorecard PDF: ' . $e->getMessage(),
+            ], 422);
+        }
+
+        if (empty($data['teams']) || count($data['teams']) < 2) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not read both teams from the PDF. Is this a CricHeroes scorecard export?',
+            ], 422);
+        }
+
+        $result = $this->applyParsedScorecard($match, $data, $request->boolean('swap_teams'));
+
+        // Auto-assign Best Batsman / Best Bowler awards from the parsed performers.
+        $this->assignAwardsFromParsedHeroes($match, $data['heroes'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Scorecard imported from PDF.',
+            'data' => [
+                'team_a_score' => $result->team_a_score . '/' . $result->team_a_wickets . ' (' . $result->team_a_overs . ')',
+                'team_b_score' => $result->team_b_score . '/' . $result->team_b_wickets . ' (' . $result->team_b_overs . ')',
+                'result_summary' => $result->result_summary,
+                'parsed_teams' => array_map(
+                    fn ($t) => $t['name'] . ' ' . $t['runs'] . '/' . $t['wickets'] . ' (' . $t['overs'] . ' ov)',
+                    $data['teams']
+                ),
+                'toss' => $data['toss'],
+                'best_batter' => $data['heroes']['best_batter'] ?? null,
+                'best_bowler' => $data['heroes']['best_bowler'] ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * Map a parsed scorecard array (the shape produced by CricHeroesScraper::fetch()
+     * and ScorecardPdfParser::parse()) onto the match's MatchResult. $swapTeams
+     * flips the team A/B assignment when the auto name-match guesses wrong.
+     */
+    private function applyParsedScorecard(Matches $match, array $data, bool $swapTeams = false): MatchResult
+    {
         $match->load(['teamA', 'teamB']);
         $teamAName = $match->teamA->name ?? '';
         $teamBName = $match->teamB->name ?? '';
 
-        // Map CricHeroes teams to our teams using fuzzy matching
         $mapping = $this->mapCricHeroesTeams($data['teams'], $teamAName, $teamBName);
+        if ($swapTeams) {
+            $mapping = ['a' => $mapping['b'], 'b' => $mapping['a']];
+        }
         $teamAData = $data['teams'][$mapping['a']];
         $teamBData = $data['teams'][$mapping['b']];
 
-        // Determine toss data
-        $tossWonBy = null;
-        $tossDecision = null;
-        if (!empty($data['toss'])) {
-            $tossDecision = $data['toss']['decision'] ?? null;
-            $tossWinnerName = $data['toss']['winner'] ?? '';
-            if ($this->fuzzyMatch($tossWinnerName, $teamAName)) {
-                $tossWonBy = $match->team_a_id;
-            } elseif ($this->fuzzyMatch($tossWinnerName, $teamBName)) {
-                $tossWonBy = $match->team_b_id;
+        // Resolve a parsed team name to the local team id — via the chosen team
+        // mapping first (reliable even when local names differ from the PDF),
+        // then by fuzzy-matching the local names as a fallback.
+        $resolveTeamId = function (?string $name) use ($data, $mapping, $match, $teamAName, $teamBName) {
+            if (!$name) {
+                return null;
             }
-        }
-
-        // Determine result
-        $resultType = 'runs';
-        $margin = 0;
-        $winnerId = null;
-        $resultSummary = null;
-
-        if (!empty($data['result'])) {
-            $r = $data['result'];
-            $resultType = $r['type'] ?? 'runs';
-            $margin = $r['margin'] ?? 0;
-            $resultSummary = $r['summary'] ?? null;
-
-            if ($resultType === 'tie') {
-                $winnerId = null;
-            } elseif (!empty($r['winner'])) {
-                if ($this->fuzzyMatch($r['winner'], $teamAName)) {
-                    $winnerId = $match->team_a_id;
-                } elseif ($this->fuzzyMatch($r['winner'], $teamBName)) {
-                    $winnerId = $match->team_b_id;
+            foreach ($data['teams'] as $i => $t) {
+                if ($this->fuzzyMatch($name, $t['name'] ?? '')) {
+                    return $i === $mapping['a'] ? $match->team_a_id : $match->team_b_id;
                 }
             }
-        }
+            if ($this->fuzzyMatch($name, $teamAName)) {
+                return $match->team_a_id;
+            }
+            if ($this->fuzzyMatch($name, $teamBName)) {
+                return $match->team_b_id;
+            }
+
+            return null;
+        };
+
+        // Toss
+        $tossDecision = $data['toss']['decision'] ?? null;
+        $tossWonBy = $resolveTeamId($data['toss']['winner'] ?? null);
+
+        // Result
+        $resultType = $data['result']['type'] ?? 'runs';
+        $margin = $data['result']['margin'] ?? 0;
+        $pdfSummary = $data['result']['summary'] ?? null;
+        $winnerId = $resultType === 'tie' ? null : $resolveTeamId($data['result']['winner'] ?? null);
 
         $resultData = [
             'team_a_score' => $teamAData['runs'],
             'team_a_wickets' => $teamAData['wickets'],
             'team_a_overs' => $teamAData['overs'],
+            'team_a_extras' => $teamAData['extras'] ?? null,
             'team_b_score' => $teamBData['runs'],
             'team_b_wickets' => $teamBData['wickets'],
             'team_b_overs' => $teamBData['overs'],
+            'team_b_extras' => $teamBData['extras'] ?? null,
             'toss_won_by' => $tossWonBy,
             'toss_decision' => $tossDecision,
             'team_a_batting_first' => MatchResult::deriveTeamABattingFirst($tossWonBy, $tossDecision, $match->team_a_id),
             'result_type' => $resultType,
             'winner_team_id' => $winnerId,
             'margin' => $margin,
-            'result_summary' => $resultSummary,
         ];
 
         if (!empty($data['scorecard'])) {
             $scorecardData = $data['scorecard'];
-            // Include heroes data in scorecard_data
             if (!empty($data['heroes'])) {
                 if (is_array($scorecardData) && !isset($scorecardData['innings'])) {
                     $scorecardData = ['innings' => $scorecardData, 'cricheroes_heroes' => $data['heroes']];
@@ -483,37 +440,89 @@ class MatchResultController extends Controller
             $resultData['scorecard_data'] = $scorecardData;
         }
 
-        $result = MatchResult::updateOrCreate(
-            ['match_id' => $match->id],
-            $resultData
-        );
+        $result = MatchResult::updateOrCreate(['match_id' => $match->id], $resultData);
 
-        // Generate summary if not provided by CricHeroes
-        if (empty($resultSummary)) {
-            $result->update(['result_summary' => $result->generateResultSummary()]);
-        }
+        // Prefer a summary built from the local team names; fall back to the PDF's
+        // text when the winner couldn't be mapped to a local team.
+        $generated = $result->generateResultSummary();
+        $result->update(['result_summary' => $generated ?: $pdfSummary]);
 
-        // Update match status
         if ($winnerId || $resultType === 'tie') {
-            $match->update([
-                'status' => 'completed',
-                'winner_team_id' => $winnerId,
-            ]);
-
+            $match->update(['status' => 'completed', 'winner_team_id' => $winnerId]);
             if ($match->isGroupStage()) {
                 $this->pointTableService->updateFromMatchResult($match);
             }
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Scores synced successfully from CricHeroes!',
-            'data' => [
-                'team_a_score' => $teamAData['runs'] . '/' . $teamAData['wickets'] . ' (' . $teamAData['overs'] . ')',
-                'team_b_score' => $teamBData['runs'] . '/' . $teamBData['wickets'] . ' (' . $teamBData['overs'] . ')',
-                'result_summary' => $result->result_summary,
-            ],
-        ]);
+        return $result;
+    }
+
+    /**
+     * Create Best Batsman / Best Bowler (and POTM if present) match awards from
+     * the parsed scorecard's best performers. Each winner is matched to a roster
+     * player by name; if not found, the name is stored as a custom award winner.
+     */
+    private function assignAwardsFromParsedHeroes(Matches $match, ?array $heroes): void
+    {
+        if (empty($heroes)) {
+            return;
+        }
+        $tournament = $match->tournament;
+        if (!$tournament) {
+            return;
+        }
+
+        $awards = $tournament->awards()->matchLevel()->active()->get();
+        if ($awards->isEmpty()) {
+            foreach ([['name' => 'Best Batsman', 'icon' => "\xF0\x9F\x8F\x8F", 'order' => 2], ['name' => 'Best Bowler', 'icon' => "\xF0\x9F\x8E\xAF", 'order' => 3]] as $a) {
+                TournamentAward::create([
+                    'tournament_id' => $tournament->id,
+                    'name' => $a['name'],
+                    'icon' => $a['icon'],
+                    'is_match_level' => true,
+                    'is_active' => true,
+                    'order' => $a['order'],
+                    'template_settings' => TournamentAward::getDefaultTemplateSettings($a['name']),
+                ]);
+            }
+            $awards = $tournament->awards()->matchLevel()->active()->get();
+        }
+
+        $match->loadMissing(['teamA.players.player', 'teamB.players.player']);
+        $players = collect();
+        foreach (['teamA', 'teamB'] as $rel) {
+            if ($match->$rel) {
+                $players = $players->merge($match->$rel->players->pluck('player')->filter());
+            }
+        }
+
+        $map = [
+            'best_batter' => ['slugs' => ['best-batsman'], 'remarks' => fn ($h) => ($h['runs'] ?? 0) . ' (' . ($h['balls'] ?? 0) . '), ' . ($h['fours'] ?? 0) . 'x4, ' . ($h['sixes'] ?? 0) . 'x6'],
+            'best_bowler' => ['slugs' => ['best-bowler'], 'remarks' => fn ($h) => ($h['wickets'] ?? 0) . '/' . ($h['runs'] ?? 0) . ' (' . ($h['overs'] ?? '') . ' ov)'],
+            'player_of_the_match' => ['slugs' => ['man-of-the-match', 'player-of-the-match'], 'remarks' => fn ($h) => ''],
+        ];
+
+        foreach ($map as $key => $cfg) {
+            $hero = $heroes[$key] ?? null;
+            if (empty($hero['name'])) {
+                continue;
+            }
+            $award = $awards->first(fn ($a) => in_array($a->slug, $cfg['slugs']));
+            if (!$award) {
+                continue;
+            }
+            $player = $players->first(fn ($p) => $p && ($this->fuzzyMatch($p->name, $hero['name'])
+                || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $hero['name']))));
+
+            $match->matchAwards()->updateOrCreate(
+                ['tournament_award_id' => $award->id],
+                [
+                    'player_id' => $player?->id,
+                    'custom_player_name' => $player ? null : $hero['name'],
+                    'remarks' => ($cfg['remarks'])($hero),
+                ]
+            );
+        }
     }
 
     private function mapCricHeroesTeams(array $teams, string $teamAName, string $teamBName): array

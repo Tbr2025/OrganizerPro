@@ -430,11 +430,11 @@
                                 {{-- Player Image --}}
                                 <div class="flex-shrink-0">
                                     <div class="w-20 h-20 rounded-full bg-gray-800 overflow-hidden border-3 border-yellow-500/50">
-                                        @if($award->player?->image_path)
-                                            <img src="{{ Storage::url($award->player->image_path) }}" alt="{{ $award->player->name }}" class="w-full h-full object-cover">
+                                        @if($award->display_image)
+                                            <img src="{{ Storage::url($award->display_image) }}" alt="{{ $award->display_name }}" class="w-full h-full object-cover">
                                         @else
                                             <div class="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-500">
-                                                {{ substr($award->player?->name ?? '?', 0, 1) }}
+                                                {{ substr($award->display_name, 0, 1) }}
                                             </div>
                                         @endif
                                     </div>
@@ -446,7 +446,7 @@
                                         <span class="text-2xl">{{ $award->tournamentAward?->icon ?? '🏆' }}</span>
                                         <span class="text-sm text-yellow-400 font-semibold uppercase tracking-wider">{{ $award->tournamentAward?->name ?? 'Award' }}</span>
                                     </div>
-                                    <h4 class="text-xl font-bold text-white">{{ $award->player?->name ?? 'Unknown' }}</h4>
+                                    <h4 class="text-xl font-bold text-white">{{ $award->display_name }}</h4>
                                     @if($award->remarks)
                                         <p class="text-sm text-gray-400 mt-1">{{ $award->remarks }}</p>
                                     @endif
