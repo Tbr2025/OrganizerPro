@@ -60,7 +60,9 @@ class RegistrationService
                     'employer_name' => $data['employer_name'] ?? null,
                     'employer_address' => $data['employer_address'] ?? null,
                     'employer_position' => $data['employer_position'] ?? null,
-                    'available_weekends' => $data['available_weekends'] ?? false,
+                    'available_saturday' => $data['available_saturday'] ?? false,
+                    'available_sunday' => $data['available_sunday'] ?? false,
+                    'available_weekends' => ($data['available_saturday'] ?? false) || ($data['available_sunday'] ?? false),
                     'played_ys_ipl_s1' => $data['played_ys_ipl_s1'] ?? false,
                     'mobile_number_full' => $data['mobile_number_full'] ?? null,
                     'cricheroes_number_full' => $data['cricheroes_number_full'] ?? null,
@@ -122,8 +124,12 @@ class RegistrationService
                 ], fn($value) => $value !== null);
 
                 // Booleans set explicitly (array_filter would drop a false value).
-                if (array_key_exists('available_weekends', $data)) {
-                    $updateData['available_weekends'] = (bool) $data['available_weekends'];
+                if (array_key_exists('available_saturday', $data) || array_key_exists('available_sunday', $data)) {
+                    $sat = (bool) ($data['available_saturday'] ?? false);
+                    $sun = (bool) ($data['available_sunday'] ?? false);
+                    $updateData['available_saturday'] = $sat;
+                    $updateData['available_sunday'] = $sun;
+                    $updateData['available_weekends'] = $sat || $sun;
                 }
                 if (array_key_exists('played_ys_ipl_s1', $data)) {
                     $updateData['played_ys_ipl_s1'] = (bool) $data['played_ys_ipl_s1'];

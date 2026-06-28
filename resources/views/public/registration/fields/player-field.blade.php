@@ -5,13 +5,16 @@
     $required = $cfg['required'] ?? false;
     $reqMark = $required ? '<span class="reg-req">*</span>' : '';
     $fullWidth = in_array($key, [
-        'cricheroes_profile_url', 'employer_address', 'available_weekends',
+        'cricheroes_profile_url', 'employer_address',
         'played_ys_ipl_s1', 'is_wicket_keeper', 'transportation', 'travel_plan',
         'image', 'terms_and_conditions', 'registration_team',
     ], true);
+
+    // Employer fields are only shown for a work visa (Alpine-driven).
+    $employerField = in_array($key, ['employer_name', 'employer_position', 'employer_address'], true);
 @endphp
 
-<div class="{{ $fullWidth ? 'md:col-span-2' : '' }}">
+<div class="{{ $fullWidth ? 'md:col-span-2' : '' }}" @if($employerField) x-show="visaStatus === 'work_visa'" x-cloak @endif>
 @switch($key)
 
     @case('first_name')
@@ -114,7 +117,7 @@
 
     @case('visa_status')
         <label for="visa_status" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="visa_status" id="visa_status" class="reg-select" {{ $required ? 'required' : '' }}>
+        <select name="visa_status" id="visa_status" class="reg-select" x-model="visaStatus" {{ $required ? 'required' : '' }}>
             <option value="">Select visa status</option>
             @foreach(config('registration.visa_statuses', []) as $val => $vlabel)
                 <option value="{{ $val }}" {{ old('visa_status') === $val ? 'selected' : '' }}>{{ $vlabel }}</option>
@@ -125,23 +128,25 @@
 
     @case('employer_name')
     @case('employer_position')
-        <label for="{{ $key }}" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="text" name="{{ $key }}" id="{{ $key }}" value="{{ old($key) }}" {{ $required ? 'required' : '' }} class="reg-input" placeholder="{{ $label }}">
+        {{-- Only relevant for a work visa --}}
+        <label for="{{ $key }}" class="reg-label">{!! $label !!} <span class="reg-req" x-show="visaStatus === 'work_visa'">*</span></label>
+        <input type="text" name="{{ $key }}" id="{{ $key }}" value="{{ old($key) }}" class="reg-input" placeholder="{{ $label }}">
         @error($key)<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('employer_address')
-        <label for="employer_address" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <textarea name="employer_address" id="employer_address" rows="2" {{ $required ? 'required' : '' }} class="reg-input" placeholder="Office address">{{ old('employer_address') }}</textarea>
+        <label for="employer_address" class="reg-label">{!! $label !!} <span class="reg-req" x-show="visaStatus === 'work_visa'">*</span></label>
+        <textarea name="employer_address" id="employer_address" rows="2" class="reg-input" placeholder="Office address">{{ old('employer_address') }}</textarea>
         @error('employer_address')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
-    @case('available_weekends')
+    @case('available_saturday')
+    @case('available_sunday')
         <label class="reg-check">
-            <input type="checkbox" name="available_weekends" id="available_weekends" value="1" {{ old('available_weekends') ? 'checked' : '' }} {{ $required ? 'required' : '' }}>
+            <input type="checkbox" name="{{ $key }}" id="{{ $key }}" value="1" {{ old($key) ? 'checked' : '' }} {{ $required ? 'required' : '' }}>
             <span class="text-sm">{!! $label !!} {!! $reqMark !!}</span>
         </label>
-        @error('available_weekends')<p class="reg-err">{{ $message }}</p>@enderror
+        @error($key)<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('played_ys_ipl_s1')

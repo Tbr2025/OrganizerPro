@@ -90,7 +90,9 @@ class RegistrationController extends Controller
         $validated['is_wicket_keeper'] = $request->boolean('is_wicket_keeper');
         $validated['transportation_required'] = $request->boolean('transportation_required');
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
-        $validated['available_weekends'] = $request->boolean('available_weekends');
+        $validated['available_saturday'] = $request->boolean('available_saturday');
+        $validated['available_sunday'] = $request->boolean('available_sunday');
+        $validated['available_weekends'] = $request->boolean('available_saturday') || $request->boolean('available_sunday');
         $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
 
         // Handle image — pre-processed path from AJAX upload, or fallback to raw file

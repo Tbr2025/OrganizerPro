@@ -150,11 +150,12 @@
                                     @endif
                                     </div>{{-- /cascading --}}
 
-                                    {{-- Visa Status --}}
+                                    {{-- Visa + Employer (employer fields shown only for a work visa) --}}
+                                    <div x-data="{ visaStatus: @js(old('visa_status', '')) }" class="contents">
                                     @if($fieldConfig['visa_status']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="visa_status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Visa Status') }}</label>
-                                        <select name="visa_status" id="visa_status" class="form-control @error('visa_status') border-red-500 @enderror">
+                                        <select name="visa_status" id="visa_status" x-model="visaStatus" class="form-control @error('visa_status') border-red-500 @enderror">
                                             <option value="">-- Select --</option>
                                             @foreach(config('registration.visa_statuses', []) as $val => $label)
                                                 <option value="{{ $val }}" {{ old('visa_status') === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -165,34 +166,46 @@
 
                                     {{-- Employer Name --}}
                                     @if($fieldConfig['employer_name']['visible'] ?? true)
-                                    <div class="space-y-1">
-                                        <label for="employer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Name') }}</label>
+                                    <div class="space-y-1" x-show="visaStatus === 'work_visa'" x-cloak>
+                                        <label for="employer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Name') }} <span class="text-red-500">*</span></label>
                                         <input type="text" name="employer_name" id="employer_name" value="{{ old('employer_name') }}" placeholder="Company" class="form-control">
+                                        @error('employer_name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                                     </div>
                                     @endif
 
                                     {{-- Position --}}
                                     @if($fieldConfig['employer_position']['visible'] ?? true)
-                                    <div class="space-y-1">
-                                        <label for="employer_position" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Position') }}</label>
+                                    <div class="space-y-1" x-show="visaStatus === 'work_visa'" x-cloak>
+                                        <label for="employer_position" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Position') }} <span class="text-red-500">*</span></label>
                                         <input type="text" name="employer_position" id="employer_position" value="{{ old('employer_position') }}" placeholder="e.g. Engineer" class="form-control">
+                                        @error('employer_position')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                                     </div>
                                     @endif
 
                                     {{-- Employer Address --}}
                                     @if($fieldConfig['employer_address']['visible'] ?? true)
-                                    <div class="space-y-1">
-                                        <label for="employer_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Address') }}</label>
+                                    <div class="space-y-1" x-show="visaStatus === 'work_visa'" x-cloak>
+                                        <label for="employer_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Address') }} <span class="text-red-500">*</span></label>
                                         <textarea name="employer_address" id="employer_address" rows="2" placeholder="Office address" class="form-control">{{ old('employer_address') }}</textarea>
+                                        @error('employer_address')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                                     </div>
                                     @endif
+                                    </div>{{-- /visa+employer --}}
 
                                     {{-- Availability --}}
-                                    @if($fieldConfig['available_weekends']['visible'] ?? true)
+                                    @if($fieldConfig['available_saturday']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            <input type="checkbox" name="available_weekends" value="1" {{ old('available_weekends') ? 'checked' : '' }}>
-                                            {{ __('Available to play Saturdays & Sundays') }}
+                                            <input type="checkbox" name="available_saturday" value="1" {{ old('available_saturday') ? 'checked' : '' }}>
+                                            {{ __('Available to play on Saturdays') }}
+                                        </label>
+                                    </div>
+                                    @endif
+                                    @if($fieldConfig['available_sunday']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            <input type="checkbox" name="available_sunday" value="1" {{ old('available_sunday') ? 'checked' : '' }}>
+                                            {{ __('Available to play on Sundays') }}
                                         </label>
                                     </div>
                                     @endif

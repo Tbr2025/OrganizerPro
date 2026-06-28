@@ -415,10 +415,11 @@ class PlayerController extends Controller
             'country' => $req('country') ? 'required|string|max:2' : 'nullable|string|max:2',
             'state' => 'nullable|string|max:100',
             'visa_status' => 'nullable|in:work_visa,visit_visa',
-            'employer_name' => 'nullable|string|max:255',
-            'employer_address' => 'nullable|string|max:500',
-            'employer_position' => 'nullable|string|max:255',
-            'available_weekends' => 'nullable|boolean',
+            'employer_name' => 'nullable|string|max:255|required_if:visa_status,work_visa',
+            'employer_address' => 'nullable|string|max:500|required_if:visa_status,work_visa',
+            'employer_position' => 'nullable|string|max:255|required_if:visa_status,work_visa',
+            'available_saturday' => 'nullable|boolean',
+            'available_sunday' => 'nullable|boolean',
             'played_ys_ipl_s1' => 'nullable|boolean',
             'email' => 'required|email|unique:players,email',
             'mobile_country_code' => $req('mobile_number') ? 'required|string|max:10' : 'nullable|string|max:10',
@@ -486,7 +487,9 @@ class PlayerController extends Controller
         $validated['is_wicket_keeper'] = $request->boolean('wicket_keeper');
         $validated['transportation_required'] = $request->boolean('need_transportation');
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
-        $validated['available_weekends'] = $request->boolean('available_weekends');
+        $validated['available_saturday'] = $request->boolean('available_saturday');
+        $validated['available_sunday'] = $request->boolean('available_sunday');
+        $validated['available_weekends'] = $request->boolean('available_saturday') || $request->boolean('available_sunday');
         $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
         $validated['created_by'] = Auth::id();
 
@@ -946,10 +949,11 @@ class PlayerController extends Controller
             'country' => 'nullable|string|max:2',
             'state' => 'nullable|string|max:100',
             'visa_status' => 'nullable|in:work_visa,visit_visa',
-            'employer_name' => 'nullable|string|max:255',
-            'employer_address' => 'nullable|string|max:500',
-            'employer_position' => 'nullable|string|max:255',
-            'available_weekends' => 'nullable|boolean',
+            'employer_name' => 'nullable|string|max:255|required_if:visa_status,work_visa',
+            'employer_address' => 'nullable|string|max:500|required_if:visa_status,work_visa',
+            'employer_position' => 'nullable|string|max:255|required_if:visa_status,work_visa',
+            'available_saturday' => 'nullable|boolean',
+            'available_sunday' => 'nullable|boolean',
             'played_ys_ipl_s1' => 'nullable|boolean',
             'email' => 'required|email|unique:players,email,' . $player->id,
             'mobile_number_full' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
@@ -1013,7 +1017,9 @@ class PlayerController extends Controller
             'employer_name' => $validated['employer_name'] ?? null,
             'employer_address' => $validated['employer_address'] ?? null,
             'employer_position' => $validated['employer_position'] ?? null,
-            'available_weekends' => $request->boolean('available_weekends'),
+            'available_saturday' => $request->boolean('available_saturday'),
+            'available_sunday' => $request->boolean('available_sunday'),
+            'available_weekends' => $request->boolean('available_saturday') || $request->boolean('available_sunday'),
             'played_ys_ipl_s1' => $request->boolean('played_ys_ipl_s1'),
             'email' => $validated['email'],
             'total_matches' => $validated['total_matches'] ?? null,

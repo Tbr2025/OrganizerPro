@@ -118,10 +118,11 @@
                             </div>
                             </div>{{-- /cascading --}}
 
-                            {{-- Visa Status --}}
+                            {{-- Visa + Employer (employer fields shown only for a work visa) --}}
+                            <div x-data="{ visaStatus: @js(old('visa_status', $player->visa_status ?? '')) }" class="contents">
                             <div class="space-y-1">
                                 <label for="visa_status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Visa Status') }}</label>
-                                <select name="visa_status" id="visa_status" class="form-control">
+                                <select name="visa_status" id="visa_status" x-model="visaStatus" class="form-control">
                                     <option value="">-- Select --</option>
                                     @foreach(config('registration.visa_statuses', []) as $val => $label)
                                         <option value="{{ $val }}" {{ old('visa_status', $player->visa_status) === $val ? 'selected' : '' }}>{{ $label }}</option>
@@ -130,28 +131,38 @@
                             </div>
 
                             {{-- Employer Name --}}
-                            <div class="space-y-1">
-                                <label for="employer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Name') }}</label>
+                            <div class="space-y-1" x-show="visaStatus === 'work_visa'" x-cloak>
+                                <label for="employer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Name') }} <span class="text-red-500">*</span></label>
                                 <input type="text" name="employer_name" id="employer_name" value="{{ old('employer_name', $player->employer_name) }}" class="form-control">
+                                @error('employer_name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
 
                             {{-- Position --}}
-                            <div class="space-y-1">
-                                <label for="employer_position" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Position') }}</label>
+                            <div class="space-y-1" x-show="visaStatus === 'work_visa'" x-cloak>
+                                <label for="employer_position" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Position') }} <span class="text-red-500">*</span></label>
                                 <input type="text" name="employer_position" id="employer_position" value="{{ old('employer_position', $player->employer_position) }}" class="form-control">
+                                @error('employer_position')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
 
                             {{-- Employer Address --}}
-                            <div class="space-y-1">
-                                <label for="employer_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Address') }}</label>
+                            <div class="space-y-1" x-show="visaStatus === 'work_visa'" x-cloak>
+                                <label for="employer_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Address') }} <span class="text-red-500">*</span></label>
                                 <textarea name="employer_address" id="employer_address" rows="2" class="form-control">{{ old('employer_address', $player->employer_address) }}</textarea>
+                                @error('employer_address')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
+                            </div>{{-- /visa+employer --}}
 
                             {{-- Availability --}}
                             <div class="space-y-1">
                                 <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <input type="checkbox" name="available_weekends" value="1" {{ old('available_weekends', $player->available_weekends) ? 'checked' : '' }}>
-                                    {{ __('Available to play Saturdays & Sundays') }}
+                                    <input type="checkbox" name="available_saturday" value="1" {{ old('available_saturday', $player->available_saturday) ? 'checked' : '' }}>
+                                    {{ __('Available to play on Saturdays') }}
+                                </label>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="checkbox" name="available_sunday" value="1" {{ old('available_sunday', $player->available_sunday) ? 'checked' : '' }}>
+                                    {{ __('Available to play on Sundays') }}
                                 </label>
                             </div>
 

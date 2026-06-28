@@ -41,7 +41,8 @@ class RegistrationProfileFieldsTest extends TestCase
             'employer_name' => 'Acme LLC',
             'employer_address' => 'Dubai',
             'employer_position' => 'Engineer',
-            'available_weekends' => true,
+            'available_saturday' => true,
+            'available_sunday' => false,
             'played_ys_ipl_s1' => true,
         ]);
 
@@ -55,7 +56,9 @@ class RegistrationProfileFieldsTest extends TestCase
         $this->assertSame('work_visa', $player->visa_status);
         $this->assertSame('Acme LLC', $player->employer_name);
         $this->assertSame('Engineer', $player->employer_position);
-        $this->assertTrue((bool) $player->available_weekends);
+        $this->assertTrue((bool) $player->available_saturday);
+        $this->assertFalse((bool) $player->available_sunday);
+        $this->assertTrue((bool) $player->available_weekends); // back-compat: sat || sun
         $this->assertTrue((bool) $player->played_ys_ipl_s1);
         $this->assertSame('1995-05-20', $player->date_of_birth->format('Y-m-d'));
     }
@@ -65,7 +68,7 @@ class RegistrationProfileFieldsTest extends TestCase
     {
         $defaults = \App\Helpers\PlayerFormConfig::defaultFormFields();
 
-        foreach (['first_name', 'last_name', 'date_of_birth', 'visa_status', 'employer_name', 'available_weekends', 'played_ys_ipl_s1'] as $key) {
+        foreach (['first_name', 'last_name', 'date_of_birth', 'visa_status', 'employer_name', 'available_saturday', 'available_sunday', 'played_ys_ipl_s1'] as $key) {
             $this->assertArrayHasKey($key, $defaults, "Field [{$key}] missing from PlayerFormConfig defaults.");
         }
 
@@ -73,5 +76,28 @@ class RegistrationProfileFieldsTest extends TestCase
         $cfg = \App\Helpers\PlayerFormConfig::getFieldConfig(null);
         $this->assertTrue($cfg['first_name']['required']);
         $this->assertTrue($cfg['last_name']['required']);
+    }
+
+    #[Test]
+    public function employer_fields_are_required_only_for_a_work_visa(): void
+    {
+        $fieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig(null);
+        $rules = \App\Helpers\PlayerFormConfig::buildValidationRules($fieldConfig, 'public');
+
+        // The rule is conditional on visa_status === work_visa.
+        $this->assertStringContainsString('required_if:visa_status,work_visa', $rules['employer_name']);
+
+        $validator = \Illuminate\Support\Facades\Validator::make(
+            ['visa_status' => 'work_visa', 'employer_name' => '', 'employer_address' => '', 'employer_position' => ''],
+            ['employer_name' => $rules['employer_name'], 'employer_address' => $rules['employer_address'], 'employer_position' => $rules['employer_position']]
+        );
+        $this->assertTrue($validator->fails(), 'Employer fields must be required for a work visa.');
+
+        // Visit visa → employer fields can be blank.
+        $ok = \Illuminate\Support\Facades\Validator::make(
+            ['visa_status' => 'visit_visa', 'employer_name' => '', 'employer_address' => '', 'employer_position' => ''],
+            ['employer_name' => $rules['employer_name'], 'employer_address' => $rules['employer_address'], 'employer_position' => $rules['employer_position']]
+        );
+        $this->assertFalse($ok->fails(), 'Employer fields must be optional for a non-work visa.');
     }
 }

@@ -20,7 +20,8 @@ class PlayerFormConfig
             'employer_name'          => ['visible' => true, 'required' => false],
             'employer_address'       => ['visible' => true, 'required' => false],
             'employer_position'      => ['visible' => true, 'required' => false],
-            'available_weekends'     => ['visible' => true, 'required' => false],
+            'available_saturday'     => ['visible' => true, 'required' => false],
+            'available_sunday'       => ['visible' => true, 'required' => false],
             'played_ys_ipl_s1'       => ['visible' => true, 'required' => false],
             'mobile_number'          => ['visible' => true, 'required' => true],
             'cricheroes_number'      => ['visible' => true, 'required' => false],
@@ -169,7 +170,8 @@ class PlayerFormConfig
             'employer_name'          => 'Employer Name',
             'employer_address'       => 'Employer Address',
             'employer_position'      => 'Position',
-            'available_weekends'     => 'I am available to play Saturdays & Sundays',
+            'available_saturday'     => 'I am available to play on Saturdays',
+            'available_sunday'       => 'I am available to play on Sundays',
             'played_ys_ipl_s1'       => 'Have you played YS IPL Season 1?',
             'mobile_number'          => 'Mobile Number',
             'cricheroes_number'      => 'CricHeroes Number',
@@ -200,7 +202,7 @@ class PlayerFormConfig
         return [
             'Basic Information' => ['first_name', 'last_name', 'email', 'date_of_birth', 'country', 'state', 'mobile_number', 'cricheroes_number', 'cricheroes_profile_url', 'location', 'registration_team', 'playing_team'],
             'Visa & Employment' => ['visa_status', 'employer_name', 'employer_address', 'employer_position'],
-            'Availability' => ['available_weekends', 'played_ys_ipl_s1'],
+            'Availability' => ['available_saturday', 'available_sunday', 'played_ys_ipl_s1'],
             'Jersey Information' => ['jersey_name', 'jersey_number', 'kit_size'],
             'Player Profile' => ['player_type', 'batting_profile', 'bowling_profile', 'is_wicket_keeper'],
             'Leather Ball Experience' => ['total_matches', 'total_runs', 'total_wickets'],
@@ -244,20 +246,23 @@ class PlayerFormConfig
             $rules['visa_status'] = ($fieldConfig['visa_status']['required'] ?? false) ? 'required|in:work_visa,visit_visa' : 'nullable|in:work_visa,visit_visa';
         }
 
-        // Employer details
+        // Employer details — required only when the visa is a work visa.
         if ($fieldConfig['employer_name']['visible'] ?? true) {
-            $rules['employer_name'] = ($fieldConfig['employer_name']['required'] ?? false) ? 'required|string|max:255' : 'nullable|string|max:255';
+            $rules['employer_name'] = 'nullable|string|max:255|required_if:visa_status,work_visa';
         }
         if ($fieldConfig['employer_address']['visible'] ?? true) {
-            $rules['employer_address'] = ($fieldConfig['employer_address']['required'] ?? false) ? 'required|string|max:500' : 'nullable|string|max:500';
+            $rules['employer_address'] = 'nullable|string|max:500|required_if:visa_status,work_visa';
         }
         if ($fieldConfig['employer_position']['visible'] ?? true) {
-            $rules['employer_position'] = ($fieldConfig['employer_position']['required'] ?? false) ? 'required|string|max:255' : 'nullable|string|max:255';
+            $rules['employer_position'] = 'nullable|string|max:255|required_if:visa_status,work_visa';
         }
 
-        // Availability
-        if ($fieldConfig['available_weekends']['visible'] ?? true) {
-            $rules['available_weekends'] = ($fieldConfig['available_weekends']['required'] ?? false) ? 'accepted' : 'nullable|boolean';
+        // Availability (separate per-day flags)
+        if ($fieldConfig['available_saturday']['visible'] ?? true) {
+            $rules['available_saturday'] = 'nullable|boolean';
+        }
+        if ($fieldConfig['available_sunday']['visible'] ?? true) {
+            $rules['available_sunday'] = 'nullable|boolean';
         }
         if ($fieldConfig['played_ys_ipl_s1']['visible'] ?? true) {
             $rules['played_ys_ipl_s1'] = 'nullable|boolean';
