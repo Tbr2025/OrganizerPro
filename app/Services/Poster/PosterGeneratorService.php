@@ -58,7 +58,7 @@ abstract class PosterGeneratorService
      */
     protected function addText(
         \GdImage $image,
-        string $text,
+        ?string $text,
         int $x,
         int $y,
         int $size = 24,
@@ -67,6 +67,7 @@ abstract class PosterGeneratorService
         string $align = 'left',
         float $angle = 0
     ): void {
+        $text = (string) ($text ?? '');
         if ($text === '') return;
 
         $fontPath = public_path('fonts/' . $fontFile);

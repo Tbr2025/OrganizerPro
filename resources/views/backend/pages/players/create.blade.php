@@ -51,15 +51,40 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Player identity and contact details</p>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                    {{-- Player Name (always visible) --}}
+                                    {{-- First Name (always visible) --}}
                                     <div class="space-y-1">
-                                        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Player Name') }} <span class="text-red-500">*</span>
+                                        <label for="first_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('First Name') }} <span class="text-red-500">*</span>
                                         </label>
-                                        <input type="text" name="name" id="name" required value="{{ old('name') }}"
-                                            placeholder="Enter Player Name"
-                                            class="form-control @error('name') border-red-500 @enderror">
-                                        @error('name')
+                                        <input type="text" name="first_name" id="first_name" required value="{{ old('first_name') }}"
+                                            placeholder="First name"
+                                            class="form-control @error('first_name') border-red-500 @enderror">
+                                        @error('first_name')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Last Name (always visible) --}}
+                                    <div class="space-y-1">
+                                        <label for="last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Last Name') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" name="last_name" id="last_name" required value="{{ old('last_name') }}"
+                                            placeholder="Last name"
+                                            class="form-control @error('last_name') border-red-500 @enderror">
+                                        @error('last_name')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    {{-- Date of Birth --}}
+                                    <div class="space-y-1">
+                                        <label for="date_of_birth" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Date of Birth') }}
+                                        </label>
+                                        <input type="date" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth') }}"
+                                            class="form-control @error('date_of_birth') border-red-500 @enderror">
+                                        @error('date_of_birth')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
                                     </div>
@@ -77,25 +102,109 @@
                                         @enderror
                                     </div>
 
-                                    {{-- Country --}}
+                                    {{-- Nationality + State (cascading) --}}
+                                    <div style="display: contents" x-data="{
+                                        selectedCountry: @js(old('country', $defaultCountry ?? '')),
+                                        stateValue: @js(old('state')),
+                                        statesByCountry: @js(config('registration.states_by_country')),
+                                        get hasStates() { return Array.isArray(this.statesByCountry[this.selectedCountry]) && this.statesByCountry[this.selectedCountry].length > 0; },
+                                    }">
                                     @if($fieldConfig['country']['visible'] ?? true)
                                     <div class="space-y-1">
                                         <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                            {{ __('Nationality') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                         </label>
                                         <select name="country" id="country" {{ ($fieldConfig['country']['required'] ?? false) ? 'required' : '' }}
+                                            x-model="selectedCountry"
                                             class="form-control @error('country') border-red-500 @enderror"
                                             onchange="updateDialCode(this.value)">
-                                            <option value="">-- Select Country --</option>
+                                            <option value="">-- Select Nationality --</option>
                                             @foreach (config('countries.list', []) as $code => $name)
-                                                <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
-                                                    {{ $name }}
-                                                </option>
+                                                <option value="{{ $code }}">{{ $name }}</option>
                                             @endforeach
                                         </select>
                                         @error('country')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
                                         @enderror
+                                    </div>
+                                    @endif
+
+                                    @if($fieldConfig['state']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="state" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('State / Province') }} @if($fieldConfig['state']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                        </label>
+                                        <select name="state" id="state" class="form-control @error('state') border-red-500 @enderror"
+                                                x-model="stateValue" x-show="hasStates" :disabled="!hasStates">
+                                            <option value="">-- Select State --</option>
+                                            <template x-for="s in (statesByCountry[selectedCountry] || [])" :key="s">
+                                                <option :value="s" x-text="s"></option>
+                                            </template>
+                                        </select>
+                                        <input type="text" name="state" class="form-control @error('state') border-red-500 @enderror"
+                                               x-model="stateValue" x-show="!hasStates" :disabled="hasStates" placeholder="Enter state / province">
+                                        @error('state')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    @endif
+                                    </div>{{-- /cascading --}}
+
+                                    {{-- Visa Status --}}
+                                    @if($fieldConfig['visa_status']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="visa_status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Visa Status') }}</label>
+                                        <select name="visa_status" id="visa_status" class="form-control @error('visa_status') border-red-500 @enderror">
+                                            <option value="">-- Select --</option>
+                                            @foreach(config('registration.visa_statuses', []) as $val => $label)
+                                                <option value="{{ $val }}" {{ old('visa_status') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    @endif
+
+                                    {{-- Employer Name --}}
+                                    @if($fieldConfig['employer_name']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="employer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Name') }}</label>
+                                        <input type="text" name="employer_name" id="employer_name" value="{{ old('employer_name') }}" placeholder="Company" class="form-control">
+                                    </div>
+                                    @endif
+
+                                    {{-- Position --}}
+                                    @if($fieldConfig['employer_position']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="employer_position" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Position') }}</label>
+                                        <input type="text" name="employer_position" id="employer_position" value="{{ old('employer_position') }}" placeholder="e.g. Engineer" class="form-control">
+                                    </div>
+                                    @endif
+
+                                    {{-- Employer Address --}}
+                                    @if($fieldConfig['employer_address']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="employer_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Address') }}</label>
+                                        <textarea name="employer_address" id="employer_address" rows="2" placeholder="Office address" class="form-control">{{ old('employer_address') }}</textarea>
+                                    </div>
+                                    @endif
+
+                                    {{-- Availability --}}
+                                    @if($fieldConfig['available_weekends']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            <input type="checkbox" name="available_weekends" value="1" {{ old('available_weekends') ? 'checked' : '' }}>
+                                            {{ __('Available to play Saturdays & Sundays') }}
+                                        </label>
+                                    </div>
+                                    @endif
+
+                                    {{-- Played YS IPL Season 1 --}}
+                                    @if($fieldConfig['played_ys_ipl_s1']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="played_ys_ipl_s1" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Played YS IPL Season 1?') }}</label>
+                                        <select name="played_ys_ipl_s1" id="played_ys_ipl_s1" class="form-control">
+                                            <option value="0" {{ old('played_ys_ipl_s1') === '0' ? 'selected' : '' }}>No</option>
+                                            <option value="1" {{ old('played_ys_ipl_s1') === '1' ? 'selected' : '' }}>Yes</option>
+                                        </select>
                                     </div>
                                     @endif
 

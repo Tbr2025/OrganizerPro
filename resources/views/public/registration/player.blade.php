@@ -2,437 +2,182 @@
 
 @section('title', 'Player Registration - ' . $tournament->name)
 
+@push('styles')
+<style>
+    .reg-input,
+    .reg-select {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 0.65rem;
+        padding: 0.7rem 0.9rem;
+        color: #fff;
+        font-size: 0.95rem;
+        transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .reg-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+    .reg-input:focus,
+    .reg-select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22);
+        background: rgba(255, 255, 255, 0.08);
+    }
+    .reg-select option { background: var(--primary); color: #fff; }
+
+    .reg-label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        color: #cbd5e1;
+        margin-bottom: 0.45rem;
+    }
+    .reg-req { color: var(--accent); }
+    .reg-hint { color: rgba(255, 255, 255, 0.45); font-size: .75rem; margin-top: .4rem; }
+    .reg-err { color: #f87171; font-size: .8rem; margin-top: .4rem; }
+
+    .reg-section { padding: 1.5rem; border-radius: 1rem; margin-bottom: 1.25rem; }
+    @media (min-width: 640px) { .reg-section { padding: 1.75rem; } }
+
+    .reg-section-head { display: flex; align-items: center; gap: .85rem; margin-bottom: 1.4rem; }
+    .reg-section-icon {
+        width: 2.6rem; height: 2.6rem; border-radius: 0.8rem; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(var(--accent-rgb), 0.15);
+        color: var(--accent); font-size: 1.05rem;
+        border: 1px solid rgba(var(--accent-rgb), 0.25);
+    }
+    .reg-section-title { font-size: 1.15rem; font-weight: 700; line-height: 1.1; }
+    .reg-section-sub { font-size: .78rem; color: rgba(255, 255, 255, 0.5); margin-top: .15rem; }
+
+    .reg-check {
+        display: flex; align-items: center; gap: .8rem;
+        padding: .85rem 1rem; border-radius: .65rem; cursor: pointer;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: border-color .2s, background .2s;
+    }
+    .reg-check:hover { border-color: rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.06); }
+    .reg-check input[type="checkbox"] { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); flex-shrink: 0; }
+
+    .reg-submit {
+        width: 100%; border: none; cursor: pointer;
+        padding: 1rem 1.5rem; border-radius: 0.8rem;
+        font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 1.05rem;
+        letter-spacing: .03em; color: var(--primary);
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        transition: transform .2s, box-shadow .2s; box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.25);
+    }
+    .reg-submit:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(var(--accent-rgb), 0.35); }
+</style>
+@endpush
+
+@include('public.registration.partials.registration-theme')
+
 @section('content')
-    <div class="max-w-3xl mx-auto px-4 py-8">
-        <div class="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
-            {{-- Header --}}
-            <div class="p-6 bg-gradient-to-r from-yellow-500 to-orange-500 text-center">
-                <h1 class="text-2xl font-bold text-gray-900">Player Registration</h1>
-                <p class="text-gray-800 mt-2">Join {{ $tournament->name }}</p>
-            </div>
+    @php
+        $theme = ($settings ?? null) ? $settings->registrationTheme() : (new \App\Models\TournamentSetting())->registrationTheme();
+        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($settings ?? null, true);
+        // Icon + subtitle keyed by the default section key (survives title renames).
+        $sectionMeta = [
+            'Basic Information'       => ['icon' => 'fa-id-card',        'sub' => 'Who you are and how to reach you'],
+            'Visa & Employment'       => ['icon' => 'fa-passport',       'sub' => 'Your residency and work details'],
+            'Availability'            => ['icon' => 'fa-calendar-check', 'sub' => 'When and where you can play'],
+            'Jersey Information'       => ['icon' => 'fa-tshirt',         'sub' => 'What goes on your kit'],
+            'Player Profile'          => ['icon' => 'fa-baseball-ball',   'sub' => 'Your playing style'],
+            'Leather Ball Experience' => ['icon' => 'fa-chart-line',      'sub' => 'Your career numbers'],
+            'Travel & Transportation' => ['icon' => 'fa-bus',            'sub' => 'Help us plan logistics'],
+            'Player Photo'            => ['icon' => 'fa-camera',          'sub' => 'A clear, front-facing headshot'],
+            'Terms & Conditions'      => ['icon' => 'fa-file-contract',   'sub' => 'Please review before submitting'],
+        ];
+    @endphp
+    <div class="max-w-3xl mx-auto px-4 py-8 sm:py-10">
 
-            {{-- Form --}}
-            <form method="POST" action="{{ route('public.tournament.registration.player.store', $tournament->slug) }}"
-                  enctype="multipart/form-data" class="p-6 space-y-6" x-data="{
-                      noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }},
-                      selectedTeam: '{{ old('team_id') }}',
-                  }">
-                @csrf
-
-                {{-- Basic Information Section --}}
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    <h3 class="text-lg font-semibold text-yellow-500 mb-4">Basic Information</h3>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {{-- Name (always visible) --}}
-                        <div>
-                            <label for="name" class="block text-sm font-medium mb-2">Full Name <span class="text-red-500">*</span></label>
-                            <input type="text" name="name" id="name" value="{{ old('name') }}" required
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="Enter your full name">
-                            @error('name')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Email (always visible) --}}
-                        <div>
-                            <label for="email" class="block text-sm font-medium mb-2">Email <span class="text-red-500">*</span></label>
-                            <input type="email" name="email" id="email" value="{{ old('email') }}" required
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="your@email.com">
-                            @error('email')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Mobile Number --}}
-                        @if($fieldConfig['mobile_number']['visible'] ?? true)
-                        <div>
-                            <label for="mobile_number_full" class="block text-sm font-medium mb-2">Mobile Number @if($fieldConfig['mobile_number']['required'] ?? true)<span class="text-red-500">*</span>@endif</label>
-                            <input type="tel" name="mobile_number_full" id="mobile_number_full" value="{{ old('mobile_number_full') }}" {{ ($fieldConfig['mobile_number']['required'] ?? true) ? 'required' : '' }}
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="971501234567 (without +)">
-                            <p class="text-gray-400 text-xs mt-1">Enter with country code without + sign</p>
-                            @error('mobile_number_full')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- CricHeroes Number --}}
-                        @if($fieldConfig['cricheroes_number']['visible'] ?? true)
-                        <div>
-                            <label for="cricheroes_number_full" class="block text-sm font-medium mb-2">CricHeroes Number @if($fieldConfig['cricheroes_number']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <input type="tel" name="cricheroes_number_full" id="cricheroes_number_full" value="{{ old('cricheroes_number_full') }}"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="971501234567 (without +)">
-                            <p class="text-gray-400 text-xs mt-1">Your CricHeroes registered number</p>
-                            @error('cricheroes_number_full')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- CricHeroes Profile URL --}}
-                        @if($fieldConfig['cricheroes_profile_url']['visible'] ?? true)
-                        <div class="md:col-span-2">
-                            <label for="cricheroes_profile_url" class="block text-sm font-medium mb-2">CricHeroes Profile URL @if($fieldConfig['cricheroes_profile_url']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <input type="url" name="cricheroes_profile_url" id="cricheroes_profile_url" value="{{ old('cricheroes_profile_url') }}"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="https://cricheroes.com/player-profile/12345678/your-name/matches">
-                            <p class="text-gray-400 text-xs mt-1">Paste your CricHeroes profile link</p>
-                            @error('cricheroes_profile_url')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- Country --}}
-                        @if($fieldConfig['country']['visible'] ?? true)
-                        <div>
-                            <label for="country" class="block text-sm font-medium mb-2">Country @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <select name="country" id="country"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select your country</option>
-                                @foreach (config('countries.list', []) as $code => $name)
-                                    <option value="{{ $code }}" {{ old('country', $defaultCountry ?? '') == $code ? 'selected' : '' }}>
-                                        {{ $name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('country')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- Location --}}
-                        @if(($fieldConfig['location']['visible'] ?? true) && $locations->count() > 0)
-                        <div>
-                            <label for="location_id" class="block text-sm font-medium mb-2">Location @if($fieldConfig['location']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <select name="location_id" id="location_id"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select your location</option>
-                                @foreach($locations as $location)
-                                    <option value="{{ $location->id }}" {{ old('location_id') == $location->id ? 'selected' : '' }}>
-                                        {{ $location->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('location_id')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- Team Selection --}}
-                        @if(($fieldConfig['registration_team']['visible'] ?? true) && $teams->count() > 0)
-                        <div>
-                            <label for="team_id" class="block text-sm font-medium mb-2">Team @if($fieldConfig['registration_team']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <select name="team_id" id="team_id" x-model="selectedTeam"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select your team</option>
-                                @foreach($teams as $team)
-                                    <option value="{{ $team->id }}" {{ old('team_id') == $team->id ? 'selected' : '' }}>
-                                        {{ $team->name }}
-                                    </option>
-                                @endforeach
-                                <option value="other">Other (specify below)</option>
-                            </select>
-                            @error('team_id')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Team Name Reference (for "Other" team) --}}
-                        <div x-show="selectedTeam === 'other'" x-cloak>
-                            <label for="team_name_ref" class="block text-sm font-medium mb-2">Team Name</label>
-                            <input type="text" name="team_name_ref" id="team_name_ref" value="{{ old('team_name_ref') }}"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="Enter your team name">
-                            @error('team_name_ref')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-                    </div>
-                </div>
-
-                {{-- Jersey Information Section --}}
-                @if(($fieldConfig['jersey_name']['visible'] ?? true) || ($fieldConfig['jersey_number']['visible'] ?? true) || ($fieldConfig['kit_size']['visible'] ?? true))
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    <h3 class="text-lg font-semibold text-yellow-500 mb-4">Jersey Information</h3>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {{-- Jersey Name --}}
-                        @if($fieldConfig['jersey_name']['visible'] ?? true)
-                        <div>
-                            <label for="jersey_name" class="block text-sm font-medium mb-2">Jersey Name @if($fieldConfig['jersey_name']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <input type="text" name="jersey_name" id="jersey_name" value="{{ old('jersey_name') }}"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="Name on jersey" {{ ($fieldConfig['jersey_name']['required'] ?? false) ? 'required' : '' }}>
-                            @error('jersey_name')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- Jersey Number --}}
-                        @if($fieldConfig['jersey_number']['visible'] ?? true)
-                        <div>
-                            <label for="jersey_number" class="block text-sm font-medium mb-2">Jersey Number @if($fieldConfig['jersey_number']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <input type="number" name="jersey_number" id="jersey_number" value="{{ old('jersey_number') }}" min="0" max="999"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="e.g., 7" {{ ($fieldConfig['jersey_number']['required'] ?? false) ? 'required' : '' }}>
-                            @error('jersey_number')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- Kit Size --}}
-                        @if(($fieldConfig['kit_size']['visible'] ?? true) && $kitSizes->count() > 0)
-                        <div>
-                            <label for="kit_size_id" class="block text-sm font-medium mb-2">Jersey Size @if($fieldConfig['kit_size']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <select name="kit_size_id" id="kit_size_id"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select size</option>
-                                @foreach($kitSizes as $size)
-                                    <option value="{{ $size->id }}" {{ old('kit_size_id') == $size->id ? 'selected' : '' }}>
-                                        {{ $size->size ?? $size->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('kit_size_id')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-                    </div>
-                </div>
-                @endif
-
-                {{-- Player Profile Section --}}
-                @if(($fieldConfig['player_type']['visible'] ?? true) || ($fieldConfig['batting_profile']['visible'] ?? true) || ($fieldConfig['bowling_profile']['visible'] ?? true) || ($fieldConfig['is_wicket_keeper']['visible'] ?? true))
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    <h3 class="text-lg font-semibold text-yellow-500 mb-4">Player Profile</h3>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {{-- Player Type --}}
-                        @if(($fieldConfig['player_type']['visible'] ?? true) && $playerTypes->count() > 0)
-                        <div>
-                            <label for="player_type_id" class="block text-sm font-medium mb-2">Player Type @if($fieldConfig['player_type']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <select name="player_type_id" id="player_type_id"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select type</option>
-                                @foreach($playerTypes as $type)
-                                    <option value="{{ $type->id }}" {{ old('player_type_id') == $type->id ? 'selected' : '' }}>
-                                        {{ $type->name ?? $type->type }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('player_type_id')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- Batting Style --}}
-                        @if(($fieldConfig['batting_profile']['visible'] ?? true) && $battingProfiles->count() > 0)
-                        <div>
-                            <label for="batting_profile_id" class="block text-sm font-medium mb-2">Batting Style @if($fieldConfig['batting_profile']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <select name="batting_profile_id" id="batting_profile_id"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select batting style</option>
-                                @foreach($battingProfiles as $profile)
-                                    <option value="{{ $profile->id }}" {{ old('batting_profile_id') == $profile->id ? 'selected' : '' }}>
-                                        {{ $profile->name ?? $profile->style }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('batting_profile_id')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        {{-- Bowling Style --}}
-                        @if(($fieldConfig['bowling_profile']['visible'] ?? true) && $bowlingProfiles->count() > 0)
-                        <div>
-                            <label for="bowling_profile_id" class="block text-sm font-medium mb-2">Bowling Style @if($fieldConfig['bowling_profile']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <select name="bowling_profile_id" id="bowling_profile_id"
-                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                <option value="">Select bowling style</option>
-                                @foreach($bowlingProfiles as $profile)
-                                    <option value="{{ $profile->id }}" {{ old('bowling_profile_id') == $profile->id ? 'selected' : '' }}>
-                                        {{ $profile->name ?? $profile->style }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('bowling_profile_id')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-                    </div>
-
-                    {{-- Wicket Keeper Checkbox --}}
-                    @if($fieldConfig['is_wicket_keeper']['visible'] ?? true)
-                    <div class="mt-4">
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" name="is_wicket_keeper" id="is_wicket_keeper" value="1"
-                                   class="w-5 h-5 bg-gray-700 border-gray-600 rounded text-yellow-500 focus:ring-yellow-500"
-                                   {{ old('is_wicket_keeper') ? 'checked' : '' }}>
-                            <span class="ml-3 text-sm">I am a wicket keeper</span>
-                        </label>
-                    </div>
-                    @endif
-                </div>
-                @endif
-
-                {{-- Leather Ball Experience Section --}}
-                @if(($fieldConfig['total_matches']['visible'] ?? true) || ($fieldConfig['total_runs']['visible'] ?? true) || ($fieldConfig['total_wickets']['visible'] ?? true))
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    <h3 class="text-lg font-semibold text-yellow-500 mb-4">Leather Ball Experience</h3>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        @if($fieldConfig['total_matches']['visible'] ?? true)
-                        <div>
-                            <label for="total_matches" class="block text-sm font-medium mb-2">Total Matches @if($fieldConfig['total_matches']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <input type="number" name="total_matches" id="total_matches" value="{{ old('total_matches', 0) }}" min="0"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="0">
-                            @error('total_matches')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        @if($fieldConfig['total_runs']['visible'] ?? true)
-                        <div>
-                            <label for="total_runs" class="block text-sm font-medium mb-2">Total Runs @if($fieldConfig['total_runs']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <input type="number" name="total_runs" id="total_runs" value="{{ old('total_runs', 0) }}" min="0"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="0">
-                            @error('total_runs')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-
-                        @if($fieldConfig['total_wickets']['visible'] ?? true)
-                        <div>
-                            <label for="total_wickets" class="block text-sm font-medium mb-2">Total Wickets @if($fieldConfig['total_wickets']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                            <input type="number" name="total_wickets" id="total_wickets" value="{{ old('total_wickets', 0) }}" min="0"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                   placeholder="0">
-                            @error('total_wickets')
-                                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        @endif
-                    </div>
-                </div>
-                @endif
-
-                {{-- Travel & Transportation Section --}}
-                @if(($fieldConfig['transportation']['visible'] ?? true) || ($fieldConfig['travel_plan']['visible'] ?? true))
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    <h3 class="text-lg font-semibold text-yellow-500 mb-4">Travel & Transportation</h3>
-
-                    <div class="space-y-4">
-                        {{-- Transportation Required --}}
-                        @if($fieldConfig['transportation']['visible'] ?? true)
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" name="transportation_required" id="transportation_required" value="1"
-                                   class="w-5 h-5 bg-gray-700 border-gray-600 rounded text-yellow-500 focus:ring-yellow-500"
-                                   {{ old('transportation_required') ? 'checked' : '' }}>
-                            <span class="ml-3 text-sm">I need transportation to the venue</span>
-                        </label>
-                        @endif
-
-                        {{-- No Travel Plan --}}
-                        @if($fieldConfig['travel_plan']['visible'] ?? true)
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" name="no_travel_plan" id="no_travel_plan" value="1" x-model="noTravel"
-                                   class="w-5 h-5 bg-gray-700 border-gray-600 rounded text-yellow-500 focus:ring-yellow-500"
-                                   {{ old('no_travel_plan') ? 'checked' : '' }}>
-                            <span class="ml-3 text-sm">I have no travel plans (available throughout)</span>
-                        </label>
-
-                        {{-- Travel Dates --}}
-                        <div x-show="!noTravel" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                            <div>
-                                <label for="travel_date_from" class="block text-sm font-medium mb-2">Travel From Date</label>
-                                <input type="date" name="travel_date_from" id="travel_date_from" value="{{ old('travel_date_from') }}"
-                                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                @error('travel_date_from')
-                                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label for="travel_date_to" class="block text-sm font-medium mb-2">Travel To Date</label>
-                                <input type="date" name="travel_date_to" id="travel_date_to" value="{{ old('travel_date_to') }}"
-                                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
-                                @error('travel_date_to')
-                                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                                @enderror
-                            </div>
-                        </div>
-                        @endif
-                    </div>
-                </div>
-                @endif
-
-                {{-- Player Image Section --}}
-                @include('public.registration.partials.player-image-upload', ['fieldConfig' => $fieldConfig])
-
-                {{-- Terms & Conditions --}}
-                @if($fieldConfig['terms_and_conditions']['visible'] ?? false)
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    @if(!empty($settings->terms_and_conditions_content ?? ''))
-                    <div x-data="{ showTC: false }">
-                        <button type="button" @click="showTC = !showTC" class="text-yellow-500 hover:text-yellow-400 text-sm underline mb-3">
-                            View Terms & Conditions
-                        </button>
-                        <div x-show="showTC" x-cloak class="mb-4 p-4 bg-gray-700 rounded-lg text-sm text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
-                    </div>
-                    @endif
-
-                    <label class="flex items-center cursor-pointer">
-                        <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1"
-                               class="w-5 h-5 bg-gray-700 border-gray-600 rounded text-yellow-500 focus:ring-yellow-500"
-                               {{ old('terms_and_conditions') ? 'checked' : '' }}
-                               {{ ($fieldConfig['terms_and_conditions']['required'] ?? false) ? 'required' : '' }}>
-                        <span class="ml-3 text-sm">
-                            I agree to the Terms & Conditions @if($fieldConfig['terms_and_conditions']['required'] ?? false)<span class="text-red-500">*</span>@endif
-                        </span>
-                    </label>
-                    @error('terms_and_conditions')
-                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                @endif
-
-                {{-- Submit Button --}}
-                <div class="pt-4">
-                    <button type="submit"
-                            class="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-gray-900 font-bold py-4 px-6 rounded-lg transition transform hover:scale-[1.02]">
-                        Submit Registration
-                    </button>
-                </div>
-            </form>
+        {{-- Banner --}}
+        <div class="reg-banner reveal">
+            @if(($tournament->settings?->logo ?? $tournament->logo))
+                <img src="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" alt="{{ $tournament->name }}"
+                     class="mx-auto mb-4" style="width:72px;height:72px;object-fit:contain;border-radius:1rem;background:rgba(255,255,255,0.12);padding:.5rem;">
+            @endif
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-3"
+                  style="background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.35);">
+                <i class="fas fa-circle" style="font-size:.5rem;"></i> Registration Open
+            </span>
+            <h1 class="text-3xl font-bold">{{ $theme['banner_title'] ?: 'Player Registration' }}</h1>
+            <p class="text-white/90 mt-2">{{ $theme['banner_subtitle'] ?: ('Join ' . $tournament->name) }}</p>
+            <p class="text-white/70 text-sm mt-3 max-w-md mx-auto">
+                <i class="fas fa-shield-alt mr-1"></i>
+                Submit your details below — your application will be reviewed and you'll be notified by email.
+            </p>
         </div>
 
+        {{-- Validation summary --}}
+        @if($errors->any())
+            <div class="reg-section reveal" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-exclamation-triangle text-red-400 mt-1"></i>
+                    <div>
+                        <p class="font-semibold text-red-300">Please fix the following:</p>
+                        <ul class="list-disc list-inside text-sm text-red-200 mt-2 space-y-1">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- Form --}}
+        <form method="POST" action="{{ route('public.tournament.registration.player.store', $tournament->slug) }}"
+              enctype="multipart/form-data" x-data="{
+                  noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }},
+                  selectedTeam: '{{ old('team_id') }}',
+                  selectedCountry: @js(old('country', $defaultCountry ?? '')),
+                  stateValue: @js(old('state')),
+                  statesByCountry: @js(config('registration.states_by_country')),
+                  get hasStates() { return Array.isArray(this.statesByCountry[this.selectedCountry]) && this.statesByCountry[this.selectedCountry].length > 0; },
+              }">
+            @csrf
+
+            @foreach($layout as $section)
+                @php $meta = $sectionMeta[$section['key']] ?? ['icon' => 'fa-list-ul', 'sub' => '']; @endphp
+                @if(count($section['fields']))
+                <div class="reg-section glass reveal">
+                    <div class="reg-section-head">
+                        <div class="reg-section-icon"><i class="fas {{ $meta['icon'] }}"></i></div>
+                        <div>
+                            <div class="reg-section-title">{{ $section['title'] }}</div>
+                            @if($meta['sub'])<div class="reg-section-sub">{{ $meta['sub'] }}</div>@endif
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        @foreach($section['fields'] as $fieldKey)
+                            @include('public.registration.fields.player-field', ['key' => $fieldKey])
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+            @endforeach
+
+            {{-- Submit --}}
+            <div class="reveal">
+                <button type="submit" class="reg-submit btn-ripple">
+                    <i class="fas fa-paper-plane mr-2"></i> Submit Registration
+                </button>
+                <p class="text-center text-gray-500 text-xs mt-3">
+                    <i class="fas fa-lock mr-1"></i> Your information is only shared with the tournament organizers.
+                </p>
+            </div>
+        </form>
+
         {{-- Back Link --}}
-        <div class="text-center mt-6">
-            <a href="{{ route('public.tournament.show', $tournament->slug) }}" class="text-gray-400 hover:text-white transition">
-                <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                </svg>
-                Back to Tournament
+        <div class="text-center mt-8">
+            <a href="{{ route('public.tournament.show', $tournament->slug) }}" class="text-gray-400 hover:text-white transition inline-flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Back to Tournament
             </a>
         </div>
     </div>

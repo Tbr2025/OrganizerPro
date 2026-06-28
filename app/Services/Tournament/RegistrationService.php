@@ -2,6 +2,7 @@
 
 namespace App\Services\Tournament;
 
+use App\Mail\ApplicationUnderReviewMail;
 use App\Mail\NewRegistrationAdminMail;
 use App\Mail\PlayerWelcomeMail;
 use App\Mail\RegistrationApprovedMail;
@@ -46,9 +47,21 @@ class RegistrationService
 
             if (!$player) {
                 $player = Player::create([
+                    'organization_id' => $tournament->organization_id,
                     'user_id' => $user->id,
                     'name' => $data['name'],
+                    'first_name' => $data['first_name'] ?? null,
+                    'last_name' => $data['last_name'] ?? null,
+                    'date_of_birth' => $data['date_of_birth'] ?? null,
                     'email' => $data['email'],
+                    'country' => $data['country'] ?? null,
+                    'state' => $data['state'] ?? null,
+                    'visa_status' => $data['visa_status'] ?? null,
+                    'employer_name' => $data['employer_name'] ?? null,
+                    'employer_address' => $data['employer_address'] ?? null,
+                    'employer_position' => $data['employer_position'] ?? null,
+                    'available_weekends' => $data['available_weekends'] ?? false,
+                    'played_ys_ipl_s1' => $data['played_ys_ipl_s1'] ?? false,
                     'mobile_number_full' => $data['mobile_number_full'] ?? null,
                     'cricheroes_number_full' => $data['cricheroes_number_full'] ?? null,
                     'cricheroes_profile_url' => $data['cricheroes_profile_url'] ?? null,
@@ -75,6 +88,16 @@ class RegistrationService
             } else {
                 // Update existing player with new data if provided
                 $updateData = array_filter([
+                    'name' => $data['name'] ?? null,
+                    'first_name' => $data['first_name'] ?? null,
+                    'last_name' => $data['last_name'] ?? null,
+                    'date_of_birth' => $data['date_of_birth'] ?? null,
+                    'country' => $data['country'] ?? null,
+                    'state' => $data['state'] ?? null,
+                    'visa_status' => $data['visa_status'] ?? null,
+                    'employer_name' => $data['employer_name'] ?? null,
+                    'employer_address' => $data['employer_address'] ?? null,
+                    'employer_position' => $data['employer_position'] ?? null,
                     'mobile_number_full' => $data['mobile_number_full'] ?? null,
                     'cricheroes_number_full' => $data['cricheroes_number_full'] ?? null,
                     'cricheroes_profile_url' => $data['cricheroes_profile_url'] ?? null,
@@ -98,6 +121,14 @@ class RegistrationService
                     'total_wickets' => $data['total_wickets'] ?? null,
                 ], fn($value) => $value !== null);
 
+                // Booleans set explicitly (array_filter would drop a false value).
+                if (array_key_exists('available_weekends', $data)) {
+                    $updateData['available_weekends'] = (bool) $data['available_weekends'];
+                }
+                if (array_key_exists('played_ys_ipl_s1', $data)) {
+                    $updateData['played_ys_ipl_s1'] = (bool) $data['played_ys_ipl_s1'];
+                }
+
                 if (!empty($updateData)) {
                     $player->update($updateData);
                 }
@@ -106,6 +137,7 @@ class RegistrationService
             // Create registration
             $registration = TournamentRegistration::create([
                 'tournament_id' => $tournament->id,
+                'organization_id' => $tournament->organization_id,
                 'type' => 'player',
                 'player_id' => $player->id,
                 'status' => 'pending',
@@ -113,6 +145,9 @@ class RegistrationService
 
             // Send admin notification
             $this->notifyAdminOfNewRegistration($tournament, $registration, 'player');
+
+            // Tell the applicant their application is in the queue / under review.
+            $this->sendApplicationUnderReviewEmail($tournament, $registration, $data['email'] ?? null, $data['name'] ?? 'Player');
 
             // In-app notification for admins
             $this->notifyAdminsInApp(
@@ -137,6 +172,7 @@ class RegistrationService
 
         $registration = TournamentRegistration::create([
             'tournament_id' => $tournament->id,
+            'organization_id' => $tournament->organization_id,
             'type' => 'team',
             'team_name' => $data['team_name'],
             'team_short_name' => $data['team_short_name'] ?? null,
@@ -153,6 +189,9 @@ class RegistrationService
 
         // Send admin notification
         $this->notifyAdminOfNewRegistration($tournament, $registration, 'team');
+
+        // Tell the captain their team application is in the queue / under review.
+        $this->sendApplicationUnderReviewEmail($tournament, $registration, $data['captain_email'] ?? null, $data['captain_name'] ?? 'Captain');
 
         // In-app notification for admins
         $this->notifyAdminsInApp(
@@ -180,8 +219,24 @@ class RegistrationService
                 'processed_by' => $approvedBy,
             ]);
 
+            // Mark the player approved and give their user the Player role.
+            $player = $registration->player;
+            if ($player) {
+                $player->update(['status' => 'approved', 'approved_by' => $approvedBy]);
+
+                if ($player->user) {
+                    $role = \App\Models\Role::firstOrCreate(['name' => 'player']);
+                    if (! $player->user->hasRole('player')) {
+                        $player->user->assignRole($role);
+                    }
+                }
+            }
+
             // Send approval email to player
             $this->sendApprovalEmail($registration);
+
+            // Send the greeting / invite card (generated poster attached).
+            $this->sendGreetingCard($registration);
 
             return true;
         });
@@ -464,6 +519,39 @@ class RegistrationService
             } catch (\Exception $e) {
                 Log::error('Failed to send approval email: ' . $e->getMessage());
             }
+        }
+    }
+
+    /**
+     * Notify an applicant on submission that their application is queued / under review.
+     */
+    protected function sendApplicationUnderReviewEmail(Tournament $tournament, TournamentRegistration $registration, ?string $email, string $name): void
+    {
+        if (! $email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send(new ApplicationUnderReviewMail($tournament, $registration, $name));
+        } catch (\Throwable $e) {
+            Log::error('Failed to send under-review email: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send the greeting / welcome card (with generated poster) on player approval.
+     * Failures are logged, never block approval.
+     */
+    protected function sendGreetingCard(TournamentRegistration $registration): void
+    {
+        try {
+            // manual: true so approval always sends the card regardless of the
+            // tournament's auto-send setting.
+            app(\App\Services\Notification\TournamentNotificationService::class)
+                ->sendWelcomeCard($registration, true);
+        } catch (\Throwable $e) {
+            // Never let card generation (TypeError/GD/etc.) break the approval.
+            Log::error('Failed to send greeting card: ' . $e->getMessage());
         }
     }
 }

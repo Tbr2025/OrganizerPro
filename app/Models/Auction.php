@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\BelongsToOrganization;
 
 class Auction extends Model
 {
+    use BelongsToOrganization;
 
     protected $fillable = [
         'name',
@@ -135,6 +137,14 @@ class Auction extends Model
     public function auctionPlayers()
     {
         return $this->hasMany(AuctionPlayer::class);
+    }
+    public function pools()
+    {
+        return $this->hasMany(AuctionPool::class)->orderBy('sequence');
+    }
+    public function teamBudgets()
+    {
+        return $this->hasMany(AuctionTeamBudget::class);
     }
     public function bids()
     {

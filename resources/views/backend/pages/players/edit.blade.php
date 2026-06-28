@@ -36,25 +36,49 @@
 
                             @php
                                 $fields = [
-                                    'name' => 'Player Name',
                                     'email' => 'Email',
                                     'jersey_name' => 'Jersey Name',
                                     'jersey_number' => 'Jersey Number',
                                 ];
                             @endphp
 
-                            {{-- Country --}}
+                            {{-- First / Last name + DOB --}}
+                            <div class="space-y-1">
+                                <label for="first_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name <span class="text-red-500">*</span></label>
+                                <input type="text" name="first_name" id="first_name" value="{{ old('first_name', $player->first_name) }}" required
+                                    class="form-control @error('first_name') border-red-500 @enderror">
+                                @error('first_name')<p class="text-sm text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="space-y-1">
+                                <label for="last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name <span class="text-red-500">*</span></label>
+                                <input type="text" name="last_name" id="last_name" value="{{ old('last_name', $player->last_name) }}" required
+                                    class="form-control @error('last_name') border-red-500 @enderror">
+                                @error('last_name')<p class="text-sm text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="space-y-1">
+                                <label for="date_of_birth" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date of Birth</label>
+                                <input type="date" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth', optional($player->date_of_birth)->format('Y-m-d')) }}"
+                                    class="form-control @error('date_of_birth') border-red-500 @enderror">
+                                @error('date_of_birth')<p class="text-sm text-red-500">{{ $message }}</p>@enderror
+                            </div>
+
+                            {{-- Nationality + State (cascading) --}}
+                            <div style="display: contents" x-data="{
+                                selectedCountry: @js(old('country', $player->country ?? '')),
+                                stateValue: @js(old('state', $player->state ?? '')),
+                                statesByCountry: @js(config('registration.states_by_country')),
+                                get hasStates() { return Array.isArray(this.statesByCountry[this.selectedCountry]) && this.statesByCountry[this.selectedCountry].length > 0; },
+                            }">
+                            {{-- Nationality --}}
                             <div class="space-y-1">
                                 <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Country') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                    {{ __('Nationality') }} @if($fieldConfig['country']['required'] ?? false)<span class="text-red-500">*</span>@endif
                                 </label>
                                 <div class="flex items-center space-x-2">
-                                    <select name="country" id="country" class="form-control @error('country') border-red-500 @enderror">
-                                        <option value="">-- Select Country --</option>
+                                    <select name="country" id="country" x-model="selectedCountry" class="form-control @error('country') border-red-500 @enderror">
+                                        <option value="">-- Select Nationality --</option>
                                         @foreach (config('countries.list', []) as $code => $name)
-                                            <option value="{{ $code }}" {{ old('country', $player->country) == $code ? 'selected' : '' }}>
-                                                {{ $name }}
-                                            </option>
+                                            <option value="{{ $code }}">{{ $name }}</option>
                                         @endforeach
                                     </select>
 
@@ -76,6 +100,68 @@
                                 @error('country')
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
+                            </div>
+
+                            {{-- State / Province (auto-populated from Nationality) --}}
+                            <div class="space-y-1">
+                                <label for="state" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('State / Province') }}</label>
+                                <select name="state" id="state" class="form-control @error('state') border-red-500 @enderror"
+                                        x-model="stateValue" x-show="hasStates" :disabled="!hasStates">
+                                    <option value="">-- Select State --</option>
+                                    <template x-for="s in (statesByCountry[selectedCountry] || [])" :key="s">
+                                        <option :value="s" x-text="s"></option>
+                                    </template>
+                                </select>
+                                <input type="text" name="state" class="form-control @error('state') border-red-500 @enderror"
+                                       x-model="stateValue" x-show="!hasStates" :disabled="hasStates" placeholder="Enter state / province">
+                                @error('state')<p class="text-sm text-red-500">{{ $message }}</p>@enderror
+                            </div>
+                            </div>{{-- /cascading --}}
+
+                            {{-- Visa Status --}}
+                            <div class="space-y-1">
+                                <label for="visa_status" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Visa Status') }}</label>
+                                <select name="visa_status" id="visa_status" class="form-control">
+                                    <option value="">-- Select --</option>
+                                    @foreach(config('registration.visa_statuses', []) as $val => $label)
+                                        <option value="{{ $val }}" {{ old('visa_status', $player->visa_status) === $val ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- Employer Name --}}
+                            <div class="space-y-1">
+                                <label for="employer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Name') }}</label>
+                                <input type="text" name="employer_name" id="employer_name" value="{{ old('employer_name', $player->employer_name) }}" class="form-control">
+                            </div>
+
+                            {{-- Position --}}
+                            <div class="space-y-1">
+                                <label for="employer_position" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Position') }}</label>
+                                <input type="text" name="employer_position" id="employer_position" value="{{ old('employer_position', $player->employer_position) }}" class="form-control">
+                            </div>
+
+                            {{-- Employer Address --}}
+                            <div class="space-y-1">
+                                <label for="employer_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Address') }}</label>
+                                <textarea name="employer_address" id="employer_address" rows="2" class="form-control">{{ old('employer_address', $player->employer_address) }}</textarea>
+                            </div>
+
+                            {{-- Availability --}}
+                            <div class="space-y-1">
+                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="checkbox" name="available_weekends" value="1" {{ old('available_weekends', $player->available_weekends) ? 'checked' : '' }}>
+                                    {{ __('Available to play Saturdays & Sundays') }}
+                                </label>
+                            </div>
+
+                            {{-- Played YS IPL Season 1 --}}
+                            <div class="space-y-1">
+                                <label for="played_ys_ipl_s1" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Played YS IPL Season 1?') }}</label>
+                                <select name="played_ys_ipl_s1" id="played_ys_ipl_s1" class="form-control">
+                                    <option value="0" {{ old('played_ys_ipl_s1', $player->played_ys_ipl_s1 ? '1':'0') === '0' ? 'selected' : '' }}>No</option>
+                                    <option value="1" {{ old('played_ys_ipl_s1', $player->played_ys_ipl_s1 ? '1':'0') === '1' ? 'selected' : '' }}>Yes</option>
+                                </select>
                             </div>
 
                             {{-- Mobile Number with Country Code Dropdown --}}
@@ -553,7 +639,7 @@
                             </button>
 
 
-                            @if ($templates->count() > 0)
+                            @if ($hasWelcomeTemplate)
                                 @if ($verifiedProfile)
                                     <input type="hidden" name="allverified" value="1">
 
@@ -569,11 +655,13 @@
                                     Welcome Player - Generate Image
                                 </button>
                                 <p class="text-sm text-red-600 mt-2">
-                                    ⚠️ No welcome image template found.
-                                    <a href="{{ route('admin.image-templates.create') }}"
-                                        class="underline text-blue-600 hover:text-blue-800">
-                                        Create one now.
-                                    </a>
+                                    @if ($welcomeRegistration && $welcomeRegistration->tournament)
+                                        ⚠️ No <strong>welcome_card</strong> template for {{ $welcomeRegistration->tournament->name }}.
+                                        <a href="{{ route('admin.tournaments.templates.create', $welcomeRegistration->tournament) }}?type=welcome_card"
+                                            class="underline text-blue-600 hover:text-blue-800">Create one now.</a>
+                                    @else
+                                        ⚠️ This player isn't linked to a tournament yet, so a welcome card can't be generated.
+                                    @endif
                                 </p>
                             @endif
                             @if (!$player->isApproved())

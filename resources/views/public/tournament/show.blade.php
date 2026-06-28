@@ -221,37 +221,51 @@
                             $playerOpen = $settings?->player_registration_open ?? false;
                             $teamOpen = $settings?->team_registration_open ?? false;
                         @endphp
-                        <div x-data="{ open: false }" class="relative">
+                        <div x-data="{
+                                open: false,
+                                coords: { top: 0, left: 0 },
+                                place() {
+                                    const r = this.$refs.regBtn.getBoundingClientRect();
+                                    this.coords.top = r.bottom + window.scrollY + 12;
+                                    this.coords.left = r.left + window.scrollX + r.width / 2;
+                                },
+                                toggle() { this.open = !this.open; if (this.open) this.$nextTick(() => this.place()); },
+                             }" class="relative">
                             @if($playerOpen && $teamOpen)
-                                <button @click="open = !open"
+                                <button type="button" x-ref="regBtn" @click="toggle()"
                                         class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg rounded-xl transition-all hover:shadow-xl hover:shadow-green-500/20 flex items-center gap-2">
                                     <i class="fas fa-clipboard-check"></i>
                                     Register Now
                                     <i class="fas fa-chevron-down text-sm transition-transform" :class="{ 'rotate-180': open }"></i>
                                 </button>
-                                <div x-show="open" x-transition @click.away="open = false"
-                                     class="absolute left-1/2 -translate-x-1/2 mt-3 w-64 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50">
-                                    <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
-                                       class="flex items-center gap-3 px-5 py-4 hover:bg-gray-700 transition-colors border-b border-gray-700">
-                                        <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                                            <i class="fas fa-user text-blue-400"></i>
-                                        </div>
-                                        <div class="text-left">
-                                            <p class="font-semibold text-white text-sm">As Player</p>
-                                            <p class="text-xs text-gray-400">Join individually</p>
-                                        </div>
-                                    </a>
-                                    <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
-                                       class="flex items-center gap-3 px-5 py-4 hover:bg-gray-700 transition-colors">
-                                        <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                                            <i class="fas fa-users text-purple-400"></i>
-                                        </div>
-                                        <div class="text-left">
-                                            <p class="font-semibold text-white text-sm">As Team</p>
-                                            <p class="text-xs text-gray-400">Register your squad</p>
-                                        </div>
-                                    </a>
-                                </div>
+                                {{-- Teleported to body so the hero's overflow:hidden can't clip it --}}
+                                <template x-teleport="body">
+                                    <div x-show="open" x-transition @click.away="open = false" @keydown.escape.window="open = false"
+                                         @resize.window="place()" @scroll.window="open = false"
+                                         :style="`position:absolute; top:${coords.top}px; left:${coords.left}px; transform:translateX(-50%); z-index:9999; width:16rem;`"
+                                         class="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden">
+                                        <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}"
+                                           class="flex items-center gap-3 px-5 py-4 hover:bg-gray-700 transition-colors border-b border-gray-700">
+                                            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                                <i class="fas fa-user text-blue-400"></i>
+                                            </div>
+                                            <div class="text-left">
+                                                <p class="font-semibold text-white text-sm">As Player</p>
+                                                <p class="text-xs text-gray-400">Join individually</p>
+                                            </div>
+                                        </a>
+                                        <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
+                                           class="flex items-center gap-3 px-5 py-4 hover:bg-gray-700 transition-colors">
+                                            <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                                <i class="fas fa-users text-purple-400"></i>
+                                            </div>
+                                            <div class="text-left">
+                                                <p class="font-semibold text-white text-sm">As Team</p>
+                                                <p class="text-xs text-gray-400">Register your squad</p>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </template>
                             @elseif($teamOpen)
                                 <a href="{{ route('public.tournament.registration.team', $tournament->slug) }}"
                                    class="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg rounded-xl transition-all hover:shadow-xl hover:shadow-green-500/20 inline-flex items-center gap-2">

@@ -617,6 +617,13 @@ class AdminMenuService
                     'priority' => 5,
                     'superadmin_only' => true,
                 ],
+                [
+                    'label' => __('Email Preview'),
+                    'route' => route('admin.emails.preview'),
+                    'active' => Route::is('admin.emails.preview*'),
+                    'priority' => 4,
+                    'superadmin_only' => true,
+                ],
             ],
         ], __('More'));
 

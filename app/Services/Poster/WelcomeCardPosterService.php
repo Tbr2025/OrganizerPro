@@ -152,7 +152,7 @@ class WelcomeCardPosterService extends PosterGeneratorService
         if ($player->playerType) {
             $this->addText(
                 $image,
-                $player->playerType->name,
+                $player->playerType->name ?? $player->playerType->type ?? '',
                 540, 790,
                 20,
                 '#CCCCCC',

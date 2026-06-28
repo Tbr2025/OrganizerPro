@@ -38,7 +38,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700"
             x-data="auctionCreateForm()" x-init="init()">
 
-            <form action="{{ route('admin.auctions.store') }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ route('admin.auctions.store') }}" method="POST" enctype="multipart/form-data" @submit="serializePools()">
                 @csrf
                 {{-- START: DEBUGGING BLOCK - To See All Errors --}}
                 {{-- ======================================================= --}}
@@ -99,7 +99,8 @@
                                 <div>
                                     <label for="organization_id" class="form-label">Organization <span
                                             class="text-red-500">*</span></label>
-                                    <select name="organization_id" id="organization_id" class="form-control" required>
+                                    <select name="organization_id" id="organization_id" class="form-control" required
+                                            onchange="filterAuctionTournaments(this.value)">
                                         <option value="">Select Organization</option>
                                         @foreach ($organizations as $org)
                                             <option value="{{ $org->id }}"
@@ -122,16 +123,41 @@
                                 <select name="tournament_id" id="tournament_id" class="form-control" required>
                                     <option value="">Select Tournament</option>
                                     @foreach ($tournaments as $tournament)
-                                        <option value="{{ $tournament->id }}"
+                                        <option value="{{ $tournament->id }}" data-org="{{ $tournament->organization_id }}"
                                             {{ old('tournament_id') == $tournament->id ? 'selected' : '' }}>
                                             {{ $tournament->name }}</option>
                                     @endforeach
                                 </select>
+                                <p id="tournament_hint" class="text-xs text-gray-500 mt-1" style="display:none;">Select an organization first to see its tournaments.</p>
                                 {{-- **FIX**: Add the error display --}}
                                 @error('tournament_id')
                                     <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                                 @enderror
                             </div>
+
+                            {{-- Cascade: show only the selected organization's tournaments --}}
+                            <script>
+                                function filterAuctionTournaments(orgId) {
+                                    var sel = document.getElementById('tournament_id');
+                                    if (!sel) return;
+                                    var hint = document.getElementById('tournament_hint');
+                                    var anyVisible = false;
+                                    Array.prototype.forEach.call(sel.options, function (opt) {
+                                        if (opt.value === '') return; // placeholder
+                                        var match = !orgId || opt.dataset.org === String(orgId);
+                                        opt.hidden = !match;
+                                        opt.disabled = !match;
+                                        if (match) anyVisible = true;
+                                        if (!match && opt.selected) { opt.selected = false; sel.value = ''; }
+                                    });
+                                    if (hint) hint.style.display = (orgId && !anyVisible) ? 'block' : 'none';
+                                }
+                                document.addEventListener('DOMContentLoaded', function () {
+                                    var org = document.getElementById('organization_id');
+                                    // Org users have no org select (their tournaments are already scoped) — skip.
+                                    if (org) filterAuctionTournaments(org.value);
+                                });
+                            </script>
                             <div>
                                 <label for="start_at" class="form-label">Start Date & Time <span
                                         class="text-red-500">*</span></label>
@@ -316,132 +342,116 @@
                             </div>
                         </div>
 
+                        <div class="flex justify-end mb-4">
+                            <button type="button" @click="addPool()" class="btn btn-sm bg-indigo-600 hover:bg-indigo-700 text-white">
+                                <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                Add Pool
+                            </button>
+                        </div>
+
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {{-- Players IN Auction Pool --}}
-                            <div class="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-5 border-2 border-blue-200 dark:border-blue-800">
-                                <div class="flex items-center justify-between mb-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
-                                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                            </svg>
+                            {{-- Pools (left) --}}
+                            <div class="space-y-4">
+                                <template x-for="(pool, idx) in pools" :key="pool.uid">
+                                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-4 border-2 border-blue-200 dark:border-blue-800">
+                                        <div class="flex items-center gap-2 mb-3">
+                                            <span class="text-xs uppercase tracking-wide text-gray-400" x-text="'#' + (idx + 1)"></span>
+                                            <input type="text" x-model="pool.name" placeholder="Pool name"
+                                                   class="form-control form-control-sm flex-1 font-semibold bg-white dark:bg-gray-800">
+                                            <button type="button" @click="removePool(idx)" class="text-red-500 text-xs hover:underline">Remove</button>
                                         </div>
-                                        <div>
-                                            <h3 class="font-bold text-gray-900 dark:text-white">In Pool</h3>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400"><span x-text="inPool.length"></span> players</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {{-- Search --}}
-                                <div class="relative mb-4">
-                                    <input type="text" x-model="searchInPool" placeholder="Search players in pool..."
-                                           class="form-control pl-10 bg-white dark:bg-gray-800">
-                                    <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
-                                </div>
-
-                                {{-- Players List --}}
-                                <div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                                    <template x-for="player in inPoolFiltered" :key="player.id">
-                                        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow group">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-                                                     x-text="player.name.charAt(0)"></div>
-                                                <div class="flex-1 min-w-0">
-                                                    <p class="font-semibold text-gray-900 dark:text-white truncate" x-text="player.name"></p>
-                                                    <div class="flex items-center gap-2 mt-1">
-                                                        <input type="number"
-                                                               x-model.number="player.base_price"
-                                                               class="form-control form-control-sm w-28 text-center font-medium"
-                                                               placeholder="Base Price" min="0">
-                                                        <span class="text-xs text-green-600 dark:text-green-400 font-medium"
-                                                              x-text="formatMoney(player.base_price)"></span>
-                                                    </div>
-                                                </div>
-                                                <button type="button" @click="removeFromPool(player)"
-                                                        class="w-9 h-9 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 dark:hover:bg-red-900/50">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                    </svg>
-                                                </button>
+                                        <div class="grid grid-cols-2 gap-2 mb-3">
+                                            <div>
+                                                <label class="text-[11px] text-gray-500">Capacity</label>
+                                                <input type="number" min="1" x-model.number="pool.capacity" placeholder="e.g. 50"
+                                                       class="form-control form-control-sm bg-white dark:bg-gray-800">
+                                            </div>
+                                            <div>
+                                                <label class="text-[11px] text-gray-500">Auction order</label>
+                                                <select x-model="pool.order_mode" class="form-control form-control-sm bg-white dark:bg-gray-800">
+                                                    <option value="sequential">Sequential (1,2,3…)</option>
+                                                    <option value="random">Random</option>
+                                                    <option value="odd_even">Odd then Even</option>
+                                                    <option value="manual">Custom (drag to order)</option>
+                                                </select>
                                             </div>
                                         </div>
-                                    </template>
-
-                                    <div x-show="inPoolFiltered.length === 0" class="text-center py-12">
-                                        <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                        </svg>
-                                        <p class="text-gray-500 dark:text-gray-400" x-text="searchInPool ? 'No players found matching your search.' : 'No players in pool yet. Add players from the right panel.'"></p>
+                                        <p class="text-[11px] text-gray-500 mb-2">
+                                            <span x-text="pool.players.length"></span> players<span x-show="pool.order_mode==='manual'"> · drag ⠿ to set order</span>
+                                        </p>
+                                        <div class="space-y-2 max-h-80 overflow-y-auto" :data-pool-uid="pool.uid" x-init="$nextTick(() => initPoolSortable($el))">
+                                            <template x-for="player in pool.players" :key="player.id">
+                                                <div class="bg-white dark:bg-gray-800 rounded-lg p-2 border border-gray-200 dark:border-gray-700 flex items-center gap-2" :data-player-id="player.id">
+                                                    <span class="pool-player-handle cursor-move text-gray-400 select-none" x-show="pool.order_mode==='manual'">⠿</span>
+                                                    <div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="player.name"></p></div>
+                                                    <input type="number" min="0" x-model.number="player.base_price" placeholder="Base"
+                                                           class="form-control form-control-sm w-24 text-center">
+                                                    <button type="button" @click="removeFromPool(player, idx)" class="text-red-500 px-1">✕</button>
+                                                </div>
+                                            </template>
+                                            <p x-show="pool.players.length===0" class="text-xs text-gray-400 text-center py-4">No players yet — add from the right.</p>
+                                        </div>
                                     </div>
-                                </div>
+                                </template>
+                                <p x-show="pools.length===0" class="text-sm text-gray-500 text-center py-6">No pools yet. Click <strong>Add Pool</strong> to start.</p>
                             </div>
 
-                            {{-- Available Players --}}
+                            {{-- Available Players (right) --}}
                             <div class="bg-green-50 dark:bg-green-900/20 rounded-2xl p-5 border-2 border-green-200 dark:border-green-800">
-                                <div class="flex items-center justify-between mb-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
-                                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 class="font-bold text-gray-900 dark:text-white">Available</h3>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400"><span x-text="available.length"></span> players</p>
-                                        </div>
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-gray-900 dark:text-white">Available</h3>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400"><span x-text="available.length"></span> approved players</p>
                                     </div>
                                 </div>
 
-                                {{-- Search --}}
+                                <div class="mb-3" x-show="pools.length > 0">
+                                    <label class="text-[11px] text-gray-500">Add to pool</label>
+                                    <select x-model.number="targetPool" class="form-control form-control-sm bg-white dark:bg-gray-800">
+                                        <template x-for="(pool, idx) in pools" :key="pool.uid">
+                                            <option :value="idx" x-text="pool.name || ('Pool ' + (idx+1))"></option>
+                                        </template>
+                                    </select>
+                                </div>
+
                                 <div class="relative mb-4">
                                     <input type="text" x-model="searchAvailable" placeholder="Search available players..."
                                            class="form-control pl-10 bg-white dark:bg-gray-800">
-                                    <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
+                                    <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 </div>
 
-                                {{-- Players List --}}
+                                <div class="flex justify-end mb-2" x-show="available.length > 0 && pools.length > 0">
+                                    <button type="button" @click="addAllPlayers()" class="text-xs text-green-700 dark:text-green-400 hover:underline">Add all (<span x-text="available.length"></span>) to selected pool</button>
+                                </div>
+
                                 <div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
                                     <template x-for="player in filteredAvailable" :key="player.id">
-                                        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow group cursor-pointer"
-                                             @click="addToPool(player)">
+                                        <div class="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow group cursor-pointer"
+                                             @click="addToPool(player)" :class="pools.length === 0 ? 'opacity-50 pointer-events-none' : ''">
                                             <div class="flex items-center gap-3">
-                                                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-                                                     x-text="player.name.charAt(0)"></div>
+                                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold flex-shrink-0" x-text="player.name.charAt(0)"></div>
                                                 <div class="flex-1 min-w-0">
                                                     <p class="font-semibold text-gray-900 dark:text-white truncate" x-text="player.name"></p>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400">Click to add to pool</p>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400" x-text="pools.length === 0 ? 'Add a pool first' : 'Click to add to selected pool'"></p>
                                                 </div>
-                                                <div class="w-9 h-9 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:bg-green-500 group-hover:text-white transition-colors">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                                    </svg>
+                                                <div class="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:bg-green-500 group-hover:text-white transition-colors">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                                                 </div>
                                             </div>
                                         </div>
                                     </template>
-
                                     <div x-show="filteredAvailable.length === 0" class="text-center py-12">
-                                        <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <p class="text-gray-500 dark:text-gray-400" x-text="searchAvailable ? 'No players found.' : 'All players have been added!'"></p>
+                                        <p class="text-gray-500 dark:text-gray-400" x-text="searchAvailable ? 'No players found.' : 'No approved players available.'"></p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {{-- Hidden inputs for player_ids and base_prices --}}
-                        <template x-for="player in inPool" :key="'hidden_' + player.id">
-                            <div>
-                                <input type="hidden" name="player_ids[]" :value="player.id">
-                                <input type="hidden" :name="'player_base_prices[' + player.id + ']'" :value="player.base_price">
-                            </div>
-                        </template>
+                        {{-- Serialized pools (written on submit) --}}
+                        <input type="hidden" name="pools" x-ref="poolsInput">
                     </div>
                 </div>
 
@@ -477,6 +487,7 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
 function auctionCreateForm() {
     return {
@@ -493,22 +504,18 @@ function auctionCreateForm() {
             { from: 350000, to: 600000, increment: 500000 },
             { from: 600000, to: 800000, increment: 1000000 }
         ],
-        inPool: [],
+        pools: [],
         available: [],
-        searchInPool: '',
+        targetPool: 0,
         searchAvailable: '',
         defaultBasePrice: {{ old('base_price', 10000) }},
+        _uid: 1,
 
         init() {
-            // Initialize available players from server data
             const allPlayers = @json($availablePlayers);
-            this.available = allPlayers.map(p => ({ id: p.id, name: p.name }));
-            this.available.sort((a, b) => a.name.localeCompare(b.name));
-        },
-
-        get inPoolFiltered() {
-            if (!this.searchInPool) return this.inPool;
-            return this.inPool.filter(p => p.name.toLowerCase().includes(this.searchInPool.toLowerCase()));
+            this.available = allPlayers.map(p => ({ id: p.id, name: p.name }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+            this.addPool();
         },
 
         get filteredAvailable() {
@@ -516,36 +523,61 @@ function auctionCreateForm() {
             return this.available.filter(p => p.name.toLowerCase().includes(this.searchAvailable.toLowerCase()));
         },
 
+        addPool() {
+            this.pools.push({ uid: this._uid++, name: 'Pool ' + (this.pools.length + 1), capacity: null, order_mode: 'sequential', players: [] });
+            this.targetPool = this.pools.length - 1;
+        },
+
+        removePool(idx) {
+            this.pools[idx].players.forEach(p => this.available.push({ id: p.id, name: p.name }));
+            this.available.sort((a, b) => a.name.localeCompare(b.name));
+            this.pools.splice(idx, 1);
+            if (this.targetPool >= this.pools.length) this.targetPool = Math.max(0, this.pools.length - 1);
+        },
+
         addToPool(player) {
-            this.inPool.push({
-                id: player.id,
-                name: player.name,
-                base_price: this.defaultBasePrice
-            });
-            this.inPool.sort((a, b) => a.name.localeCompare(b.name));
+            if (this.pools.length === 0) return;
+            this.pools[this.targetPool].players.push({ id: player.id, name: player.name, base_price: this.defaultBasePrice });
             this.available = this.available.filter(p => p.id !== player.id);
             this.searchAvailable = '';
         },
 
-        removeFromPool(player) {
+        removeFromPool(player, idx) {
             this.available.push({ id: player.id, name: player.name });
             this.available.sort((a, b) => a.name.localeCompare(b.name));
-            this.inPool = this.inPool.filter(p => p.id !== player.id);
-            this.searchInPool = '';
+            this.pools[idx].players = this.pools[idx].players.filter(p => p.id !== player.id);
         },
 
         addAllPlayers() {
-            if (!confirm('Add all ' + this.available.length + ' players to the pool?')) return;
-            const playersToAdd = [...this.available];
-            playersToAdd.forEach(player => {
-                this.inPool.push({
-                    id: player.id,
-                    name: player.name,
-                    base_price: this.defaultBasePrice
-                });
-            });
-            this.inPool.sort((a, b) => a.name.localeCompare(b.name));
+            if (this.pools.length === 0) return;
+            if (!confirm('Add all ' + this.available.length + ' players to ' + (this.pools[this.targetPool].name || 'the pool') + '?')) return;
+            [...this.available].forEach(p => this.pools[this.targetPool].players.push({ id: p.id, name: p.name, base_price: this.defaultBasePrice }));
             this.available = [];
+        },
+
+        initPoolSortable(el) {
+            if (!window.Sortable || el._poolSortable) return;
+            el._poolSortable = window.Sortable.create(el, {
+                handle: '.pool-player-handle', animation: 150, draggable: '[data-player-id]',
+                onEnd: (e) => {
+                    const pool = this.pools.find(p => String(p.uid) === String(el.dataset.poolUid));
+                    if (!pool || e.oldIndex === e.newIndex) return;
+                    const moved = pool.players.splice(e.oldIndex, 1)[0];
+                    pool.players.splice(e.newIndex, 0, moved);
+                }
+            });
+        },
+
+        serializePools() {
+            const data = this.pools
+                .filter(p => p.players.length > 0)
+                .map(p => ({
+                    name: p.name || 'Pool',
+                    capacity: p.capacity || null,
+                    order_mode: p.order_mode || 'sequential',
+                    players: p.players.map(pl => ({ id: pl.id, base_price: pl.base_price || this.defaultBasePrice })),
+                }));
+            this.$refs.poolsInput.value = JSON.stringify(data);
         },
 
         formatMoney(value) {

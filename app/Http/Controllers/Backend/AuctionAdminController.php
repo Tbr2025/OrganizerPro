@@ -10,6 +10,8 @@ use App\Models\ActualTeamUser;
 use App\Models\Auction;
 use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
+use App\Models\AuctionPool;
+use App\Services\Auction\AuctionPoolService;
 use App\Models\Organization;
 use App\Models\Tournament;
 use App\Models\Player;
@@ -45,16 +47,14 @@ class AuctionAdminController extends Controller
         $organizations = Organization::orderBy('name')->get();
         $tournaments = Tournament::orderBy('name')->get();
 
-        // Fetch available players (verified, not retained) for the player pool step
+        // Fetch available players (approved, not retained) for the player pool step
         $orgId = Auth::user()->organization_id;
-        $query = Player::whereNotNull('welcome_email_sent_at')
+        $query = Player::where('status', 'approved')
             ->where(function ($q) {
                 $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode');
             });
         if ($orgId) {
-            $query->whereHas('user', function ($q) use ($orgId) {
-                $q->where('organization_id', $orgId);
-            });
+            $query->where('organization_id', $orgId);
         }
         $availablePlayers = $query->orderBy('name')->get(['id', 'name']);
 
@@ -115,6 +115,8 @@ class AuctionAdminController extends Controller
             'player_ids.*' => 'exists:players,id',
             'player_base_prices' => 'nullable|array',
             'player_base_prices.*' => 'required|numeric|min:0',
+            // Named pools (JSON from the wizard's pool builder)
+            'pools' => 'nullable|string',
         ], $messages);
 
         if (!Auth::user()->hasRole('Superadmin')) {
@@ -155,24 +157,79 @@ class AuctionAdminController extends Controller
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
             ], $brandingData));
 
-            // Add players to the auction pool (if provided)
-            $playerIdsInPool = $validated['player_ids'] ?? [];
-            $basePrices = $validated['player_base_prices'] ?? [];
+            // Named pools from the wizard builder (preferred), else flat player list.
+            $pools = json_decode($validated['pools'] ?? '', true);
 
-            foreach ($playerIdsInPool as $playerId) {
-                AuctionPlayer::create([
-                    'auction_id' => $auction->id,
-                    'player_id' => $playerId,
-                    'base_price' => $basePrices[$playerId] ?? $auction->base_price,
-                    'current_price' => $basePrices[$playerId] ?? $auction->base_price,
-                    'starting_price' => $basePrices[$playerId] ?? $auction->base_price,
-                    'organization_id' => $auction->organization_id,
-                    'status' => 'waiting',
-                ]);
+            if (is_array($pools) && count($pools)) {
+                $this->persistAuctionPools($auction, $pools);
+            } else {
+                $playerIdsInPool = $validated['player_ids'] ?? [];
+                $basePrices = $validated['player_base_prices'] ?? [];
+                foreach ($playerIdsInPool as $playerId) {
+                    AuctionPlayer::create([
+                        'auction_id' => $auction->id,
+                        'player_id' => $playerId,
+                        'base_price' => $basePrices[$playerId] ?? $auction->base_price,
+                        'current_price' => $basePrices[$playerId] ?? $auction->base_price,
+                        'starting_price' => $basePrices[$playerId] ?? $auction->base_price,
+                        'organization_id' => $auction->organization_id,
+                        'status' => 'waiting',
+                    ]);
+                }
             }
         });
 
         return redirect()->route('admin.auctions.index')->with('success', 'Auction configured and created successfully.');
+    }
+
+    /**
+     * Create AuctionPool rows + their AuctionPlayer rows from the wizard's
+     * pool builder JSON, then assign lot_number per each pool's order mode.
+     *
+     * @param  array<int, array{name?:string,capacity?:mixed,order_mode?:string,players?:array}>  $pools
+     */
+    protected function persistAuctionPools(Auction $auction, array $pools): void
+    {
+        $poolService = app(AuctionPoolService::class);
+
+        foreach (array_values($pools) as $sequence => $poolData) {
+            $players = is_array($poolData['players'] ?? null) ? $poolData['players'] : [];
+            if (! count($players)) {
+                continue;
+            }
+
+            $mode = $poolData['order_mode'] ?? 'sequential';
+            $pool = AuctionPool::create([
+                'auction_id' => $auction->id,
+                'organization_id' => $auction->organization_id,
+                'name' => trim((string) ($poolData['name'] ?? 'Pool')) ?: 'Pool',
+                'capacity' => is_numeric($poolData['capacity'] ?? null) ? (int) $poolData['capacity'] : null,
+                'order_mode' => in_array($mode, ['sequential', 'random', 'odd_even', 'manual'], true) ? $mode : 'sequential',
+                'sequence' => $sequence + 1,
+            ]);
+
+            foreach (array_values($players) as $i => $pl) {
+                $playerId = (int) ($pl['id'] ?? 0);
+                if (! $playerId) {
+                    continue;
+                }
+                $base = is_numeric($pl['base_price'] ?? null) ? $pl['base_price'] : $auction->base_price;
+                AuctionPlayer::create([
+                    'auction_id' => $auction->id,
+                    'auction_pool_id' => $pool->id,
+                    'player_id' => $playerId,
+                    'organization_id' => $auction->organization_id,
+                    'base_price' => $base,
+                    'current_price' => $base,
+                    'starting_price' => $base,
+                    'lot_number' => $i + 1, // submitted (drag) order — respected by manual mode
+                    'status' => 'waiting',
+                ]);
+            }
+
+            // Final lot order per the pool's rule (sequential/random/odd_even/manual).
+            $poolService->generateLotNumbers($pool);
+        }
     }
 
 
@@ -638,13 +695,13 @@ class AuctionAdminController extends Controller
         $auction->load('auctionPlayers.player', 'tournament');
         $auctionPlayerIds = $auction->auctionPlayers->pluck('player.id')->toArray();
 
-        // Find players who are available (Verified, not Retained, and not already in this auction)
-        $availablePlayers = Player::whereNotNull('welcome_email_sent_at')
+        // Find players who are available (Approved, not Retained, and not already in this auction)
+        $availablePlayers = Player::where('status', 'approved')
             ->where(function ($query) {
                 $query->where('player_mode', '!=', 'retained')->orWhereNull('player_mode');
             })
             ->whereNotIn('id', $auctionPlayerIds)
-            ->whereHas('user', function ($query) use ($auction) {
+            ->when($auction->organization_id, function ($query) use ($auction) {
                 $query->where('organization_id', $auction->organization_id);
             })
             ->orderBy('name')

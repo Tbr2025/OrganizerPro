@@ -64,11 +64,37 @@ class TournamentNotificationService
             return false;
         }
 
-        try {
-            // Generate welcome card poster
-            $posterPath = $this->welcomeCardService->generate($registration);
+        // Use the tournament's welcome_card template. If none exists, do NOT
+        // generate a card — skip and log (the admin is told in the UI).
+        $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_WELCOME_CARD);
+        if (!$template) {
+            Log::info('No welcome_card template found — skipping welcome card.', [
+                'registration_id' => $registration->id,
+                'tournament_id' => $tournament->id,
+            ]);
 
-            // Log notification
+            return false;
+        }
+
+        try {
+            // Render the welcome card from the editor template + player data.
+            $data = [
+                'player_name' => $player->name,
+                'jersey_name' => $player->jersey_name ?: $player->name,
+                'jersey_number' => (string) ($player->jersey_number ?? ''),
+                'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
+                'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
+                'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
+                'team_name' => $player->team?->name ?? '',
+                'team_logo' => $player->team?->logo ?? '',
+                'tournament_name' => $tournament->name,
+                'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
+                'player_image' => $player->image_path ?? '',
+            ];
+
+            $posterPath = app(\App\Services\Poster\TemplateRenderService::class)
+                ->renderAndSave($template, $data, 'welcome-card-' . $player->id . '-' . time() . '.png');
+
             $log = NotificationLog::log(
                 $tournament,
                 $registration,
@@ -78,15 +104,13 @@ class TournamentNotificationService
                 $posterPath
             );
 
-            // Send email
-            Mail::to($email)->send(new PlayerWelcomeMail($player, storage_path('app/public/' . $posterPath)));
+            Mail::to($email)->send(new PlayerWelcomeMail($player, storage_path('app/public/' . $posterPath), $tournament));
 
-            // Mark as sent
             $registration->markWelcomeCardSent();
             $log->markAsSent();
 
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send welcome card', [
                 'registration_id' => $registration->id,
                 'error' => $e->getMessage(),

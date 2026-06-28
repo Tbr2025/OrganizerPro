@@ -67,6 +67,7 @@ class TournamentSetting extends Model
         // Registration form fields config
         'registration_form_fields',
         'team_registration_form_fields',
+        'registration_theme',
         // Terms & Conditions
         'terms_and_conditions_content',
     ];
@@ -88,7 +89,45 @@ class TournamentSetting extends Model
         'default_time_slots' => 'array',
         'registration_form_fields' => 'array',
         'team_registration_form_fields' => 'array',
+        'registration_theme' => 'array',
     ];
+
+    /**
+     * Registration-page theme merged over sensible defaults (derived from the
+     * tournament's colours so an un-themed page looks like the current design).
+     */
+    public function registrationTheme(): array
+    {
+        $accent = $this->accent_color ?: '#fbbf24';
+        $primary = $this->primary_color ?: '#1a1a2e';
+        $secondary = $this->secondary_color ?: '#16213e';
+
+        $defaults = [
+            'banner_image' => null,
+            'banner_title' => null,
+            'banner_subtitle' => null,
+            'header_gradient_from' => $accent,
+            'header_gradient_to' => $accent,
+            'icon_color' => $accent,
+            'label_color' => '#cbd5e1',
+            'page_bg_from' => $primary,
+            'page_bg_to' => $secondary,
+            'card_bg' => 'rgba(255,255,255,0.04)',
+            'footer_gradient_from' => $primary,
+            'footer_gradient_to' => $secondary,
+            'button_gradient_from' => $accent,
+            'button_gradient_to' => $accent,
+        ];
+
+        $saved = is_array($this->registration_theme) ? $this->registration_theme : [];
+        foreach ($saved as $key => $value) {
+            if (array_key_exists($key, $defaults) && $value !== null && $value !== '') {
+                $defaults[$key] = $value;
+            }
+        }
+
+        return $defaults;
+    }
 
     public function tournament(): BelongsTo
     {

@@ -141,21 +141,85 @@
                         @endif
                     </div>
                 @else
-                    {{-- Player Registration Details --}}
+                    {{-- Player Registration Details — grouped to match the registration form sections --}}
+                    @php
+                        $p = $registration->player;
+                        $regSettings = $tournament->settings;
+                        $fieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig($regSettings);
+                        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($regSettings, false);
+                        $countries = config('countries.list', []);
+                        $visaList = config('registration.visa_statuses', []);
+                        $valueFor = function ($key) use ($p, $countries, $visaList, $registration) {
+                            if (!$p) return null;
+                            return match ($key) {
+                                'first_name' => $p->first_name,
+                                'last_name' => $p->last_name,
+                                'email' => $p->email,
+                                'date_of_birth' => $p->date_of_birth ? \Illuminate\Support\Carbon::parse($p->date_of_birth)->format('d M Y') : null,
+                                'mobile_number' => $p->mobile_number_full,
+                                'cricheroes_number' => $p->cricheroes_number_full,
+                                'cricheroes_profile_url' => $p->cricheroes_profile_url,
+                                'country' => $p->country ? ($countries[$p->country] ?? $p->country) : null,
+                                'state' => $p->state,
+                                'location' => $p->location?->name,
+                                'registration_team' => $registration->actualTeam?->name ?? $p->team_name_ref,
+                                'visa_status' => $p->visa_status ? ($visaList[$p->visa_status] ?? $p->visa_status) : null,
+                                'employer_name' => $p->employer_name,
+                                'employer_address' => $p->employer_address,
+                                'employer_position' => $p->employer_position,
+                                'available_weekends' => $p->available_weekends ? 'Yes' : null,
+                                'played_ys_ipl_s1' => is_null($p->played_ys_ipl_s1) ? null : ($p->played_ys_ipl_s1 ? 'Yes' : 'No'),
+                                'jersey_name' => $p->jersey_name,
+                                'jersey_number' => $p->jersey_number,
+                                'kit_size' => $p->kitSize?->size ?? $p->kitSize?->name,
+                                'player_type' => $p->playerType?->name ?? $p->playerType?->type,
+                                'batting_profile' => $p->battingProfile?->name ?? $p->battingProfile?->style,
+                                'bowling_profile' => $p->bowlingProfile?->name ?? $p->bowlingProfile?->style,
+                                'is_wicket_keeper' => $p->is_wicket_keeper ? 'Yes' : null,
+                                'total_matches' => $p->total_matches,
+                                'total_runs' => $p->total_runs,
+                                'total_wickets' => $p->total_wickets,
+                                default => null,
+                            };
+                        };
+                        $skip = ['name', 'image', 'terms_and_conditions', 'playing_team'];
+                    @endphp
                     <div class="space-y-6">
+                        @if($p && $p->image_path)
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Player Information</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                                    <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</h4>
-                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $registration->player->email ?? 'N/A' }}</p>
-                                </div>
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                                    <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone</h4>
-                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $registration->player->mobile_number_full ?? 'N/A' }}</p>
+                            <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                        </div>
+                        @endif
+
+                        @foreach($layout as $section)
+                            @php
+                                $rows = [];
+                                foreach ($section['fields'] as $key) {
+                                    if (in_array($key, $skip, true)) continue;
+                                    $val = $valueFor($key);
+                                    if ($val !== null && $val !== '') {
+                                        $rows[$key] = $val;
+                                    }
+                                }
+                            @endphp
+                            @if(count($rows))
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $section['title'] }}</h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    @foreach($rows as $key => $value)
+                                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                                        <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $fieldConfig[$key]['label'] ?? $key }}</h4>
+                                        @if($key === 'cricheroes_profile_url')
+                                            <a href="{{ $value }}" target="_blank" class="mt-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline break-all">{{ $value }}</a>
+                                        @else
+                                            <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
+                                        @endif
+                                    </div>
+                                    @endforeach
                                 </div>
                             </div>
-                        </div>
+                            @endif
+                        @endforeach
 
                         @if($registration->actualTeam)
                         <div>

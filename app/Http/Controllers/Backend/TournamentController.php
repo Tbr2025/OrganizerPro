@@ -281,6 +281,7 @@ class TournamentController extends Controller
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
             'status'         => 'nullable|in:draft,registration,active,completed',
+            'type'           => 'nullable|in:open,auction',
         ]);
 
         // Check tournament limit (bypass for Superadmin)
@@ -300,6 +301,11 @@ class TournamentController extends Controller
         // Default status to draft if not provided
         if (empty($validated['status'])) {
             $validated['status'] = 'draft';
+        }
+
+        // Default type to open if not provided
+        if (empty($validated['type'])) {
+            $validated['type'] = 'open';
         }
 
         // Handle logo upload — prefer cropped data, fallback to raw file
@@ -360,11 +366,17 @@ class TournamentController extends Controller
             'end_date'       => 'required|date|after_or_equal:start_date',
             'location'       => 'nullable|string|max:255',
             'status'         => 'nullable|in:draft,registration,active,completed',
+            'type'           => 'nullable|in:open,auction',
         ]);
 
         // Handle empty zone_id
         if (empty($validated['zone_id'])) {
             $validated['zone_id'] = null;
+        }
+
+        // Drop type if not submitted so we don't overwrite an existing value with null.
+        if (empty($validated['type'])) {
+            unset($validated['type']);
         }
 
         // Handle logo upload — prefer cropped data, fallback to raw file

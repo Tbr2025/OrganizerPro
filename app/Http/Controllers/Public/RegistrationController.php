@@ -68,6 +68,14 @@ class RegistrationController extends Controller
             return redirect()->back()->with('error', __('Player registration is closed.'));
         }
 
+        // Compose the internal full name from first + last so the locked `name` rule passes.
+        $request->merge(['name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', ''))]);
+
+        // "No travel plans" → clear any travel dates so the cross-field rule never fires.
+        if ($request->boolean('no_travel_plan')) {
+            $request->merge(['travel_date_from' => null, 'travel_date_to' => null]);
+        }
+
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
         $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'public');
 
@@ -82,6 +90,8 @@ class RegistrationController extends Controller
         $validated['is_wicket_keeper'] = $request->boolean('is_wicket_keeper');
         $validated['transportation_required'] = $request->boolean('transportation_required');
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
+        $validated['available_weekends'] = $request->boolean('available_weekends');
+        $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
 
         // Handle image — pre-processed path from AJAX upload, or fallback to raw file
         if ($request->filled('processed_image_path')
@@ -163,6 +173,7 @@ class RegistrationController extends Controller
         return view('public.registration.success', [
             'tournament' => $tournament,
             'type' => $type,
+            'settings' => $tournament->settings,
         ]);
     }
 }

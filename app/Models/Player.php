@@ -10,17 +10,30 @@ use Illuminate\Notifications\Notifiable; // This trait is for the notify() metho
 use Illuminate\Support\Facades\URL; // For URL::temporarySignedRoute
 use Carbon\Carbon; // For Carbon::now()
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use App\Traits\BelongsToOrganization;
 
 class Player extends Model implements MustVerifyEmail
 {
-    use HasFactory, MustVerifyEmailTrait, Notifiable;
+    use HasFactory, MustVerifyEmailTrait, Notifiable, BelongsToOrganization;
 
     // ... (your existing fillable, casts, hidden properties) ...
     protected $fillable = [
+        'organization_id',
         'team_id',
         'name',
+        'first_name',
+        'last_name',
+        'date_of_birth',
         'country',
         'verified_country',
+        'state',
+        'verified_state',
+        'visa_status',
+        'employer_name',
+        'employer_address',
+        'employer_position',
+        'available_weekends',
+        'played_ys_ipl_s1',
         'team_name_ref',
         'verified_team_name_ref',
         'email',
@@ -89,6 +102,10 @@ class Player extends Model implements MustVerifyEmail
         'verified_cricheroes_profile_url' => 'boolean',
         'verified_team_id' => 'boolean',
         'verified_country' => 'boolean',
+        'verified_state' => 'boolean',
+        'date_of_birth' => 'date',
+        'available_weekends' => 'boolean',
+        'played_ys_ipl_s1' => 'boolean',
         'verified_team_name_ref' => 'boolean',
         'verified_jersey_name' => 'boolean',
         'verified_jersey_number' => 'boolean',

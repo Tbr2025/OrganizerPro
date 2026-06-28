@@ -2,10 +2,11 @@
 
 namespace App\Mail;
 
+use App\Models\EmailTemplate;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
+use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -27,14 +28,28 @@ class RegistrationApprovedMail extends Mailable
         $this->registration = $registration;
     }
 
+    /** @var array{subject:string, html:string}|null */
+    private ?array $resolved = null;
+
+    private function resolved(): array
+    {
+        if ($this->resolved === null) {
+            $this->resolved = app(EmailTemplateService::class)->resolve(
+                EmailTemplate::TYPE_APPROVED,
+                $this->tournament,
+                $this->registration,
+            );
+        }
+
+        return $this->resolved;
+    }
+
     /**
      * Get the message envelope.
      */
     public function envelope(): Envelope
     {
-        return new Envelope(
-            subject: "Registration Approved - {$this->tournament->name}",
-        );
+        return new Envelope(subject: $this->resolved()['subject']);
     }
 
     /**
@@ -42,9 +57,7 @@ class RegistrationApprovedMail extends Mailable
      */
     public function content(): Content
     {
-        return new Content(
-            view: 'emails.registration-approved',
-        );
+        return new Content(htmlString: $this->resolved()['html']);
     }
 
     /**

@@ -2,75 +2,84 @@
 
 @section('title', 'Registration Successful - ' . $tournament->name)
 
-@section('content')
-    <div class="max-w-xl mx-auto px-4 py-16">
-        <div class="bg-gray-800 rounded-xl p-8 text-center border border-gray-700">
-            {{-- Success Icon --}}
-            <div class="mb-6">
-                <div class="w-20 h-20 bg-green-600 rounded-full mx-auto flex items-center justify-center">
-                    <i class="fas fa-check text-4xl text-white"></i>
-                </div>
-            </div>
+@push('styles')
+<style>
+    .reg-section { padding: 1.75rem; border-radius: 1rem; margin-bottom: 1.25rem; }
+    .reg-banner { position: relative; overflow: hidden; border-radius: 1rem; margin-bottom: 1.25rem; padding: 2.5rem 1.5rem; text-align: center; }
+    .reg-banner h1 { color:#fff; text-shadow: 0 2px 12px rgba(0,0,0,0.35); }
+</style>
+@endpush
 
-            {{-- Message --}}
-            <h1 class="text-2xl font-bold mb-4 text-green-400">Registration Successful!</h1>
-            <p class="text-gray-400 mb-6">
+@include('public.registration.partials.registration-theme')
+
+@section('content')
+    @php
+        $registrationUrl = $type === 'team'
+            ? route('public.tournament.registration.team', $tournament->slug)
+            : route('public.tournament.registration.player', $tournament->slug);
+    @endphp
+    <div class="max-w-xl mx-auto px-4 py-12">
+
+        {{-- Themed banner --}}
+        <div class="reg-banner reveal">
+            <div class="mx-auto mb-4 flex items-center justify-center" style="width:80px;height:80px;border-radius:9999px;background:rgba(255,255,255,0.2);">
+                <i class="fas fa-check text-3xl" style="color:#fff;"></i>
+            </div>
+            <h1 class="text-3xl font-bold">Thank You!</h1>
+            <p class="text-white/90 mt-2">Your {{ $type === 'team' ? 'team registration' : 'application' }} has been submitted.</p>
+        </div>
+
+        <div class="reg-section glass reveal text-center">
+            <p class="text-gray-200 mb-4">
                 @if($type === 'player')
-                    Thank you for registering as a player for <strong class="text-white">{{ $tournament->name }}</strong>.
-                    Your registration is pending approval.
+                    Thanks for registering for <strong class="text-white">{{ $tournament->name }}</strong>.
                 @else
-                    Thank you for registering your team for <strong class="text-white">{{ $tournament->name }}</strong>.
-                    Your registration is pending approval.
+                    Thanks for registering your team for <strong class="text-white">{{ $tournament->name }}</strong>.
                 @endif
             </p>
 
-            {{-- What's Next --}}
-            <div class="bg-gray-700 rounded-lg p-4 mb-6 text-left">
-                <h2 class="font-semibold mb-3 text-yellow-400">What happens next?</h2>
-                <ul class="text-sm text-gray-300 space-y-2">
-                    <li class="flex items-start gap-2">
-                        <i class="fas fa-envelope text-gray-500 mt-1"></i>
-                        <span>You will receive a confirmation email shortly.</span>
+            <div class="rounded-lg p-4 mb-6 text-left" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">
+                <ul class="text-sm text-gray-300 space-y-3">
+                    <li class="flex items-start gap-3">
+                        <i class="fas fa-envelope text-accent mt-0.5"></i>
+                        <span>We've <strong class="text-white">emailed you a confirmation</strong> — check your inbox (and spam).</span>
                     </li>
-                    <li class="flex items-start gap-2">
-                        <i class="fas fa-clock text-gray-500 mt-1"></i>
-                        <span>The organizers will review your registration.</span>
+                    <li class="flex items-start gap-3">
+                        <i class="fas fa-hourglass-half text-accent mt-0.5"></i>
+                        <span>Your application is <strong class="text-white">under review</strong> by the organizers.</span>
                     </li>
-                    <li class="flex items-start gap-2">
-                        <i class="fas fa-bell text-gray-500 mt-1"></i>
-                        <span>You will be notified once your registration is approved.</span>
+                    <li class="flex items-start gap-3">
+                        <i class="fas fa-bell text-accent mt-0.5"></i>
+                        <span>You'll be notified by email once it's approved.</span>
                     </li>
                 </ul>
             </div>
 
-            {{-- Share Tournament --}}
-            <div class="bg-gray-700 rounded-lg p-4 mb-6">
-                <h2 class="font-semibold mb-3 text-yellow-400">Spread the word!</h2>
-                <p class="text-sm text-gray-300 mb-4">Invite your friends to register for this tournament.</p>
-                @php
-                    $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
-                    $registrationUrl = $type === 'player'
-                        ? route('public.tournament.registration.player', $tournament->slug)
-                        : route('public.tournament.registration.team', $tournament->slug);
-                    $shareMessage = $whatsappService->getRegistrationShareMessage($tournament, $type);
-                @endphp
-                <x-share-buttons
-                    :url="$registrationUrl"
-                    :title="$tournament->name . ' - Registration Open'"
-                    :description="'Register for ' . $tournament->name"
-                    :whatsappMessage="$shareMessage"
-                    variant="compact"
-                    :showLabel="false"
-                    class="justify-center"
-                />
+            {{-- Share --}}
+            @php
+                $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
+                $shareMessage = $whatsappService->getRegistrationShareMessage($tournament, $type);
+            @endphp
+            <div class="rounded-lg p-4 mb-6" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);">
+                <p class="text-sm text-gray-300 mb-3"><i class="fas fa-bullhorn text-accent mr-1"></i> Invite your friends to register</p>
+                <x-share-buttons :url="$registrationUrl" :title="$tournament->name . ' - Registration Open'"
+                    :description="'Register for ' . $tournament->name" :whatsappMessage="$shareMessage"
+                    variant="compact" :showLabel="false" class="justify-center" />
             </div>
 
-            {{-- Actions --}}
-            <div class="space-y-3">
+            <div class="flex flex-wrap items-center justify-center gap-3">
                 <a href="{{ route('public.tournament.show', $tournament->slug) }}"
-                   class="block w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-6 rounded-lg transition">
-                    Back to Tournament
+                   class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white"
+                   style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);">
+                    <i class="fas fa-arrow-left"></i> Back to Tournament
                 </a>
+                @if($type === 'player')
+                    <a href="{{ $registrationUrl }}"
+                       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold"
+                       style="background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:var(--primary);">
+                        <i class="fas fa-user-plus"></i> Register Another
+                    </a>
+                @endif
             </div>
         </div>
     </div>

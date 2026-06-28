@@ -288,31 +288,45 @@
                         </div>
                     </div>
 
-                    {{-- Public Registration Links --}}
-                    @if($settings->player_registration_open || $settings->team_registration_open)
+                    {{-- Public Registration Links (always available to share) --}}
+                    @php
+                        $playerRegUrl = route('public.tournament.registration.player', $tournament->slug);
+                        $teamRegUrl = route('public.tournament.registration.team', $tournament->slug);
+                        $waPlayer = 'https://wa.me/?text=' . rawurlencode("Register for {$tournament->name}: {$playerRegUrl}");
+                        $waTeam = 'https://wa.me/?text=' . rawurlencode("Register your team for {$tournament->name}: {$teamRegUrl}");
+                    @endphp
                     <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <h4 class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Public Registration Links</h4>
-                        <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Share these links with players and teams</p>
-                        <div class="space-y-2">
-                            @if($settings->player_registration_open)
-                            <div class="flex items-center gap-2">
-                                <input type="text" readonly value="{{ route('public.tournament.registration.player', $tournament->slug) }}"
-                                    class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5"
-                                    id="player-link">
-                                <button type="button" onclick="copyLink('player-link')" class="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded">Copy</button>
+                        <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Share these links with players and teams.
+                            @unless($settings->player_registration_open || $settings->team_registration_open)
+                                <span class="text-amber-600 dark:text-amber-400">(Registration is currently closed — links will show a "closed" page until you open it above.)</span>
+                            @endunless
+                        </p>
+                        <div class="space-y-3">
+                            {{-- Player link --}}
+                            <div>
+                                <div class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Player registration</div>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" readonly value="{{ $playerRegUrl }}"
+                                        class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5" id="player-link">
+                                    <button type="button" onclick="copyLink('player-link')" class="px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded">Copy</button>
+                                    <a href="{{ $playerRegUrl }}" target="_blank" class="px-2 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded">Open</a>
+                                    <a href="{{ $waPlayer }}" target="_blank" class="px-2 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded"><i class="fab fa-whatsapp"></i></a>
+                                </div>
                             </div>
-                            @endif
-                            @if($settings->team_registration_open)
-                            <div class="flex items-center gap-2">
-                                <input type="text" readonly value="{{ route('public.tournament.registration.team', $tournament->slug) }}"
-                                    class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5"
-                                    id="team-link">
-                                <button type="button" onclick="copyLink('team-link')" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded">Copy</button>
+                            {{-- Team link --}}
+                            <div>
+                                <div class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Team registration</div>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" readonly value="{{ $teamRegUrl }}"
+                                        class="flex-1 text-xs bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 rounded px-2 py-1.5" id="team-link">
+                                    <button type="button" onclick="copyLink('team-link')" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded">Copy</button>
+                                    <a href="{{ $teamRegUrl }}" target="_blank" class="px-2 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded">Open</a>
+                                    <a href="{{ $waTeam }}" target="_blank" class="px-2 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded"><i class="fab fa-whatsapp"></i></a>
+                                </div>
                             </div>
-                            @endif
                         </div>
                     </div>
-                    @endif
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
@@ -339,10 +353,68 @@
                     </div>
                 </div>
 
+                {{-- Registration Page Theme --}}
+                @php $theme = $settings->registrationTheme(); @endphp
+                <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{ removeBanner: false }">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Registration Page Theme</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Customise the public registration page — banner, colours and gradients. Leave blank to use the tournament's default colours.
+                        <a href="{{ route('public.tournament.registration.player', $tournament->slug) }}" target="_blank" class="text-indigo-600 hover:underline ml-1"><i class="fas fa-external-link-alt"></i> Preview</a>
+                    </p>
+
+                    {{-- Banner --}}
+                    <div class="mb-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Banner Image</label>
+                            @if($theme['banner_image'])
+                                <img src="{{ Storage::url($theme['banner_image']) }}" alt="banner" class="w-full h-20 object-cover rounded-md mb-2 border border-gray-200 dark:border-gray-700">
+                                <label class="flex items-center gap-2 text-xs text-red-500"><input type="checkbox" name="remove_registration_banner" value="1" x-model="removeBanner"> Remove current banner</label>
+                            @endif
+                            <input type="file" name="registration_banner" accept="image/*" class="mt-1 block w-full text-xs text-gray-600 dark:text-gray-300">
+                        </div>
+                        <div class="md:col-span-2 grid grid-cols-1 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Banner Title</label>
+                                <input type="text" name="registration_theme[banner_title]" value="{{ $theme['banner_title'] }}" placeholder="Player Registration" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Banner Subtitle</label>
+                                <input type="text" name="registration_theme[banner_subtitle]" value="{{ $theme['banner_subtitle'] }}" placeholder="Join {{ $tournament->name }}" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Colours --}}
+                    @php
+                        $colorInputs = [
+                            'icon_color' => 'Icon Color',
+                            'label_color' => 'Label Color',
+                            'header_gradient_from' => 'Header Gradient From',
+                            'header_gradient_to' => 'Header Gradient To',
+                            'page_bg_from' => 'Page Background From',
+                            'page_bg_to' => 'Page Background To',
+                            'button_gradient_from' => 'Button Gradient From',
+                            'button_gradient_to' => 'Button Gradient To',
+                            'footer_gradient_from' => 'Footer Gradient From',
+                            'footer_gradient_to' => 'Footer Gradient To',
+                        ];
+                    @endphp
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                        @foreach($colorInputs as $key => $title)
+                            @php $val = (is_string($theme[$key]) && str_starts_with($theme[$key], '#')) ? $theme[$key] : '#000000'; @endphp
+                            <div>
+                                <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">{{ $title }}</label>
+                                <input type="color" name="registration_theme[{{ $key }}]" value="{{ $val }}"
+                                    class="h-9 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer">
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
                 {{-- Registration Form Fields Configuration --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{
                     fields: @js($fieldConfig),
-                    lockedFields: ['name', 'email'],
+                    sections: @js($sectionLabels),
+                    lockedFields: ['name', 'first_name', 'last_name', 'email'],
                     toggleRequired(key) {
                         if (!this.fields[key].visible) {
                             this.fields[key].required = false;
@@ -350,23 +422,34 @@
                     }
                 }">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Registration Form Fields</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure which fields appear on the player registration form and which are required.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Drag <span class="font-mono">⠿</span> to reorder sections and fields. Edit each <strong>section title</strong> and field <strong>label</strong>, and toggle visible / required.</p>
 
-                    @php
-                        $groups = \App\Helpers\PlayerFormConfig::fieldGroups();
-                        $labels = \App\Helpers\PlayerFormConfig::fieldLabels();
-                    @endphp
+                    @php $playerLabels = \App\Helpers\PlayerFormConfig::fieldLabels(); @endphp
+                    <input type="hidden" name="form_section_order" id="player_section_order">
 
-                    <div class="space-y-4">
-                        @foreach($groups as $groupName => $groupFields)
-                        <div>
-                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded">{{ $groupName }}</h4>
-                            <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                                @foreach($groupFields as $fieldKey)
-                                <div class="flex items-center justify-between px-3 py-2">
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ $labels[$fieldKey] ?? $fieldKey }}</span>
+                    <div class="space-y-5 form-builder" id="player-sections">
+                        @foreach(\App\Helpers\PlayerFormConfig::getFormLayout($settings, false) as $section)
+                        @php $sk = $section['key']; @endphp
+                        <div class="builder-section border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" data-section="{{ $sk }}">
+                            {{-- Section header (drag handle + editable title) --}}
+                            <div class="bg-gray-50 dark:bg-gray-800 px-3 py-2 flex items-center gap-2">
+                                <span class="section-handle cursor-move select-none text-gray-400 hover:text-gray-600" title="Drag section">⠿</span>
+                                <span class="text-xs uppercase tracking-wide text-gray-400">Section</span>
+                                <input type="text" name="form_sections[{{ $sk }}]" x-model="sections['{{ $sk }}']" placeholder="{{ $sk }}"
+                                    class="flex-1 text-sm font-semibold bg-transparent border-0 border-b border-transparent focus:border-indigo-500 focus:ring-0 text-gray-800 dark:text-gray-100 px-1 py-0.5">
+                            </div>
+                            <div class="divide-y divide-gray-100 dark:divide-gray-800 builder-field-list">
+                                @foreach($section['fields'] as $fieldKey)
+                                <div class="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-2 builder-field" data-field="{{ $fieldKey }}">
+                                    <span class="field-handle cursor-move select-none text-gray-400 hover:text-gray-600" title="Drag field">⠿</span>
+                                    <input type="hidden" name="form_fields[{{ $fieldKey }}][order]" class="field-order">
+                                    <div class="flex-1 flex items-center gap-2">
+                                        <input type="text" name="form_fields[{{ $fieldKey }}][label]" x-model="fields['{{ $fieldKey }}'].label"
+                                            placeholder="{{ $playerLabels[$fieldKey] ?? $fieldKey }}"
+                                            class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                        <span class="text-[10px] text-gray-400 whitespace-nowrap hidden sm:inline">{{ $fieldKey }}</span>
+                                    </div>
                                     <div class="flex items-center gap-6">
-                                        {{-- Visible toggle --}}
                                         <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                             <span>Visible</span>
                                             <input type="checkbox"
@@ -377,7 +460,6 @@
                                                 class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                 :class="lockedFields.includes('{{ $fieldKey }}') ? 'opacity-50 cursor-not-allowed' : ''">
                                         </label>
-                                        {{-- Required toggle --}}
                                         <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                             <span>Required</span>
                                             <input type="checkbox"
@@ -399,6 +481,7 @@
                 {{-- Team Registration Form Fields Configuration --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{
                     teamFields: @js($teamFieldConfig),
+                    teamSections: @js($teamSectionLabels),
                     lockedTeamFields: ['team_name', 'captain_name', 'captain_email'],
                     toggleTeamRequired(key) {
                         if (!this.teamFields[key].visible) {
@@ -407,21 +490,32 @@
                     }
                 }">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Team Registration Form Fields</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure which fields appear on the team registration form and which are required.</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Drag <span class="font-mono">⠿</span> to reorder sections and fields. Edit section titles &amp; labels, and toggle visible / required.</p>
 
-                    @php
-                        $teamGroups = \App\Helpers\TeamFormConfig::fieldGroups();
-                        $teamLabels = \App\Helpers\TeamFormConfig::fieldLabels();
-                    @endphp
+                    @php $teamLabels = \App\Helpers\TeamFormConfig::fieldLabels(); @endphp
+                    <input type="hidden" name="team_section_order" id="team_section_order">
 
-                    <div class="space-y-4">
-                        @foreach($teamGroups as $groupName => $groupFields)
-                        <div>
-                            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 rounded">{{ $groupName }}</h4>
-                            <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                                @foreach($groupFields as $fieldKey)
-                                <div class="flex items-center justify-between px-3 py-2">
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ $teamLabels[$fieldKey] ?? $fieldKey }}</span>
+                    <div class="space-y-5 form-builder" id="team-sections">
+                        @foreach(\App\Helpers\TeamFormConfig::getFormLayout($settings, false) as $section)
+                        @php $sk = $section['key']; @endphp
+                        <div class="builder-section border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" data-section="{{ $sk }}">
+                            <div class="bg-gray-50 dark:bg-gray-800 px-3 py-2 flex items-center gap-2">
+                                <span class="section-handle cursor-move select-none text-gray-400 hover:text-gray-600" title="Drag section">⠿</span>
+                                <span class="text-xs uppercase tracking-wide text-gray-400">Section</span>
+                                <input type="text" name="team_form_sections[{{ $sk }}]" x-model="teamSections['{{ $sk }}']" placeholder="{{ $sk }}"
+                                    class="flex-1 text-sm font-semibold bg-transparent border-0 border-b border-transparent focus:border-indigo-500 focus:ring-0 text-gray-800 dark:text-gray-100 px-1 py-0.5">
+                            </div>
+                            <div class="divide-y divide-gray-100 dark:divide-gray-800 builder-field-list">
+                                @foreach($section['fields'] as $fieldKey)
+                                <div class="flex flex-col sm:flex-row sm:items-center gap-3 px-3 py-2 builder-field" data-field="{{ $fieldKey }}">
+                                    <span class="field-handle cursor-move select-none text-gray-400 hover:text-gray-600" title="Drag field">⠿</span>
+                                    <input type="hidden" name="team_form_fields[{{ $fieldKey }}][order]" class="field-order">
+                                    <div class="flex-1 flex items-center gap-2">
+                                        <input type="text" name="team_form_fields[{{ $fieldKey }}][label]" x-model="teamFields['{{ $fieldKey }}'].label"
+                                            placeholder="{{ $teamLabels[$fieldKey] ?? $fieldKey }}"
+                                            class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                        <span class="text-[10px] text-gray-400 whitespace-nowrap hidden sm:inline">{{ $fieldKey }}</span>
+                                    </div>
                                     <div class="flex items-center gap-6">
                                         <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                             <span>Visible</span>
@@ -449,6 +543,48 @@
                         </div>
                         @endforeach
                     </div>
+
+                    {{-- SortableJS-powered reordering for the form builder --}}
+                    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+                    <script>
+                        (function () {
+                            function initBuilder(containerId) {
+                                var container = document.getElementById(containerId);
+                                if (!container || !window.Sortable) return;
+                                // Sections sortable (by section handle)
+                                Sortable.create(container, { handle: '.section-handle', animation: 150, draggable: '.builder-section' });
+                                // Field lists sortable within each section (no cross-section moves)
+                                container.querySelectorAll('.builder-field-list').forEach(function (list) {
+                                    Sortable.create(list, { handle: '.field-handle', animation: 150, draggable: '.builder-field' });
+                                });
+                            }
+                            function captureOrder(containerId, sectionOrderInputId) {
+                                var container = document.getElementById(containerId);
+                                if (!container) return;
+                                var sectionKeys = [];
+                                container.querySelectorAll(':scope > .builder-section').forEach(function (sec) {
+                                    sectionKeys.push(sec.getAttribute('data-section'));
+                                    sec.querySelectorAll('.builder-field-list > .builder-field').forEach(function (row, idx) {
+                                        var orderInput = row.querySelector('.field-order');
+                                        if (orderInput) orderInput.value = idx;
+                                    });
+                                });
+                                var soi = document.getElementById(sectionOrderInputId);
+                                if (soi) soi.value = JSON.stringify(sectionKeys);
+                            }
+                            document.addEventListener('DOMContentLoaded', function () {
+                                initBuilder('player-sections');
+                                initBuilder('team-sections');
+                                var form = document.getElementById('player-sections') ? document.getElementById('player-sections').closest('form') : null;
+                                if (form) {
+                                    form.addEventListener('submit', function () {
+                                        captureOrder('player-sections', 'player_section_order');
+                                        captureOrder('team-sections', 'team_section_order');
+                                    });
+                                }
+                            });
+                        })();
+                    </script>
                 </div>
 
                 {{-- Terms & Conditions Content --}}

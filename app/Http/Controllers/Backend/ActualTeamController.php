@@ -750,6 +750,17 @@ class ActualTeamController extends Controller
                 $player = $user->player;
 
                 if ($player) {
+                    // A player can only be retained (and thus carry a retained value/
+                    // points) AFTER their registration is approved.
+                    if ($isRetained && $player->status !== 'approved') {
+                        DB::rollBack();
+
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'This player must complete and be approved in registration before they can be retained.',
+                        ], 422);
+                    }
+
                     $player->player_mode = $isRetained ? 'retained' : 'normal';
                     // Only set home team if player doesn't already have one
                     if (!$player->actual_team_id) {

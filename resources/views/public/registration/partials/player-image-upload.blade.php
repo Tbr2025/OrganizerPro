@@ -2,13 +2,20 @@
     $visible = $fieldConfig['image']['visible'] ?? true;
     $isRequired = $fieldConfig['image']['required'] ?? false;
     $piuId = 'pub_piu_' . Str::random(6);
+    $embedded = $embedded ?? false; // when true, the parent section card provides the wrapper/header
 @endphp
 
 @if($visible)
-<div class="border-b border-gray-700 pb-4 mb-4" x-data="publicPlayerImageUpload_{{ $piuId }}()" x-init="init()">
-    <h3 class="text-lg font-semibold text-yellow-500 mb-4">
-        Player Photo @if($isRequired)<span class="text-red-500">*</span>@endif
-    </h3>
+<div class="{{ $embedded ? '' : 'reg-section glass reveal' }}" x-data="publicPlayerImageUpload_{{ $piuId }}()" x-init="init()">
+    @unless($embedded)
+    <div class="reg-section-head">
+        <div class="reg-section-icon"><i class="fas fa-camera"></i></div>
+        <div>
+            <div class="reg-section-title">{{ $sectionTitle ?? ($fieldLabel ?? 'Player Photo') }} @if($isRequired)<span class="reg-req">*</span>@endif</div>
+            <div class="reg-section-sub">A clear, front-facing headshot</div>
+        </div>
+    </div>
+    @endunless
 
     {{-- Photo Guidelines --}}
     <div class="mb-3 flex items-start gap-3 p-3 bg-gray-700/50 border border-gray-600 rounded-lg">
@@ -86,14 +93,16 @@
         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
     @enderror
 
-    {{-- Crop Modal --}}
+    {{-- Crop Modal (teleported to body so it escapes the section's transform/stacking context) --}}
+    <template x-teleport="body">
     <div x-show="showCropModal" x-cloak
-         class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+         class="fixed inset-0 flex items-center justify-center"
+         style="z-index: 99999; background: rgba(0,0,0,0.85);"
          @keydown.escape.window="closeCropModal()">
         <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border border-gray-700" @click.outside="closeCropModal()">
             {{-- Header --}}
             <div class="flex items-center justify-between p-4 border-b border-gray-700">
-                <h3 class="text-lg font-semibold text-white">Crop Image</h3>
+                <h3 class="text-lg font-semibold text-white">Crop Image <span class="text-xs font-normal text-gray-400">(Portrait 3:4)</span></h3>
                 <button type="button" @click="closeCropModal()" class="text-gray-400 hover:text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -101,23 +110,9 @@
                 </button>
             </div>
 
-            {{-- Crop Mode Buttons --}}
-            <div class="flex gap-2 px-4 pt-3">
-                <button type="button" @click="setCropMode('portrait')"
-                        :class="cropMode === 'portrait' ? 'bg-yellow-500 text-gray-900' : 'bg-gray-700 text-gray-300'"
-                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors">
-                    Portrait (3:4)
-                </button>
-                <button type="button" @click="setCropMode('free')"
-                        :class="cropMode === 'free' ? 'bg-yellow-500 text-gray-900' : 'bg-gray-700 text-gray-300'"
-                        class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors">
-                    Free Crop
-                </button>
-            </div>
-
             {{-- Cropper Area --}}
             <div class="p-4">
-                <div class="max-h-[60vh] overflow-hidden">
+                <div style="max-height: 60vh; overflow: hidden;">
                     <img x-ref="pubCropImage_{{ $piuId }}" class="max-w-full" />
                 </div>
             </div>
@@ -135,6 +130,7 @@
             </div>
         </div>
     </div>
+    </template>
 </div>
 
 @push('styles')
@@ -155,7 +151,14 @@ function publicPlayerImageUpload_{{ $piuId }}() {
         cropMode: 'portrait',
         cropper: null,
 
-        init() {},
+        init() {
+            // Restore an already-uploaded photo after a validation error so the
+            // user doesn't have to re-upload (it's already stored on the server).
+            this.processedPath = @js(old('processed_image_path', ''));
+            @if(old('processed_image_path'))
+                this.previewUrl = @js(\Illuminate\Support\Facades\Storage::disk('public')->url(old('processed_image_path')));
+            @endif
+        },
 
         handleFileSelect(event) {
             const file = event.target.files[0];

@@ -140,6 +140,19 @@
                     @enderror
                 </div>
 
+                {{-- Type --}}
+                <div>
+                    <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament Type</label>
+                    <select id="type" name="type" class="mt-1 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <option value="open" {{ old('type', 'open') == 'open' ? 'selected' : '' }}>Open — team & player registration only</option>
+                        <option value="auction" {{ old('type') == 'auction' ? 'selected' : '' }}>Auction — retained players, pools & live auction</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Auction unlocks retained players, pools and the auction module.</p>
+                    @error('type')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 {{-- Actions --}}
                 <div class="flex items-center justify-end space-x-3 pt-4">
                     <a href="{{ route('admin.tournaments.index') }}"

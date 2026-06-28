@@ -7,9 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
+use App\Traits\BelongsToOrganization;
 
 class Tournament extends Model
 {
+    use BelongsToOrganization;
+
     protected $fillable = [
         'name',
         'slug',
@@ -20,6 +23,7 @@ class Tournament extends Model
         'end_date',
         'location',
         'status',
+        'type',
         'champion_team_id',
         'runner_up_team_id',
     ];
@@ -28,6 +32,20 @@ class Tournament extends Model
         'start_date' => 'date',
         'end_date' => 'date',
     ];
+
+    public const TYPE_OPEN = 'open';
+    public const TYPE_AUCTION = 'auction';
+
+    /** Auction tournaments expose retained players, pools and the auction. */
+    public function isAuction(): bool
+    {
+        return $this->type === self::TYPE_AUCTION;
+    }
+
+    public function isOpen(): bool
+    {
+        return $this->type !== self::TYPE_AUCTION;
+    }
 
     protected static function boot()
     {

@@ -33,6 +33,7 @@ class AuctionOrganizerController extends Controller
         // Fetch available players (waiting status)
         $availablePlayers = $auction->auctionPlayers()
             ->where('status', 'waiting')
+            ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
 
@@ -97,6 +98,7 @@ class AuctionOrganizerController extends Controller
 
         $availablePlayers = $auction->auctionPlayers()
             ->where('status', 'waiting')
+            ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
 
@@ -182,6 +184,7 @@ class AuctionOrganizerController extends Controller
     {
         $availablePlayers = $auction->auctionPlayers()
             ->where('status', 'waiting')
+            ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
 
@@ -566,13 +569,9 @@ class AuctionOrganizerController extends Controller
 
         $team = ActualTeam::findOrFail($validated['team_id']);
 
-        // Calculate total spent budget for the team
-        $spentBudget = AuctionPlayer::where('auction_id', $auction->id)
-            ->where('sold_to_team_id', $team->id)
-            ->where('status', 'sold')
-            ->sum('final_price');
-
-        $availableBalance = $auction->max_budget_per_team - $spentBudget;
+        // Per-team budget (honours per-team allocation, falls back to the uniform cap).
+        $availableBalance = app(\App\Services\Auction\AuctionPoolService::class)
+            ->remainingBudget($auction, $team->id);
 
         if ($validated['amount'] > $availableBalance) {
             return response()->json([

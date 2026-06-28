@@ -18,7 +18,10 @@ use App\Models\PlayerType;
 use App\Models\Role;
 use App\Models\Team;
 use App\Models\Tournament;
+use App\Models\TournamentRegistration;
+use App\Models\TournamentTemplate;
 use App\Models\User;
+use App\Services\Notification\TournamentNotificationService;
 use App\Notifications\CustomVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -400,11 +403,23 @@ class PlayerController extends Controller
         $request->merge([
             'mobile_number_full' => $mobileFull,
             'cricheroes_number_full' => $cricheroesFull,
+            // Compose the internal full name from first + last.
+            'name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', '')),
         ]);
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'date_of_birth' => 'nullable|date|before:today',
             'country' => $req('country') ? 'required|string|max:2' : 'nullable|string|max:2',
+            'state' => 'nullable|string|max:100',
+            'visa_status' => 'nullable|in:work_visa,visit_visa',
+            'employer_name' => 'nullable|string|max:255',
+            'employer_address' => 'nullable|string|max:500',
+            'employer_position' => 'nullable|string|max:255',
+            'available_weekends' => 'nullable|boolean',
+            'played_ys_ipl_s1' => 'nullable|boolean',
             'email' => 'required|email|unique:players,email',
             'mobile_country_code' => $req('mobile_number') ? 'required|string|max:10' : 'nullable|string|max:10',
             'mobile_national_number' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
@@ -471,6 +486,8 @@ class PlayerController extends Controller
         $validated['is_wicket_keeper'] = $request->boolean('wicket_keeper');
         $validated['transportation_required'] = $request->boolean('need_transportation');
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
+        $validated['available_weekends'] = $request->boolean('available_weekends');
+        $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
         $validated['created_by'] = Auth::id();
 
 
@@ -607,6 +624,14 @@ class PlayerController extends Controller
         // Admin edit uses defaults (all fields visible) since admin should see everything
         $fieldConfig = PlayerFormConfig::defaultFormFields();
 
+        // Welcome card uses the player's tournament's welcome_card editor template.
+        $welcomeRegistration = TournamentRegistration::where('player_id', $player->id)
+            ->whereNotNull('tournament_id')
+            ->latest()
+            ->with('tournament.settings')
+            ->first();
+        $hasWelcomeTemplate = (bool) $welcomeRegistration?->tournament?->getTemplate(TournamentTemplate::TYPE_WELCOME_CARD);
+
         return view('backend.pages.players.edit', [
             'player' => $player,
             'teams' => Team::all(),
@@ -617,6 +642,8 @@ class PlayerController extends Controller
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
             'templates' => ImageTemplate::all(),
+            'welcomeRegistration' => $welcomeRegistration,
+            'hasWelcomeTemplate' => $hasWelcomeTemplate,
             'defaultCountry' => config('settings.default_country', ''),
             'fieldConfig' => $fieldConfig,
             'breadcrumbs' => [
@@ -908,9 +935,22 @@ class PlayerController extends Controller
         // Helper: check if a field is visible AND required per config
         $req = fn($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
 
+        // Compose the internal full name from first + last.
+        $request->merge(['name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', ''))]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'date_of_birth' => 'nullable|date|before:today',
             'country' => 'nullable|string|max:2',
+            'state' => 'nullable|string|max:100',
+            'visa_status' => 'nullable|in:work_visa,visit_visa',
+            'employer_name' => 'nullable|string|max:255',
+            'employer_address' => 'nullable|string|max:500',
+            'employer_position' => 'nullable|string|max:255',
+            'available_weekends' => 'nullable|boolean',
+            'played_ys_ipl_s1' => 'nullable|boolean',
             'email' => 'required|email|unique:players,email,' . $player->id,
             'mobile_number_full' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
             'cricheroes_number_full' => $req('cricheroes_number') ? 'required|string|max:20' : 'nullable|string|max:20',
@@ -964,7 +1004,17 @@ class PlayerController extends Controller
         // ✅ Assign validated fields
         $player->fill([
             'name' => $validated['name'],
+            'first_name' => $validated['first_name'] ?? null,
+            'last_name' => $validated['last_name'] ?? null,
+            'date_of_birth' => $validated['date_of_birth'] ?? null,
             'country' => $validated['country'] ?? null,
+            'state' => $validated['state'] ?? null,
+            'visa_status' => $validated['visa_status'] ?? null,
+            'employer_name' => $validated['employer_name'] ?? null,
+            'employer_address' => $validated['employer_address'] ?? null,
+            'employer_position' => $validated['employer_position'] ?? null,
+            'available_weekends' => $request->boolean('available_weekends'),
+            'played_ys_ipl_s1' => $request->boolean('played_ys_ipl_s1'),
             'email' => $validated['email'],
             'total_matches' => $validated['total_matches'] ?? null,
             'total_runs' => $validated['total_runs'] ?? null,
@@ -1128,21 +1178,27 @@ class PlayerController extends Controller
                 return redirect()->back()->with('error', 'Welcome image has already been sent.');
             }
 
-            $template = ImageTemplate::where('category_id', 1)->first();
-            if (!$template) {
-                return redirect()->back()->with('error', 'There is no welcome template associated! Please create and try again!');
+            // Use the player's tournament's welcome_card editor template.
+            $registration = TournamentRegistration::where('player_id', $player->id)
+                ->whereNotNull('tournament_id')
+                ->latest()
+                ->first();
+
+            if (! $registration) {
+                return redirect()->back()->with('error', 'This player is not linked to a tournament, so no welcome card can be generated.');
             }
-            $imagePath = $this->generateWelcomePlayerImageGD($player, $template);
-
-            if (is_array($imagePath)) {
-                $imagePath = $imagePath[0] ?? '';
+            if (! $registration->tournament?->getTemplate(TournamentTemplate::TYPE_WELCOME_CARD)) {
+                return redirect()->back()->with('error', 'No welcome_card template for this tournament — create one first.');
             }
 
-            Mail::to($player->email)->send(new PlayerWelcomeMail($player, $imagePath));
+            $sent = app(TournamentNotificationService::class)->sendWelcomeCard($registration, true);
 
-            // Mark email as sent
+            if (! $sent) {
+                return redirect()->back()->with('error', 'Could not generate the welcome card. Check the welcome_card template and try again.');
+            }
+
             $player->update(['welcome_email_sent_at' => now()]);
-            return redirect()->back()->with('success', 'Player - Welcome image created and intimated.');
+            return redirect()->back()->with('success', 'Player - Welcome card created and intimated.');
         }
 
 

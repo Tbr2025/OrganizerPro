@@ -52,6 +52,11 @@
                         </svg>
                         LED Wall Display
                     </a>
+                    <a href="{{ route('admin.auctions.pools.index', $auction) }}"
+                        class="btn btn-info inline-flex items-center gap-2">
+                        <i class="fas fa-layer-group"></i>
+                        Pools &amp; Lots
+                    </a>
                     <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
                     <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
                         class="btn btn-success inline-flex items-center gap-2">

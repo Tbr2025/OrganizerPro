@@ -2,209 +2,115 @@
 
 @section('title', 'Team Registration - ' . $tournament->name)
 
+@push('styles')
+<style>
+    .reg-input, .reg-select {
+        width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 0.65rem; padding: 0.7rem 0.9rem; color: #fff; font-size: 0.95rem;
+        transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .reg-input::placeholder { color: rgba(255,255,255,0.35); }
+    .reg-input:focus, .reg-select:focus {
+        outline: none; border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22); background: rgba(255,255,255,0.08);
+    }
+    .reg-label { display:block; font-size:0.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#cbd5e1; margin-bottom:0.45rem; }
+    .reg-req { color: var(--accent); }
+    .reg-hint { color: rgba(255,255,255,0.45); font-size:.75rem; margin-top:.4rem; }
+    .reg-err { color:#f87171; font-size:.8rem; margin-top:.4rem; }
+    .reg-section { padding:1.5rem; border-radius:1rem; margin-bottom:1.25rem; }
+    @media (min-width:640px){ .reg-section{ padding:1.75rem; } }
+    .reg-section-head { display:flex; align-items:center; gap:.85rem; margin-bottom:1.4rem; }
+    .reg-section-icon { width:2.6rem; height:2.6rem; border-radius:0.8rem; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(var(--accent-rgb),0.15); color:var(--accent); font-size:1.05rem; border:1px solid rgba(var(--accent-rgb),0.25); }
+    .reg-section-title { font-size:1.15rem; font-weight:700; line-height:1.1; }
+    .reg-section-sub { font-size:.78rem; color:rgba(255,255,255,0.5); margin-top:.15rem; }
+    .reg-check { display:flex; align-items:center; gap:.8rem; padding:.85rem 1rem; border-radius:.65rem; cursor:pointer; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); transition:border-color .2s, background .2s; }
+    .reg-check:hover { border-color:rgba(var(--accent-rgb),0.45); background:rgba(var(--accent-rgb),0.06); }
+    .reg-check input[type="checkbox"] { width:1.15rem; height:1.15rem; accent-color:var(--accent); flex-shrink:0; }
+    .reg-submit { width:100%; border:none; cursor:pointer; padding:1rem 1.5rem; border-radius:0.8rem; font-family:'Oswald',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.03em; color:var(--primary); background:linear-gradient(135deg,var(--accent),var(--accent-dark)); transition:transform .2s, box-shadow .2s; box-shadow:0 10px 30px rgba(var(--accent-rgb),0.25); }
+    .reg-submit:hover { transform:translateY(-2px); box-shadow:0 16px 40px rgba(var(--accent-rgb),0.35); }
+</style>
+@endpush
+
+@include('public.registration.partials.registration-theme')
+
 @section('content')
-    <div class="max-w-2xl mx-auto px-4 py-8">
-        <div class="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
-            {{-- Header --}}
-            <div class="p-6 bg-gray-700 text-center">
-                <h1 class="text-2xl font-bold">Team Registration</h1>
-                <p class="text-gray-400 mt-2">Register your team for {{ $tournament->name }}</p>
-            </div>
+    @php
+        $theme = ($settings ?? null) ? $settings->registrationTheme() : (new \App\Models\TournamentSetting())->registrationTheme();
+        $layout = \App\Helpers\TeamFormConfig::getFormLayout($settings ?? null, true);
+        $sectionMeta = [
+            'Team Information'     => ['icon' => 'fa-shield-alt',    'sub' => 'Tell us about your team'],
+            'Team Manager Details' => ['icon' => 'fa-user-tie',      'sub' => 'Primary contact for the team'],
+            'Team Owner Details'   => ['icon' => 'fa-crown',         'sub' => 'Team owner (optional)'],
+            'Terms & Conditions'   => ['icon' => 'fa-file-contract', 'sub' => 'Please review before submitting'],
+        ];
+    @endphp
+    <div class="max-w-3xl mx-auto px-4 py-8 sm:py-10">
 
-            {{-- Form --}}
-            <form method="POST" action="{{ route('public.tournament.registration.team.store', $tournament->slug) }}"
-                  enctype="multipart/form-data" class="p-6 space-y-6">
-                @csrf
-
-                {{-- Team Info Section --}}
-                <div class="border-b border-gray-700 pb-6">
-                    <h2 class="text-lg font-semibold mb-4 text-yellow-400">Team Information</h2>
-
-                    {{-- Team Name (always visible) --}}
-                    <div class="mb-4">
-                        <label for="team_name" class="block text-sm font-medium mb-2">Team Name <span class="text-red-500">*</span></label>
-                        <input type="text" name="team_name" id="team_name" value="{{ old('team_name') }}" required
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="Enter team name">
-                        @error('team_name')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    {{-- Team Short Name --}}
-                    @if($teamFieldConfig['team_short_name']['visible'] ?? true)
-                    <div class="mb-4">
-                        <label for="team_short_name" class="block text-sm font-medium mb-2">Short Name (Abbreviation) @if($teamFieldConfig['team_short_name']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                        <input type="text" name="team_short_name" id="team_short_name" value="{{ old('team_short_name') }}" maxlength="10"
-                               {{ ($teamFieldConfig['team_short_name']['required'] ?? false) ? 'required' : '' }}
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="e.g., SRH, MI, CSK">
-                        @error('team_short_name')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
-
-                    {{-- Team Logo --}}
-                    @if($teamFieldConfig['team_logo']['visible'] ?? true)
-                    <div class="mb-4">
-                        <label for="team_logo" class="block text-sm font-medium mb-2">Team Logo @if($teamFieldConfig['team_logo']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                        <input type="file" name="team_logo" id="team_logo" accept="image/png,image/jpeg,image/jpg"
-                               {{ ($teamFieldConfig['team_logo']['required'] ?? false) ? 'required' : '' }}
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-yellow-500 file:text-gray-900 file:font-semibold hover:file:bg-yellow-600">
-                        <p class="text-gray-500 text-xs mt-1">PNG or JPG, max 2MB</p>
-                        @error('team_logo')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
-
-                    {{-- Team Description --}}
-                    @if($teamFieldConfig['team_description']['visible'] ?? true)
-                    <div>
-                        <label for="team_description" class="block text-sm font-medium mb-2">Team Description @if($teamFieldConfig['team_description']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                        <textarea name="team_description" id="team_description" rows="3"
-                                  {{ ($teamFieldConfig['team_description']['required'] ?? false) ? 'required' : '' }}
-                                  class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                  placeholder="Brief description about your team (optional)">{{ old('team_description') }}</textarea>
-                        @error('team_description')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
-                </div>
-
-                {{-- Team Manager Info Section --}}
-                <div class="border-b border-gray-700 pb-6">
-                    <h2 class="text-lg font-semibold mb-4 text-yellow-400">Team Manager Details</h2>
-
-                    {{-- Manager Name (always visible) --}}
-                    <div class="mb-4">
-                        <label for="captain_name" class="block text-sm font-medium mb-2">Manager Name <span class="text-red-500">*</span></label>
-                        <input type="text" name="captain_name" id="captain_name" value="{{ old('captain_name') }}" required
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="Full name of team manager">
-                        @error('captain_name')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    {{-- Manager Email (always visible) --}}
-                    <div class="mb-4">
-                        <label for="captain_email" class="block text-sm font-medium mb-2">Manager Email <span class="text-red-500">*</span></label>
-                        <input type="email" name="captain_email" id="captain_email" value="{{ old('captain_email') }}" required
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="manager@email.com">
-                        @error('captain_email')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    {{-- Manager Phone --}}
-                    @if($teamFieldConfig['captain_phone']['visible'] ?? true)
-                    <div>
-                        <label for="captain_phone" class="block text-sm font-medium mb-2">Manager Phone @if($teamFieldConfig['captain_phone']['required'] ?? true)<span class="text-red-500">*</span>@endif</label>
-                        <input type="tel" name="captain_phone" id="captain_phone" value="{{ old('captain_phone') }}"
-                               {{ ($teamFieldConfig['captain_phone']['required'] ?? true) ? 'required' : '' }}
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="+971 50 123 4567">
-                        @error('captain_phone')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
-                </div>
-
-                {{-- Team Owner Info Section --}}
-                @if(($teamFieldConfig['vice_captain_name']['visible'] ?? true) || ($teamFieldConfig['vice_captain_email']['visible'] ?? true) || ($teamFieldConfig['vice_captain_phone']['visible'] ?? true))
-                <div class="border-b border-gray-700 pb-6">
-                    <h2 class="text-lg font-semibold mb-4 text-yellow-400">Team Owner Details @if(!($teamFieldConfig['vice_captain_name']['required'] ?? false))(Optional)@endif</h2>
-
-                    {{-- Owner Name --}}
-                    @if($teamFieldConfig['vice_captain_name']['visible'] ?? true)
-                    <div class="mb-4">
-                        <label for="vice_captain_name" class="block text-sm font-medium mb-2">Owner Name @if($teamFieldConfig['vice_captain_name']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                        <input type="text" name="vice_captain_name" id="vice_captain_name" value="{{ old('vice_captain_name') }}"
-                               {{ ($teamFieldConfig['vice_captain_name']['required'] ?? false) ? 'required' : '' }}
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="Full name of team owner">
-                        @error('vice_captain_name')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
-
-                    {{-- Owner Email --}}
-                    @if($teamFieldConfig['vice_captain_email']['visible'] ?? true)
-                    <div class="mb-4">
-                        <label for="vice_captain_email" class="block text-sm font-medium mb-2">Owner Email @if($teamFieldConfig['vice_captain_email']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                        <input type="email" name="vice_captain_email" id="vice_captain_email" value="{{ old('vice_captain_email') }}"
-                               {{ ($teamFieldConfig['vice_captain_email']['required'] ?? false) ? 'required' : '' }}
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="owner@email.com">
-                        @error('vice_captain_email')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
-
-                    {{-- Owner Phone --}}
-                    @if($teamFieldConfig['vice_captain_phone']['visible'] ?? true)
-                    <div>
-                        <label for="vice_captain_phone" class="block text-sm font-medium mb-2">Owner Phone @if($teamFieldConfig['vice_captain_phone']['required'] ?? false)<span class="text-red-500">*</span>@endif</label>
-                        <input type="tel" name="vice_captain_phone" id="vice_captain_phone" value="{{ old('vice_captain_phone') }}"
-                               {{ ($teamFieldConfig['vice_captain_phone']['required'] ?? false) ? 'required' : '' }}
-                               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                               placeholder="+971 50 123 4567">
-                        @error('vice_captain_phone')
-                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
-                </div>
-                @endif
-
-                {{-- Terms & Conditions --}}
-                @if($teamFieldConfig['terms_and_conditions']['visible'] ?? false)
-                <div class="border-b border-gray-700 pb-4 mb-4">
-                    @if(!empty($settings->terms_and_conditions_content ?? ''))
-                    <div x-data="{ showTC: false }">
-                        <button type="button" @click="showTC = !showTC" class="text-yellow-500 hover:text-yellow-400 text-sm underline mb-3">
-                            View Terms & Conditions
-                        </button>
-                        <div x-show="showTC" x-cloak class="mb-4 p-4 bg-gray-700 rounded-lg text-sm text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
-                    </div>
-                    @endif
-
-                    <label class="flex items-center cursor-pointer">
-                        <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1"
-                               class="w-5 h-5 bg-gray-700 border-gray-600 rounded text-yellow-500 focus:ring-yellow-500"
-                               {{ old('terms_and_conditions') ? 'checked' : '' }}
-                               {{ ($teamFieldConfig['terms_and_conditions']['required'] ?? false) ? 'required' : '' }}>
-                        <span class="ml-3 text-sm">
-                            I agree to the Terms & Conditions @if($teamFieldConfig['terms_and_conditions']['required'] ?? false)<span class="text-red-500">*</span>@endif
-                        </span>
-                    </label>
-                    @error('terms_and_conditions')
-                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                @endif
-
-                {{-- Submit Button --}}
-                <div class="pt-4">
-                    <button type="submit"
-                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 px-6 rounded-lg transition transform hover:scale-[1.02]">
-                        Submit Team Registration
-                    </button>
-                </div>
-            </form>
+        {{-- Banner --}}
+        <div class="reg-banner reveal">
+            @if(($tournament->settings?->logo ?? $tournament->logo))
+                <img src="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" alt="{{ $tournament->name }}"
+                     class="mx-auto mb-4" style="width:72px;height:72px;object-fit:contain;border-radius:1rem;background:rgba(255,255,255,0.12);padding:.5rem;">
+            @endif
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-3"
+                  style="background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.35);">
+                <i class="fas fa-circle" style="font-size:.5rem;"></i> Registration Open
+            </span>
+            <h1 class="text-3xl font-bold">{{ $theme['banner_title'] ?: 'Team Registration' }}</h1>
+            <p class="text-white/90 mt-2">{{ $theme['banner_subtitle'] ?: ('Register your team for ' . $tournament->name) }}</p>
         </div>
 
-        {{-- Back Link --}}
-        <div class="text-center mt-6">
-            <a href="{{ route('public.tournament.show', $tournament->slug) }}" class="text-gray-400 hover:text-white">
-                <i class="fas fa-arrow-left mr-2"></i> Back to Tournament
+        {{-- Validation summary --}}
+        @if($errors->any())
+            <div class="reg-section reveal" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-exclamation-triangle text-red-400 mt-1"></i>
+                    <div>
+                        <p class="font-semibold text-red-300">Please fix the following:</p>
+                        <ul class="list-disc list-inside text-sm text-red-200 mt-2 space-y-1">
+                            @foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- Form --}}
+        <form method="POST" action="{{ route('public.tournament.registration.team.store', $tournament->slug) }}" enctype="multipart/form-data">
+            @csrf
+
+            @foreach($layout as $section)
+                @php $meta = $sectionMeta[$section['key']] ?? ['icon' => 'fa-list-ul', 'sub' => '']; @endphp
+                @if(count($section['fields']))
+                <div class="reg-section glass reveal">
+                    <div class="reg-section-head">
+                        <div class="reg-section-icon"><i class="fas {{ $meta['icon'] }}"></i></div>
+                        <div>
+                            <div class="reg-section-title">{{ $section['title'] }}</div>
+                            @if($meta['sub'])<div class="reg-section-sub">{{ $meta['sub'] }}</div>@endif
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        @foreach($section['fields'] as $fieldKey)
+                            @include('public.registration.fields.team-field', ['key' => $fieldKey])
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+            @endforeach
+
+            {{-- Submit --}}
+            <div class="reveal">
+                <button type="submit" class="reg-submit btn-ripple">
+                    <i class="fas fa-paper-plane mr-2"></i> Submit Team Registration
+                </button>
+            </div>
+        </form>
+
+        <div class="text-center mt-8">
+            <a href="{{ route('public.tournament.show', $tournament->slug) }}" class="text-gray-400 hover:text-white transition inline-flex items-center gap-2">
+                <i class="fas fa-arrow-left"></i> Back to Tournament
             </a>
         </div>
     </div>

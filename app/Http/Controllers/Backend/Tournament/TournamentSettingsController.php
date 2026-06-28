@@ -27,13 +27,17 @@ class TournamentSettingsController extends Controller
 
         $settings = $tournament->settings ?? $tournament->settings()->create([]);
         $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
+        $sectionLabels = PlayerFormConfig::getSectionLabels($settings);
         $teamFieldConfig = TeamFormConfig::getFieldConfig($settings);
+        $teamSectionLabels = TeamFormConfig::getSectionLabels($settings);
 
         return view('backend.pages.tournaments.settings.edit', [
             'tournament' => $tournament,
             'settings' => $settings,
             'fieldConfig' => $fieldConfig,
+            'sectionLabels' => $sectionLabels,
             'teamFieldConfig' => $teamFieldConfig,
+            'teamSectionLabels' => $teamSectionLabels,
             'breadcrumbs' => [
                 'title' => __('Tournament Settings'),
                 'items' => [
@@ -101,39 +105,56 @@ class TournamentSettingsController extends Controller
 
         $settings = $tournament->settings ?? $tournament->settings()->create([]);
 
-        // Build registration form fields config from checkboxes
+        // Build registration form fields config from checkboxes + custom labels + order
         if ($request->has('form_fields')) {
-            $formFields = [];
-            $defaults = PlayerFormConfig::defaultFormFields();
-            foreach ($defaults as $key => $default) {
-                $formFields[$key] = [
-                    'visible' => $request->has("form_fields.{$key}.visible"),
-                    'required' => $request->has("form_fields.{$key}.required"),
-                ];
-            }
-            // Force name and email always visible+required
-            $formFields['name'] = ['visible' => true, 'required' => true];
-            $formFields['email'] = ['visible' => true, 'required' => true];
-
+            $formFields = $this->buildFormFieldsConfig(
+                $request,
+                'form_fields',
+                'form_sections',
+                'form_section_order',
+                PlayerFormConfig::defaultFormFields(),
+                PlayerFormConfig::fieldLabels(),
+                ['name', 'first_name', 'last_name', 'email']
+            );
             $settings->update(['registration_form_fields' => $formFields]);
         }
 
-        // Build team registration form fields config from checkboxes
+        // Build team registration form fields config (labels + order + sections)
         if ($request->has('team_form_fields')) {
-            $teamFormFields = [];
-            $teamDefaults = TeamFormConfig::defaultFormFields();
-            foreach ($teamDefaults as $key => $default) {
-                $teamFormFields[$key] = [
-                    'visible' => $request->has("team_form_fields.{$key}.visible"),
-                    'required' => $request->has("team_form_fields.{$key}.required"),
-                ];
-            }
-            // Force locked fields
-            $teamFormFields['team_name'] = ['visible' => true, 'required' => true];
-            $teamFormFields['captain_name'] = ['visible' => true, 'required' => true];
-            $teamFormFields['captain_email'] = ['visible' => true, 'required' => true];
-
+            $teamFormFields = $this->buildFormFieldsConfig(
+                $request,
+                'team_form_fields',
+                'team_form_sections',
+                'team_section_order',
+                TeamFormConfig::defaultFormFields(),
+                TeamFormConfig::fieldLabels(),
+                ['team_name', 'captain_name', 'captain_email']
+            );
             $settings->update(['team_registration_form_fields' => $teamFormFields]);
+        }
+
+        // Registration page theme (colors/gradients/banner)
+        if ($request->has('registration_theme') || $request->hasFile('registration_banner') || $request->boolean('remove_registration_banner')) {
+            $theme = is_array($settings->registration_theme) ? $settings->registration_theme : [];
+
+            foreach ((array) $request->input('registration_theme', []) as $key => $value) {
+                $theme[$key] = ($value === '' || $value === null) ? null : (string) $value;
+            }
+
+            // Banner image upload / removal
+            $existingBanner = $theme['banner_image'] ?? null;
+            if ($request->boolean('remove_registration_banner') && $existingBanner) {
+                Storage::disk('public')->delete($existingBanner);
+                $theme['banner_image'] = null;
+            }
+            if ($request->hasFile('registration_banner')) {
+                if ($existingBanner) {
+                    Storage::disk('public')->delete($existingBanner);
+                }
+                $theme['banner_image'] = $request->file('registration_banner')->store('registration_banners', 'public');
+            }
+
+            $settings->update(['registration_theme' => $theme]);
         }
 
         // Handle file uploads
@@ -179,6 +200,56 @@ class TournamentSettingsController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', __('Failed to generate flyer: ') . $e->getMessage());
         }
+    }
+
+    /**
+     * Build a registration form-fields config (visible/required/label/order +
+     * section titles + section order) from the submitted builder inputs.
+     */
+    protected function buildFormFieldsConfig(
+        Request $request,
+        string $fieldsKey,
+        string $sectionsKey,
+        string $sectionOrderKey,
+        array $defaults,
+        array $defaultLabels,
+        array $lockedFields
+    ): array {
+        $config = [];
+        foreach ($defaults as $key => $default) {
+            $label = trim((string) $request->input("{$fieldsKey}.{$key}.label", ''));
+            $order = $request->input("{$fieldsKey}.{$key}.order");
+
+            $config[$key] = [
+                'visible' => $request->has("{$fieldsKey}.{$key}.visible"),
+                'required' => $request->has("{$fieldsKey}.{$key}.required"),
+                // Only store a label override when it differs from the default.
+                'label' => ($label !== '' && $label !== ($defaultLabels[$key] ?? '')) ? $label : null,
+                'order' => is_numeric($order) ? (int) $order : null,
+            ];
+        }
+
+        // Force locked fields visible+required (keep any custom label/order).
+        foreach ($lockedFields as $forced) {
+            $config[$forced]['visible'] = true;
+            $config[$forced]['required'] = true;
+        }
+
+        // Custom section titles (reserved _sections key).
+        $sections = [];
+        foreach ($request->input($sectionsKey, []) as $group => $title) {
+            $title = trim((string) $title);
+            if ($title !== '') {
+                $sections[$group] = $title;
+            }
+        }
+        $config['_sections'] = $sections;
+
+        // Section order (reserved _section_order key) — JSON array of section keys.
+        $decoded = json_decode((string) $request->input($sectionOrderKey, ''), true);
+        $config['_section_order'] = is_array($decoded) ? array_values($decoded) : [];
+
+        return $config;
     }
 
     public function updateStatus(Request $request, Tournament $tournament): RedirectResponse

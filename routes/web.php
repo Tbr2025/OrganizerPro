@@ -8,6 +8,7 @@ use App\Http\Controllers\Backend\ActualTeamController;
 use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
 use App\Http\Controllers\Backend\AuctionAdminController;
+use App\Http\Controllers\Backend\AuctionPoolController;
 use App\Http\Controllers\Backend\AuctionBiddingController;
 use App\Http\Controllers\Backend\AuctionTemplateController;
 use App\Http\Controllers\Backend\AuctionController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Backend\AuctionLiveController;
 use App\Http\Controllers\Backend\AuctionOrganizerController;
 use App\Http\Controllers\Backend\Auth\ScreenshotGeneratorLoginController;
 use App\Http\Controllers\Backend\BackupController;
+use App\Http\Controllers\Backend\EmailPreviewController;
 use App\Http\Controllers\Backend\BallController;
 use App\Http\Controllers\Backend\ClosedBidController;
 use App\Http\Controllers\Backend\DashboardController;
@@ -123,6 +125,15 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
+
+    // Auction pools (named sets / lots) + per-team budgets
+    Route::get('/auctions/{auction}/pools', [AuctionPoolController::class, 'index'])->name('auctions.pools.index');
+    Route::post('/auctions/{auction}/pools', [AuctionPoolController::class, 'store'])->name('auctions.pools.store');
+    Route::put('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'update'])->name('auctions.pools.update');
+    Route::delete('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'destroy'])->name('auctions.pools.destroy');
+    Route::post('/auctions/{auction}/pools/{pool}/assign', [AuctionPoolController::class, 'assignPlayers'])->name('auctions.pools.assign');
+    Route::post('/auctions/{auction}/pools/{pool}/draw-lots', [AuctionPoolController::class, 'drawLots'])->name('auctions.pools.draw-lots');
+    Route::post('/auctions/{auction}/budgets', [AuctionPoolController::class, 'allocateBudgets'])->name('auctions.budgets.allocate');
     Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
     Route::delete('/auctions/{auction}/branding-image', [AuctionAdminController::class, 'removeBrandingImage'])->name('auctions.branding.remove');
 
@@ -305,6 +316,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/backups/import', [BackupController::class, 'import'])->name('backups.import');
     Route::post('/backups/restore', [BackupController::class, 'restore'])->name('backups.restore');
     Route::delete('/backups/delete', [BackupController::class, 'delete'])->name('backups.delete');
+
+    // Superadmin-only: preview + edit transactional registration/approval emails.
+    Route::get('/emails/preview', [EmailPreviewController::class, 'index'])->name('emails.preview');
+    Route::get('/emails/preview/{type}/render', [EmailPreviewController::class, 'render'])->name('emails.preview.render');
+    Route::post('/emails/preview/{type}/draft', [EmailPreviewController::class, 'previewDraft'])->name('emails.preview.draft');
+    Route::post('/emails/templates', [EmailPreviewController::class, 'saveTemplate'])->name('emails.templates.save');
+    Route::delete('/emails/templates', [EmailPreviewController::class, 'resetTemplate'])->name('emails.templates.reset');
+    Route::post('/emails/brand', [EmailPreviewController::class, 'saveBrand'])->name('emails.brand.save');
 
     Route::get('/download-log', function () {
         $path = storage_path('logs/laravel.log');

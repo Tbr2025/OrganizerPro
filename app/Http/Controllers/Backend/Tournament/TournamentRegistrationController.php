@@ -75,7 +75,10 @@ class TournamentRegistrationController extends Controller
 
         return view('backend.pages.tournaments.registrations.show', [
             'tournament' => $tournament,
-            'registration' => $registration->load(['player', 'processedBy', 'actualTeam']),
+            'registration' => $registration->load([
+                'player.battingProfile', 'player.bowlingProfile', 'player.playerType',
+                'player.kitSize', 'player.location', 'processedBy', 'actualTeam',
+            ]),
             'approvedPlayerUsers' => $approvedPlayerUsers,
             'breadcrumbs' => [
                 'title' => __('Registration Details'),

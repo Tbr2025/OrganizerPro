@@ -10,10 +10,11 @@ return new class () extends PulseMigration {
      */
     public function up(): void
     {
-        // This MySQL build rejects the md5() generated column Pulse uses, and
-        // Pulse is not used by the app's feature suite. Skip in tests so the
-        // RefreshDatabase migration set can complete. (Prod behaviour unchanged.)
-        if (app()->environment('testing')) {
+        // The local/CI MySQL build rejects the md5() generated column Pulse uses,
+        // and Pulse DB storage is not used by this app. Skip outside production so
+        // `migrate:fresh` works locally and in tests. (Production unchanged; prod
+        // already has this migration recorded and never runs migrate:fresh.)
+        if (! app()->environment('production')) {
             return;
         }
 

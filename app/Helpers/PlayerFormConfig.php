@@ -10,8 +10,18 @@ class PlayerFormConfig
     {
         return [
             'name'                   => ['visible' => true, 'required' => true],
+            'first_name'             => ['visible' => true, 'required' => true],
+            'last_name'              => ['visible' => true, 'required' => true],
             'email'                  => ['visible' => true, 'required' => true],
+            'date_of_birth'          => ['visible' => true, 'required' => true],
             'country'                => ['visible' => true, 'required' => false],
+            'state'                  => ['visible' => true, 'required' => false],
+            'visa_status'            => ['visible' => true, 'required' => false],
+            'employer_name'          => ['visible' => true, 'required' => false],
+            'employer_address'       => ['visible' => true, 'required' => false],
+            'employer_position'      => ['visible' => true, 'required' => false],
+            'available_weekends'     => ['visible' => true, 'required' => false],
+            'played_ys_ipl_s1'       => ['visible' => true, 'required' => false],
             'mobile_number'          => ['visible' => true, 'required' => true],
             'cricheroes_number'      => ['visible' => true, 'required' => false],
             'cricheroes_profile_url' => ['visible' => true, 'required' => false],
@@ -38,36 +48,129 @@ class PlayerFormConfig
     public static function getFieldConfig(?TournamentSetting $settings): array
     {
         $defaults = self::defaultFormFields();
+        $labels = self::fieldLabels();
+        $saved = ($settings && $settings->registration_form_fields) ? $settings->registration_form_fields : [];
 
-        if (!$settings || !$settings->registration_form_fields) {
-            return $defaults;
+        $defaultOrder = self::defaultFieldOrder();
+
+        $config = [];
+        foreach ($defaults as $key => $default) {
+            $savedField = is_array($saved[$key] ?? null) ? $saved[$key] : [];
+            $label = $savedField['label'] ?? null;
+
+            $config[$key] = [
+                'visible' => (bool) ($savedField['visible'] ?? $default['visible']),
+                'required' => (bool) ($savedField['required'] ?? $default['required']),
+                // Custom label per tournament, falling back to the default label.
+                'label' => ($label !== null && $label !== '') ? $label : ($labels[$key] ?? $key),
+                // Saved order within its section, else default index within the section.
+                'order' => isset($savedField['order']) ? (int) $savedField['order'] : ($defaultOrder[$key] ?? 0),
+            ];
         }
 
-        $saved = $settings->registration_form_fields;
+        // Name (composed), first/last and email are always forced visible+required
+        foreach (['name', 'first_name', 'last_name', 'email'] as $forced) {
+            $config[$forced]['visible'] = true;
+            $config[$forced]['required'] = true;
+        }
 
-        // Merge saved config over defaults
-        foreach ($defaults as $key => $default) {
-            if (isset($saved[$key])) {
-                $defaults[$key] = [
-                    'visible' => (bool) ($saved[$key]['visible'] ?? $default['visible']),
-                    'required' => (bool) ($saved[$key]['required'] ?? $default['required']),
-                ];
+        return $config;
+    }
+
+    /** Default order index of each field within its section (from fieldGroups). */
+    public static function defaultFieldOrder(): array
+    {
+        $order = [];
+        foreach (self::fieldGroups() as $fields) {
+            foreach (array_values($fields) as $i => $key) {
+                $order[$key] = $i;
             }
         }
 
-        // Name and email are always forced visible+required
-        $defaults['name'] = ['visible' => true, 'required' => true];
-        $defaults['email'] = ['visible' => true, 'required' => true];
+        return $order;
+    }
 
-        return $defaults;
+    /**
+     * Ordered form layout: sections (in saved order) each with their field keys
+     * (in saved order). Field→section membership comes from fieldGroups().
+     *
+     * @return array<int, array{key:string,title:string,fields:array<int,string>}>
+     */
+    public static function getFormLayout(?TournamentSetting $settings, bool $visibleOnly = false): array
+    {
+        $groups = self::fieldGroups();
+        $titles = self::getSectionLabels($settings);
+        $fieldConfig = self::getFieldConfig($settings);
+
+        $savedSectionOrder = ($settings && $settings->registration_form_fields)
+            ? ($settings->registration_form_fields['_section_order'] ?? [])
+            : [];
+
+        // Order sections: saved order first (valid keys only), then any remaining.
+        $sectionKeys = array_values(array_filter($savedSectionOrder, fn ($k) => isset($groups[$k])));
+        foreach (array_keys($groups) as $k) {
+            if (! in_array($k, $sectionKeys, true)) {
+                $sectionKeys[] = $k;
+            }
+        }
+
+        $layout = [];
+        foreach ($sectionKeys as $sectionKey) {
+            $fields = $groups[$sectionKey];
+
+            if ($visibleOnly) {
+                $fields = array_values(array_filter($fields, fn ($k) => $fieldConfig[$k]['visible'] ?? true));
+            }
+
+            // Sort by configured order, stable on default index as tiebreak.
+            usort($fields, function ($a, $b) use ($fieldConfig) {
+                return ($fieldConfig[$a]['order'] ?? 0) <=> ($fieldConfig[$b]['order'] ?? 0);
+            });
+
+            $layout[] = [
+                'key' => $sectionKey,
+                'title' => $titles[$sectionKey] ?? $sectionKey,
+                'fields' => $fields,
+            ];
+        }
+
+        return $layout;
+    }
+
+    /**
+     * Section titles for the registration form, with per-tournament overrides
+     * (saved under registration_form_fields['_sections']).
+     */
+    public static function getSectionLabels(?TournamentSetting $settings): array
+    {
+        $saved = ($settings && $settings->registration_form_fields)
+            ? ($settings->registration_form_fields['_sections'] ?? [])
+            : [];
+
+        $out = [];
+        foreach (array_keys(self::fieldGroups()) as $group) {
+            $out[$group] = (isset($saved[$group]) && $saved[$group] !== '') ? $saved[$group] : $group;
+        }
+
+        return $out;
     }
 
     public static function fieldLabels(): array
     {
         return [
             'name'                   => 'Player Name',
+            'first_name'             => 'First Name',
+            'last_name'              => 'Last Name',
             'email'                  => 'Email Address',
-            'country'                => 'Country',
+            'date_of_birth'          => 'Date of Birth',
+            'country'                => 'Nationality',
+            'state'                  => 'State / Province',
+            'visa_status'            => 'Visa Status',
+            'employer_name'          => 'Employer Name',
+            'employer_address'       => 'Employer Address',
+            'employer_position'      => 'Position',
+            'available_weekends'     => 'I am available to play Saturdays & Sundays',
+            'played_ys_ipl_s1'       => 'Have you played YS IPL Season 1?',
             'mobile_number'          => 'Mobile Number',
             'cricheroes_number'      => 'CricHeroes Number',
             'cricheroes_profile_url' => 'CricHeroes Profile URL',
@@ -80,25 +183,30 @@ class PlayerFormConfig
             'batting_profile'        => 'Batting Profile',
             'bowling_profile'        => 'Bowling Profile',
             'player_type'            => 'Player Type',
-            'is_wicket_keeper'       => 'Wicket Keeper',
+            'is_wicket_keeper'       => 'I am a wicket keeper',
             'total_matches'          => 'Total Matches',
             'total_runs'             => 'Total Runs',
             'total_wickets'          => 'Total Wickets',
             'image'                  => 'Player Photo',
-            'transportation'         => 'Transportation',
-            'travel_plan'            => 'Travel Plan',
-            'terms_and_conditions'   => 'Terms & Conditions',
+            'transportation'         => 'I need transportation to the venue',
+            'travel_plan'            => 'I have no travel plans (available throughout)',
+            'terms_and_conditions'   => 'I agree to the Terms & Conditions',
         ];
     }
 
     public static function fieldGroups(): array
     {
+        // Groups double as the registration form's visual sections (titles are editable).
         return [
-            'Basic Info' => ['name', 'email', 'country', 'mobile_number', 'cricheroes_number', 'cricheroes_profile_url', 'location'],
-            'Team' => ['registration_team', 'playing_team'],
-            'Jersey & Profile' => ['jersey_name', 'jersey_number', 'kit_size', 'batting_profile', 'bowling_profile', 'player_type', 'is_wicket_keeper'],
-            'Stats' => ['total_matches', 'total_runs', 'total_wickets'],
-            'Other' => ['image', 'transportation', 'travel_plan', 'terms_and_conditions'],
+            'Basic Information' => ['first_name', 'last_name', 'email', 'date_of_birth', 'country', 'state', 'mobile_number', 'cricheroes_number', 'cricheroes_profile_url', 'location', 'registration_team', 'playing_team'],
+            'Visa & Employment' => ['visa_status', 'employer_name', 'employer_address', 'employer_position'],
+            'Availability' => ['available_weekends', 'played_ys_ipl_s1'],
+            'Jersey Information' => ['jersey_name', 'jersey_number', 'kit_size'],
+            'Player Profile' => ['player_type', 'batting_profile', 'bowling_profile', 'is_wicket_keeper'],
+            'Leather Ball Experience' => ['total_matches', 'total_runs', 'total_wickets'],
+            'Travel & Transportation' => ['transportation', 'travel_plan'],
+            'Player Photo' => ['image'],
+            'Terms & Conditions' => ['terms_and_conditions'],
         ];
     }
 
@@ -106,15 +214,53 @@ class PlayerFormConfig
     {
         $rules = [];
 
-        // Name - always required
+        // Name - always required (composed server-side from first + last)
         $rules['name'] = 'required|string|max:100';
+
+        // First / Last name - always required (they replace the single name field)
+        $rules['first_name'] = 'required|string|max:100';
+        $rules['last_name'] = 'required|string|max:100';
 
         // Email - always required
         $rules['email'] = 'required|email|max:255';
 
+        // Date of Birth
+        if ($fieldConfig['date_of_birth']['visible'] ?? true) {
+            $rules['date_of_birth'] = ($fieldConfig['date_of_birth']['required'] ?? false) ? 'required|date|before:today' : 'nullable|date|before:today';
+        }
+
         // Country
         if ($fieldConfig['country']['visible'] ?? true) {
             $rules['country'] = ($fieldConfig['country']['required'] ?? false) ? 'required|string|max:2' : 'nullable|string|max:2';
+        }
+
+        // Indian State
+        if ($fieldConfig['state']['visible'] ?? true) {
+            $rules['state'] = ($fieldConfig['state']['required'] ?? false) ? 'required|string|max:100' : 'nullable|string|max:100';
+        }
+
+        // Visa Status
+        if ($fieldConfig['visa_status']['visible'] ?? true) {
+            $rules['visa_status'] = ($fieldConfig['visa_status']['required'] ?? false) ? 'required|in:work_visa,visit_visa' : 'nullable|in:work_visa,visit_visa';
+        }
+
+        // Employer details
+        if ($fieldConfig['employer_name']['visible'] ?? true) {
+            $rules['employer_name'] = ($fieldConfig['employer_name']['required'] ?? false) ? 'required|string|max:255' : 'nullable|string|max:255';
+        }
+        if ($fieldConfig['employer_address']['visible'] ?? true) {
+            $rules['employer_address'] = ($fieldConfig['employer_address']['required'] ?? false) ? 'required|string|max:500' : 'nullable|string|max:500';
+        }
+        if ($fieldConfig['employer_position']['visible'] ?? true) {
+            $rules['employer_position'] = ($fieldConfig['employer_position']['required'] ?? false) ? 'required|string|max:255' : 'nullable|string|max:255';
+        }
+
+        // Availability
+        if ($fieldConfig['available_weekends']['visible'] ?? true) {
+            $rules['available_weekends'] = ($fieldConfig['available_weekends']['required'] ?? false) ? 'accepted' : 'nullable|boolean';
+        }
+        if ($fieldConfig['played_ys_ipl_s1']['visible'] ?? true) {
+            $rules['played_ys_ipl_s1'] = 'nullable|boolean';
         }
 
         // Mobile Number
