@@ -4,7 +4,7 @@
 
 @section('admin-content')
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
-    <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
+    <x-breadcrumbs :breadcrumbs="['title' => 'Edit Auction', 'items' => [['label' => 'Auctions', 'url' => route('admin.auctions.index')]]]" />
 </div>
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8"
      x-data="auctionEditForm({{ json_encode($auction) }}, {{ json_encode($availablePlayers) }}, {{ json_encode($organizations) }}, {{ json_encode($tournaments) }})"
