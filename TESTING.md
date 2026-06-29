@@ -113,3 +113,81 @@ Re-run steps 2–3 of setup any time to rebuild a clean demo environment:
 ```bash
 php artisan migrate:fresh --seed && php artisan db:seed --class=DemoTestDataSeeder
 ```
+
+---
+
+# Auction (open & closed bid) + registration — end-to-end click-through
+
+This section covers the live auction, team-manager bidding, the closed-bids page, and the email preview/editor.
+
+## Where to log in
+
+- **Production:** `https://sportzley.com/admin/login` — Superadmin `superadmin@sportzley.com` (your password).
+- **Local:** `http://localhost:8000/admin/login` after the setup above.
+  - Superadmin `superadmin@sportzley.com` / `Super@Sportzley#2025123`
+  - Organizer A `organizer.a@test.com` / `password` · Organizer B `organizer.b@test.com` / `password`
+
+**Bidding without team-manager passwords:** as Superadmin open **Admin → Users** and click **"Login as"** (`/admin/users/{id}/login-as`) on a team-manager user to impersonate them, place a bid, then switch back. Team Manager / Owner accounts are created automatically when a **team registration is approved**, and their passwords are emailed — locally, read them at the bottom of `storage/logs/laravel.log` (with `MAIL_MAILER=log`).
+
+## URL cheat-sheet (replace `{id}` / `{slug}`)
+
+| Flow | URL |
+|------|-----|
+| Admin login | `/admin/login` |
+| Player registration (public) | `/t/{tournament-slug}/register/player` |
+| Team registration (public) | `/t/{tournament-slug}/register/team` |
+| Registrations to approve | `/admin/tournaments/{id}/registrations` |
+| Auctions list | `/admin/auctions` |
+| Create auction (4-step wizard) | `/admin/auctions/create` |
+| Auction pools & per-team budgets | `/admin/auctions/{id}/pools` |
+| **Organizer live panel** | `/admin/organizer/auction/{id}/panel` |
+| Organizer offline panel | `/admin/organizer/auction/{id}/offline-panel` |
+| **Team-manager bidding** | `/admin/team/auction/{id}/live` |
+| Closed bids (awarded) page | `/admin/auctions-closed-bids` |
+| Public big-screen display | `/auction/{id}/live` · `/auction/{id}/sold` · `/auction/{id}/results` |
+| Email preview / editor | `/admin/emails/preview` |
+
+> Tip: get a real `{id}`/`{slug}` from `/admin/auctions` and `/admin/tournaments`. The demo seeder creates **Alpha Auction League** (auction, 10 waiting players) and **alpha-open-cup** (registration).
+
+## A. Player registration (public)
+1. Open `/t/{slug}/register/player`.
+2. Set **Visa = Work Visa** → Employer Name/Address/Position appear and are **required**; switch to another visa → they hide (and aren't required).
+3. Tick **Available on Saturday** / **Available on Sunday** independently.
+4. Submit → the applicant gets an **"Application Received / under review"** email (log).
+5. As the organizer, approve at `/admin/tournaments/{id}/registrations` → **"Registration Approved"** + **welcome-card** emails are sent; the player becomes approved.
+
+✅ Pass = conditional employer fields work, both day checkboxes save, both emails fire on submit/approve.
+
+## B. Team registration (public)
+1. Open `/t/{slug}/register/team` (a **different** form from the player one).
+2. Submit team + captain (+ optional vice-captain).
+3. Approve in registrations → **Team Manager** and **Owner** logins are created and credentials emailed (log). Use those — or **Login as** them — for bidding.
+
+## C. Open-bid auction (live ascending)
+1. `/admin/auctions/create` → step 1 set **Bid type = Open**; step 4 build pools (only the selected org's approved players appear; drag to set Custom order).
+2. Open `/admin/organizer/auction/{id}/panel` → **Start** → a player comes up in pool→lot order.
+3. Place raises with the team buttons, or impersonate team managers at `/admin/team/auction/{id}/live`.
+4. **SELL** → the highest bid wins **only if within that team's remaining budget** (an over-budget sale is refused with a message); **PASS** → unsold.
+5. Open `/auction/{id}/live` on a second screen for the audience display.
+
+## D. Closed-bid auction (sealed bids → organizer picks the winner)
+1. Create with **Bid type = Closed** (or toggle **CLOSED** in the panel).
+2. Put a player on auction.
+3. As each team (Login as → `/admin/team/auction/{id}/live`) submit a **sealed** bid — teams can't see each other's bids.
+4. In the organizer panel click the **"B"** (Bids) side-panel button → all sealed bids are listed **highest first** → click **"Sold To This Team"** on the winner → confirm. Over-budget awards are refused.
+5. Review awarded players at `/admin/auctions-closed-bids`; the **team filter** now returns that team's players.
+
+✅ Pass = sealed bids are private, the organizer awards manually, budget caps hold, the closed-bids team filter works.
+
+## E. Email preview / editor (Superadmin)
+`/admin/emails/preview` → choose a tournament (or **Global default**) → the three emails render in iframes. **Edit** the HTML, **Preview draft**, **Save** (a per-tournament override beats the global default), **Reset to default**. Set the global **Brand name** at the top.
+
+## F. Automated tests
+```bash
+php artisan test                                 # full suite — expect 140 passed
+
+php artisan test --filter=ClosedBidFlowTest       # sealed-bid award + budget + closed-bids filter
+php artisan test --filter=BudgetEnforcementTest   # open-bid sell respects budget
+php artisan test --filter=AuctionOrgIsolationTest # no cross-org players in an auction
+php artisan test --filter=AdminPagesRenderTest    # key admin pages render (no 500s)
+```

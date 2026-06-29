@@ -199,7 +199,45 @@ class AuctionAdminController extends Controller
      */
     protected function persistAuctionPools(Auction $auction, array $pools): void
     {
+        // Fresh auction (store): no existing players to preserve.
+        $this->buildPoolsFromData($auction, $pools, []);
+    }
+
+    /**
+     * Non-destructive pool rebuild for an existing auction (update). Players that
+     * have already been actioned (sold / on_auction / closed / unsold) are LEFT
+     * UNTOUCHED; only the "waiting" layout + lot ordering is rebuilt from the JSON.
+     *
+     * @param  array<int, array{name?:string,capacity?:mixed,order_mode?:string,players?:array}>  $pools
+     */
+    protected function syncAuctionPools(Auction $auction, array $pools): void
+    {
+        // Players already in play keep their rows, pool grouping aside.
+        $preservePlayerIds = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('status', '!=', 'waiting')
+            ->pluck('player_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        // Drop the current waiting layout (pools + their waiting players).
+        AuctionPlayer::where('auction_id', $auction->id)->where('status', 'waiting')->delete();
+        AuctionPool::where('auction_id', $auction->id)->delete(); // FK nullOnDelete: sold players just lose grouping
+
+        $this->buildPoolsFromData($auction, $pools, $preservePlayerIds);
+    }
+
+    /**
+     * Shared pool/player creation from the wizard's pool-builder JSON. Org-isolates
+     * players, skips any id in $skipPlayerIds (already-actioned), and assigns
+     * lot_number per each pool's order mode.
+     *
+     * @param  array<int, array{name?:string,capacity?:mixed,order_mode?:string,players?:array}>  $pools
+     * @param  array<int, int>  $skipPlayerIds
+     */
+    protected function buildPoolsFromData(Auction $auction, array $pools, array $skipPlayerIds = []): void
+    {
         $poolService = app(AuctionPoolService::class);
+        $skip = array_flip($skipPlayerIds);
 
         // Org isolation: only players belonging to the auction's organization may be
         // added — guards against cross-org assignment even if the UI is bypassed.
@@ -210,8 +248,11 @@ class AuctionAdminController extends Controller
 
         foreach (array_values($pools) as $sequence => $poolData) {
             $players = is_array($poolData['players'] ?? null) ? $poolData['players'] : [];
-            // Keep only players that belong to this auction's organization.
-            $players = array_values(array_filter($players, fn ($pl) => isset($validPlayerIds[(int) ($pl['id'] ?? 0)])));
+            // Keep only org players that aren't already actioned.
+            $players = array_values(array_filter($players, function ($pl) use ($validPlayerIds, $skip) {
+                $id = (int) ($pl['id'] ?? 0);
+                return isset($validPlayerIds[$id]) && ! isset($skip[$id]);
+            }));
             if (! count($players)) {
                 continue;
             }
@@ -232,17 +273,18 @@ class AuctionAdminController extends Controller
                     continue;
                 }
                 $base = is_numeric($pl['base_price'] ?? null) ? $pl['base_price'] : $auction->base_price;
-                AuctionPlayer::create([
-                    'auction_id' => $auction->id,
-                    'auction_pool_id' => $pool->id,
-                    'player_id' => $playerId,
-                    'organization_id' => $auction->organization_id,
-                    'base_price' => $base,
-                    'current_price' => $base,
-                    'starting_price' => $base,
-                    'lot_number' => $i + 1, // submitted (drag) order — respected by manual mode
-                    'status' => 'waiting',
-                ]);
+                AuctionPlayer::updateOrCreate(
+                    ['auction_id' => $auction->id, 'player_id' => $playerId],
+                    [
+                        'auction_pool_id' => $pool->id,
+                        'organization_id' => $auction->organization_id,
+                        'base_price' => $base,
+                        'current_price' => $base,
+                        'starting_price' => $base,
+                        'lot_number' => $i + 1, // submitted (drag) order — respected by manual mode
+                        'status' => 'waiting',
+                    ]
+                );
             }
 
             // Final lot order per the pool's rule (sequential/random/odd_even/manual).
@@ -709,8 +751,8 @@ class AuctionAdminController extends Controller
         $organizations = Organization::orderBy('name')->get();
         $tournaments = Tournament::orderBy('name')->get();
 
-        // Load the players currently in the auction and tournament for branding
-        $auction->load('auctionPlayers.player', 'tournament');
+        // Load the players currently in the auction, its pools, and tournament.
+        $auction->load(['auctionPlayers.player', 'pools.players.player', 'tournament']);
         $auctionPlayerIds = $auction->auctionPlayers->pluck('player.id')->toArray();
 
         // Find players who are available (Approved, not Retained, and not already in this auction)
@@ -723,9 +765,39 @@ class AuctionAdminController extends Controller
                 $query->where('organization_id', $auction->organization_id);
             })
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name', 'organization_id']);
 
-        return view('backend.pages.auctions.edit', compact('auction', 'organizations', 'tournaments', 'availablePlayers'));
+        // Existing pools (sequence order) with their players (lot order) for the wizard.
+        $existingPools = $auction->pools->sortBy('sequence')->values()->map(function ($pool) {
+            return [
+                'id' => $pool->id,
+                'name' => $pool->name,
+                'capacity' => $pool->capacity,
+                'order_mode' => $pool->order_mode,
+                'players' => $pool->players->sortBy('lot_number')->values()->map(fn ($ap) => [
+                    'id' => $ap->player_id,
+                    'name' => $ap->player->name ?? ('Player #' . $ap->player_id),
+                    'base_price' => $ap->base_price,
+                    'org' => $ap->organization_id,
+                ])->all(),
+            ];
+        })->all();
+
+        // Players in the auction but not assigned to any pool (legacy) — surface them
+        // so the wizard never silently drops them.
+        $pooledIds = collect($existingPools)->pluck('players')->flatten(1)->pluck('id')->all();
+        $unpooled = $auction->auctionPlayers
+            ->whereNull('auction_pool_id')
+            ->map(fn ($ap) => [
+                'id' => $ap->player_id,
+                'name' => $ap->player->name ?? ('Player #' . $ap->player_id),
+                'base_price' => $ap->base_price,
+                'org' => $ap->organization_id,
+            ])->values()->all();
+
+        return view('backend.pages.auctions.edit', compact(
+            'auction', 'organizations', 'tournaments', 'availablePlayers', 'existingPools', 'unpooled'
+        ));
     }
 
 
@@ -787,6 +859,8 @@ class AuctionAdminController extends Controller
             'player_ids.*' => 'exists:players,id',
             'player_base_prices' => 'nullable|array',
             'player_base_prices.*' => 'required|numeric|min:0',
+            // Pool builder (same as create); when present it drives the player layout.
+            'pools' => 'nullable|string',
         ]);
 
         DB::transaction(function () use ($validated, $auction, $request) {
@@ -819,29 +893,22 @@ class AuctionAdminController extends Controller
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
             ], $brandingData));
 
-            // The player_ids and player_base_prices are now primarily managed by AJAX.
-            // However, if the form is submitted, we still want to capture any manually
-            // updated prices that weren't submitted via AJAX. The AJAX calls handle the
-            // dynamic price updates, so this part might be redundant or need careful review
-            // if the goal is ONLY AJAX for price updates.
-            // For now, we'll assume the form submission might still send some prices.
-            $playerBasePricesFromForm = $request->input('player_base_prices', []);
-            $playersToUpdateFromForm = [];
-
-            foreach ($playerBasePricesFromForm as $playerId => $price) {
-                // Basic validation for price coming from form
-                if (Validator::make(['price' => $price], ['price' => 'required|numeric|min:0'])->fails()) {
-                    // Log or handle invalid price from form submission if necessary
-                    continue;
-                }
-                $playersToUpdateFromForm[$playerId] = ['base_price' => $price];
-            }
-
-            if (!empty($playersToUpdateFromForm)) {
-                foreach ($playersToUpdateFromForm as $playerId => $data) {
+            // Preferred path: the pool-builder JSON (same as create) drives the player
+            // layout. Rebuilds the "waiting" players/pools/lots; never touches players
+            // already sold/on-auction/closed.
+            $pools = json_decode($validated['pools'] ?? '', true);
+            if (is_array($pools) && count($pools)) {
+                $this->syncAuctionPools($auction, $pools);
+            } else {
+                // Legacy fallback: flat player_base_prices map (older edit form).
+                $playerBasePricesFromForm = $request->input('player_base_prices', []);
+                foreach ($playerBasePricesFromForm as $playerId => $price) {
+                    if (Validator::make(['price' => $price], ['price' => 'required|numeric|min:0'])->fails()) {
+                        continue;
+                    }
                     AuctionPlayer::where('auction_id', $auction->id)
                         ->where('player_id', $playerId)
-                        ->update($data);
+                        ->update(['base_price' => $price]);
                 }
             }
         });
