@@ -287,13 +287,19 @@
         @break
 
     @case('terms_and_conditions')
-        <div x-data="{ showTC: false }">
-            @if(!empty($settings->terms_and_conditions_content ?? ''))
-                <button type="button" @click="showTC = true" class="accent-link text-sm underline mb-3 inline-flex items-center">
-                    <i class="fas fa-eye mr-1"></i> See Terms &amp; Conditions
-                </button>
+        @php $hasTC = !empty($settings->terms_and_conditions_content ?? ''); @endphp
+        <div x-data="{ showTC: false, accepted: {{ old('terms_and_conditions') ? 'true' : 'false' }} }">
+            {{-- Clicking the checkbox opens the T&C popup; accepting inside ticks it. --}}
+            <label class="reg-check" @if($hasTC) @click.prevent="showTC = true" @endif>
+                <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1"
+                       x-model="accepted" {{ $required ? 'required' : '' }}
+                       @if($hasTC) tabindex="-1" style="pointer-events:none" @endif>
+                <span class="text-sm">{!! $label !!} {!! $reqMark !!}</span>
+            </label>
+            @error('terms_and_conditions')<p class="reg-err">{{ $message }}</p>@enderror
 
-                {{-- Popup modal (teleported to body to escape any overflow/stacking) --}}
+            @if($hasTC)
+                {{-- Popup: read T&C, then Accept (checks the box) or Close (leaves it unchecked) --}}
                 <template x-teleport="body">
                     <div x-show="showTC" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
                          style="background:rgba(0,0,0,0.6);" @keydown.escape.window="showTC = false">
@@ -304,18 +310,16 @@
                                 <button type="button" @click="showTC = false" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">&times;</button>
                             </div>
                             <div class="p-5 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
-                            <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 text-right">
-                                <button type="button" @click="showTC = false" class="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm">Close</button>
+                            <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+                                <button type="button" @click="showTC = false"
+                                        class="px-4 py-2 rounded-lg text-sm bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200">Close</button>
+                                <button type="button" @click="accepted = true; showTC = false"
+                                        class="px-4 py-2 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">I Accept</button>
                             </div>
                         </div>
                     </div>
                 </template>
             @endif
-            <label class="reg-check">
-                <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1" {{ old('terms_and_conditions') ? 'checked' : '' }} {{ $required ? 'required' : '' }}>
-                <span class="text-sm">{!! $label !!} {!! $reqMark !!}</span>
-            </label>
-            @error('terms_and_conditions')<p class="reg-err">{{ $message }}</p>@enderror
         </div>
         @break
 
