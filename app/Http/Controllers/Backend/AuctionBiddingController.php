@@ -183,6 +183,11 @@ class AuctionBiddingController extends Controller
             'amount' => 'nullable|numeric|min:0', // Only used for closed bid
         ]);
 
+        // No bids while the auction is paused.
+        if ($auction->status === 'paused') {
+            return response()->json(['error' => 'The auction is paused. Please wait for the organizer to resume.'], 423);
+        }
+
         $user = Auth::user();
 
         // Only team managers can place bids — not players

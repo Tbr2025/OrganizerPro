@@ -26,7 +26,16 @@
     .reg-section-sub { font-size:.78rem; color:rgba(255,255,255,0.5); margin-top:.15rem; }
     .reg-check { display:flex; align-items:center; gap:.8rem; padding:.85rem 1rem; border-radius:.65rem; cursor:pointer; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); transition:border-color .2s, background .2s; }
     .reg-check:hover { border-color:rgba(var(--accent-rgb),0.45); background:rgba(var(--accent-rgb),0.06); }
-    .reg-check input[type="checkbox"] { width:1.15rem; height:1.15rem; accent-color:var(--accent); flex-shrink:0; }
+    .reg-check input[type="checkbox"] {
+        appearance: none; -webkit-appearance: none;
+        width:1.25rem; height:1.25rem; flex-shrink:0; cursor:pointer; border-radius:.35rem;
+        border:2px solid var(--accent); background:rgba(255,255,255,0.92); position:relative;
+    }
+    .reg-check input[type="checkbox"]:checked { background:var(--accent); border-color:var(--accent); }
+    .reg-check input[type="checkbox"]:checked::after {
+        content:''; position:absolute; left:.38rem; top:.14rem; width:.32rem; height:.62rem;
+        border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg);
+    }
     .reg-submit { width:100%; border:none; cursor:pointer; padding:1rem 1.5rem; border-radius:0.8rem; font-family:'Oswald',sans-serif; font-weight:700; font-size:1.05rem; letter-spacing:.03em; color:var(--primary); background:linear-gradient(135deg,var(--accent),var(--accent-dark)); transition:transform .2s, box-shadow .2s; box-shadow:0 10px 30px rgba(var(--accent-rgb),0.25); }
     .reg-submit:hover { transform:translateY(-2px); box-shadow:0 16px 40px rgba(var(--accent-rgb),0.35); }
 </style>

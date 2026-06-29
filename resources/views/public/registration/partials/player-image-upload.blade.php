@@ -17,22 +17,38 @@
     </div>
     @endunless
 
-    {{-- Photo Guidelines --}}
+    {{-- Photo Guidelines (admin-editable text + sample image; falls back to defaults) --}}
+    @php
+        $tcSettings = $settings ?? null;
+        $guidelineText = trim((string) ($tcSettings->photo_guidelines ?? ''));
+        $guidelineLines = $guidelineText !== ''
+            ? preg_split('/\r\n|\r|\n/', $guidelineText)
+            : [
+                'Clear, front-facing headshot (face centered)',
+                'Plain background preferred (auto-removed)',
+                'Good lighting, no filters or sunglasses',
+                'Minimum 400×533px, portrait (3:4)',
+                'PNG or JPG, max 6MB',
+            ];
+        $sampleUrl = $tcSettings?->photo_sample_url;
+    @endphp
     <div class="mb-3 flex items-start gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);">
-        <div class="flex-shrink-0 w-14 h-[72px] rounded flex items-center justify-center" style="background:rgba(255,255,255,0.12);">
-            <svg class="w-7 h-9 text-white/80" fill="currentColor" viewBox="0 0 24 32">
-                <ellipse cx="12" cy="8" rx="5" ry="6"/>
-                <path d="M2 28c0-6 4-10 10-10s10 4 10 10"/>
-            </svg>
+        <div class="flex-shrink-0 w-16 h-20 rounded overflow-hidden flex items-center justify-center" style="background:rgba(255,255,255,0.12);">
+            @if($sampleUrl)
+                <img src="{{ $sampleUrl }}" alt="Sample photo" class="w-full h-full object-cover">
+            @else
+                <svg class="w-8 h-10 text-white/80" fill="currentColor" viewBox="0 0 24 32">
+                    <ellipse cx="12" cy="8" rx="5" ry="6"/>
+                    <path d="M2 28c0-6 4-10 10-10s10 4 10 10"/>
+                </svg>
+            @endif
         </div>
         <div class="text-xs text-white/90">
             <p class="font-semibold text-white mb-1">Photo Guidelines</p>
             <ul class="space-y-0.5 list-disc list-inside text-white/80">
-                <li>Clear, front-facing headshot (face centered)</li>
-                <li>Plain background preferred (auto-removed)</li>
-                <li>Good lighting, no filters or sunglasses</li>
-                <li>Minimum 400×533px, portrait (3:4)</li>
-                <li>PNG or JPG, max 6MB</li>
+                @foreach($guidelineLines as $line)
+                    @if(trim($line) !== '')<li>{{ trim($line) }}</li>@endif
+                @endforeach
             </ul>
         </div>
     </div>

@@ -531,6 +531,11 @@ class AuctionAdminController extends Controller
 
         $auction = Auction::findOrFail($data['auctionId']);
 
+        // No bids while the auction is paused.
+        if ($auction->status === 'paused') {
+            return response()->json(['success' => false, 'message' => 'The auction is paused. Resume it to add bids.'], 423);
+        }
+
         try {
             $result = DB::transaction(function () use ($data, $auction) {
                 $player = AuctionPlayer::where('auction_id', $auction->id)

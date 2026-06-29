@@ -611,6 +611,14 @@
                 </div>
             </div>
 
+            {{-- ── PAUSED OVERLAY ── --}}
+            <div x-show="auctionStatus === 'paused'" x-transition x-cloak
+                 class="absolute inset-0 bg-gray-950/85 backdrop-blur-sm flex flex-col items-center justify-center z-40 text-center">
+                <div class="text-7xl mb-4">⏸️</div>
+                <div class="text-4xl font-extrabold uppercase tracking-widest text-yellow-400">Auction Paused</div>
+                <p class="text-gray-300 mt-3">Bidding is on hold. Click <span class="font-semibold text-white">Resume</span> to continue.</p>
+            </div>
+
             {{-- ── SOLD OVERLAY ── --}}
             <div x-show="displayState === 'sold'" x-transition class="absolute inset-0 bg-gray-950/90 backdrop-blur-sm flex items-center justify-center z-30">
                 <div class="text-center space-y-6">
@@ -1118,6 +1126,12 @@ function auctionOrganizerPanel() {
                 const data = await res.json();
 
                 this.auctionStatus = data.auction_status;
+
+                // Freeze the bidding countdown while paused; it resumes on the next
+                // bid/poll once the auction is running again.
+                if (data.auction_status === 'paused') {
+                    this.stopBiddingTimer();
+                }
 
                 if (data.open_bid_mode !== undefined) {
                     this.openBidMode = data.open_bid_mode;

@@ -130,6 +130,13 @@
                                 </select>
                             </div>
 
+                            {{-- Visa Validity (visit visa only) --}}
+                            <div class="space-y-1" x-show="visaStatus === 'visit_visa'" x-cloak>
+                                <label for="visa_expiry" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Visa Validity (Expiry Date)') }} <span class="text-red-500">*</span></label>
+                                <input type="date" name="visa_expiry" id="visa_expiry" value="{{ old('visa_expiry', optional($player->visa_expiry)->format('Y-m-d')) }}" class="form-control">
+                                @error('visa_expiry')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                            </div>
+
                             {{-- Employer Name --}}
                             <div class="space-y-1" x-show="visaStatus === 'work_visa'" x-cloak>
                                 <label for="employer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Employer Name') }} <span class="text-red-500">*</span></label>

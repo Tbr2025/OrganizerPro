@@ -100,4 +100,27 @@ class RegistrationProfileFieldsTest extends TestCase
         );
         $this->assertFalse($ok->fails(), 'Employer fields must be optional for a non-work visa.');
     }
+
+    #[Test]
+    public function visa_validity_is_required_only_for_a_visit_visa(): void
+    {
+        $fieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig(null);
+        $rules = \App\Helpers\PlayerFormConfig::buildValidationRules($fieldConfig, 'public');
+
+        $this->assertStringContainsString('required_if:visa_status,visit_visa', $rules['visa_expiry']);
+
+        // Visit visa with no expiry → fails.
+        $fail = \Illuminate\Support\Facades\Validator::make(
+            ['visa_status' => 'visit_visa', 'visa_expiry' => ''],
+            ['visa_expiry' => $rules['visa_expiry']]
+        );
+        $this->assertTrue($fail->fails());
+
+        // Work visa with no expiry → ok.
+        $ok = \Illuminate\Support\Facades\Validator::make(
+            ['visa_status' => 'work_visa', 'visa_expiry' => ''],
+            ['visa_expiry' => $rules['visa_expiry']]
+        );
+        $this->assertFalse($ok->fails());
+    }
 }

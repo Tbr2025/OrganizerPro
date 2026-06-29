@@ -722,6 +722,14 @@
         <div class="shuffle-reveal-role hidden" id="shuffle-reveal-role"></div>
     </div>
 
+    {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
+    <div id="paused-overlay" class="hidden"
+         style="position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,0.82);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+        <div style="font-size:5rem;line-height:1;margin-bottom:1rem;">⏸️</div>
+        <div style="font-size:3rem;font-weight:800;letter-spacing:0.15em;color:#fff;text-transform:uppercase;">Auction Paused</div>
+        <div style="margin-top:0.75rem;font-size:1.1rem;color:#cbd5e1;">Please wait — the auction will resume shortly.</div>
+    </div>
+
     <div id="card-container" class="card-container hidden">
         @if($auction->auction_logo_url)
         <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo"
@@ -1187,6 +1195,13 @@
                 .then(res => res.json())
                 .then(data => {
                     console.log('[Live] API response:', data);
+
+                    // Real-time PAUSED overlay (reflects organizer pause/resume within ~2s).
+                    const pausedOverlay = document.getElementById('paused-overlay');
+                    if (pausedOverlay) {
+                        pausedOverlay.classList.toggle('hidden', data?.auction_status !== 'paused');
+                    }
+
                     if (data?.auction_status === 'completed') {
                         showCompleted();
                         return;

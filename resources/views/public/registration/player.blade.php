@@ -60,7 +60,22 @@
         transition: border-color .2s, background .2s;
     }
     .reg-check:hover { border-color: rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.06); }
-    .reg-check input[type="checkbox"] { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); flex-shrink: 0; }
+    /* Fully-styled checkbox so checked/unchecked is clearly visible on ANY theme */
+    .reg-check input[type="checkbox"] {
+        appearance: none; -webkit-appearance: none;
+        width: 1.25rem; height: 1.25rem; flex-shrink: 0; cursor: pointer;
+        border-radius: .35rem;
+        border: 2px solid var(--accent);
+        background: rgba(255, 255, 255, 0.92);
+        position: relative; transition: background .15s, border-color .15s;
+    }
+    .reg-check input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+    .reg-check input[type="checkbox"]:checked::after {
+        content: ''; position: absolute; left: .38rem; top: .14rem;
+        width: .32rem; height: .62rem; border: solid #fff; border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+    .reg-check input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .reg-submit {
         width: 100%; border: none; cursor: pointer;

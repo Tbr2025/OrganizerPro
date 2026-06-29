@@ -57,6 +57,8 @@ class TournamentSettingsController extends Controller
             'logo' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'background_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
             'flyer_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+            'photo_sample' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+            'photo_guidelines' => 'nullable|string|max:2000',
             'primary_color' => 'nullable|string|max:7',
             'secondary_color' => 'nullable|string|max:7',
             'accent_color' => 'nullable|string|max:7',
@@ -175,6 +177,14 @@ class TournamentSettingsController extends Controller
             }
             $validated['flyer_image'] = $request->file('flyer_image')->store('tournament_flyers', 'public');
         }
+
+        if ($request->hasFile('photo_sample')) {
+            if ($settings->photo_sample_path) {
+                Storage::disk('public')->delete($settings->photo_sample_path);
+            }
+            $validated['photo_sample_path'] = $request->file('photo_sample')->store('photo_samples', 'public');
+        }
+        unset($validated['photo_sample']); // not a column
 
         // Handle boolean fields
         $validated['player_registration_open'] = $request->boolean('player_registration_open');

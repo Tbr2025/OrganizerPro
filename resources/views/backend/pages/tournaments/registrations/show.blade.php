@@ -164,6 +164,7 @@
                                 'location' => $p->location?->name,
                                 'registration_team' => $registration->actualTeam?->name ?? $p->team_name_ref,
                                 'visa_status' => $p->visa_status ? ($visaList[$p->visa_status] ?? $p->visa_status) : null,
+                                'visa_expiry' => optional($p->visa_expiry)->format('d M Y'),
                                 'employer_name' => $p->employer_name,
                                 'employer_address' => $p->employer_address,
                                 'employer_position' => $p->employer_position,

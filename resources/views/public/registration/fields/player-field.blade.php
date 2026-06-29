@@ -12,9 +12,13 @@
 
     // Employer fields are only shown for a work visa (Alpine-driven).
     $employerField = in_array($key, ['employer_name', 'employer_position', 'employer_address'], true);
+    // Visa validity is only shown for a visit visa.
+    $visitVisaField = $key === 'visa_expiry';
 @endphp
 
-<div class="{{ $fullWidth ? 'md:col-span-2' : '' }}" @if($employerField) x-show="visaStatus === 'work_visa'" x-cloak @endif>
+<div class="{{ $fullWidth ? 'md:col-span-2' : '' }}"
+     @if($employerField) x-show="visaStatus === 'work_visa'" x-cloak
+     @elseif($visitVisaField) x-show="visaStatus === 'visit_visa'" x-cloak @endif>
 @switch($key)
 
     @case('first_name')
@@ -124,6 +128,13 @@
             @endforeach
         </select>
         @error('visa_status')<p class="reg-err">{{ $message }}</p>@enderror
+        @break
+
+    @case('visa_expiry')
+        {{-- Only relevant for a visit visa --}}
+        <label for="visa_expiry" class="reg-label">{!! $label !!} <span class="reg-req" x-show="visaStatus === 'visit_visa'">*</span></label>
+        <input type="date" name="visa_expiry" id="visa_expiry" value="{{ old('visa_expiry') }}" class="reg-input">
+        @error('visa_expiry')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('employer_name')
@@ -276,19 +287,36 @@
         @break
 
     @case('terms_and_conditions')
-        @if(!empty($settings->terms_and_conditions_content ?? ''))
-        <div x-data="{ showTC: false }" class="mb-4">
-            <button type="button" @click="showTC = !showTC" class="accent-link text-sm underline mb-3">
-                <i class="fas fa-eye mr-1"></i> View Terms &amp; Conditions
-            </button>
-            <div x-show="showTC" x-cloak class="p-4 rounded-lg text-sm text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);">{{ $settings->terms_and_conditions_content }}</div>
+        <div x-data="{ showTC: false }">
+            @if(!empty($settings->terms_and_conditions_content ?? ''))
+                <button type="button" @click="showTC = true" class="accent-link text-sm underline mb-3 inline-flex items-center">
+                    <i class="fas fa-eye mr-1"></i> See Terms &amp; Conditions
+                </button>
+
+                {{-- Popup modal (teleported to body to escape any overflow/stacking) --}}
+                <template x-teleport="body">
+                    <div x-show="showTC" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+                         style="background:rgba(0,0,0,0.6);" @keydown.escape.window="showTC = false">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+                             @click.outside="showTC = false">
+                            <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Terms &amp; Conditions</h3>
+                                <button type="button" @click="showTC = false" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">&times;</button>
+                            </div>
+                            <div class="p-5 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
+                            <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 text-right">
+                                <button type="button" @click="showTC = false" class="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            @endif
+            <label class="reg-check">
+                <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1" {{ old('terms_and_conditions') ? 'checked' : '' }} {{ $required ? 'required' : '' }}>
+                <span class="text-sm">{!! $label !!} {!! $reqMark !!}</span>
+            </label>
+            @error('terms_and_conditions')<p class="reg-err">{{ $message }}</p>@enderror
         </div>
-        @endif
-        <label class="reg-check">
-            <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1" {{ old('terms_and_conditions') ? 'checked' : '' }} {{ $required ? 'required' : '' }}>
-            <span class="text-sm">{!! $label !!} {!! $reqMark !!}</span>
-        </label>
-        @error('terms_and_conditions')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
 @endswitch

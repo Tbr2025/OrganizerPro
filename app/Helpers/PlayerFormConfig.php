@@ -17,6 +17,7 @@ class PlayerFormConfig
             'country'                => ['visible' => true, 'required' => false],
             'state'                  => ['visible' => true, 'required' => false],
             'visa_status'            => ['visible' => true, 'required' => false],
+            'visa_expiry'            => ['visible' => true, 'required' => false],
             'employer_name'          => ['visible' => true, 'required' => false],
             'employer_address'       => ['visible' => true, 'required' => false],
             'employer_position'      => ['visible' => true, 'required' => false],
@@ -167,6 +168,7 @@ class PlayerFormConfig
             'country'                => 'Nationality',
             'state'                  => 'State / Province',
             'visa_status'            => 'Visa Status',
+            'visa_expiry'            => 'Visa Validity (Expiry Date)',
             'employer_name'          => 'Employer Name',
             'employer_address'       => 'Employer Address',
             'employer_position'      => 'Position',
@@ -201,7 +203,7 @@ class PlayerFormConfig
         // Groups double as the registration form's visual sections (titles are editable).
         return [
             'Basic Information' => ['first_name', 'last_name', 'email', 'date_of_birth', 'country', 'state', 'mobile_number', 'cricheroes_number', 'cricheroes_profile_url', 'location', 'registration_team', 'playing_team'],
-            'Visa & Employment' => ['visa_status', 'employer_name', 'employer_address', 'employer_position'],
+            'Visa & Employment' => ['visa_status', 'visa_expiry', 'employer_name', 'employer_address', 'employer_position'],
             'Availability' => ['available_saturday', 'available_sunday', 'played_ys_ipl_s1'],
             'Jersey Information' => ['jersey_name', 'jersey_number', 'kit_size'],
             'Player Profile' => ['player_type', 'batting_profile', 'bowling_profile', 'is_wicket_keeper'],
@@ -244,6 +246,11 @@ class PlayerFormConfig
         // Visa Status
         if ($fieldConfig['visa_status']['visible'] ?? true) {
             $rules['visa_status'] = ($fieldConfig['visa_status']['required'] ?? false) ? 'required|in:work_visa,visit_visa' : 'nullable|in:work_visa,visit_visa';
+        }
+
+        // Visa validity — required only when the visa is a visit visa.
+        if ($fieldConfig['visa_expiry']['visible'] ?? true) {
+            $rules['visa_expiry'] = 'nullable|date|required_if:visa_status,visit_visa';
         }
 
         // Employer details — required only when the visa is a work visa.

@@ -70,6 +70,9 @@ class TournamentSetting extends Model
         'registration_theme',
         // Terms & Conditions
         'terms_and_conditions_content',
+        // Player photo guidelines (registration)
+        'photo_guidelines',
+        'photo_sample_path',
     ];
 
     protected $casts = [
@@ -147,6 +150,11 @@ class TournamentSetting extends Model
     public function getLogoUrlAttribute(): ?string
     {
         return $this->logo ? asset('storage/' . $this->logo) : null;
+    }
+
+    public function getPhotoSampleUrlAttribute(): ?string
+    {
+        return $this->photo_sample_path ? asset('storage/' . $this->photo_sample_path) : null;
     }
 
     public function getBackgroundImageUrlAttribute(): ?string
