@@ -110,8 +110,8 @@
                                 <button type="button" @click="accepted = false; showTC = false"
                                         class="px-4 py-2 rounded-lg text-sm bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 font-medium">Reject</button>
                                 <button type="button" :disabled="!readToEnd" @click="accepted = true; showTC = false"
-                                        :class="readToEnd ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'"
-                                        class="px-4 py-2 rounded-lg text-sm font-semibold">Accept</button>
+                                        :class="readToEnd ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-600/50 cursor-not-allowed'"
+                                        class="px-4 py-2 rounded-lg text-sm font-semibold text-white">Accept</button>
                             </div>
                         </div>
                     </div>
