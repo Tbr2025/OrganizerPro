@@ -127,6 +127,8 @@ class PlayerController extends Controller
             'status'           => request('status'),
             'updated_sort'     => request('updated_sort'),
             'player_mode'     => request('player_mode'),
+            'tournament'       => request('tournament'), // Superadmin-only filter
+            'sort'             => request('sort'),
         ];
 
         // 2. Start the base query with all necessary relationships for performance
@@ -138,8 +140,8 @@ class PlayerController extends Controller
             'playerType',
             'location',
             'battingProfile',
-            'bowlingProfile'
-
+            'bowlingProfile',
+            'registeredTournaments', // tournament tags in the listing
         ]);
 
         // Filter out orphaned player records (no associated user)
@@ -202,9 +204,26 @@ class PlayerController extends Controller
                 elseif ($filters['status'] === 'pending') $q->where(fn($q) => $q->where('status', 'pending')->orWhereNull('status'));
                 elseif ($filters['status'] === 'rejected') $q->where('status', 'rejected');
             })
-            ->when($filters['updated_sort'], function ($q) use ($filters) {
-                if (in_array($filters['updated_sort'], ['asc', 'desc'])) $q->orderBy('updated_at', $filters['updated_sort']);
-            }, fn($q) => $q->orderBy('updated_at', 'desc'))
+            // Superadmin-only: filter by the tournament a player registered under.
+            ->when($user->hasRole('Superadmin') && $filters['tournament'], function ($q) use ($filters) {
+                $q->whereHas('registrations', fn($r) => $r->where('tournament_id', $filters['tournament']));
+            })
+            // Sort: explicit "sort" dropdown wins; else legacy updated_sort; else newest-updated.
+            ->when(true, function ($q) use ($filters) {
+                switch ($filters['sort']) {
+                    case 'name_asc':   $q->orderBy('name'); break;
+                    case 'name_desc':  $q->orderByDesc('name'); break;
+                    case 'newest':     $q->orderByDesc('created_at'); break;
+                    case 'oldest':     $q->orderBy('created_at'); break;
+                    case 'recently_updated': $q->orderByDesc('updated_at'); break;
+                    default:
+                        if (in_array($filters['updated_sort'], ['asc', 'desc'], true)) {
+                            $q->orderBy('updated_at', $filters['updated_sort']);
+                        } else {
+                            $q->orderByDesc('updated_at');
+                        }
+                }
+            })
             ->paginate(100) // Pagination set to 100
             ->appends($filters); // Ensures filters are remembered on pagination links
 
@@ -219,6 +238,11 @@ class PlayerController extends Controller
         $battingProfiles = BattingProfile::orderBy('style')->get();
         $bowlingProfiles = BowlingProfile::orderBy('style')->get();
 
+        // Tournaments for the Superadmin-only tournament filter.
+        $tournaments = $user->hasRole('Superadmin')
+            ? \App\Models\Tournament::orderBy('name')->get(['id', 'name'])
+            : collect();
+
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
             'players'         => $players,
@@ -226,6 +250,7 @@ class PlayerController extends Controller
             'roles'           => $roles,
             'battingProfiles' => $battingProfiles,
             'bowlingProfiles' => $bowlingProfiles,
+            'tournaments'     => $tournaments,
             'breadcrumbs'     => ['title' => __('Players')],
         ]);
     }

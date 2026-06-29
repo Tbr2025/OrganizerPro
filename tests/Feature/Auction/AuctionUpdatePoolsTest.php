@@ -85,4 +85,43 @@ class AuctionUpdatePoolsTest extends TestCase
         $this->assertSame([1, 2, 3], $waiting->pluck('lot_number')->sort()->values()->all());
         $this->assertSame(200, (int) $waiting->first()->base_price);
     }
+
+    #[Test]
+    public function a_null_org_auction_keeps_its_players_on_pool_save(): void
+    {
+        // Legacy/global auction with NO organization — must not drop players.
+        $org = Organization::create(['name' => 'Org']);
+        $tournament = Tournament::create([
+            'name' => 'Cup', 'slug' => 'cup-x', 'start_date' => '2026-01-01', 'organization_id' => $org->id,
+        ]);
+        $auction = Auction::create([
+            'name' => 'NoOrg', 'status' => 'scheduled', 'max_budget_per_team' => 100000,
+            'base_price' => 100, 'organization_id' => null, 'tournament_id' => $tournament->id, 'bid_type' => 'open',
+        ]);
+
+        $players = collect(range(1, 3))->map(fn ($i) => Player::create([
+            'organization_id' => $org->id, 'name' => "P{$i}", 'email' => "p{$i}@x.test", 'status' => 'approved',
+        ]));
+
+        Permission::create(['name' => 'auction.edit', 'group_name' => 'auction']);
+        $role = Role::create(['name' => 'Superadmin']);
+        $role->givePermissionTo('auction.edit');
+        $admin = User::factory()->create(['organization_id' => $org->id]);
+        $admin->assignRole($role);
+
+        $pools = [[
+            'name' => 'Pool A', 'capacity' => 50, 'order_mode' => 'sequential',
+            'players' => $players->map(fn ($p) => ['id' => $p->id, 'base_price' => 100])->all(),
+        ]];
+
+        $this->actingAs($admin)->put(route('admin.auctions.update', $auction), [
+            'name' => 'NoOrg', 'organization_id' => $org->id, 'tournament_id' => $tournament->id,
+            'status' => 'scheduled', 'max_budget_per_team' => 100000, 'base_price' => 100,
+            'bid_rules' => [['from' => 0, 'to' => 100, 'increment' => 10]],
+            'bid_type' => 'open', 'bid_timer_seconds' => 30,
+            'pools' => json_encode($pools),
+        ])->assertRedirect();
+
+        $this->assertSame(3, AuctionPlayer::where('auction_id', $auction->id)->count());
+    }
 }

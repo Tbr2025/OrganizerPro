@@ -26,7 +26,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6 border border-gray-200 dark:border-gray-700">
             <form method="GET" action="{{ route('admin.players.index') }}">
                 {{-- Increased grid columns to accommodate new filters --}}
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
                     <div class="lg:col-span-2">
                         <label for="search"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search</label>
@@ -107,6 +107,32 @@
                             <option value="Unsold" @selected(request('player_mode') == 'sold')>Unsold</option>
                         </select>
                     </div>
+
+                    {{-- Tournament filter — Superadmin only (organizers are already org-scoped) --}}
+                    @if (auth()->user()->hasRole('Superadmin'))
+                        <div>
+                            <label for="tournament" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament</label>
+                            <select name="tournament" id="tournament" class="form-control mt-1">
+                                <option value="">All Tournaments</option>
+                                @foreach ($tournaments as $t)
+                                    <option value="{{ $t->id }}" @selected(request('tournament') == $t->id)>{{ $t->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+
+                    {{-- Sort by --}}
+                    <div>
+                        <label for="sort" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sort by</label>
+                        <select name="sort" id="sort" class="form-control mt-1">
+                            <option value="recently_updated" @selected(request('sort') == 'recently_updated' || request('sort') == '')>Recently updated</option>
+                            <option value="name_asc" @selected(request('sort') == 'name_asc')>Name (A–Z)</option>
+                            <option value="name_desc" @selected(request('sort') == 'name_desc')>Name (Z–A)</option>
+                            <option value="newest" @selected(request('sort') == 'newest')>Newest</option>
+                            <option value="oldest" @selected(request('sort') == 'oldest')>Oldest</option>
+                        </select>
+                    </div>
+
                     <div class="flex items-end space-x-2 pt-2">
                         <button type="submit" class="btn btn-primary w-full sm:w-auto">Filter</button>
                         <a href="{{ route('admin.players.index') }}" class="btn btn-secondary w-full sm:w-auto">Reset</a>
@@ -282,6 +308,18 @@
                                                         Sold to {{ $player->actualTeam->name }}
                                                     </span>
                                                 @endif
+
+                                                {{-- Registered tournaments as tags --}}
+                                                <div class="flex flex-wrap gap-1 mt-1">
+                                                    @forelse ($player->registeredTournaments as $rt)
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200"
+                                                              title="Registered: {{ $rt->name }}">
+                                                            {{ \Illuminate\Support\Str::limit($rt->name, 18) }}
+                                                        </span>
+                                                    @empty
+                                                        <span class="text-xs text-gray-400">— no tournament</span>
+                                                    @endforelse
+                                                </div>
                                             </div>
 
                                         </div>

@@ -325,6 +325,19 @@ class Player extends Model implements MustVerifyEmail
         return $this->belongsTo(Tournament::class);
     }
 
+    /** Registration records this player submitted (one per tournament). */
+    public function registrations()
+    {
+        return $this->hasMany(TournamentRegistration::class, 'player_id');
+    }
+
+    /** Distinct tournaments this player has registered under (for tags/filter). */
+    public function registeredTournaments()
+    {
+        return $this->belongsToMany(Tournament::class, 'tournament_registrations', 'player_id', 'tournament_id')
+            ->distinct();
+    }
+
     public function actualTeams()
     {
         return $this->belongsToMany(ActualTeam::class, 'player_team_tournament', 'player_id', 'team_id')

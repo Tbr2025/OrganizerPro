@@ -128,6 +128,11 @@ class AuctionAdminController extends Controller
             }
         }
 
+        // The tournament is the source of truth for which org's players are eligible —
+        // keep the auction's org aligned to it so player isolation never mismatches.
+        $validated['organization_id'] = Tournament::whereKey($validated['tournament_id'])->value('organization_id')
+            ?: $validated['organization_id'];
+
         DB::transaction(function () use ($validated, $request) {
 
             // Handle branding uploads
@@ -167,12 +172,15 @@ class AuctionAdminController extends Controller
             } else {
                 $playerIdsInPool = $validated['player_ids'] ?? [];
                 $basePrices = $validated['player_base_prices'] ?? [];
-                // Org isolation: drop any player not in the auction's organization.
-                $validPlayerIds = \App\Models\Player::withoutGlobalScopes()
-                    ->where('organization_id', $auction->organization_id)
-                    ->pluck('id')->flip();
+                // Org isolation: drop any player not in the auction's organization
+                // (skipped when the auction has no org so real players aren't lost).
+                $validPlayerIds = $auction->organization_id
+                    ? \App\Models\Player::withoutGlobalScopes()
+                        ->where('organization_id', $auction->organization_id)
+                        ->pluck('id')->flip()
+                    : null;
                 foreach ($playerIdsInPool as $playerId) {
-                    if (! isset($validPlayerIds[(int) $playerId])) {
+                    if ($validPlayerIds !== null && ! isset($validPlayerIds[(int) $playerId])) {
                         continue;
                     }
                     AuctionPlayer::create([
@@ -241,17 +249,21 @@ class AuctionAdminController extends Controller
 
         // Org isolation: only players belonging to the auction's organization may be
         // added — guards against cross-org assignment even if the UI is bypassed.
-        $validPlayerIds = \App\Models\Player::withoutGlobalScopes()
-            ->where('organization_id', $auction->organization_id)
-            ->pluck('id')
-            ->flip();
+        // When the auction has no organization (legacy/global auctions), skip the
+        // org filter entirely so real players aren't dropped.
+        $validPlayerIds = $auction->organization_id
+            ? \App\Models\Player::withoutGlobalScopes()
+                ->where('organization_id', $auction->organization_id)
+                ->pluck('id')
+                ->flip()
+            : null;
 
         foreach (array_values($pools) as $sequence => $poolData) {
             $players = is_array($poolData['players'] ?? null) ? $poolData['players'] : [];
             // Keep only org players that aren't already actioned.
             $players = array_values(array_filter($players, function ($pl) use ($validPlayerIds, $skip) {
                 $id = (int) ($pl['id'] ?? 0);
-                return isset($validPlayerIds[$id]) && ! isset($skip[$id]);
+                return ($validPlayerIds === null || isset($validPlayerIds[$id])) && ! isset($skip[$id]);
             }));
             if (! count($players)) {
                 continue;
@@ -862,6 +874,11 @@ class AuctionAdminController extends Controller
             // Pool builder (same as create); when present it drives the player layout.
             'pools' => 'nullable|string',
         ]);
+
+        // Keep the auction's org aligned to its tournament so player isolation never
+        // mismatches (prevents the pool sync from dropping legitimate players).
+        $validated['organization_id'] = Tournament::whereKey($validated['tournament_id'])->value('organization_id')
+            ?: $validated['organization_id'];
 
         DB::transaction(function () use ($validated, $auction, $request) {
             // Handle branding uploads — delete old file on replacement
