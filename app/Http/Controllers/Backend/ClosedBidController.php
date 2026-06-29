@@ -49,7 +49,8 @@ class ClosedBidController extends Controller
         }
 
         if ($request->filled('team_id')) {
-            $query->where('team_id', $request->team_id);
+            // Buyer is tracked as sold_to_team_id on auction_players (no plain team_id).
+            $query->where('sold_to_team_id', $request->team_id);
         }
 
         $closedBids = $query->orderBy('updated_at', 'desc')->get();

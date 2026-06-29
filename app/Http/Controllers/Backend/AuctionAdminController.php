@@ -56,7 +56,9 @@ class AuctionAdminController extends Controller
         if ($orgId) {
             $query->where('organization_id', $orgId);
         }
-        $availablePlayers = $query->orderBy('name')->get(['id', 'name']);
+        // Include organization_id so the wizard can filter the list to the
+        // selected organization (a Superadmin picks the org in the form).
+        $availablePlayers = $query->orderBy('name')->get(['id', 'name', 'organization_id']);
 
         return view('backend.pages.auctions.create', compact('organizations', 'tournaments', 'availablePlayers'));
     }
@@ -165,7 +167,14 @@ class AuctionAdminController extends Controller
             } else {
                 $playerIdsInPool = $validated['player_ids'] ?? [];
                 $basePrices = $validated['player_base_prices'] ?? [];
+                // Org isolation: drop any player not in the auction's organization.
+                $validPlayerIds = \App\Models\Player::withoutGlobalScopes()
+                    ->where('organization_id', $auction->organization_id)
+                    ->pluck('id')->flip();
                 foreach ($playerIdsInPool as $playerId) {
+                    if (! isset($validPlayerIds[(int) $playerId])) {
+                        continue;
+                    }
                     AuctionPlayer::create([
                         'auction_id' => $auction->id,
                         'player_id' => $playerId,
@@ -192,8 +201,17 @@ class AuctionAdminController extends Controller
     {
         $poolService = app(AuctionPoolService::class);
 
+        // Org isolation: only players belonging to the auction's organization may be
+        // added — guards against cross-org assignment even if the UI is bypassed.
+        $validPlayerIds = \App\Models\Player::withoutGlobalScopes()
+            ->where('organization_id', $auction->organization_id)
+            ->pluck('id')
+            ->flip();
+
         foreach (array_values($pools) as $sequence => $poolData) {
             $players = is_array($poolData['players'] ?? null) ? $poolData['players'] : [];
+            // Keep only players that belong to this auction's organization.
+            $players = array_values(array_filter($players, fn ($pl) => isset($validPlayerIds[(int) ($pl['id'] ?? 0)])));
             if (! count($players)) {
                 continue;
             }

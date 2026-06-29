@@ -32,7 +32,7 @@ class AuctionOrganizerController extends Controller
 
         // Fetch available players (waiting status)
         $availablePlayers = $auction->auctionPlayers()
-            ->where('status', 'waiting')
+            ->where('auction_players.status', 'waiting')
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -97,7 +97,7 @@ class AuctionOrganizerController extends Controller
         $auction->load('tournament');
 
         $availablePlayers = $auction->auctionPlayers()
-            ->where('status', 'waiting')
+            ->where('auction_players.status', 'waiting')
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -183,7 +183,7 @@ class AuctionOrganizerController extends Controller
     public function pollState(Auction $auction)
     {
         $availablePlayers = $auction->auctionPlayers()
-            ->where('status', 'waiting')
+            ->where('auction_players.status', 'waiting')
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -441,16 +441,33 @@ class AuctionOrganizerController extends Controller
         // dd($sellPlayer);
         $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
 
-        $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)->firstOrFail();
+        $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)
+            ->where('auction_id', $auction->id)
+            ->firstOrFail();
 
-        // Find the winning bid
-        $winningBid = $auctionPlayer->bids()->latest('amount')->first();
+        // Find the winning bid (highest amount).
+        $winningBid = $auctionPlayer->bids()->orderByDesc('amount')->first();
 
         if ($winningBid) {
+            // Enforce the buying team's remaining budget (same rule as sellToTeam).
+            $available = app(\App\Services\Auction\AuctionPoolService::class)
+                ->remainingBudget($auction, (int) $winningBid->team_id);
+
+            if ((float) $winningBid->amount > $available) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot sell: winning bid (' . number_format((float) $winningBid->amount)
+                        . ') exceeds ' . ($winningBid->team->name ?? 'the team') . "'s remaining budget ("
+                        . number_format($available) . ').',
+                ], 400);
+            }
+
             $auctionPlayer->update([
                 'status' => 'sold',
                 'sold_to_team_id' => $winningBid->team_id,
                 'final_price' => $winningBid->amount,
+                'current_price' => $winningBid->amount,
+                'current_bid_team_id' => $winningBid->team_id,
             ]);
 
             // Update the main player's mode and assign to team

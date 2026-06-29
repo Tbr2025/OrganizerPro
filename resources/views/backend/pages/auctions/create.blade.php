@@ -332,11 +332,11 @@
                                 <div class="flex gap-2">
                                     <button type="button" @click="addAllPlayers()"
                                             class="btn btn-sm bg-green-500 hover:bg-green-600 text-white"
-                                            x-show="available.length > 0">
+                                            x-show="filteredAvailable.length > 0">
                                         <svg class="w-4 h-4 mr-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                         </svg>
-                                        Add All (<span x-text="available.length"></span>)
+                                        Add All (<span x-text="filteredAvailable.length"></span>)
                                     </button>
                                 </div>
                             </div>
@@ -404,7 +404,7 @@
                                     </div>
                                     <div>
                                         <h3 class="font-bold text-gray-900 dark:text-white">Available</h3>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400"><span x-text="available.length"></span> approved players</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400"><span x-text="filteredAvailable.length"></span> approved players</p>
                                     </div>
                                 </div>
 
@@ -423,8 +423,8 @@
                                     <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                                 </div>
 
-                                <div class="flex justify-end mb-2" x-show="available.length > 0 && pools.length > 0">
-                                    <button type="button" @click="addAllPlayers()" class="text-xs text-green-700 dark:text-green-400 hover:underline">Add all (<span x-text="available.length"></span>) to selected pool</button>
+                                <div class="flex justify-end mb-2" x-show="filteredAvailable.length > 0 && pools.length > 0">
+                                    <button type="button" @click="addAllPlayers()" class="text-xs text-green-700 dark:text-green-400 hover:underline">Add all (<span x-text="filteredAvailable.length"></span>) to selected pool</button>
                                 </div>
 
                                 <div class="space-y-2 max-h-[500px] overflow-y-auto pr-2">
@@ -508,19 +508,49 @@ function auctionCreateForm() {
         available: [],
         targetPool: 0,
         searchAvailable: '',
+        selectedOrg: null,
         defaultBasePrice: {{ old('base_price', 10000) }},
         _uid: 1,
 
         init() {
             const allPlayers = @json($availablePlayers);
-            this.available = allPlayers.map(p => ({ id: p.id, name: p.name }))
+            this.available = allPlayers.map(p => ({ id: p.id, name: p.name, org: p.organization_id }))
                 .sort((a, b) => a.name.localeCompare(b.name));
+
+            // Track the selected organization so we never show another org's players.
+            const orgSelect = document.getElementById('organization_id');
+            const syncOrg = () => {
+                this.selectedOrg = orgSelect && orgSelect.value ? Number(orgSelect.value) : null;
+                this.dropForeignOrgPlayers();
+            };
+            if (orgSelect) {
+                orgSelect.addEventListener('change', syncOrg);
+                syncOrg();
+            }
             this.addPool();
         },
 
+        /** Pull any already-pooled players that don't belong to the selected org back out. */
+        dropForeignOrgPlayers() {
+            if (!this.selectedOrg) return;
+            this.pools.forEach(pool => {
+                const keep = [];
+                pool.players.forEach(p => {
+                    if (p.org && p.org !== this.selectedOrg) {
+                        // not for this org — silently remove (it's hidden from available too)
+                    } else {
+                        keep.push(p);
+                    }
+                });
+                pool.players = keep;
+            });
+        },
+
         get filteredAvailable() {
-            if (!this.searchAvailable) return this.available;
-            return this.available.filter(p => p.name.toLowerCase().includes(this.searchAvailable.toLowerCase()));
+            let list = this.available;
+            if (this.selectedOrg) list = list.filter(p => !p.org || p.org === this.selectedOrg);
+            if (this.searchAvailable) list = list.filter(p => p.name.toLowerCase().includes(this.searchAvailable.toLowerCase()));
+            return list;
         },
 
         addPool() {
@@ -529,7 +559,7 @@ function auctionCreateForm() {
         },
 
         removePool(idx) {
-            this.pools[idx].players.forEach(p => this.available.push({ id: p.id, name: p.name }));
+            this.pools[idx].players.forEach(p => this.available.push({ id: p.id, name: p.name, org: p.org }));
             this.available.sort((a, b) => a.name.localeCompare(b.name));
             this.pools.splice(idx, 1);
             if (this.targetPool >= this.pools.length) this.targetPool = Math.max(0, this.pools.length - 1);
@@ -537,22 +567,25 @@ function auctionCreateForm() {
 
         addToPool(player) {
             if (this.pools.length === 0) return;
-            this.pools[this.targetPool].players.push({ id: player.id, name: player.name, base_price: this.defaultBasePrice });
+            this.pools[this.targetPool].players.push({ id: player.id, name: player.name, org: player.org, base_price: this.defaultBasePrice });
             this.available = this.available.filter(p => p.id !== player.id);
             this.searchAvailable = '';
         },
 
         removeFromPool(player, idx) {
-            this.available.push({ id: player.id, name: player.name });
+            this.available.push({ id: player.id, name: player.name, org: player.org });
             this.available.sort((a, b) => a.name.localeCompare(b.name));
             this.pools[idx].players = this.pools[idx].players.filter(p => p.id !== player.id);
         },
 
         addAllPlayers() {
             if (this.pools.length === 0) return;
-            if (!confirm('Add all ' + this.available.length + ' players to ' + (this.pools[this.targetPool].name || 'the pool') + '?')) return;
-            [...this.available].forEach(p => this.pools[this.targetPool].players.push({ id: p.id, name: p.name, base_price: this.defaultBasePrice }));
-            this.available = [];
+            const toAdd = this.filteredAvailable; // org + search scoped
+            if (!toAdd.length) return;
+            if (!confirm('Add all ' + toAdd.length + ' players to ' + (this.pools[this.targetPool].name || 'the pool') + '?')) return;
+            const ids = new Set(toAdd.map(p => p.id));
+            toAdd.forEach(p => this.pools[this.targetPool].players.push({ id: p.id, name: p.name, org: p.org, base_price: this.defaultBasePrice }));
+            this.available = this.available.filter(p => !ids.has(p.id));
         },
 
         initPoolSortable(el) {

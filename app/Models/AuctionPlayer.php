@@ -9,7 +9,7 @@ use App\Traits\BelongsToOrganization;
 class AuctionPlayer extends Model
 {
     use HasFactory, BelongsToOrganization;
-    protected $fillable = ['auction_id', 'auction_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price', 'player_status'];
+    protected $fillable = ['auction_id', 'auction_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price'];
     protected $casts = ['current_price' => 'decimal:2', 'final_price' => 'decimal:2', 'lot_number' => 'integer'];
     public function auction()
     {

@@ -149,7 +149,7 @@ class EmailTemplateService
         $player = $player ?: $reg?->player;
         $recipientName = $reg && $reg->type === 'team'
             ? ($reg->captain_name ?? 'Captain')
-            : ($player->name ?? 'Player');
+            : ($player?->name ?? 'Player');
 
         $startDate = $tournament?->start_date
             ? Carbon::parse($tournament->start_date)->format('d M Y')
@@ -174,7 +174,7 @@ class EmailTemplateService
             '{recipient_name}' => e($recipientName),
             '{registration_type_label}' => $reg && $reg->type === 'team' ? 'team registration' : 'application',
             '{team_name}' => e($reg?->team_name ?? ''),
-            '{player_name}' => e($player->name ?? 'Player'),
+            '{player_name}' => e($player?->name ?? 'Player'),
             '{complete_profile_url}' => $url,
         ];
     }
