@@ -21,7 +21,8 @@ class AuctionPoolService
      */
     public function generateLotNumbers(AuctionPool $pool): void
     {
-        $players = $pool->players()->orderBy('id')->get();
+        // Only biddable (non-retained) players get a draw position.
+        $players = $pool->players()->where('is_retained', false)->orderBy('id')->get();
         $ordered = $this->orderPlayers($players, $pool->order_mode);
 
         foreach ($ordered->values() as $i => $auctionPlayer) {
@@ -74,6 +75,7 @@ class AuctionPoolService
         return AuctionPlayer::query()
             ->where('auction_players.auction_id', $auction->id)
             ->where('auction_players.status', 'waiting')
+            ->where('auction_players.is_retained', false)
             ->whereNotNull('auction_players.auction_pool_id')
             ->join('auction_pools', 'auction_pools.id', '=', 'auction_players.auction_pool_id')
             ->orderBy('auction_pools.sequence')

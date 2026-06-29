@@ -124,4 +124,36 @@ class AuctionUpdatePoolsTest extends TestCase
 
         $this->assertSame(3, AuctionPlayer::where('auction_id', $auction->id)->count());
     }
+
+    #[Test]
+    public function update_upserts_per_team_budgets(): void
+    {
+        $org = Organization::create(['name' => 'Org']);
+        $tournament = Tournament::create([
+            'name' => 'Cup', 'slug' => 'cup-x', 'start_date' => '2026-01-01', 'organization_id' => $org->id,
+        ]);
+        $auction = Auction::create([
+            'name' => 'A', 'status' => 'scheduled', 'max_budget_per_team' => 1000,
+            'base_price' => 100, 'organization_id' => $org->id, 'tournament_id' => $tournament->id, 'bid_type' => 'open',
+        ]);
+        $team = \App\Models\ActualTeam::create(['name' => 'T', 'organization_id' => $org->id, 'tournament_id' => $tournament->id]);
+
+        Permission::firstOrCreate(['name' => 'auction.edit', 'guard_name' => 'web'], ['group_name' => 'auction']);
+        $role = Role::create(['name' => 'Superadmin']);
+        $role->givePermissionTo('auction.edit');
+        $admin = User::factory()->create(['organization_id' => $org->id]);
+        $admin->assignRole($role);
+
+        $this->actingAs($admin)->put(route('admin.auctions.update', $auction), [
+            'name' => 'A', 'organization_id' => $org->id, 'tournament_id' => $tournament->id,
+            'status' => 'scheduled', 'max_budget_per_team' => 1000, 'base_price' => 100,
+            'bid_rules' => [['from' => 0, 'to' => 100, 'increment' => 10]],
+            'bid_type' => 'open', 'bid_timer_seconds' => 30,
+            'team_budgets' => [$team->id => 1500],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('auction_team_budgets', [
+            'auction_id' => $auction->id, 'actual_team_id' => $team->id, 'budget' => 1500,
+        ]);
+    }
 }

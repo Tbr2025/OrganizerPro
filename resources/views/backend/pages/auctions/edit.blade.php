@@ -438,6 +438,29 @@
                                 </button>
                             </div>
                         </div>
+
+                        {{-- Per-team budgets (optional overrides; blank = uniform cap) --}}
+                        @if(($budgetTeams ?? collect())->isNotEmpty())
+                        <div class="mt-6 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Per-team budgets</p>
+                                <span class="text-xs text-gray-400">Blank = uniform cap (<span x-text="formatMoney(auctionData.max_budget_per_team)"></span>)</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Override the budget for specific teams in this tournament.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                @foreach($budgetTeams as $team)
+                                    <div class="flex items-center gap-2">
+                                        <span class="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">{{ $team->name }}</span>
+                                        <input type="number" min="0" step="1"
+                                               name="team_budgets[{{ $team->id }}]"
+                                               value="{{ optional($teamBudgets[$team->id] ?? null)->budget }}"
+                                               placeholder="Uniform"
+                                               class="form-control form-control-sm w-36 text-right">
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 </div>
 
@@ -582,7 +605,10 @@
                                         <template x-for="player in pool.players" :key="player.id">
                                             <div class="bg-white dark:bg-gray-800 rounded-lg p-2 border border-gray-200 dark:border-gray-700 flex items-center gap-2" :data-player-id="player.id">
                                                 <span class="pool-player-handle cursor-move text-gray-400 select-none" x-show="pool.order_mode==='manual'">⠿</span>
-                                                <div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="player.name"></p></div>
+                                                <div class="flex-1 min-w-0 flex items-center gap-1">
+                                                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="player.name"></p>
+                                                    <span x-show="player.retained" class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">retained</span>
+                                                </div>
                                                 <input type="number" min="0" x-model.number="player.base_price" placeholder="Base"
                                                        class="form-control form-control-sm w-24 text-center">
                                                 <button type="button" @click="removeFromPool(player, idx)" class="text-red-500 px-1">✕</button>
@@ -609,9 +635,10 @@
 
                             <div class="mb-3" x-show="pools.length > 0">
                                 <label class="text-[11px] text-gray-500">Add to pool</label>
-                                <select x-model.number="targetPool" class="form-control form-control-sm bg-white dark:bg-gray-800">
+                                <select x-model="targetPool" class="form-control form-control-sm bg-white dark:bg-gray-800">
+                                    <option value="">— Select a pool —</option>
                                     <template x-for="(pool, idx) in pools" :key="pool.uid">
-                                        <option :value="idx" x-text="pool.name || ('Pool ' + (idx+1))"></option>
+                                        <option :value="String(idx)" x-text="pool.name || ('Pool ' + (idx+1))"></option>
                                     </template>
                                 </select>
                             </div>
@@ -633,7 +660,10 @@
                                         <div class="flex items-center gap-3">
                                             <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold flex-shrink-0" x-text="player.name.charAt(0)"></div>
                                             <div class="flex-1 min-w-0">
-                                                <p class="font-semibold text-gray-900 dark:text-white truncate" x-text="player.name"></p>
+                                                <p class="font-semibold text-gray-900 dark:text-white truncate flex items-center gap-1">
+                                                    <span x-text="player.name"></span>
+                                                    <span x-show="player.retained" class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">retained</span>
+                                                </p>
                                                 <p class="text-xs text-gray-500 dark:text-gray-400" x-text="pools.length === 0 ? 'Add a pool first' : 'Click to add to selected pool'"></p>
                                             </div>
                                             <div class="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center group-hover:bg-green-500 group-hover:text-white transition-colors">
@@ -851,7 +881,7 @@ document.addEventListener('alpine:init', () => {
         // Pool builder state (same as create)
         pools: [],
         available: [],
-        targetPool: 0,
+        targetPool: '', // '' = no pool chosen (user must pick before adding)
         searchAvailable: '',
         selectedOrg: null,
         _uid: 1,
@@ -886,11 +916,11 @@ document.addEventListener('alpine:init', () => {
                 name: p.name || ('Pool ' + this._uid),
                 capacity: p.capacity || null,
                 order_mode: p.order_mode || 'sequential',
-                players: (p.players || []).map(pl => ({ id: pl.id, name: pl.name, org: pl.org, base_price: pl.base_price })),
+                players: (p.players || []).map(pl => ({ id: pl.id, name: pl.name, org: pl.org, base_price: pl.base_price, retained: !!pl.retained })),
             }));
 
             // Players in the auction but not in any pool → drop into a pool so they aren't lost.
-            const unpooled = (unpooledData || []).map(pl => ({ id: pl.id, name: pl.name, org: pl.org, base_price: pl.base_price }));
+            const unpooled = (unpooledData || []).map(pl => ({ id: pl.id, name: pl.name, org: pl.org, base_price: pl.base_price, retained: !!pl.retained }));
             if (unpooled.length) {
                 if (this.pools.length === 0) {
                     this.pools.push({ uid: this._uid++, name: 'Pool 1', capacity: null, order_mode: 'sequential', players: [] });
@@ -900,12 +930,12 @@ document.addEventListener('alpine:init', () => {
 
             // If still no pools, start with one empty pool (like create).
             if (this.pools.length === 0) this.addPool();
-            this.targetPool = 0;
+            this.targetPool = ''; // no pool pre-selected on load
 
             // Available = approved players not already placed in a pool.
             const placed = new Set(this.pools.flatMap(p => p.players.map(pl => pl.id)));
             this.available = (availablePlayersData || [])
-                .map(p => ({ id: p.id, name: p.name, org: p.organization_id }))
+                .map(p => ({ id: p.id, name: p.name, org: p.organization_id, retained: !!p.retained }))
                 .filter(p => !placed.has(p.id))
                 .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -941,36 +971,43 @@ document.addEventListener('alpine:init', () => {
 
         addPool() {
             this.pools.push({ uid: this._uid++, name: 'Pool ' + (this.pools.length + 1), capacity: null, order_mode: 'sequential', players: [] });
-            this.targetPool = this.pools.length - 1;
+            this.targetPool = String(this.pools.length - 1); // auto-target the just-created pool
         },
 
         removePool(idx) {
-            this.pools[idx].players.forEach(p => this.available.push({ id: p.id, name: p.name, org: p.org }));
+            this.pools[idx].players.forEach(p => this.available.push({ id: p.id, name: p.name, org: p.org, retained: p.retained }));
             this.available.sort((a, b) => a.name.localeCompare(b.name));
             this.pools.splice(idx, 1);
-            if (this.targetPool >= this.pools.length) this.targetPool = Math.max(0, this.pools.length - 1);
+            this.targetPool = ''; // force an explicit re-pick after structure change
         },
 
         addToPool(player) {
-            if (this.pools.length === 0) return;
-            this.pools[this.targetPool].players.push({ id: player.id, name: player.name, org: player.org, base_price: this.defaultBasePrice });
+            if (this.targetPool === '' || this.targetPool === null || this.pools.length === 0) {
+                alert('Choose a pool in "Add to pool" first.');
+                return;
+            }
+            this.pools[Number(this.targetPool)].players.push({ id: player.id, name: player.name, org: player.org, retained: player.retained, base_price: this.defaultBasePrice });
             this.available = this.available.filter(p => p.id !== player.id);
             this.searchAvailable = '';
         },
 
         removeFromPool(player, idx) {
-            this.available.push({ id: player.id, name: player.name, org: player.org });
+            this.available.push({ id: player.id, name: player.name, org: player.org, retained: player.retained });
             this.available.sort((a, b) => a.name.localeCompare(b.name));
             this.pools[idx].players = this.pools[idx].players.filter(p => p.id !== player.id);
         },
 
         addAllPlayers() {
-            if (this.pools.length === 0) return;
+            if (this.targetPool === '' || this.targetPool === null || this.pools.length === 0) {
+                alert('Choose a pool in "Add to pool" first.');
+                return;
+            }
+            const i = Number(this.targetPool);
             const toAdd = this.filteredAvailable;
             if (!toAdd.length) return;
-            if (!confirm('Add all ' + toAdd.length + ' players to ' + (this.pools[this.targetPool].name || 'the pool') + '?')) return;
+            if (!confirm('Add all ' + toAdd.length + ' players to ' + (this.pools[i].name || 'the pool') + '?')) return;
             const ids = new Set(toAdd.map(p => p.id));
-            toAdd.forEach(p => this.pools[this.targetPool].players.push({ id: p.id, name: p.name, org: p.org, base_price: this.defaultBasePrice }));
+            toAdd.forEach(p => this.pools[i].players.push({ id: p.id, name: p.name, org: p.org, retained: p.retained, base_price: this.defaultBasePrice }));
             this.available = this.available.filter(p => !ids.has(p.id));
         },
 

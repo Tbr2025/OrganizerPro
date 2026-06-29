@@ -33,6 +33,7 @@ class AuctionOrganizerController extends Controller
         // Fetch available players (waiting status)
         $availablePlayers = $auction->auctionPlayers()
             ->where('auction_players.status', 'waiting')
+            ->where('auction_players.is_retained', false)
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -98,6 +99,7 @@ class AuctionOrganizerController extends Controller
 
         $availablePlayers = $auction->auctionPlayers()
             ->where('auction_players.status', 'waiting')
+            ->where('auction_players.is_retained', false)
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -184,6 +186,7 @@ class AuctionOrganizerController extends Controller
     {
         $availablePlayers = $auction->auctionPlayers()
             ->where('auction_players.status', 'waiting')
+            ->where('auction_players.is_retained', false)
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();

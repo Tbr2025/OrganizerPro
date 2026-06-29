@@ -11,6 +11,8 @@ use App\Models\Auction;
 use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
+use App\Models\AuctionTeamBudget;
+use Illuminate\Http\JsonResponse;
 use App\Services\Auction\AuctionPoolService;
 use App\Models\Organization;
 use App\Models\Tournament;
@@ -258,6 +260,12 @@ class AuctionAdminController extends Controller
                 ->flip()
             : null;
 
+        // Retained players → flagged is_retained on their pool row (not auctioned until merged).
+        $retainedIds = \App\Models\Player::withoutGlobalScopes()
+            ->where('player_mode', 'retained')
+            ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
+            ->pluck('id')->flip();
+
         foreach (array_values($pools) as $sequence => $poolData) {
             $players = is_array($poolData['players'] ?? null) ? $poolData['players'] : [];
             // Keep only org players that aren't already actioned.
@@ -285,6 +293,7 @@ class AuctionAdminController extends Controller
                     continue;
                 }
                 $base = is_numeric($pl['base_price'] ?? null) ? $pl['base_price'] : $auction->base_price;
+                $isRetained = isset($retainedIds[$playerId]);
                 AuctionPlayer::updateOrCreate(
                     ['auction_id' => $auction->id, 'player_id' => $playerId],
                     [
@@ -293,8 +302,9 @@ class AuctionAdminController extends Controller
                         'base_price' => $base,
                         'current_price' => $base,
                         'starting_price' => $base,
-                        'lot_number' => $i + 1, // submitted (drag) order — respected by manual mode
+                        'lot_number' => $isRetained ? null : ($i + 1), // retained players have no draw slot
                         'status' => 'waiting',
+                        'is_retained' => $isRetained,
                     ]
                 );
             }
@@ -302,6 +312,58 @@ class AuctionAdminController extends Controller
             // Final lot order per the pool's rule (sequential/random/odd_even/manual).
             $poolService->generateLotNumbers($pool);
         }
+    }
+
+    /** Reorder pools (drag on the Show page) → persist each pool's sequence. */
+    public function reorderPools(Request $request, Auction $auction): JsonResponse
+    {
+        $this->authorize('auction.edit');
+        $data = $request->validate(['order' => 'required|array', 'order.*' => 'integer']);
+
+        foreach (array_values($data['order']) as $i => $poolId) {
+            AuctionPool::where('auction_id', $auction->id)->where('id', (int) $poolId)
+                ->update(['sequence' => $i + 1]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /** Re-draw lot numbers for a pool (re-applies its order mode; reshuffles Random). */
+    public function redrawPool(Auction $auction, AuctionPool $pool): JsonResponse
+    {
+        $this->authorize('auction.edit');
+        abort_unless($pool->auction_id === $auction->id, 404);
+
+        app(AuctionPoolService::class)->generateLotNumbers($pool);
+
+        return response()->json([
+            'success' => true,
+            'lots' => $pool->players()->where('is_retained', false)->orderBy('lot_number')
+                ->with('player:id,name')->get(['id', 'player_id', 'lot_number']),
+        ]);
+    }
+
+    /** Merge a pool's retained members into the auction (make them biddable/waiting). */
+    public function mergeRetained(Request $request, Auction $auction, AuctionPool $pool): JsonResponse
+    {
+        $this->authorize('auction.edit');
+        abort_unless($pool->auction_id === $auction->id, 404);
+
+        $data = $request->validate([
+            'auction_player_ids' => 'nullable|array',
+            'auction_player_ids.*' => 'integer',
+        ]);
+
+        $query = $pool->players()->where('is_retained', true);
+        if (! empty($data['auction_player_ids'])) {
+            $query->whereIn('id', $data['auction_player_ids']);
+        }
+        $merged = $query->update(['is_retained' => false, 'status' => 'waiting', 'lot_number' => null]);
+
+        // Slot the merged players into the pool's draw order.
+        app(AuctionPoolService::class)->generateLotNumbers($pool);
+
+        return response()->json(['success' => true, 'merged' => $merged]);
     }
 
 
@@ -320,6 +382,8 @@ class AuctionAdminController extends Controller
             'auctionPlayers.player.bowlingProfile',
             'auctionPlayers.soldToTeam',
             'auctionPlayers.bids.team',
+            'pools.players.player',
+            'pools.players.soldToTeam',
         ]);
 
         // For non-admin users, filter to only show players sold to their team
@@ -763,21 +827,25 @@ class AuctionAdminController extends Controller
         $organizations = Organization::orderBy('name')->get();
         $tournaments = Tournament::orderBy('name')->get();
 
-        // Load the players currently in the auction, its pools, and tournament.
-        $auction->load(['auctionPlayers.player', 'pools.players.player', 'tournament']);
+        // Load the players currently in the auction, its pools, tournament, and budgets.
+        $auction->load(['auctionPlayers.player', 'pools.players.player', 'tournament', 'teamBudgets']);
         $auctionPlayerIds = $auction->auctionPlayers->pluck('player.id')->toArray();
 
-        // Find players who are available (Approved, not Retained, and not already in this auction)
+        // Available = approved players not already in this auction. Retained players
+        // ARE selectable (flagged) so they can be placed in a pool and merged later.
         $availablePlayers = Player::where('status', 'approved')
-            ->where(function ($query) {
-                $query->where('player_mode', '!=', 'retained')->orWhereNull('player_mode');
-            })
             ->whereNotIn('id', $auctionPlayerIds)
             ->when($auction->organization_id, function ($query) use ($auction) {
                 $query->where('organization_id', $auction->organization_id);
             })
             ->orderBy('name')
-            ->get(['id', 'name', 'organization_id']);
+            ->get(['id', 'name', 'organization_id', 'player_mode'])
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'organization_id' => $p->organization_id,
+                'retained' => $p->player_mode === 'retained',
+            ]);
 
         // Existing pools (sequence order) with their players (lot order) for the wizard.
         $existingPools = $auction->pools->sortBy('sequence')->values()->map(function ($pool) {
@@ -791,6 +859,7 @@ class AuctionAdminController extends Controller
                     'name' => $ap->player->name ?? ('Player #' . $ap->player_id),
                     'base_price' => $ap->base_price,
                     'org' => $ap->organization_id,
+                    'retained' => (bool) $ap->is_retained,
                 ])->all(),
             ];
         })->all();
@@ -805,10 +874,18 @@ class AuctionAdminController extends Controller
                 'name' => $ap->player->name ?? ('Player #' . $ap->player_id),
                 'base_price' => $ap->base_price,
                 'org' => $ap->organization_id,
+                'retained' => (bool) $ap->is_retained,
             ])->values()->all();
 
+        // Teams in this auction's tournament + their existing per-team budgets.
+        $budgetTeams = $auction->tournament_id
+            ? ActualTeam::forTournament($auction->tournament_id)->orderBy('name')->get()
+            : collect();
+        $teamBudgets = $auction->teamBudgets->keyBy('actual_team_id'); // actual_team_id => AuctionTeamBudget
+
         return view('backend.pages.auctions.edit', compact(
-            'auction', 'organizations', 'tournaments', 'availablePlayers', 'existingPools', 'unpooled'
+            'auction', 'organizations', 'tournaments', 'availablePlayers', 'existingPools', 'unpooled',
+            'budgetTeams', 'teamBudgets'
         ));
     }
 
@@ -873,6 +950,9 @@ class AuctionAdminController extends Controller
             'player_base_prices.*' => 'required|numeric|min:0',
             // Pool builder (same as create); when present it drives the player layout.
             'pools' => 'nullable|string',
+            // Per-team budget overrides (blank = uniform cap).
+            'team_budgets' => 'nullable|array',
+            'team_budgets.*' => 'nullable|numeric|min:0',
         ]);
 
         // Keep the auction's org aligned to its tournament so player isolation never
@@ -926,6 +1006,21 @@ class AuctionAdminController extends Controller
                     AuctionPlayer::where('auction_id', $auction->id)
                         ->where('player_id', $playerId)
                         ->update(['base_price' => $price]);
+                }
+            }
+
+            // Per-team budget overrides (blank clears the override → uniform cap applies).
+            if (is_array($request->input('team_budgets'))) {
+                foreach ($request->input('team_budgets') as $teamId => $budget) {
+                    if ($budget === null || $budget === '') {
+                        AuctionTeamBudget::where('auction_id', $auction->id)
+                            ->where('actual_team_id', (int) $teamId)->delete();
+                        continue;
+                    }
+                    AuctionTeamBudget::updateOrCreate(
+                        ['auction_id' => $auction->id, 'actual_team_id' => (int) $teamId],
+                        ['organization_id' => $auction->organization_id, 'budget' => $budget]
+                    );
                 }
             }
         });

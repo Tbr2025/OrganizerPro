@@ -8,7 +8,6 @@ use App\Http\Controllers\Backend\ActualTeamController;
 use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
 use App\Http\Controllers\Backend\AuctionAdminController;
-use App\Http\Controllers\Backend\AuctionPoolController;
 use App\Http\Controllers\Backend\AuctionBiddingController;
 use App\Http\Controllers\Backend\AuctionTemplateController;
 use App\Http\Controllers\Backend\AuctionController;
@@ -126,14 +125,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Auction Administration (CRUD for auctions)
     Route::resource('auctions', AuctionAdminController::class);
 
-    // Auction pools (named sets / lots) + per-team budgets
-    Route::get('/auctions/{auction}/pools', [AuctionPoolController::class, 'index'])->name('auctions.pools.index');
-    Route::post('/auctions/{auction}/pools', [AuctionPoolController::class, 'store'])->name('auctions.pools.store');
-    Route::put('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'update'])->name('auctions.pools.update');
-    Route::delete('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'destroy'])->name('auctions.pools.destroy');
-    Route::post('/auctions/{auction}/pools/{pool}/assign', [AuctionPoolController::class, 'assignPlayers'])->name('auctions.pools.assign');
-    Route::post('/auctions/{auction}/pools/{pool}/draw-lots', [AuctionPoolController::class, 'drawLots'])->name('auctions.pools.draw-lots');
-    Route::post('/auctions/{auction}/budgets', [AuctionPoolController::class, 'allocateBudgets'])->name('auctions.budgets.allocate');
+    // Auction pools, lots & per-team budgets are managed in the auction Edit wizard.
+    // Pool control actions on the auction Show page (reorder, re-draw lots, merge retained).
+    Route::post('/auctions/{auction}/pools/reorder', [AuctionAdminController::class, 'reorderPools'])->name('auctions.pools.reorder');
+    Route::post('/auctions/{auction}/pools/{pool}/redraw', [AuctionAdminController::class, 'redrawPool'])->name('auctions.pools.redraw');
+    Route::post('/auctions/{auction}/pools/{pool}/merge-retained', [AuctionAdminController::class, 'mergeRetained'])->name('auctions.pools.merge-retained');
     Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
     Route::delete('/auctions/{auction}/branding-image', [AuctionAdminController::class, 'removeBrandingImage'])->name('auctions.branding.remove');
 

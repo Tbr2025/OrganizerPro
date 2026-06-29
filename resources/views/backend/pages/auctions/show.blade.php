@@ -52,11 +52,6 @@
                         </svg>
                         LED Wall Display
                     </a>
-                    <a href="{{ route('admin.auctions.pools.index', $auction) }}"
-                        class="btn btn-info inline-flex items-center gap-2">
-                        <i class="fas fa-layer-group"></i>
-                        Pools &amp; Lots
-                    </a>
                     <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
                     <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
                         class="btn btn-success inline-flex items-center gap-2">
@@ -115,6 +110,94 @@
                     <div class="text-sm uppercase tracking-wide">Remaining Budget</div>
                 </div>
             </div>
+        @endif
+
+        {{-- ════ Pools & Draw Order (Pool Control Center) ════ --}}
+        @if(isset($isAdmin) && $isAdmin)
+        @php
+            $poolModeLabels = ['sequential' => 'Sequential', 'random' => 'Random', 'odd_even' => 'Odd-Even', 'manual' => 'Custom'];
+            $statusChip = [
+                'waiting' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+                'on_auction' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+                'sold' => 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+                'unsold' => 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+                'skipped' => 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+            ];
+        @endphp
+        <div class="mb-8" x-data="auctionPoolCenter({{ $auction->id }})" x-init="init()">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Pools &amp; Draw Order</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Drag pools to reorder. Live bidding runs in the Live Panel.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button @click="startAuction()" class="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white">Start auction</button>
+                    <a href="{{ route('admin.auction.organizer.panel', $auction) }}" class="btn btn-sm btn-secondary">Live Panel</a>
+                    <button @click="reAuctionRound()" class="btn btn-sm bg-amber-500 hover:bg-amber-600 text-white">Re-auction round</button>
+                </div>
+            </div>
+
+            <div id="poolList" class="space-y-4">
+                @forelse($auction->pools as $pool)
+                    @php
+                        $biddable = $pool->players->where('is_retained', false)->sortBy('lot_number')->values();
+                        $retained = $pool->players->where('is_retained', true)->values();
+                    @endphp
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4"
+                         data-pool-id="{{ $pool->id }}" x-data="{ showRetained: false }">
+                        <div class="flex items-center justify-between mb-3 gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="pool-drag cursor-move text-gray-400 select-none" title="Drag to reorder">⠿</span>
+                                <span class="font-semibold text-gray-900 dark:text-white truncate">{{ $pool->name }}</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{{ $poolModeLabels[$pool->order_mode] ?? $pool->order_mode }}</span>
+                                <span class="text-xs text-gray-400">{{ $biddable->count() }}{{ $pool->capacity ? '/'.$pool->capacity : '' }} players</span>
+                            </div>
+                            <button @click="redraw({{ $pool->id }})" class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-200">Re-draw lots</button>
+                        </div>
+
+                        <ol class="text-sm divide-y divide-gray-100 dark:divide-gray-700">
+                            @foreach($biddable as $ap)
+                                <li class="py-1.5 flex items-center justify-between gap-2">
+                                    <span class="truncate">
+                                        <span class="text-gray-400">{{ $ap->lot_number ? '#'.$ap->lot_number : '—' }}</span>
+                                        {{ $ap->player->name ?? 'Player #'.$ap->player_id }}
+                                    </span>
+                                    <span class="flex items-center gap-2">
+                                        <span class="text-[11px] px-2 py-0.5 rounded-full {{ $statusChip[$ap->status] ?? 'bg-gray-100 text-gray-700' }}">{{ $ap->status }}</span>
+                                        @if($ap->status === 'waiting')
+                                            <button @click="skip({{ $ap->id }})" class="text-[11px] text-amber-600 hover:underline">Skip</button>
+                                        @endif
+                                    </span>
+                                </li>
+                            @endforeach
+                            @if($biddable->isEmpty())
+                                <li class="py-2 text-xs text-gray-400">No biddable players in this pool.</li>
+                            @endif
+                        </ol>
+
+                        @if($retained->count())
+                        <div class="mt-3 border-t border-gray-100 dark:border-gray-700 pt-2">
+                            <button type="button" @click="showRetained = !showRetained" class="text-xs font-medium text-purple-700 dark:text-purple-300">
+                                <span x-text="showRetained ? '▾' : '▸'"></span> Retained ({{ $retained->count() }})
+                            </button>
+                            <div x-show="showRetained" x-cloak class="mt-2 space-y-1">
+                                @foreach($retained as $ap)
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="truncate">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
+                                        <span class="text-[11px] text-gray-400">{{ optional($ap->soldToTeam)->name ?? 'retained' }}</span>
+                                    </div>
+                                @endforeach
+                                <button @click="mergeRetained({{ $pool->id }})" class="mt-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded px-3 py-1">Merge into auction</button>
+                            </div>
+                        </div>
+                        @endif
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No pools configured.
+                        <a href="{{ route('admin.auctions.edit', $auction) }}" class="text-indigo-600 underline">Set up pools in Edit</a>.</p>
+                @endforelse
+            </div>
+        </div>
         @endif
 
         {{-- Filters --}}
@@ -382,7 +465,52 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script>
+        function auctionPoolCenter(auctionId) {
+            return {
+                auctionId,
+                token: document.querySelector('meta[name="csrf-token"]').content,
+                init() {
+                    const el = document.getElementById('poolList');
+                    if (window.Sortable && el) {
+                        window.Sortable.create(el, { handle: '.pool-drag', animation: 150, onEnd: () => this.saveOrder() });
+                    }
+                },
+                _post(url, body) {
+                    return fetch(url, {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': this.token, 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        body: body ? JSON.stringify(body) : null,
+                    }).then(r => r.json().catch(() => ({})));
+                },
+                saveOrder() {
+                    const ids = [...document.querySelectorAll('#poolList [data-pool-id]')].map(e => parseInt(e.dataset.poolId));
+                    this._post(`/admin/auctions/${this.auctionId}/pools/reorder`, { order: ids });
+                },
+                redraw(poolId) {
+                    this._post(`/admin/auctions/${this.auctionId}/pools/${poolId}/redraw`).then(r => r.success && location.reload());
+                },
+                mergeRetained(poolId) {
+                    if (!confirm('Merge this pool\'s retained players into the auction? They will become biddable.')) return;
+                    this._post(`/admin/auctions/${this.auctionId}/pools/${poolId}/merge-retained`).then(r => r.success && location.reload());
+                },
+                startAuction() {
+                    this._post(`/admin/organizer/auction/${this.auctionId}/api/start`).then(() => {
+                        window.location = `/admin/organizer/auction/${this.auctionId}/panel`;
+                    });
+                },
+                skip(apId) {
+                    this._post(`/admin/organizer/auction/${this.auctionId}/api/skip-player`, { auction_player_id: apId })
+                        .then(r => r.success && location.reload());
+                },
+                reAuctionRound() {
+                    this._post(`/admin/organizer/auction/${this.auctionId}/api/start-reauction-round`)
+                        .then(r => { if (r.success) location.reload(); else alert(r.message || 'Nothing to re-auction.'); });
+                },
+            };
+        }
+
         function auctionPlayerPool() {
             return {
                 auctionId: null,

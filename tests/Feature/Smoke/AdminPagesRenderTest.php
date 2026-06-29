@@ -35,7 +35,7 @@ class AdminPagesRenderTest extends TestCase
         $player = Player::create(['name' => 'P', 'email' => 'p@x.test', 'status' => 'approved', 'organization_id' => $org->id]);
 
         $role = Role::create(['name' => 'Superadmin']);
-        foreach (['player.create', 'player.edit', 'tournament.edit'] as $perm) {
+        foreach (['player.create', 'player.edit', 'tournament.edit', 'auction.view'] as $perm) {
             Permission::create(['name' => $perm, 'group_name' => 'smoke']);
             $role->givePermissionTo($perm);
         }
@@ -46,6 +46,7 @@ class AdminPagesRenderTest extends TestCase
         $urls = [
             route('admin.auctions.index'),
             route('admin.auctions.create'),
+            route('admin.auctions.show', $auction),
             route('admin.auctions.edit', $auction),
             route('admin.auction.organizer.panel', $auction),
             route('admin.auction.organizer.offline-panel', $auction),

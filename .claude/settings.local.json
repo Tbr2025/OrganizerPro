@@ -193,7 +193,8 @@
       "Bash(xargs -I{} sed -n '{}p' storage/logs/laravel.log)",
       "Bash(/opt/homebrew/opt/mysql/bin/mysql --version)",
       "Bash(/usr/local/mysql/bin/mysql --version)",
-      "Bash(grep -n 'password.*=>.*hashed\\\\|'\\\\''hashed'\\\\''\\\\|function casts\\\\|protected $casts\\\\|guard_name\\\\|'\\\\''name'\\\\''' app/Models/User.php)"
+      "Bash(grep -n 'password.*=>.*hashed\\\\|'\\\\''hashed'\\\\''\\\\|function casts\\\\|protected $casts\\\\|guard_name\\\\|'\\\\''name'\\\\''' app/Models/User.php)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }

@@ -410,9 +410,10 @@
 
                                 <div class="mb-3" x-show="pools.length > 0">
                                     <label class="text-[11px] text-gray-500">Add to pool</label>
-                                    <select x-model.number="targetPool" class="form-control form-control-sm bg-white dark:bg-gray-800">
+                                    <select x-model="targetPool" class="form-control form-control-sm bg-white dark:bg-gray-800">
+                                        <option value="">— Select a pool —</option>
                                         <template x-for="(pool, idx) in pools" :key="pool.uid">
-                                            <option :value="idx" x-text="pool.name || ('Pool ' + (idx+1))"></option>
+                                            <option :value="String(idx)" x-text="pool.name || ('Pool ' + (idx+1))"></option>
                                         </template>
                                     </select>
                                 </div>
@@ -506,7 +507,7 @@ function auctionCreateForm() {
         ],
         pools: [],
         available: [],
-        targetPool: 0,
+        targetPool: '', // '' = no pool chosen (user must pick before adding)
         searchAvailable: '',
         selectedOrg: null,
         defaultBasePrice: {{ old('base_price', 10000) }},
@@ -528,6 +529,7 @@ function auctionCreateForm() {
                 syncOrg();
             }
             this.addPool();
+            this.targetPool = ''; // no pool pre-selected on load
         },
 
         /** Pull any already-pooled players that don't belong to the selected org back out. */
@@ -555,19 +557,23 @@ function auctionCreateForm() {
 
         addPool() {
             this.pools.push({ uid: this._uid++, name: 'Pool ' + (this.pools.length + 1), capacity: null, order_mode: 'sequential', players: [] });
-            this.targetPool = this.pools.length - 1;
+            // Auto-target the pool the user just created (deliberate action).
+            this.targetPool = String(this.pools.length - 1);
         },
 
         removePool(idx) {
             this.pools[idx].players.forEach(p => this.available.push({ id: p.id, name: p.name, org: p.org }));
             this.available.sort((a, b) => a.name.localeCompare(b.name));
             this.pools.splice(idx, 1);
-            if (this.targetPool >= this.pools.length) this.targetPool = Math.max(0, this.pools.length - 1);
+            this.targetPool = ''; // force an explicit re-pick after structure change
         },
 
         addToPool(player) {
-            if (this.pools.length === 0) return;
-            this.pools[this.targetPool].players.push({ id: player.id, name: player.name, org: player.org, base_price: this.defaultBasePrice });
+            if (this.targetPool === '' || this.targetPool === null || this.pools.length === 0) {
+                alert('Choose a pool in "Add to pool" first.');
+                return;
+            }
+            this.pools[Number(this.targetPool)].players.push({ id: player.id, name: player.name, org: player.org, base_price: this.defaultBasePrice });
             this.available = this.available.filter(p => p.id !== player.id);
             this.searchAvailable = '';
         },
@@ -579,12 +585,16 @@ function auctionCreateForm() {
         },
 
         addAllPlayers() {
-            if (this.pools.length === 0) return;
+            if (this.targetPool === '' || this.targetPool === null || this.pools.length === 0) {
+                alert('Choose a pool in "Add to pool" first.');
+                return;
+            }
+            const i = Number(this.targetPool);
             const toAdd = this.filteredAvailable; // org + search scoped
             if (!toAdd.length) return;
-            if (!confirm('Add all ' + toAdd.length + ' players to ' + (this.pools[this.targetPool].name || 'the pool') + '?')) return;
+            if (!confirm('Add all ' + toAdd.length + ' players to ' + (this.pools[i].name || 'the pool') + '?')) return;
             const ids = new Set(toAdd.map(p => p.id));
-            toAdd.forEach(p => this.pools[this.targetPool].players.push({ id: p.id, name: p.name, org: p.org, base_price: this.defaultBasePrice }));
+            toAdd.forEach(p => this.pools[i].players.push({ id: p.id, name: p.name, org: p.org, base_price: this.defaultBasePrice }));
             this.available = this.available.filter(p => !ids.has(p.id));
         },
 
