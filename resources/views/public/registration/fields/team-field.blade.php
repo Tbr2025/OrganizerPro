@@ -74,8 +74,17 @@
 
     @case('terms_and_conditions')
         @php $hasTC = !empty($settings->terms_and_conditions_content ?? ''); @endphp
-        <div x-data="{ showTC: false, accepted: {{ old('terms_and_conditions') ? 'true' : 'false' }} }">
-            <label class="reg-check" @if($hasTC) @click.prevent="showTC = true" @endif>
+        <div x-data="{
+                showTC: false,
+                accepted: {{ old('terms_and_conditions') ? 'true' : 'false' }},
+                readToEnd: false,
+                openTC() {
+                    this.showTC = true; this.readToEnd = false;
+                    this.$nextTick(() => { const b = this.$refs.tcBody; if (b && b.scrollHeight <= b.clientHeight + 4) this.readToEnd = true; });
+                },
+                onScroll(el) { if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) this.readToEnd = true; }
+             }">
+            <label class="reg-check" @if($hasTC) @click.prevent="openTC()" @endif>
                 <input type="checkbox" name="terms_and_conditions" id="terms_and_conditions" value="1"
                        x-model="accepted" {{ $required ? 'required' : '' }}
                        @if($hasTC) tabindex="-1" style="pointer-events:none" @endif>
@@ -85,20 +94,24 @@
 
             @if($hasTC)
                 <template x-teleport="body">
-                    <div x-show="showTC" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-                         style="background:rgba(0,0,0,0.6);" @keydown.escape.window="showTC = false">
-                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
-                             @click.outside="showTC = false">
-                            <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <div x-show="showTC" x-cloak class="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                         style="background:rgba(0,0,0,0.7);" @keydown.escape.window="showTC = false">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden"
+                             style="max-height:85vh;" @click.outside="showTC = false">
+                            <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                                 <h3 class="font-semibold text-gray-900 dark:text-white">Terms &amp; Conditions</h3>
                                 <button type="button" @click="showTC = false" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">&times;</button>
                             </div>
-                            <div class="p-5 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
-                            <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-                                <button type="button" @click="showTC = false"
-                                        class="px-4 py-2 rounded-lg text-sm bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200">Close</button>
-                                <button type="button" @click="accepted = true; showTC = false"
-                                        class="px-4 py-2 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">I Accept</button>
+                            <div x-ref="tcBody" @scroll="onScroll($el)"
+                                 class="flex-1 min-h-0 overflow-y-auto p-5 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
+                            <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 flex-shrink-0">
+                                <span class="text-xs text-gray-400" x-show="!readToEnd">Scroll to the end to accept.</span>
+                                <span class="flex-1"></span>
+                                <button type="button" @click="accepted = false; showTC = false"
+                                        class="px-4 py-2 rounded-lg text-sm bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 font-medium">Reject</button>
+                                <button type="button" :disabled="!readToEnd" @click="accepted = true; showTC = false"
+                                        :class="readToEnd ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'"
+                                        class="px-4 py-2 rounded-lg text-sm font-semibold">Accept</button>
                             </div>
                         </div>
                     </div>
