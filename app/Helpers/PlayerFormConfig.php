@@ -76,6 +76,13 @@ class PlayerFormConfig
             $config[$forced]['required'] = true;
         }
 
+        // Terms & Conditions: auto-show (and require acceptance) whenever the
+        // tournament has T&C content — no separate form-builder toggle needed.
+        if ($settings && trim((string) $settings->terms_and_conditions_content) !== '') {
+            $config['terms_and_conditions']['visible'] = true;
+            $config['terms_and_conditions']['required'] = true;
+        }
+
         return $config;
     }
 

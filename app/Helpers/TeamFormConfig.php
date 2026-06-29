@@ -49,6 +49,12 @@ class TeamFormConfig
             $config[$forced]['required'] = true;
         }
 
+        // Terms & Conditions: auto-show + require when the tournament has T&C content.
+        if ($settings && trim((string) $settings->terms_and_conditions_content) !== '') {
+            $config['terms_and_conditions']['visible'] = true;
+            $config['terms_and_conditions']['required'] = true;
+        }
+
         return $config;
     }
 
