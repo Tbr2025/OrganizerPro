@@ -73,7 +73,7 @@
         @break
 
     @case('terms_and_conditions')
-        @php $hasTC = !empty($settings->terms_and_conditions_content ?? ''); @endphp
+        @php $hasTC = !empty($settings->team_terms_and_conditions_content ?? ''); @endphp
         <div x-data="{
                 showTC: false,
                 accepted: {{ old('terms_and_conditions') ? 'true' : 'false' }},
@@ -103,7 +103,7 @@
                                 <button type="button" @click="showTC = false" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">&times;</button>
                             </div>
                             <div x-ref="tcBody" @scroll="onScroll($el)"
-                                 class="flex-1 min-h-0 overflow-y-auto p-5 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
+                                 class="flex-1 min-h-0 overflow-y-auto p-5 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ $settings->team_terms_and_conditions_content }}</div>
                             <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 flex-shrink-0">
                                 <span class="text-xs text-gray-400" x-show="!readToEnd">Scroll to the end to accept.</span>
                                 <span class="flex-1"></span>

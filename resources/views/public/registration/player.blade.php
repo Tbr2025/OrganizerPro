@@ -151,7 +151,7 @@
                   noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }},
                   visaStatus: @js(old('visa_status', '')),
                   selectedTeam: '{{ old('team_id') }}',
-                  selectedCountry: @js(old('country', $defaultCountry ?? '')),
+                  selectedCountry: @js(old('country', ($defaultCountry ?: 'IN'))),
                   stateValue: @js(old('state')),
                   statesByCountry: @js(config('registration.states_by_country')),
                   get hasStates() { return Array.isArray(this.statesByCountry[this.selectedCountry]) && this.statesByCountry[this.selectedCountry].length > 0; },

@@ -70,6 +70,7 @@ class TournamentSetting extends Model
         'registration_theme',
         // Terms & Conditions
         'terms_and_conditions_content',
+        'team_terms_and_conditions_content',
         // Player photo guidelines (registration)
         'photo_guidelines',
         'photo_sample_path',

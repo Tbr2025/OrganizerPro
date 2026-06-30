@@ -103,6 +103,7 @@ class TournamentSettingsController extends Controller
 
             // Terms & Conditions
             'terms_and_conditions_content' => 'nullable|string|max:10000',
+            'team_terms_and_conditions_content' => 'nullable|string|max:10000',
         ]);
 
         $settings = $tournament->settings ?? $tournament->settings()->create([]);

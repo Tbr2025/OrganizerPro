@@ -587,16 +587,25 @@
                     </script>
                 </div>
 
-                {{-- Terms & Conditions Content --}}
+                {{-- Terms & Conditions Content (separate for player vs team) --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Terms & Conditions</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Enter the terms & conditions content. Enable the "Terms & Conditions" field in the Registration Form Fields section above to show it on registration forms.</p>
-                    <div>
-                        <label for="terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">T&C Content</label>
-                        <textarea name="terms_and_conditions_content" id="terms_and_conditions_content" rows="6"
-                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                            placeholder="Enter your tournament terms and conditions here...">{{ old('terms_and_conditions_content', $settings->terms_and_conditions_content) }}</textarea>
-                        @error('terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Set separate terms for player and team registration. Each appears (as a required "I agree" popup) on its form automatically when its content is filled in.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Player Registration — Terms &amp; Conditions</label>
+                            <textarea name="terms_and_conditions_content" id="terms_and_conditions_content" rows="6"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Terms shown on the PLAYER registration form...">{{ old('terms_and_conditions_content', $settings->terms_and_conditions_content) }}</textarea>
+                            @error('terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label for="team_terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Team Registration — Terms &amp; Conditions</label>
+                            <textarea name="team_terms_and_conditions_content" id="team_terms_and_conditions_content" rows="6"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                placeholder="Terms shown on the TEAM registration form...">{{ old('team_terms_and_conditions_content', $settings->team_terms_and_conditions_content) }}</textarea>
+                            @error('team_terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                        </div>
                     </div>
                 </div>
 
