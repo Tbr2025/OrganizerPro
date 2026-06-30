@@ -74,6 +74,9 @@ class TournamentSetting extends Model
         // Player photo guidelines (registration)
         'photo_guidelines',
         'photo_sample_path',
+        // Team image/logo guidelines (registration)
+        'team_photo_guidelines',
+        'team_photo_sample_path',
     ];
 
     protected $casts = [
@@ -156,6 +159,11 @@ class TournamentSetting extends Model
     public function getPhotoSampleUrlAttribute(): ?string
     {
         return $this->photo_sample_path ? asset('storage/' . $this->photo_sample_path) : null;
+    }
+
+    public function getTeamPhotoSampleUrlAttribute(): ?string
+    {
+        return $this->team_photo_sample_path ? asset('storage/' . $this->team_photo_sample_path) : null;
     }
 
     public function getBackgroundImageUrlAttribute(): ?string

@@ -587,47 +587,64 @@
                     </script>
                 </div>
 
-                {{-- Terms & Conditions Content (separate for player vs team) --}}
+                {{-- Registration Instructions — Terms & Conditions + Image instructions, per area --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Terms & Conditions</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Set separate terms for player and team registration. Each appears (as a required "I agree" popup) on its form automatically when its content is filled in.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Player Registration — Terms &amp; Conditions</label>
-                            <textarea name="terms_and_conditions_content" id="terms_and_conditions_content" rows="6"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                                placeholder="Terms shown on the PLAYER registration form...">{{ old('terms_and_conditions_content', $settings->terms_and_conditions_content) }}</textarea>
-                            @error('terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label for="team_terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Team Registration — Terms &amp; Conditions</label>
-                            <textarea name="team_terms_and_conditions_content" id="team_terms_and_conditions_content" rows="6"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                                placeholder="Terms shown on the TEAM registration form...">{{ old('team_terms_and_conditions_content', $settings->team_terms_and_conditions_content) }}</textarea>
-                            @error('team_terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-                </div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Registration Instructions (Player &amp; Team)</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Terms &amp; Conditions and image/photo instructions shown on each registration form. T&amp;C auto-appears as a required "I agree" popup when its text is filled in. Leave image guidelines blank to use the built-in defaults.</p>
 
-                {{-- Player Photo Guidelines --}}
-                <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Player Photo Guidelines</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Shown on the player registration photo uploader. Leave blank to use the built-in defaults.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="photo_guidelines" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Guidelines text (one point per line)</label>
-                            <textarea name="photo_guidelines" id="photo_guidelines" rows="6"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                                placeholder="Clear, front-facing headshot&#10;Plain background&#10;Good lighting, no sunglasses">{{ old('photo_guidelines', $settings->photo_guidelines) }}</textarea>
-                            @error('photo_guidelines') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {{-- PLAYER AREA --}}
+                        <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                            <h4 class="font-semibold text-gray-800 dark:text-gray-100">Player Registration</h4>
+                            <div>
+                                <label for="terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Terms &amp; Conditions</label>
+                                <textarea name="terms_and_conditions_content" id="terms_and_conditions_content" rows="5"
+                                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    placeholder="Terms shown on the PLAYER registration form...">{{ old('terms_and_conditions_content', $settings->terms_and_conditions_content) }}</textarea>
+                                @error('terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label for="photo_guidelines" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo / image instructions (one point per line)</label>
+                                <textarea name="photo_guidelines" id="photo_guidelines" rows="4"
+                                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    placeholder="Clear, front-facing headshot&#10;Plain background&#10;Good lighting, no sunglasses">{{ old('photo_guidelines', $settings->photo_guidelines) }}</textarea>
+                                @error('photo_guidelines') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sample image (good example)</label>
+                                <input type="file" name="photo_sample" accept="image/*" class="mt-1 block w-full text-xs text-gray-600 dark:text-gray-300">
+                                @if($settings->photo_sample_url)
+                                    <img src="{{ $settings->photo_sample_url }}" alt="Sample photo" class="mt-2 h-24 rounded-lg border border-gray-200 dark:border-gray-700 object-cover">
+                                @endif
+                                @error('photo_sample') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sample photo (shows applicants a good example)</label>
-                            <input type="file" name="photo_sample" accept="image/*" class="mt-1 block w-full text-xs text-gray-600 dark:text-gray-300">
-                            @if($settings->photo_sample_url)
-                                <img src="{{ $settings->photo_sample_url }}" alt="Sample photo" class="mt-2 h-24 rounded-lg border border-gray-200 dark:border-gray-700 object-cover">
-                            @endif
-                            @error('photo_sample') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+
+                        {{-- TEAM AREA --}}
+                        <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                            <h4 class="font-semibold text-gray-800 dark:text-gray-100">Team Registration</h4>
+                            <div>
+                                <label for="team_terms_and_conditions_content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Terms &amp; Conditions</label>
+                                <textarea name="team_terms_and_conditions_content" id="team_terms_and_conditions_content" rows="5"
+                                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    placeholder="Terms shown on the TEAM registration form...">{{ old('team_terms_and_conditions_content', $settings->team_terms_and_conditions_content) }}</textarea>
+                                @error('team_terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label for="team_photo_guidelines" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo / image instructions (one point per line)</label>
+                                <textarea name="team_photo_guidelines" id="team_photo_guidelines" rows="4"
+                                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                                    placeholder="Square logo (1:1)&#10;Transparent or plain background&#10;PNG or JPG, max 2MB">{{ old('team_photo_guidelines', $settings->team_photo_guidelines) }}</textarea>
+                                @error('team_photo_guidelines') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sample image (good example)</label>
+                                <input type="file" name="team_photo_sample" accept="image/*" class="mt-1 block w-full text-xs text-gray-600 dark:text-gray-300">
+                                @if($settings->team_photo_sample_url)
+                                    <img src="{{ $settings->team_photo_sample_url }}" alt="Sample team image" class="mt-2 h-24 rounded-lg border border-gray-200 dark:border-gray-700 object-contain">
+                                @endif
+                                @error('team_photo_sample') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
+                            </div>
                         </div>
                     </div>
                 </div>

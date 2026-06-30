@@ -24,6 +24,28 @@
 
     @case('team_logo')
         <label for="team_logo" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        @php
+            $teamImgText = trim((string) ($settings->team_photo_guidelines ?? ''));
+            $teamImgLines = $teamImgText !== '' ? preg_split('/\r\n|\r|\n/', $teamImgText) : [];
+            $teamSampleUrl = $settings?->team_photo_sample_url;
+        @endphp
+        @if(count($teamImgLines) || $teamSampleUrl)
+            <div class="mb-2 flex items-start gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);">
+                @if($teamSampleUrl)
+                    <img src="{{ $teamSampleUrl }}" alt="Sample" class="w-16 h-16 rounded object-contain flex-shrink-0" style="background:rgba(255,255,255,0.12);">
+                @endif
+                <div class="text-xs text-white/90">
+                    <p class="font-semibold text-white mb-1">Image Guidelines</p>
+                    <ul class="space-y-0.5 list-disc list-inside text-white/80">
+                        @forelse($teamImgLines as $line)
+                            @if(trim($line) !== '')<li>{{ trim($line) }}</li>@endif
+                        @empty
+                            <li>Square logo, plain/transparent background</li>
+                        @endforelse
+                    </ul>
+                </div>
+            </div>
+        @endif
         <input type="file" name="team_logo" id="team_logo" accept="image/png,image/jpeg,image/jpg" {{ $required ? 'required' : '' }}
                class="reg-input" style="padding:.55rem .9rem;">
         <p class="reg-hint">PNG or JPG, max 2MB</p>
