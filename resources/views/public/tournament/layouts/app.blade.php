@@ -9,12 +9,23 @@
     @hasSection('meta')
         @yield('meta')
     @else
+        @php $shareImage = $tournament->settings?->share_image_url ?? null; @endphp
         <meta name="description" content="{{ $tournament->description ?? 'Cricket Tournament' }}">
         <meta property="og:type" content="website" />
         <meta property="og:title" content="{{ $tournament->name ?? 'Tournament' }}" />
         <meta property="og:description" content="{{ $tournament->description ?? 'Cricket Tournament' }}" />
-        @if(isset($tournament) && ($tournament->settings?->logo ?? $tournament->logo))
-            <meta property="og:image" content="{{ Storage::url($tournament->settings?->logo ?? $tournament->logo) }}" />
+        <meta property="og:url" content="{{ url()->current() }}" />
+        <meta property="og:site_name" content="{{ $tournament->name ?? config('app.name') }}" />
+        @if($shareImage)
+            {{-- Absolute URL so WhatsApp/Facebook/Twitter scrapers can fetch it --}}
+            <meta property="og:image" content="{{ $shareImage }}" />
+            <meta property="og:image:secure_url" content="{{ $shareImage }}" />
+            <meta property="og:image:width" content="1200" />
+            <meta property="og:image:height" content="630" />
+            <meta name="twitter:card" content="summary_large_image" />
+            <meta name="twitter:title" content="{{ $tournament->name ?? 'Tournament' }}" />
+            <meta name="twitter:description" content="{{ $tournament->description ?? 'Cricket Tournament' }}" />
+            <meta name="twitter:image" content="{{ $shareImage }}" />
         @endif
     @endif
 

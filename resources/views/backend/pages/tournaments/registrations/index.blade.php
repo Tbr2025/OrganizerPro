@@ -4,11 +4,18 @@
 
 @section('admin-content')
     <div class="p-4 mx-auto max-w-7xl md:p-6">
-        <x-breadcrumbs :breadcrumbs="[
-            ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
-            ['label' => $tournament->name],
-            ['label' => 'Registrations']
-        ]" />
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+            <x-breadcrumbs :breadcrumbs="[
+                ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
+                ['label' => $tournament->name],
+                ['label' => 'Registrations']
+            ]" />
+            <a href="{{ route('admin.tournaments.settings.edit', $tournament) }}"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg">
+                <iconify-icon icon="lucide:settings"></iconify-icon>
+                Registration Settings
+            </a>
+        </div>
 
         <div class="mt-6">
             {{-- Public Registration Links --}}

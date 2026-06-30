@@ -57,6 +57,7 @@ class TournamentSettingsController extends Controller
             'logo' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'background_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
             'flyer_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
+            'og_image' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
             'photo_sample' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
             'photo_guidelines' => 'nullable|string|max:2000',
             'team_photo_sample' => 'nullable|image|mimes:png,jpg,jpeg|max:5120',
@@ -179,6 +180,13 @@ class TournamentSettingsController extends Controller
                 Storage::disk('public')->delete($settings->flyer_image);
             }
             $validated['flyer_image'] = $request->file('flyer_image')->store('tournament_flyers', 'public');
+        }
+
+        if ($request->hasFile('og_image')) {
+            if ($settings->og_image) {
+                Storage::disk('public')->delete($settings->og_image);
+            }
+            $validated['og_image'] = $request->file('og_image')->store('tournament_og', 'public');
         }
 
         if ($request->hasFile('photo_sample')) {

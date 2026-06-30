@@ -77,6 +77,8 @@ class TournamentSetting extends Model
         // Team image/logo guidelines (registration)
         'team_photo_guidelines',
         'team_photo_sample_path',
+        // Social share / Open Graph image
+        'og_image',
     ];
 
     protected $casts = [
@@ -164,6 +166,19 @@ class TournamentSetting extends Model
     public function getTeamPhotoSampleUrlAttribute(): ?string
     {
         return $this->team_photo_sample_path ? asset('storage/' . $this->team_photo_sample_path) : null;
+    }
+
+    /**
+     * Absolute URL of the social-share (Open Graph) image. Falls back to the
+     * registration banner → background → logo, so shared links always have a thumbnail.
+     * asset() prepends APP_URL so social scrapers get an absolute https URL.
+     */
+    public function getShareImageUrlAttribute(): ?string
+    {
+        $banner = is_array($this->registration_theme) ? ($this->registration_theme['banner_image'] ?? null) : null;
+        $path = $this->og_image ?: ($banner ?: ($this->background_image ?: $this->logo));
+
+        return $path ? asset('storage/' . ltrim($path, '/')) : null;
     }
 
     public function getBackgroundImageUrlAttribute(): ?string
