@@ -66,7 +66,8 @@
 }"
 x-init="
     $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)));
-    $watch('sidebarToggle', value => localStorage.setItem('sidebarToggle', JSON.stringify(value)))
+    $watch('sidebarToggle', value => localStorage.setItem('sidebarToggle', JSON.stringify(value)));
+    if (window.innerWidth < 1024) { sidebarToggle = false; }
 "
 :class="{ 'dark': darkMode }"
 class="bg-gray-50 dark:bg-dark-bg">

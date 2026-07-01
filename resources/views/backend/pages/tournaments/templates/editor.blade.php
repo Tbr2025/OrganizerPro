@@ -115,6 +115,15 @@
     .layer-drag-handle:active { cursor: grabbing; }
     .layer-drag-handle svg { width: 14px; height: 14px; }
     .layer-item.drag-over { border-top: 2px solid #818cf8; }
+    /* Mobile: bigger tap targets; show move buttons; hide drag handle */
+    .layer-btn-move { display: none; }
+    @media (max-width: 768px) {
+        .layer-item { padding: 10px 8px; gap: 6px; }
+        .layer-action-btn { width: 28px; height: 28px; }
+        .layer-drag-handle { display: none; }
+        .layer-btn-move { display: flex; }
+        .sidebar-tab { padding: 14px 6px; font-size: 12px; }
+    }
 
     .icon-item { display: flex; align-items: center; justify-content: center; padding: 8px; background: #252538; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
     .icon-item:hover { background: #2d2d4a; border-color: #4f46e5; }
@@ -144,7 +153,7 @@
         .editor-header { gap: 8px; padding: 0 8px; }
         .header-title { flex: 0 1 auto; min-width: 0; gap: 8px; }
         .header-title #templateName { min-width: 0 !important; width: 100px; }
-        .header-title > span { display: none; } /* hide the type badge */
+        .header-title > span { display: none; }
         .toolbar-center {
             flex: 1 1 0;
             min-width: 0;
@@ -156,9 +165,142 @@
         .toolbar-center::-webkit-scrollbar { display: none; }
         .toolbar-group { padding: 0 6px; }
         .header-actions { flex: 0 0 auto; gap: 6px; }
-        /* Show buttons as compact icons on mobile so both fit */
         .header-actions .btn-label { display: none; }
         .header-actions .prop-btn { padding: 8px; }
+
+        /* Three-column → single active panel */
+        .editor-body { position: relative; overflow: hidden; }
+
+        .editor-sidebar,
+        .editor-properties {
+            position: fixed;
+            top: 56px;
+            bottom: 56px;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 50;
+            display: none;
+            overflow-y: auto;
+        }
+        .editor-sidebar.mobile-active,
+        .editor-properties.mobile-active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Canvas always fills the body; overlays sit on top */
+        .editor-canvas-area {
+            width: 100% !important;
+            flex: 1;
+            padding-bottom: 56px;
+        }
+
+        /* Prevent browser scroll from stealing touch events on canvas */
+        .editor-canvas-wrapper { overflow: hidden; touch-action: none; }
+        #canvas-container canvas { touch-action: none; }
+
+        /* Footer (zoom) hidden on mobile — use pinch-to-zoom */
+        .editor-footer { display: none; }
+
+        /* Tap-to-add: style draggable items as buttons on mobile */
+        .draggable-item {
+            cursor: pointer;
+            position: relative;
+        }
+        .draggable-item:not([onclick])::after {
+            content: '+';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(99,102,241,0.25);
+            color: #a78bfa;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 22px;
+            text-align: center;
+        }
+        .draggable-item:active { background: #2d2d4a; }
+    }
+
+    /* Mobile overlay close bar */
+    .mobile-panel-close-bar {
+        display: none;
+    }
+    @media (max-width: 768px) {
+        .mobile-panel-close-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #1a1a2e;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+        .mobile-panel-back-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: none;
+            border: none;
+            color: #a78bfa;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 6px 10px 6px 6px;
+            border-radius: 6px;
+            touch-action: manipulation;
+        }
+        .mobile-panel-back-btn:active { background: rgba(99,102,241,0.15); }
+        .mobile-panel-back-btn svg { width: 18px; height: 18px; }
+        .mobile-panel-title {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 600;
+            color: #e2e2e2;
+        }
+    }
+
+    /* Mobile bottom tab bar */
+    .mobile-tab-bar {
+        display: none;
+    }
+    @media (max-width: 768px) {
+        .mobile-tab-bar {
+            display: flex;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            background: #0f0f23;
+            border-top: 1px solid rgba(255,255,255,0.12);
+            z-index: 100;
+        }
+        .mobile-tab {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.45);
+            font-size: 10px;
+            cursor: pointer;
+            padding: 4px 0;
+            transition: color 0.15s;
+            touch-action: manipulation;
+        }
+        .mobile-tab iconify-icon { font-size: 20px; }
+        .mobile-tab.active { color: #a78bfa; }
+        .mobile-tab.mobile-save-btn { color: #34d399; }
+        .mobile-tab.mobile-save-btn:active { opacity: 0.7; }
     }
 </style>
 @endpush
@@ -233,6 +375,14 @@
     <div class="editor-body">
         {{-- Left Sidebar --}}
         <div class="editor-sidebar">
+            {{-- Mobile close bar --}}
+            <div class="mobile-panel-close-bar">
+                <button class="mobile-panel-back-btn" onclick="mobileShowTab('canvas')">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    Canvas
+                </button>
+                <span class="mobile-panel-title">Elements</span>
+            </div>
             <div class="sidebar-tabs">
                 <div class="sidebar-tab active" data-tab="elements" onclick="switchTab('elements')">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z"/></svg>
@@ -601,6 +751,14 @@
 
         {{-- Properties Panel --}}
         <div class="editor-properties" id="propertiesPanel">
+            {{-- Mobile close bar --}}
+            <div class="mobile-panel-close-bar">
+                <button class="mobile-panel-back-btn" onclick="mobileShowTab('canvas')">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    Canvas
+                </button>
+                <span class="mobile-panel-title">Properties</span>
+            </div>
             <div id="noSelectionPanel" class="no-selection">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/></svg>
                 <p>Select an element</p>
@@ -1231,6 +1389,26 @@
         </div>
     </div>
 
+    {{-- Mobile bottom tab navigation --}}
+    <div class="mobile-tab-bar" id="mobileTabBar">
+        <button onclick="mobileShowTab('elements')" id="mobileTabElements" class="mobile-tab">
+            <iconify-icon icon="lucide:plus-square"></iconify-icon>
+            <span>Add</span>
+        </button>
+        <button onclick="mobileShowTab('canvas')" id="mobileTabCanvas" class="mobile-tab active">
+            <iconify-icon icon="lucide:image"></iconify-icon>
+            <span>Canvas</span>
+        </button>
+        <button onclick="mobileShowTab('layers')" id="mobileTabLayers" class="mobile-tab">
+            <iconify-icon icon="lucide:layers"></iconify-icon>
+            <span>Layers</span>
+        </button>
+        <button onclick="mobileShowTab('properties')" id="mobileTabProperties" class="mobile-tab">
+            <iconify-icon icon="lucide:sliders-horizontal"></iconify-icon>
+            <span>Props</span>
+        </button>
+    </div>
+
     {{-- Footer --}}
     <div class="editor-footer">
         <div class="flex items-center gap-4 flex-1">
@@ -1394,6 +1572,7 @@ const editor = {
             height: this.canvasHeight,
             backgroundColor: '#1a1a2e',
             preserveObjectStacking: true,
+            allowTouchScrolling: false,
         });
 
         // Fit canvas to available space
@@ -1440,8 +1619,14 @@ const editor = {
     },
 
     setupEvents() {
-        this.canvas.on('selection:created', (e) => this.showProperties(e.selected[0]));
-        this.canvas.on('selection:updated', (e) => this.showProperties(e.selected[0]));
+        this.canvas.on('selection:created', (e) => {
+            this.showProperties(e.selected[0]);
+            if (window.innerWidth <= 768) mobileShowTab('properties');
+        });
+        this.canvas.on('selection:updated', (e) => {
+            this.showProperties(e.selected[0]);
+            if (window.innerWidth <= 768) mobileShowTab('properties');
+        });
         this.canvas.on('selection:cleared', () => this.hideProperties());
         this.canvas.on('object:modified', (e) => {
             const o = e && e.target;
@@ -1511,6 +1696,17 @@ const editor = {
         });
     },
 
+    // Tap-to-add for mobile (drag-drop doesn't work on touch)
+    addToCenter(type, placeholder, shape) {
+        const cx = this.canvasWidth / 2;
+        const cy = this.canvasHeight / 2;
+        if (type === 'text') this.addText(placeholder, cx, cy);
+        else if (type === 'image') this.addImagePlaceholder(placeholder, cx, cy);
+        else if (type === 'shape') this.addShape(shape, cx, cy);
+        else if (type === 'tableArea') this.addTableArea(cx, cy);
+        if (window.innerWidth <= 768) mobileShowTab('canvas');
+    },
+
     setupDragDrop() {
         document.querySelectorAll('.draggable-item').forEach(item => {
             item.addEventListener('dragstart', (e) => {
@@ -1518,6 +1714,13 @@ const editor = {
                 e.dataTransfer.setData('placeholder', item.dataset.placeholder || '');
                 e.dataTransfer.setData('shape', item.dataset.shape || '');
             });
+            // Mobile: tap to add at canvas center (drag-drop not supported on touch)
+            if (!item.hasAttribute('onclick') && item.dataset.type) {
+                item.addEventListener('click', () => {
+                    if (window.innerWidth > 768) return;
+                    this.addToCenter(item.dataset.type, item.dataset.placeholder || '', item.dataset.shape || '');
+                });
+            }
         });
 
         const wrapper = document.getElementById('canvasWrapper');
@@ -2879,11 +3082,15 @@ const editor = {
         const objects = this.canvas.getObjects();
         document.getElementById('layerCount').textContent = objects.length;
         const list = document.getElementById('layersList');
+        const total = objects.length;
+        const penIcon = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+        const upIcon  = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>';
+        const downIcon= '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>';
         list.innerHTML = [...objects].reverse().map((obj, i) => {
             const rawName = obj.layerName || obj.placeholder || obj.shapeType || obj.type || 'Element';
             const name = rawName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const selected = obj === this.canvas.getActiveObject();
-            const idx = objects.length - 1 - i;
+            const idx = total - 1 - i;
             const isHidden = obj.visible === false;
             const isLocked = obj.locked === true;
             const classes = ['layer-item', selected ? 'selected' : '', isHidden ? 'hidden-layer' : '', isLocked ? 'locked-layer' : ''].filter(Boolean).join(' ');
@@ -2905,6 +3112,9 @@ const editor = {
                     <div class="layer-type">${obj.elementType || obj.type}</div>
                 </div>
                 <div class="layer-actions">
+                    <button class="layer-action-btn layer-btn-move" onclick="event.stopPropagation(); editor.moveLayerUp(${idx})" title="Move up" ${idx >= total-1 ? 'disabled style="opacity:0.3"' : ''}>${upIcon}</button>
+                    <button class="layer-action-btn layer-btn-move" onclick="event.stopPropagation(); editor.moveLayerDown(${idx})" title="Move down" ${idx <= 0 ? 'disabled style="opacity:0.3"' : ''}>${downIcon}</button>
+                    <button class="layer-action-btn" onclick="event.stopPropagation(); editor.renameLayer(${idx})" title="Rename">${penIcon}</button>
                     <button class="layer-action-btn ${isHidden ? '' : 'active'}" onclick="event.stopPropagation(); editor.toggleLayerVisibility(${idx})" title="${isHidden ? 'Show' : 'Hide'}">${eyeIcon}</button>
                     <button class="layer-action-btn ${isLocked ? 'active' : ''}" onclick="event.stopPropagation(); editor.toggleLayerLock(${idx})" title="${isLocked ? 'Unlock' : 'Lock'}">${lockIcon}</button>
                 </div>
@@ -2956,6 +3166,28 @@ const editor = {
             else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
         });
         input.addEventListener('blur', () => finish(true));
+    },
+
+    // Rename triggered by button (works on touch); dblclick handler also calls startLayerRename directly
+    renameLayer(idx) {
+        const el = document.querySelector(`[data-layer-idx="${idx}"] .layer-name`);
+        if (el) this.startLayerRename(idx, el);
+    },
+
+    // Move layer up/down in z-order — for mobile where drag-drop isn't available
+    moveLayerUp(idx) {
+        const objects = this.canvas.getObjects();
+        const obj = objects[idx];
+        if (!obj || idx >= objects.length - 1) return;
+        this.canvas.moveTo(obj, idx + 1);
+        this.canvas.renderAll(); this.updateLayers(); this.saveHistory();
+    },
+    moveLayerDown(idx) {
+        const objects = this.canvas.getObjects();
+        const obj = objects[idx];
+        if (!obj || idx <= 0) return;
+        this.canvas.moveTo(obj, idx - 1);
+        this.canvas.renderAll(); this.updateLayers(); this.saveHistory();
     },
 
     _layerDragIdx: null,
@@ -3428,5 +3660,30 @@ function filterIcons(query) {
 }
 
 document.addEventListener('DOMContentLoaded', () => editor.init());
+
+// Mobile tab bar navigation
+function mobileShowTab(tab) {
+    if (window.innerWidth > 768) return;
+    const sidebar = document.querySelector('.editor-sidebar');
+    const props   = document.querySelector('.editor-properties');
+    sidebar.classList.remove('mobile-active');
+    props.classList.remove('mobile-active');
+
+    if (tab === 'elements') {
+        sidebar.classList.add('mobile-active');
+        switchTab('elements');
+    } else if (tab === 'layers') {
+        sidebar.classList.add('mobile-active');
+        switchTab('layers');
+    } else if (tab === 'properties') {
+        props.classList.add('mobile-active');
+    }
+    // 'canvas' = neither overlay active; the canvas is always behind them
+
+    const tabMap = { elements: 'mobileTabElements', canvas: 'mobileTabCanvas', layers: 'mobileTabLayers', properties: 'mobileTabProperties' };
+    document.querySelectorAll('.mobile-tab').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(tabMap[tab]);
+    if (btn) btn.classList.add('active');
+}
 </script>
 @endpush

@@ -11,12 +11,12 @@
 
 <div class="space-y-6">
     {{-- Header --}}
-    <div class="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl p-6 text-white">
-        <div class="flex justify-between items-start">
-            <div>
-                <h1 class="text-2xl font-bold">Template Designer</h1>
-                <p class="text-indigo-200 mt-1">Create and manage visual templates for {{ $tournament->name }}</p>
-                <div class="flex items-center gap-4 mt-3">
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl p-5 text-white overflow-hidden">
+        <div class="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
+            <div class="min-w-0">
+                <h1 class="text-xl sm:text-2xl font-bold">Template Designer</h1>
+                <p class="text-indigo-200 mt-1 text-sm">Create and manage visual templates for {{ $tournament->name }}</p>
+                <div class="flex items-center gap-3 mt-3 flex-wrap">
                     <span class="text-sm bg-white/20 px-3 py-1 rounded-full">
                         {{ $templates->flatten()->count() }} Templates
                     </span>
@@ -25,17 +25,17 @@
                     </span>
                 </div>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
                 <a href="{{ route('admin.tournaments.templates.generate', $tournament) }}"
-                   class="inline-flex items-center px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="inline-flex items-center px-3 py-2 sm:px-4 bg-green-500 text-white text-sm font-semibold rounded-lg hover:bg-green-600 transition whitespace-nowrap">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     Generate Poster
                 </a>
                 <a href="{{ route('admin.tournaments.templates.create', $tournament) }}"
-                   class="inline-flex items-center px-4 py-2 bg-white text-indigo-700 font-semibold rounded-lg hover:bg-indigo-50 transition">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 transition whitespace-nowrap">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                     New Template
@@ -52,7 +52,7 @@
             </svg>
             T20 Cricket Poster Types
         </h3>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+        <div class="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-5 gap-3 text-sm">
             <div class="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3">
                 <span class="font-medium text-gray-900 dark:text-white">Match Poster</span>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Before match: Team vs Team announcement</p>
@@ -123,20 +123,20 @@
     @foreach($templateTypes as $type)
         @if(isset($templates[$type]) && $templates[$type]->count() > 0)
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-gradient-to-br {{ $typeColors[$type] ?? 'from-gray-500 to-gray-600' }} flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center gap-2 flex-wrap">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-gradient-to-br {{ $typeColors[$type] ?? 'from-gray-500 to-gray-600' }} flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 {!! $typeIcons[$type] ?? '' !!}
                             </svg>
                         </div>
-                        <div>
-                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}</h3>
+                        <div class="min-w-0">
+                            <h3 class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}</h3>
                             <p class="text-xs text-gray-500">{{ $templates[$type]->count() }} template(s)</p>
                         </div>
                     </div>
                     <a href="{{ route('admin.tournaments.templates.create', ['tournament' => $tournament, 'type' => $type]) }}"
-                       class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                       class="flex-shrink-0 text-sm text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
                         + Add New
                     </a>
                 </div>
@@ -169,8 +169,8 @@
                                         @endif
                                     </div>
 
-                                    {{-- Hover Actions --}}
-                                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                    {{-- Hover Actions (always visible on mobile, hover on desktop) --}}
+                                    <div class="absolute inset-0 bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition flex items-center justify-center gap-2">
                                         <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
                                            class="p-2 bg-white rounded-lg hover:bg-gray-100 transition" title="Edit">
                                             <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">

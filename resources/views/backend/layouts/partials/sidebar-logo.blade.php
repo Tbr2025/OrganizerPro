@@ -37,7 +37,7 @@
         :class="isMinified ? 'justify-center px-2' : 'justify-between px-5'"
         class="flex items-center gap-2 sidebar-header py-4 h-[72px] border-b border-gray-200 dark:border-gray-800/50"
         style="transition: padding 200ms ease-out;">
-        <a href="{{ route('admin.dashboard') }}" class="flex items-center min-w-0 overflow-hidden max-w-full">
+        <a href="{{ route('admin.dashboard') }}" class="flex items-center min-w-0 overflow-hidden max-w-full flex-1">
             <!-- Full Logo (shown when expanded) -->
             <span
                 class="logo flex-shrink-0 overflow-hidden"
@@ -63,6 +63,15 @@
                 alt="{{ config('app.name') }}"
                 loading="eager" />
         </a>
+        <!-- Mobile close button (hidden on desktop) -->
+        <button
+            @click="sidebarToggle = false"
+            class="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 flex-shrink-0"
+            title="Close menu">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
     </div>
     <!-- End Sidebar Header -->
 

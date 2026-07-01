@@ -64,7 +64,7 @@
 
     @case('country')
         <label for="country" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="country" id="country" class="reg-select" x-model="selectedCountry" {{ $required ? 'required' : '' }}>
+        <select name="country" id="country" class="reg-select" x-model="selectedCountry" autocomplete="off" {{ $required ? 'required' : '' }}>
             <option value="">Select your nationality</option>
             @foreach (config('countries.list', []) as $code => $name)
                 <option value="{{ $code }}">{{ $name }}</option>
@@ -75,13 +75,13 @@
 
     @case('state')
         <label for="state" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="state" id="state" class="reg-select" x-model="stateValue" x-show="hasStates" :disabled="!hasStates" {{ $required ? 'required' : '' }}>
+        <select name="state" id="state" class="reg-select" x-model="stateValue" x-show="hasStates" :disabled="!hasStates" autocomplete="off" {{ $required ? 'required' : '' }}>
             <option value="">Select your state</option>
             <template x-for="s in (statesByCountry[selectedCountry] || [])" :key="s">
                 <option :value="s" x-text="s"></option>
             </template>
         </select>
-        <input type="text" name="state" class="reg-input" x-model="stateValue" x-show="!hasStates" :disabled="hasStates" placeholder="Enter state / province" {{ $required ? 'required' : '' }}>
+        <input type="text" name="state" class="reg-input" x-model="stateValue" x-show="!hasStates" :disabled="hasStates" autocomplete="off" placeholder="Enter state / province" {{ $required ? 'required' : '' }}>
         @error('state')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
