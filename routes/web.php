@@ -842,6 +842,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');
             Route::match(['get', 'post'], '/templates/{template}/preview', [TournamentTemplateController::class, 'preview'])->name('templates.preview');
             Route::post('/templates/{template}/duplicate', [TournamentTemplateController::class, 'duplicate'])->name('templates.duplicate');
+            // Graceful GET fallbacks: these actions are POST-only, but prefetchers,
+            // bookmarks, or a directly-opened action URL send GET and would 405.
+            // Redirect them back to the template list instead of an error page.
+            Route::get('/templates/{template}/duplicate', fn (\App\Models\Tournament $tournament) => redirect()->route('admin.tournaments.templates.index', $tournament));
+            Route::get('/templates/{template}/set-default', fn (\App\Models\Tournament $tournament) => redirect()->route('admin.tournaments.templates.index', $tournament));
             Route::post('/templates/upload-overlay', [TournamentTemplateController::class, 'uploadOverlay'])->name('templates.upload-overlay');
             Route::post('/templates/delete-overlay', [TournamentTemplateController::class, 'deleteOverlay'])->name('templates.delete-overlay');
             Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
