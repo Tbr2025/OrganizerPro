@@ -121,7 +121,7 @@
                             <x-image-dropzone
                                 name="background_image"
                                 :existingImage="$settings->background_image"
-                                hint="Displayed behind the hero section on the public page"
+                                hint="Shown as the hero banner background on the public registration form (if no Registration-Theme banner is set)"
                                 previewHeight="h-32"
                                 previewAspect="cover"
                             />
@@ -368,6 +368,18 @@
                             <input type="number" name="min_players_per_team" id="min_players_per_team" min="1" max="50"
                                 value="{{ old('min_players_per_team', $settings->min_players_per_team ?? 11) }}"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        </div>
+
+                        <div>
+                            <label for="default_country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Default Nationality</label>
+                            <select name="default_country" id="default_country"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                <option value="">Use global default ({{ config('countries.list.' . config('settings.default_country'), 'none') }})</option>
+                                @foreach (config('countries.list', []) as $code => $name)
+                                    <option value="{{ $code }}" {{ old('default_country', $settings->default_country) === $code ? 'selected' : '' }}>{{ $name }}</option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Pre-selected nationality on this tournament's registration form.</p>
                         </div>
                     </div>
                 </div>

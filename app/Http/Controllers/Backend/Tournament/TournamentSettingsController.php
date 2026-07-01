@@ -72,6 +72,7 @@ class TournamentSettingsController extends Controller
             'registration_deadline' => 'nullable|date',
             'max_players_per_team' => 'integer|min:1|max:50',
             'min_players_per_team' => 'integer|min:1|max:50',
+            'default_country' => 'nullable|string|max:2',
 
             // Fixture Settings
             'format' => 'in:group_knockout,league,knockout',

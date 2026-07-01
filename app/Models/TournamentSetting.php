@@ -25,6 +25,7 @@ class TournamentSetting extends Model
         'registration_deadline',
         'max_players_per_team',
         'min_players_per_team',
+        'default_country',
         // Fixture Settings
         'format',
         'number_of_groups',

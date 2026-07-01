@@ -38,7 +38,12 @@
     .reg-hint { color: rgba(255, 255, 255, 0.45); font-size: .75rem; margin-top: .4rem; }
     .reg-err { color: #f87171; font-size: .8rem; margin-top: .4rem; }
 
-    .reg-section { padding: 1.5rem; border-radius: 1rem; margin-bottom: 1.25rem; }
+    .reg-section {
+        padding: 1.5rem; border-radius: 1rem; margin-bottom: 1.25rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
     @media (min-width: 640px) { .reg-section { padding: 1.75rem; } }
 
     .reg-section-head { display: flex; align-items: center; gap: .85rem; margin-bottom: 1.4rem; }

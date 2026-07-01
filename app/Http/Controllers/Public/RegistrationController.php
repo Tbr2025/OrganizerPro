@@ -54,7 +54,8 @@ class RegistrationController extends Controller
                       ->orWhere('organization_id', $tournament->organization_id);
             })->get(),
             'teams' => Team::where('tournament_id', $tournament->id)->get(),
-            'defaultCountry' => config('settings.default_country', 'IN'),
+            // Per-tournament default nationality, falling back to the global setting.
+            'defaultCountry' => ($settings?->default_country) ?: config('settings.default_country', 'IN'),
         ]);
     }
 
