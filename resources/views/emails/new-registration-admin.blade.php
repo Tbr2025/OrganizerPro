@@ -8,12 +8,19 @@
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     @php
         $primaryColor = $tournament->settings?->primary_color ?? '#1a56db';
-        $secondaryColor = $tournament->settings?->secondary_color ?? '#ffffff';
+        $appLogoRaw = config('settings.site_logo_lite') ?: 'images/logo/lara-dashboard.png';
+        $appLogo = \Illuminate\Support\Str::startsWith($appLogoRaw, ['http://', 'https://']) ? $appLogoRaw : asset(ltrim($appLogoRaw, '/'));
+        $tournamentLogo = $tournament->settings?->logo_url;
     @endphp
     <div style="background: {{ $primaryColor }}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <img src="{{ $tournament->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
-        <h1 style="color: {{ $secondaryColor }}; margin: 0; font-size: 24px;">New {{ ucfirst($registrationType) }} Registration</h1>
-        <p style="color: {{ $secondaryColor }}; margin: 10px 0 0 0;">{{ $tournament->name }}</p>
+        <div style="margin: 0 auto 15px;">
+            <img src="{{ $appLogo }}" alt="{{ config('app.name') }}" style="height: 56px; max-width: 160px; object-fit: contain; background: #ffffff; border-radius: 8px; padding: 8px; vertical-align: middle;">
+            @if($tournamentLogo)
+                <img src="{{ $tournamentLogo }}" alt="{{ $tournament->name }}" style="height: 56px; width: 56px; object-fit: contain; background: #ffffff; border-radius: 50%; padding: 6px; vertical-align: middle; margin-left: 12px;">
+            @endif
+        </div>
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">New {{ ucfirst($registrationType) }} Registration</h1>
+        <p style="color: rgba(255,255,255,0.85); margin: 10px 0 0 0;">{{ $tournament->name }}</p>
     </div>
 
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
