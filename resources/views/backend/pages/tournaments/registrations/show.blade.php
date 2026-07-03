@@ -191,6 +191,14 @@
                     @endphp
                     <form method="POST" action="{{ route('admin.tournaments.registrations.verification', [$tournament, $registration]) }}" class="space-y-6">
                         @csrf
+                        {{-- Verify-all toggle: ticks every field's Verified box at once --}}
+                        <div class="flex items-center justify-between gap-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/40 rounded-lg px-4 py-3">
+                            <label class="flex items-center gap-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300 cursor-pointer">
+                                <input type="checkbox" id="verifyAllToggle" class="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                Verify all fields
+                            </label>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Tick to mark every field below as verified.</span>
+                        </div>
                         @if($p && $p->image_path)
                         <div>
                             <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
@@ -393,3 +401,26 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const master = document.getElementById('verifyAllToggle');
+        if (!master) return;
+        const getBoxes = () => Array.from(document.querySelectorAll('input[name="verified[]"]'));
+
+        // Toggle all field checkboxes when the master changes.
+        master.addEventListener('change', function () {
+            getBoxes().forEach(function (cb) { cb.checked = master.checked; });
+        });
+
+        // Keep the master in sync: checked only when every field is checked.
+        const sync = function () {
+            const boxes = getBoxes();
+            master.checked = boxes.length > 0 && boxes.every(function (cb) { return cb.checked; });
+        };
+        getBoxes().forEach(function (cb) { cb.addEventListener('change', sync); });
+        sync();
+    });
+</script>
+@endpush
