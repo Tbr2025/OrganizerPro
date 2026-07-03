@@ -146,7 +146,8 @@
                         $p = $registration->player;
                         $regSettings = $tournament->settings;
                         $fieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig($regSettings);
-                        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($regSettings, false);
+                        // Only the fields that are visible on the public form (match the form exactly).
+                        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($regSettings, true);
                         $countries = config('countries.list', []);
                         $visaList = config('registration.visa_statuses', []);
                         $valueFor = function ($key) use ($p, $countries, $visaList, $registration) {
@@ -169,8 +170,8 @@
                                 'employer_name' => $p->employer_name,
                                 'employer_address' => $p->employer_address,
                                 'employer_position' => $p->employer_position,
-                                'available_saturday' => $p->available_saturday ? 'Yes' : null,
-                                'available_sunday' => $p->available_sunday ? 'Yes' : null,
+                                'available_saturday' => is_null($p->available_saturday) ? null : ($p->available_saturday ? 'Yes' : 'No'),
+                                'available_sunday' => is_null($p->available_sunday) ? null : ($p->available_sunday ? 'Yes' : 'No'),
                                 'played_ys_ipl_s1' => is_null($p->played_ys_ipl_s1) ? null : ($p->played_ys_ipl_s1 ? 'Yes' : 'No'),
                                 'jersey_name' => $p->jersey_name,
                                 'jersey_number' => $p->jersey_number,
@@ -178,7 +179,7 @@
                                 'player_type' => $p->playerType?->name ?? $p->playerType?->type,
                                 'batting_profile' => $p->battingProfile?->name ?? $p->battingProfile?->style,
                                 'bowling_profile' => $p->bowlingProfile?->name ?? $p->bowlingProfile?->style,
-                                'is_wicket_keeper' => $p->is_wicket_keeper ? 'Yes' : null,
+                                'is_wicket_keeper' => is_null($p->is_wicket_keeper) ? null : ($p->is_wicket_keeper ? 'Yes' : 'No'),
                                 'total_matches' => $p->total_matches,
                                 'total_runs' => $p->total_runs,
                                 'total_wickets' => $p->total_wickets,
@@ -198,13 +199,12 @@
 
                         @foreach($layout as $section)
                             @php
+                                // Show EVERY field that is visible on the public form — even when the
+                                // applicant left it blank (optional fields), so the admin sees the full form.
                                 $rows = [];
                                 foreach ($section['fields'] as $key) {
                                     if (in_array($key, $skip, true)) continue;
-                                    $val = $valueFor($key);
-                                    if ($val !== null && $val !== '') {
-                                        $rows[$key] = $val;
-                                    }
+                                    $rows[$key] = $valueFor($key); // may be null/empty
                                 }
                             @endphp
                             @if(count($rows))
@@ -212,17 +212,30 @@
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $section['title'] }}</h3>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     @foreach($rows as $key => $value)
-                                    @php $isVerified = in_array($key, $verifiedFields, true); @endphp
+                                    @php
+                                        $isVerified = in_array($key, $verifiedFields, true);
+                                        $isEmpty = ($value === null || $value === '');
+                                        $isRequired = $fieldConfig[$key]['required'] ?? false;
+                                    @endphp
                                     <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
                                         <input type="hidden" name="all_fields[]" value="{{ $key }}">
                                         <div class="flex items-start justify-between gap-2">
-                                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $fieldConfig[$key]['label'] ?? $key }}</h4>
+                                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                {{ $fieldConfig[$key]['label'] ?? $key }}
+                                                @if($isRequired)
+                                                    <span class="text-red-500" title="Required field">*</span>
+                                                @else
+                                                    <span class="ml-1 text-[9px] normal-case font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+                                                @endif
+                                            </h4>
                                             <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
                                                 <input type="checkbox" name="verified[]" value="{{ $key }}" {{ $isVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
                                                 <span>Verified</span>
                                             </label>
                                         </div>
-                                        @if($key === 'cricheroes_profile_url')
+                                        @if($isEmpty)
+                                            <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                        @elseif($key === 'cricheroes_profile_url')
                                             <a href="{{ $value }}" target="_blank" class="mt-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline break-all">{{ $value }}</a>
                                         @else
                                             <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
