@@ -40,6 +40,13 @@ class TournamentRegistration extends Model
         'welcome_card_sent_at',
         'flyer_sent',
         'flyer_sent_at',
+        // Admin per-field verification
+        'verified_fields',
+        // Digitally-signed consent
+        'consent_name',
+        'consent_signed_at',
+        'consent_ip',
+        'consent_snapshot',
     ];
 
     protected $casts = [
@@ -48,6 +55,8 @@ class TournamentRegistration extends Model
         'welcome_card_sent_at' => 'datetime',
         'flyer_sent' => 'boolean',
         'flyer_sent_at' => 'datetime',
+        'verified_fields' => 'array',
+        'consent_signed_at' => 'datetime',
     ];
 
     public function tournament(): BelongsTo

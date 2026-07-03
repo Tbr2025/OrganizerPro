@@ -78,12 +78,17 @@ class RegistrationController extends Controller
         }
 
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
-        $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'public');
+        $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'public', $tournament->settings);
 
         // If image was pre-processed via AJAX, relax the file validation
         if ($request->filled('processed_image_path')) {
             $rules['image'] = 'nullable';
             $rules['processed_image_path'] = 'required|string|max:500';
+        }
+
+        // When the tournament has T&C content, a typed signature is required.
+        if (!empty($tournament->settings?->terms_and_conditions_content)) {
+            $rules['consent_name'] = 'required|string|max:150';
         }
 
         $validated = $request->validate($rules);
@@ -95,6 +100,14 @@ class RegistrationController extends Controller
         $validated['available_sunday'] = $request->boolean('available_sunday');
         $validated['available_weekends'] = $request->boolean('available_saturday') || $request->boolean('available_sunday');
         $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
+
+        // Digitally-signed consent: capture typed name + IP + a snapshot of the
+        // T&C content the applicant accepted (timestamp set in the service).
+        if ($request->filled('consent_name')) {
+            $validated['consent_name'] = $request->input('consent_name');
+            $validated['consent_ip'] = $request->ip();
+            $validated['consent_snapshot'] = $tournament->settings?->terms_and_conditions_content;
+        }
 
         // Handle image — pre-processed path from AJAX upload, or fallback to raw file
         if ($request->filled('processed_image_path')
@@ -153,7 +166,18 @@ class RegistrationController extends Controller
 
         $teamFieldConfig = TeamFormConfig::getFieldConfig($tournament->settings);
         $rules = TeamFormConfig::buildValidationRules($teamFieldConfig);
+        // Typed signature required when the team T&C content is configured.
+        if (!empty($tournament->settings?->team_terms_and_conditions_content)) {
+            $rules['consent_name'] = 'required|string|max:150';
+        }
         $validated = $request->validate($rules);
+
+        // Digitally-signed consent capture (typed name + IP + T&C snapshot).
+        if ($request->filled('consent_name')) {
+            $validated['consent_name'] = $request->input('consent_name');
+            $validated['consent_ip'] = $request->ip();
+            $validated['consent_snapshot'] = $tournament->settings?->team_terms_and_conditions_content;
+        }
 
         try {
             $registration = $this->registrationService->registerTeam($tournament, $validated);

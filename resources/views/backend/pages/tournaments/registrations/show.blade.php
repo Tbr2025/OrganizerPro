@@ -185,8 +185,10 @@
                             };
                         };
                         $skip = ['name', 'image', 'terms_and_conditions', 'playing_team'];
+                        $verifiedFields = (array) ($registration->verified_fields ?? []);
                     @endphp
-                    <div class="space-y-6">
+                    <form method="POST" action="{{ route('admin.tournaments.registrations.verification', [$tournament, $registration]) }}" class="space-y-6">
+                        @csrf
                         @if($p && $p->image_path)
                         <div>
                             <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
@@ -209,8 +211,16 @@
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $section['title'] }}</h3>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     @foreach($rows as $key => $value)
-                                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                                        <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $fieldConfig[$key]['label'] ?? $key }}</h4>
+                                    @php $isVerified = in_array($key, $verifiedFields, true); @endphp
+                                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                                        <input type="hidden" name="all_fields[]" value="{{ $key }}">
+                                        <div class="flex items-start justify-between gap-2">
+                                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $fieldConfig[$key]['label'] ?? $key }}</h4>
+                                            <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
+                                                <input type="checkbox" name="verified[]" value="{{ $key }}" {{ $isVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                                <span>Verified</span>
+                                            </label>
+                                        </div>
                                         @if($key === 'cricheroes_profile_url')
                                             <a href="{{ $value }}" target="_blank" class="mt-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline break-all">{{ $value }}</a>
                                         @else
@@ -231,7 +241,40 @@
                             </div>
                         </div>
                         @endif
-                    </div>
+
+                        {{-- Verification actions: save verified state, or email a correction request --}}
+                        <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <label for="verify_note" class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Note to applicant (optional, included in correction email)</label>
+                            <textarea name="note" id="verify_note" rows="2" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white" placeholder="e.g. Please upload a clearer photo and confirm your jersey number."></textarea>
+                            <div class="flex flex-wrap items-center gap-3 mt-3">
+                                <button type="submit" name="action" value="save"
+                                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
+                                    Save Verification
+                                </button>
+                                <button type="submit" name="action" value="send"
+                                    onclick="return confirm('Save verification and email the applicant a correction request for the unverified fields?')"
+                                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600">
+                                    Save &amp; Send Correction Request
+                                </button>
+                                @if($registration->consent_signed_at)
+                                    <a href="{{ route('admin.tournaments.registrations.consent-pdf', [$tournament, $registration]) }}"
+                                       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                        Download Consent PDF
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+                    </form>
+                @endif
+
+                {{-- Consent download for team registrations (players have it in the form above) --}}
+                @if($registration->isTeamRegistration() && $registration->consent_signed_at)
+                <div class="mt-6">
+                    <a href="{{ route('admin.tournaments.registrations.consent-pdf', [$tournament, $registration]) }}"
+                       class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        Download Consent PDF
+                    </a>
+                </div>
                 @endif
 
                 {{-- Registration Meta --}}

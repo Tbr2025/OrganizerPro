@@ -115,6 +115,15 @@
             @error('terms_and_conditions')<p class="reg-err">{{ $message }}</p>@enderror
 
             @if($hasTC)
+                {{-- Typed digital signature: captured once the T&C is accepted --}}
+                <div x-show="accepted" x-cloak class="mt-3">
+                    <label for="consent_name" class="reg-label">Type your full name to sign <span class="reg-req">*</span></label>
+                    <input type="text" name="consent_name" id="consent_name" value="{{ old('consent_name') }}"
+                           class="reg-input" placeholder="Your full legal name" x-bind:required="accepted">
+                    <p class="reg-hint">By typing your name you digitally sign and accept the Terms &amp; Conditions above. Your name, date &amp; time are recorded.</p>
+                </div>
+                @error('consent_name')<p class="reg-err">{{ $message }}</p>@enderror
+
                 <template x-teleport="body">
                     <div x-show="showTC" x-cloak class="fixed inset-0 z-[99999] flex items-center justify-center p-4"
                          style="background:rgba(0,0,0,0.7);" @keydown.escape.window="showTC = false">

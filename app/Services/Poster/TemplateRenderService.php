@@ -250,6 +250,22 @@ class TemplateRenderService extends PosterGeneratorService
         // single line lands exactly at $y (matching the previous behaviour).
         $firstCenterY = $y - intdiv($blockHeight, 2) + intdiv($lineHeight, 2);
 
+        // Horizontal anchor. The stored $x is the element's CENTER (Fabric originX
+        // is 'center'). drawTextLine()/addText() interpret the anchor per-align:
+        //   left  -> left edge of text, center -> text centre, right -> right edge.
+        // Convert the box centre into the correct edge so left/right actually align
+        // within the text box (previously everything collapsed to centre). Only when
+        // unrotated and a real box width is known; otherwise keep the centre point.
+        $anchorX = $x;
+        if ($rotation == 0 && $boxWidth > 0) {
+            $halfBox = intdiv((int) round($boxWidth), 2);
+            $anchorX = match ($textAlign) {
+                'left'  => $x - $halfBox,
+                'right' => $x + $halfBox,
+                default => $x,
+            };
+        }
+
         // If opacity < 100, render text onto a temp canvas and merge with opacity
         if ($opacity < 100) {
             $canvasW = imagesx($canvas);
@@ -266,7 +282,7 @@ class TemplateRenderService extends PosterGeneratorService
 
             foreach ($lines as $i => $line) {
                 $ly = $firstCenterY + $i * $lineHeight;
-                $this->drawTextLine($tempCanvas, $line, $x, $ly, $fontSize, $color, $fontFile, $textAlign, -$rotation, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth, $underline, $linethrough);
+                $this->drawTextLine($tempCanvas, $line, $anchorX, $ly, $fontSize, $color, $fontFile, $textAlign, -$rotation, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth, $underline, $linethrough);
             }
 
             // Merge temp canvas onto main canvas with opacity
@@ -277,7 +293,7 @@ class TemplateRenderService extends PosterGeneratorService
 
         foreach ($lines as $i => $line) {
             $ly = $firstCenterY + $i * $lineHeight;
-            $this->drawTextLine($canvas, $line, $x, $ly, $fontSize, $color, $fontFile, $textAlign, -$rotation, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth, $underline, $linethrough);
+            $this->drawTextLine($canvas, $line, $anchorX, $ly, $fontSize, $color, $fontFile, $textAlign, -$rotation, $shadow, $shadowX, $shadowY, $shadowColor, $strokeColor, $strokeWidth, $underline, $linethrough);
         }
     }
 
@@ -767,7 +783,11 @@ class TemplateRenderService extends PosterGeneratorService
         $height = (int) (($element['height'] ?? 150) * $this->renderScale);
 
         if (empty($path) || !Storage::disk('public')->exists($path)) {
-            $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+            // On real poster generation, a missing uploaded image must be invisible
+            // (never an ugly grey box). Only show the placeholder in editor previews.
+            if (! $this->skipBlanks) {
+                $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+            }
             return;
         }
 
@@ -777,7 +797,9 @@ class TemplateRenderService extends PosterGeneratorService
         // Load and render the uploaded image
         $srcImage = $this->loadBackground($path);
         if (!$srcImage) {
-            $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+            if (! $this->skipBlanks) {
+                $this->drawPlaceholderBox($canvas, $x, $y, $width, $height, 'Uploaded Image');
+            }
             return;
         }
 

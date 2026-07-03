@@ -800,6 +800,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/registrations/{registration}/cancel', [TournamentRegistrationController::class, 'cancel'])->name('registrations.cancel');
         Route::post('/registrations/bulk-approve', [TournamentRegistrationController::class, 'bulkApprove'])->name('registrations.bulk-approve');
         Route::delete('/registrations/{registration}/force-delete', [TournamentRegistrationController::class, 'forceDelete'])->name('registrations.force-delete');
+        // Per-field verification + correction (intimation) email
+        Route::post('/registrations/{registration}/verification', [TournamentRegistrationController::class, 'updateVerification'])->name('registrations.verification');
+        // Signed consent PDF download
+        Route::get('/registrations/{registration}/consent-pdf', [TournamentRegistrationController::class, 'downloadConsent'])->name('registrations.consent-pdf');
 
         // Groups
         Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');

@@ -26,6 +26,8 @@ class TournamentSetting extends Model
         'max_players_per_team',
         'min_players_per_team',
         'default_country',
+        'min_age',
+        'max_age',
         // Fixture Settings
         'format',
         'number_of_groups',

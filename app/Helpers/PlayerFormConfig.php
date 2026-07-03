@@ -221,7 +221,7 @@ class PlayerFormConfig
         ];
     }
 
-    public static function buildValidationRules(array $fieldConfig, string $context = 'public'): array
+    public static function buildValidationRules(array $fieldConfig, string $context = 'public', ?TournamentSetting $settings = null): array
     {
         $rules = [];
 
@@ -235,9 +235,23 @@ class PlayerFormConfig
         // Email - always required
         $rules['email'] = 'required|email|max:255';
 
-        // Date of Birth
+        // Date of Birth — block future dates and enforce the tournament's
+        // configurable minimum / maximum age when set.
         if ($fieldConfig['date_of_birth']['visible'] ?? true) {
-            $rules['date_of_birth'] = ($fieldConfig['date_of_birth']['required'] ?? false) ? 'required|date|before:today' : 'nullable|date|before:today';
+            $dobRules = [($fieldConfig['date_of_birth']['required'] ?? false) ? 'required' : 'nullable', 'date'];
+            $minAge = $settings?->min_age;
+            $maxAge = $settings?->max_age;
+            // Minimum age → the latest DOB allowed (also blocks future dates).
+            if ($minAge) {
+                $dobRules[] = 'before_or_equal:' . now()->subYears((int) $minAge)->toDateString();
+            } else {
+                $dobRules[] = 'before:today';
+            }
+            // Maximum age → the earliest DOB allowed.
+            if ($maxAge) {
+                $dobRules[] = 'after_or_equal:' . now()->subYears((int) $maxAge)->toDateString();
+            }
+            $rules['date_of_birth'] = implode('|', $dobRules);
         }
 
         // Country
@@ -255,20 +269,30 @@ class PlayerFormConfig
             $rules['visa_status'] = ($fieldConfig['visa_status']['required'] ?? false) ? 'required|in:work_visa,visit_visa' : 'nullable|in:work_visa,visit_visa';
         }
 
-        // Visa validity — required only when the visa is a visit visa.
+        // Visa validity — conditionally required only when the visa is a visit
+        // visa AND the admin left the field marked as required.
         if ($fieldConfig['visa_expiry']['visible'] ?? true) {
-            $rules['visa_expiry'] = 'nullable|date|required_if:visa_status,visit_visa';
+            $rules['visa_expiry'] = ($fieldConfig['visa_expiry']['required'] ?? false)
+                ? 'nullable|date|required_if:visa_status,visit_visa'
+                : 'nullable|date';
         }
 
-        // Employer details — required only when the visa is a work visa.
+        // Employer details — conditionally required only when the visa is a work
+        // visa AND the admin left the field marked as required.
         if ($fieldConfig['employer_name']['visible'] ?? true) {
-            $rules['employer_name'] = 'nullable|string|max:255|required_if:visa_status,work_visa';
+            $rules['employer_name'] = ($fieldConfig['employer_name']['required'] ?? false)
+                ? 'nullable|string|max:255|required_if:visa_status,work_visa'
+                : 'nullable|string|max:255';
         }
         if ($fieldConfig['employer_address']['visible'] ?? true) {
-            $rules['employer_address'] = 'nullable|string|max:500|required_if:visa_status,work_visa';
+            $rules['employer_address'] = ($fieldConfig['employer_address']['required'] ?? false)
+                ? 'nullable|string|max:500|required_if:visa_status,work_visa'
+                : 'nullable|string|max:500';
         }
         if ($fieldConfig['employer_position']['visible'] ?? true) {
-            $rules['employer_position'] = 'nullable|string|max:255|required_if:visa_status,work_visa';
+            $rules['employer_position'] = ($fieldConfig['employer_position']['required'] ?? false)
+                ? 'nullable|string|max:255|required_if:visa_status,work_visa'
+                : 'nullable|string|max:255';
         }
 
         // Availability (separate per-day flags)

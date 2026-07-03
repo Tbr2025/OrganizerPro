@@ -186,7 +186,7 @@ class TeamManagerController extends Controller
         $tournamentSettings = $team->tournaments->first()?->settings
             ?? $team->tournament?->settings;
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournamentSettings);
-        $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'team_manager');
+        $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'team_manager', $tournamentSettings);
         // Override email to allow nullable + unique for team manager context
         $rules['email'] = 'nullable|email|unique:players,email';
         // Image field name is image_path in team manager form (pre-processed string path)

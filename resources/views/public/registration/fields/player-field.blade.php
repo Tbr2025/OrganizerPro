@@ -37,8 +37,25 @@
         @break
 
     @case('date_of_birth')
+        @php
+            // Age limits (configurable per tournament). min_age → latest allowed DOB
+            // (also blocks future dates); max_age → earliest allowed DOB.
+            $minAge = $settings->min_age ?? null;
+            $maxAge = $settings->max_age ?? null;
+            $dobMax = $minAge ? now()->subYears((int) $minAge)->toDateString() : now()->toDateString();
+            $dobMin = $maxAge ? now()->subYears((int) $maxAge)->toDateString() : null;
+        @endphp
         <label for="date_of_birth" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="date" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth') }}" {{ $required ? 'required' : '' }} class="reg-input">
+        <input type="date" name="date_of_birth" id="date_of_birth" value="{{ old('date_of_birth') }}"
+               max="{{ $dobMax }}" @if($dobMin) min="{{ $dobMin }}" @endif
+               {{ $required ? 'required' : '' }} class="reg-input">
+        @if($minAge || $maxAge)
+            <p class="reg-hint">
+                @if($minAge && $maxAge) Age must be between {{ $minAge }} and {{ $maxAge }} years.
+                @elseif($minAge) Must be at least {{ $minAge }} years old.
+                @else Must be at most {{ $maxAge }} years old. @endif
+            </p>
+        @endif
         @error('date_of_birth')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
@@ -131,32 +148,42 @@
         @break
 
     @case('visa_expiry')
-        {{-- Only relevant for a visit visa --}}
-        <label for="visa_expiry" class="reg-label">{!! $label !!} <span class="reg-req" x-show="visaStatus === 'visit_visa'">*</span></label>
-        <input type="date" name="visa_expiry" id="visa_expiry" value="{{ old('visa_expiry') }}" class="reg-input">
+        {{-- Only relevant for a visit visa; required only if admin marked it required --}}
+        <label for="visa_expiry" class="reg-label">{!! $label !!} @if($required)<span class="reg-req" x-show="visaStatus === 'visit_visa'">*</span>@endif</label>
+        <input type="date" name="visa_expiry" id="visa_expiry" value="{{ old('visa_expiry') }}" class="reg-input"
+               @if($required) x-bind:required="visaStatus === 'visit_visa'" @endif>
         @error('visa_expiry')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('employer_name')
     @case('employer_position')
-        {{-- Only relevant for a work visa --}}
-        <label for="{{ $key }}" class="reg-label">{!! $label !!} <span class="reg-req" x-show="visaStatus === 'work_visa'">*</span></label>
-        <input type="text" name="{{ $key }}" id="{{ $key }}" value="{{ old($key) }}" class="reg-input" placeholder="{{ $label }}">
+        {{-- Only relevant for a work visa; required only if admin marked it required --}}
+        <label for="{{ $key }}" class="reg-label">{!! $label !!} @if($required)<span class="reg-req" x-show="visaStatus === 'work_visa'">*</span>@endif</label>
+        <input type="text" name="{{ $key }}" id="{{ $key }}" value="{{ old($key) }}" class="reg-input" placeholder="{{ $label }}"
+               @if($required) x-bind:required="visaStatus === 'work_visa'" @endif>
         @error($key)<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('employer_address')
-        <label for="employer_address" class="reg-label">{!! $label !!} <span class="reg-req" x-show="visaStatus === 'work_visa'">*</span></label>
-        <textarea name="employer_address" id="employer_address" rows="2" class="reg-input" placeholder="Office address">{{ old('employer_address') }}</textarea>
+        <label for="employer_address" class="reg-label">{!! $label !!} @if($required)<span class="reg-req" x-show="visaStatus === 'work_visa'">*</span>@endif</label>
+        <textarea name="employer_address" id="employer_address" rows="2" class="reg-input" placeholder="Office address"
+                  @if($required) x-bind:required="visaStatus === 'work_visa'" @endif>{{ old('employer_address') }}</textarea>
         @error('employer_address')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('available_saturday')
     @case('available_sunday')
-        <label class="reg-check">
-            <input type="checkbox" name="{{ $key }}" id="{{ $key }}" value="1" {{ old($key) ? 'checked' : '' }} {{ $required ? 'required' : '' }}>
-            <span class="text-sm">{!! $label !!} {!! $reqMark !!}</span>
-        </label>
+        <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <div class="flex gap-3">
+            <label class="reg-check" style="flex:1;">
+                <input type="radio" name="{{ $key }}" value="1" {{ (string) old($key) === '1' ? 'checked' : '' }} {{ $required ? 'required' : '' }} style="accent-color:var(--accent);">
+                <span class="text-sm">Yes</span>
+            </label>
+            <label class="reg-check" style="flex:1;">
+                <input type="radio" name="{{ $key }}" value="0" {{ (string) old($key) === '0' ? 'checked' : '' }} {{ $required ? 'required' : '' }} style="accent-color:var(--accent);">
+                <span class="text-sm">No</span>
+            </label>
+        </div>
         @error($key)<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
@@ -308,6 +335,15 @@
             @error('terms_and_conditions')<p class="reg-err">{{ $message }}</p>@enderror
 
             @if($hasTC)
+                {{-- Typed digital signature: captured once the applicant accepts --}}
+                <div x-show="accepted" x-cloak class="mt-3">
+                    <label for="consent_name" class="reg-label">Type your full name to sign <span class="reg-req">*</span></label>
+                    <input type="text" name="consent_name" id="consent_name" value="{{ old('consent_name') }}"
+                           class="reg-input" placeholder="Your full legal name" x-bind:required="accepted">
+                    <p class="reg-hint">By typing your name you digitally sign and accept the Terms &amp; Conditions above. Your name, date &amp; time are recorded.</p>
+                </div>
+                @error('consent_name')<p class="reg-err">{{ $message }}</p>@enderror
+
                 {{-- Popup: scroll to the end to enable Accept; Accept ticks the box, Close leaves it unchecked --}}
                 <template x-teleport="body">
                     <div x-show="showTC" x-cloak class="fixed inset-0 z-[99999] flex items-center justify-center p-4"

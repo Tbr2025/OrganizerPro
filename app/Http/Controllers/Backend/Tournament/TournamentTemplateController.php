@@ -994,20 +994,55 @@ class TournamentTemplateController extends Controller
             $newTemplate->background_image = $newPath;
         }
 
-        // Copy overlay images if exist
-        if ($template->overlay_images && is_array($template->overlay_images)) {
+        // Copy every uploaded-image file the template references and remap the
+        // paths in BOTH overlay_images AND layout_json. Uploaded-image layers embed
+        // an `imagePath`; previously only plain-string overlay entries were copied,
+        // so object-form overlays (and the layout_json copies) kept the ORIGINAL
+        // paths and rendered blank on the duplicate — the "missing layers" bug.
+        $pathMap = [];
+        $copyPath = function (?string $old) use (&$pathMap) {
+            if (! $old || ! is_string($old)) {
+                return $old;
+            }
+            if (array_key_exists($old, $pathMap)) {
+                return $pathMap[$old];
+            }
+            if (! Storage::disk('public')->exists($old)) {
+                return $pathMap[$old] = $old;
+            }
+            $ext = pathinfo($old, PATHINFO_EXTENSION);
+            $dir = str_contains($old, '/overlays/') ? 'tournament_templates/overlays/' : 'tournament_templates/';
+            $newPath = $dir . uniqid('ov_') . ($ext ? '.' . $ext : '');
+            Storage::disk('public')->copy($old, $newPath);
+            return $pathMap[$old] = $newPath;
+        };
+
+        // overlay_images: array of string paths (legacy) or objects with imagePath.
+        if (is_array($template->overlay_images)) {
             $newOverlays = [];
             foreach ($template->overlay_images as $overlay) {
-                if (is_string($overlay) && Storage::disk('public')->exists($overlay)) {
-                    $ext = pathinfo($overlay, PATHINFO_EXTENSION);
-                    $newPath = 'tournament_templates/overlays/' . uniqid('ov_') . '.' . $ext;
-                    Storage::disk('public')->copy($overlay, $newPath);
-                    $newOverlays[] = $newPath;
+                if (is_string($overlay)) {
+                    $newOverlays[] = $copyPath($overlay);
+                } elseif (is_array($overlay) && isset($overlay['imagePath'])) {
+                    $overlay['imagePath'] = $copyPath($overlay['imagePath']);
+                    $newOverlays[] = $overlay;
                 } else {
                     $newOverlays[] = $overlay;
                 }
             }
             $newTemplate->overlay_images = $newOverlays;
+        }
+
+        // layout_json: remap any element (e.g. uploadedImage) that embeds imagePath.
+        if (is_array($template->layout_json)) {
+            $layout = $template->layout_json;
+            foreach ($layout as &$el) {
+                if (is_array($el) && ! empty($el['imagePath'])) {
+                    $el['imagePath'] = $copyPath($el['imagePath']);
+                }
+            }
+            unset($el);
+            $newTemplate->layout_json = $layout;
         }
 
         $newTemplate->save();

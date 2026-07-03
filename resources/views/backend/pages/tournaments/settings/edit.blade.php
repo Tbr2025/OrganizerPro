@@ -381,6 +381,22 @@
                             </select>
                             <p class="text-xs text-gray-500 mt-1">Pre-selected nationality on this tournament's registration form.</p>
                         </div>
+
+                        <div>
+                            <label for="min_age" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum Age</label>
+                            <input type="number" name="min_age" id="min_age" min="1" max="100"
+                                value="{{ old('min_age', $settings->min_age) }}" placeholder="e.g. 12"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            <p class="text-xs text-gray-500 mt-1">Players must be at least this old (blocks future DOB). Leave blank for none.</p>
+                        </div>
+
+                        <div>
+                            <label for="max_age" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Maximum Age</label>
+                            <input type="number" name="max_age" id="max_age" min="1" max="100"
+                                value="{{ old('max_age', $settings->max_age) }}" placeholder="e.g. 55"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            <p class="text-xs text-gray-500 mt-1">Players cannot be older than this. Leave blank for none.</p>
+                        </div>
                     </div>
                 </div>
 

@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers\Backend\Tournament;
 
+use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
+use App\Mail\RegistrationCorrectionMail;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
+use Spatie\Browsershot\Browsershot;
+use Symfony\Component\HttpFoundation\Response;
 
 class TournamentRegistrationController extends Controller
 {
@@ -184,5 +189,74 @@ class TournamentRegistrationController extends Controller
         }
 
         return redirect()->back()->with('success', __(':count registrations approved.', ['count' => $approved]));
+    }
+
+    /**
+     * Save per-field verification state and optionally email the applicant a
+     * correction request listing the fields that were NOT verified.
+     */
+    public function updateVerification(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        $allFields = array_values((array) $request->input('all_fields', []));
+        $checked = array_values((array) $request->input('verified', []));
+        // Only keep verified keys that are actually part of the displayed set.
+        $verified = array_values(array_intersect($allFields, $checked));
+        $registration->update(['verified_fields' => $verified]);
+
+        if ($request->input('action') === 'send') {
+            $email = $registration->player?->email ?? $registration->captain_email;
+            if (! $email) {
+                return back()->with('error', __('No email address on file for this registration.'));
+            }
+
+            $unverifiedKeys = array_values(array_diff($allFields, $verified));
+            $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
+            $labels = array_map(fn ($k) => $fieldConfig[$k]['label'] ?? ucwords(str_replace('_', ' ', $k)), $unverifiedKeys);
+
+            Mail::to($email)->send(new RegistrationCorrectionMail($tournament, $registration, $labels, $request->input('note')));
+
+            return back()->with('success', __('Verification saved and correction request emailed to :email.', ['email' => $email]));
+        }
+
+        return back()->with('success', __('Field verification saved.'));
+    }
+
+    /**
+     * Stream the signed consent as a PDF (YouSelects logo, T&C snapshot, signer
+     * name + timestamp). Generated on demand via Browsershot.
+     */
+    public function downloadConsent(Tournament $tournament, TournamentRegistration $registration): Response
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+        abort_if(! $registration->consent_signed_at, 404, 'No signed consent on file for this registration.');
+
+        $logo = config('settings.site_logo_lite') ?: ($tournament->settings?->logo_url ?? null);
+
+        $html = view('pdf.consent', [
+            'tournament' => $tournament,
+            'registration' => $registration,
+            'logo' => $logo,
+            'signerName' => $registration->consent_name,
+            'signedAt' => $registration->consent_signed_at,
+            'ip' => $registration->consent_ip,
+            'content' => $registration->consent_snapshot ?: ($tournament->settings?->terms_and_conditions_content ?? ''),
+        ])->render();
+
+        $pdf = Browsershot::html($html)
+            ->format('A4')
+            ->showBackground()
+            ->margins(12, 12, 12, 12)
+            ->pdf();
+
+        $filename = 'consent-' . $registration->id . '.pdf';
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 }

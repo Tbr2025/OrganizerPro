@@ -149,6 +149,11 @@ class RegistrationService
                 'type' => 'player',
                 'player_id' => $player->id,
                 'status' => 'pending',
+                // Digitally-signed consent (typed name + timestamp + IP + T&C snapshot)
+                'consent_name' => $data['consent_name'] ?? null,
+                'consent_signed_at' => !empty($data['consent_name']) ? now() : null,
+                'consent_ip' => $data['consent_ip'] ?? null,
+                'consent_snapshot' => $data['consent_snapshot'] ?? null,
             ]);
 
             // Send admin notification
@@ -193,6 +198,11 @@ class RegistrationService
             'vice_captain_phone' => $data['vice_captain_phone'] ?? null,
             'team_description' => $data['team_description'] ?? null,
             'status' => 'pending',
+            // Digitally-signed consent
+            'consent_name' => $data['consent_name'] ?? null,
+            'consent_signed_at' => !empty($data['consent_name']) ? now() : null,
+            'consent_ip' => $data['consent_ip'] ?? null,
+            'consent_snapshot' => $data['consent_snapshot'] ?? null,
         ]);
 
         // Send admin notification
