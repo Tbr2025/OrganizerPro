@@ -330,6 +330,90 @@
                     @endif
                 </div>
 
+                {{-- Player-requested profile changes awaiting approval --}}
+                @if(!empty($registration->pending_changes))
+                    @php
+                        $pc = (array) $registration->pending_changes;
+                        $pcPlayer = $registration->player;
+                        $pcLabels = [
+                            'name' => 'Name', 'mobile_number_full' => 'Mobile Number', 'jersey_name' => 'Jersey Name',
+                            'cricheroes_number_full' => 'CricHeroes Number', 'cricheroes_profile_url' => 'CricHeroes Profile',
+                            'jersey_number' => 'Jersey Number', 'team_name_ref' => 'Registration Team', 'location_id' => 'Location',
+                            'total_matches' => 'Total Matches', 'total_runs' => 'Total Runs', 'total_wickets' => 'Total Wickets',
+                            'travel_date_from' => 'Travel From', 'travel_date_to' => 'Travel To', 'no_travel_plan' => 'No Travel Plan',
+                            'kit_size_id' => 'Kit Size', 'batting_profile_id' => 'Batting Profile', 'bowling_profile_id' => 'Bowling Profile',
+                            'player_type_id' => 'Player Type', 'is_wicket_keeper' => 'Wicket Keeper', 'transportation_required' => 'Transportation', 'image_path' => 'Profile Photo',
+                        ];
+                        $pcFmt = function ($field, $val) {
+                            if (is_null($val) || $val === '') return '—';
+                            return match ($field) {
+                                'is_wicket_keeper', 'transportation_required', 'no_travel_plan' => $val ? 'Yes' : 'No',
+                                'kit_size_id' => optional(\App\Models\KitSize::find($val))->size ?? optional(\App\Models\KitSize::find($val))->name ?? $val,
+                                'batting_profile_id' => optional(\App\Models\BattingProfile::find($val))->name ?? $val,
+                                'bowling_profile_id' => optional(\App\Models\BowlingProfile::find($val))->name ?? $val,
+                                'player_type_id' => optional(\App\Models\PlayerType::find($val))->name ?? $val,
+                                'location_id' => optional(\App\Models\PlayerLocation::find($val))->name ?? $val,
+                                default => (string) $val,
+                            };
+                        };
+                    @endphp
+                    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <div class="rounded-lg border border-amber-300 dark:border-amber-700 overflow-hidden">
+                            <div class="bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-center justify-between gap-2">
+                                <h3 class="text-sm font-semibold text-amber-800 dark:text-amber-300">Pending Profile Changes</h3>
+                                <span class="text-xs text-amber-700 dark:text-amber-400">
+                                    @if($registration->pending_changes_submitted_at) Submitted {{ $registration->pending_changes_submitted_at->format('d M Y, H:i') }} @endif
+                                </span>
+                            </div>
+                            <div class="p-4 overflow-x-auto">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">The player requested these changes. They will only apply to the profile after you approve.</p>
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="text-left text-[11px] uppercase tracking-wider text-gray-400">
+                                            <th class="py-2 pr-4">Field</th>
+                                            <th class="py-2 pr-4">Current</th>
+                                            <th class="py-2">Requested</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                        @foreach($pc as $field => $val)
+                                        <tr>
+                                            <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $pcLabels[$field] ?? $field }}</td>
+                                            @if($field === 'image_path')
+                                                <td class="py-2 pr-4">
+                                                    @if($pcPlayer?->image_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($pcPlayer->image_path))
+                                                        <img src="{{ \Illuminate\Support\Facades\Storage::url($pcPlayer->image_path) }}" class="w-12 h-14 object-cover rounded border border-gray-200 dark:border-gray-700">
+                                                    @else — @endif
+                                                </td>
+                                                <td class="py-2">
+                                                    @if($val && \Illuminate\Support\Facades\Storage::disk('public')->exists($val))
+                                                        <img src="{{ \Illuminate\Support\Facades\Storage::url($val) }}" class="w-12 h-14 object-cover rounded border-2 border-amber-400">
+                                                    @else <span class="text-gray-400">Removed</span> @endif
+                                                </td>
+                                            @else
+                                                <td class="py-2 pr-4 text-gray-500 dark:text-gray-400">{{ $pcFmt($field, $pcPlayer?->{$field}) }}</td>
+                                                <td class="py-2 font-semibold text-amber-700 dark:text-amber-300">{{ $pcFmt($field, $val) }}</td>
+                                            @endif
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                                <div class="flex flex-wrap gap-3 mt-4">
+                                    <form action="{{ route('admin.tournaments.registrations.pending-changes.approve', [$tournament, $registration]) }}" method="POST">
+                                        @csrf
+                                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700">Approve changes</button>
+                                    </form>
+                                    <form action="{{ route('admin.tournaments.registrations.pending-changes.reject', [$tournament, $registration]) }}" method="POST"
+                                          onsubmit="return confirm('Reject and discard these requested changes?')">
+                                        @csrf
+                                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Reject</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Email actions: resend welcome card / confirmation --}}
                 <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Email Actions</h4>

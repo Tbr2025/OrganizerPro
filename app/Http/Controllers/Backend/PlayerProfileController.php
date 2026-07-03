@@ -10,6 +10,7 @@ use App\Models\KitSize;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
 use App\Models\Team;
+use App\Models\TournamentRegistration;
 use App\Models\User;
 use App\Notifications\PlayerUpdatedNotification;
 use Illuminate\Http\Request;
@@ -101,6 +102,12 @@ class PlayerProfileController extends Controller
         ];
         // --- MODIFICATION END ---
 
+        // The tournaments this player registered for — edits are scoped to one of
+        // them and approved by that tournament's admin.
+        $registrations = $player->registrations()->with('tournament')->latest()->get();
+        $selectedRegistration = $registrations->firstWhere('id', (int) request('registration_id'))
+            ?? $registrations->first();
+
         // Pass all necessary data to the view
         return view('backend.pages.profileplayers.edit', [
             'player' => $player,
@@ -111,6 +118,8 @@ class PlayerProfileController extends Controller
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::all(),
+            'registrations' => $registrations,
+            'selectedRegistration' => $selectedRegistration,
             'breadcrumbs' => [
                 'title' => __('Edit My Profile'), // Adjusted title for context
 
@@ -123,8 +132,16 @@ class PlayerProfileController extends Controller
     public function update(Request $request)
     {
         $player = Auth::user()->player;
+        abort_if(! $player, 404);
 
-
+        // Edits are scoped to a tournament the player registered for; that
+        // tournament's admin approves the change.
+        $registration = TournamentRegistration::where('player_id', $player->id)
+            ->where('id', $request->input('registration_id'))
+            ->first();
+        if (! $registration) {
+            return back()->with('error', __('Please choose which tournament this update is for.'))->withInput();
+        }
 
         // Map of field => is_verified (e.g. DB: verified_name = true)
         $verifiedFields = [
@@ -244,45 +261,69 @@ class PlayerProfileController extends Controller
         ]);
 
 
-        // Image path comes pre-processed from AJAX upload (string path)
-        if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
-            if (Storage::disk('public')->exists($validated['image_path'])) {
-                // Delete old image if different
-                if ($player->image_path && $player->image_path !== $validated['image_path']
-                    && Storage::disk('public')->exists($player->image_path)) {
-                    Storage::disk('public')->delete($player->image_path);
-                }
-                $player->image_path = $validated['image_path'];
-            } else {
-                unset($validated['image_path']);
-            }
-        }
-
-        // Clear image if requested
-        if ($request->boolean('clear_image')) {
-            if ($player->image_path && Storage::disk('public')->exists($player->image_path)) {
-                Storage::disk('public')->delete($player->image_path);
-            }
-            $validated['image_path'] = null;
-        }
-
+        // Booleans from the form.
         $validated['is_wicket_keeper'] = $request->boolean('wicket_keeper');
         $validated['transportation_required'] = $request->boolean('need_transportation');
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
 
-        $player->update($validated);
-        // Only notify Superadmin and Admin
-        $notifyUsers = User::role(['Superadmin', 'Admin'])->get();
+        // Image: the AJAX upload already stored the file; only treat it as a
+        // proposed change when a valid, different path was submitted.
+        if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
+            if (! Storage::disk('public')->exists($validated['image_path'])) {
+                unset($validated['image_path']);
+            }
+        } elseif ($request->boolean('clear_image')) {
+            $validated['image_path'] = null;
+        } else {
+            unset($validated['image_path']);
+        }
 
+        // Build the set of ACTUAL changes (proposed value differs from current).
+        // Nothing is written to the player yet — it is queued for admin approval.
+        $editable = [
+            'name', 'mobile_number_full', 'jersey_name', 'cricheroes_number_full',
+            'cricheroes_profile_url', 'jersey_number', 'team_name_ref', 'location_id',
+            'total_matches', 'total_runs', 'total_wickets', 'travel_date_from',
+            'travel_date_to', 'no_travel_plan', 'kit_size_id', 'batting_profile_id',
+            'bowling_profile_id', 'player_type_id', 'is_wicket_keeper',
+            'transportation_required', 'image_path',
+        ];
+        $pending = [];
+        foreach ($editable as $field) {
+            if (! array_key_exists($field, $validated)) {
+                continue;
+            }
+            $new = $validated[$field];
+            $old = $player->{$field};
+            if ((string) $old !== (string) $new) {
+                $pending[$field] = $new;
+            }
+        }
+
+        if (empty($pending)) {
+            return redirect()->route('profileplayers.edit', ['registration_id' => $registration->id])
+                ->with('info', 'No changes detected to submit.');
+        }
+
+        // Queue the changes for approval (merge with any already-pending set).
+        $registration->update([
+            'pending_changes' => array_merge((array) $registration->pending_changes, $pending),
+            'pending_changes_submitted_at' => now(),
+        ]);
+
+        // Notify Superadmin & Admin that a profile change awaits approval.
+        $notifyUsers = User::role(['Superadmin', 'Admin'])->get();
         foreach ($notifyUsers as $notifyUser) {
             $notifyUser->notify(
                 new PlayerUpdatedNotification(
                     $player,
                     auth()->user(),
-                    route('admin.players.edit', $player->id)
+                    route('admin.tournaments.registrations.show', [$registration->tournament_id, $registration->id])
                 )
             );
         }
-        return redirect()->route('profileplayers.edit')->with('success', 'Profile updated.');
+
+        return redirect()->route('profileplayers.edit', ['registration_id' => $registration->id])
+            ->with('success', 'Your changes were submitted and are awaiting admin approval. They will reflect once approved.');
     }
 }

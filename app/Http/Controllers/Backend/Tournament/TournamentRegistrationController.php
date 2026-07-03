@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Spatie\Browsershot\Browsershot;
 use Symfony\Component\HttpFoundation\Response;
@@ -313,6 +314,57 @@ class TournamentRegistrationController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    /**
+     * Approve the player's pending profile changes: apply them to the Player and
+     * clear the queue. Until this runs the edits do not reflect anywhere.
+     */
+    public function approvePendingChanges(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        $player = $registration->player;
+        $changes = (array) $registration->pending_changes;
+        if (! $player || empty($changes)) {
+            return back()->with('error', __('There are no pending changes to approve.'));
+        }
+
+        // Swap profile photo: remove the old file when a new image is applied.
+        if (array_key_exists('image_path', $changes)) {
+            $newImage = $changes['image_path'];
+            if ($player->image_path && $player->image_path !== $newImage
+                && Storage::disk('public')->exists($player->image_path)) {
+                Storage::disk('public')->delete($player->image_path);
+            }
+        }
+
+        $player->update($changes);
+        $registration->update(['pending_changes' => null, 'pending_changes_submitted_at' => null]);
+
+        return back()->with('success', __('Profile changes approved and applied.'));
+    }
+
+    /**
+     * Reject the player's pending profile changes (discard the queue).
+     */
+    public function rejectPendingChanges(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        $changes = (array) $registration->pending_changes;
+        // Clean up an orphaned uploaded image the player will no longer use.
+        if (! empty($changes['image_path'])
+            && $changes['image_path'] !== $registration->player?->image_path
+            && Storage::disk('public')->exists($changes['image_path'])) {
+            Storage::disk('public')->delete($changes['image_path']);
+        }
+
+        $registration->update(['pending_changes' => null, 'pending_changes_submitted_at' => null]);
+
+        return back()->with('success', __('Profile change request rejected.'));
     }
 
     /**

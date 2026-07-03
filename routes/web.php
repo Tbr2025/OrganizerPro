@@ -807,6 +807,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         // Resend welcome card / confirmation emails
         Route::post('/registrations/{registration}/resend-welcome', [TournamentRegistrationController::class, 'resendWelcome'])->name('registrations.resend-welcome');
         Route::post('/registrations/{registration}/resend-confirmation', [TournamentRegistrationController::class, 'resendConfirmation'])->name('registrations.resend-confirmation');
+        // Approve / reject player-requested profile changes
+        Route::post('/registrations/{registration}/pending-changes/approve', [TournamentRegistrationController::class, 'approvePendingChanges'])->name('registrations.pending-changes.approve');
+        Route::post('/registrations/{registration}/pending-changes/reject', [TournamentRegistrationController::class, 'rejectPendingChanges'])->name('registrations.pending-changes.reject');
 
         // Groups
         Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');

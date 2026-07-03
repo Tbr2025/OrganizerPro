@@ -47,6 +47,9 @@ class TournamentRegistration extends Model
         'consent_signed_at',
         'consent_ip',
         'consent_snapshot',
+        // Player profile edits awaiting admin approval
+        'pending_changes',
+        'pending_changes_submitted_at',
     ];
 
     protected $casts = [
@@ -57,6 +60,8 @@ class TournamentRegistration extends Model
         'flyer_sent_at' => 'datetime',
         'verified_fields' => 'array',
         'consent_signed_at' => 'datetime',
+        'pending_changes' => 'array',
+        'pending_changes_submitted_at' => 'datetime',
     ];
 
     public function tournament(): BelongsTo

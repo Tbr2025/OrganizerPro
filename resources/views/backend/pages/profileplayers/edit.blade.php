@@ -15,6 +15,39 @@
                         @csrf
                         @method('PUT')
 
+                        @if(session('info'))
+                            <div class="mb-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/40 text-blue-700 dark:text-blue-300 px-4 py-3 text-sm">{{ session('info') }}</div>
+                        @endif
+
+                        @if(($registrations?->count() ?? 0) === 0)
+                            <div class="mb-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 text-amber-700 dark:text-amber-300 px-4 py-3 text-sm">
+                                You are not registered for any tournament yet, so profile edits can't be submitted.
+                            </div>
+                        @else
+                            {{-- Edits are scoped to a tournament and approved by that tournament's admin --}}
+                            <div class="mb-5">
+                                <label for="registration_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tournament this update is for <span class="text-red-500">*</span></label>
+                                <select name="registration_id" id="registration_id" required class="form-control"
+                                    onchange="window.location='{{ route('profileplayers.edit') }}?registration_id=' + this.value">
+                                    @foreach($registrations as $reg)
+                                        <option value="{{ $reg->id }}" {{ ($selectedRegistration?->id === $reg->id) ? 'selected' : '' }}>
+                                            {{ $reg->tournament->name ?? 'Tournament #' . $reg->tournament_id }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Your changes will be sent to this tournament's admin for approval before they reflect on your profile.</p>
+                            </div>
+
+                            @if(!empty($selectedRegistration?->pending_changes))
+                                <div class="mb-5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 px-4 py-3 text-sm">
+                                    <strong>Changes pending approval.</strong> You submitted updates for
+                                    <strong>{{ $selectedRegistration->tournament->name ?? 'this tournament' }}</strong>
+                                    @if($selectedRegistration->pending_changes_submitted_at) on {{ $selectedRegistration->pending_changes_submitted_at->format('d M Y, H:i') }}@endif.
+                                    They will reflect on your profile once an admin approves them.
+                                </div>
+                            @endif
+                        @endif
+
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 
                             @php
