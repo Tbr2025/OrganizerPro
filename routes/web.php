@@ -804,6 +804,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/registrations/{registration}/verification', [TournamentRegistrationController::class, 'updateVerification'])->name('registrations.verification');
         // Signed consent PDF download
         Route::get('/registrations/{registration}/consent-pdf', [TournamentRegistrationController::class, 'downloadConsent'])->name('registrations.consent-pdf');
+        // Resend welcome card / confirmation emails
+        Route::post('/registrations/{registration}/resend-welcome', [TournamentRegistrationController::class, 'resendWelcome'])->name('registrations.resend-welcome');
+        Route::post('/registrations/{registration}/resend-confirmation', [TournamentRegistrationController::class, 'resendConfirmation'])->name('registrations.resend-confirmation');
 
         // Groups
         Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');

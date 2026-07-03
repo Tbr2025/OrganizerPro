@@ -39,7 +39,7 @@ class TournamentNotificationService
     /**
      * Send welcome card to a registration
      */
-    public function sendWelcomeCard(TournamentRegistration $registration, bool $manual = false): bool
+    public function sendWelcomeCard(TournamentRegistration $registration, bool $manual = false, bool $force = false): bool
     {
         if (!$registration->isPlayerRegistration() || !$registration->player) {
             return false;
@@ -54,8 +54,8 @@ class TournamentNotificationService
             return false;
         }
 
-        // Check if already sent
-        if ($registration->welcome_card_sent) {
+        // Check if already sent (skip this guard on an explicit resend/force).
+        if (!$force && $registration->welcome_card_sent) {
             return false;
         }
 

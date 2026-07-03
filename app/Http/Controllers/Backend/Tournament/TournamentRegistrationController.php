@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
+use App\Mail\ApplicationUnderReviewMail;
+use App\Mail\RegistrationApprovedMail;
 use App\Mail\RegistrationCorrectionMail;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
+use App\Services\Notification\TournamentNotificationService;
 use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -264,6 +267,52 @@ class TournamentRegistrationController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    /**
+     * Resend the welcome card email to the player (bypasses the already-sent guard).
+     */
+    public function resendWelcome(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        if (! $registration->isPlayerRegistration()) {
+            return back()->with('error', __('Welcome cards are only available for player registrations.'));
+        }
+
+        $sent = app(TournamentNotificationService::class)->sendWelcomeCard($registration, true, true);
+
+        return $sent
+            ? back()->with('success', __('Welcome card resent to the player.'))
+            : back()->with('error', __('Could not send the welcome card. Ensure a welcome-card template exists and the player has an email address.'));
+    }
+
+    /**
+     * Resend the confirmation email — approval email when approved, otherwise the
+     * application-received (under review) email.
+     */
+    public function resendConfirmation(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        $email = $registration->player?->email ?? $registration->captain_email;
+        if (! $email) {
+            return back()->with('error', __('No email address on file for this registration.'));
+        }
+
+        $name = $registration->player?->name ?? $registration->captain_name ?? 'Applicant';
+
+        if ($registration->status === 'approved') {
+            Mail::to($email)->send(new RegistrationApprovedMail($tournament, $registration));
+            $message = __('Approval confirmation resent to :email.', ['email' => $email]);
+        } else {
+            Mail::to($email)->send(new ApplicationUnderReviewMail($tournament, $registration, $name));
+            $message = __('Confirmation email resent to :email.', ['email' => $email]);
+        }
+
+        return back()->with('success', $message);
     }
 
     /**

@@ -144,7 +144,17 @@ class EmailTemplateService
         $settings = $tournament?->settings;
         $primary = $settings?->primary_color ?: '#1a56db';
         $secondary = $settings?->secondary_color ?: '#ffffff';
-        $logo = $settings?->logo_url ?: asset('images/logo/logo.png');
+        // Main application logo (absolute URL) — used as a reliable fallback so the
+        // header logo is never a broken image.
+        $appLogo = $this->appLogoUrl();
+        $logo = $settings?->logo_url ?: $appLogo;
+
+        // Header logos block: app logo always, tournament logo alongside when it
+        // has its own (avoids showing the same logo twice).
+        $headerLogos = '<img src="' . $appLogo . '" alt="' . e($this->brandName()) . '" style="height:52px;max-width:150px;object-fit:contain;background:#ffffff;border-radius:8px;padding:6px;vertical-align:middle;">';
+        if ($settings?->logo_url) {
+            $headerLogos .= '<img src="' . $settings->logo_url . '" alt="' . e($tournament?->name ?? '') . '" style="height:52px;width:52px;object-fit:contain;background:#ffffff;border-radius:50%;padding:5px;vertical-align:middle;margin-left:10px;">';
+        }
 
         $player = $player ?: $reg?->player;
         $recipientName = $reg && $reg->type === 'team'
@@ -163,8 +173,10 @@ class EmailTemplateService
             '{brand_name}' => e($this->brandName()),
             '{tournament_name}' => e($tournament?->name ?? 'the tournament'),
             '{tournament_logo}' => $logo,
-            '{tournament_start_date}' => e($startDate),
-            '{tournament_location}' => e($tournament?->location ?? ''),
+            '{app_logo}' => $appLogo,
+            '{header_logos}' => $headerLogos,
+            '{tournament_start_date}' => e($startDate ?: 'To be announced'),
+            '{tournament_location}' => e($tournament?->location ?: 'To be announced'),
             '{tournament_url}' => $url,
             '{primary_color}' => $primary,
             '{secondary_color}' => $secondary,
@@ -175,8 +187,18 @@ class EmailTemplateService
             '{registration_type_label}' => $reg && $reg->type === 'team' ? 'team registration' : 'application',
             '{team_name}' => e($reg?->team_name ?? ''),
             '{player_name}' => e($player?->name ?? 'Player'),
-            '{complete_profile_url}' => $url,
+            '{complete_profile_url}' => route('login'),
         ];
+    }
+
+    /** Main application logo as an absolute URL (reliable in email clients). */
+    private function appLogoUrl(): string
+    {
+        $raw = config('settings.site_logo_lite') ?: 'images/logo/lara-dashboard.png';
+
+        return \Illuminate\Support\Str::startsWith($raw, ['http://', 'https://'])
+            ? $raw
+            : asset(ltrim($raw, '/'));
     }
 
     /** Pick black or white for readable text on the given background hex. */
@@ -231,7 +253,7 @@ class EmailTemplateService
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background: {primary_color}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <img src="{tournament_logo}" alt="{tournament_name}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+        <div style="margin: 0 auto 15px;">{header_logos}</div>
         <h1 style="color: {header_text_color}; margin: 0; font-size: 24px;">Application Received 🎉</h1>
     </div>
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
@@ -266,7 +288,7 @@ HTML;
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background: {primary_color}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <img src="{tournament_logo}" alt="{tournament_name}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+        <div style="margin: 0 auto 15px;">{header_logos}</div>
         <h1 style="color: {header_text_color}; margin: 0; font-size: 24px;">Registration Approved!</h1>
     </div>
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
@@ -305,7 +327,7 @@ HTML;
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f7; margin: 0; padding: 0;">
     <div style="max-width: 600px; margin: 20px auto; padding: 25px; background-color: #ffffff; border: 1px solid #e9ecef; border-radius: 8px;">
         <div style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;">
-            <img src="{tournament_logo}" alt="{brand_name}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px; border: 1px solid #e9ecef;">
+            <div style="margin: 0 auto 15px;">{header_logos}</div>
             <h1 style="color: #2c3e50; margin: 0; font-size: 24px;">Welcome Aboard!</h1>
         </div>
         <div style="font-size: 16px;">
