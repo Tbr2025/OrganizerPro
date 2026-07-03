@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Public;
 use App\Helpers\PlayerFormConfig;
 use App\Helpers\TeamFormConfig;
 use App\Http\Controllers\Controller;
+use App\Models\ActualTeam;
 use App\Models\BattingProfile;
 use App\Models\BowlingProfile;
 use App\Models\KitSize;
@@ -54,6 +55,7 @@ class RegistrationController extends Controller
                       ->orWhere('organization_id', $tournament->organization_id);
             })->get(),
             'teams' => Team::where('tournament_id', $tournament->id)->get(),
+            'actualTeams' => ActualTeam::where('tournament_id', $tournament->id)->orderBy('name')->get(),
             // Per-tournament default nationality, falling back to the global setting.
             'defaultCountry' => ($settings?->default_country) ?: config('settings.default_country', 'IN'),
         ]);
@@ -75,6 +77,12 @@ class RegistrationController extends Controller
         // "No travel plans" → clear any travel dates so the cross-field rule never fires.
         if ($request->boolean('no_travel_plan')) {
             $request->merge(['travel_date_from' => null, 'travel_date_to' => null]);
+        }
+
+        // "Other" team choice submits team_id="other" (not a real id) — treat as
+        // free-text only so the exists:teams rule doesn't reject it.
+        if ($request->input('team_id') === 'other') {
+            $request->merge(['team_id' => null]);
         }
 
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);

@@ -163,6 +163,7 @@
                                 'state' => $p->state,
                                 'location' => $p->location?->name,
                                 'registration_team' => $registration->actualTeam?->name ?? $p->team_name_ref,
+                                'playing_team' => $p->actualTeam?->name,
                                 'visa_status' => $p->visa_status ? ($visaList[$p->visa_status] ?? $p->visa_status) : null,
                                 'visa_expiry' => optional($p->visa_expiry)->format('d M Y'),
                                 'employer_name' => $p->employer_name,
@@ -184,7 +185,7 @@
                                 default => null,
                             };
                         };
-                        $skip = ['name', 'image', 'terms_and_conditions', 'playing_team'];
+                        $skip = ['name', 'image', 'terms_and_conditions'];
                         $verifiedFields = (array) ($registration->verified_fields ?? []);
                     @endphp
                     <form method="POST" action="{{ route('admin.tournaments.registrations.verification', [$tournament, $registration]) }}" class="space-y-6">

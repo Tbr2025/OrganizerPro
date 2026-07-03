@@ -119,7 +119,7 @@
         @if($teams->count() > 0)
         <div>
             <label for="team_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-            <select name="team_id" id="team_id" x-model="selectedTeam" class="reg-select">
+            <select name="team_id" id="team_id" x-model="selectedTeam" class="reg-select" {{ $required ? 'required' : '' }}>
                 <option value="">Select your team</option>
                 @foreach($teams as $team)
                     <option value="{{ $team->id }}" {{ old('team_id') == $team->id ? 'selected' : '' }}>{{ $team->name }}</option>
@@ -132,6 +132,28 @@
             <label for="team_name_ref" class="reg-label">Team Name</label>
             <input type="text" name="team_name_ref" id="team_name_ref" value="{{ old('team_name_ref') }}" class="reg-input" placeholder="Enter your team name">
             @error('team_name_ref')<p class="reg-err">{{ $message }}</p>@enderror
+        </div>
+        @else
+        {{-- No pre-defined teams yet: let the applicant type their team name --}}
+        <div>
+            <label for="team_name_ref" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+            <input type="text" name="team_name_ref" id="team_name_ref" value="{{ old('team_name_ref') }}" class="reg-input" placeholder="Enter your team name" {{ $required ? 'required' : '' }}>
+            @error('team_name_ref')<p class="reg-err">{{ $message }}</p>@enderror
+        </div>
+        @endif
+        @break
+
+    @case('playing_team')
+        @if(($actualTeams ?? collect())->count() > 0)
+        <div>
+            <label for="actual_team_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+            <select name="actual_team_id" id="actual_team_id" class="reg-select" {{ $required ? 'required' : '' }}>
+                <option value="">Select your playing team</option>
+                @foreach($actualTeams as $team)
+                    <option value="{{ $team->id }}" {{ old('actual_team_id') == $team->id ? 'selected' : '' }}>{{ $team->name }}</option>
+                @endforeach
+            </select>
+            @error('actual_team_id')<p class="reg-err">{{ $message }}</p>@enderror
         </div>
         @endif
         @break

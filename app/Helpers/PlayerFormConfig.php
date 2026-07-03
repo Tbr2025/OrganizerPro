@@ -336,10 +336,17 @@ class PlayerFormConfig
             $rules['location_id'] = ($fieldConfig['location']['required'] ?? false) ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id';
         }
 
-        // Registration Team
+        // Registration Team. team_id stays nullable because the applicant may pick
+        // "Other" (free text) or type a team when no teams are pre-defined; the
+        // HTML required attribute handles the client-side prompt.
         if ($fieldConfig['registration_team']['visible'] ?? true) {
-            $rules['team_id'] = ($fieldConfig['registration_team']['required'] ?? false) ? 'required|exists:teams,id' : 'nullable|exists:teams,id';
+            $rules['team_id'] = 'nullable|exists:teams,id';
             $rules['team_name_ref'] = 'nullable|string|max:100';
+        }
+
+        // Playing Team (actual team the player will play for)
+        if ($fieldConfig['playing_team']['visible'] ?? true) {
+            $rules['actual_team_id'] = ($fieldConfig['playing_team']['required'] ?? false) ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id';
         }
 
         // Jersey Name
