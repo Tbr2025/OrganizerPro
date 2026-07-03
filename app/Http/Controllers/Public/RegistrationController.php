@@ -42,6 +42,14 @@ class RegistrationController extends Controller
 
         $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
 
+        // Playing Team options: teams linked to this tournament (column or pivot);
+        // fall back to the organization's teams so the field still renders when
+        // none are linked yet.
+        $actualTeams = ActualTeam::forTournament($tournament->id)->orderBy('name')->get();
+        if ($actualTeams->isEmpty()) {
+            $actualTeams = ActualTeam::where('organization_id', $tournament->organization_id)->orderBy('name')->get();
+        }
+
         return view('public.registration.player', [
             'tournament' => $tournament,
             'settings' => $settings,
@@ -55,7 +63,7 @@ class RegistrationController extends Controller
                       ->orWhere('organization_id', $tournament->organization_id);
             })->get(),
             'teams' => Team::where('tournament_id', $tournament->id)->get(),
-            'actualTeams' => ActualTeam::where('tournament_id', $tournament->id)->orderBy('name')->get(),
+            'actualTeams' => $actualTeams,
             // Per-tournament default nationality, falling back to the global setting.
             'defaultCountry' => ($settings?->default_country) ?: config('settings.default_country', 'IN'),
         ]);

@@ -234,12 +234,18 @@ class TournamentRegistrationController extends Controller
         abort_if($registration->tournament_id !== $tournament->id, 404);
         abort_if(! $registration->consent_signed_at, 404, 'No signed consent on file for this registration.');
 
-        $logo = config('settings.site_logo_lite') ?: ($tournament->settings?->logo_url ?? null);
+        // Embed logos as base64 data URIs — headless Chrome can't reliably fetch
+        // remote/relative image URLs, which is why the logo was blank.
+        $appLogo = $this->logoDataUri(config('settings.site_logo_lite') ?: config('settings.site_logo_dark'))
+            ?? $this->logoDataUri('images/logo/lara-dashboard.png');
+        $tournamentLogo = $this->logoDataUri($tournament->settings?->logo);
 
         $html = view('pdf.consent', [
             'tournament' => $tournament,
             'registration' => $registration,
-            'logo' => $logo,
+            'appLogo' => $appLogo,
+            'tournamentLogo' => $tournamentLogo,
+            'appName' => config('app.name'),
             'signerName' => $registration->consent_name,
             'signedAt' => $registration->consent_signed_at,
             'ip' => $registration->consent_ip,
@@ -258,5 +264,47 @@ class TournamentRegistrationController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    /**
+     * Resolve a logo (stored path, /storage URL, full URL, or public asset) to a
+     * base64 data URI so it embeds reliably in a Browsershot-rendered PDF.
+     */
+    protected function logoDataUri(?string $src): ?string
+    {
+        if (! $src) {
+            return null;
+        }
+
+        $path = null;
+        if (str_starts_with($src, 'http')) {
+            $urlPath = parse_url($src, PHP_URL_PATH) ?: '';
+            if (str_contains($urlPath, '/storage/')) {
+                $rel = ltrim(substr($urlPath, strpos($urlPath, '/storage/') + strlen('/storage/')), '/');
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($rel)) {
+                    $path = \Illuminate\Support\Facades\Storage::disk('public')->path($rel);
+                }
+            } else {
+                $cand = public_path(ltrim($urlPath, '/'));
+                $path = is_file($cand) ? $cand : null;
+            }
+        } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($src)) {
+            $path = \Illuminate\Support\Facades\Storage::disk('public')->path($src);
+        } elseif (is_file(public_path($src))) {
+            $path = public_path($src);
+        }
+
+        if (! $path || ! is_file($path)) {
+            return null;
+        }
+
+        $data = @file_get_contents($path);
+        if ($data === false) {
+            return null;
+        }
+
+        $mime = @mime_content_type($path) ?: 'image/png';
+
+        return 'data:' . $mime . ';base64,' . base64_encode($data);
     }
 }
