@@ -19,7 +19,13 @@ class ProfilesController extends Controller
 
         $user = Auth::user();
 
-        return view('backend.pages.profile.edit', compact('user'))
+        // Load the linked player (if any) with its relations so the profile page
+        // can show everything the player entered at registration + their photo.
+        $player = $user->player?->loadMissing([
+            'battingProfile', 'bowlingProfile', 'playerType', 'kitSize', 'location', 'actualTeam',
+        ]);
+
+        return view('backend.pages.profile.edit', compact('user', 'player'))
             ->with([
                 'breadcrumbs' => [
                     'title' => __('Edit Profile'),
