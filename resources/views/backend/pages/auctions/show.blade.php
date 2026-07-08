@@ -53,6 +53,7 @@
                         LED Wall Display
                     </a>
                     <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
+                    <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="btn btn-primary">Manage Pools</a>
                     <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
                         class="btn btn-success inline-flex items-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -194,7 +195,7 @@
                     </div>
                 @empty
                     <p class="text-sm text-gray-500 dark:text-gray-400">No pools configured.
-                        <a href="{{ route('admin.auctions.edit', $auction) }}" class="text-indigo-600 underline">Set up pools in Edit</a>.</p>
+                        <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="text-indigo-600 underline">Manage pools</a>.</p>
                 @endforelse
             </div>
         </div>

@@ -24,6 +24,8 @@ class AuctionPool extends Model
         'organization_id',
         'name',
         'capacity',
+        'base_price',
+        'category',
         'order_mode',
         'sequence',
         'status',
@@ -32,6 +34,7 @@ class AuctionPool extends Model
 
     protected $casts = [
         'capacity' => 'integer',
+        'base_price' => 'decimal:2',
         'sequence' => 'integer',
         'is_unsold_pool' => 'boolean',
     ];

@@ -8,6 +8,7 @@ use App\Http\Controllers\Backend\ActualTeamController;
 use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
 use App\Http\Controllers\Backend\AuctionAdminController;
+use App\Http\Controllers\Backend\AuctionPoolController;
 use App\Http\Controllers\Backend\AuctionBiddingController;
 use App\Http\Controllers\Backend\AuctionTemplateController;
 use App\Http\Controllers\Backend\AuctionController;
@@ -131,6 +132,15 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/auctions/{auction}/pools/reorder', [AuctionAdminController::class, 'reorderPools'])->name('auctions.pools.reorder');
     Route::post('/auctions/{auction}/pools/{pool}/redraw', [AuctionAdminController::class, 'redrawPool'])->name('auctions.pools.redraw');
     Route::post('/auctions/{auction}/pools/{pool}/merge-retained', [AuctionAdminController::class, 'mergeRetained'])->name('auctions.pools.merge-retained');
+
+    // Dedicated Pool management (separate from the create/edit wizard).
+    Route::get('/auctions/{auction}/pools', [AuctionPoolController::class, 'index'])->name('auctions.pools.index');
+    Route::post('/auctions/{auction}/pools/assign', [AuctionPoolController::class, 'assign'])->name('auctions.pools.assign');
+    Route::post('/auctions/{auction}/pools/unassign', [AuctionPoolController::class, 'unassign'])->name('auctions.pools.unassign');
+    Route::post('/auctions/{auction}/pools/auto-assign', [AuctionPoolController::class, 'autoAssign'])->name('auctions.pools.auto-assign');
+    Route::post('/auctions/{auction}/pools', [AuctionPoolController::class, 'store'])->name('auctions.pools.store');
+    Route::put('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'update'])->name('auctions.pools.update');
+    Route::delete('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'destroy'])->name('auctions.pools.destroy');
     Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
     Route::delete('/auctions/{auction}/branding-image', [AuctionAdminController::class, 'removeBrandingImage'])->name('auctions.branding.remove');
 

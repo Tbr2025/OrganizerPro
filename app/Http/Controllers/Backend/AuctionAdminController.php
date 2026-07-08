@@ -47,7 +47,8 @@ class AuctionAdminController extends Controller
     public function create()
     {
         $organizations = Organization::orderBy('name')->get();
-        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->get();
+        // Auctions attach only to auction-type tournaments (budget/pools apply there).
+        $tournaments = Tournament::forUser(auth()->user())->where('type', 'auction')->orderBy('name')->get();
 
         // Fetch available players (approved, not retained) for the player pool step
         $orgId = Auth::user()->organization_id;
@@ -830,7 +831,8 @@ class AuctionAdminController extends Controller
     public function edit(Auction $auction)
     {
         $organizations = Organization::orderBy('name')->get();
-        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->get();
+        // Auctions attach only to auction-type tournaments (budget/pools apply there).
+        $tournaments = Tournament::forUser(auth()->user())->where('type', 'auction')->orderBy('name')->get();
 
         // Load the players currently in the auction, its pools, tournament, and budgets.
         $auction->load(['auctionPlayers.player', 'pools.players.player', 'tournament', 'teamBudgets']);
@@ -1232,19 +1234,17 @@ class AuctionAdminController extends Controller
         $team = ActualTeam::findOrFail($validated['team_id']);
         $auction = $auctionPlayer->auction;
 
-        // Calculate total spent budget for the team
-        $spentBudget = AuctionPlayer::where('auction_id', $auction->id)
-            ->where('sold_to_team_id', $team->id)
-            ->sum('final_price');
-
-        $availableBalance = $auction->max_budget_per_team - $spentBudget;
-
         // Use final_price from request, or fallback to current/base price
         $newPrice = $request->final_price ?? ($auctionPlayer->current_price ?? $auctionPlayer->base_price);
 
-        if ($newPrice > $availableBalance) {
+        // Budget check applies only to auction-type tournaments. The service accounts
+        // for per-team overrides AND retained-player costs already committed.
+        $poolService = app(AuctionPoolService::class);
+        if ($poolService->budgetApplies($auction)
+            && ! $poolService->canAfford($auction, $team->id, (float) $newPrice)) {
+            $available = $poolService->remainingBudget($auction, $team->id);
             return response()->json([
-                'error' => 'Insufficient team balance. Available: ' . number_format($availableBalance / 1000000, 1) . 'M'
+                'error' => 'Insufficient team balance. Available: ' . number_format($available / 1000000, 1) . 'M'
             ], 400);
         }
 

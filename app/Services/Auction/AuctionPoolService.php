@@ -84,6 +84,15 @@ class AuctionPoolService
             ->first();
     }
 
+    /**
+     * Budget & team-budget conditions apply ONLY to auction-type tournaments.
+     * Open tournaments have no budget mechanics.
+     */
+    public function budgetApplies(Auction $auction): bool
+    {
+        return $auction->tournament?->isAuction() ?? true;
+    }
+
     /** Per-team allocation, falling back to the auction-wide uniform cap. */
     public function allocatedBudget(Auction $auction, int $actualTeamId): float
     {
@@ -98,8 +107,8 @@ class AuctionPoolService
         return (float) ($auction->max_budget_per_team ?? 0);
     }
 
-    /** Total already spent by a team in this auction. */
-    public function spent(Auction $auction, int $actualTeamId): float
+    /** Amount a team spent on players SOLD to it in the live auction. */
+    public function soldSpent(Auction $auction, int $actualTeamId): float
     {
         return (float) AuctionPlayer::where('auction_id', $auction->id)
             ->where('status', 'sold')
@@ -107,8 +116,27 @@ class AuctionPoolService
             ->sum('final_price');
     }
 
+    /** Retention cost of a team's retained players — counts against its budget up front. */
+    public function retainedSpent(Auction $auction, int $actualTeamId): float
+    {
+        return (float) AuctionPlayer::where('auction_id', $auction->id)
+            ->where('is_retained', true)
+            ->where('team_id', $actualTeamId)
+            ->sum('retained_price');
+    }
+
+    /** Total committed by a team: sold purchases + retained-player costs. */
+    public function spent(Auction $auction, int $actualTeamId): float
+    {
+        return $this->soldSpent($auction, $actualTeamId) + $this->retainedSpent($auction, $actualTeamId);
+    }
+
     public function remainingBudget(Auction $auction, int $actualTeamId): float
     {
+        if (! $this->budgetApplies($auction)) {
+            return PHP_FLOAT_MAX; // open tournaments: no budget cap
+        }
+
         return $this->allocatedBudget($auction, $actualTeamId) - $this->spent($auction, $actualTeamId);
     }
 
