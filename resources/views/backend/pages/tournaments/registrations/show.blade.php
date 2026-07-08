@@ -139,6 +139,30 @@
                             </div>
                         </div>
                         @endif
+
+                        {{-- Custom fields (team) --}}
+                        @php $teamCustom = $tournament->customFields->where('form', 'team'); $teamCfVals = (array) $registration->custom_field_values; @endphp
+                        @if($teamCustom->count())
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Additional Details</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                @foreach($teamCustom as $cf)
+                                    @php
+                                        $v = $teamCfVals['cf_' . $cf->id] ?? null;
+                                        if ($cf->type === 'checkbox') { $v = ($v === '1' || $v === 1) ? 'Yes' : (($v === '0' || $v === 0) ? 'No' : null); }
+                                    @endphp
+                                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                                        <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $cf->label }}</h4>
+                                        @if($v === null || $v === '')
+                                            <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                        @else
+                                            <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $v }}</p>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 @else
                     {{-- Player Registration Details — grouped to match the registration form sections --}}
@@ -206,7 +230,7 @@
                         </div>
                         @endif
 
-                        @php $regCustom = $tournament->customFields; $cfVals = (array) $registration->custom_field_values; @endphp
+                        @php $regCustom = $tournament->customFields->where('form', 'player'); $cfVals = (array) $registration->custom_field_values; @endphp
                         @foreach($layout as $section)
                             @php
                                 // Show EVERY field that is visible on the public form — even when the

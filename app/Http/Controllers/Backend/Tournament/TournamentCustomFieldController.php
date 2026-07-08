@@ -51,6 +51,7 @@ class TournamentCustomFieldController extends Controller
     protected function validated(Request $request): array
     {
         $validated = $request->validate([
+            'form' => 'required|in:player,team',
             'label' => 'required|string|max:150',
             'type' => 'required|in:' . implode(',', array_keys(TournamentCustomField::TYPES)),
             'section' => 'required|string|max:100',
@@ -65,6 +66,7 @@ class TournamentCustomFieldController extends Controller
         }
 
         return [
+            'form' => $validated['form'],
             'label' => $validated['label'],
             'type' => $validated['type'],
             'section' => $validated['section'],

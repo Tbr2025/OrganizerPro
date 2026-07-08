@@ -108,7 +108,7 @@ class RegistrationController extends Controller
         }
 
         // Custom (admin-defined) fields — validation rules by type.
-        $customFields = $tournament->customFields()->where('visible', true)->get();
+        $customFields = $tournament->customFields()->where('visible', true)->where('form', 'player')->get();
         foreach ($customFields as $cf) {
             $key = 'custom_fields.' . $cf->id;
             if ($cf->type === 'checkbox') {
@@ -220,6 +220,29 @@ class RegistrationController extends Controller
         if (!empty($tournament->settings?->team_terms_and_conditions_content)) {
             $rules['consent_name'] = 'required|string|max:150';
         }
+
+        // Custom (admin-defined) team fields — validation rules by type.
+        $customFields = $tournament->customFields()->where('visible', true)->where('form', 'team')->get();
+        foreach ($customFields as $cf) {
+            $key = 'custom_fields.' . $cf->id;
+            if ($cf->type === 'checkbox') {
+                $rules[$key] = $cf->required ? 'accepted' : 'nullable';
+                continue;
+            }
+            $parts = [$cf->required ? 'required' : 'nullable'];
+            if ($cf->type === 'number') {
+                $parts[] = 'numeric';
+            } elseif ($cf->type === 'date') {
+                $parts[] = 'date';
+            } elseif ($cf->type === 'dropdown' && ! empty($cf->options)) {
+                $parts[] = 'in:' . implode(',', $cf->options);
+            } else {
+                $parts[] = 'string';
+                $parts[] = 'max:1000';
+            }
+            $rules[$key] = implode('|', $parts);
+        }
+
         $validated = $request->validate($rules);
 
         // Digitally-signed consent capture (typed name + IP + T&C snapshot).
@@ -228,6 +251,18 @@ class RegistrationController extends Controller
             $validated['consent_ip'] = $request->ip();
             $validated['consent_snapshot'] = $tournament->settings?->team_terms_and_conditions_content;
         }
+
+        // Collect custom field answers keyed by cf_<id>.
+        $customValues = [];
+        foreach ($customFields as $cf) {
+            $val = $cf->type === 'checkbox'
+                ? ($request->boolean('custom_fields.' . $cf->id) ? '1' : '0')
+                : $request->input('custom_fields.' . $cf->id);
+            if ($val !== null && $val !== '') {
+                $customValues['cf_' . $cf->id] = $val;
+            }
+        }
+        $validated['custom_field_values'] = $customValues;
 
         try {
             $registration = $this->registrationService->registerTeam($tournament, $validated);

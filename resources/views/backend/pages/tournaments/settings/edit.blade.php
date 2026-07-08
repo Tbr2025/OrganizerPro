@@ -558,6 +558,12 @@
                                 <span class="text-xs uppercase tracking-wide text-gray-400">Section</span>
                                 <input type="text" name="team_form_sections[{{ $sk }}]" x-model="teamSections['{{ $sk }}']" placeholder="{{ $sk }}"
                                     class="flex-1 text-sm font-semibold bg-transparent border-0 border-b border-transparent focus:border-indigo-500 focus:ring-0 text-gray-800 dark:text-gray-100 px-1 py-0.5">
+                                @php $teamSectionShown = ($settings && is_array($settings->team_registration_form_fields)) ? ($settings->team_registration_form_fields['_section_visible'][$sk] ?? true) : true; @endphp
+                                <label class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" title="Show this whole group on the team registration form">
+                                    <input type="checkbox" name="team_form_section_visible[{{ $sk }}]" value="1" {{ $teamSectionShown ? 'checked' : '' }}
+                                        class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                    <span>Show group</span>
+                                </label>
                             </div>
                             <div class="divide-y divide-gray-100 dark:divide-gray-800 builder-field-list">
                                 @foreach($section['fields'] as $fieldKey)
@@ -848,7 +854,8 @@
 
             {{-- ─── Custom Registration Fields (add-on fields, own forms outside the settings form) ─── --}}
             @php
-                $sectionOptions = array_keys(\App\Helpers\PlayerFormConfig::fieldGroups());
+                $playerSections = array_keys(\App\Helpers\PlayerFormConfig::fieldGroups());
+                $teamSections = array_keys(\App\Helpers\TeamFormConfig::fieldGroups());
                 $customFields = $tournament->customFields;
                 $cfTypes = \App\Models\TournamentCustomField::TYPES;
             @endphp
@@ -863,9 +870,16 @@
                             <form method="POST" action="{{ route('admin.tournaments.settings.custom-fields.update', [$tournament, $cf]) }}"
                                   class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-gray-100 dark:border-gray-800 rounded-lg p-3">
                                 @csrf @method('PUT')
-                                <div class="md:col-span-3">
+                                <div class="md:col-span-2">
                                     <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Label</label>
                                     <input type="text" name="label" value="{{ $cf->label }}" required class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Form</label>
+                                    <select name="form" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                        <option value="player" {{ $cf->form === 'player' ? 'selected' : '' }}>Player</option>
+                                        <option value="team" {{ $cf->form === 'team' ? 'selected' : '' }}>Team</option>
+                                    </select>
                                 </div>
                                 <div class="md:col-span-2">
                                     <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Type</label>
@@ -875,12 +889,15 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="md:col-span-3">
+                                <div class="md:col-span-2">
                                     <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Section</label>
                                     <select name="section" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                                        @foreach($sectionOptions as $sec)
-                                            <option value="{{ $sec }}" {{ $cf->section === $sec ? 'selected' : '' }}>{{ $sec }}</option>
-                                        @endforeach
+                                        <optgroup label="Player">
+                                            @foreach($playerSections as $sec)<option value="{{ $sec }}" {{ $cf->section === $sec ? 'selected' : '' }}>{{ $sec }}</option>@endforeach
+                                        </optgroup>
+                                        <optgroup label="Team">
+                                            @foreach($teamSections as $sec)<option value="{{ $sec }}" {{ $cf->section === $sec ? 'selected' : '' }}>{{ $sec }}</option>@endforeach
+                                        </optgroup>
                                     </select>
                                 </div>
                                 <div class="md:col-span-2">
@@ -906,9 +923,16 @@
                 <form method="POST" action="{{ route('admin.tournaments.settings.custom-fields.store', $tournament) }}"
                       class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border-t border-gray-200 dark:border-gray-700 pt-4">
                     @csrf
-                    <div class="md:col-span-3">
+                    <div class="md:col-span-2">
                         <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Label</label>
                         <input type="text" name="label" required placeholder="e.g. T-shirt brand" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Form</label>
+                        <select name="form" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            <option value="player">Player</option>
+                            <option value="team">Team</option>
+                        </select>
                     </div>
                     <div class="md:col-span-2">
                         <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Type</label>
@@ -916,10 +940,11 @@
                             @foreach($cfTypes as $val => $lbl)<option value="{{ $val }}">{{ $lbl }}</option>@endforeach
                         </select>
                     </div>
-                    <div class="md:col-span-3">
+                    <div class="md:col-span-2">
                         <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Section</label>
                         <select name="section" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                            @foreach($sectionOptions as $sec)<option value="{{ $sec }}">{{ $sec }}</option>@endforeach
+                            <optgroup label="Player">@foreach($playerSections as $sec)<option value="{{ $sec }}">{{ $sec }}</option>@endforeach</optgroup>
+                            <optgroup label="Team">@foreach($teamSections as $sec)<option value="{{ $sec }}">{{ $sec }}</option>@endforeach</optgroup>
                         </select>
                     </div>
                     <div class="md:col-span-2">

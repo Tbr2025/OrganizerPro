@@ -23,6 +23,12 @@ class TeamFormConfig
         ];
     }
 
+    /** Must-have team fields: always visible+required and locked in the builder. */
+    public static function lockedFields(): array
+    {
+        return ['team_name', 'captain_name', 'captain_email'];
+    }
+
     public static function getFieldConfig(?TournamentSetting $settings): array
     {
         $defaults = self::defaultFormFields();
@@ -43,10 +49,25 @@ class TeamFormConfig
             ];
         }
 
-        // Team name, manager name and email are always forced visible+required
-        foreach (['team_name', 'captain_name', 'captain_email'] as $forced) {
-            $config[$forced]['visible'] = true;
-            $config[$forced]['required'] = true;
+        // Section-level visibility: hiding a whole group hides all its fields on
+        // the public team form AND excludes them from validation.
+        $sectionVisible = is_array($saved['_section_visible'] ?? null) ? $saved['_section_visible'] : [];
+        foreach (self::fieldGroups() as $sectionKey => $sectionFields) {
+            if (array_key_exists($sectionKey, $sectionVisible) && ! $sectionVisible[$sectionKey]) {
+                foreach ($sectionFields as $f) {
+                    if (isset($config[$f])) {
+                        $config[$f]['visible'] = false;
+                    }
+                }
+            }
+        }
+
+        // Must-have team fields — always visible + required and locked.
+        foreach (self::lockedFields() as $forced) {
+            if (isset($config[$forced])) {
+                $config[$forced]['visible'] = true;
+                $config[$forced]['required'] = true;
+            }
         }
 
         // Terms & Conditions: auto-show + require when the tournament has TEAM T&C content.
@@ -114,6 +135,9 @@ class TeamFormConfig
 
             if ($visibleOnly) {
                 $fields = array_values(array_filter($fields, fn ($k) => $fieldConfig[$k]['visible'] ?? true));
+                if (empty($fields)) {
+                    continue;
+                }
             }
 
             usort($fields, fn ($a, $b) => ($fieldConfig[$a]['order'] ?? 0) <=> ($fieldConfig[$b]['order'] ?? 0));

@@ -225,6 +225,7 @@ class RegistrationService
             'consent_signed_at' => !empty($data['consent_name']) ? now() : null,
             'consent_ip' => $data['consent_ip'] ?? null,
             'consent_snapshot' => $data['consent_snapshot'] ?? null,
+            'custom_field_values' => $data['custom_field_values'] ?? null,
         ]);
 
         // Send admin notification

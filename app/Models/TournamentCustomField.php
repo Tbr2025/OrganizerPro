@@ -9,6 +9,7 @@ class TournamentCustomField extends Model
 {
     protected $fillable = [
         'tournament_id',
+        'form',
         'label',
         'type',
         'options',

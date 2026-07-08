@@ -137,7 +137,7 @@ class TournamentSettingsController extends Controller
                 'team_section_order',
                 TeamFormConfig::defaultFormFields(),
                 TeamFormConfig::fieldLabels(),
-                ['team_name', 'captain_name', 'captain_email']
+                TeamFormConfig::lockedFields()
             );
             $settings->update(['team_registration_form_fields' => $teamFormFields]);
         }
