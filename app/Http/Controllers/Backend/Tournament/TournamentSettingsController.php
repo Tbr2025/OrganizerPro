@@ -123,7 +123,7 @@ class TournamentSettingsController extends Controller
                 'form_section_order',
                 PlayerFormConfig::defaultFormFields(),
                 PlayerFormConfig::fieldLabels(),
-                ['name', 'first_name', 'last_name', 'email']
+                PlayerFormConfig::lockedFields()
             );
             $settings->update(['registration_form_fields' => $formFields]);
         }
@@ -267,15 +267,21 @@ class TournamentSettingsController extends Controller
             $config[$forced]['required'] = true;
         }
 
-        // Custom section titles (reserved _sections key).
+        // Custom section titles (reserved _sections key) + per-section visibility.
+        // A section title input is rendered for every section, so its keys are the
+        // full section list; a section is visible only when its checkbox is present.
+        $sectionVisibleKey = str_replace('sections', 'section_visible', $sectionsKey);
         $sections = [];
+        $sectionVisible = [];
         foreach ($request->input($sectionsKey, []) as $group => $title) {
             $title = trim((string) $title);
             if ($title !== '') {
                 $sections[$group] = $title;
             }
+            $sectionVisible[$group] = $request->has("{$sectionVisibleKey}.{$group}");
         }
         $config['_sections'] = $sections;
+        $config['_section_visible'] = $sectionVisible;
 
         // Section order (reserved _section_order key) — JSON array of section keys.
         $decoded = json_decode((string) $request->input($sectionOrderKey, ''), true);

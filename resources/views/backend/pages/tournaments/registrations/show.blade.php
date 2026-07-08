@@ -216,8 +216,14 @@
                                 }
                             @endphp
                             @if(count($rows))
-                            <div>
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $section['title'] }}</h3>
+                            <div data-verify-section>
+                                <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $section['title'] }}</h3>
+                                    <label class="flex items-center gap-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Verify all fields in this group">
+                                        <input type="checkbox" class="section-verify-toggle h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                        <span>Verify group</span>
+                                    </label>
+                                </div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                     @foreach($rows as $key => $value)
                                     @php
@@ -514,21 +520,47 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const master = document.getElementById('verifyAllToggle');
-        if (!master) return;
         const getBoxes = () => Array.from(document.querySelectorAll('input[name="verified[]"]'));
 
-        // Toggle all field checkboxes when the master changes.
-        master.addEventListener('change', function () {
-            getBoxes().forEach(function (cb) { cb.checked = master.checked; });
-        });
-
-        // Keep the master in sync: checked only when every field is checked.
-        const sync = function () {
+        // Global "Verify all" toggle.
+        if (master) {
+            master.addEventListener('change', function () {
+                getBoxes().forEach(function (cb) { cb.checked = master.checked; });
+                syncSections();
+            });
+        }
+        const syncMaster = function () {
+            if (!master) return;
             const boxes = getBoxes();
             master.checked = boxes.length > 0 && boxes.every(function (cb) { return cb.checked; });
         };
-        getBoxes().forEach(function (cb) { cb.addEventListener('change', sync); });
-        sync();
+
+        // Per-section "Verify group" toggles — one click verifies the whole group.
+        const sections = Array.from(document.querySelectorAll('[data-verify-section]'));
+        const sectionBoxes = (sec) => Array.from(sec.querySelectorAll('input[name="verified[]"]'));
+        const syncSection = function (sec) {
+            const toggle = sec.querySelector('.section-verify-toggle');
+            const boxes = sectionBoxes(sec);
+            if (toggle) toggle.checked = boxes.length > 0 && boxes.every(function (cb) { return cb.checked; });
+        };
+        const syncSections = function () { sections.forEach(syncSection); };
+
+        sections.forEach(function (sec) {
+            const toggle = sec.querySelector('.section-verify-toggle');
+            if (toggle) {
+                toggle.addEventListener('change', function () {
+                    sectionBoxes(sec).forEach(function (cb) { cb.checked = toggle.checked; });
+                    syncMaster();
+                });
+            }
+        });
+
+        // Keep all toggles in sync when individual boxes change.
+        getBoxes().forEach(function (cb) {
+            cb.addEventListener('change', function () { syncMaster(); syncSections(); });
+        });
+        syncMaster();
+        syncSections();
     });
 </script>
 @endpush

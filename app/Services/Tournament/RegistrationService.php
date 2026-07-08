@@ -31,8 +31,13 @@ class RegistrationService
             // Create user if not exists
             $user = User::where('email', $data['email'])->first();
 
+            // Holds the plaintext password only when a brand-new account is created,
+            // so we can email the player their login credentials.
+            $newUserPassword = null;
+
             if (!$user) {
                 $password = Str::random(12);
+                $newUserPassword = $password;
                 $user = User::create([
                     'name' => $data['name'],
                     'email' => $data['email'],
@@ -163,6 +168,15 @@ class RegistrationService
 
             // Tell the applicant their application is in the queue / under review.
             $this->sendApplicationUnderReviewEmail($tournament, $registration, $data['email'] ?? null, $data['name'] ?? 'Player');
+
+            // Email login credentials only when a new account was just created.
+            if ($newUserPassword) {
+                try {
+                    Mail::to($user->email)->send(new \App\Mail\PlayerCredentialsMail($user, $newUserPassword, $tournament));
+                } catch (\Throwable $e) {
+                    Log::error('Failed to send player credentials email: ' . $e->getMessage());
+                }
+            }
 
             // In-app notification for admins
             $this->notifyAdminsInApp(

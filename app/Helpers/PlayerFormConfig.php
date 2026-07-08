@@ -47,6 +47,17 @@ class PlayerFormConfig
         ];
     }
 
+    /**
+     * Must-have fields: always visible + required, cannot be hidden/disabled in
+     * the builder, and cannot be edited by the player after registration.
+     *
+     * @return array<int, string>
+     */
+    public static function lockedFields(): array
+    {
+        return ['name', 'first_name', 'last_name', 'email', 'mobile_number', 'cricheroes_number'];
+    }
+
     public static function getFieldConfig(?TournamentSetting $settings): array
     {
         $defaults = self::defaultFormFields();
@@ -70,10 +81,27 @@ class PlayerFormConfig
             ];
         }
 
-        // Name (composed), first/last and email are always forced visible+required
-        foreach (['name', 'first_name', 'last_name', 'email'] as $forced) {
-            $config[$forced]['visible'] = true;
-            $config[$forced]['required'] = true;
+        // Section-level visibility: hiding a whole group hides all its fields on
+        // the public form AND excludes them from validation. Applied before the
+        // must-have override so identity fields can never be hidden.
+        $sectionVisible = is_array($saved['_section_visible'] ?? null) ? $saved['_section_visible'] : [];
+        foreach (self::fieldGroups() as $sectionKey => $sectionFields) {
+            if (array_key_exists($sectionKey, $sectionVisible) && ! $sectionVisible[$sectionKey]) {
+                foreach ($sectionFields as $f) {
+                    if (isset($config[$f])) {
+                        $config[$f]['visible'] = false;
+                    }
+                }
+            }
+        }
+
+        // Must-have identity/contact fields — always visible + required and locked
+        // from being toggled or edited (see lockedFields()).
+        foreach (self::lockedFields() as $forced) {
+            if (isset($config[$forced])) {
+                $config[$forced]['visible'] = true;
+                $config[$forced]['required'] = true;
+            }
         }
 
         // Terms & Conditions: auto-show (and require acceptance) whenever the
@@ -129,6 +157,11 @@ class PlayerFormConfig
 
             if ($visibleOnly) {
                 $fields = array_values(array_filter($fields, fn ($k) => $fieldConfig[$k]['visible'] ?? true));
+                // Skip a section entirely when none of its fields are visible
+                // (e.g. the whole group was hidden in settings).
+                if (empty($fields)) {
+                    continue;
+                }
             }
 
             // Sort by configured order, stable on default index as tiebreak.

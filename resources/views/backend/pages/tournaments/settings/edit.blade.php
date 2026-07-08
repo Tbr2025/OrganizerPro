@@ -461,7 +461,7 @@
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{
                     fields: @js($fieldConfig),
                     sections: @js($sectionLabels),
-                    lockedFields: ['name', 'first_name', 'last_name', 'email'],
+                    lockedFields: ['name', 'first_name', 'last_name', 'email', 'mobile_number', 'cricheroes_number'],
                     toggleRequired(key) {
                         if (!this.fields[key].visible) {
                             this.fields[key].required = false;
@@ -484,6 +484,13 @@
                                 <span class="text-xs uppercase tracking-wide text-gray-400">Section</span>
                                 <input type="text" name="form_sections[{{ $sk }}]" x-model="sections['{{ $sk }}']" placeholder="{{ $sk }}"
                                     class="flex-1 text-sm font-semibold bg-transparent border-0 border-b border-transparent focus:border-indigo-500 focus:ring-0 text-gray-800 dark:text-gray-100 px-1 py-0.5">
+                                {{-- Per-section show/hide on the public registration form --}}
+                                @php $sectionShown = ($settings && is_array($settings->registration_form_fields)) ? ($settings->registration_form_fields['_section_visible'][$sk] ?? true) : true; @endphp
+                                <label class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" title="Show this whole group on the registration form">
+                                    <input type="checkbox" name="form_section_visible[{{ $sk }}]" value="1" {{ $sectionShown ? 'checked' : '' }}
+                                        class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                    <span>Show group</span>
+                                </label>
                             </div>
                             <div class="divide-y divide-gray-100 dark:divide-gray-800 builder-field-list">
                                 @foreach($section['fields'] as $fieldKey)
