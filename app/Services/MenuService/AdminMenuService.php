@@ -302,6 +302,16 @@ class AdminMenuService
             ],
         ]);
 
+        $this->addMenuItem([
+            'label' => __('Organizers'),
+            'icon' => 'feather:users',
+            'id' => 'organizers-menu',
+            'route' => route('admin.organizers.index'),
+            'active' => Route::is('admin.organizers.*'),
+            'priority' => 21,
+            'permissions' => ['tournament.edit'],
+        ]);
+
 
 
 

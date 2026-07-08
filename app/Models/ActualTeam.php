@@ -11,6 +11,32 @@ class ActualTeam extends Model
 {
     use BelongsToOrganization;
 
+    /** Organizers explicitly assigned to this team. */
+    public function organizers()
+    {
+        return $this->morphToMany(User::class, 'assignable', 'organizer_assignments')->withTimestamps();
+    }
+
+    /**
+     * Restrict to teams a user may see: Superadmin all; Organizer (not Admin) →
+     * teams they're assigned to OR teams in tournaments they're assigned to;
+     * others → own organization.
+     */
+    public function scopeForUser($query, $user)
+    {
+        if (! $user || (method_exists($user, 'hasRole') && $user->hasRole('Superadmin'))) {
+            return $query;
+        }
+        if (method_exists($user, 'hasRole') && $user->hasRole('Organizer') && ! $user->hasRole('Admin')) {
+            $tournamentIds = \App\Models\Tournament::forUser($user)->pluck('id');
+            return $query->where(function ($q) use ($user, $tournamentIds) {
+                $q->whereHas('organizers', fn ($o) => $o->where('users.id', $user->id))
+                  ->orWhereIn('tournament_id', $tournamentIds);
+            });
+        }
+        return $query->where('organization_id', $user->organization_id);
+    }
+
     protected $fillable = [
         'organization_id',
         'tournament_id',

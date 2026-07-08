@@ -124,6 +124,24 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(Player::class);
     }
 
+    /** Tournaments assigned to this organizer user. */
+    public function assignedTournaments()
+    {
+        return $this->morphedByMany(\App\Models\Tournament::class, 'assignable', 'organizer_assignments')->withTimestamps();
+    }
+
+    /** Teams assigned to this organizer user. */
+    public function assignedTeams()
+    {
+        return $this->morphedByMany(\App\Models\ActualTeam::class, 'assignable', 'organizer_assignments')->withTimestamps();
+    }
+
+    /** Matches assigned to this organizer user. */
+    public function assignedMatches()
+    {
+        return $this->morphedByMany(\App\Models\Matches::class, 'assignable', 'organizer_assignments')->withTimestamps();
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);

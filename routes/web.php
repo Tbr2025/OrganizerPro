@@ -27,6 +27,7 @@ use App\Http\Controllers\Backend\ModulesController;
 use App\Http\Controllers\Backend\OrganizationController;
 use App\Http\Controllers\Backend\ZoneController;
 use App\Http\Controllers\Backend\PermissionsController;
+use App\Http\Controllers\Backend\OrganizerController;
 use App\Http\Controllers\Backend\PlayerController;
 use App\Http\Controllers\Backend\PlayerProfileController;
 use App\Http\Controllers\Backend\PostsController;
@@ -460,6 +461,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/players/remove-background', [PlayerController::class, 'removeBackground'])->name('players.removeBackground');
 
     Route::resource('players', PlayerController::class);
+    // Organizer management: create/pick organizer users and assign tournaments/teams/matches
+    Route::resource('organizers', OrganizerController::class)->except(['show'])->parameters(['organizers' => 'organizer']);
     Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');
 
     Route::post('players/import', [PlayerController::class, 'importCsv'])->name('players.import');

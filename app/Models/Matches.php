@@ -10,6 +10,33 @@ use Illuminate\Support\Str;
 
 class Matches extends Model
 {
+    /** Organizers explicitly assigned to this match. */
+    public function organizers()
+    {
+        return $this->morphToMany(\App\Models\User::class, 'assignable', 'organizer_assignments')->withTimestamps();
+    }
+
+    /**
+     * Restrict to matches a user may see: Superadmin all; Organizer (not Admin) →
+     * matches assigned to them OR matches in tournaments they're assigned to;
+     * others → matches in their organization's tournaments.
+     */
+    public function scopeForUser($query, $user)
+    {
+        if (! $user || (method_exists($user, 'hasRole') && $user->hasRole('Superadmin'))) {
+            return $query;
+        }
+        if (method_exists($user, 'hasRole') && $user->hasRole('Organizer') && ! $user->hasRole('Admin')) {
+            $tournamentIds = \App\Models\Tournament::forUser($user)->pluck('id');
+            return $query->where(function ($q) use ($user, $tournamentIds) {
+                $q->whereHas('organizers', fn ($o) => $o->where('users.id', $user->id))
+                  ->orWhereIn('tournament_id', $tournamentIds);
+            });
+        }
+        $tournamentIds = \App\Models\Tournament::where('organization_id', $user->organization_id)->pluck('id');
+        return $query->whereIn('tournament_id', $tournamentIds);
+    }
+
     protected $fillable = [
         'tournament_id',
         'tournament_group_id',

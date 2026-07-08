@@ -91,7 +91,7 @@ class Tournament extends Model
     /** Organizers explicitly assigned to this tournament (by an admin). */
     public function organizers()
     {
-        return $this->belongsToMany(User::class, 'tournament_organizer')->withTimestamps();
+        return $this->morphToMany(User::class, 'assignable', 'organizer_assignments')->withTimestamps();
     }
 
     /**
