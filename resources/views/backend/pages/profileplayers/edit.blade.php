@@ -147,11 +147,6 @@
                             @php
                                 $dropdowns = [
                                     'team_id' => ['label' => 'Team', 'options' => $teams, 'optionField' => 'name'],
-                                    'kit_size_id' => [
-                                        'label' => 'Jersey Size',
-                                        'options' => $kitSizes,
-                                        'optionField' => 'size',
-                                    ],
                                     'batting_profile_id' => [
                                         'label' => 'Batting Profile',
                                         'options' => $battingProfiles,
@@ -216,6 +211,26 @@
                                     @error($field)
                                         <p class="text-sm text-red-500">{{ $message }}</p>
                                     @enderror
+                                </div>
+                            @endforeach
+
+                            {{-- T-Shirt & Pant size (admin-managed lists, stored as strings) --}}
+                            @php
+                                $sizeSelects = [
+                                    'tshirt_size' => ['label' => 'T-Shirt Size', 'options' => \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes())],
+                                    'pant_size'   => ['label' => 'Pant Size', 'options' => \App\Helpers\PlayerFormConfig::sizeOptions('pant_sizes', \App\Helpers\PlayerFormConfig::defaultPantSizes())],
+                                ];
+                            @endphp
+                            @foreach ($sizeSelects as $field => $config)
+                                <div class="space-y-1">
+                                    <label for="{{ $field }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $config['label'] }}</label>
+                                    <select name="{{ $field }}" id="{{ $field }}" class="form-control">
+                                        <option value="">-- Select {{ $config['label'] }} --</option>
+                                        @foreach ($config['options'] as $opt)
+                                            <option value="{{ $opt }}" {{ old($field, $player->$field) === $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error($field)<p class="text-sm text-red-500">{{ $message }}</p>@enderror
                                 </div>
                             @endforeach
 

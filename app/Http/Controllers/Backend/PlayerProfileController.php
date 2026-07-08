@@ -233,9 +233,8 @@ class PlayerProfileController extends Controller
         if (!($verifiedFields['no_travel_plan'] ?? false)) {
             $rules['no_travel_plan'] = 'nullable';
         }
-        if (!($verifiedFields['kit_size_id'] ?? false)) {
-            $rules['kit_size_id'] = 'required|exists:kit_sizes,id';
-        }
+        $rules['tshirt_size'] = 'nullable|string|max:50';
+        $rules['pant_size'] = 'nullable|string|max:50';
 
         if (!($player->verified_batting_profile_id ?? false)) {
             $rules['batting_profile_id'] = 'required|exists:batting_profiles,id';
@@ -284,7 +283,7 @@ class PlayerProfileController extends Controller
             'name', 'mobile_number_full', 'jersey_name', 'cricheroes_number_full',
             'cricheroes_profile_url', 'jersey_number', 'team_name_ref', 'location_id',
             'total_matches', 'total_runs', 'total_wickets', 'travel_date_from',
-            'travel_date_to', 'no_travel_plan', 'kit_size_id', 'batting_profile_id',
+            'travel_date_to', 'no_travel_plan', 'tshirt_size', 'pant_size', 'batting_profile_id',
             'bowling_profile_id', 'player_type_id', 'is_wicket_keeper',
             'transportation_required', 'image_path',
         ];

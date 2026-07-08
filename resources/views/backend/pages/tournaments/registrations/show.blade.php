@@ -175,7 +175,8 @@
                                 'played_ys_ipl_s1' => is_null($p->played_ys_ipl_s1) ? null : ($p->played_ys_ipl_s1 ? 'Yes' : 'No'),
                                 'jersey_name' => $p->jersey_name,
                                 'jersey_number' => $p->jersey_number,
-                                'kit_size' => $p->kitSize?->size ?? $p->kitSize?->name,
+                                'tshirt_size' => $p->tshirt_size,
+                                'pant_size' => $p->pant_size,
                                 'player_type' => $p->playerType?->name ?? $p->playerType?->type,
                                 'batting_profile' => $p->battingProfile?->name ?? $p->battingProfile?->style,
                                 'bowling_profile' => $p->bowlingProfile?->name ?? $p->bowlingProfile?->style,
@@ -347,14 +348,13 @@
                             'jersey_number' => 'Jersey Number', 'team_name_ref' => 'Registration Team', 'location_id' => 'Location',
                             'total_matches' => 'Total Matches', 'total_runs' => 'Total Runs', 'total_wickets' => 'Total Wickets',
                             'travel_date_from' => 'Travel From', 'travel_date_to' => 'Travel To', 'no_travel_plan' => 'No Travel Plan',
-                            'kit_size_id' => 'Kit Size', 'batting_profile_id' => 'Batting Profile', 'bowling_profile_id' => 'Bowling Profile',
+                            'tshirt_size' => 'T-Shirt Size', 'pant_size' => 'Pant Size', 'batting_profile_id' => 'Batting Profile', 'bowling_profile_id' => 'Bowling Profile',
                             'player_type_id' => 'Player Type', 'is_wicket_keeper' => 'Wicket Keeper', 'transportation_required' => 'Transportation', 'image_path' => 'Profile Photo',
                         ];
                         $pcFmt = function ($field, $val) {
                             if (is_null($val) || $val === '') return '—';
                             return match ($field) {
                                 'is_wicket_keeper', 'transportation_required', 'no_travel_plan' => $val ? 'Yes' : 'No',
-                                'kit_size_id' => optional(\App\Models\KitSize::find($val))->size ?? optional(\App\Models\KitSize::find($val))->name ?? $val,
                                 'batting_profile_id' => optional(\App\Models\BattingProfile::find($val))->name ?? $val,
                                 'bowling_profile_id' => optional(\App\Models\BowlingProfile::find($val))->name ?? $val,
                                 'player_type_id' => optional(\App\Models\PlayerType::find($val))->name ?? $val,

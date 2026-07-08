@@ -63,6 +63,8 @@ class Player extends Model implements MustVerifyEmail
         'verified_cricheroes_profile_url',
         'jersey_name',
         'kit_size_id',
+        'tshirt_size',
+        'pant_size',
         'batting_profile_id',
         'bowling_profile_id',
         'player_type_id',

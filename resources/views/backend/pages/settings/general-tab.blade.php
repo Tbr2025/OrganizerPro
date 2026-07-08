@@ -54,6 +54,20 @@
             </div>
         </div>
 
+        {{-- Registration size lists (used by the T-Shirt / Pant size fields on the registration form) --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('T-Shirt Sizes') }}</label>
+                <textarea name="tshirt_sizes" rows="3" class="form-control" placeholder="XS, S, M, L, XL, XXL, XXXL">{{ config('settings.tshirt_sizes') }}</textarea>
+                <p class="text-xs text-gray-500 mt-1">One per line or comma-separated. Shown as options on the registration form.</p>
+            </div>
+            <div>
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Pant Sizes') }}</label>
+                <textarea name="pant_sizes" rows="3" class="form-control" placeholder="28, 30, 32, 34, 36, 38, 40, 42">{{ config('settings.pant_sizes') }}</textarea>
+                <p class="text-xs text-gray-500 mt-1">One per line or comma-separated. Shown as options on the registration form.</p>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <!-- Column 1: Site Logo Full Lite and Dark -->
             <div>

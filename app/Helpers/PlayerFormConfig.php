@@ -32,7 +32,8 @@ class PlayerFormConfig
             'playing_team'           => ['visible' => true, 'required' => false],
             'jersey_name'            => ['visible' => true, 'required' => false],
             'jersey_number'          => ['visible' => true, 'required' => false],
-            'kit_size'               => ['visible' => true, 'required' => false],
+            'tshirt_size'            => ['visible' => true, 'required' => false],
+            'pant_size'              => ['visible' => true, 'required' => false],
             'batting_profile'        => ['visible' => true, 'required' => false],
             'bowling_profile'        => ['visible' => true, 'required' => false],
             'player_type'            => ['visible' => true, 'required' => false],
@@ -223,7 +224,8 @@ class PlayerFormConfig
             'playing_team'           => 'Playing Team',
             'jersey_name'            => 'Jersey Name',
             'jersey_number'          => 'Jersey Number',
-            'kit_size'               => 'Kit Size',
+            'tshirt_size'            => 'T-Shirt Size',
+            'pant_size'              => 'Pant Size',
             'batting_profile'        => 'Batting Profile',
             'bowling_profile'        => 'Bowling Profile',
             'player_type'            => 'Player Type',
@@ -238,6 +240,35 @@ class PlayerFormConfig
         ];
     }
 
+    /**
+     * Parse an admin-managed size list from global settings (comma/newline
+     * separated), falling back to sensible defaults when unset.
+     *
+     * @return array<int, string>
+     */
+    public static function sizeOptions(string $settingKey, array $default): array
+    {
+        $raw = (string) config('settings.' . $settingKey, '');
+        if (trim($raw) === '') {
+            return $default;
+        }
+        $parts = array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $raw)), fn ($v) => $v !== ''));
+
+        return $parts ?: $default;
+    }
+
+    /** Default T-shirt size options. */
+    public static function defaultTshirtSizes(): array
+    {
+        return ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+    }
+
+    /** Default pant/waist size options. */
+    public static function defaultPantSizes(): array
+    {
+        return ['28', '30', '32', '34', '36', '38', '40', '42'];
+    }
+
     public static function fieldGroups(): array
     {
         // Groups double as the registration form's visual sections (titles are editable).
@@ -245,7 +276,7 @@ class PlayerFormConfig
             'Basic Information' => ['first_name', 'last_name', 'email', 'date_of_birth', 'country', 'state', 'mobile_number', 'cricheroes_number', 'cricheroes_profile_url', 'location', 'registration_team', 'playing_team'],
             'Visa & Employment' => ['visa_status', 'visa_expiry', 'employer_name', 'employer_address', 'employer_position'],
             'Availability' => ['available_saturday', 'available_sunday', 'played_ys_ipl_s1'],
-            'Jersey Information' => ['jersey_name', 'jersey_number', 'kit_size'],
+            'Jersey Information' => ['jersey_name', 'jersey_number', 'tshirt_size', 'pant_size'],
             'Player Profile' => ['player_type', 'batting_profile', 'bowling_profile', 'is_wicket_keeper'],
             'Leather Ball Experience' => ['total_matches', 'total_runs', 'total_wickets'],
             'Travel & Transportation' => ['transportation', 'travel_plan'],
@@ -392,9 +423,13 @@ class PlayerFormConfig
             $rules['jersey_number'] = ($fieldConfig['jersey_number']['required'] ?? false) ? 'required|integer|min:0|max:999' : 'nullable|integer|min:0|max:999';
         }
 
-        // Kit Size
-        if ($fieldConfig['kit_size']['visible'] ?? true) {
-            $rules['kit_size_id'] = ($fieldConfig['kit_size']['required'] ?? false) ? 'required|exists:kit_sizes,id' : 'nullable|exists:kit_sizes,id';
+        // T-Shirt Size (admin-managed list, stored as a string)
+        if ($fieldConfig['tshirt_size']['visible'] ?? true) {
+            $rules['tshirt_size'] = ($fieldConfig['tshirt_size']['required'] ?? false) ? 'required|string|max:50' : 'nullable|string|max:50';
+        }
+        // Pant Size (admin-managed list, stored as a string)
+        if ($fieldConfig['pant_size']['visible'] ?? true) {
+            $rules['pant_size'] = ($fieldConfig['pant_size']['required'] ?? false) ? 'required|string|max:50' : 'nullable|string|max:50';
         }
 
         // Batting Profile

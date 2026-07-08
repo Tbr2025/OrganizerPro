@@ -236,17 +236,28 @@
         @error('jersey_number')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
-    @case('kit_size')
-        @if($kitSizes->count() > 0)
-        <label for="kit_size_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="kit_size_id" id="kit_size_id" class="reg-select">
+    @case('tshirt_size')
+        @php $tshirtOptions = \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes()); @endphp
+        <label for="tshirt_size" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <select name="tshirt_size" id="tshirt_size" class="reg-select" {{ $required ? 'required' : '' }}>
             <option value="">Select size</option>
-            @foreach($kitSizes as $size)
-                <option value="{{ $size->id }}" {{ old('kit_size_id') == $size->id ? 'selected' : '' }}>{{ $size->size ?? $size->name }}</option>
+            @foreach($tshirtOptions as $size)
+                <option value="{{ $size }}" {{ old('tshirt_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
             @endforeach
         </select>
-        @error('kit_size_id')<p class="reg-err">{{ $message }}</p>@enderror
-        @endif
+        @error('tshirt_size')<p class="reg-err">{{ $message }}</p>@enderror
+        @break
+
+    @case('pant_size')
+        @php $pantOptions = \App\Helpers\PlayerFormConfig::sizeOptions('pant_sizes', \App\Helpers\PlayerFormConfig::defaultPantSizes()); @endphp
+        <label for="pant_size" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <select name="pant_size" id="pant_size" class="reg-select" {{ $required ? 'required' : '' }}>
+            <option value="">Select size</option>
+            @foreach($pantOptions as $size)
+                <option value="{{ $size }}" {{ old('pant_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
+            @endforeach
+        </select>
+        @error('pant_size')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('player_type')
