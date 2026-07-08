@@ -163,9 +163,13 @@
               }">
             @csrf
 
+            @php $allCustomFields = $tournament->customFields->where('visible', true); @endphp
             @foreach($layout as $section)
-                @php $meta = $sectionMeta[$section['key']] ?? ['icon' => 'fa-list-ul', 'sub' => '']; @endphp
-                @if(count($section['fields']))
+                @php
+                    $meta = $sectionMeta[$section['key']] ?? ['icon' => 'fa-list-ul', 'sub' => ''];
+                    $sectionCustom = $allCustomFields->where('section', $section['key']);
+                @endphp
+                @if(count($section['fields']) || $sectionCustom->count())
                 <div class="reg-section glass reveal">
                     <div class="reg-section-head">
                         <div class="reg-section-icon"><i class="fas {{ $meta['icon'] }}"></i></div>
@@ -178,6 +182,9 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         @foreach($section['fields'] as $fieldKey)
                             @include('public.registration.fields.player-field', ['key' => $fieldKey])
+                        @endforeach
+                        @foreach($sectionCustom as $cf)
+                            @include('public.registration.fields.custom-field', ['cf' => $cf])
                         @endforeach
                     </div>
                 </div>

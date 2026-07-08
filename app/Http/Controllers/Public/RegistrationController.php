@@ -107,7 +107,41 @@ class RegistrationController extends Controller
             $rules['consent_name'] = 'required|string|max:150';
         }
 
+        // Custom (admin-defined) fields — validation rules by type.
+        $customFields = $tournament->customFields()->where('visible', true)->get();
+        foreach ($customFields as $cf) {
+            $key = 'custom_fields.' . $cf->id;
+            if ($cf->type === 'checkbox') {
+                $rules[$key] = $cf->required ? 'accepted' : 'nullable';
+                continue;
+            }
+            $parts = [$cf->required ? 'required' : 'nullable'];
+            if ($cf->type === 'number') {
+                $parts[] = 'numeric';
+            } elseif ($cf->type === 'date') {
+                $parts[] = 'date';
+            } elseif ($cf->type === 'dropdown' && ! empty($cf->options)) {
+                $parts[] = 'in:' . implode(',', $cf->options);
+            } else {
+                $parts[] = 'string';
+                $parts[] = 'max:1000';
+            }
+            $rules[$key] = implode('|', $parts);
+        }
+
         $validated = $request->validate($rules);
+
+        // Collect custom field answers keyed by cf_<id> for storage/verification.
+        $customValues = [];
+        foreach ($customFields as $cf) {
+            $val = $cf->type === 'checkbox'
+                ? ($request->boolean('custom_fields.' . $cf->id) ? '1' : '0')
+                : $request->input('custom_fields.' . $cf->id);
+            if ($val !== null && $val !== '') {
+                $customValues['cf_' . $cf->id] = $val;
+            }
+        }
+        $validated['custom_field_values'] = $customValues;
 
         $validated['is_wicket_keeper'] = $request->boolean('is_wicket_keeper');
         $validated['transportation_required'] = $request->boolean('transportation_required');

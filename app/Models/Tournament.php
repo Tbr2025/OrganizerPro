@@ -83,6 +83,11 @@ class Tournament extends Model
         return $this->hasMany(TournamentRegistration::class);
     }
 
+    public function customFields(): HasMany
+    {
+        return $this->hasMany(TournamentCustomField::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function awards(): HasMany
     {
         return $this->hasMany(TournamentAward::class)->orderBy('order');

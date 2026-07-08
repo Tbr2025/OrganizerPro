@@ -789,6 +789,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         // Settings
         Route::get('/settings', [TournamentSettingsController::class, 'edit'])->name('settings.edit');
         Route::put('/settings', [TournamentSettingsController::class, 'update'])->name('settings.update');
+        // Custom registration fields (admin-defined add-on fields)
+        Route::post('/settings/custom-fields', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'store'])->name('settings.custom-fields.store');
+        Route::put('/settings/custom-fields/{customField}', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'update'])->name('settings.custom-fields.update');
+        Route::delete('/settings/custom-fields/{customField}', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'destroy'])->name('settings.custom-fields.destroy');
         Route::post('/settings/generate-flyer', [TournamentSettingsController::class, 'generateFlyer'])->name('settings.generate-flyer');
         Route::put('/settings/status', [TournamentSettingsController::class, 'updateStatus'])->name('settings.status');
 

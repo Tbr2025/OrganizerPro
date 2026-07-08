@@ -845,6 +845,96 @@
                 </div>
                 @endcan
             </form>
+
+            {{-- ─── Custom Registration Fields (add-on fields, own forms outside the settings form) ─── --}}
+            @php
+                $sectionOptions = array_keys(\App\Helpers\PlayerFormConfig::fieldGroups());
+                $customFields = $tournament->customFields;
+                $cfTypes = \App\Models\TournamentCustomField::TYPES;
+            @endphp
+            <div class="mt-8 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5 sm:p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Custom Fields</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Add your own registration fields (they appear in the chosen section on the public form). Standard fields above are not affected.</p>
+
+                {{-- Existing custom fields --}}
+                @if($customFields->count())
+                    <div class="space-y-3 mb-6">
+                        @foreach($customFields as $cf)
+                            <form method="POST" action="{{ route('admin.tournaments.settings.custom-fields.update', [$tournament, $cf]) }}"
+                                  class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-gray-100 dark:border-gray-800 rounded-lg p-3">
+                                @csrf @method('PUT')
+                                <div class="md:col-span-3">
+                                    <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Label</label>
+                                    <input type="text" name="label" value="{{ $cf->label }}" required class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Type</label>
+                                    <select name="type" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                        @foreach($cfTypes as $val => $lbl)
+                                            <option value="{{ $val }}" {{ $cf->type === $val ? 'selected' : '' }}>{{ $lbl }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="md:col-span-3">
+                                    <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Section</label>
+                                    <select name="section" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                        @foreach($sectionOptions as $sec)
+                                            <option value="{{ $sec }}" {{ $cf->section === $sec ? 'selected' : '' }}>{{ $sec }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Options (dropdown)</label>
+                                    <input type="text" name="options" value="{{ is_array($cf->options) ? implode(', ', $cf->options) : '' }}" placeholder="A, B, C" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                </div>
+                                <div class="md:col-span-2 flex items-center gap-3">
+                                    <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="required" value="1" {{ $cf->required ? 'checked' : '' }} class="rounded border-gray-300"> Req</label>
+                                    <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="visible" value="1" {{ $cf->visible ? 'checked' : '' }} class="rounded border-gray-300"> Show</label>
+                                </div>
+                                <div class="md:col-span-12 flex gap-2">
+                                    <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Save</button>
+                                    <button type="submit" formaction="{{ route('admin.tournaments.settings.custom-fields.destroy', [$tournament, $cf]) }}" formmethod="POST"
+                                            onclick="event.preventDefault(); if(confirm('Delete this custom field?')){ const f=this.closest('form'); f.querySelector('input[name=_method]').value='DELETE'; f.action=this.getAttribute('formaction'); f.submit(); }"
+                                            class="px-3 py-1.5 text-xs font-medium rounded-md border border-red-300 text-red-600 hover:bg-red-50">Delete</button>
+                                </div>
+                            </form>
+                        @endforeach
+                    </div>
+                @endif
+
+                {{-- Add new custom field --}}
+                <form method="POST" action="{{ route('admin.tournaments.settings.custom-fields.store', $tournament) }}"
+                      class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border-t border-gray-200 dark:border-gray-700 pt-4">
+                    @csrf
+                    <div class="md:col-span-3">
+                        <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Label</label>
+                        <input type="text" name="label" required placeholder="e.g. T-shirt brand" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Type</label>
+                        <select name="type" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            @foreach($cfTypes as $val => $lbl)<option value="{{ $val }}">{{ $lbl }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Section</label>
+                        <select name="section" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            @foreach($sectionOptions as $sec)<option value="{{ $sec }}">{{ $sec }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Options (dropdown)</label>
+                        <input type="text" name="options" placeholder="A, B, C" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                    </div>
+                    <div class="md:col-span-2 flex items-center gap-3">
+                        <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="required" value="1" class="rounded border-gray-300"> Req</label>
+                        <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="visible" value="1" checked class="rounded border-gray-300"> Show</label>
+                    </div>
+                    <div class="md:col-span-12">
+                        <button type="submit" class="px-4 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700">+ Add Custom Field</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

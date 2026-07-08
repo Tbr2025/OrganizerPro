@@ -50,6 +50,8 @@ class TournamentRegistration extends Model
         // Player profile edits awaiting admin approval
         'pending_changes',
         'pending_changes_submitted_at',
+        // Answers to tournament custom fields (keyed by cf_<id>)
+        'custom_field_values',
     ];
 
     protected $casts = [
@@ -62,6 +64,7 @@ class TournamentRegistration extends Model
         'consent_signed_at' => 'datetime',
         'pending_changes' => 'array',
         'pending_changes_submitted_at' => 'datetime',
+        'custom_field_values' => 'array',
     ];
 
     public function tournament(): BelongsTo

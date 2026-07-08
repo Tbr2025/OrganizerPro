@@ -206,6 +206,7 @@
                         </div>
                         @endif
 
+                        @php $regCustom = $tournament->customFields; $cfVals = (array) $registration->custom_field_values; @endphp
                         @foreach($layout as $section)
                             @php
                                 // Show EVERY field that is visible on the public form — even when the
@@ -215,8 +216,9 @@
                                     if (in_array($key, $skip, true)) continue;
                                     $rows[$key] = $valueFor($key); // may be null/empty
                                 }
+                                $sectionCustom = $regCustom->where('visible', true)->where('section', $section['key']);
                             @endphp
-                            @if(count($rows))
+                            @if(count($rows) || $sectionCustom->count())
                             <div data-verify-section>
                                 <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
                                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ $section['title'] }}</h3>
@@ -256,6 +258,36 @@
                                             <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
                                         @endif
                                     </div>
+                                    @endforeach
+
+                                    {{-- Custom fields for this section --}}
+                                    @foreach($sectionCustom as $cf)
+                                        @php
+                                            $cfKey = 'cf_' . $cf->id;
+                                            $cfVal = $cfVals[$cfKey] ?? null;
+                                            if ($cf->type === 'checkbox') { $cfVal = ($cfVal === '1' || $cfVal === 1) ? 'Yes' : (($cfVal === '0' || $cfVal === 0) ? 'No' : null); }
+                                            $cfEmpty = ($cfVal === null || $cfVal === '');
+                                            $cfVerified = in_array($cfKey, $verifiedFields, true);
+                                        @endphp
+                                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $cfVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                                            <input type="hidden" name="all_fields[]" value="{{ $cfKey }}">
+                                            <div class="flex items-start justify-between gap-2">
+                                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    {{ $cf->label }}
+                                                    @if($cf->required)<span class="text-red-500">*</span>@else<span class="ml-1 text-[9px] normal-case font-normal text-gray-400 dark:text-gray-500">(optional)</span>@endif
+                                                    <span class="ml-1 text-[9px] normal-case font-normal text-indigo-400">custom</span>
+                                                </h4>
+                                                <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer">
+                                                    <input type="checkbox" name="verified[]" value="{{ $cfKey }}" {{ $cfVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                                    <span>Verified</span>
+                                                </label>
+                                            </div>
+                                            @if($cfEmpty)
+                                                <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                            @else
+                                                <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $cfVal }}</p>
+                                            @endif
+                                        </div>
                                     @endforeach
                                 </div>
                             </div>
