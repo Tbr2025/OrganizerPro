@@ -108,6 +108,10 @@ class PlayerProfileController extends Controller
         $selectedRegistration = $registrations->firstWhere('id', (int) request('registration_id'))
             ?? $registrations->first();
 
+        // Once a registration is approved the player can no longer edit their
+        // details for it (contact info + password remain editable via Account).
+        $isLocked = $selectedRegistration && $selectedRegistration->isApproved();
+
         // Pass all necessary data to the view
         return view('backend.pages.profileplayers.edit', [
             'player' => $player,
@@ -120,6 +124,7 @@ class PlayerProfileController extends Controller
             'playerTypes' => PlayerType::all(),
             'registrations' => $registrations,
             'selectedRegistration' => $selectedRegistration,
+            'isLocked' => $isLocked,
             'breadcrumbs' => [
                 'title' => __('Edit My Profile'), // Adjusted title for context
 
@@ -141,6 +146,12 @@ class PlayerProfileController extends Controller
             ->first();
         if (! $registration) {
             return back()->with('error', __('Please choose which tournament this update is for.'))->withInput();
+        }
+
+        // Locked once approved — only contact info & password can change (via Account).
+        if ($registration->isApproved()) {
+            return redirect()->route('profileplayers.edit', ['registration_id' => $registration->id])
+                ->with('error', __('Your registration has been accepted, so these details are locked. To change contact details or your password, use Account settings.'));
         }
 
         // Map of field => is_verified (e.g. DB: verified_name = true)

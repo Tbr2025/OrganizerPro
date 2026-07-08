@@ -53,6 +53,17 @@
                 </form>
             </div>
 
+            @if(!empty($approvedRegistrations) && $approvedRegistrations->count())
+                <div class="rounded-md border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-5 py-4">
+                    <p class="text-sm font-semibold text-green-800 dark:text-green-300">✔ You're accepted!</p>
+                    <p class="text-sm text-green-700 dark:text-green-400 mt-1">
+                        Your registration has been approved for
+                        <strong>{{ $approvedRegistrations->map(fn($r) => $r->tournament->name ?? 'a tournament')->join(', ') }}</strong>.
+                        Your registration details are locked — you can still update your email or password on this page.
+                    </p>
+                </div>
+            @endif
+
             @if(!empty($player))
                 @php
                     $countries = config('countries.list', []);

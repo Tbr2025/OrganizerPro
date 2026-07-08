@@ -15,19 +15,25 @@ class RegistrationCorrectionMail extends Mailable
     use Queueable, SerializesModels;
 
     /**
-     * @param  array<int, string>  $unverifiedFields  Human-readable labels of fields needing correction.
+     * @param  array<int, string>  $acceptedGroups  Section titles that are fully verified.
+     * @param  array<int, array{section:string, fields:array<int,string>}>  $pendingGroups  Sections with fields still to review.
      */
     public function __construct(
         public Tournament $tournament,
         public TournamentRegistration $registration,
-        public array $unverifiedFields,
+        public array $acceptedGroups = [],
+        public array $pendingGroups = [],
         public ?string $note = null,
     ) {}
 
     public function envelope(): Envelope
     {
+        $allAccepted = empty($this->pendingGroups);
+
         return new Envelope(
-            subject: "Action needed: please review your registration - {$this->tournament->name}",
+            subject: $allAccepted
+                ? "Your registration is verified - {$this->tournament->name}"
+                : "Action needed: please review your registration - {$this->tournament->name}",
         );
     }
 
@@ -39,7 +45,8 @@ class RegistrationCorrectionMail extends Mailable
                 'applicantName' => $this->registration->player->name
                     ?? $this->registration->captain_name
                     ?? 'Applicant',
-                'fields' => $this->unverifiedFields,
+                'acceptedGroups' => $this->acceptedGroups,
+                'pendingGroups' => $this->pendingGroups,
                 'note' => $this->note,
                 'tournamentName' => $this->tournament->name,
             ],

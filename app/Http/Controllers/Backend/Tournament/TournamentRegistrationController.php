@@ -216,13 +216,31 @@ class TournamentRegistrationController extends Controller
                 return back()->with('error', __('No email address on file for this registration.'));
             }
 
-            $unverifiedKeys = array_values(array_diff($allFields, $verified));
             $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
-            $labels = array_map(fn ($k) => $fieldConfig[$k]['label'] ?? ucwords(str_replace('_', ' ', $k)), $unverifiedKeys);
+            $label = fn ($k) => $fieldConfig[$k]['label'] ?? ucwords(str_replace('_', ' ', $k));
+            $skip = ['name', 'image', 'terms_and_conditions'];
 
-            Mail::to($email)->send(new RegistrationCorrectionMail($tournament, $registration, $labels, $request->input('note')));
+            // Group the verification status by SECTION: a group is "accepted" only
+            // when every one of its (displayed) fields is verified; otherwise it's
+            // pending and we list the specific fields still needing review.
+            $accepted = [];
+            $pending = [];
+            foreach (PlayerFormConfig::getFormLayout($tournament->settings, true) as $section) {
+                $fields = array_values(array_filter($section['fields'], fn ($k) => ! in_array($k, $skip, true) && in_array($k, $allFields, true)));
+                if (empty($fields)) {
+                    continue;
+                }
+                $unverified = array_values(array_diff($fields, $verified));
+                if (empty($unverified)) {
+                    $accepted[] = $section['title'];
+                } else {
+                    $pending[] = ['section' => $section['title'], 'fields' => array_map($label, $unverified)];
+                }
+            }
 
-            return back()->with('success', __('Verification saved and correction request emailed to :email.', ['email' => $email]));
+            Mail::to($email)->send(new RegistrationCorrectionMail($tournament, $registration, $accepted, $pending, $request->input('note')));
+
+            return back()->with('success', __('Verification saved and status emailed to :email.', ['email' => $email]));
         }
 
         return back()->with('success', __('Field verification saved.'));

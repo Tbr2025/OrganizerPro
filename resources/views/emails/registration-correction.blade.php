@@ -26,16 +26,35 @@
 
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
         <p style="margin: 0 0 15px 0;">Hi {{ $applicantName }},</p>
-        <p style="margin: 0 0 20px 0;">We reviewed your registration for <strong>{{ $tournamentName }}</strong>. The following details could not be verified and need your attention. Please reply to this email with the correct information (or updated documents).</p>
+        <p style="margin: 0 0 20px 0;">Here's the current review status of your registration for <strong>{{ $tournamentName }}</strong>, section by section.</p>
 
-        @if(!empty($fields))
-        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
-            <h3 style="margin: 0 0 12px 0; color: #495057; font-size: 15px;">Details to review</h3>
-            <ul style="margin: 0; padding-left: 20px; color: #495057;">
-                @foreach($fields as $field)
-                    <li style="padding: 3px 0;">{{ $field }}</li>
+        @if(!empty($acceptedGroups))
+        <div style="background: #ecfdf5; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; border-left: 4px solid #10b981;">
+            <h3 style="margin: 0 0 8px 0; color: #065f46; font-size: 15px;">✓ Accepted</h3>
+            <ul style="margin: 0; padding-left: 20px; color: #065f46;">
+                @foreach($acceptedGroups as $group)
+                    <li style="padding: 3px 0;">{{ $group }}</li>
                 @endforeach
             </ul>
+        </div>
+        @endif
+
+        @if(!empty($pendingGroups))
+        <div style="background: #fffbeb; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; border-left: 4px solid #f59e0b;">
+            <h3 style="margin: 0 0 8px 0; color: #92400e; font-size: 15px;">⏳ Still pending review</h3>
+            @foreach($pendingGroups as $group)
+                <p style="margin: 8px 0 2px; color: #92400e; font-weight: 600; font-size: 14px;">{{ $group['section'] }}</p>
+                <ul style="margin: 0 0 6px; padding-left: 20px; color: #92400e;">
+                    @foreach($group['fields'] as $field)
+                        <li style="padding: 2px 0;">{{ $field }}</li>
+                    @endforeach
+                </ul>
+            @endforeach
+            <p style="margin: 10px 0 0; color: #92400e; font-size: 13px;">Please reply with the correct information (or updated documents) for the items above.</p>
+        </div>
+        @else
+        <div style="background: #ecfdf5; border-radius: 8px; padding: 14px 20px; margin-bottom: 16px;">
+            <p style="margin: 0; color: #065f46; font-size: 14px;">🎉 All sections of your registration have been verified. No action needed.</p>
         </div>
         @endif
 

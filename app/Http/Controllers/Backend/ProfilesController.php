@@ -25,7 +25,13 @@ class ProfilesController extends Controller
             'battingProfile', 'bowlingProfile', 'playerType', 'kitSize', 'location', 'actualTeam',
         ]);
 
-        return view('backend.pages.profile.edit', compact('user', 'player'))
+        // Tournaments where this player has been accepted (approved) — shown as a
+        // banner so they know their details are locked.
+        $approvedRegistrations = $player
+            ? $player->registrations()->with('tournament')->where('status', 'approved')->get()
+            : collect();
+
+        return view('backend.pages.profile.edit', compact('user', 'player', 'approvedRegistrations'))
             ->with([
                 'breadcrumbs' => [
                     'title' => __('Edit Profile'),

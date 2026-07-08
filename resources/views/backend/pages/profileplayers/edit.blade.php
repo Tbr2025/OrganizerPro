@@ -46,8 +46,18 @@
                                     They will reflect on your profile once an admin approves them.
                                 </div>
                             @endif
+
+                            @if($isLocked ?? false)
+                                <div class="mb-5 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 text-sm">
+                                    <strong>✔ Your registration has been accepted</strong> for
+                                    <strong>{{ $selectedRegistration->tournament->name ?? 'this tournament' }}</strong>.
+                                    These details are now locked. To update your contact email or password, use your
+                                    <a href="{{ route('profile.edit') }}" class="underline font-medium">Account settings</a>.
+                                </div>
+                            @endif
                         @endif
 
+                        <fieldset @if($isLocked ?? false) disabled @endif>
                         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
 
                             @php
@@ -348,10 +358,14 @@
                         <input type="hidden" name="intimate" id="intimate" value="0">
                         <input type="hidden" name="allverified" id="allverified" value="0">
 
-                        {{-- Submit Buttons --}}
+                        </fieldset>
+
+                        {{-- Submit Buttons (hidden once the registration is accepted) --}}
+                        @unless($isLocked ?? false)
                         <div class="mt-6">
                             <x-buttons.submit-buttons cancelUrl="{{ route('admin.dashboard') }}" />
                         </div>
+                        @endunless
 
                     </form>
                 </div>

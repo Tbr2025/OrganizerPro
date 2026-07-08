@@ -281,9 +281,9 @@
                                     Save Verification
                                 </button>
                                 <button type="submit" name="action" value="send"
-                                    onclick="return confirm('Save verification and email the applicant a correction request for the unverified fields?')"
+                                    onclick="return confirm('Save verification and email the applicant their section-by-section review status (accepted vs pending groups)?')"
                                     class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600">
-                                    Save &amp; Send Correction Request
+                                    Save &amp; Email Review Status
                                 </button>
                                 @if($registration->consent_signed_at)
                                     <a href="{{ route('admin.tournaments.registrations.consent-pdf', [$tournament, $registration]) }}"
