@@ -28,7 +28,7 @@ class EmailPreviewController extends Controller
     public function index(Request $request)
     {
         // Org scope + Superadmin-sees-all is handled by the global OrganizationScope.
-        $tournaments = Tournament::orderBy('name')->get(['id', 'name', 'slug']);
+        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->get(['id', 'name', 'slug']);
 
         $selectedId = (int) $request->query('tournament_id', (int) ($tournaments->first()->id ?? 0));
         $tournament = $selectedId > 0 ? Tournament::with('settings')->find($selectedId) : null;

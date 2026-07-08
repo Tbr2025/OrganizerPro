@@ -240,7 +240,7 @@ class PlayerController extends Controller
 
         // Tournaments for the Superadmin-only tournament filter.
         $tournaments = $user->hasRole('Superadmin')
-            ? \App\Models\Tournament::orderBy('name')->get(['id', 'name'])
+            ? \App\Models\Tournament::forUser(auth()->user())->orderBy('name')->get(['id', 'name'])
             : collect();
 
         // 6. Return the view and pass all necessary data
@@ -262,7 +262,7 @@ class PlayerController extends Controller
         $defaultCountry = config('settings.default_country', '');
         $defaultDialCode = $defaultCountry ? config('countries.dial_codes.' . $defaultCountry, '+971') : '+971';
 
-        $tournaments = Tournament::orderBy('name')->get();
+        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->get();
 
         // If tournament is selected, use its field config; otherwise use defaults
         $selectedTournament = null;

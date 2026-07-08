@@ -115,7 +115,7 @@ class ImageTemplateController extends Controller
     public function create()
     {
         $categories = ImageTemplateCategories::all();
-        $tournaments = Tournament::where('status', '!=', 'completed')->orderByDesc('id')->get();
+        $tournaments = Tournament::forUser(auth()->user())->where('status', '!=', 'completed')->orderByDesc('id')->get();
         $templateTypes = TournamentTemplate::TYPES;
 
         return view('backend.pages.image-templates.create', compact('categories', 'tournaments', 'templateTypes'));

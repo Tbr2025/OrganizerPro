@@ -87,7 +87,7 @@ class AuctionController extends Controller
     public function create()
     {
         $organizations = Organization::all();
-        $tournaments = Tournament::all();
+        $tournaments = Tournament::forUser(auth()->user())->get();
         $breadcrumbs = ['title' => 'Create Auction'];
 
         return view('backend.pages.auctions.create', compact('organizations', 'tournaments', 'breadcrumbs'));
@@ -221,7 +221,7 @@ class AuctionController extends Controller
 
         $breadcrumbs = ['title' => __('Edit Auction')];
         $organizations = Organization::orderBy('name')->get();
-        $tournaments = Tournament::orderBy('name')->get();
+        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->get();
 
         // =======================================================
         // **THE FIX IS HERE**

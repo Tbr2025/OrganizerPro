@@ -88,6 +88,19 @@ class Tournament extends Model
         return $this->hasMany(TournamentCustomField::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    /**
+     * Restrict a query to the tournaments a user may see: Superadmins see all,
+     * everyone else only their own organization's tournaments.
+     */
+    public function scopeForUser($query, $user)
+    {
+        if (! $user || (method_exists($user, 'hasRole') && $user->hasRole('Superadmin'))) {
+            return $query;
+        }
+
+        return $query->where('organization_id', $user->organization_id);
+    }
+
     public function awards(): HasMany
     {
         return $this->hasMany(TournamentAward::class)->orderBy('order');

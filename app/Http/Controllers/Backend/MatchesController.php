@@ -135,7 +135,7 @@ class MatchesController extends Controller
 
     public function create(): View
     {
-        $tournaments = Tournament::all();
+        $tournaments = Tournament::forUser(auth()->user())->get();
         $teams = ActualTeam::all();
 
         return view('backend.pages.matches.create', compact('tournaments', 'teams'));
@@ -611,7 +611,7 @@ class MatchesController extends Controller
 
     public function edit(Matches $match): View
     {
-        $tournaments = Tournament::all();
+        $tournaments = Tournament::forUser(auth()->user())->get();
         $teams = ActualTeam::all();
 
         return view('backend.pages.matches.edit', compact('match', 'tournaments', 'teams'));

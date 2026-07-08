@@ -47,7 +47,7 @@ class AuctionAdminController extends Controller
     public function create()
     {
         $organizations = Organization::orderBy('name')->get();
-        $tournaments = Tournament::orderBy('name')->get();
+        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->get();
 
         // Fetch available players (approved, not retained) for the player pool step
         $orgId = Auth::user()->organization_id;
@@ -830,7 +830,7 @@ class AuctionAdminController extends Controller
     public function edit(Auction $auction)
     {
         $organizations = Organization::orderBy('name')->get();
-        $tournaments = Tournament::orderBy('name')->get();
+        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->get();
 
         // Load the players currently in the auction, its pools, tournament, and budgets.
         $auction->load(['auctionPlayers.player', 'pools.players.player', 'tournament', 'teamBudgets']);

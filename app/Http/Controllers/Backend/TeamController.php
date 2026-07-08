@@ -42,7 +42,7 @@ class TeamController extends Controller
         };
 
         $teams = $query->paginate(20);
-        $tournaments = Tournament::orderBy('name')->pluck('name', 'id');
+        $tournaments = Tournament::forUser(auth()->user())->orderBy('name')->pluck('name', 'id');
 
         return view('backend.pages.teams.index', [
             'teams' => $teams,
@@ -56,7 +56,7 @@ class TeamController extends Controller
 
     public function create()
     {
-        $tournaments = Tournament::pluck('name', 'id');
+        $tournaments = Tournament::forUser(auth()->user())->pluck('name', 'id');
         $admins = User::role(['Organizer', 'Superadmin'])->pluck('name', 'id');
         $teams = Team::all();
 
