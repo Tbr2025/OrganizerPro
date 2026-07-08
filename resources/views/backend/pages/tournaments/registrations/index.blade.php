@@ -60,8 +60,18 @@
                 </div>
             </div>
 
-            {{-- Stats Cards --}}
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            {{-- Player vs Team — separate pages (never mixed) --}}
+            <div class="inline-flex p-1 mb-5 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                @foreach(['player' => 'Player Registrations', 'team' => 'Team Registrations'] as $t => $label)
+                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $t]) }}"
+                       class="px-4 py-2 text-sm font-semibold rounded-lg transition {{ $type === $t ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200' }}">
+                        {{ $label }}
+                    </a>
+                @endforeach
+            </div>
+
+            {{-- Stats Cards ({{ ucfirst($type) }} registrations) --}}
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                 <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
@@ -131,13 +141,27 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-sky-600 dark:text-sky-400">In Queue</p>
+                            <p class="text-2xl font-bold text-sky-900 dark:text-sky-100">{{ $queuedCount }}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {{-- Filter Tabs (preserve search/sort when switching) --}}
             @php $q = request()->query(); @endphp
             <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
                 <nav class="-mb-px flex flex-wrap gap-x-8">
-                    @foreach(['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled'] as $key => $label)
+                    @foreach(['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'queued' => 'In Queue', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled'] as $key => $label)
                         @php $active = request('status', 'pending') === $key; @endphp
                         <a href="{{ route('admin.tournaments.registrations.index', array_merge($q, ['tournament' => $tournament, 'status' => $key])) }}"
                             class="py-2 px-1 border-b-2 font-medium text-sm {{ $active ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
@@ -151,18 +175,11 @@
             <form method="GET" action="{{ route('admin.tournaments.registrations.index', $tournament) }}"
                   class="mb-4 flex flex-wrap items-end gap-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
                 <input type="hidden" name="status" value="{{ $filters['status'] }}">
+                <input type="hidden" name="type" value="{{ $filters['type'] }}">
                 <div class="flex-1 min-w-[180px]">
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Search</label>
                     <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="Name, team, or email…"
                            class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
-                    <select name="type" class="text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
-                        <option value="">All</option>
-                        <option value="player" @selected($filters['type'] === 'player')>Player</option>
-                        <option value="team" @selected($filters['type'] === 'team')>Team</option>
-                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Sort by</label>
@@ -183,7 +200,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">Apply</button>
-                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => $filters['status']]) }}"
+                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $filters['type'], 'status' => $filters['status']]) }}"
                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">Reset</a>
                 </div>
             </form>
@@ -308,6 +325,10 @@
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
                                                     Cancelled
                                                 </span>
+                                            @elseif($registration->status == 'queued')
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200">
+                                                    In Queue
+                                                </span>
                                             @else
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
                                                     Rejected
@@ -354,6 +375,16 @@
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                                             </svg>
                                                             Reject
+                                                        </button>
+                                                    </form>
+                                                    <form action="{{ route('admin.tournaments.registrations.queue', [$tournament, $registration]) }}" method="POST" class="inline"
+                                                          onsubmit="return confirm('Place this registration in the queue (waitlist) and email the applicant?')">
+                                                        @csrf
+                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-sky-600 rounded hover:bg-sky-700">
+                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                            </svg>
+                                                            In Queue
                                                         </button>
                                                     </form>
                                                     <form action="{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}" method="POST" class="inline">

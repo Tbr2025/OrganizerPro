@@ -213,8 +213,14 @@
 
     {{-- Team Players Section --}}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Team Roster</h3>
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center gap-3">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Team Roster</h3>
+                @if($isAuctionTeam)
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Players are acquired through the auction — this squad updates automatically as you win players.</p>
+                @endif
+            </div>
+            @unless($isAuctionTeam)
             <div class="flex gap-2">
                 <button type="button" onclick="document.getElementById('add-player-modal').classList.remove('hidden')"
                     class="btn btn-secondary btn-sm">
@@ -224,6 +230,7 @@
                     Create New Player
                 </a>
             </div>
+            @endunless
         </div>
 
         @if($teamPlayers->count() > 0)
@@ -349,16 +356,20 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No players yet</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by adding players to your team.</p>
-                <div class="mt-6 flex justify-center gap-3">
-                    <button type="button" onclick="document.getElementById('add-player-modal').classList.remove('hidden')"
-                        class="btn btn-secondary">
-                        Add Existing Player
-                    </button>
-                    <a href="{{ route('team-manager.players.create') }}" class="btn btn-primary">
-                        Create New Player
-                    </a>
-                </div>
+                @if($isAuctionTeam)
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Players you win in the auction will appear here automatically.</p>
+                @else
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by adding players to your team.</p>
+                    <div class="mt-6 flex justify-center gap-3">
+                        <button type="button" onclick="document.getElementById('add-player-modal').classList.remove('hidden')"
+                            class="btn btn-secondary">
+                            Add Existing Player
+                        </button>
+                        <a href="{{ route('team-manager.players.create') }}" class="btn btn-primary">
+                            Create New Player
+                        </a>
+                    </div>
+                @endif
             </div>
         @endif
     </div>
@@ -418,7 +429,8 @@
     </div>
 </div>
 
-{{-- Add Existing Player Modal --}}
+{{-- Add Existing Player Modal (not applicable to auction teams) --}}
+@unless($isAuctionTeam)
 <div id="add-player-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
         <div class="flex justify-between items-center mb-4">
@@ -469,6 +481,7 @@
         @endif
     </div>
 </div>
+@endunless
 
 {{-- Verify Player Modal --}}
 <div id="verify-player-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">

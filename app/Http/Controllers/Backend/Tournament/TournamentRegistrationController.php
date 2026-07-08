@@ -36,7 +36,9 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.view']);
 
-        $type = $request->get('type');
+        // Player and team registrations are shown as SEPARATE pages — never mixed.
+        // Default to the players page.
+        $type = in_array($request->get('type'), ['player', 'team'], true) ? $request->get('type') : 'player';
         $status = $request->get('status', 'pending');
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'date');
@@ -49,9 +51,7 @@ class TournamentRegistrationController extends Controller
             ->leftJoin('players', 'players.id', '=', 'tournament_registrations.player_id')
             ->select('tournament_registrations.*');
 
-        if ($type) {
-            $query->where('tournament_registrations.type', $type);
-        }
+        $query->where('tournament_registrations.type', $type);
 
         if ($status && $status !== 'all') {
             $query->where('tournament_registrations.status', $status);
@@ -81,14 +81,19 @@ class TournamentRegistrationController extends Controller
 
         $registrations = $query->paginate(20)->appends($request->query());
 
+        // Counts scoped to the current type (players vs teams) so each page is self-contained.
+        $countBase = fn () => $tournament->registrations()->where('type', $type);
+
         return view('backend.pages.tournaments.registrations.index', [
             'tournament' => $tournament,
             'registrations' => $registrations,
-            'totalCount' => $tournament->registrations()->count(),
-            'pendingCount' => $tournament->registrations()->pending()->count(),
-            'approvedCount' => $tournament->registrations()->approved()->count(),
-            'rejectedCount' => $tournament->registrations()->rejected()->count(),
-            'cancelledCount' => $tournament->registrations()->cancelled()->count(),
+            'type' => $type,
+            'totalCount' => $countBase()->count(),
+            'pendingCount' => $countBase()->pending()->count(),
+            'approvedCount' => $countBase()->approved()->count(),
+            'rejectedCount' => $countBase()->rejected()->count(),
+            'cancelledCount' => $countBase()->cancelled()->count(),
+            'queuedCount' => $countBase()->queued()->count(),
             'filters' => compact('type', 'status', 'search', 'sort', 'direction'),
             'breadcrumbs' => [
                 'title' => __('Registrations'),
@@ -175,6 +180,22 @@ class TournamentRegistrationController extends Controller
         }
 
         return redirect()->back()->with('error', __('Failed to reject registration.'));
+    }
+
+    public function queue(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        if (!$registration->isPending()) {
+            return redirect()->back()->with('error', __('Only pending registrations can be queued.'));
+        }
+
+        $result = $this->registrationService->queueRegistration($registration, Auth::id(), $request->input('remarks'));
+
+        return $result
+            ? redirect()->back()->with('success', __('Registration placed in the queue and the applicant was emailed.'))
+            : redirect()->back()->with('error', __('Failed to queue registration.'));
     }
 
     public function cancel(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse

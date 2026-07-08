@@ -413,12 +413,68 @@ class RegistrationService
             return false;
         }
 
-        return $registration->update([
+        $updated = $registration->update([
             'status' => 'rejected',
             'processed_at' => now(),
             'processed_by' => $rejectedBy,
             'remarks' => $remarks,
         ]);
+
+        if ($updated) {
+            $this->sendStatusEmail($registration->fresh(), 'rejected', $remarks);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Place a pending registration in the queue (waitlist) and notify the applicant.
+     */
+    public function queueRegistration(TournamentRegistration $registration, int $processedBy, ?string $remarks = null): bool
+    {
+        if (!$registration->isPending()) {
+            return false;
+        }
+
+        $updated = $registration->update([
+            'status' => 'queued',
+            'processed_at' => now(),
+            'processed_by' => $processedBy,
+            'remarks' => $remarks,
+        ]);
+
+        if ($updated) {
+            $this->sendStatusEmail($registration->fresh(), 'queued', $remarks);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Email the applicant a status update (rejected / queued). Best-effort — a mail
+     * failure never blocks the status change.
+     */
+    protected function sendStatusEmail(TournamentRegistration $registration, string $status, ?string $remarks = null): void
+    {
+        $tournament = $registration->tournament;
+
+        if ($registration->isTeamRegistration()) {
+            $email = $registration->captain_email;
+            $name = $registration->captain_name;
+        } else {
+            $email = $registration->player?->email;
+            $name = $registration->player?->name;
+        }
+
+        if (! $email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send(new \App\Mail\RegistrationStatusMail($tournament, $registration, $status, $name, $remarks));
+        } catch (\Throwable $e) {
+            Log::error('Failed to send registration status email: ' . $e->getMessage());
+        }
     }
 
     /**

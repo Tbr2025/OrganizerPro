@@ -14,63 +14,63 @@
     )">
 
         {{-- Header --}}
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-            <div>
-                @if(isset($isAdmin) && !$isAdmin && isset($userTeam))
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">{{ $userTeam->name }} - Acquired Players</h1>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $auction->name }} &bull; {{ $auction->tournament->name ?? 'N/A' }}</p>
-                @else
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-white">{{ $auction->name }}</h1>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $auction->tournament->name ?? 'N/A' }}</p>
-                @endif
-            </div>
-            <div class="flex items-center gap-3">
-                {{-- Team Manager: Show bidding page link --}}
-                @if (!isset($isAdmin) || !$isAdmin)
-                    <a href="{{ route('team.auction.bidding.show', $auction) }}"
-                        class="btn btn-primary inline-flex items-center gap-2">
-                        <i class="fas fa-gavel"></i>
-                        Join Live Bidding
-                    </a>
-                @else
-                    {{-- Admin: Show all options --}}
-                    <a href="{{ route('team.auction.bidding.show', $auction) }}"
-                        class="btn btn-info inline-flex items-center gap-2">
-                        <i class="fas fa-eye"></i>
-                        Preview Bidding Page
-                    </a>
-                    <a href="{{ route('admin.auctions.report', $auction) }}"
-                        class="btn btn-warning inline-flex items-center gap-2">
-                        <i class="fas fa-chart-bar"></i>
-                        View Report
-                    </a>
-                    <a href="{{ route('public.auction.live', $auction) }}"
-                        target="_blank"
-                        class="btn btn-dark inline-flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        LED Wall Display
-                    </a>
-                    <a href="{{ route('admin.auctions.edit', $auction) }}" class="btn btn-secondary">Edit Configuration</a>
-                    <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="btn btn-primary">Manage Pools</a>
-                    <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
-                        class="btn btn-success inline-flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-                        </svg>
-                        Go to Live Panel
-                    </a>
-                    <a href="{{ route('admin.auction.organizer.offline-panel', $auction) }}"
-                        class="btn btn-warning inline-flex items-center gap-2" target="_blank">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" />
-                        </svg>
-                        Offline Auction Panel
-                    </a>
-                @endif
+        @php
+            $statusBadge = [
+                'scheduled' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                'running'   => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+                'paused'    => 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+                'completed' => 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
+            ];
+        @endphp
+        <div class="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/50 shadow-sm p-5 mb-6">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                {{-- Title + meta --}}
+                <div class="min-w-0">
+                    @if(isset($isAdmin) && !$isAdmin && isset($userTeam))
+                        <h1 class="text-2xl font-bold text-gray-900 dark:text-white truncate">{{ $userTeam->name }} — Acquired Players</h1>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ $auction->name }} &bull; {{ $auction->tournament->name ?? 'N/A' }}</p>
+                    @else
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h1 class="text-2xl font-bold text-gray-900 dark:text-white truncate">{{ $auction->name }}</h1>
+                            <span class="text-[11px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full {{ $statusBadge[$auction->status] ?? 'bg-gray-100 text-gray-600' }}">{{ $auction->status }}</span>
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {{ $auction->tournament->name ?? 'N/A' }}
+                            <span class="mx-1 text-gray-300 dark:text-gray-600">|</span> Base <span class="font-medium text-gray-700 dark:text-gray-300">{{ number_format((float) $auction->base_price) }}</span>
+                            <span class="mx-1 text-gray-300 dark:text-gray-600">|</span> Budget/team <span class="font-medium text-gray-700 dark:text-gray-300">{{ number_format((float) $auction->max_budget_per_team) }}</span>
+                        </p>
+                    @endif
+                </div>
+
+                {{-- Actions --}}
+                <div class="flex flex-wrap items-center gap-2 lg:justify-end">
+                    @if (!isset($isAdmin) || !$isAdmin)
+                        <a href="{{ route('team.auction.bidding.show', $auction) }}"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">
+                            <i class="fas fa-gavel"></i> Join Live Bidding
+                        </a>
+                    @else
+                        {{-- Primary actions --}}
+                        <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
+                            Live Panel
+                        </a>
+                        <a href="{{ route('admin.auctions.pools.index', $auction) }}"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7H5m14 14H5"/></svg>
+                            Manage Pools
+                        </a>
+
+                        {{-- Secondary actions (outline) --}}
+                        @php $ghost = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium'; @endphp
+                        <a href="{{ route('admin.auctions.edit', $auction) }}" class="{{ $ghost }}">Edit config</a>
+                        <a href="{{ route('admin.auctions.report', $auction) }}" class="{{ $ghost }}">Report</a>
+                        <a href="{{ route('admin.auction.organizer.offline-panel', $auction) }}" target="_blank" class="{{ $ghost }}">Offline panel</a>
+                        <a href="{{ route('public.auction.live', $auction) }}" target="_blank" class="{{ $ghost }}">LED wall</a>
+                        <a href="{{ route('team.auction.bidding.show', $auction) }}" class="{{ $ghost }}">Preview bidding</a>
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -78,21 +78,25 @@
         @if(isset($isAdmin) && $isAdmin)
             {{-- Admin view: Full statistics --}}
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-green-500 text-white p-4 rounded-lg text-center shadow-lg">
-                    <div class="text-3xl font-bold" x-text="soldCount">0</div>
-                    <div class="text-sm uppercase tracking-wide">Sold</div>
+                <div class="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/50 p-4 shadow-sm">
+                    <div class="absolute left-0 top-0 h-full w-1 bg-emerald-500"></div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white" x-text="soldCount">0</div>
+                    <div class="text-xs font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mt-1">Sold</div>
                 </div>
-                <div class="bg-red-500 text-white p-4 rounded-lg text-center shadow-lg">
-                    <div class="text-3xl font-bold" x-text="unsoldCount">0</div>
-                    <div class="text-sm uppercase tracking-wide">Unsold</div>
+                <div class="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/50 p-4 shadow-sm">
+                    <div class="absolute left-0 top-0 h-full w-1 bg-red-500"></div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white" x-text="unsoldCount">0</div>
+                    <div class="text-xs font-medium uppercase tracking-wide text-red-600 dark:text-red-400 mt-1">Unsold</div>
                 </div>
-                <div class="bg-blue-500 text-white p-4 rounded-lg text-center shadow-lg">
-                    <div class="text-3xl font-bold" x-text="availableCount">0</div>
-                    <div class="text-sm uppercase tracking-wide">Available</div>
+                <div class="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/50 p-4 shadow-sm">
+                    <div class="absolute left-0 top-0 h-full w-1 bg-blue-500"></div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white" x-text="availableCount">0</div>
+                    <div class="text-xs font-medium uppercase tracking-wide text-blue-600 dark:text-blue-400 mt-1">Available</div>
                 </div>
-                <div class="bg-purple-500 text-white p-4 rounded-lg text-center shadow-lg">
-                    <div class="text-3xl font-bold" x-text="players.length">0</div>
-                    <div class="text-sm uppercase tracking-wide">Total Pool</div>
+                <div class="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/50 p-4 shadow-sm">
+                    <div class="absolute left-0 top-0 h-full w-1 bg-indigo-500"></div>
+                    <div class="text-3xl font-bold text-gray-900 dark:text-white" x-text="players.length">0</div>
+                    <div class="text-xs font-medium uppercase tracking-wide text-indigo-600 dark:text-indigo-400 mt-1">Total Pool</div>
                 </div>
             </div>
         @else
@@ -126,15 +130,19 @@
             ];
         @endphp
         <div class="mb-8" x-data="auctionPoolCenter({{ $auction->id }})" x-init="init()">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div>
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Pools &amp; Draw Order</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Drag pools to reorder. Live bidding runs in the Live Panel.</p>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7H5m14 14H5"/></svg>
+                        Pools &amp; Draw Order
+                    </h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Drag pools to reorder. Build &amp; assign players in the full pool manager.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <button @click="startAuction()" class="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white">Start auction</button>
-                    <a href="{{ route('admin.auction.organizer.panel', $auction) }}" class="btn btn-sm btn-secondary">Live Panel</a>
-                    <button @click="reAuctionRound()" class="btn btn-sm bg-amber-500 hover:bg-amber-600 text-white">Re-auction round</button>
+                    <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">Manage Pools</a>
+                    <button @click="startAuction()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">Start auction</button>
+                    <a href="{{ route('admin.auction.organizer.panel', $auction) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium">Live Panel</a>
+                    <button @click="reAuctionRound()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium">Re-auction round</button>
                 </div>
             </div>
 

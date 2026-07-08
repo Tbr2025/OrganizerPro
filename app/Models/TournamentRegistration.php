@@ -123,6 +123,11 @@ class TournamentRegistration extends Model
         return $query->where('status', 'cancelled');
     }
 
+    public function scopeQueued($query)
+    {
+        return $query->where('status', 'queued');
+    }
+
     public function scopePlayers($query)
     {
         return $query->where('type', 'player');
@@ -151,6 +156,11 @@ class TournamentRegistration extends Model
     public function isCancelled(): bool
     {
         return $this->status === 'cancelled';
+    }
+
+    public function isQueued(): bool
+    {
+        return $this->status === 'queued';
     }
 
     public function isPlayerRegistration(): bool

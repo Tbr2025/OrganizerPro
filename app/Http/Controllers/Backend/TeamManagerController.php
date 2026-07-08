@@ -109,6 +109,11 @@ class TeamManagerController extends Controller
         $isOwner = $currentUserPivot && $currentUserPivot->pivot->role === 'Owner';
         $isManager = $currentUserPivot && $currentUserPivot->pivot->role === 'Manager';
 
+        // Auction teams don't manually build a roster — their squad comes from the
+        // auction — so the "select/add player" and roster-management UI is hidden.
+        $isAuctionTeam = optional($team->tournament)->isAuction()
+            || $team->tournaments->contains(fn ($t) => $t->isAuction());
+
         return view('backend.pages.team-manager.dashboard', compact(
             'teams',
             'team',
@@ -119,7 +124,8 @@ class TeamManagerController extends Controller
             'teamMembers',
             'isCaptain',
             'isOwner',
-            'isManager'
+            'isManager',
+            'isAuctionTeam'
         ));
     }
 
