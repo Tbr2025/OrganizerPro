@@ -7,6 +7,7 @@ use App\Helpers\TeamFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentSetting;
+use App\Models\User;
 use App\Services\LogoProcessingService;
 use App\Services\Poster\TournamentFlyerService;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,15 @@ class TournamentSettingsController extends Controller
         $teamFieldConfig = TeamFormConfig::getFieldConfig($settings);
         $teamSectionLabels = TeamFormConfig::getSectionLabels($settings);
 
+        // Only admins/superadmins may assign organizers to this tournament.
+        $canAssignOrganizers = Auth::user()->hasAnyRole(['Superadmin', 'Admin']);
+        $eligibleOrganizers = $canAssignOrganizers
+            ? User::role('Organizer')
+                ->when($tournament->organization_id, fn ($q) => $q->where('organization_id', $tournament->organization_id))
+                ->orderBy('name')->get()
+            : collect();
+        $assignedOrganizerIds = $tournament->organizers()->pluck('users.id')->all();
+
         return view('backend.pages.tournaments.settings.edit', [
             'tournament' => $tournament,
             'settings' => $settings,
@@ -38,6 +48,9 @@ class TournamentSettingsController extends Controller
             'sectionLabels' => $sectionLabels,
             'teamFieldConfig' => $teamFieldConfig,
             'teamSectionLabels' => $teamSectionLabels,
+            'canAssignOrganizers' => $canAssignOrganizers,
+            'eligibleOrganizers' => $eligibleOrganizers,
+            'assignedOrganizerIds' => $assignedOrganizerIds,
             'breadcrumbs' => [
                 'title' => __('Tournament Settings'),
                 'items' => [
@@ -51,6 +64,12 @@ class TournamentSettingsController extends Controller
     public function update(Request $request, Tournament $tournament): RedirectResponse
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        // Assign organizers (admin/superadmin only) — controls which organizers
+        // can see & manage this tournament.
+        if ($request->has('organizers') && Auth::user()->hasAnyRole(['Superadmin', 'Admin'])) {
+            $tournament->organizers()->sync(array_filter((array) $request->input('organizers', [])));
+        }
 
         $validated = $request->validate([
             // Branding

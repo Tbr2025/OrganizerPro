@@ -19,17 +19,9 @@ class TournamentController extends Controller
     {
         $user = Auth::user();
 
-        // Base query with eager loading for stats
-        $baseQuery = Tournament::with(['organization', 'zone', 'settings']);
-
-        // Apply role-based scoping
-        if (!$user->hasRole('Superadmin')) {
-            if ($user->organization_id) {
-                $baseQuery->where('organization_id', $user->organization_id);
-            } else {
-                $baseQuery->whereRaw('1 = 0');
-            }
-        }
+        // Base query with eager loading for stats. forUser() handles role scoping:
+        // Superadmin → all, Organizer → assigned tournaments, others → own org.
+        $baseQuery = Tournament::with(['organization', 'zone', 'settings'])->forUser($user);
 
         // Get stats counts for dashboard (before filtering)
         $statsQuery = clone $baseQuery;

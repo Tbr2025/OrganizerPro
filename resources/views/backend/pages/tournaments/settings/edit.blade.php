@@ -33,6 +33,33 @@
                 @csrf
                 @method('PUT')
 
+                {{-- Organizers (admin-only): who can see & manage this tournament --}}
+                @if($canAssignOrganizers ?? false)
+                <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Organizers</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Assign organizers to this tournament. Assigned organizers will see it in their tournament list; unassigned ones won't.</p>
+                    @if($eligibleOrganizers->isEmpty())
+                        <p class="text-sm text-gray-500 dark:text-gray-400">No organizer users are available for this tournament's organization yet.</p>
+                    @else
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            @foreach($eligibleOrganizers as $org)
+                                <label class="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm cursor-pointer hover:border-indigo-400">
+                                    <input type="checkbox" name="organizers[]" value="{{ $org->id }}"
+                                        {{ in_array($org->id, $assignedOrganizerIds ?? [], true) ? 'checked' : '' }}
+                                        class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                    <span class="min-w-0">
+                                        <span class="block font-medium text-gray-800 dark:text-gray-200 truncate">{{ $org->name }}</span>
+                                        <span class="block text-xs text-gray-400 truncate">{{ $org->email }}</span>
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                        {{-- Ensures an empty selection (all unchecked) still submits to clear assignments --}}
+                        <input type="hidden" name="organizers[]" value="">
+                    @endif
+                </div>
+                @endif
+
                 {{-- Branding & Design Section --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Branding & Design</h3>

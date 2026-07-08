@@ -88,14 +88,26 @@ class Tournament extends Model
         return $this->hasMany(TournamentCustomField::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    /** Organizers explicitly assigned to this tournament (by an admin). */
+    public function organizers()
+    {
+        return $this->belongsToMany(User::class, 'tournament_organizer')->withTimestamps();
+    }
+
     /**
-     * Restrict a query to the tournaments a user may see: Superadmins see all,
-     * everyone else only their own organization's tournaments.
+     * Restrict a query to the tournaments a user may see:
+     *  - Superadmin: all tournaments.
+     *  - Organizer (not also an Admin): only tournaments assigned to them.
+     *  - Everyone else (e.g. Admin): their own organization's tournaments.
      */
     public function scopeForUser($query, $user)
     {
         if (! $user || (method_exists($user, 'hasRole') && $user->hasRole('Superadmin'))) {
             return $query;
+        }
+
+        if (method_exists($user, 'hasRole') && $user->hasRole('Organizer') && ! $user->hasRole('Admin')) {
+            return $query->whereHas('organizers', fn ($q) => $q->where('users.id', $user->id));
         }
 
         return $query->where('organization_id', $user->organization_id);
