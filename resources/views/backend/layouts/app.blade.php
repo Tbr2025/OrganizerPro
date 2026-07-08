@@ -14,6 +14,20 @@
     @yield('before_vite_build')
     @stack('before-alpine')
 
+    {{-- Set the theme BEFORE first paint to avoid a flash. Light is the default;
+         dark only when the user has explicitly chosen it. --}}
+    <script>
+        (function () {
+            try {
+                if (localStorage.getItem('darkMode') === 'true') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     {{-- Alpine.js x-cloak support - must be before Alpine loads --}}
     <style>
         [x-cloak] { display: none !important; }
@@ -59,7 +73,7 @@
 <body x-data="{
     page: 'ecommerce',
     loaded: true,
-    darkMode: JSON.parse(localStorage.getItem('darkMode') ?? 'true'),
+    darkMode: JSON.parse(localStorage.getItem('darkMode') ?? 'false'),
     stickyMenu: false,
     sidebarToggle: JSON.parse(localStorage.getItem('sidebarToggle') ?? 'false'),
     scrollTop: false
@@ -129,9 +143,9 @@ class="bg-gray-50 dark:bg-dark-bg">
                 const isDark = html.classList.contains('dark');
             }
 
-            // Initialize dark mode - default to true (dark mode)
+            // Initialize dark mode — default to LIGHT (dark only when explicitly chosen)
             const savedDarkMode = localStorage.getItem('darkMode');
-            if (savedDarkMode === null || savedDarkMode === 'true') {
+            if (savedDarkMode === 'true') {
                 html.classList.add('dark');
             } else {
                 html.classList.remove('dark');
