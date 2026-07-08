@@ -137,6 +137,7 @@ class PlayerProfileController extends Controller
             'fieldConfig' => \App\Helpers\PlayerFormConfig::getFieldConfig($settings),
             'lockedFieldKeys' => \App\Helpers\PlayerFormConfig::lockedFields(),
             'verifiedKeys' => $verifiedKeys,
+            'pendingChanges' => (array) ($selectedRegistration?->pending_changes ?? []),
             'countries' => config('countries.list', []),
             'visaList' => config('registration.visa_statuses', []),
             'tshirtOptions' => \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes()),
