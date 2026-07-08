@@ -66,6 +66,7 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'redirect.team-manager' => \App\Http\Middleware\RedirectTeamManager::class,
+        'organizer.access' => \App\Http\Middleware\EnsureOrganizerCanAccess::class,
         'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
     ];

@@ -19,8 +19,16 @@ use Illuminate\View\View;
 
 class OrganizerController extends Controller
 {
+    /** Only Admin/Superadmin may manage organizers (prevent privilege escalation). */
+    protected function denyOrganizers(): void
+    {
+        $user = Auth::user();
+        abort_if($user->hasRole('Organizer') && ! $user->hasRole('Admin') && ! $user->hasRole('Superadmin'), 403);
+    }
+
     public function index(): View
     {
+        $this->denyOrganizers();
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
         $organizers = User::role('Organizer')
@@ -48,6 +56,7 @@ class OrganizerController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->denyOrganizers();
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
         $mode = $request->input('user_mode', 'existing'); // existing | new
@@ -109,6 +118,7 @@ class OrganizerController extends Controller
     /** Shared create/edit form with the eligible + assigned items. */
     protected function form(User $organizer): View
     {
+        $this->denyOrganizers();
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
         $tournaments = Tournament::forUser(Auth::user())->orderBy('name')->get();
@@ -164,6 +174,7 @@ class OrganizerController extends Controller
 
     protected function authorizeSameOrg(User $organizer): void
     {
+        $this->denyOrganizers();
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
         if (! Auth::user()->hasRole('Superadmin')) {
             abort_if($organizer->organization_id !== Auth::user()->organization_id, 403);

@@ -5,7 +5,6 @@
 @section('admin-content')
 <div class="p-4 mx-auto max-w-6xl md:p-6">
     <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
-    <x-messages />
 
     <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-4 sm:px-6 flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800">

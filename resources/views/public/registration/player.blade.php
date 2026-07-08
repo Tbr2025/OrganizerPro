@@ -163,7 +163,7 @@
               }">
             @csrf
 
-            @php $allCustomFields = $tournament->customFields->where('visible', true); @endphp
+            @php $allCustomFields = $tournament->customFields->where('visible', true)->where('form', 'player'); @endphp
             @foreach($layout as $section)
                 @php
                     $meta = $sectionMeta[$section['key']] ?? ['icon' => 'fa-list-ul', 'sub' => ''];

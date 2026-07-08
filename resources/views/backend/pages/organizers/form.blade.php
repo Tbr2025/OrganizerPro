@@ -5,7 +5,6 @@
 @section('admin-content')
 <div class="p-4 mx-auto max-w-5xl md:p-6" x-data="{ userMode: 'existing' }">
     <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
-    <x-messages />
 
     <form method="POST" action="{{ $organizer->exists ? route('admin.organizers.update', $organizer) : route('admin.organizers.store') }}"
           class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-5 sm:p-6 space-y-6">

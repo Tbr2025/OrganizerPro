@@ -11,7 +11,6 @@
         <div class="space-y-6">
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="p-5 space-y-6 sm:p-6">
-                    <x-messages />
                     <div class="flex items-center justify-between gap-3">
                         <h2 class="text-lg font-bold text-gray-900 dark:text-white">My Registration Details</h2>
                         <a href="{{ route('home') }}" class="text-sm font-medium text-brand-500 hover:text-brand-600">← Dashboard</a>

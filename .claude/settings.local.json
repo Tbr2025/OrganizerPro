@@ -194,7 +194,10 @@
       "Bash(/opt/homebrew/opt/mysql/bin/mysql --version)",
       "Bash(/usr/local/mysql/bin/mysql --version)",
       "Bash(grep -n 'password.*=>.*hashed\\\\|'\\\\''hashed'\\\\''\\\\|function casts\\\\|protected $casts\\\\|guard_name\\\\|'\\\\''name'\\\\''' app/Models/User.php)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(grep -rn \"fillable\\\\|casts\\\\|protected \\\\$\" /Users/navasfazil/OrganizerPro/app/Models/TournamentSetting.php)",
+      "Bash(grep -n 'reg-banner\\\\|registration-theme\\\\|banner\\\\|$settings\\\\|registrationTheme' /Users/navasfazil/OrganizerPro/resources/views/public/registration/player.blade.php)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
