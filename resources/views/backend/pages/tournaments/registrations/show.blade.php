@@ -496,8 +496,16 @@
                             </button>
                         </form>
                         @endif
+                        <form action="{{ route('admin.tournaments.registrations.send-temp-password', [$tournament, $registration]) }}" method="POST"
+                              onsubmit="return confirm('Reset this applicant\'s password and email them a new temporary one so they can log in and correct their details?')">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                                Send Temp Password
+                            </button>
+                        </form>
                     </div>
-                    <p class="text-xs text-gray-400 mt-2">Confirmation sends the approval email when approved, otherwise the "application received" email. Welcome card requires a welcome-card template.</p>
+                    <p class="text-xs text-gray-400 mt-2">Confirmation sends the approval email when approved, otherwise the "application received" email. Welcome card requires a welcome-card template. "Send Temp Password" resets the applicant's login and emails them a new temporary password so they can sign in and update their details (pending your approval).</p>
                 </div>
 
                 {{-- Actions --}}

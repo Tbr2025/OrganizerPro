@@ -5,17 +5,21 @@ namespace App\Http\Controllers\Backend\Tournament;
 use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Mail\ApplicationUnderReviewMail;
+use App\Mail\PlayerCredentialsMail;
 use App\Mail\RegistrationApprovedMail;
 use App\Mail\RegistrationCorrectionMail;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
+use App\Models\User;
 use App\Services\Notification\TournamentNotificationService;
 use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Spatie\Browsershot\Browsershot;
 use Symfony\Component\HttpFoundation\Response;
@@ -332,6 +336,34 @@ class TournamentRegistrationController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    /**
+     * Reset the applicant's account password to a fresh temporary one and email
+     * it to them, so they can log in and correct their registration details.
+     */
+    public function sendTempPassword(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        $email = $registration->player?->email ?? $registration->captain_email;
+        if (! $email) {
+            return back()->with('error', __('No email address on file for this registration.'));
+        }
+
+        // Prefer the player's linked account; otherwise match by email.
+        $user = $registration->player?->user ?? User::where('email', $email)->first();
+        if (! $user) {
+            return back()->with('error', __('No login account is linked to this registration yet.'));
+        }
+
+        $tempPassword = Str::random(10);
+        $user->update(['password' => Hash::make($tempPassword)]);
+
+        Mail::to($email)->send(new PlayerCredentialsMail($user, $tempPassword, $tournament));
+
+        return back()->with('success', __('A temporary password was emailed to :email. The player can log in and update their details.', ['email' => $email]));
     }
 
     /**
