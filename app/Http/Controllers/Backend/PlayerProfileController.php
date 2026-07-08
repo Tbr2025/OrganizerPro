@@ -112,12 +112,18 @@ class PlayerProfileController extends Controller
         // details for it (contact info + password remain editable via Account).
         $isLocked = $selectedRegistration && $selectedRegistration->isApproved();
 
+        $settings = $selectedRegistration?->tournament?->settings;
+
+        // Fields the admin has verified for the selected registration are locked
+        // for editing (single source of truth, matching the admin verify UI).
+        $verifiedKeys = (array) ($selectedRegistration?->verified_fields ?? []);
+
         // Pass all necessary data to the view
         return view('backend.pages.profileplayers.edit', [
             'player' => $player,
             'teams' => Team::all(),
             'templates' => ImageTemplate::all(),
-            'locations' => PlayerLocation::all(), // Added this missing model
+            'locations' => PlayerLocation::all(),
             'kitSizes' => KitSize::all(),
             'battingProfiles' => BattingProfile::all(),
             'bowlingProfiles' => BowlingProfile::all(),
@@ -125,11 +131,22 @@ class PlayerProfileController extends Controller
             'registrations' => $registrations,
             'selectedRegistration' => $selectedRegistration,
             'isLocked' => $isLocked,
+            // Sectioned layout (mirrors the admin registration detail).
+            'layout' => \App\Helpers\PlayerFormConfig::getFormLayout($settings, true),
+            'fieldConfig' => \App\Helpers\PlayerFormConfig::getFieldConfig($settings),
+            'lockedFieldKeys' => \App\Helpers\PlayerFormConfig::lockedFields(),
+            'verifiedKeys' => $verifiedKeys,
+            'countries' => config('countries.list', []),
+            'visaList' => config('registration.visa_statuses', []),
+            'tshirtOptions' => \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes()),
+            'pantOptions' => \App\Helpers\PlayerFormConfig::sizeOptions('pant_sizes', \App\Helpers\PlayerFormConfig::defaultPantSizes()),
+            'actualTeams' => \App\Models\ActualTeam::where('tournament_id', $selectedRegistration?->tournament_id)->orderBy('name')->get(),
+            'customFields' => $selectedRegistration?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect(),
+            'customValues' => (array) ($selectedRegistration?->custom_field_values ?? []),
             'breadcrumbs' => [
-                'title' => __('Edit My Profile'), // Adjusted title for context
-
+                'title' => __('Edit My Profile'),
             ],
-            'verifiedFields' => $verifiedFields, // Pass the new array to the view
+            'verifiedFields' => $verifiedFields,
         ]);
     }
 
@@ -154,130 +171,57 @@ class PlayerProfileController extends Controller
                 ->with('error', __('Your registration has been accepted, so these details are locked. To change contact details or your password, use Account settings.'));
         }
 
-        // Map of field => is_verified (e.g. DB: verified_name = true)
-        $verifiedFields = [
-            'name' => $player->verified_name,
-            'mobile_number_full' => $player->verified_mobile_number_full,
-            'jersey_name' => $player->verified_jersey_name,
-            'jersey_number' => $player->verified_jersey_number,
-            'cricheroes_number_full' => $player->verified_cricheroes_number_full,
-            'cricheroes_profile_url' => $player->verified_cricheroes_profile_url,
-            'kit_size_id' => $player->verified_kit_size_id,
-            'team_name_ref' => $player->verified_team_name_ref,
-            'location_id' => $player->verified_location_id,
-            'total_matches' => $player->verified_total_matches,
-            'total_runs' => $player->verified_total_runs,
-            'total_wickets' => $player->verified_total_wickets,
-            'travel_date_from' => $player->verified_travel_date_from,
-            'travel_date_to' => $player->verified_travel_date_to,
-            'no_travel_plan' => $player->verified_no_travel_plan,
-        ];
-
-        $rules = [];
-
-        if (!($verifiedFields['name'] ?? false)) {
-            $rules['name'] = 'required|string|max:100';
+        // "Other" team choice submits team_id="other" — treat as free text only.
+        if ($request->input('team_id') === 'other') {
+            $request->merge(['team_id' => null]);
         }
 
-        if (!($verifiedFields['mobile_number_full'] ?? false)) {
-
-            $rules['mobile_number_full'] = [
-                'required',
-                'numeric',
-                'digits_between:7,15',
-                Rule::unique('players', 'mobile_number_full')->ignore($player->id),
-            ];
-        }
-
-        if (!($verifiedFields['jersey_name'] ?? false)) {
-            $rules['jersey_name'] = 'required|string|max:50';
-        }
-
-        if (!($verifiedFields['cricheroes_number_full'] ?? false)) {
-            $rules['cricheroes_number_full'] = [
-                'nullable',
-                'numeric',
-                'digits_between:7,15',
-                Rule::unique('players', 'cricheroes_number_full')
-                    ->whereNotNull('cricheroes_number_full')
-                    ->ignore($player->id),
-            ];
-        }
-
-        if (!($verifiedFields['cricheroes_profile_url'] ?? false)) {
-            $rules['cricheroes_profile_url'] = 'nullable|url|max:500';
-        }
-
-        if (!($verifiedFields['jersey_number'] ?? false)) {
-            $rules['jersey_number'] = 'nullable|integer|min:0|max:999';
-        }
-
-        // Always-validated fields (unless verified)
-        if (!($verifiedFields['team_name_ref'] ?? false)) {
-            $rules['team_name_ref'] = 'nullable|string|max:100';
-        }
-
-        if (!($verifiedFields['location_id'] ?? false)) {
-            $rules['location_id'] = 'nullable|exists:player_locations,id';
-        }
-
-        if (!($verifiedFields['total_matches'] ?? false)) {
-            $rules['total_matches'] = 'nullable|integer|min:0';
-        }
-
-        if (!($verifiedFields['total_runs'] ?? false)) {
-            $rules['total_runs'] = 'nullable|integer|min:0';
-        }
-
-        if (!($verifiedFields['total_wickets'] ?? false)) {
-            $rules['total_wickets'] = 'nullable|integer|min:0';
-        }
-
-        if (!($verifiedFields['travel_date_from'] ?? false)) {
-            $rules['travel_date_from'] = 'nullable|date';
-        }
-
-        if (!($verifiedFields['travel_date_to'] ?? false)) {
-            $rules['travel_date_to'] = 'nullable|date|after_or_equal:travel_date_from';
-        }
-
-        if (!($verifiedFields['no_travel_plan'] ?? false)) {
-            $rules['no_travel_plan'] = 'nullable';
-        }
-        $rules['tshirt_size'] = 'nullable|string|max:50';
-        $rules['pant_size'] = 'nullable|string|max:50';
-
-        if (!($player->verified_batting_profile_id ?? false)) {
-            $rules['batting_profile_id'] = 'required|exists:batting_profiles,id';
-        }
-
-        if (!($player->verified_bowling_profile_id ?? false)) {
-            $rules['bowling_profile_id'] = 'required|exists:bowling_profiles,id';
-        }
-
-        if (!($player->verified_player_type_id ?? false)) {
-            $rules['player_type_id'] = 'required|exists:player_types,id';
-        }
-
-        $rules['image_path'] = 'nullable|string|max:500';
-        $rules['is_wicket_keeper'] = 'nullable';
-        $rules['transportation_required'] = 'nullable';
-
-        $validated = $request->validate($rules, [
-            'mobile_number_full.unique' => 'This mobile number is already registered.',
-            'cricheroes_number_full.unique' => 'This CricHeroes number is already registered.',
-            'image_path.mimes' => 'The profile image must be a PNG or JPG file.',
-            'image_path.max' => 'The profile image size cannot be more than 6MB.',
+        // Lenient validation — requiredness was enforced at registration; here the
+        // player only refines. Locked/verified fields aren't rendered so they never
+        // submit (see $present gating below).
+        $validated = $request->validate([
+            'first_name' => 'nullable|string|max:100',
+            'last_name' => 'nullable|string|max:100',
+            'date_of_birth' => 'nullable|date',
+            'country' => 'nullable|string|max:2',
+            'state' => 'nullable|string|max:100',
+            'mobile_number_full' => 'nullable|string|max:20',
+            'cricheroes_number_full' => 'nullable|string|max:20',
+            'cricheroes_profile_url' => 'nullable|url|max:500',
+            'location_id' => 'nullable|exists:player_locations,id',
+            'team_id' => 'nullable|exists:teams,id',
+            'team_name_ref' => 'nullable|string|max:100',
+            'actual_team_id' => 'nullable|exists:actual_teams,id',
+            'visa_status' => 'nullable|in:work_visa,visit_visa',
+            'visa_expiry' => 'nullable|date',
+            'employer_name' => 'nullable|string|max:255',
+            'employer_address' => 'nullable|string|max:500',
+            'employer_position' => 'nullable|string|max:255',
+            'jersey_name' => 'nullable|string|max:50',
+            'jersey_number' => 'nullable|integer|min:0|max:999',
+            'tshirt_size' => 'nullable|string|max:50',
+            'pant_size' => 'nullable|string|max:50',
+            'batting_profile_id' => 'nullable|exists:batting_profiles,id',
+            'bowling_profile_id' => 'nullable|exists:bowling_profiles,id',
+            'player_type_id' => 'nullable|exists:player_types,id',
+            'total_matches' => 'nullable|integer|min:0',
+            'total_runs' => 'nullable|integer|min:0',
+            'total_wickets' => 'nullable|integer|min:0',
+            'travel_date_from' => 'nullable|date',
+            'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
+            'image_path' => 'nullable|string|max:500',
         ]);
 
-
-        // Booleans from the form.
+        // Booleans / Yes-No radios.
         $validated['is_wicket_keeper'] = $request->boolean('wicket_keeper');
         $validated['transportation_required'] = $request->boolean('need_transportation');
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
+        $validated['available_saturday'] = $request->boolean('available_saturday');
+        $validated['available_sunday'] = $request->boolean('available_sunday');
+        $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
 
-        // Image: the AJAX upload already stored the file; only treat it as a
-        // proposed change when a valid, different path was submitted.
+        // Image: the AJAX upload already stored the file; only treat it as a change
+        // when a valid path was submitted (or an explicit clear).
         if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
             if (! Storage::disk('public')->exists($validated['image_path'])) {
                 unset($validated['image_path']);
@@ -288,18 +232,12 @@ class PlayerProfileController extends Controller
             unset($validated['image_path']);
         }
 
-        // Build the set of ACTUAL changes (proposed value differs from current).
-        // Nothing is written to the player yet — it is queued for admin approval.
-        $editable = [
-            'name', 'mobile_number_full', 'jersey_name', 'cricheroes_number_full',
-            'cricheroes_profile_url', 'jersey_number', 'team_name_ref', 'location_id',
-            'total_matches', 'total_runs', 'total_wickets', 'travel_date_from',
-            'travel_date_to', 'no_travel_plan', 'tshirt_size', 'pant_size', 'batting_profile_id',
-            'bowling_profile_id', 'player_type_id', 'is_wicket_keeper',
-            'transportation_required', 'image_path',
-        ];
+        // Only consider columns for fields that were actually rendered & editable
+        // (each editable control emits a hidden __present[] marker). This prevents
+        // hidden sections / locked fields from being treated as "cleared".
+        $present = array_values((array) $request->input('__present', []));
         $pending = [];
-        foreach ($editable as $field) {
+        foreach ($present as $field) {
             if (! array_key_exists($field, $validated)) {
                 continue;
             }
