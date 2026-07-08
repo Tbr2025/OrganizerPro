@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
@@ -259,19 +260,87 @@ class PlayerProfileController extends Controller
             'pending_changes_submitted_at' => now(),
         ]);
 
-        // Notify Superadmin & Admin that a profile change awaits approval.
+        $reviewUrl = route('admin.tournaments.registrations.show', [$registration->tournament_id, $registration->id]);
+
+        // In-app notification for Superadmin & Admin.
         $notifyUsers = User::role(['Superadmin', 'Admin'])->get();
         foreach ($notifyUsers as $notifyUser) {
-            $notifyUser->notify(
-                new PlayerUpdatedNotification(
-                    $player,
-                    auth()->user(),
-                    route('admin.tournaments.registrations.show', [$registration->tournament_id, $registration->id])
-                )
-            );
+            $notifyUser->notify(new PlayerUpdatedNotification($player, auth()->user(), $reviewUrl));
+        }
+
+        // Email the organizer/admins the requested changes (field → current → requested).
+        $changeList = [];
+        foreach ($pending as $col => $newVal) {
+            $changeList[] = [
+                'label' => $this->humanColumn($col),
+                'old' => $this->readableChangeValue($col, $player->{$col}),
+                'new' => $this->readableChangeValue($col, $newVal),
+            ];
+        }
+        $tournament = $registration->tournament;
+        $recipients = collect([
+            $tournament?->settings?->contact_email,
+            $tournament?->organization?->email,
+        ])->merge($notifyUsers->pluck('email'))->filter()->unique()->values();
+
+        foreach ($recipients as $to) {
+            try {
+                Mail::to($to)->send(new \App\Mail\PlayerChangeRequestMail($tournament, $registration, $changeList, $reviewUrl));
+            } catch (\Throwable $e) {
+                Log::error('Failed to email player change request: ' . $e->getMessage());
+            }
         }
 
         return redirect()->route('profileplayers.edit', ['registration_id' => $registration->id])
             ->with('success', 'Your changes were submitted and are awaiting admin approval. They will reflect once approved.');
+    }
+
+    /** Human label for a Player column (for the change-request email). */
+    protected function humanColumn(string $col): string
+    {
+        return [
+            'mobile_number_full' => 'Mobile Number',
+            'cricheroes_number_full' => 'CricHeroes Number',
+            'cricheroes_profile_url' => 'CricHeroes Profile URL',
+            'location_id' => 'Location',
+            'team_name_ref' => 'Registration Team',
+            'actual_team_id' => 'Playing Team',
+            'date_of_birth' => 'Date of Birth',
+            'visa_status' => 'Visa Status',
+            'visa_expiry' => 'Visa Validity',
+            'tshirt_size' => 'T-Shirt Size',
+            'pant_size' => 'Pant Size',
+            'batting_profile_id' => 'Batting Profile',
+            'bowling_profile_id' => 'Bowling Profile',
+            'player_type_id' => 'Player Type',
+            'is_wicket_keeper' => 'Wicket Keeper',
+            'transportation_required' => 'Transportation Required',
+            'no_travel_plan' => 'No Travel Plan',
+            'available_saturday' => 'Available Saturday',
+            'available_sunday' => 'Available Sunday',
+            'played_ys_ipl_s1' => 'Played YS IPL Season 1',
+            'image_path' => 'Profile Photo',
+        ][$col] ?? ucwords(str_replace('_', ' ', $col));
+    }
+
+    /** Resolve a Player column value to a human-readable string for the email. */
+    protected function readableChangeValue(string $col, $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+        return match ($col) {
+            'is_wicket_keeper', 'transportation_required', 'no_travel_plan',
+            'available_saturday', 'available_sunday', 'played_ys_ipl_s1' => $value ? 'Yes' : 'No',
+            'country' => config('countries.list.' . $value, $value),
+            'visa_status' => config('registration.visa_statuses.' . $value, $value),
+            'location_id' => optional(\App\Models\PlayerLocation::find($value))->name ?? (string) $value,
+            'actual_team_id' => optional(\App\Models\ActualTeam::find($value))->name ?? (string) $value,
+            'batting_profile_id' => optional(\App\Models\BattingProfile::find($value))->name ?? optional(\App\Models\BattingProfile::find($value))->style ?? (string) $value,
+            'bowling_profile_id' => optional(\App\Models\BowlingProfile::find($value))->name ?? optional(\App\Models\BowlingProfile::find($value))->style ?? (string) $value,
+            'player_type_id' => optional(\App\Models\PlayerType::find($value))->name ?? optional(\App\Models\PlayerType::find($value))->type ?? (string) $value,
+            'image_path' => 'Photo updated',
+            default => (string) $value,
+        };
     }
 }
