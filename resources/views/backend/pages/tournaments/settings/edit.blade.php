@@ -59,9 +59,24 @@
                             this.secondary = preset.secondary;
                             this.accent = preset.accent;
                             this.activePreset = preset.name;
-                            document.getElementById('primary_color').value = preset.primary;
-                            document.getElementById('secondary_color').value = preset.secondary;
-                            document.getElementById('accent_color').value = preset.accent;
+                            // Also theme the public Registration Page (derived palette) so a
+                            // preset fully styles both the tournament page and the registration form.
+                            const rt = {
+                                icon_color: preset.accent,
+                                label_color: '#e5e7eb',
+                                header_gradient_from: preset.primary,
+                                header_gradient_to: preset.accent,
+                                page_bg_from: preset.primary,
+                                page_bg_to: preset.secondary,
+                                button_gradient_from: preset.accent,
+                                button_gradient_to: preset.accent,
+                                footer_gradient_from: preset.primary,
+                                footer_gradient_to: preset.secondary,
+                            };
+                            Object.entries(rt).forEach(([k, v]) => {
+                                const el = document.getElementById('rt_' + k);
+                                if (el) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+                            });
                         }
                     }">
 
@@ -450,7 +465,7 @@
                             @php $val = (is_string($theme[$key]) && str_starts_with($theme[$key], '#')) ? $theme[$key] : '#000000'; @endphp
                             <div>
                                 <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">{{ $title }}</label>
-                                <input type="color" name="registration_theme[{{ $key }}]" value="{{ $val }}"
+                                <input type="color" name="registration_theme[{{ $key }}]" id="rt_{{ $key }}" value="{{ $val }}"
                                     class="h-9 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 cursor-pointer">
                             </div>
                         @endforeach
