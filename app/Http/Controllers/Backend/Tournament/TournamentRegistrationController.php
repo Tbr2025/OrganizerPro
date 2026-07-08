@@ -8,6 +8,7 @@ use App\Mail\ApplicationUnderReviewMail;
 use App\Mail\PlayerCredentialsMail;
 use App\Mail\RegistrationApprovedMail;
 use App\Mail\RegistrationCorrectionMail;
+use App\Mail\TeamManagerCredentialsMail;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Models\User;
@@ -16,6 +17,7 @@ use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -36,28 +38,58 @@ class TournamentRegistrationController extends Controller
 
         $type = $request->get('type');
         $status = $request->get('status', 'pending');
+        $search = trim((string) $request->get('search', ''));
+        $sort = $request->get('sort', 'date');
+        $direction = strtolower($request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
 
+        // leftJoin players so we can search AND sort by the player's name uniformly
+        // across mixed player/team rows.
         $query = $tournament->registrations()
             ->with(['player', 'processedBy', 'actualTeam'])
-            ->latest();
+            ->leftJoin('players', 'players.id', '=', 'tournament_registrations.player_id')
+            ->select('tournament_registrations.*');
 
         if ($type) {
-            $query->where('type', $type);
+            $query->where('tournament_registrations.type', $type);
         }
 
-        if ($status) {
-            $query->where('status', $status);
+        if ($status && $status !== 'all') {
+            $query->where('tournament_registrations.status', $status);
         }
 
-        $registrations = $query->paginate(20);
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $query->where(function ($q) use ($like) {
+                $q->where('tournament_registrations.team_name', 'like', $like)
+                    ->orWhere('tournament_registrations.team_short_name', 'like', $like)
+                    ->orWhere('tournament_registrations.captain_name', 'like', $like)
+                    ->orWhere('tournament_registrations.captain_email', 'like', $like)
+                    ->orWhere('players.name', 'like', $like)
+                    ->orWhere('players.email', 'like', $like);
+            });
+        }
+
+        // Sort whitelist -> column. "name" coalesces team name / player name.
+        $column = match ($sort) {
+            'modified' => 'tournament_registrations.updated_at',
+            'name' => DB::raw('COALESCE(tournament_registrations.team_name, players.name)'),
+            'status' => 'tournament_registrations.status',
+            'type' => 'tournament_registrations.type',
+            default => 'tournament_registrations.created_at', // 'date'
+        };
+        $query->orderBy($column, $direction);
+
+        $registrations = $query->paginate(20)->appends($request->query());
 
         return view('backend.pages.tournaments.registrations.index', [
             'tournament' => $tournament,
             'registrations' => $registrations,
+            'totalCount' => $tournament->registrations()->count(),
             'pendingCount' => $tournament->registrations()->pending()->count(),
             'approvedCount' => $tournament->registrations()->approved()->count(),
             'rejectedCount' => $tournament->registrations()->rejected()->count(),
             'cancelledCount' => $tournament->registrations()->cancelled()->count(),
+            'filters' => compact('type', 'status', 'search', 'sort', 'direction'),
             'breadcrumbs' => [
                 'title' => __('Registrations'),
                 'items' => [
@@ -278,7 +310,7 @@ class TournamentRegistrationController extends Controller
             'content' => $registration->consent_snapshot ?: ($tournament->settings?->terms_and_conditions_content ?? ''),
         ])->render();
 
-        $pdf = Browsershot::html($html)
+        $pdf = \App\Support\PdfBrowser::html($html)
             ->format('A4')
             ->showBackground()
             ->margins(12, 12, 12, 12)
@@ -347,6 +379,12 @@ class TournamentRegistrationController extends Controller
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
+        // Team registration: (re)send a temp password to the whole team —
+        // owner, manager, and every player on the roster.
+        if ($registration->isTeamRegistration()) {
+            return $this->sendTeamTempPasswords($tournament, $registration);
+        }
+
         $email = $registration->player?->email ?? $registration->captain_email;
         if (! $email) {
             return back()->with('error', __('No email address on file for this registration.'));
@@ -364,6 +402,45 @@ class TournamentRegistrationController extends Controller
         Mail::to($email)->send(new PlayerCredentialsMail($user, $tempPassword, $tournament));
 
         return back()->with('success', __('A temporary password was emailed to :email. The player can log in and update their details.', ['email' => $email]));
+    }
+
+    /**
+     * (Re)send a fresh temporary password to every login account on the approved
+     * team — the owner, the manager, and each player on the roster. Owners/managers
+     * get the team-manager email; players get the player-credentials email.
+     */
+    protected function sendTeamTempPasswords(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $team = $registration->actualTeam;
+        if (! $team) {
+            return back()->with('error', __('Approve the team first — no team or login accounts exist yet.'));
+        }
+
+        $sent = 0;
+        foreach ($team->users()->get() as $user) {
+            if (! $user->email) {
+                continue;
+            }
+
+            $tempPassword = Str::random(12);
+            $user->update(['password' => Hash::make($tempPassword)]);
+
+            $role = $user->pivot->role ?? 'Player';
+            if (in_array($role, ['Owner', 'Manager'], true)) {
+                Mail::to($user->email)->send(new TeamManagerCredentialsMail(
+                    $user, $tempPassword, $tournament, $team, $role === 'Owner' ? 'Team Owner' : 'Team Manager'
+                ));
+            } else {
+                Mail::to($user->email)->send(new PlayerCredentialsMail($user, $tempPassword, $tournament));
+            }
+            $sent++;
+        }
+
+        if ($sent === 0) {
+            return back()->with('error', __('No login accounts are linked to this team yet.'));
+        }
+
+        return back()->with('success', __(':count temporary password(s) emailed to the team (owner, manager and players). They can change it after logging in.', ['count' => $sent]));
     }
 
     /**

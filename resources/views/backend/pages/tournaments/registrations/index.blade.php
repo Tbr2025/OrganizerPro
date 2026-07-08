@@ -61,7 +61,21 @@
             </div>
 
             {{-- Stats Cards --}}
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400">Total received</p>
+                            <p class="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{{ $totalCount }}</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
@@ -119,27 +133,60 @@
                 </div>
             </div>
 
-            {{-- Filter Tabs --}}
+            {{-- Filter Tabs (preserve search/sort when switching) --}}
+            @php $q = request()->query(); @endphp
             <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
-                <nav class="-mb-px flex space-x-8">
-                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => 'pending']) }}"
-                        class="py-2 px-1 border-b-2 font-medium text-sm {{ request('status', 'pending') == 'pending' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
-                        Pending
-                    </a>
-                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => 'approved']) }}"
-                        class="py-2 px-1 border-b-2 font-medium text-sm {{ request('status') == 'approved' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
-                        Approved
-                    </a>
-                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => 'rejected']) }}"
-                        class="py-2 px-1 border-b-2 font-medium text-sm {{ request('status') == 'rejected' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
-                        Rejected
-                    </a>
-                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => 'cancelled']) }}"
-                        class="py-2 px-1 border-b-2 font-medium text-sm {{ request('status') == 'cancelled' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
-                        Cancelled
-                    </a>
+                <nav class="-mb-px flex flex-wrap gap-x-8">
+                    @foreach(['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled'] as $key => $label)
+                        @php $active = request('status', 'pending') === $key; @endphp
+                        <a href="{{ route('admin.tournaments.registrations.index', array_merge($q, ['tournament' => $tournament, 'status' => $key])) }}"
+                            class="py-2 px-1 border-b-2 font-medium text-sm {{ $active ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
+                            {{ $label }}
+                        </a>
+                    @endforeach
                 </nav>
             </div>
+
+            {{-- Search / filter / sort bar --}}
+            <form method="GET" action="{{ route('admin.tournaments.registrations.index', $tournament) }}"
+                  class="mb-4 flex flex-wrap items-end gap-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                <input type="hidden" name="status" value="{{ $filters['status'] }}">
+                <div class="flex-1 min-w-[180px]">
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Search</label>
+                    <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="Name, team, or email…"
+                           class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
+                    <select name="type" class="text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                        <option value="">All</option>
+                        <option value="player" @selected($filters['type'] === 'player')>Player</option>
+                        <option value="team" @selected($filters['type'] === 'team')>Team</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Sort by</label>
+                    <select name="sort" class="text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                        <option value="date" @selected($filters['sort'] === 'date')>Date submitted</option>
+                        <option value="modified" @selected($filters['sort'] === 'modified')>Last modified</option>
+                        <option value="name" @selected($filters['sort'] === 'name')>Name (A–Z)</option>
+                        <option value="status" @selected($filters['sort'] === 'status')>Status</option>
+                        <option value="type" @selected($filters['sort'] === 'type')>Type</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Order</label>
+                    <select name="direction" class="text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                        <option value="desc" @selected($filters['direction'] === 'desc')>Descending</option>
+                        <option value="asc" @selected($filters['direction'] === 'asc')>Ascending</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">Apply</button>
+                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'status' => $filters['status']]) }}"
+                       class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">Reset</a>
+                </div>
+            </form>
 
             {{-- Registrations Table --}}
             <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden">
@@ -272,6 +319,9 @@
                                         <td class="px-6 py-4">
                                             <div class="text-sm">{{ $registration->created_at->format('M d, Y') }}</div>
                                             <div class="text-xs text-gray-500">{{ $registration->created_at->format('h:i A') }}</div>
+                                            @if($registration->updated_at && $registration->updated_at->ne($registration->created_at))
+                                                <div class="text-[11px] text-gray-400 mt-1" title="Last modified">✎ {{ $registration->updated_at->diffForHumans() }}</div>
+                                            @endif
                                         </td>
 
                                         {{-- Actions Column --}}
@@ -313,6 +363,19 @@
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
                                                             </svg>
                                                             Cancel
+                                                        </button>
+                                                    </form>
+                                                @endif
+
+                                                @if($registration->status == 'approved')
+                                                    <form action="{{ route('admin.tournaments.registrations.send-temp-password', [$tournament, $registration]) }}" method="POST" class="inline"
+                                                          onsubmit="return confirm('{{ $registration->type == 'team' ? 'Email a fresh temporary password to the team owner, manager and each player?' : 'Email a fresh temporary password to this applicant?' }}')">
+                                                        @csrf
+                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700" title="Send temp password">
+                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                                                            </svg>
+                                                            Temp password
                                                         </button>
                                                     </form>
                                                 @endif

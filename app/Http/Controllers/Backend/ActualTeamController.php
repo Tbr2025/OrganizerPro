@@ -419,41 +419,64 @@ class ActualTeamController extends Controller
         // --- Logic to get AVAILABLE Users ---
 
         // Only exclude users already on THIS team (not other teams — a user can be on multiple teams)
-        $currentTeamUserIds = $currentMembers->pluck('id')->toArray();
-        $allExcludedUserIds = $currentTeamUserIds;
+        $allExcludedUserIds = $currentMembers->pluck('id')->toArray();
+        $authUser = auth()->user();
+        $actualTeam->loadMissing('tournament');
 
-        // Start building the query for available users.
-        $usersQuery = User::query();
+        if ($actualTeam->tournament?->isAuction()) {
+            // AUCTION tournament: a team may only draw from players who are RETAINED
+            // (kept into a team of THIS tournament) or APPROVED for THIS tournament.
+            // No general staff/manager users appear in the pool.
+            $tournamentId = $actualTeam->tournament_id;
 
-        // Apply the complex filtering logic for eligibility
-        $usersQuery->where(function ($query) {
-            // Condition 1: Include users who have an approved player record
-            $query->whereHas('player', function ($subQuery) {
-                $subQuery->where('status', 'approved');
-            });
+            $approvedPlayerIds = TournamentRegistration::where('tournament_id', $tournamentId)
+                ->where('type', 'player')
+                ->where('status', 'approved')
+                ->pluck('player_id');
 
-            // OR
+            $retainedPlayerIds = Player::where('player_mode', 'retained')
+                ->whereHas('actualTeam', fn ($q) => $q->where('tournament_id', $tournamentId))
+                ->pluck('id');
 
-            // Condition 2: Include users who are NOT 'Player' role (staff, managers, etc.)
-            $query->orWhere(function ($subQuery) {
-                $subQuery->whereDoesntHave('roles', function ($roleQuery) {
-                    $roleQuery->where('name', 'Player');
+            $eligibleUserIds = Player::whereIn('id', $approvedPlayerIds->merge($retainedPlayerIds)->unique()->all())
+                ->whereNotNull('user_id')
+                ->pluck('user_id');
+
+            $usersQuery = User::whereIn('id', $eligibleUserIds)
+                ->whereNotIn('id', $allExcludedUserIds);
+
+            if (! $authUser->hasRole('Superadmin')) {
+                $usersQuery->where('organization_id', $authUser->organization_id);
+            }
+        } else {
+            // Non-auction (open) tournaments keep the broader list: approved players
+            // plus staff/manager users.
+            $usersQuery = User::query();
+
+            $usersQuery->where(function ($query) {
+                // Condition 1: users with an approved player record
+                $query->whereHas('player', function ($subQuery) {
+                    $subQuery->where('status', 'approved');
+                });
+                // OR Condition 2: users who are NOT 'Player' role (staff, managers, etc.)
+                $query->orWhere(function ($subQuery) {
+                    $subQuery->whereDoesntHave('roles', function ($roleQuery) {
+                        $roleQuery->where('name', 'Player');
+                    });
                 });
             });
-        });
 
-        // Apply role-based scoping (Superadmin vs. regular user) for the 'available users' list
-        // Always exclude Superadmin and Admin users from the available list
-        $usersQuery->whereDoesntHave('roles', function ($query) {
-            $query->whereIn('name', ['Superadmin', 'Admin']);
-        });
+            // Always exclude Superadmin and Admin users from the available list
+            $usersQuery->whereDoesntHave('roles', function ($query) {
+                $query->whereIn('name', ['Superadmin', 'Admin']);
+            });
 
-        if (auth()->user()->hasRole('Superadmin')) {
-            $usersQuery->whereNotIn('id', $allExcludedUserIds);
-        } else {
-            $authUser = auth()->user();
-            $usersQuery->where('organization_id', $authUser->organization_id)
-                ->whereNotIn('id', $allExcludedUserIds);
+            if ($authUser->hasRole('Superadmin')) {
+                $usersQuery->whereNotIn('id', $allExcludedUserIds);
+            } else {
+                $usersQuery->where('organization_id', $authUser->organization_id)
+                    ->whereNotIn('id', $allExcludedUserIds);
+            }
         }
 
         // Execute the query to get the final list of available users.

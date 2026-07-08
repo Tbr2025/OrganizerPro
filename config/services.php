@@ -30,4 +30,11 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Chrome/Chromium binary for Browsershot (PDF/screenshot generation).
+    // Leave null locally (Browsershot auto-resolves); set on servers where
+    // puppeteer's path resolution fails under PHP-FPM.
+    'chrome' => [
+        'path' => env('BROWSERSHOT_CHROME_PATH'),
+    ],
+
 ];
