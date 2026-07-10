@@ -190,7 +190,11 @@
                 </h1>
 
                 {{-- Description --}}
-                @if($tournament->description)
+                @if($settings?->description)
+                    <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-6 leading-relaxed">
+                        {!! nl2br(e($settings->description)) !!}
+                    </p>
+                @elseif($tournament->description)
                     <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-6 leading-relaxed">
                         {{ $tournament->description }}
                     </p>
