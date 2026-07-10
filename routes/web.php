@@ -304,6 +304,10 @@ Route::post('/tournament/{tournament}/register/team', [PublicTournamentRegistrat
 Route::get('/tournament/{tournament}/register/success', [PublicTournamentRegistrationController::class, 'success'])
     ->name('public.tournament.registration.success');
 
+// Redirect old /tournament/ URLs to new /t/ URLs for player & team registration
+Route::get('/tournament/{tournament}/register/player', fn ($tournament) => redirect()->route('public.tournament.registration.player', $tournament, 301));
+Route::get('/tournament/{tournament}/register/team', fn ($tournament) => redirect()->route('public.tournament.registration.team', $tournament, 301));
+
 // --- Public Team Join (Invite Link) Routes ---
 Route::get('/join/{invite_code}', [PublicTeamJoinController::class, 'showForm'])
     ->name('public.team.join');
