@@ -6,7 +6,7 @@
 @endphp
 
 @if($hasContact)
-<div class="reg-section glass reveal" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);">
+<div class="reg-section glass reveal" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);margin-top:2rem;">
     <div class="reg-section-head">
         <div class="reg-section-icon"><i class="fas fa-headset"></i></div>
         <div>
