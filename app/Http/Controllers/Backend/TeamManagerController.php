@@ -489,7 +489,7 @@ class TeamManagerController extends Controller
                     $outputPath = $renderService->renderAndSave(
                         $template,
                         $data,
-                        'welcome-card-' . $player->id . '-' . time() . '.png'
+                        \App\Services\Poster\TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name))
                     );
 
                     if ($outputPath && Storage::disk('public')->exists($outputPath)) {
@@ -596,7 +596,7 @@ class TeamManagerController extends Controller
                     $outputPath = $renderService->renderAndSave(
                         $template,
                         $data,
-                        'welcome-card-' . $player->id . '-' . time() . '.png'
+                        \App\Services\Poster\TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name))
                     );
 
                     if ($outputPath && Storage::disk('public')->exists($outputPath)) {

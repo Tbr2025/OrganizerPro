@@ -2628,6 +2628,16 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
+     * Generate a poster filename prefixed with APP_NAME.
+     * Format: app-name-label-timestamp.png
+     */
+    public static function posterFilename(string $label): string
+    {
+        $prefix = \Illuminate\Support\Str::slug(config('app.name', 'app'));
+        return $prefix . '-' . $label . '-' . now()->format('Ymd-His') . '.png';
+    }
+
+    /**
      * Render and save permanently
      */
     public function renderAndSave(TournamentTemplate $template, array $data, string $customFilename = null, bool $skipBlanks = true): string

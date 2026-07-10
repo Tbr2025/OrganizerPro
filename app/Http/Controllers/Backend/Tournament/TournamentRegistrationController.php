@@ -589,11 +589,12 @@ class TournamentRegistrationController extends Controller
         ];
 
         $renderService = app(\App\Services\Poster\TemplateRenderService::class);
-        $posterPath = $renderService->renderAndSave($template, $data, 'welcome-card-' . $player->id . '-' . time() . '.png');
+        $filename = \App\Services\Poster\TemplateRenderService::posterFilename('welcome-' . Str::slug($player->name));
+        $posterPath = $renderService->renderAndSave($template, $data, $filename);
 
         $fullPath = storage_path('app/public/' . $posterPath);
 
-        return response()->download($fullPath, 'welcome-card-' . Str::slug($player->name) . '.png')->deleteFileAfterSend(false);
+        return response()->download($fullPath, $filename)->deleteFileAfterSend(false);
     }
 
     /**

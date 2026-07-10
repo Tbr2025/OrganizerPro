@@ -856,7 +856,7 @@ class PlayerController extends Controller
         }
 
         // Save final image
-        $outputPath = 'public/generated_welcome/' . Str::slug($player->name) . '.png';
+        $outputPath = 'public/generated_welcome/' . \App\Services\Poster\TemplateRenderService::posterFilename('welcome-' . Str::slug($player->name));
         Storage::makeDirectory('public/generated_welcome');
         imagepng($image, storage_path('app/' . $outputPath));
         imagedestroy($image);

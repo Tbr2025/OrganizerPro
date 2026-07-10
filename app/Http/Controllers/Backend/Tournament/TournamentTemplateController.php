@@ -1149,7 +1149,7 @@ class TournamentTemplateController extends Controller
             }
 
             // Render and save
-            $filename = 'template-' . $template->id . '-' . now()->format('Y-m-d-His') . '.png';
+            $filename = TemplateRenderService::posterFilename('template-' . $template->id);
             $path = $renderService->renderAndSave($template, $sampleData, $filename);
 
             $fullPath = Storage::disk('public')->path($path);

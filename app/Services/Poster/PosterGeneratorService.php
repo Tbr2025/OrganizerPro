@@ -286,7 +286,8 @@ abstract class PosterGeneratorService
      */
     protected function generateFilename(string $prefix = 'poster'): string
     {
-        return $prefix . '-' . Str::uuid() . '.png';
+        $appPrefix = Str::slug(config('app.name', 'app'));
+        return $appPrefix . '-' . $prefix . '-' . now()->format('Ymd-His') . '-' . Str::random(6) . '.png';
     }
 
     /**

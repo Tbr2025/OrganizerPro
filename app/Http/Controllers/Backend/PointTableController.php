@@ -131,7 +131,7 @@ class PointTableController extends Controller
         ];
 
         $renderService = new TemplateRenderService();
-        $filename = 'points-' . $group->id . '-' . now()->format('Y-m-d-His') . '.png';
+        $filename = TemplateRenderService::posterFilename('points-' . $group->id);
         return $renderService->renderAndSave($template, $data, $filename);
     }
 

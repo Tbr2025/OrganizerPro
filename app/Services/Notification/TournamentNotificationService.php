@@ -12,6 +12,7 @@ use App\Services\Poster\WelcomeCardPosterService;
 use App\Services\Poster\MatchSummaryPosterService;
 use App\Services\Poster\MatchPosterService;
 use App\Services\Poster\AwardPosterService;
+use App\Services\Poster\TemplateRenderService;
 use App\Services\Poster\TournamentFlyerService;
 use App\Mail\PlayerWelcomeMail;
 use Illuminate\Support\Facades\Mail;
@@ -93,7 +94,7 @@ class TournamentNotificationService
             ];
 
             $posterPath = app(\App\Services\Poster\TemplateRenderService::class)
-                ->renderAndSave($template, $data, 'welcome-card-' . $player->id . '-' . time() . '.png');
+                ->renderAndSave($template, $data, TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name)));
 
             $log = NotificationLog::log(
                 $tournament,

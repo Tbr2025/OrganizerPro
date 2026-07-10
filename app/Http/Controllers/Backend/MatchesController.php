@@ -818,7 +818,7 @@ class MatchesController extends Controller
         // Generate match poster from template
         if ($matchPosterTemplate && $matchPosterTemplate->background_image) {
             try {
-                $posterPath = $renderService->renderAndSave($matchPosterTemplate, $matchData, 'match-poster-' . $match->id . '-' . time() . '.png');
+                $posterPath = $renderService->renderAndSave($matchPosterTemplate, $matchData, \App\Services\Poster\TemplateRenderService::posterFilename('match-poster-' . $match->id));
                 if ($posterPath && \Storage::disk('public')->exists($posterPath)) {
                     $posters[] = [
                         'path' => \Storage::disk('public')->path($posterPath),
@@ -842,7 +842,7 @@ class MatchesController extends Controller
 
             if ($summaryTemplate && $summaryTemplate->background_image) {
                 try {
-                    $summaryPath = $renderService->renderAndSave($summaryTemplate, $matchData, 'match-summary-' . $match->id . '-' . time() . '.png');
+                    $summaryPath = $renderService->renderAndSave($summaryTemplate, $matchData, \App\Services\Poster\TemplateRenderService::posterFilename('match-summary-' . $match->id));
                     if ($summaryPath && \Storage::disk('public')->exists($summaryPath)) {
                         $posters[] = [
                             'path' => \Storage::disk('public')->path($summaryPath),
@@ -1010,7 +1010,7 @@ class MatchesController extends Controller
         }
 
         try {
-            $posterPath = $renderService->renderAndSave($template, $matchData, 'match-poster-' . $match->id . '-' . time() . '.png');
+            $posterPath = $renderService->renderAndSave($template, $matchData, \App\Services\Poster\TemplateRenderService::posterFilename('match-poster-' . $match->id));
 
             if ($posterPath && \Storage::disk('public')->exists($posterPath)) {
                 $response = response()->download(

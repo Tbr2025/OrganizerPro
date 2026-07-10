@@ -450,7 +450,7 @@ class MatchSummaryController extends Controller
             $matchData = $this->applyInningsSwap($match, $matchData, $innings);
 
             $renderService = app(TemplateRenderService::class);
-            $posterPath = $renderService->renderAndSave($tournamentTemplate, $matchData, 'match-summary-' . $match->id . '-' . time() . '.png');
+            $posterPath = $renderService->renderAndSave($tournamentTemplate, $matchData, TemplateRenderService::posterFilename('match-summary-' . $match->id));
 
             $summary = $match->getOrCreateSummary();
             $summary->update([
@@ -625,7 +625,7 @@ class MatchSummaryController extends Controller
             $matchData = $this->applyInningsSwap($match, $matchData, $innings);
 
             $renderService = app(TemplateRenderService::class);
-            $path = $renderService->renderAndSave($template, $matchData, 'match-poster-' . $match->id . '-' . time() . '.png');
+            $path = $renderService->renderAndSave($template, $matchData, TemplateRenderService::posterFilename('match-poster-' . $match->id));
 
             return response()->download(
                 storage_path('app/public/' . $path),
@@ -665,7 +665,7 @@ class MatchSummaryController extends Controller
             $matchData['player_image'] = $matchAward->display_image ?? 'defaults/default-player.png';
 
             $renderService = app(TemplateRenderService::class);
-            $path = $renderService->renderAndSave($template, $matchData, 'award-poster-' . $match->id . '-' . time() . '.png');
+            $path = $renderService->renderAndSave($template, $matchData, TemplateRenderService::posterFilename('award-poster-' . $match->id));
 
             return response()->download(
                 storage_path('app/public/' . $path),

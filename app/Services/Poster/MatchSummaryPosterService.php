@@ -141,7 +141,7 @@ class MatchSummaryPosterService extends PosterGeneratorService
         }
 
         // Render using template
-        $filename = 'summary-' . $match->id . '-' . time() . '.png';
+        $filename = TemplateRenderService::posterFilename('summary-' . $match->id);
         return $this->templateRenderService->renderAndSave($template, $data, $filename);
     }
 

@@ -125,7 +125,7 @@ class AwardPosterService extends PosterGeneratorService
         ];
 
         // Render using template
-        $filename = 'award-' . $matchAward->id . '-' . time() . '.png';
+        $filename = TemplateRenderService::posterFilename('award-' . $matchAward->id);
         $path = $this->templateRenderService->renderAndSave($template, $data, $filename);
 
         // Update award with poster path
@@ -346,7 +346,7 @@ class AwardPosterService extends PosterGeneratorService
             'year' => $tournament->start_date?->format('Y') ?? date('Y'),
         ];
 
-        $filename = "{$type}-{$tournament->id}-" . time() . '.png';
+        $filename = TemplateRenderService::posterFilename("{$type}-{$tournament->id}");
         return $this->templateRenderService->renderAndSave($template, $data, $filename);
     }
 
