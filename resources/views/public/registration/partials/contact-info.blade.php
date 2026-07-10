@@ -14,6 +14,9 @@
             <div class="reg-section-sub">Contact the organizers for any queries</div>
         </div>
     </div>
+    <p style="color:rgba(255,255,255,0.6);font-size:.88rem;margin-bottom:1rem;">
+        If you have any questions or need assistance with your registration, feel free to reach out to the tournament organizers.
+    </p>
     <div class="flex flex-wrap gap-3">
         @if($contactEmail)
         <a href="mailto:{{ $contactEmail }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition"
