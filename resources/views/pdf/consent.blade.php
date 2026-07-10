@@ -60,9 +60,31 @@
             <td class="k">Applicant</td>
             <td class="v">{{ $registration->player->name ?? $registration->captain_name ?? $signerName }}</td>
         </tr>
+        @if($registration->type === 'team')
+            <tr>
+                <td class="k">Team Name</td>
+                <td class="v">{{ $registration->team_name ?? '-' }}</td>
+            </tr>
+            @if($registration->captain_name)
+            <tr>
+                <td class="k">Team Manager</td>
+                <td class="v">{{ $registration->captain_name }}{{ $registration->captain_email ? ' (' . $registration->captain_email . ')' : '' }}</td>
+            </tr>
+            @endif
+            @if($registration->vice_captain_name)
+            <tr>
+                <td class="k">Team Owner</td>
+                <td class="v">{{ $registration->vice_captain_name }}{{ $registration->vice_captain_email ? ' (' . $registration->vice_captain_email . ')' : '' }}</td>
+            </tr>
+            @endif
+        @endif
         <tr>
             <td class="k">Tournament</td>
             <td class="v">{{ $tournament->name }}</td>
+        </tr>
+        <tr>
+            <td class="k">Registration Type</td>
+            <td class="v">{{ ucfirst($registration->type ?? 'player') }}</td>
         </tr>
         <tr>
             <td class="k">Status</td>

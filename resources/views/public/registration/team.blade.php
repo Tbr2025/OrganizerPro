@@ -124,6 +124,9 @@
             </div>
         </form>
 
+        {{-- Contact Info --}}
+        @include('public.registration.partials.contact-info')
+
         <div class="text-center mt-8">
             <a href="{{ route('public.tournament.show', $tournament->slug) }}" class="text-gray-400 hover:text-white transition inline-flex items-center gap-2">
                 <i class="fas fa-arrow-left"></i> Back to Tournament

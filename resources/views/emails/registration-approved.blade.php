@@ -67,12 +67,23 @@
             </p>
         </div>
 
-        <div style="text-align: center;">
+        <div style="text-align: center; margin-bottom: 20px;">
             <a href="{{ route('public.tournament.show', $tournament->slug) }}"
                style="display: inline-block; background: {{ $primaryColor }}; color: {{ $secondaryColor }}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 View Tournament
             </a>
         </div>
+
+        @php
+            $settings = $tournament->settings;
+            $contactParts = [];
+            if ($settings?->contact_email) $contactParts[] = '<a href="mailto:' . e($settings->contact_email) . '" style="color:' . e($primaryColor) . ';font-weight:600;text-decoration:none;">' . e($settings->contact_email) . '</a>';
+            if ($settings?->contact_phone) $contactParts[] = '<a href="tel:' . e($settings->contact_phone) . '" style="color:' . e($primaryColor) . ';font-weight:600;text-decoration:none;">' . e($settings->contact_phone) . '</a>';
+            if ($settings?->whatsapp_contact) $contactParts[] = '<a href="https://wa.me/' . preg_replace('/[^0-9]/', '', $settings->whatsapp_contact) . '" style="color:#25d366;font-weight:600;text-decoration:none;">WhatsApp</a>';
+        @endphp
+        @if(count($contactParts))
+        <p style="margin: 0; font-size: 14px; color: #555;">Contact us: {!! implode(' &nbsp;|&nbsp; ', $contactParts) !!}</p>
+        @endif
     </div>
 
     <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 12px;">

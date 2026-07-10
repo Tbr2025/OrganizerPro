@@ -27,6 +27,7 @@ class EmailTemplateService
             '{brand_name}', '{tournament_name}', '{tournament_logo}',
             '{tournament_start_date}', '{tournament_location}', '{tournament_url}',
             '{primary_color}', '{secondary_color}', '{header_text_color}', '{app_url}',
+            '{contact_info}',
         ];
 
         return [
@@ -169,6 +170,25 @@ class EmailTemplateService
             ? route('public.tournament.show', $tournament->slug)
             : url('/');
 
+        // Build contact info HTML from tournament settings.
+        $contactHtml = '';
+        if ($settings) {
+            $parts = [];
+            if ($settings->contact_email) {
+                $parts[] = '<a href="mailto:' . e($settings->contact_email) . '" style="color:' . $primary . ';text-decoration:none;font-weight:600;">' . e($settings->contact_email) . '</a>';
+            }
+            if ($settings->contact_phone) {
+                $parts[] = '<a href="tel:' . e($settings->contact_phone) . '" style="color:' . $primary . ';text-decoration:none;font-weight:600;">' . e($settings->contact_phone) . '</a>';
+            }
+            if ($settings->whatsapp_contact) {
+                $wa = preg_replace('/[^0-9]/', '', $settings->whatsapp_contact);
+                $parts[] = '<a href="https://wa.me/' . $wa . '" style="color:#25d366;text-decoration:none;font-weight:600;">WhatsApp</a>';
+            }
+            if ($parts) {
+                $contactHtml = 'Contact us: ' . implode(' &nbsp;|&nbsp; ', $parts);
+            }
+        }
+
         return [
             '{brand_name}' => e($this->brandName()),
             '{tournament_name}' => e($tournament?->name ?? 'the tournament'),
@@ -188,6 +208,7 @@ class EmailTemplateService
             '{team_name}' => e($reg?->team_name ?? ''),
             '{player_name}' => e($player?->name ?? 'Player'),
             '{complete_profile_url}' => route('login'),
+            '{contact_info}' => $contactHtml,
         ];
     }
 
@@ -254,7 +275,7 @@ class EmailTemplateService
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background: {primary_color}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
         <div style="margin: 0 auto 15px;">{header_logos}</div>
-        <h1 style="color: {header_text_color}; margin: 0; font-size: 24px;">Application Received 🎉</h1>
+        <h1 style="color: {header_text_color}; margin: 0; font-size: 24px;">Application Received</h1>
     </div>
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
         <p style="margin: 0 0 20px 0; font-size: 16px;">Dear <strong>{applicant_name}</strong>,</p>
@@ -270,6 +291,7 @@ class EmailTemplateService
                 <tr><td style="padding: 8px 0; color: #6c757d;">Location:</td><td style="padding: 8px 0;">{tournament_location}</td></tr>
             </table>
         </div>
+        <p style="margin: 0; font-size: 14px; color: #555;">{contact_info}</p>
     </div>
     <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 12px;">
         <p style="margin: 0;">Thank you for registering with {brand_name}</p>
@@ -305,9 +327,10 @@ HTML;
         <div style="background: #d4edda; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
             <p style="margin: 0; color: #155724; font-size: 14px;">You are now officially part of this tournament. Stay tuned for further updates and match schedules!</p>
         </div>
-        <div style="text-align: center;">
+        <div style="text-align: center; margin-bottom: 20px;">
             <a href="{tournament_url}" style="display: inline-block; background: {primary_color}; color: {header_text_color}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">View Tournament</a>
         </div>
+        <p style="margin: 0; font-size: 14px; color: #555;">{contact_info}</p>
     </div>
     <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 12px;">
         <p style="margin: 0;">Thank you for registering with {brand_name}</p>
@@ -335,7 +358,8 @@ HTML;
             <p>A warm welcome to <strong style="color: #0056b3;">{brand_name}</strong>! We are thrilled to have you join our community.</p>
             <p>Your journey to track your performance, join events, and showcase your skills starts now. To get the most out of the platform, we recommend completing your profile.</p>
             <a href="{complete_profile_url}" style="display: block; width: fit-content; margin: 25px auto; padding: 12px 25px; background-color: {primary_color}; color: {header_text_color} !important; text-decoration: none; border-radius: 5px; font-weight: bold;">Complete Your Profile</a>
-            <p>If you have any questions, feel free to reply to this email. We're happy to help!</p>
+            <p>If you have any questions, we're happy to help!</p>
+            <p style="margin:10px 0 0;font-size:14px;">{contact_info}</p>
         </div>
         <div style="text-align: center; margin-top: 20px; font-size: 0.9em; color: #777;">
             <p>Best regards,</p>

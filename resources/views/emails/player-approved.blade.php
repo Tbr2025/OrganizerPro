@@ -9,9 +9,17 @@
     @php
         $primaryColor = $team->tournament?->settings?->primary_color ?? '#1a56db';
         $secondaryColor = $team->tournament?->settings?->secondary_color ?? '#ffffff';
+        $appLogoRaw = config('settings.site_logo_lite') ?: 'images/logo/lara-dashboard.png';
+        $appLogo = \Illuminate\Support\Str::startsWith($appLogoRaw, ['http://', 'https://']) ? $appLogoRaw : asset(ltrim($appLogoRaw, '/'));
+        $tournamentLogo = $team->tournament?->settings?->logo_url;
     @endphp
     <div style="background: {{ $primaryColor }}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <img src="{{ $team->tournament?->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $team->tournament?->name ?? config('app.name') }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+        <div style="margin: 0 auto 15px;">
+            <img src="{{ $appLogo }}" alt="{{ config('app.name') }}" style="height: 56px; max-width: 160px; object-fit: contain; background: #ffffff; border-radius: 8px; padding: 8px; vertical-align: middle;">
+            @if($tournamentLogo)
+                <img src="{{ $tournamentLogo }}" alt="{{ $team->tournament?->name }}" style="height: 56px; width: 56px; object-fit: contain; background: #ffffff; border-radius: 50%; padding: 6px; vertical-align: middle; margin-left: 12px;">
+            @endif
+        </div>
         <h1 style="color: {{ $secondaryColor }}; margin: 0; font-size: 24px;">You're Approved!</h1>
     </div>
 
@@ -74,12 +82,23 @@
         </div>
 
         @if($team->tournament?->slug)
-        <div style="text-align: center;">
+        <div style="text-align: center; margin-bottom: 20px;">
             <a href="{{ route('public.tournament.show', $team->tournament->slug) }}"
                style="display: inline-block; background: {{ $primaryColor }}; color: {{ $secondaryColor }}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 View Tournament
             </a>
         </div>
+        @endif
+
+        @php
+            $tSettings = $team->tournament?->settings;
+            $contactParts = [];
+            if ($tSettings?->contact_email) $contactParts[] = '<a href="mailto:' . e($tSettings->contact_email) . '" style="color:' . e($primaryColor) . ';font-weight:600;text-decoration:none;">' . e($tSettings->contact_email) . '</a>';
+            if ($tSettings?->contact_phone) $contactParts[] = '<a href="tel:' . e($tSettings->contact_phone) . '" style="color:' . e($primaryColor) . ';font-weight:600;text-decoration:none;">' . e($tSettings->contact_phone) . '</a>';
+            if ($tSettings?->whatsapp_contact) $contactParts[] = '<a href="https://wa.me/' . preg_replace('/[^0-9]/', '', $tSettings->whatsapp_contact) . '" style="color:#25d366;font-weight:600;text-decoration:none;">WhatsApp</a>';
+        @endphp
+        @if(count($contactParts))
+        <p style="margin: 0; font-size: 14px; color: #555;">Contact us: {!! implode(' &nbsp;|&nbsp; ', $contactParts) !!}</p>
         @endif
     </div>
 

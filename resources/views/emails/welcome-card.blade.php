@@ -62,7 +62,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <img src="{{ url('/images/logo/logo.png') }}" alt="{{ config('app.name') }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px; border: 1px solid #e9ecef;">
+            @php
+                $appLogoRaw = config('settings.site_logo_lite') ?: 'images/logo/lara-dashboard.png';
+                $appLogoUrl = \Illuminate\Support\Str::startsWith($appLogoRaw, ['http://', 'https://']) ? $appLogoRaw : asset(ltrim($appLogoRaw, '/'));
+            @endphp
+            <img src="{{ $appLogoUrl }}" alt="{{ config('app.name') }}" style="width: 80px; height: 80px; border-radius: 12px; margin: 0 auto 15px; display: block; object-fit: contain; background: #ffffff; padding: 8px; border: 1px solid #e9ecef;">
             <h1>Welcome Aboard!</h1>
         </div>
 
@@ -81,9 +85,17 @@
             {{-- This button should link to the user's profile page or dashboard --}}
             <a href="#" class="cta-button">Complete Your Profile</a>
             
-            <p>
-                If you have any questions, feel free to reply to this email. We're happy to help!
-            </p>
+            <p>If you have any questions, we're happy to help!</p>
+            @php
+                $settings = $player->tournaments()?->first()?->settings ?? null;
+                $contactParts = [];
+                if ($settings?->contact_email) $contactParts[] = '<a href="mailto:' . e($settings->contact_email) . '" style="color:#0056b3;font-weight:600;">' . e($settings->contact_email) . '</a>';
+                if ($settings?->contact_phone) $contactParts[] = '<a href="tel:' . e($settings->contact_phone) . '" style="color:#0056b3;font-weight:600;">' . e($settings->contact_phone) . '</a>';
+                if ($settings?->whatsapp_contact) $contactParts[] = '<a href="https://wa.me/' . preg_replace('/[^0-9]/', '', $settings->whatsapp_contact) . '" style="color:#25d366;font-weight:600;">WhatsApp</a>';
+            @endphp
+            @if(count($contactParts))
+            <p style="font-size:14px;">Contact us: {!! implode(' &nbsp;|&nbsp; ', $contactParts) !!}</p>
+            @endif
         </div>
 
         <div class="footer">
