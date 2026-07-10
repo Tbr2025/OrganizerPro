@@ -893,6 +893,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download');
             Route::get('/matches/{match}/awards', [TournamentTemplateController::class, 'getMatchAwards'])->name('matches.get-awards');
             Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster');
+            Route::post('/templates/toggle-auto-welcome', [TournamentTemplateController::class, 'toggleAutoWelcome'])->name('templates.toggle-auto-welcome');
             Route::delete('/generated-posters/{poster}', [TournamentTemplateController::class, 'deleteGeneratedPoster'])->name('generated-posters.destroy');
         });
 

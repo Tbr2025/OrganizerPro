@@ -254,6 +254,30 @@
 
                 {{-- Player Selection (for welcome_card) --}}
                 <div id="playerSelection" class="{{ request('type') === 'welcome_card' ? '' : 'hidden' }}">
+                    {{-- Auto Mode Toggle --}}
+                    <div class="flex items-center justify-between mb-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                         x-data="{ autoMode: {{ $autoWelcome ?? true ? 'true' : 'false' }}, toggling: false }">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            <div>
+                                <span class="text-sm font-medium text-green-800 dark:text-green-300">Auto Mode</span>
+                                <p class="text-xs text-green-600 dark:text-green-400">Automatically send welcome card when a player is approved</p>
+                            </div>
+                        </div>
+                        <button type="button"
+                                @click="toggling = true; fetch('{{ route('admin.tournaments.templates.toggle-auto-welcome', $tournament) }}', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
+                                    body: JSON.stringify({enabled: !autoMode})
+                                }).then(r => r.json()).then(d => { autoMode = d.enabled; toggling = false; }).catch(() => toggling = false)"
+                                :class="autoMode ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'"
+                                class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none"
+                                :disabled="toggling">
+                            <span :class="autoMode ? 'translate-x-5' : 'translate-x-0'"
+                                  class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5 ml-0.5"></span>
+                        </button>
+                    </div>
+
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Player</label>
                     <select id="playerSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                         <option value="">-- Select a player --</option>
@@ -267,7 +291,7 @@
                                     data-type="{{ $player->playerType?->type ?? '' }}"
                                     data-batting="{{ $player->battingProfile?->style ?? '' }}"
                                     data-bowling="{{ $player->bowlingProfile?->style ?? '' }}">
-                                {{ $player->name }} @if($player->actualTeam) ({{ $player->actualTeam->name }}) @endif
+                                {{ $player->name }} @if($player->actualTeam) ({{ $player->actualTeam->name }}) @else (Registered) @endif
                             </option>
                         @endforeach
                     </select>

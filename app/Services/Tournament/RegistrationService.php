@@ -642,10 +642,10 @@ class RegistrationService
     protected function sendGreetingCard(TournamentRegistration $registration): void
     {
         try {
-            // manual: true so approval always sends the card regardless of the
-            // tournament's auto-send setting.
+            // Respect the tournament's auto_send_welcome_cards setting.
+            // When auto mode is off, the card won't be sent automatically on approval.
             app(\App\Services\Notification\TournamentNotificationService::class)
-                ->sendWelcomeCard($registration, true);
+                ->sendWelcomeCard($registration);
         } catch (\Throwable $e) {
             // Never let card generation (TypeError/GD/etc.) break the approval.
             Log::error('Failed to send greeting card: ' . $e->getMessage());

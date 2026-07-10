@@ -7,6 +7,7 @@ use App\Models\Matches;
 use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\GeneratedPoster;
+use App\Models\TournamentRegistration;
 use App\Models\TournamentTemplate;
 use App\Services\ImageBackgroundRemovalService;
 use App\Services\Poster\FixturesPosterService;
@@ -120,10 +121,25 @@ class TournamentTemplateController extends Controller
             ->pluck('actual_team_id');
         $allTeamIds = $directTeamIds->merge($pivotTeamIds)->merge($groupTeamIds)->unique();
 
-        $players = Player::whereIn('actual_team_id', $allTeamIds)
+        $teamPlayers = Player::whereIn('actual_team_id', $allTeamIds)
             ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
             ->where('status', 'approved')
             ->get();
+
+        // Also include players who registered via registration link for this tournament
+        $registeredPlayerIds = TournamentRegistration::where('tournament_id', $tournament->id)
+            ->where('type', 'player')
+            ->where('status', 'approved')
+            ->whereNotNull('player_id')
+            ->pluck('player_id');
+
+        $registeredPlayers = Player::whereIn('id', $registeredPlayerIds)
+            ->whereNotIn('id', $teamPlayers->pluck('id'))
+            ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
+            ->where('status', 'approved')
+            ->get();
+
+        $players = $teamPlayers->merge($registeredPlayers);
 
         // Load groups for point table type
         $groups = $tournament->groups;
@@ -134,6 +150,8 @@ class TournamentTemplateController extends Controller
             ->limit(50)
             ->get();
 
+        $autoWelcome = $tournament->settings?->auto_send_welcome_cards ?? true;
+
         return view('backend.pages.tournaments.templates.generate', compact(
             'tournament',
             'type',
@@ -141,8 +159,22 @@ class TournamentTemplateController extends Controller
             'matches',
             'players',
             'groups',
-            'savedPosters'
+            'savedPosters',
+            'autoWelcome'
         ));
+    }
+
+    /**
+     * Toggle auto-send welcome cards setting (AJAX)
+     */
+    public function toggleAutoWelcome(Tournament $tournament, Request $request)
+    {
+        $settings = $tournament->settings ?? $tournament->settings()->create([]);
+        $settings->update([
+            'auto_send_welcome_cards' => $request->boolean('enabled'),
+        ]);
+
+        return response()->json(['success' => true, 'enabled' => $settings->auto_send_welcome_cards]);
     }
 
     /**
