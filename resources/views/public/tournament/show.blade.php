@@ -3,13 +3,22 @@
 @section('title', $tournament->name)
 
 @section('meta')
+    @php $shareImage = $settings?->share_image_url; @endphp
     <meta name="description" content="{{ $tournament->description ?? 'Cricket Tournament - ' . $tournament->name }}">
     <meta property="og:type" content="website" />
     <meta property="og:url" content="{{ route('public.tournament.show', $tournament->slug) }}" />
     <meta property="og:title" content="{{ $tournament->name }}" />
     <meta property="og:description" content="{{ $tournament->description ?? 'Cricket Tournament' }}" />
-    @if(($settings?->logo ?? $tournament->logo))
-        <meta property="og:image" content="{{ Storage::url($settings?->logo ?? $tournament->logo) }}" />
+    <meta property="og:site_name" content="{{ $tournament->name ?? config('app.name') }}" />
+    @if($shareImage)
+        <meta property="og:image" content="{{ $shareImage }}" />
+        <meta property="og:image:secure_url" content="{{ $shareImage }}" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="{{ $tournament->name }}" />
+        <meta name="twitter:description" content="{{ $tournament->description ?? 'Cricket Tournament' }}" />
+        <meta name="twitter:image" content="{{ $shareImage }}" />
     @endif
 @endsection
 
