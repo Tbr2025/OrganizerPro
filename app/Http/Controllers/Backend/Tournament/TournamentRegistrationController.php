@@ -556,4 +556,80 @@ class TournamentRegistrationController extends Controller
 
         return 'data:' . $mime . ';base64,' . base64_encode($data);
     }
+
+    /**
+     * Generate and download the welcome card poster for a player registration.
+     */
+    public function downloadWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+
+        $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
+        $settings = $tournament->settings;
+
+        $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_WELCOME_CARD);
+        if (!$template) {
+            return back()->with('error', __('No welcome card template found. Please create one first.'));
+        }
+
+        $data = [
+            'player_name' => $player->name,
+            'jersey_name' => $player->jersey_name ?: $player->name,
+            'jersey_number' => (string) ($player->jersey_number ?? ''),
+            'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
+            'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
+            'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
+            'team_name' => $player->actualTeam?->name ?? $player->team?->name ?? '',
+            'team_logo' => $player->actualTeam?->team_logo ?? $player->team?->logo ?? '',
+            'tournament_name' => $tournament->name,
+            'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
+            'player_image' => $player->image_path ?? '',
+        ];
+
+        $renderService = app(\App\Services\Poster\TemplateRenderService::class);
+        $posterPath = $renderService->renderAndSave($template, $data, 'welcome-card-' . $player->id . '-' . time() . '.png');
+
+        $fullPath = storage_path('app/public/' . $posterPath);
+
+        return response()->download($fullPath, 'welcome-card-' . Str::slug($player->name) . '.png')->deleteFileAfterSend(false);
+    }
+
+    /**
+     * Generate and return the welcome card poster as inline image (AJAX preview).
+     */
+    public function previewWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+
+        $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
+        $settings = $tournament->settings;
+
+        $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_WELCOME_CARD);
+        if (!$template) {
+            return response()->json(['error' => 'No welcome card template found.'], 404);
+        }
+
+        $data = [
+            'player_name' => $player->name,
+            'jersey_name' => $player->jersey_name ?: $player->name,
+            'jersey_number' => (string) ($player->jersey_number ?? ''),
+            'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
+            'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
+            'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
+            'team_name' => $player->actualTeam?->name ?? $player->team?->name ?? '',
+            'team_logo' => $player->actualTeam?->team_logo ?? $player->team?->logo ?? '',
+            'tournament_name' => $tournament->name,
+            'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
+            'player_image' => $player->image_path ?? '',
+        ];
+
+        $renderService = app(\App\Services\Poster\TemplateRenderService::class);
+        $base64 = $renderService->renderToBase64($template, $data);
+
+        return response()->json(['image' => $base64]);
+    }
 }

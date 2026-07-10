@@ -830,6 +830,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         // Approve / reject player-requested profile changes
         Route::post('/registrations/{registration}/pending-changes/approve', [TournamentRegistrationController::class, 'approvePendingChanges'])->name('registrations.pending-changes.approve');
         Route::post('/registrations/{registration}/pending-changes/reject', [TournamentRegistrationController::class, 'rejectPendingChanges'])->name('registrations.pending-changes.reject');
+        // Welcome card preview & download on registration page
+        Route::get('/registrations/{registration}/welcome-card/preview', [TournamentRegistrationController::class, 'previewWelcomeCard'])->name('registrations.welcome-card.preview');
+        Route::get('/registrations/{registration}/welcome-card/download', [TournamentRegistrationController::class, 'downloadWelcomeCard'])->name('registrations.welcome-card.download');
 
         // Groups
         Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');
