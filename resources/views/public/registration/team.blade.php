@@ -68,6 +68,9 @@
             </span>
             <h1 class="text-3xl font-bold">{{ $theme['banner_title'] ?: 'Team Registration' }}</h1>
             <p class="text-white/90 mt-2">{{ $theme['banner_subtitle'] ?: ('Register your team for ' . $tournament->name) }}</p>
+            @if($settings?->description)
+                <p class="text-white/80 text-sm mt-3 max-w-lg mx-auto" style="line-height:1.6;">{!! nl2br(e($settings->description)) !!}</p>
+            @endif
         </div>
 
         {{-- Validation summary --}}

@@ -127,6 +127,9 @@
             </span>
             <h1 class="text-3xl font-bold">{{ $theme['banner_title'] ?: 'Player Registration' }}</h1>
             <p class="text-white/90 mt-2">{{ $theme['banner_subtitle'] ?: ('Join ' . $tournament->name) }}</p>
+            @if($settings?->description)
+                <p class="text-white/80 text-sm mt-3 max-w-lg mx-auto" style="line-height:1.6;">{!! nl2br(e($settings->description)) !!}</p>
+            @endif
             <p class="text-white/70 text-sm mt-3 max-w-md mx-auto">
                 <i class="fas fa-shield-alt mr-1"></i>
                 Submit your details below — your application will be reviewed and you'll be notified by email.
