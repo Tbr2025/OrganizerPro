@@ -24,14 +24,18 @@
             <i class="fas fa-envelope" style="color:var(--accent);"></i> {{ $contactEmail }}
         </a>
         @endif
+        @php
+            $waMessage = rawurlencode('Hi, I have a query regarding ' . ($tournament->name ?? 'the tournament') . ' registration.');
+        @endphp
         @if($contactPhone)
-        <a href="tel:{{ $contactPhone }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition"
-           style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;">
-            <i class="fas fa-phone" style="color:var(--accent);"></i> {{ $contactPhone }}
+        <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $contactPhone) }}?text={{ $waMessage }}" target="_blank"
+           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition"
+           style="background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.3);color:#25d366;">
+            <i class="fab fa-whatsapp"></i> {{ $contactPhone }}
         </a>
         @endif
         @if($whatsapp)
-        <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $whatsapp) }}" target="_blank"
+        <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $whatsapp) }}?text={{ $waMessage }}" target="_blank"
            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition"
            style="background:rgba(37,211,102,0.15);border:1px solid rgba(37,211,102,0.3);color:#25d366;">
             <i class="fab fa-whatsapp"></i> WhatsApp

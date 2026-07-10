@@ -156,7 +156,8 @@
 
 @section('content')
     @php
-        $regActuallyOpen = ($settings?->isRegistrationOpen() ?? false) || $tournament->status === 'registration';
+        $tournamentStatus = $settings?->tournament_status ?? 'open';
+        $regActuallyOpen = $tournamentStatus === 'open' && (($settings?->isRegistrationOpen() ?? false) || $tournament->status === 'registration');
         $isLive = in_array($tournament->status, ['active', 'ongoing']) || ($tournament->status === 'registration' && !$regActuallyOpen);
         $totalMatches = $tournament->matches()->where('is_cancelled', false)->count();
         $completedMatches = $tournament->matches()->where('status', 'completed')->count();
@@ -208,15 +209,35 @@
                             <span class="w-2.5 h-2.5 bg-green-400 rounded-full mr-2.5 animate-pulse"></span>
                             Registration Open
                         </span>
+                    @elseif($tournamentStatus === 'paused')
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                            <i class="fas fa-pause-circle mr-2"></i>
+                            Registration Paused
+                        </span>
+                    @elseif($tournamentStatus === 'pending')
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                            <i class="fas fa-clock mr-2"></i>
+                            Coming Soon
+                        </span>
+                    @elseif($tournamentStatus === 'draft')
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30">
+                            <i class="fas fa-pencil-alt mr-2"></i>
+                            Draft
+                        </span>
+                    @elseif($tournamentStatus === 'completed' || $tournament->status === 'completed')
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
+                            <i class="fas fa-trophy text-accent mr-2"></i>
+                            Completed
+                        </span>
+                    @elseif($tournamentStatus === 'closed')
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                            <i class="fas fa-lock mr-2"></i>
+                            Registration Closed
+                        </span>
                     @elseif($isLive)
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold" style="background: rgba(var(--accent-rgb), 0.2); color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.3);">
                             <span class="w-2.5 h-2.5 bg-red-500 rounded-full mr-2.5 live-indicator"></span>
                             Tournament Live
-                        </span>
-                    @elseif($tournament->status === 'completed')
-                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
-                            <i class="fas fa-trophy text-accent mr-2"></i>
-                            Completed
                         </span>
                     @endif
 

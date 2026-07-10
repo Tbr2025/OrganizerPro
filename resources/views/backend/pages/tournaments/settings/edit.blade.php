@@ -292,28 +292,62 @@
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Registration Settings</h3>
 
-                    {{-- Current Status Banner --}}
-                    <div class="mb-4 p-3 rounded-lg {{ ($settings->player_registration_open || $settings->team_registration_open) ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' }}">
-                        <div class="flex items-center gap-2">
-                            @if($settings->player_registration_open || $settings->team_registration_open)
-                                <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <span class="text-sm font-medium text-green-700 dark:text-green-300">Registration is OPEN</span>
-                            @else
-                                <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <span class="text-sm font-medium text-red-700 dark:text-red-300">Registration is CLOSED</span>
-                            @endif
+                    {{-- Tournament Status Dropdown --}}
+                    @php
+                        $currentStatus = old('tournament_status', $settings->tournament_status ?? 'open');
+                        $statusColorMap = [
+                            'open' => 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+                            'paused' => 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
+                            'pending' => 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+                            'draft' => 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700',
+                            'closed' => 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+                            'completed' => 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700',
+                        ];
+                        $badgeColorMap = [
+                            'open' => 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+                            'paused' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+                            'pending' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+                            'draft' => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+                            'closed' => 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+                            'completed' => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+                        ];
+                    @endphp
+                    <div class="mb-4 p-4 rounded-lg border {{ $statusColorMap[$currentStatus] ?? $statusColorMap['open'] }}">
+                        <div class="flex items-center justify-between flex-wrap gap-3">
+                            <div class="flex items-center gap-3">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $badgeColorMap[$currentStatus] ?? $badgeColorMap['open'] }}">
+                                    @if($currentStatus === 'open')
+                                        <span class="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
+                                    @endif
+                                    {{ \App\Models\TournamentSetting::STATUSES[$currentStatus]['label'] ?? 'Open' }}
+                                </span>
+                                <span class="text-xs text-gray-600 dark:text-gray-400">
+                                    Player: {{ $settings->player_registration_open ? 'On' : 'Off' }} |
+                                    Team: {{ $settings->team_registration_open ? 'On' : 'Off' }}
+                                    @if($settings->registration_deadline)
+                                        | Deadline: {{ $settings->registration_deadline->format('d M Y') }}
+                                    @endif
+                                </span>
+                            </div>
+                            <div>
+                                <select name="tournament_status" id="tournament_status"
+                                    class="text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    @foreach(\App\Models\TournamentSetting::STATUSES as $value => $config)
+                                        <option value="{{ $value }}" {{ $currentStatus === $value ? 'selected' : '' }}>
+                                            {{ $config['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            Player: {{ $settings->player_registration_open ? 'Open' : 'Closed' }} |
-                            Team: {{ $settings->team_registration_open ? 'Open' : 'Closed' }}
-                            @if($settings->registration_deadline)
-                                | Deadline: {{ $settings->registration_deadline->format('d M Y') }}
-                            @endif
-                        </p>
+                        @if($currentStatus !== 'open')
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                <svg class="w-3.5 h-3.5 inline-block mr-0.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Registration is blocked because tournament status is not "Open". The toggles below will only take effect when status is set to Open.
+                            </p>
+                        @endif
                     </div>
 
                     {{-- Registration Toggles --}}
@@ -353,7 +387,9 @@
                     <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <h4 class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Public Registration Links</h4>
                         <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Share these links with players and teams.
-                            @unless($settings->player_registration_open || $settings->team_registration_open)
+                            @if(($settings->tournament_status ?? 'open') !== 'open')
+                                <span class="text-amber-600 dark:text-amber-400">(Tournament status is "{{ $settings->getTournamentStatusLabel() }}" — links will show a status page until you set it to Open.)</span>
+                            @elseunless($settings->player_registration_open || $settings->team_registration_open)
                                 <span class="text-amber-600 dark:text-amber-400">(Registration is currently closed — links will show a "closed" page until you open it above.)</span>
                             @endunless
                         </p>

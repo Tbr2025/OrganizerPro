@@ -10,8 +10,18 @@ class TournamentSetting extends Model
 {
     use HasFactory;
 
+    public const STATUSES = [
+        'open' => ['label' => 'Open', 'color' => 'green', 'message' => 'Registration is open'],
+        'paused' => ['label' => 'Paused', 'color' => 'yellow', 'message' => 'Registration is temporarily paused'],
+        'pending' => ['label' => 'Coming Soon', 'color' => 'blue', 'message' => 'Registration opening soon'],
+        'draft' => ['label' => 'Draft', 'color' => 'gray', 'message' => 'Tournament details coming soon'],
+        'closed' => ['label' => 'Closed', 'color' => 'red', 'message' => 'Registration is closed'],
+        'completed' => ['label' => 'Completed', 'color' => 'gray', 'message' => 'Tournament has been completed'],
+    ];
+
     protected $fillable = [
         'tournament_id',
+        'tournament_status',
         // Branding
         'logo',
         'background_image',
@@ -154,6 +164,21 @@ class TournamentSetting extends Model
 
         return ($this->player_registration_open || $this->team_registration_open)
             && $this->registration_deadline->isFuture();
+    }
+
+    public function getTournamentStatusLabel(): string
+    {
+        return self::STATUSES[$this->tournament_status ?? 'open']['label'] ?? 'Open';
+    }
+
+    public function getTournamentStatusColor(): string
+    {
+        return self::STATUSES[$this->tournament_status ?? 'open']['color'] ?? 'green';
+    }
+
+    public function getTournamentStatusMessage(): string
+    {
+        return self::STATUSES[$this->tournament_status ?? 'open']['message'] ?? 'Registration is open';
     }
 
     public function getLogoUrlAttribute(): ?string

@@ -519,6 +519,11 @@ class RegistrationService
     {
         $settings = $tournament->settings;
 
+        // Tournament status gate: if not 'open', registration is always closed
+        if ($settings && ($settings->tournament_status ?? 'open') !== 'open') {
+            return false;
+        }
+
         // Check deadline first
         if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
             return false;
@@ -539,6 +544,11 @@ class RegistrationService
     public function isTeamRegistrationOpen(Tournament $tournament): bool
     {
         $settings = $tournament->settings;
+
+        // Tournament status gate: if not 'open', registration is always closed
+        if ($settings && ($settings->tournament_status ?? 'open') !== 'open') {
+            return false;
+        }
 
         // Check deadline first
         if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {

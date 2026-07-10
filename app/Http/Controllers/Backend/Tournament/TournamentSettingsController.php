@@ -85,6 +85,9 @@ class TournamentSettingsController extends Controller
             'secondary_color' => 'nullable|string|max:7',
             'accent_color' => 'nullable|string|max:7',
 
+            // Tournament Status
+            'tournament_status' => 'nullable|in:open,paused,pending,draft,closed,completed',
+
             // Registration
             'player_registration_open' => 'boolean',
             'team_registration_open' => 'boolean',
