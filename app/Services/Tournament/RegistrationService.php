@@ -201,7 +201,9 @@ class RegistrationService
     public function registerTeam(Tournament $tournament, array $data): TournamentRegistration
     {
         $logoPath = null;
-        if (isset($data['team_logo']) && $data['team_logo']) {
+        if (!empty($data['team_logo_path'])) {
+            $logoPath = $data['team_logo_path'];
+        } elseif (isset($data['team_logo']) && $data['team_logo']) {
             $logoPath = $data['team_logo']->store('team_logos', 'public');
         }
 

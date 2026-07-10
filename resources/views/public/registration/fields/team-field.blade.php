@@ -23,11 +23,12 @@
         @break
 
     @case('team_logo')
-        <label for="team_logo" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
         @php
             $teamImgText = trim((string) ($settings->team_photo_guidelines ?? ''));
             $teamImgLines = $teamImgText !== '' ? preg_split('/\r\n|\r|\n/', $teamImgText) : [];
             $teamSampleUrl = $settings?->team_photo_sample_url;
+            $tlcId = 'tlc_' . \Illuminate\Support\Str::random(6);
         @endphp
         @if(count($teamImgLines) || $teamSampleUrl)
             <div class="mb-2 flex items-start gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);">
@@ -46,10 +47,96 @@
                 </div>
             </div>
         @endif
-        <input type="file" name="team_logo" id="team_logo" accept="image/png,image/jpeg,image/jpg" {{ $required ? 'required' : '' }}
-               class="reg-input" style="padding:.55rem .9rem;">
-        <p class="reg-hint">PNG or JPG, max 2MB</p>
+
+        <div x-data="teamLogoCropper_{{ $tlcId }}()">
+            <input type="hidden" name="team_logo_cropped" x-model="croppedData">
+            <input type="file" name="team_logo" accept="image/png,image/jpeg,image/jpg"
+                   class="reg-input" style="padding:.55rem .9rem;"
+                   x-ref="teamLogoInput_{{ $tlcId }}"
+                   @change="onFileSelect($event)"
+                   {{ $required && !old('team_logo_cropped') ? 'required' : '' }}>
+
+            {{-- Preview --}}
+            <div x-show="croppedData" x-cloak class="mt-3 flex items-center gap-3">
+                <img :src="croppedData" class="w-20 h-20 rounded-lg object-cover border border-gray-600" />
+                <button type="button" @click="reset()" class="text-sm text-yellow-500 hover:text-yellow-400 hover:underline">Change Logo</button>
+            </div>
+
+            {{-- Crop Modal --}}
+            <template x-teleport="body">
+                <div x-show="showModal" x-cloak class="fixed inset-0 flex items-center justify-center" style="z-index:99999;background:rgba(0,0,0,0.85);" @keydown.escape.window="closeModal()">
+                    <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-gray-700" @click.outside="closeModal()">
+                        <div class="flex items-center justify-between p-4 border-b border-gray-700">
+                            <h3 class="text-lg font-semibold text-white">Crop Logo <span class="text-xs font-normal text-gray-400">(Square 1:1)</span></h3>
+                            <button type="button" @click="closeModal()" class="text-gray-400 hover:text-white">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        <div class="p-4">
+                            <div style="max-height:60vh;overflow:hidden;">
+                                <img x-ref="cropImg_{{ $tlcId }}" class="max-w-full" />
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3 p-4 border-t border-gray-700">
+                            <button type="button" @click="closeModal()" class="px-4 py-2 text-sm text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600">Cancel</button>
+                            <button type="button" @click="doCrop()" class="px-4 py-2 text-sm text-gray-900 bg-yellow-500 rounded-lg hover:bg-yellow-400 font-medium">Crop & Use</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <p class="reg-hint">PNG or JPG, max 2MB. Will be cropped to square.</p>
         @error('team_logo')<p class="reg-err">{{ $message }}</p>@enderror
+        @error('team_logo_cropped')<p class="reg-err">{{ $message }}</p>@enderror
+
+        @push('styles')
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" />
+        @endpush
+        @push('scripts')
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+        <script>
+        function teamLogoCropper_{{ $tlcId }}() {
+            return {
+                croppedData: @js(old('team_logo_cropped', '')),
+                showModal: false,
+                cropper: null,
+                onFileSelect(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    if (!file.type.startsWith('image/')) return;
+                    if (file.size > 2 * 1024 * 1024) { alert('Image must be less than 2MB.'); return; }
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        this.showModal = true;
+                        this.$nextTick(() => {
+                            const img = this.$refs.cropImg_{{ $tlcId }};
+                            img.src = ev.target.result;
+                            if (this.cropper) this.cropper.destroy();
+                            this.cropper = new Cropper(img, { aspectRatio: 1, viewMode: 1, autoCropArea: 0.9, responsive: true });
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                },
+                doCrop() {
+                    if (!this.cropper) return;
+                    const canvas = this.cropper.getCroppedCanvas({ width: 800, height: 800, imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
+                    this.croppedData = canvas.toDataURL('image/png');
+                    this.closeModal();
+                },
+                closeModal() {
+                    this.showModal = false;
+                    if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
+                },
+                reset() {
+                    this.croppedData = '';
+                    const input = this.$refs.teamLogoInput_{{ $tlcId }};
+                    if (input) input.value = '';
+                }
+            };
+        }
+        </script>
+        @endpush
         @break
 
     @case('team_description')

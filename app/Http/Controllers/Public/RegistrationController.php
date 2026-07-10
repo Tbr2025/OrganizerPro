@@ -17,6 +17,7 @@ use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class RegistrationController extends Controller
@@ -244,6 +245,22 @@ class RegistrationController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        // Handle cropped team logo (base64 from cropper)
+        if ($request->filled('team_logo_cropped')) {
+            $base64 = $request->input('team_logo_cropped');
+            $imageData = preg_replace('#^data:image/\w+;base64,#i', '', $base64);
+            $imageData = base64_decode($imageData);
+            if ($imageData) {
+                $filename = 'team_logos/' . Str::random(40) . '.png';
+                Storage::disk('public')->put($filename, $imageData);
+                $validated['team_logo'] = new \Illuminate\Http\UploadedFile(
+                    Storage::disk('public')->path($filename), basename($filename), 'image/png', null, true
+                );
+                // Override: store path directly since file is already saved
+                $validated['team_logo_path'] = $filename;
+            }
+        }
 
         // Digitally-signed consent capture (typed name + IP + T&C snapshot).
         if ($request->filled('consent_name')) {
