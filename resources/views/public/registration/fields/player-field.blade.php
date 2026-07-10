@@ -348,6 +348,24 @@
 
     @case('terms_and_conditions')
         @php $hasTC = !empty($settings->terms_and_conditions_content ?? ''); @endphp
+        {{-- Render the rich-text T&C authored in settings (headings, colours, fonts, lists). --}}
+        <style>
+            .tc-prose h1{font-size:1.6em;font-weight:700;margin:.6em 0 .3em;line-height:1.25;}
+            .tc-prose h2{font-size:1.35em;font-weight:700;margin:.6em 0 .3em;line-height:1.3;}
+            .tc-prose h3{font-size:1.15em;font-weight:600;margin:.5em 0 .3em;}
+            .tc-prose h4,.tc-prose h5,.tc-prose h6{font-weight:600;margin:.5em 0 .3em;}
+            .tc-prose p{margin:.5em 0;}
+            .tc-prose ul{list-style:disc;padding-left:1.5em;margin:.5em 0;}
+            .tc-prose ol{list-style:decimal;padding-left:1.5em;margin:.5em 0;}
+            .tc-prose li{margin:.2em 0;}
+            .tc-prose a{color:#2563eb;text-decoration:underline;}
+            .tc-prose blockquote{border-left:3px solid #cbd5e1;padding-left:12px;color:#64748b;margin:.6em 0;}
+            .tc-prose strong{font-weight:700;} .tc-prose em{font-style:italic;} .tc-prose u{text-decoration:underline;}
+            .tc-prose img{max-width:100%;height:auto;}
+            .tc-prose .ql-align-center{text-align:center;} .tc-prose .ql-align-right{text-align:right;} .tc-prose .ql-align-justify{text-align:justify;}
+            .tc-prose .ql-font-serif{font-family:Georgia,'Times New Roman',serif;} .tc-prose .ql-font-monospace{font-family:Menlo,Consolas,monospace;}
+            .tc-prose .ql-size-small{font-size:.75em;} .tc-prose .ql-size-large{font-size:1.5em;} .tc-prose .ql-size-huge{font-size:2.5em;}
+        </style>
         <div x-data="{
                 showTC: false,
                 accepted: {{ old('terms_and_conditions') ? 'true' : 'false' }},
@@ -388,7 +406,7 @@
                                 <button type="button" @click="showTC = false" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl leading-none">&times;</button>
                             </div>
                             <div x-ref="tcBody" @scroll="onScroll($el)"
-                                 class="flex-1 min-h-0 overflow-y-auto p-5 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ $settings->terms_and_conditions_content }}</div>
+                                 class="tc-prose flex-1 min-h-0 overflow-y-auto p-5 text-sm text-gray-700 dark:text-gray-300">{!! $settings->terms_and_conditions_content !!}</div>
                             <div class="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 flex-shrink-0">
                                 <span class="text-xs text-gray-400" x-show="!readToEnd">Scroll to the end to accept.</span>
                                 <span class="flex-1"></span>

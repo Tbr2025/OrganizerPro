@@ -15,7 +15,23 @@
         .meta td { padding: 4px 6px; vertical-align: top; }
         .meta td.k { color: #6b7280; width: 130px; }
         .meta td.v { font-weight: 600; }
-        .terms { border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; white-space: pre-wrap; background: #fafafa; font-size: 11px; color: #374151; }
+        .terms { border: 1px solid #e5e7eb; border-radius: 6px; padding: 14px; background: #fafafa; font-size: 11px; color: #374151; }
+        /* Render the rich-text T&C authored in the editor */
+        .terms h1 { font-size: 16px; font-weight: 700; margin: 8px 0 4px; color: #111827; }
+        .terms h2 { font-size: 14px; font-weight: 700; margin: 8px 0 4px; color: #111827; }
+        .terms h3 { font-size: 12.5px; font-weight: 700; margin: 6px 0 4px; color: #111827; }
+        .terms h4, .terms h5, .terms h6 { font-weight: 700; margin: 6px 0 3px; }
+        .terms p { margin: 5px 0; }
+        .terms ul { list-style: disc; padding-left: 18px; margin: 5px 0; }
+        .terms ol { list-style: decimal; padding-left: 18px; margin: 5px 0; }
+        .terms li { margin: 2px 0; }
+        .terms a { color: #2563eb; text-decoration: underline; }
+        .terms blockquote { border-left: 3px solid #cbd5e1; padding-left: 10px; color: #6b7280; margin: 6px 0; }
+        .terms strong { font-weight: 700; } .terms em { font-style: italic; }
+        .terms img { max-width: 100%; height: auto; }
+        .terms .ql-align-center { text-align: center; } .terms .ql-align-right { text-align: right; } .terms .ql-align-justify { text-align: justify; }
+        .terms .ql-font-serif { font-family: Georgia, 'Times New Roman', serif; } .terms .ql-font-monospace { font-family: monospace; }
+        .terms .ql-size-small { font-size: 9px; } .terms .ql-size-large { font-size: 15px; } .terms .ql-size-huge { font-size: 22px; }
         .sign { margin-top: 22px; border-top: 1px dashed #9ca3af; padding-top: 14px; }
         .sign .name { font-size: 20px; font-family: 'DejaVu Sans', cursive; color: #111827; }
         .sign .stamp { color: #6b7280; font-size: 11px; margin-top: 4px; }
@@ -65,7 +81,7 @@
     </table>
 
     <h3 style="font-size:13px;margin:0 0 8px;color:#111827;">Terms &amp; Conditions</h3>
-    <div class="terms">{{ $content ?: 'No terms content was recorded at the time of signing.' }}</div>
+    <div class="terms">{!! $content ?: 'No terms content was recorded at the time of signing.' !!}</div>
 
     <div class="sign">
         <div style="color:#6b7280;font-size:11px;margin-bottom:2px;">Digitally signed by</div>

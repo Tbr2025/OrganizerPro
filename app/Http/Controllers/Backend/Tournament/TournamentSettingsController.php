@@ -126,9 +126,9 @@ class TournamentSettingsController extends Controller
             'contact_email' => 'nullable|email|max:255',
             'contact_phone' => 'nullable|string|max:20',
 
-            // Terms & Conditions
-            'terms_and_conditions_content' => 'nullable|string|max:10000',
-            'team_terms_and_conditions_content' => 'nullable|string|max:10000',
+            // Terms & Conditions (rich HTML from the editor — allow room for markup)
+            'terms_and_conditions_content' => 'nullable|string|max:60000',
+            'team_terms_and_conditions_content' => 'nullable|string|max:60000',
         ]);
 
         $settings = $tournament->settings ?? $tournament->settings()->create([]);

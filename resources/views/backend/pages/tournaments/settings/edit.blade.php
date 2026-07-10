@@ -703,6 +703,8 @@
                                 <textarea name="terms_and_conditions_content" id="terms_and_conditions_content" rows="5"
                                     class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                                     placeholder="Terms shown on the PLAYER registration form...">{{ old('terms_and_conditions_content', $settings->terms_and_conditions_content) }}</textarea>
+                                <x-quill-editor :editor-id="'terms_and_conditions_content'" type="full" />
+                                <p class="text-xs text-gray-400 mt-1">Use the toolbar for headings, colours, fonts and lists — the formatting shows on the registration form and the signed consent PDF.</p>
                                 @error('terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
@@ -730,6 +732,8 @@
                                 <textarea name="team_terms_and_conditions_content" id="team_terms_and_conditions_content" rows="5"
                                     class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                                     placeholder="Terms shown on the TEAM registration form...">{{ old('team_terms_and_conditions_content', $settings->team_terms_and_conditions_content) }}</textarea>
+                                <x-quill-editor :editor-id="'team_terms_and_conditions_content'" type="full" />
+                                <p class="text-xs text-gray-400 mt-1">Use the toolbar for headings, colours, fonts and lists — the formatting shows on the registration form and the signed consent PDF.</p>
                                 @error('team_terms_and_conditions_content') <p class="text-red-500 text-sm mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
