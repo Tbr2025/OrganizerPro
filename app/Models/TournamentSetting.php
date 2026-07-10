@@ -19,9 +19,18 @@ class TournamentSetting extends Model
         'completed' => ['label' => 'Completed', 'color' => 'gray', 'message' => 'Tournament has been completed'],
     ];
 
+    public const REGISTRATION_STATUSES = [
+        'open' => ['label' => 'Open', 'color' => 'green', 'message' => 'Registration is open'],
+        'paused' => ['label' => 'Paused', 'color' => 'yellow', 'message' => 'Registration is temporarily paused'],
+        'coming_soon' => ['label' => 'Coming Soon', 'color' => 'blue', 'message' => 'Registration opening soon'],
+        'closed' => ['label' => 'Closed', 'color' => 'red', 'message' => 'Registration is closed'],
+    ];
+
     protected $fillable = [
         'tournament_id',
         'tournament_status',
+        'player_registration_status',
+        'team_registration_status',
         // Branding
         'logo',
         'background_image',

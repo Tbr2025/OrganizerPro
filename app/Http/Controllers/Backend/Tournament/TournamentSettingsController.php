@@ -89,6 +89,8 @@ class TournamentSettingsController extends Controller
             'tournament_status' => 'nullable|in:open,paused,pending,draft,closed,completed',
 
             // Registration
+            'player_registration_status' => 'nullable|in:open,paused,coming_soon,closed',
+            'team_registration_status' => 'nullable|in:open,paused,coming_soon,closed',
             'player_registration_open' => 'boolean',
             'team_registration_open' => 'boolean',
             'registration_deadline' => 'nullable|date',
@@ -230,9 +232,11 @@ class TournamentSettingsController extends Controller
         }
         unset($validated['team_photo_sample']); // not a column
 
-        // Handle boolean fields
-        $validated['player_registration_open'] = $request->boolean('player_registration_open');
-        $validated['team_registration_open'] = $request->boolean('team_registration_open');
+        // Sync boolean toggles from status dropdowns
+        $playerStatus = $request->input('player_registration_status', $settings->player_registration_status ?? 'open');
+        $teamStatus = $request->input('team_registration_status', $settings->team_registration_status ?? 'open');
+        $validated['player_registration_open'] = $playerStatus === 'open';
+        $validated['team_registration_open'] = $teamStatus === 'open';
         $validated['has_quarter_finals'] = $request->boolean('has_quarter_finals');
         $validated['has_semi_finals'] = $request->boolean('has_semi_finals');
         $validated['has_third_place'] = $request->boolean('has_third_place');

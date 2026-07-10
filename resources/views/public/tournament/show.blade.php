@@ -156,12 +156,24 @@
 
 @section('content')
     @php
-        $tournamentStatus = $settings?->tournament_status ?? 'open';
-        $regActuallyOpen = $tournamentStatus === 'open' && (($settings?->isRegistrationOpen() ?? false) || $tournament->status === 'registration');
+        $playerRegStatus = $settings?->player_registration_status ?? ($settings?->player_registration_open ? 'open' : 'closed');
+        $teamRegStatus = $settings?->team_registration_status ?? ($settings?->team_registration_open ? 'open' : 'closed');
+        $playerOpen = $playerRegStatus === 'open';
+        $teamOpen = $teamRegStatus === 'open';
+        $regActuallyOpen = $playerOpen || $teamOpen;
         $isLive = in_array($tournament->status, ['active', 'ongoing']) || ($tournament->status === 'registration' && !$regActuallyOpen);
         $totalMatches = $tournament->matches()->where('is_cancelled', false)->count();
         $completedMatches = $tournament->matches()->where('status', 'completed')->count();
         $teamCount = $tournament->actualTeams()->count();
+
+        // Determine the most relevant non-open status for badge display
+        $displayStatus = 'open';
+        if (!$regActuallyOpen) {
+            // Show the "most informative" status — prefer paused/coming_soon over closed
+            foreach (['paused', 'coming_soon', 'closed'] as $s) {
+                if ($playerRegStatus === $s || $teamRegStatus === $s) { $displayStatus = $s; break; }
+            }
+        }
     @endphp
 
     {{-- Hero Section --}}
@@ -209,27 +221,22 @@
                             <span class="w-2.5 h-2.5 bg-green-400 rounded-full mr-2.5 animate-pulse"></span>
                             Registration Open
                         </span>
-                    @elseif($tournamentStatus === 'paused')
+                    @elseif($displayStatus === 'paused')
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                             <i class="fas fa-pause-circle mr-2"></i>
                             Registration Paused
                         </span>
-                    @elseif($tournamentStatus === 'pending')
+                    @elseif($displayStatus === 'coming_soon')
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                             <i class="fas fa-clock mr-2"></i>
                             Coming Soon
                         </span>
-                    @elseif($tournamentStatus === 'draft')
-                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-400 border border-gray-500/30">
-                            <i class="fas fa-pencil-alt mr-2"></i>
-                            Draft
-                        </span>
-                    @elseif($tournamentStatus === 'completed' || $tournament->status === 'completed')
+                    @elseif($tournament->status === 'completed')
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
                             <i class="fas fa-trophy text-accent mr-2"></i>
                             Completed
                         </span>
-                    @elseif($tournamentStatus === 'closed')
+                    @elseif($displayStatus === 'closed')
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-red-500/20 text-red-400 border border-red-500/30">
                             <i class="fas fa-lock mr-2"></i>
                             Registration Closed
@@ -252,10 +259,6 @@
                 {{-- Register / Share Row --}}
                 <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                     @if($regActuallyOpen)
-                        @php
-                            $playerOpen = $settings?->player_registration_open ?? false;
-                            $teamOpen = $settings?->team_registration_open ?? false;
-                        @endphp
                         <div x-data="{
                                 open: false,
                                 coords: { top: 0, left: 0 },

@@ -38,7 +38,7 @@ class RegistrationController extends Controller
             return view('public.registration.closed', [
                 'tournament' => $tournament,
                 'type' => 'player',
-                'tournamentStatus' => $settings->tournament_status ?? 'closed',
+                'tournamentStatus' => $settings->player_registration_status ?? 'closed',
             ]);
         }
 
@@ -194,7 +194,7 @@ class RegistrationController extends Controller
             return view('public.registration.closed', [
                 'tournament' => $tournament,
                 'type' => 'team',
-                'tournamentStatus' => $settings->tournament_status ?? 'closed',
+                'tournamentStatus' => $settings->team_registration_status ?? 'closed',
             ]);
         }
 

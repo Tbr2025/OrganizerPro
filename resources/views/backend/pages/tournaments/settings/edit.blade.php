@@ -292,105 +292,87 @@
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Registration Settings</h3>
 
-                    {{-- Tournament Status Dropdown --}}
+                    {{-- Registration Status Dropdowns --}}
                     @php
-                        $currentStatus = old('tournament_status', $settings->tournament_status ?? 'open');
-                        $statusColorMap = [
-                            'open' => 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-                            'paused' => 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-                            'pending' => 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
-                            'draft' => 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700',
-                            'closed' => 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-                            'completed' => 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700',
+                        $playerRegStatus = old('player_registration_status', $settings->player_registration_status ?? ($settings->player_registration_open ? 'open' : 'closed'));
+                        $teamRegStatus = old('team_registration_status', $settings->team_registration_status ?? ($settings->team_registration_open ? 'open' : 'closed'));
+                        $regBorderColor = [
+                            'open' => 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20',
+                            'paused' => 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-900/20',
+                            'coming_soon' => 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20',
+                            'closed' => 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800',
                         ];
-                        $badgeColorMap = [
-                            'open' => 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-                            'paused' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-                            'pending' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-                            'draft' => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-                            'closed' => 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-                            'completed' => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+                        $regBadgeColor = [
+                            'open' => 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+                            'paused' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+                            'coming_soon' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+                            'closed' => 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
                         ];
                     @endphp
-                    <div class="mb-4 p-4 rounded-lg border {{ $statusColorMap[$currentStatus] ?? $statusColorMap['open'] }}">
-                        <div class="flex items-center justify-between flex-wrap gap-3">
-                            <div class="flex items-center gap-3">
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold {{ $badgeColorMap[$currentStatus] ?? $badgeColorMap['open'] }}">
-                                    @if($currentStatus === 'open')
-                                        <span class="w-2 h-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
-                                    @endif
-                                    {{ \App\Models\TournamentSetting::STATUSES[$currentStatus]['label'] ?? 'Open' }}
-                                </span>
-                                <span class="text-xs text-gray-600 dark:text-gray-400">
-                                    Player: {{ $settings->player_registration_open ? 'On' : 'Off' }} |
-                                    Team: {{ $settings->team_registration_open ? 'On' : 'Off' }}
-                                    @if($settings->registration_deadline)
-                                        | Deadline: {{ $settings->registration_deadline->format('d M Y') }}
-                                    @endif
-                                </span>
-                            </div>
-                            <div>
-                                <select name="tournament_status" id="tournament_status"
-                                    class="text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-                                    @foreach(\App\Models\TournamentSetting::STATUSES as $value => $config)
-                                        <option value="{{ $value }}" {{ $currentStatus === $value ? 'selected' : '' }}>
-                                            {{ $config['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                        @if($currentStatus !== 'open')
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                <svg class="w-3.5 h-3.5 inline-block mr-0.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                Registration is blocked because tournament status is not "Open". The toggles below will only take effect when status is set to Open.
-                            </p>
-                        @endif
-                    </div>
-
-                    {{-- Registration Toggles --}}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div class="p-4 rounded-lg border {{ old('player_registration_open', $settings->player_registration_open) ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800' }}">
-                            <div class="flex items-center justify-between">
+                        {{-- Player Registration Status --}}
+                        <div class="p-4 rounded-lg border {{ $regBorderColor[$playerRegStatus] ?? $regBorderColor['closed'] }}">
+                            <div class="flex items-center justify-between mb-3">
                                 <div>
-                                    <label for="player_registration_open" class="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">Player Registration</label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Allow individual players to register</p>
+                                    <label for="player_registration_status" class="text-sm font-medium text-gray-900 dark:text-white">Player Registration</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Individual player sign-ups</p>
                                 </div>
-                                <input type="checkbox" name="player_registration_open" id="player_registration_open" value="1"
-                                    {{ old('player_registration_open', $settings->player_registration_open) ? 'checked' : '' }}
-                                    class="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold {{ $regBadgeColor[$playerRegStatus] ?? $regBadgeColor['closed'] }}">
+                                    @if($playerRegStatus === 'open')
+                                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                                    @endif
+                                    {{ \App\Models\TournamentSetting::REGISTRATION_STATUSES[$playerRegStatus]['label'] ?? 'Closed' }}
+                                </span>
                             </div>
+                            <select name="player_registration_status" id="player_registration_status"
+                                class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                @foreach(\App\Models\TournamentSetting::REGISTRATION_STATUSES as $value => $config)
+                                    <option value="{{ $value }}" {{ $playerRegStatus === $value ? 'selected' : '' }}>
+                                        {{ $config['label'] }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
 
-                        <div class="p-4 rounded-lg border {{ old('team_registration_open', $settings->team_registration_open) ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800' }}">
-                            <div class="flex items-center justify-between">
+                        {{-- Team Registration Status --}}
+                        <div class="p-4 rounded-lg border {{ $regBorderColor[$teamRegStatus] ?? $regBorderColor['closed'] }}">
+                            <div class="flex items-center justify-between mb-3">
                                 <div>
-                                    <label for="team_registration_open" class="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">Team Registration</label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Allow teams to register for tournament</p>
+                                    <label for="team_registration_status" class="text-sm font-medium text-gray-900 dark:text-white">Team Registration</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Team sign-ups for tournament</p>
                                 </div>
-                                <input type="checkbox" name="team_registration_open" id="team_registration_open" value="1"
-                                    {{ old('team_registration_open', $settings->team_registration_open) ? 'checked' : '' }}
-                                    class="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold {{ $regBadgeColor[$teamRegStatus] ?? $regBadgeColor['closed'] }}">
+                                    @if($teamRegStatus === 'open')
+                                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                                    @endif
+                                    {{ \App\Models\TournamentSetting::REGISTRATION_STATUSES[$teamRegStatus]['label'] ?? 'Closed' }}
+                                </span>
                             </div>
+                            <select name="team_registration_status" id="team_registration_status"
+                                class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                @foreach(\App\Models\TournamentSetting::REGISTRATION_STATUSES as $value => $config)
+                                    <option value="{{ $value }}" {{ $teamRegStatus === $value ? 'selected' : '' }}>
+                                        {{ $config['label'] }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
 
-                    {{-- Public Registration Links (always available to share) --}}
+                    {{-- Public Registration Links --}}
                     @php
                         $playerRegUrl = route('public.tournament.registration.player', $tournament->slug);
                         $teamRegUrl = route('public.tournament.registration.team', $tournament->slug);
                         $waPlayer = 'https://wa.me/?text=' . rawurlencode("Register for {$tournament->name}: {$playerRegUrl}");
                         $waTeam = 'https://wa.me/?text=' . rawurlencode("Register your team for {$tournament->name}: {$teamRegUrl}");
+                        $isPlayerOpen = ($settings->player_registration_status ?? ($settings->player_registration_open ? 'open' : 'closed')) === 'open';
+                        $isTeamOpen = ($settings->team_registration_status ?? ($settings->team_registration_open ? 'open' : 'closed')) === 'open';
                     @endphp
                     <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <h4 class="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Public Registration Links</h4>
                         <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Share these links with players and teams.
-                            @if(($settings->tournament_status ?? 'open') !== 'open')
-                                <span class="text-amber-600 dark:text-amber-400">(Tournament status is "{{ $settings->getTournamentStatusLabel() }}" — links will show a status page until you set it to Open.)</span>
-                            @elseunless($settings->player_registration_open || $settings->team_registration_open)
-                                <span class="text-amber-600 dark:text-amber-400">(Registration is currently closed — links will show a "closed" page until you open it above.)</span>
+                            @unless($isPlayerOpen || $isTeamOpen)
+                                <span class="text-amber-600 dark:text-amber-400">(Both registration types are closed — links will show a status page until you open them above.)</span>
                             @endunless
                         </p>
                         <div class="space-y-3">

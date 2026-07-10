@@ -5,9 +5,13 @@
 @section('content')
     @php
         $status = $tournamentStatus ?? 'closed';
-        $statusConfig = \App\Models\TournamentSetting::STATUSES[$status] ?? \App\Models\TournamentSetting::STATUSES['closed'];
+        // Check both registration-level and tournament-level status maps
+        $statusConfig = \App\Models\TournamentSetting::REGISTRATION_STATUSES[$status]
+            ?? \App\Models\TournamentSetting::STATUSES[$status]
+            ?? \App\Models\TournamentSetting::REGISTRATION_STATUSES['closed'];
         $iconMap = [
             'paused' => 'fa-pause-circle',
+            'coming_soon' => 'fa-clock',
             'pending' => 'fa-clock',
             'draft' => 'fa-pencil-alt',
             'closed' => 'fa-lock',
@@ -19,8 +23,10 @@
             'blue' => ['bg' => 'bg-blue-700', 'text' => 'text-blue-500', 'border' => 'border-blue-700'],
             'gray' => ['bg' => 'bg-gray-700', 'text' => 'text-gray-500', 'border' => 'border-gray-700'],
             'red' => ['bg' => 'bg-red-700', 'text' => 'text-red-500', 'border' => 'border-red-700'],
+            'green' => ['bg' => 'bg-green-700', 'text' => 'text-green-500', 'border' => 'border-green-700'],
         ];
         $colors = $colorMap[$statusConfig['color']] ?? $colorMap['red'];
+        $typeLabel = ($type ?? 'player') === 'team' ? 'Team' : 'Player';
     @endphp
 
     <div class="max-w-xl mx-auto px-4 py-16">
@@ -33,12 +39,12 @@
             </div>
 
             {{-- Message --}}
-            <h1 class="text-2xl font-bold mb-4">{{ $statusConfig['label'] }}</h1>
+            <h1 class="text-2xl font-bold mb-4">{{ $typeLabel }} Registration — {{ $statusConfig['label'] }}</h1>
             <p class="text-gray-400 mb-6">
-                {{ $statusConfig['message'] }} for <strong class="text-white">{{ $tournament->name }}</strong>.
+                {{ $typeLabel }} {{ lcfirst($statusConfig['message']) }} for <strong class="text-white">{{ $tournament->name }}</strong>.
             </p>
 
-            {{-- Tournament Status Info --}}
+            {{-- Deadline info --}}
             @if($tournament->settings?->registration_deadline && $tournament->settings->registration_deadline->isPast())
                 <p class="text-sm text-gray-500 mb-6">
                     Registration ended on {{ $tournament->settings->registration_deadline->format('F d, Y') }}

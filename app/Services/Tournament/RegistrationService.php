@@ -519,23 +519,24 @@ class RegistrationService
     {
         $settings = $tournament->settings;
 
-        // Tournament status gate: if not 'open', registration is always closed
-        if ($settings && ($settings->tournament_status ?? 'open') !== 'open') {
-            return false;
+        // Per-type registration status: if set and not 'open', registration is closed
+        if ($settings && ($settings->player_registration_status ?? null)) {
+            if ($settings->player_registration_status !== 'open') {
+                return false;
+            }
+        } elseif ($settings && !$settings->player_registration_open) {
+            // Fallback to boolean toggle for backward compatibility
+            if ($tournament->status !== 'registration') {
+                return false;
+            }
         }
 
-        // Check deadline first
+        // Check deadline
         if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
             return false;
         }
 
-        // Check if player registration is explicitly enabled in settings
-        if ($settings && $settings->player_registration_open) {
-            return true;
-        }
-
-        // Also allow if tournament is in registration status (legacy behavior)
-        return $tournament->status === 'registration';
+        return true;
     }
 
     /**
@@ -545,23 +546,24 @@ class RegistrationService
     {
         $settings = $tournament->settings;
 
-        // Tournament status gate: if not 'open', registration is always closed
-        if ($settings && ($settings->tournament_status ?? 'open') !== 'open') {
-            return false;
+        // Per-type registration status: if set and not 'open', registration is closed
+        if ($settings && ($settings->team_registration_status ?? null)) {
+            if ($settings->team_registration_status !== 'open') {
+                return false;
+            }
+        } elseif ($settings && !$settings->team_registration_open) {
+            // Fallback to boolean toggle for backward compatibility
+            if ($tournament->status !== 'registration') {
+                return false;
+            }
         }
 
-        // Check deadline first
+        // Check deadline
         if ($settings && $settings->registration_deadline && $settings->registration_deadline->isPast()) {
             return false;
         }
 
-        // Check if team registration is explicitly enabled in settings
-        if ($settings && $settings->team_registration_open) {
-            return true;
-        }
-
-        // Also allow if tournament is in registration status (legacy behavior)
-        return $tournament->status === 'registration';
+        return true;
     }
 
     /**
