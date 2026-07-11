@@ -1,33 +1,39 @@
-/* Menu Item Base Styles */
+/* ── Menu Item Base ──────────────────────────────────────── */
 @utility menu-item {
-    @apply relative flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-cyan-500/5 transition-all duration-200 ease-out;
+    @apply relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium
+           text-gray-700 dark:text-gray-300
+           hover:bg-gray-100 dark:hover:bg-white/[0.08]
+           transition-all duration-150 ease-out;
 }
 
 @utility menu-item-active {
-    @apply bg-cyan-50 text-cyan-600 font-semibold hover:bg-cyan-50 hover:text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400 dark:hover:bg-cyan-500/15;
-}
-
-/* Modern active indicator: a rounded accent bar on the left edge of the
-   active top-level item (hidden when the sidebar is minified). */
-.sidebar:not(.app-sidebar-minified) .menu-item-active::before {
-    content: "";
-    @apply absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-cyan-500 dark:bg-cyan-400;
+    @apply bg-indigo-50 text-indigo-700 font-semibold
+           hover:bg-indigo-100
+           dark:bg-indigo-500/15 dark:text-white
+           dark:hover:bg-indigo-500/20;
 }
 
 @utility menu-item-inactive {
-    @apply text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white;
+    @apply text-gray-600 dark:text-gray-300
+           hover:text-gray-900 dark:hover:text-white;
+}
+
+/* Active indicator bar */
+.sidebar:not(.app-sidebar-minified) .menu-item-active::before {
+    content: "";
+    @apply absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-indigo-500 dark:bg-indigo-400;
 }
 
 @utility menu-item-icon-active {
-    @apply text-cyan-500 dark:text-cyan-400;
+    @apply text-indigo-500 dark:text-indigo-400;
 }
 
 @utility menu-item-icon-inactive {
-    @apply text-gray-400 group-hover:text-gray-600 dark:text-cyan-400/70 dark:group-hover:text-cyan-400;
+    @apply text-gray-500 group-hover:text-gray-700 dark:text-gray-400 dark:group-hover:text-gray-200;
 }
 
 @utility menu-item-icon {
-    @apply flex items-center justify-center transition-colors duration-200;
+    @apply flex items-center justify-center transition-colors duration-150;
 }
 
 @utility menu-item-text {
@@ -39,45 +45,46 @@
 }
 
 @utility menu-item-arrow-active {
-    @apply rotate-180 text-cyan-500 dark:text-cyan-400;
+    @apply rotate-180 text-indigo-500 dark:text-indigo-400;
 }
 
 @utility menu-item-arrow-inactive {
     @apply text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300;
 }
 
-/* Dropdown Menu Items */
+/* ── Dropdown Sub-Items ─────────────────────────────────── */
 @utility menu-dropdown-item {
-    @apply text-sm relative flex items-center gap-3 rounded-lg px-3 py-2 font-medium transition-all duration-200;
+    @apply text-[13px] relative flex items-center gap-2.5 rounded-lg px-3 py-1.5 font-medium transition-all duration-150;
 }
 
 @utility menu-dropdown-item-active {
-    @apply text-cyan-500 dark:text-cyan-400 bg-cyan-50/50 dark:bg-cyan-500/5;
+    @apply text-indigo-600 dark:text-white bg-indigo-50/60 dark:bg-white/[0.06];
 }
 
 @utility menu-dropdown-item-inactive {
-    @apply text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/30;
+    @apply text-gray-500 dark:text-gray-400
+           hover:text-gray-800 dark:hover:text-white
+           hover:bg-gray-50 dark:hover:bg-white/[0.05];
 }
 
-/* Badges */
+/* ── Badges ──────────────────────────────────────────────── */
 @utility menu-dropdown-badge {
-    @apply text-cyan-500 dark:text-cyan-400 block rounded-full px-2.5 py-0.5 text-xs font-medium uppercase;
+    @apply text-indigo-500 dark:text-indigo-400 block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase;
 }
 
 @utility menu-dropdown-badge-active {
-    @apply bg-cyan-100 dark:bg-cyan-500/20;
+    @apply bg-indigo-100 dark:bg-indigo-500/20;
 }
 
 @utility menu-dropdown-badge-inactive {
-    @apply bg-cyan-50 group-hover:bg-cyan-100 dark:bg-cyan-500/10 dark:group-hover:bg-cyan-500/15;
+    @apply bg-indigo-50 group-hover:bg-indigo-100 dark:bg-indigo-500/10 dark:group-hover:bg-indigo-500/15;
 }
 
-/* New Badge (like in screenshot) */
 @utility badge-new {
-    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500 text-white;
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500 text-white;
 }
 
-/* Scrollbar Styles */
+/* ── Scrollbar ───────────────────────────────────────────── */
 @utility no-scrollbar {
     &::-webkit-scrollbar {
         display: none;
@@ -88,19 +95,17 @@
 
 @utility custom-scrollbar {
     &::-webkit-scrollbar {
-        @apply w-1.5;
+        @apply w-1;
     }
-
     &::-webkit-scrollbar-track {
-        @apply bg-transparent rounded-full;
+        @apply bg-transparent;
     }
-
     &::-webkit-scrollbar-thumb {
-        @apply bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors;
+        @apply bg-gray-300 dark:bg-gray-600 rounded-full hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors;
     }
 }
 
-/* Sidebar Minified State */
+/* ── Sidebar Minified State ──────────────────────────────── */
 .app-sidebar-minified .submenu {
     @apply hidden;
 }
@@ -113,40 +118,43 @@
     @apply w-10 h-10;
 }
 
-/* Submenu Styles */
+/* ── Submenu Styles ──────────────────────────────────────── */
 .submenu li .menu-item {
-    @apply pl-6 py-2;
+    @apply pl-4 py-1.5 text-[13px];
 }
 
 .submenu .menu-item {
-    @apply rounded-lg relative;
+    @apply rounded-md relative;
 }
 
 .submenu .menu-item-active {
-    @apply text-cyan-500 bg-transparent hover:bg-cyan-50 dark:hover:bg-cyan-500/10 font-semibold;
+    @apply text-indigo-600 dark:text-white bg-transparent font-semibold;
 }
 
 .submenu .menu-item-active::before {
     content: '';
-    @apply absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-cyan-500;
+    @apply absolute left-0 top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full bg-indigo-500 dark:bg-indigo-400;
+}
+
+.submenu .menu-item-inactive {
+    @apply text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white;
 }
 
 .submenu .menu-item-inactive::before {
     content: '';
-    @apply absolute left-0.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600 transition-all duration-200;
+    @apply absolute left-0.5 top-1/2 -translate-y-1/2 w-[5px] h-[5px] rounded-full bg-gray-300 dark:bg-gray-600 transition-all duration-150;
 }
 
 .submenu .menu-item-inactive:hover::before {
-    @apply bg-gray-400 dark:bg-gray-500 scale-110;
+    @apply bg-gray-500 dark:bg-gray-400;
 }
 
-/* Desktop Minified Menu Item Text/Arrow */
+/* ── Desktop Minified Text/Arrow ─────────────────────────── */
 @media (min-width: 1024px) {
     .app-sidebar-minified .menu-item .menu-item-text,
     .app-sidebar-minified .menu-item .menu-item-arrow {
         display: none;
     }
-
     .app-sidebar-minified .menu-item {
         @apply justify-center px-2;
     }
@@ -159,12 +167,11 @@
     }
 }
 
-/* Sidebar Base Styles */
+/* ── Sidebar Base ────────────────────────────────────────── */
 .sidebar {
-    @apply shadow-lg shadow-gray-200/50 dark:shadow-black/20 dark:shadow-xl;
+    @apply shadow-lg shadow-gray-200/50 dark:shadow-black/30 dark:shadow-xl;
 }
 
-/* Sidebar Header Logo */
 .sidebar-header {
     @apply overflow-hidden;
 }
@@ -182,14 +189,13 @@
     @apply w-10 h-10 object-contain;
 }
 
-/* Light mode specific improvements */
 @media (prefers-color-scheme: light) {
     .sidebar {
         @apply border-gray-200;
     }
 }
 
-/* When sidebar is expanded (not minified), show full content */
+/* Expanded sidebar content */
 .sidebar:not(.app-sidebar-minified) .logo {
     display: block;
 }
@@ -214,11 +220,171 @@
     @apply justify-start px-3;
 }
 
-/* Active menu item icon wrapper */
+/* ── Active Icon Wrapper Override ────────────────────────── */
 .menu-item-active .menu-item-icon-wrapper {
-    @apply !bg-cyan-100 dark:!bg-cyan-500/15;
+    @apply !bg-indigo-100 dark:!bg-indigo-500/20;
 }
 
 .menu-item-active .menu-item-icon-wrapper iconify-icon {
-    @apply !text-cyan-500 dark:!text-cyan-400;
+    @apply !text-indigo-600 dark:!text-indigo-300;
+}
+
+/* ── Per-item Icon Colors ────────────────────────────────── */
+
+/* Dashboard — blue */
+.menu-item-dashboard .menu-item-icon-wrapper {
+    @apply !bg-blue-50 dark:!bg-blue-500/15;
+}
+.menu-item-dashboard .menu-item-icon-wrapper iconify-icon {
+    @apply !text-blue-600 dark:!text-blue-400;
+}
+
+/* Tournaments — indigo */
+.menu-item-tournaments-submenu .menu-item-icon-wrapper {
+    @apply !bg-indigo-50 dark:!bg-indigo-500/15;
+}
+.menu-item-tournaments-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-indigo-600 dark:!text-indigo-400;
+}
+
+/* Matches — orange */
+.menu-item-matches-submenu .menu-item-icon-wrapper {
+    @apply !bg-orange-50 dark:!bg-orange-500/15;
+}
+.menu-item-matches-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-orange-600 dark:!text-orange-400;
+}
+
+/* Teams — purple */
+.menu-item-teams-submenu .menu-item-icon-wrapper {
+    @apply !bg-purple-50 dark:!bg-purple-500/15;
+}
+.menu-item-teams-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-purple-600 dark:!text-purple-400;
+}
+
+/* Players — emerald */
+.menu-item-players-submenu .menu-item-icon-wrapper {
+    @apply !bg-emerald-50 dark:!bg-emerald-500/15;
+}
+.menu-item-players-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-emerald-600 dark:!text-emerald-400;
+}
+
+/* Users — sky */
+.menu-item-users-submenu .menu-item-icon-wrapper {
+    @apply !bg-sky-50 dark:!bg-sky-500/15;
+}
+.menu-item-users-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-sky-600 dark:!text-sky-400;
+}
+
+/* Roles — amber */
+.menu-item-roles-submenu .menu-item-icon-wrapper {
+    @apply !bg-amber-50 dark:!bg-amber-500/15;
+}
+.menu-item-roles-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-amber-600 dark:!text-amber-400;
+}
+
+/* Organizations — teal */
+.menu-item-organizations-submenu .menu-item-icon-wrapper {
+    @apply !bg-teal-50 dark:!bg-teal-500/15;
+}
+.menu-item-organizations-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-teal-600 dark:!text-teal-400;
+}
+
+/* Organizers — cyan */
+.menu-item-organizers-menu .menu-item-icon-wrapper {
+    @apply !bg-cyan-50 dark:!bg-cyan-500/15;
+}
+.menu-item-organizers-menu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-cyan-600 dark:!text-cyan-400;
+}
+
+/* Auctions — rose */
+.menu-item-auctions-submenu .menu-item-icon-wrapper {
+    @apply !bg-rose-50 dark:!bg-rose-500/15;
+}
+.menu-item-auctions-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-rose-600 dark:!text-rose-400;
+}
+
+/* Grounds — lime */
+.menu-item-grounds-submenu .menu-item-icon-wrapper {
+    @apply !bg-lime-50 dark:!bg-lime-500/15;
+}
+.menu-item-grounds-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-lime-600 dark:!text-lime-400;
+}
+
+/* Zones — violet */
+.menu-item-zones-submenu .menu-item-icon-wrapper {
+    @apply !bg-violet-50 dark:!bg-violet-500/15;
+}
+.menu-item-zones-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-violet-600 dark:!text-violet-400;
+}
+
+/* Appreciations — pink */
+.menu-item-appreciations-submenu .menu-item-icon-wrapper {
+    @apply !bg-pink-50 dark:!bg-pink-500/15;
+}
+.menu-item-appreciations-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-pink-600 dark:!text-pink-400;
+}
+
+/* Modules — fuchsia */
+.menu-item-modules .menu-item-icon-wrapper {
+    @apply !bg-fuchsia-50 dark:!bg-fuchsia-500/15;
+}
+.menu-item-modules .menu-item-icon-wrapper iconify-icon {
+    @apply !text-fuchsia-600 dark:!text-fuchsia-400;
+}
+
+/* Monitoring — red */
+.menu-item-monitoring-submenu .menu-item-icon-wrapper {
+    @apply !bg-red-50 dark:!bg-red-500/15;
+}
+.menu-item-monitoring-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-red-600 dark:!text-red-400;
+}
+
+/* Settings — slate */
+.menu-item-settings-submenu .menu-item-icon-wrapper {
+    @apply !bg-slate-100 dark:!bg-slate-500/15;
+}
+.menu-item-settings-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-slate-600 dark:!text-slate-400;
+}
+
+/* Logout — red */
+.menu-item-logout .menu-item-icon-wrapper {
+    @apply !bg-red-50 dark:!bg-red-500/15;
+}
+.menu-item-logout .menu-item-icon-wrapper iconify-icon {
+    @apply !text-red-600 dark:!text-red-400;
+}
+
+/* Team Manager items */
+.menu-item-team-manager-submenu .menu-item-icon-wrapper {
+    @apply !bg-purple-50 dark:!bg-purple-500/15;
+}
+.menu-item-team-manager-submenu .menu-item-icon-wrapper iconify-icon {
+    @apply !text-purple-600 dark:!text-purple-400;
+}
+
+.menu-item-team-auctions .menu-item-icon-wrapper {
+    @apply !bg-rose-50 dark:!bg-rose-500/15;
+}
+.menu-item-team-auctions .menu-item-icon-wrapper iconify-icon {
+    @apply !text-rose-600 dark:!text-rose-400;
+}
+
+.menu-item-team-matches .menu-item-icon-wrapper {
+    @apply !bg-orange-50 dark:!bg-orange-500/15;
+}
+.menu-item-team-matches .menu-item-icon-wrapper iconify-icon {
+    @apply !text-orange-600 dark:!text-orange-400;
 }

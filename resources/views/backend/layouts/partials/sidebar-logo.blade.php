@@ -10,7 +10,7 @@
         updateBg() {
             const htmlHasDark = document.documentElement.classList.contains('dark');
             const liteBg = '{{ config('settings.sidebar_bg_lite', '#ffffff') }}';
-            const darkBg = '{{ config('settings.sidebar_bg_dark', '#1e1e2d') }}';
+            const darkBg = '{{ config('settings.sidebar_bg_dark', '#1C2434') }}';
             this.sidebarBg = htmlHasDark ? darkBg : liteBg;
         },
         get isMinified() {

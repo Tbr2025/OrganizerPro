@@ -35,10 +35,13 @@ class RegistrationController extends Controller
 
         // Check if registration is open
         if (!$this->registrationService->isPlayerRegistrationOpen($tournament)) {
+            // Show tournament-level status if that's what's blocking, otherwise per-type status
+            $tsStatus = $settings->tournament_status ?? 'open';
+            $displayStatus = $tsStatus !== 'open' ? $tsStatus : ($settings->player_registration_status ?? 'closed');
             return view('public.registration.closed', [
                 'tournament' => $tournament,
                 'type' => 'player',
-                'tournamentStatus' => $settings->player_registration_status ?? 'closed',
+                'tournamentStatus' => $displayStatus,
             ]);
         }
 
@@ -191,10 +194,12 @@ class RegistrationController extends Controller
 
         // Check if registration is open
         if (!$this->registrationService->isTeamRegistrationOpen($tournament)) {
+            $tsStatus = $settings->tournament_status ?? 'open';
+            $displayStatus = $tsStatus !== 'open' ? $tsStatus : ($settings->team_registration_status ?? 'closed');
             return view('public.registration.closed', [
                 'tournament' => $tournament,
                 'type' => 'team',
-                'tournamentStatus' => $settings->team_registration_status ?? 'closed',
+                'tournamentStatus' => $displayStatus,
             ]);
         }
 

@@ -288,6 +288,60 @@
                     @endcan
                 </div>
 
+                {{-- Tournament Status Section --}}
+                <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tournament Status</h3>
+                    @php
+                        $tournamentStatus = old('tournament_status', $settings->tournament_status ?? 'open');
+                        $tsBorderColor = [
+                            'open' => 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20',
+                            'paused' => 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-900/20',
+                            'pending' => 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20',
+                            'draft' => 'border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800',
+                            'closed' => 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20',
+                            'completed' => 'border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800',
+                        ];
+                        $tsBadgeColor = [
+                            'open' => 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+                            'paused' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+                            'pending' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+                            'draft' => 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+                            'closed' => 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+                            'completed' => 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+                        ];
+                    @endphp
+                    <div class="max-w-md">
+                        <div class="p-4 rounded-lg border {{ $tsBorderColor[$tournamentStatus] ?? $tsBorderColor['open'] }}">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <label for="tournament_status" class="text-sm font-medium text-gray-900 dark:text-white">Overall Status</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Controls the overall tournament visibility</p>
+                                </div>
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold {{ $tsBadgeColor[$tournamentStatus] ?? $tsBadgeColor['open'] }}">
+                                    @if($tournamentStatus === 'open')
+                                        <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                                    @endif
+                                    {{ \App\Models\TournamentSetting::STATUSES[$tournamentStatus]['label'] ?? 'Open' }}
+                                </span>
+                            </div>
+                            <select name="tournament_status" id="tournament_status"
+                                class="w-full text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                @foreach(\App\Models\TournamentSetting::STATUSES as $value => $config)
+                                    <option value="{{ $value }}" {{ $tournamentStatus === $value ? 'selected' : '' }}>
+                                        {{ $config['label'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($tournamentStatus !== 'open')
+                                <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    When status is not "Open", all registration is automatically blocked regardless of the settings below.
+                                </p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Registration Section --}}
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Registration Settings</h3>

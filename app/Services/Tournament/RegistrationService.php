@@ -519,6 +519,11 @@ class RegistrationService
     {
         $settings = $tournament->settings;
 
+        // Tournament-level status gate: if not 'open', all registration is blocked
+        if ($settings && ($settings->tournament_status ?? 'open') !== 'open') {
+            return false;
+        }
+
         // Per-type registration status: if set and not 'open', registration is closed
         if ($settings && ($settings->player_registration_status ?? null)) {
             if ($settings->player_registration_status !== 'open') {
@@ -545,6 +550,11 @@ class RegistrationService
     public function isTeamRegistrationOpen(Tournament $tournament): bool
     {
         $settings = $tournament->settings;
+
+        // Tournament-level status gate: if not 'open', all registration is blocked
+        if ($settings && ($settings->tournament_status ?? 'open') !== 'open') {
+            return false;
+        }
 
         // Per-type registration status: if set and not 'open', registration is closed
         if ($settings && ($settings->team_registration_status ?? null)) {

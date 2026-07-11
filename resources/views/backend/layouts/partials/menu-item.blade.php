@@ -15,20 +15,20 @@
     @endphp
 
     <li class="menu-item-{{ $item->id }}" style="{!! $item->itemStyles !!}">
-        <button  class="menu-item group w-full text-left {{ $isActive }}" type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.menu-item-arrow').classList.toggle('rotate-180')">
+        <button class="menu-item group w-full text-left {{ $isActive }}" type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.menu-item-arrow').classList.toggle('rotate-180')">
             @if (!empty($item->icon))
-                <span class="menu-item-icon-wrapper flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 dark:bg-gray-800/50 group-hover:bg-cyan-50 dark:group-hover:bg-cyan-500/10 transition-colors duration-200">
-                    <iconify-icon icon="{{ $item->icon }}" class="menu-item-icon text-gray-500 dark:text-cyan-400 group-hover:text-cyan-500 transition-colors duration-200" width="18" height="18"></iconify-icon>
+                <span class="menu-item-icon-wrapper flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-white/[0.08] transition-colors duration-150">
+                    <iconify-icon icon="{{ $item->icon }}" class="menu-item-icon text-gray-500 dark:text-gray-400 transition-colors duration-150" width="17" height="17"></iconify-icon>
                 </span>
             @elseif (!empty($item->iconClass))
-                <span class="menu-item-icon-wrapper flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                    <iconify-icon icon="lucide:circle" class="menu-item-icon dark:text-cyan-400" width="18" height="18"></iconify-icon>
+                <span class="menu-item-icon-wrapper flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-white/[0.08]">
+                    <iconify-icon icon="lucide:circle" class="menu-item-icon text-gray-500 dark:text-gray-400" width="17" height="17"></iconify-icon>
                 </span>
             @endif
-            <span class="menu-item-text font-medium">{!! $item->label !!}</span>
-            <iconify-icon icon="lucide:chevron-down" class="menu-item-arrow transition-transform duration-200 {{ $rotateClass }} w-4 h-4 text-gray-400"></iconify-icon>
+            <span class="menu-item-text">{!! $item->label !!}</span>
+            <iconify-icon icon="lucide:chevron-down" class="menu-item-arrow transition-transform duration-150 {{ $rotateClass }} w-4 h-4 text-gray-400 dark:text-gray-500"></iconify-icon>
         </button>
-        <ul id="{{ $submenuId }}" class="submenu mt-1 ml-[18px] pl-4 border-l-2 border-gray-100 dark:border-gray-700 space-y-0.5 overflow-hidden transition-all duration-200 {{ $showSubmenu ? '' : 'hidden' }}">
+        <ul id="{{ $submenuId }}" class="submenu mt-0.5 ml-4 pl-3 border-l border-gray-200 dark:border-gray-700/60 space-y-px overflow-hidden transition-all duration-150 {{ $showSubmenu ? '' : 'hidden' }}">
             @foreach($item->children as $child)
                 @include('backend.layouts.partials.menu-item', ['item' => $child])
             @endforeach
@@ -41,17 +41,17 @@
     @endphp
 
     <li class="menu-item-{{ $item->id }}" style="{!! $item->itemStyles !!}">
-        <a  href="{{ $item->route ?? '#' }}" class="menu-item group {{ $isActive }}" {!! $target !!}>
+        <a href="{{ $item->route ?? '#' }}" class="menu-item group {{ $isActive }}" {!! $target !!}>
             @if (!empty($item->icon))
-                <span class="menu-item-icon-wrapper flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 dark:bg-gray-800/50 group-hover:bg-cyan-50 dark:group-hover:bg-cyan-500/10 transition-colors duration-200 {{ $item->active ? '!bg-cyan-50 dark:!bg-cyan-500/15' : '' }}">
-                    <iconify-icon icon="{{ $item->icon }}" class="menu-item-icon text-gray-500 dark:text-cyan-400 group-hover:text-cyan-500 transition-colors duration-200 {{ $item->active ? '!text-cyan-500 dark:!text-cyan-400' : '' }}" width="18" height="18"></iconify-icon>
+                <span class="menu-item-icon-wrapper flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-white/[0.08] transition-colors duration-150">
+                    <iconify-icon icon="{{ $item->icon }}" class="menu-item-icon text-gray-500 dark:text-gray-400 transition-colors duration-150" width="17" height="17"></iconify-icon>
                 </span>
             @elseif (!empty($item->iconClass))
-                <span class="menu-item-icon-wrapper flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                    <iconify-icon icon="lucide:circle" class="menu-item-icon dark:text-cyan-400" width="18" height="18"></iconify-icon>
+                <span class="menu-item-icon-wrapper flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-white/[0.08]">
+                    <iconify-icon icon="lucide:circle" class="menu-item-icon text-gray-500 dark:text-gray-400" width="17" height="17"></iconify-icon>
                 </span>
             @endif
-            <span class="menu-item-text font-medium">{!! $item->label !!}</span>
+            <span class="menu-item-text">{!! $item->label !!}</span>
         </a>
     </li>
 @endif

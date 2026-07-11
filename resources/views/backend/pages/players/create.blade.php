@@ -464,6 +464,48 @@
                                     </div>
                                     @endif
 
+                                    {{-- T-Shirt Size --}}
+                                    @if($fieldConfig['tshirt_size']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="tshirt_size" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('T-Shirt Size') }} @if($fieldConfig['tshirt_size']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                        </label>
+                                        @php $tshirtOptions = \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes()); @endphp
+                                        <select name="tshirt_size" id="tshirt_size"
+                                            {{ ($fieldConfig['tshirt_size']['required'] ?? false) ? 'required' : '' }}
+                                            class="form-control @error('tshirt_size') border-red-500 @enderror">
+                                            <option value="">-- Select T-Shirt Size --</option>
+                                            @foreach ($tshirtOptions as $size)
+                                                <option value="{{ $size }}" {{ old('tshirt_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('tshirt_size')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    @endif
+
+                                    {{-- Pant Size --}}
+                                    @if($fieldConfig['pant_size']['visible'] ?? true)
+                                    <div class="space-y-1">
+                                        <label for="pant_size" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ __('Pant Size') }} @if($fieldConfig['pant_size']['required'] ?? false)<span class="text-red-500">*</span>@endif
+                                        </label>
+                                        @php $pantOptions = \App\Helpers\PlayerFormConfig::sizeOptions('pant_sizes', \App\Helpers\PlayerFormConfig::defaultPantSizes()); @endphp
+                                        <select name="pant_size" id="pant_size"
+                                            {{ ($fieldConfig['pant_size']['required'] ?? false) ? 'required' : '' }}
+                                            class="form-control @error('pant_size') border-red-500 @enderror">
+                                            <option value="">-- Select Pant Size --</option>
+                                            @foreach ($pantOptions as $size)
+                                                <option value="{{ $size }}" {{ old('pant_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('pant_size')
+                                            <p class="text-sm text-red-500">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    @endif
+
                                     {{-- Batting Profile --}}
                                     @if($fieldConfig['batting_profile']['visible'] ?? true)
                                     <div class="space-y-1">

@@ -17,11 +17,11 @@
         {!! ld_apply_filters('sidebar_menu_group_before_' . Str::slug($groupName), '') !!}
         <div class="mb-2">
             {!! ld_apply_filters('sidebar_menu_group_heading_before_' . Str::slug($groupName), '') !!}
-            <h3 class="menu-group-heading mb-3 text-[11px] uppercase tracking-wider leading-[18px] text-gray-400 font-semibold dark:text-magenta-400 px-3">
+            <h3 class="menu-group-heading mb-2 text-[10px] uppercase tracking-widest leading-[16px] text-gray-400 font-semibold dark:text-gray-500 px-3">
                 {{ __($groupName) }}
             </h3>
             {!! ld_apply_filters('sidebar_menu_group_heading_after_' . Str::slug($groupName), '') !!}
-            <ul class="flex flex-col mb-4 space-y-0.5">
+            <ul class="flex flex-col mb-3 space-y-px">
                 {!! ld_apply_filters('sidebar_menu_before_all_' . Str::slug($groupName), '') !!}
                 {!! $menuService->render($groupItems) !!}
                 {!! ld_apply_filters('sidebar_menu_after_all_' . Str::slug($groupName), '') !!}

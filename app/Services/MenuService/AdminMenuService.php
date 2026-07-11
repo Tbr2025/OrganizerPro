@@ -101,7 +101,7 @@ class AdminMenuService
     {
         // Check if the current user has the Team Manager role
         $user = auth()->user();
-        $isTeamManager = $user && $user->hasRole('Team Manager') && !$user->hasRole('Superadmin') && !$user->hasRole('Admin');
+        $isTeamManager = $user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && !$user->hasRole('Superadmin') && !$user->hasRole('Admin');
 
         // For Team Managers, show simplified menu
         if ($isTeamManager) {

@@ -338,6 +338,16 @@ class RolesService
         $roles['team_manager'] = $this->createOrSyncRole('Team Manager', $teamManagerPermissions);
 
 
+        // 4b. Team Owner — same view-only access as Team Manager (no team creation)
+        $teamOwnerPermissions = [
+            'dashboard.view',
+            'actual-team.view',
+            'player.view',
+            'match.view',
+            'auction.view',
+        ];
+        $roles['team_owner'] = $this->createOrSyncRole('Team Owner', $teamOwnerPermissions);
+
         // 5. Coach - can view teams & players
         $coachPermissions = [
             'dashboard.view',
@@ -531,6 +541,15 @@ class RolesService
                     'player.create', // Can create new players for their team
                     'match.view', // Can view matches
                     'auction.view', // Can view auctions and participate in live bidding
+                ];
+
+            case 'team_owner':
+                return [
+                    'dashboard.view',
+                    'actual-team.view',
+                    'player.view',
+                    'match.view',
+                    'auction.view',
                 ];
 
             case 'coach':

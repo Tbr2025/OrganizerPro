@@ -156,10 +156,13 @@
 
 @section('content')
     @php
+        $tournamentStatus = $settings?->tournament_status ?? 'open';
+        $tournamentOpen = $tournamentStatus === 'open';
+
         $playerRegStatus = $settings?->player_registration_status ?? ($settings?->player_registration_open ? 'open' : 'closed');
         $teamRegStatus = $settings?->team_registration_status ?? ($settings?->team_registration_open ? 'open' : 'closed');
-        $playerOpen = $playerRegStatus === 'open';
-        $teamOpen = $teamRegStatus === 'open';
+        $playerOpen = $tournamentOpen && $playerRegStatus === 'open';
+        $teamOpen = $tournamentOpen && $teamRegStatus === 'open';
         $regActuallyOpen = $playerOpen || $teamOpen;
         $isLive = in_array($tournament->status, ['active', 'ongoing']) || ($tournament->status === 'registration' && !$regActuallyOpen);
         $totalMatches = $tournament->matches()->where('is_cancelled', false)->count();
@@ -168,8 +171,11 @@
 
         // Determine the most relevant non-open status for badge display
         $displayStatus = 'open';
-        if (!$regActuallyOpen) {
-            // Show the "most informative" status — prefer paused/coming_soon over closed
+        if (!$tournamentOpen) {
+            // Tournament-level status takes precedence
+            $displayStatus = $tournamentStatus;
+        } elseif (!$regActuallyOpen) {
+            // Show the "most informative" per-type status
             foreach (['paused', 'coming_soon', 'closed'] as $s) {
                 if ($playerRegStatus === $s || $teamRegStatus === $s) { $displayStatus = $s; break; }
             }
@@ -226,12 +232,17 @@
                             <i class="fas fa-pause-circle mr-2"></i>
                             Registration Paused
                         </span>
-                    @elseif($displayStatus === 'coming_soon')
+                    @elseif($displayStatus === 'coming_soon' || $displayStatus === 'pending')
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                             <i class="fas fa-clock mr-2"></i>
                             Coming Soon
                         </span>
-                    @elseif($tournament->status === 'completed')
+                    @elseif($displayStatus === 'draft')
+                        <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
+                            <i class="fas fa-pencil-alt mr-2"></i>
+                            Coming Soon
+                        </span>
+                    @elseif($displayStatus === 'completed' || $tournament->status === 'completed')
                         <span class="inline-flex items-center px-5 py-2.5 rounded-full text-sm font-bold bg-gray-500/20 text-gray-300 border border-gray-500/30">
                             <i class="fas fa-trophy text-accent mr-2"></i>
                             Completed

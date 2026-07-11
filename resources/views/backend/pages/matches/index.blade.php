@@ -5,14 +5,12 @@
 @push('styles')
 <style>
     .match-row { transition: background 0.15s ease; }
-    .match-row:hover { background: rgba(251, 191, 36, 0.03); }
-    .match-row.selected { background: rgba(59, 130, 246, 0.08) !important; }
+    .match-row.selected { background: rgba(99, 102, 241, 0.06) !important; }
     .match-row.dragging { opacity: 0.4; }
-    .match-row.drag-over { border-top: 2px solid #3b82f6 !important; }
+    .match-row.drag-over { border-top: 2px solid #6366f1 !important; }
     .filter-pill { transition: all 0.15s ease; }
-    .filter-pill.active { background: #3b82f6; color: white; border-color: #3b82f6; }
-    .team-logo-sm { width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.05); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
-    .dark .team-logo-sm { background: rgba(255,255,255,0.08); }
+    .filter-pill.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+    .team-logo-sm { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
     .team-logo-sm img { width: 22px; height: 22px; max-width: 22px; max-height: 22px; object-fit: contain; }
     .bulk-bar { transform: translateY(100%); transition: transform 0.2s ease; }
     .bulk-bar.show { transform: translateY(0); }
@@ -22,19 +20,19 @@
 @section('admin-content')
 <x-breadcrumbs :breadcrumbs="[['name' => 'Matches']]" />
 
-<div x-data="matchesPage()" class="space-y-4">
+<div x-data="matchesPage()" class="space-y-5">
 
     {{-- Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Matches</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ $matches->total() }} total matches</p>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Matches</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ $matches->total() }} total matches</p>
         </div>
         <div class="flex items-center gap-2">
             @unless(auth()->user()->hasRole('Team Manager') && !auth()->user()->hasRole('Superadmin') && !auth()->user()->hasRole('Admin'))
                 <a href="{{ route('admin.matches.create') }}"
-                   class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                   class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors duration-150">
+                    <iconify-icon icon="lucide:plus" width="16"></iconify-icon>
                     New Match
                 </a>
             @endunless
@@ -42,17 +40,17 @@
     </div>
 
     {{-- Filters --}}
-    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4">
         <form method="GET" id="filterForm" class="space-y-3">
             {{-- Status Pills + Search --}}
             <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('admin.matches.index', request()->except(['status', 'page'])) }}"
-                   class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium border {{ !request('status') ? 'active' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                   class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold border {{ !request('status') ? 'active' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800' }}">
                     All
                 </a>
                 @foreach(['upcoming' => 'Upcoming', 'live' => 'Live', 'completed' => 'Completed', 'cancelled' => 'Cancelled'] as $key => $label)
                     <a href="{{ route('admin.matches.index', array_merge(request()->except('page'), ['status' => $key])) }}"
-                       class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium border {{ request('status') === $key ? 'active' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                       class="filter-pill px-3.5 py-1.5 rounded-full text-xs font-semibold border {{ request('status') === $key ? 'active' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800' }}">
                         {{ $label }}
                     </a>
                 @endforeach
@@ -60,17 +58,17 @@
                 <div class="ml-auto">
                     <div class="relative">
                         <input type="text" name="search" value="{{ request('search') }}" placeholder="Search teams, tournament..."
-                               class="w-48 pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-1 focus:ring-blue-500"
+                               class="w-52 pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors duration-150"
                                onchange="this.form.submit()">
-                        <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <iconify-icon icon="lucide:search" width="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></iconify-icon>
                     </div>
                 </div>
             </div>
 
             {{-- Advanced Filters --}}
-            <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+            <div class="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100 dark:border-gray-800">
                 <select name="tournament_id" onchange="this.form.submit()"
-                        class="text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5 pr-8">
+                        class="text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white py-2 pr-8 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
                     <option value="">All Tournaments</option>
                     @foreach($tournaments as $t)
                         <option value="{{ $t->id }}" {{ request('tournament_id') == $t->id ? 'selected' : '' }}>{{ Str::limit($t->name, 30) }}</option>
@@ -79,14 +77,14 @@
 
                 <input type="date" name="date_from" value="{{ request('date_from') }}"
                        onchange="this.form.submit()"
-                       class="text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5">
-                <span class="text-gray-400 text-xs">to</span>
+                       class="text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white py-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                <span class="text-gray-400 dark:text-gray-500 text-xs font-medium">to</span>
                 <input type="date" name="date_to" value="{{ request('date_to') }}"
                        onchange="this.form.submit()"
-                       class="text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5">
+                       class="text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white py-2 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
 
                 <select name="sort" onchange="this.form.submit()"
-                        class="text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5 pr-8">
+                        class="text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white py-2 pr-8 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
                     <option value="date_desc" {{ request('sort', 'date_desc') === 'date_desc' ? 'selected' : '' }}>Date (Newest)</option>
                     <option value="date_asc" {{ request('sort') === 'date_asc' ? 'selected' : '' }}>Date (Oldest)</option>
                     <option value="number_asc" {{ request('sort') === 'number_asc' ? 'selected' : '' }}>Match # (Asc)</option>
@@ -98,8 +96,8 @@
                 @if(request('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
 
                 @if(request()->hasAny(['status', 'tournament_id', 'date_from', 'date_to', 'search', 'sort']))
-                    <a href="{{ route('admin.matches.index') }}" class="text-xs text-red-500 hover:text-red-700 font-medium">
-                        <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <a href="{{ route('admin.matches.index') }}" class="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors duration-150">
+                        <iconify-icon icon="lucide:x" width="12"></iconify-icon>
                         Clear
                     </a>
                 @endif
@@ -108,26 +106,26 @@
     </div>
 
     {{-- Table --}}
-    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                        <th class="w-10 px-3 py-3">
-                            <input type="checkbox" @change="toggleAll($event)" class="rounded border-gray-300 dark:border-gray-600 text-blue-600">
+                    <tr class="border-b border-gray-200 dark:border-gray-800">
+                        <th class="w-10 px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03]">
+                            <input type="checkbox" @change="toggleAll($event)" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600">
                         </th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-14">#</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Match</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden xl:table-cell">Tournament</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date & Time</th>
-                        <th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">Venue</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16"></th>
+                        <th class="px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03] text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-14">#</th>
+                        <th class="px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03] text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Match</th>
+                        <th class="px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03] text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hidden xl:table-cell">Tournament</th>
+                        <th class="px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03] text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Date & Time</th>
+                        <th class="px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03] text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                        <th class="px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03] text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hidden lg:table-cell">Venue</th>
+                        <th class="px-5 py-3 bg-gray-50/80 dark:bg-white/[0.03] text-right text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-16"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50" id="matchesBody">
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800" id="matchesBody">
                     @forelse ($matches as $match)
-                        <tr class="match-row" data-id="{{ $match->id }}"
+                        <tr class="match-row group hover:bg-gray-50/70 dark:hover:bg-white/[0.02] transition-colors duration-150" data-id="{{ $match->id }}"
                             :class="{ 'selected': selectedIds.includes({{ $match->id }}) }"
                             draggable="true"
                             @dragstart="dragStart($event, {{ $match->id }})"
@@ -135,59 +133,59 @@
                             @dragleave="dragLeave($event)"
                             @drop="drop($event, {{ $match->id }})">
 
-                            <td class="px-3 py-3">
+                            <td class="px-5 py-3.5">
                                 <input type="checkbox" value="{{ $match->id }}" @change="toggleSelect({{ $match->id }})"
                                        :checked="selectedIds.includes({{ $match->id }})"
-                                       class="rounded border-gray-300 dark:border-gray-600 text-blue-600">
+                                       class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600">
                             </td>
 
-                            <td class="px-3 py-3">
-                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-600 dark:text-gray-300 cursor-grab"
+                            <td class="px-5 py-3.5">
+                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-bold text-gray-600 dark:text-gray-300 cursor-grab active:cursor-grabbing"
                                       title="Drag to reorder">
                                     {{ $match->match_number ?? '-' }}
                                 </span>
                             </td>
 
-                            <td class="px-3 py-3">
-                                <div class="flex items-center gap-2">
+                            <td class="px-5 py-3.5">
+                                <div class="flex items-center gap-2.5">
                                     <div class="flex items-center gap-1.5 min-w-0">
-                                        <div class="team-logo-sm">
+                                        <div class="team-logo-sm ring-2 ring-gray-100 dark:ring-gray-700 bg-gray-50 dark:bg-gray-800">
                                             @if($match->teamA?->team_logo)
                                                 <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="" width="22" height="22" style="max-width:22px;max-height:22px;">
                                             @else
-                                                <span class="text-[9px] font-bold text-gray-400">{{ strtoupper(substr($match->teamA?->short_name ?? $match->teamA?->name ?? '?', 0, 2)) }}</span>
+                                                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500">{{ strtoupper(substr($match->teamA?->short_name ?? $match->teamA?->name ?? '?', 0, 2)) }}</span>
                                             @endif
                                         </div>
-                                        <span class="font-medium text-gray-900 dark:text-white truncate max-w-[80px] {{ $match->winner_team_id === $match->team_a_id ? 'text-green-600 dark:text-green-400' : '' }}" title="{{ $match->teamA?->name }}">
+                                        <span class="font-medium text-gray-900 dark:text-white truncate max-w-[80px] {{ $match->winner_team_id === $match->team_a_id ? 'text-emerald-600 dark:text-emerald-400' : '' }}" title="{{ $match->teamA?->name }}">
                                             {{ $match->teamA?->short_name ?? $match->teamA?->name ?? 'TBA' }}
                                         </span>
                                     </div>
-                                    <span class="text-[10px] text-gray-400 font-medium">vs</span>
+                                    <span class="text-[10px] text-gray-400 dark:text-gray-500 font-semibold uppercase">vs</span>
                                     <div class="flex items-center gap-1.5 min-w-0">
-                                        <div class="team-logo-sm">
+                                        <div class="team-logo-sm ring-2 ring-gray-100 dark:ring-gray-700 bg-gray-50 dark:bg-gray-800">
                                             @if($match->teamB?->team_logo)
                                                 <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="" width="22" height="22" style="max-width:22px;max-height:22px;">
                                             @else
-                                                <span class="text-[9px] font-bold text-gray-400">{{ strtoupper(substr($match->teamB?->short_name ?? $match->teamB?->name ?? '?', 0, 2)) }}</span>
+                                                <span class="text-[9px] font-bold text-gray-400 dark:text-gray-500">{{ strtoupper(substr($match->teamB?->short_name ?? $match->teamB?->name ?? '?', 0, 2)) }}</span>
                                             @endif
                                         </div>
-                                        <span class="font-medium text-gray-900 dark:text-white truncate max-w-[80px] {{ $match->winner_team_id === $match->team_b_id ? 'text-green-600 dark:text-green-400' : '' }}" title="{{ $match->teamB?->name }}">
+                                        <span class="font-medium text-gray-900 dark:text-white truncate max-w-[80px] {{ $match->winner_team_id === $match->team_b_id ? 'text-emerald-600 dark:text-emerald-400' : '' }}" title="{{ $match->teamB?->name }}">
                                             {{ $match->teamB?->short_name ?? $match->teamB?->name ?? 'TBA' }}
                                         </span>
                                     </div>
                                     @if($match->winner)
-                                        <svg width="14" height="14" class="text-yellow-500 flex-shrink-0" style="min-width:14px;" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C13.1 2 14 2.9 14 4H17C17 4 19 4 19 6C19 8.4 17 10 15.2 10.6C14.4 12.4 12.8 13.6 11 13.9V16H14C14.6 16 15 16.4 15 17V20C15 20.6 14.6 21 14 21H10C9.4 21 9 20.6 9 20V17C9 16.4 9.4 16 10 16H11V13.9C9.2 13.6 7.6 12.4 6.8 10.6C5 10 3 8.4 3 6C3 4 5 4 5 4H8C8 2.9 8.9 2 10 2H12ZM5 6C5 7.3 6.2 8.6 7.3 9.2C7.1 8.5 7 7.8 7 7V6H5ZM15 7C15 7.8 14.9 8.5 14.7 9.2C15.8 8.6 17 7.3 17 6H15V7Z"/></svg>
+                                        <iconify-icon icon="lucide:trophy" width="14" class="text-yellow-500 flex-shrink-0" style="min-width:14px;"></iconify-icon>
                                     @endif
                                 </div>
                             </td>
 
-                            <td class="px-3 py-3 hidden xl:table-cell">
+                            <td class="px-5 py-3.5 hidden xl:table-cell">
                                 <span class="text-xs text-gray-600 dark:text-gray-400 truncate block max-w-[140px]" title="{{ $match->tournament->name ?? '-' }}">
                                     {{ $match->tournament->name ?? '-' }}
                                 </span>
                             </td>
 
-                            <td class="px-3 py-3">
+                            <td class="px-5 py-3.5">
                                 <p class="text-gray-900 dark:text-white font-medium text-xs">{{ $match->match_date?->format('d M Y') ?? '-' }}</p>
                                 @if($match->start_time)
                                     <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
@@ -196,57 +194,57 @@
                                 @endif
                             </td>
 
-                            <td class="px-3 py-3 text-center">
+                            <td class="px-5 py-3.5 text-center">
                                 @if($match->is_cancelled)
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300">Cancelled</span>
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md ring-1 ring-inset bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20">Cancelled</span>
                                 @elseif($match->status === 'live')
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-red-500 text-white">
-                                        <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-md ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20">
+                                        <span class="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full animate-pulse"></span> LIVE
                                     </span>
                                 @elseif($match->status === 'completed')
-                                    <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">Completed</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md ring-1 ring-inset bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-500/10 dark:text-gray-400 dark:ring-gray-500/20">Completed</span>
                                 @else
-                                    <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">Upcoming</span>
+                                    <span class="inline-flex items-center px-2.5 py-1 text-[11px] font-semibold rounded-md ring-1 ring-inset bg-blue-50 text-blue-700 ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-400 dark:ring-blue-500/20">Upcoming</span>
                                 @endif
                             </td>
 
-                            <td class="px-3 py-3 hidden lg:table-cell">
+                            <td class="px-5 py-3.5 hidden lg:table-cell">
                                 <span class="text-xs text-gray-500 dark:text-gray-400 truncate block max-w-[120px]">
                                     {{ $match->ground?->name ?? $match->venue ?? '-' }}
                                 </span>
                             </td>
 
-                            <td class="px-3 py-3 text-right">
+                            <td class="px-5 py-3.5 text-right">
                                 <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
-                                    <x-buttons.action-item :href="route('admin.matches.show', $match)" icon="eye" :label="__('View')" />
-                                    <x-buttons.action-item :href="route('admin.matches.edit', $match)" icon="pencil" :label="__('Edit')" />
-                                    <x-buttons.action-item :href="route('admin.matches.summary.edit', $match)" icon="file-text" :label="__('Summary')" />
-                                    <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=match_poster&match_id=' . $match->id" icon="image" :label="__('Match Poster')" />
-                                    <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=award_poster&match_id=' . $match->id" icon="star" :label="__('Award Poster')" />
+                                    <x-buttons.action-item :href="route('admin.matches.show', $match)" icon="lucide:eye" :label="__('View')" />
+                                    <x-buttons.action-item :href="route('admin.matches.edit', $match)" icon="lucide:pencil" :label="__('Edit')" />
+                                    <x-buttons.action-item :href="route('admin.matches.summary.edit', $match)" icon="lucide:file-text" :label="__('Summary')" />
+                                    <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=match_poster&match_id=' . $match->id" icon="lucide:image" :label="__('Match Poster')" />
+                                    <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=award_poster&match_id=' . $match->id" icon="lucide:star" :label="__('Award Poster')" />
                                     @if(!$match->is_cancelled && $match->status !== 'live')
                                         <form action="{{ route('admin.matches.goLive', $match) }}" method="POST" class="inline">
                                             @csrf
-                                            <button type="submit" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-green-600 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+                                            <button type="submit" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-emerald-600 dark:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
+                                                <iconify-icon icon="lucide:play-circle" width="16"></iconify-icon>
                                                 Go Live
                                             </button>
                                         </form>
                                     @endif
                                     @if(!$match->is_cancelled && $match->status !== 'completed')
                                         <div x-data="{ cancelOpen: false }">
-                                            <button @click="cancelOpen = true" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-orange-600 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                            <button @click="cancelOpen = true" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-orange-600 dark:text-orange-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
+                                                <iconify-icon icon="lucide:ban" width="16"></iconify-icon>
                                                 Cancel Match
                                             </button>
-                                            <div x-show="cancelOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                                                <div @click.away="cancelOpen = false" class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
+                                            <div x-show="cancelOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                                                <div @click.away="cancelOpen = false" class="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-md mx-4 shadow-xl border border-gray-200 dark:border-gray-700">
                                                     <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Cancel Match</h3>
                                                     <form action="{{ route('admin.matches.cancel', $match) }}" method="POST">
                                                         @csrf
-                                                        <textarea name="cancellation_reason" rows="3" class="form-control w-full mb-4" placeholder="Reason..."></textarea>
+                                                        <textarea name="cancellation_reason" rows="3" class="form-control w-full mb-4 rounded-lg border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" placeholder="Reason..."></textarea>
                                                         <div class="flex gap-3">
-                                                            <button type="button" @click="cancelOpen = false" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg">Keep</button>
-                                                            <button type="submit" class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">Cancel It</button>
+                                                            <button type="button" @click="cancelOpen = false" class="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">Keep</button>
+                                                            <button type="submit" class="flex-1 px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-150">Cancel It</button>
                                                         </div>
                                                     </form>
                                                 </div>
@@ -255,19 +253,26 @@
                                     @endif
                                     @can('match.delete')
                                         <div x-data="{ delOpen: false }">
-                                            <button @click="delOpen = true" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            <button @click="delOpen = true" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
+                                                <iconify-icon icon="lucide:trash-2" width="16"></iconify-icon>
                                                 Delete
                                             </button>
-                                            <div x-show="delOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                                                <div @click.away="delOpen = false" class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl">
-                                                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Delete Match?</h3>
-                                                    <p class="text-sm text-gray-500 mb-4">This action cannot be undone.</p>
+                                            <div x-show="delOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                                                <div @click.away="delOpen = false" class="bg-white dark:bg-gray-900 rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl border border-gray-200 dark:border-gray-700">
+                                                    <div class="flex items-center gap-3 mb-4">
+                                                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
+                                                            <iconify-icon icon="lucide:alert-triangle" width="20" class="text-red-600 dark:text-red-400"></iconify-icon>
+                                                        </div>
+                                                        <div>
+                                                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Delete Match?</h3>
+                                                            <p class="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone.</p>
+                                                        </div>
+                                                    </div>
                                                     <div class="flex gap-3">
-                                                        <button @click="delOpen = false" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg">Cancel</button>
+                                                        <button @click="delOpen = false" class="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-150">Cancel</button>
                                                         <form action="{{ route('admin.matches.destroy', $match) }}" method="POST" class="flex-1">
                                                             @csrf @method('DELETE')
-                                                            <button type="submit" class="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">Delete</button>
+                                                            <button type="submit" class="w-full px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors duration-150">Delete</button>
                                                         </form>
                                                     </div>
                                                 </div>
@@ -279,10 +284,14 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-12 text-center">
-                                <svg class="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <p class="text-gray-500 dark:text-gray-400 font-medium">No matches found</p>
-                                <p class="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                            <td colspan="8" class="px-5 py-16 text-center">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                                        <iconify-icon icon="lucide:swords" width="32" class="text-gray-300 dark:text-gray-600"></iconify-icon>
+                                    </div>
+                                    <p class="text-gray-500 dark:text-gray-400 font-medium">No matches found</p>
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Try adjusting your filters</p>
+                                </div>
                             </td>
                         </tr>
                     @endforelse
@@ -291,7 +300,7 @@
         </div>
 
         @if($matches->hasPages())
-            <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+            <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-4">
                 {{ $matches->links() }}
             </div>
         @endif
@@ -299,14 +308,15 @@
 
     {{-- Bulk Actions Bar --}}
     <div class="fixed bottom-0 left-0 right-0 z-50" :class="selectedIds.length > 0 ? '' : 'pointer-events-none'">
-        <div class="bulk-bar bg-gray-900 text-white px-6 py-3 flex items-center justify-between shadow-2xl pointer-events-auto"
+        <div class="bulk-bar bg-indigo-950 text-white px-6 py-3.5 flex items-center justify-between shadow-2xl rounded-t-xl pointer-events-auto max-w-5xl mx-auto"
              :class="{ 'show': selectedIds.length > 0 }">
             <div class="flex items-center gap-3">
-                <span class="text-sm font-medium" x-text="selectedIds.length + ' selected'"></span>
-                <button @click="selectedIds = []; uncheckAll()" class="text-xs text-gray-400 hover:text-white underline">Clear</button>
+                <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-300 text-sm font-bold" x-text="selectedIds.length"></div>
+                <span class="text-sm font-medium text-indigo-100">selected</span>
+                <button @click="selectedIds = []; uncheckAll()" class="text-xs text-indigo-400 hover:text-white font-medium underline underline-offset-2 transition-colors duration-150">Clear</button>
             </div>
-            <button @click="bulkDelete()" class="inline-flex items-center gap-1.5 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <button @click="bulkDelete()" class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors duration-150 shadow-sm">
+                <iconify-icon icon="lucide:trash-2" width="16"></iconify-icon>
                 Delete Selected
             </button>
         </div>

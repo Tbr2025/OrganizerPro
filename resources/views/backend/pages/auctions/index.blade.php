@@ -7,123 +7,168 @@
         {{-- Breadcrumbs --}}
         <x-breadcrumbs :breadcrumbs="[['label' => 'Dashboard', 'url' => route('admin.dashboard')], ['label' => 'Auctions']]" />
 
-        <div class="flex justify-between items-center mt-6 mb-4">
-            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">Auctions</h1>
-            @if (!auth()->user()->hasRole('Team Manager') || auth()->user()->hasRole('Super Admin') || auth()->user()->hasRole('Admin'))
-            <a href="{{ route('admin.auctions.create') }}"
-                class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                + Create Auction
-            </a>
+        <div class="space-y-6">
+
+            @php
+                $auctionLocked = false;
+                if (!auth()->user()->hasRole('Superadmin') && auth()->user()->organization_id) {
+                    $userOrg = \App\Models\Organization::find(auth()->user()->organization_id);
+                    $auctionLocked = $userOrg && !$userOrg->isAuctionEnabled();
+                }
+            @endphp
+
+            @if($auctionLocked)
+                <div class="relative rounded-xl overflow-hidden">
+                    {{-- Lock Overlay --}}
+                    <div class="absolute inset-0 z-10 backdrop-blur-sm bg-white/60 dark:bg-gray-900/60 flex flex-col items-center justify-center rounded-xl">
+                        <iconify-icon icon="lucide:lock" class="text-5xl text-gray-400 dark:text-gray-500 mb-3"></iconify-icon>
+                        <p class="text-lg font-semibold text-gray-600 dark:text-gray-300">Auctions Not Available</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Your package does not include auction features.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Contact your administrator to upgrade.</p>
+                    </div>
+                    {{-- Blurred Content --}}
+                    <div class="pointer-events-none select-none filter blur-[2px] opacity-50">
             @endif
-        </div>
 
-        @php
-            $auctionLocked = false;
-            if (!auth()->user()->hasRole('Superadmin') && auth()->user()->organization_id) {
-                $userOrg = \App\Models\Organization::find(auth()->user()->organization_id);
-                $auctionLocked = $userOrg && !$userOrg->isAuctionEnabled();
-            }
-        @endphp
-
-        @if($auctionLocked)
-            <div class="relative rounded-lg overflow-hidden">
-                {{-- Lock Overlay --}}
-                <div class="absolute inset-0 z-10 backdrop-blur-sm bg-white/60 dark:bg-gray-900/60 flex flex-col items-center justify-center rounded-lg">
-                    <iconify-icon icon="lucide:lock" class="text-5xl text-gray-400 dark:text-gray-500 mb-3"></iconify-icon>
-                    <p class="text-lg font-semibold text-gray-600 dark:text-gray-300">Auctions Not Available</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Your package does not include auction features.</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Contact your administrator to upgrade.</p>
+            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                {{-- Toolbar --}}
+                <div class="px-5 py-4 sm:px-6 flex flex-col md:flex-row justify-between items-center gap-3">
+                    @include('backend.partials.search-form', [
+                        'placeholder' => 'Search auctions...',
+                    ])
+                    <div class="flex items-center gap-2">
+                        @if (!auth()->user()->hasRole('Team Manager') || auth()->user()->hasRole('Super Admin') || auth()->user()->hasRole('Admin'))
+                            <a href="{{ route('admin.auctions.create') }}" class="btn-primary flex items-center gap-1.5 text-sm">
+                                <iconify-icon icon="lucide:plus" width="16"></iconify-icon>
+                                Create Auction
+                            </a>
+                        @endif
+                    </div>
                 </div>
-                {{-- Blurred Content --}}
-                <div class="pointer-events-none select-none filter blur-[2px] opacity-50">
-        @endif
 
-        @if ($auctions->count())
-            <div
-                class="overflow-x-auto bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead class="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tournament</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-900 dark:divide-gray-700">
-                        @foreach ($auctions as $auction)
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                    {{ $loop->iteration + ($auctions->currentPage() - 1) * $auctions->perPage() }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                    {{ $auction->name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                    {{ $auction->organization->name ?? 'N/A' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                    {{ $auction->tournament->name ?? 'N/A' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    @php
-                                        $statusColors = [
-                                            'scheduled' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-                                            'running' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-                                            'paused' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-                                            'completed' => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-                                        ];
-                                    @endphp
-                                    <span class="px-2 py-1 rounded-full text-xs font-medium {{ $statusColors[$auction->status] ?? 'bg-gray-100 text-gray-800' }}">
-                                        {{ ucfirst($auction->status) }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                                    {{ $auction->start_at ? $auction->start_at->format('Y-m-d') : '-' }}</td>
-
-                                <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium space-x-2">
-                                    <a href="{{ route('admin.auctions.show', $auction) }}"
-                                        class="text-indigo-600 hover:text-indigo-900">View</a>
-
-                                    @if (!auth()->user()->hasRole('Team Manager') || auth()->user()->hasRole('Super Admin') || auth()->user()->hasRole('Admin'))
-                                        <a href="{{ route('admin.auctions.edit', $auction) }}"
-                                            class="text-yellow-600 hover:text-yellow-900">Edit</a>
-
-                                        {{-- Manage / Organizer Panel link --}}
-                                        @if (in_array($auction->status, ['running', 'paused', 'scheduled']))
-                                            <a href="{{ route('admin.auction.organizer.panel', $auction) }}"
-                                                class="text-green-600 hover:text-green-900 font-semibold">Manage</a>
-                                        @endif
-
-                                        {{-- Public LED Wall Display --}}
-                                        <a href="{{ route('public.auction.live', $auction) }}"
-                                            target="_blank"
-                                            class="text-purple-600 hover:text-purple-900">Live Display</a>
-
-                                        <form action="{{ route('admin.auctions.destroy', $auction) }}" method="POST"
-                                            class="inline-block"
-                                            onsubmit="return confirm('Are you sure you want to delete this auction?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                        </form>
-                                    @endif
-                                </td>
+                {{-- Table --}}
+                <div class="overflow-x-auto overflow-y-visible">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-t border-b border-gray-100 dark:border-gray-800">
+                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">#</span>
+                                </th>
+                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</span>
+                                </th>
+                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Organization</span>
+                                </th>
+                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tournament</span>
+                                </th>
+                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</span>
+                                </th>
+                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Start Date</span>
+                                </th>
+                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-right">
+                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Actions</span>
+                                </th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @forelse ($auctions as $auction)
+                                <tr class="group hover:bg-gray-50/70 dark:hover:bg-white/[0.02] transition-colors duration-150">
+                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                        <span class="text-sm text-gray-500 dark:text-gray-400">{{ $loop->iteration + ($auctions->currentPage() - 1) * $auctions->perPage() }}</span>
+                                    </td>
+                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                        <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $auction->name }}</span>
+                                    </td>
+                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">{{ $auction->organization->name ?? 'N/A' }}</span>
+                                    </td>
+                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">{{ $auction->tournament->name ?? 'N/A' }}</span>
+                                    </td>
+                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                        @php
+                                            $statusColors = [
+                                                'scheduled' => 'bg-blue-50 text-blue-700 ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-400',
+                                                'running' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400',
+                                                'paused' => 'bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-500/10 dark:text-amber-400',
+                                                'completed' => 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-500/10 dark:text-gray-400',
+                                            ];
+                                        @endphp
+                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md ring-1 ring-inset {{ $statusColors[$auction->status] ?? 'bg-gray-50 text-gray-600 ring-gray-500/10' }}">
+                                            {{ ucfirst($auction->status) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">{{ $auction->start_at ? $auction->start_at->format('Y-m-d') : '-' }}</span>
+                                    </td>
+                                    <td class="px-5 py-3.5 whitespace-nowrap text-right">
+                                        <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
+                                            <x-buttons.action-item :href="route('admin.auctions.show', $auction)" icon="lucide:eye"
+                                                :label="__('View')" />
 
-            <div class="mt-4">
-                {{ $auctions->links() }}
-            </div>
-        @else
-            <p class="text-gray-500 dark:text-gray-400">No auctions found.</p>
-        @endif
+                                            @if (!auth()->user()->hasRole('Team Manager') || auth()->user()->hasRole('Super Admin') || auth()->user()->hasRole('Admin'))
+                                                <x-buttons.action-item :href="route('admin.auctions.edit', $auction)" icon="lucide:pencil"
+                                                    :label="__('Edit')" />
 
-        @if($auctionLocked)
+                                                {{-- Manage / Organizer Panel link --}}
+                                                @if (in_array($auction->status, ['running', 'paused', 'scheduled']))
+                                                    <x-buttons.action-item :href="route('admin.auction.organizer.panel', $auction)" icon="lucide:settings"
+                                                        :label="__('Organizer Panel')" class="text-emerald-600 dark:text-emerald-400" />
+                                                @endif
+
+                                                {{-- Public LED Wall Display --}}
+                                                <x-buttons.action-item :href="route('public.auction.live', $auction)" icon="lucide:monitor-play"
+                                                    :label="__('Live Display')" class="text-purple-600 dark:text-purple-400" />
+
+                                                <div x-data="{ deleteModalOpen: false }">
+                                                    <x-buttons.action-item type="modal-trigger"
+                                                        modal-target="deleteModalOpen" icon="lucide:trash-2"
+                                                        :label="__('Delete')" class="text-red-600 dark:text-red-400" />
+
+                                                    <x-modals.confirm-delete id="delete-modal-{{ $auction->id }}"
+                                                        title="Delete Auction"
+                                                        content="Are you sure you want to delete this auction?"
+                                                        formId="delete-form-{{ $auction->id }}"
+                                                        formAction="{{ route('admin.auctions.destroy', $auction) }}"
+                                                        modalTrigger="deleteModalOpen"
+                                                        cancelButtonText="No, cancel"
+                                                        confirmButtonText="Yes, Confirm" />
+                                                </div>
+                                            @endif
+                                        </x-buttons.action-buttons>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center py-12">
+                                        <div class="flex flex-col items-center gap-2">
+                                            <iconify-icon icon="lucide:gavel" width="32" class="text-gray-300 dark:text-gray-600"></iconify-icon>
+                                            <p class="text-sm text-gray-400 dark:text-gray-500">No auctions found</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
+
+                {{-- Pagination --}}
+                @if($auctions->hasPages())
+                    <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-4 sm:px-6">
+                        {{ $auctions->links() }}
+                    </div>
+                @endif
             </div>
-        @endif
+
+            @if($auctionLocked)
+                    </div>
+                </div>
+            @endif
+
+        </div>
     </div>
 @endsection
