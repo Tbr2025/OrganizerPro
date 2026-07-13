@@ -774,12 +774,15 @@ Route::prefix('t/{tournament:slug}')->name('public.tournament.')->group(function
 
     // Registration (slug-based routes)
     Route::get('/register/player', [PublicRegistrationController::class, 'playerForm'])->name('registration.player');
-    Route::post('/register/player', [PublicRegistrationController::class, 'storePlayer'])->name('registration.player.store');
+    Route::post('/register/player', [PublicRegistrationController::class, 'storePlayer'])->name('registration.player.store')->middleware('throttle:5,1');
     Route::get('/register/player/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'player')->name('registration.player.success');
     Route::get('/register/team', [PublicRegistrationController::class, 'teamForm'])->name('registration.team');
-    Route::post('/register/team', [PublicRegistrationController::class, 'storeTeam'])->name('registration.team.store');
+    Route::post('/register/team', [PublicRegistrationController::class, 'storeTeam'])->name('registration.team.store')->middleware('throttle:5,1');
     Route::get('/register/team/success', [PublicRegistrationController::class, 'success'])->defaults('type', 'team')->name('registration.team.success');
 });
+
+// Webhooks (CSRF excluded via VerifyCsrfToken middleware)
+Route::post('/webhooks/ses', [\App\Http\Controllers\Webhook\SesWebhookController::class, 'handle'])->name('webhooks.ses');
 
 // Public Match Routes (No Auth Required)
 Route::prefix('m/{match:slug}')->name('public.match.')->group(function () {

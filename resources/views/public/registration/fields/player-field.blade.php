@@ -7,7 +7,7 @@
     $fullWidth = in_array($key, [
         'cricheroes_profile_url', 'employer_address',
         'played_ys_ipl_s1', 'is_wicket_keeper', 'transportation', 'travel_plan',
-        'image', 'terms_and_conditions', 'registration_team',
+        'image', 'terms_and_conditions', 'registration_team', 'preferred_batting_position',
     ], true);
 
     // Employer fields are only shown for a work visa (Alpine-driven).
@@ -60,17 +60,33 @@
         @break
 
     @case('mobile_number')
-        <label for="mobile_number_full" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="tel" name="mobile_number_full" id="mobile_number_full" value="{{ old('mobile_number_full') }}" {{ $required ? 'required' : '' }}
-               class="reg-input" placeholder="971501234567">
-        <p class="reg-hint">Include country code, no + sign</p>
-        @error('mobile_number_full')<p class="reg-err">{{ $message }}</p>@enderror
+        <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <div class="flex gap-2">
+            <select name="mobile_country_code" class="reg-select w-28" style="flex:0 0 7rem;" x-model="dialCode">
+                @foreach(config('countries.dial_codes', []) as $code => $dial)
+                    <option value="{{ $dial }}" {{ old('mobile_country_code', '') === $dial ? 'selected' : '' }}>{{ $dial }} ({{ $code }})</option>
+                @endforeach
+            </select>
+            <input type="tel" name="mobile_national_number" x-ref="mobileNat" class="reg-input flex-1"
+                   placeholder="501234567" value="{{ old('mobile_national_number') }}" {{ $required ? 'required' : '' }}>
+        </div>
+        @error('mobile_country_code')<p class="reg-err">{{ $message }}</p>@enderror
+        @error('mobile_national_number')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('cricheroes_number')
-        <label for="cricheroes_number_full" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="tel" name="cricheroes_number_full" id="cricheroes_number_full" value="{{ old('cricheroes_number_full') }}" class="reg-input" placeholder="971501234567">
-        @error('cricheroes_number_full')<p class="reg-err">{{ $message }}</p>@enderror
+        <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <div class="flex gap-2">
+            <select name="cricheroes_country_code" class="reg-select w-28" style="flex:0 0 7rem;" x-model="cricDialCode">
+                @foreach(config('countries.dial_codes', []) as $code => $dial)
+                    <option value="{{ $dial }}" {{ old('cricheroes_country_code', '') === $dial ? 'selected' : '' }}>{{ $dial }} ({{ $code }})</option>
+                @endforeach
+            </select>
+            <input type="tel" name="cricheroes_national_number" class="reg-input flex-1"
+                   placeholder="501234567" value="{{ old('cricheroes_national_number') }}">
+        </div>
+        @error('cricheroes_country_code')<p class="reg-err">{{ $message }}</p>@enderror
+        @error('cricheroes_national_number')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('cricheroes_profile_url')
@@ -147,13 +163,20 @@
         @if(($actualTeams ?? collect())->count() > 0)
         <div>
             <label for="actual_team_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-            <select name="actual_team_id" id="actual_team_id" class="reg-select" {{ $required ? 'required' : '' }}>
-                <option value="">Select your playing team</option>
+            <select name="actual_team_id" id="actual_team_id" x-model="selectedPlayingTeam" class="reg-select" {{ $required ? 'required' : '' }}>
+                <option value="other">Others</option>
                 @foreach($actualTeams as $team)
                     <option value="{{ $team->id }}" {{ old('actual_team_id') == $team->id ? 'selected' : '' }}>{{ $team->name }}</option>
                 @endforeach
             </select>
             @error('actual_team_id')<p class="reg-err">{{ $message }}</p>@enderror
+        </div>
+        <div x-show="selectedPlayingTeam === 'other'" x-cloak class="mt-3">
+            <label class="reg-label">Team Name <span class="reg-req">*</span></label>
+            <input type="text" name="playing_team_name_ref" class="reg-input" placeholder="Enter team name"
+                   value="{{ old('playing_team_name_ref') }}"
+                   x-bind:required="selectedPlayingTeam === 'other'">
+            @error('playing_team_name_ref')<p class="reg-err">{{ $message }}</p>@enderror
         </div>
         @endif
         @break
@@ -277,13 +300,41 @@
         @if($battingProfiles->count() > 0)
         <label for="batting_profile_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
         <select name="batting_profile_id" id="batting_profile_id" class="reg-select">
-            <option value="">Select batting style</option>
+            <option value="">Select dominant hand</option>
             @foreach($battingProfiles as $profile)
                 <option value="{{ $profile->id }}" {{ old('batting_profile_id') == $profile->id ? 'selected' : '' }}>{{ $profile->name ?? $profile->style }}</option>
             @endforeach
         </select>
         @error('batting_profile_id')<p class="reg-err">{{ $message }}</p>@enderror
         @endif
+        @break
+
+    @case('batting_mode')
+        <label for="batting_mode" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <select name="batting_mode" id="batting_mode" class="reg-select">
+            <option value="">Select batting mode</option>
+            @foreach(['Aggressive Batsman','Defensive Batsman','Finisher','Anchor','Power Hitter'] as $mode)
+                <option value="{{ $mode }}" {{ old('batting_mode') === $mode ? 'selected' : '' }}>{{ $mode }}</option>
+            @endforeach
+        </select>
+        @error('batting_mode')<p class="reg-err">{{ $message }}</p>@enderror
+        @break
+
+    @case('preferred_batting_position')
+        <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <p class="reg-hint mb-2">Select up to 2 positions</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            @foreach(['Opener','3','4','5','6','7','8',"I'm Flexible"] as $pos)
+                <label class="reg-check">
+                    <input type="checkbox" name="preferred_batting_positions[]" value="{{ $pos }}"
+                           x-model="selectedPositions"
+                           :disabled="!selectedPositions.includes('{{ $pos }}') && selectedPositions.length >= 2">
+                    <span class="text-sm">{{ $pos }}</span>
+                </label>
+            @endforeach
+        </div>
+        @error('preferred_batting_positions')<p class="reg-err">{{ $message }}</p>@enderror
+        @error('preferred_batting_positions.*')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('bowling_profile')
@@ -315,20 +366,22 @@
         @break
 
     @case('transportation')
-        <label class="reg-check">
-            <input type="checkbox" name="transportation_required" id="transportation_required" value="1" {{ old('transportation_required') ? 'checked' : '' }}>
-            <span class="text-sm">{!! $label !!}</span>
-        </label>
+        <label for="transportation_mode" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <select name="transportation_mode" id="transportation_mode" class="reg-select">
+            <option value="self" {{ old('transportation_mode', 'self') === 'self' ? 'selected' : '' }}>Self Transportation (Preferred by Franchises)</option>
+            <option value="required" {{ old('transportation_mode') === 'required' ? 'selected' : '' }}>Transportation Required (Subject to Franchise Preferences)</option>
+        </select>
+        @error('transportation_mode')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('travel_plan')
-        <label class="reg-check">
-            <input type="checkbox" name="no_travel_plan" id="no_travel_plan" value="1" x-model="noTravel"
-                   @change="if ($el.checked) { document.getElementById('travel_date_from').value=''; document.getElementById('travel_date_to').value=''; }"
-                   {{ old('no_travel_plan') ? 'checked' : '' }}>
-            <span class="text-sm">{!! $label !!}</span>
-        </label>
-        <div x-show="!noTravel" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-3">
+        <label for="has_travel_plan" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+        <select name="has_travel_plan" id="has_travel_plan" class="reg-select" x-model="hasTravelPlan">
+            <option value="no">No</option>
+            <option value="yes" {{ old('has_travel_plan') === 'yes' ? 'selected' : '' }}>Yes</option>
+        </select>
+        @error('has_travel_plan')<p class="reg-err">{{ $message }}</p>@enderror
+        <div x-show="hasTravelPlan === 'yes'" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-3">
             <div>
                 <label for="travel_date_from" class="reg-label">Travel From Date</label>
                 <input type="date" name="travel_date_from" id="travel_date_from" value="{{ old('travel_date_from') }}" class="reg-input">

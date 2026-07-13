@@ -156,14 +156,19 @@
         {{-- Form --}}
         <form method="POST" action="{{ route('public.tournament.registration.player.store', $tournament->slug) }}"
               enctype="multipart/form-data" x-data="{
-                  noTravel: {{ old('no_travel_plan') ? 'true' : 'false' }},
+                  hasTravelPlan: @js(old('has_travel_plan', 'no')),
                   visaStatus: @js(old('visa_status', '')),
                   selectedTeam: '{{ old('team_id') }}',
+                  selectedPlayingTeam: @js(old('actual_team_id', 'other')),
                   selectedCountry: @js(old('country', ($defaultCountry ?: 'IN'))),
                   stateValue: @js(old('state')),
                   statesByCountry: @js(config('registration.states_by_country')),
+                  dialCodesMap: @js(config('countries.dial_codes')),
+                  dialCode: @js(old('mobile_country_code', config('countries.dial_codes')[$defaultCountry ?: 'IN'] ?? '+91')),
+                  cricDialCode: @js(old('cricheroes_country_code', config('countries.dial_codes')[$defaultCountry ?: 'IN'] ?? '+91')),
+                  selectedPositions: @js(old('preferred_batting_positions', [])),
                   get hasStates() { return Array.isArray(this.statesByCountry[this.selectedCountry]) && this.statesByCountry[this.selectedCountry].length > 0; },
-              }">
+              }" x-effect="if (dialCodesMap[selectedCountry]) { dialCode = dialCodesMap[selectedCountry]; cricDialCode = dialCodesMap[selectedCountry]; }">
             @csrf
 
             @php $allCustomFields = $tournament->customFields->where('visible', true)->where('form', 'player'); @endphp
@@ -182,6 +187,13 @@
                         </div>
                     </div>
 
+                    @if($section['key'] === 'Leather Ball Experience')
+                        <div class="flex items-start gap-2 px-4 py-3 mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm">
+                            <i class="fas fa-exclamation-triangle mt-0.5 shrink-0"></i>
+                            <span>Please provide accurate data. Players found submitting fake or misleading information will be rejected.</span>
+                        </div>
+                    @endif
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         @foreach($section['fields'] as $fieldKey)
                             @include('public.registration.fields.player-field', ['key' => $fieldKey])
@@ -193,6 +205,13 @@
                 </div>
                 @endif
             @endforeach
+
+            {{-- Turnstile CAPTCHA --}}
+            @if(config('turnstile.site_key'))
+            <div class="flex justify-center my-4">
+                <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="dark"></div>
+            </div>
+            @endif
 
             {{-- Submit --}}
             <div class="reveal">
@@ -216,3 +235,9 @@
         </div>
     </div>
 @endsection
+
+@if(config('turnstile.site_key'))
+@push('scripts')
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+@endpush
+@endif

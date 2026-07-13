@@ -93,6 +93,9 @@ class Player extends Model implements MustVerifyEmail
         'verified_total_wickets',
         'welcome_email_sent_at',
         'actual_team_id',
+        'playing_team_name_ref',
+        'batting_mode',
+        'preferred_batting_positions',
     ];
 
     protected $casts = [
@@ -138,6 +141,7 @@ class Player extends Model implements MustVerifyEmail
         'is_wicket_keeper' => 'boolean',
         'transportation_required' => 'boolean',
         'no_travel_plan' => 'boolean',
+        'preferred_batting_positions' => 'array',
     ];
 
     protected $hidden = [

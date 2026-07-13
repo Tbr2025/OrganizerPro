@@ -8,6 +8,7 @@ use App\Mail\PlayerWelcomeMail;
 use App\Mail\RegistrationApprovedMail;
 use App\Mail\TeamManagerCredentialsMail;
 use App\Models\ActualTeam;
+use App\Models\BouncedEmail;
 use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
@@ -22,6 +23,19 @@ use Illuminate\Support\Str;
 
 class RegistrationService
 {
+    /**
+     * Send mail only if the recipient has no permanent bounce on record.
+     */
+    protected function safeMail(string $email, \Illuminate\Mail\Mailable $mailable): void
+    {
+        if (BouncedEmail::isBounced($email)) {
+            Log::warning("Skipped email to bounced address: {$email}", ['mailable' => get_class($mailable)]);
+            return;
+        }
+
+        Mail::to($email)->send($mailable);
+    }
+
     /**
      * Register a player for a tournament
      */
@@ -70,7 +84,11 @@ class RegistrationService
                     'available_sunday' => $data['available_sunday'] ?? false,
                     'available_weekends' => ($data['available_saturday'] ?? false) || ($data['available_sunday'] ?? false),
                     'played_ys_ipl_s1' => $data['played_ys_ipl_s1'] ?? false,
+                    'mobile_country_code' => $data['mobile_country_code'] ?? null,
+                    'mobile_national_number' => $data['mobile_national_number'] ?? null,
                     'mobile_number_full' => $data['mobile_number_full'] ?? null,
+                    'cricheroes_country_code' => $data['cricheroes_country_code'] ?? null,
+                    'cricheroes_national_number' => $data['cricheroes_national_number'] ?? null,
                     'cricheroes_number_full' => $data['cricheroes_number_full'] ?? null,
                     'cricheroes_profile_url' => $data['cricheroes_profile_url'] ?? null,
                     'jersey_name' => $data['jersey_name'] ?? $data['name'],
@@ -85,6 +103,9 @@ class RegistrationService
                     'team_id' => $data['team_id'] ?? null,
                     'team_name_ref' => $data['team_name_ref'] ?? null,
                     'actual_team_id' => $data['actual_team_id'] ?? null,
+                    'playing_team_name_ref' => $data['playing_team_name_ref'] ?? null,
+                    'batting_mode' => $data['batting_mode'] ?? null,
+                    'preferred_batting_positions' => $data['preferred_batting_positions'] ?? null,
                     'is_wicket_keeper' => $data['is_wicket_keeper'] ?? false,
                     'transportation_required' => $data['transportation_required'] ?? false,
                     'no_travel_plan' => $data['no_travel_plan'] ?? false,
@@ -110,7 +131,11 @@ class RegistrationService
                     'employer_name' => $data['employer_name'] ?? null,
                     'employer_address' => $data['employer_address'] ?? null,
                     'employer_position' => $data['employer_position'] ?? null,
+                    'mobile_country_code' => $data['mobile_country_code'] ?? null,
+                    'mobile_national_number' => $data['mobile_national_number'] ?? null,
                     'mobile_number_full' => $data['mobile_number_full'] ?? null,
+                    'cricheroes_country_code' => $data['cricheroes_country_code'] ?? null,
+                    'cricheroes_national_number' => $data['cricheroes_national_number'] ?? null,
                     'cricheroes_number_full' => $data['cricheroes_number_full'] ?? null,
                     'cricheroes_profile_url' => $data['cricheroes_profile_url'] ?? null,
                     'jersey_name' => $data['jersey_name'] ?? null,
@@ -125,6 +150,9 @@ class RegistrationService
                     'team_id' => $data['team_id'] ?? null,
                     'team_name_ref' => $data['team_name_ref'] ?? null,
                     'actual_team_id' => $data['actual_team_id'] ?? null,
+                    'playing_team_name_ref' => $data['playing_team_name_ref'] ?? null,
+                    'batting_mode' => $data['batting_mode'] ?? null,
+                    'preferred_batting_positions' => $data['preferred_batting_positions'] ?? null,
                     'is_wicket_keeper' => $data['is_wicket_keeper'] ?? null,
                     'transportation_required' => $data['transportation_required'] ?? null,
                     'no_travel_plan' => $data['no_travel_plan'] ?? null,
@@ -178,7 +206,7 @@ class RegistrationService
             // Email login credentials only when a new account was just created.
             if ($newUserPassword) {
                 try {
-                    Mail::to($user->email)->send(new \App\Mail\PlayerCredentialsMail($user, $newUserPassword, $tournament));
+                    $this->safeMail($user->email, new \App\Mail\PlayerCredentialsMail($user, $newUserPassword, $tournament));
                 } catch (\Throwable $e) {
                     Log::error('Failed to send player credentials email: ' . $e->getMessage());
                 }
@@ -473,7 +501,7 @@ class RegistrationService
         }
 
         try {
-            Mail::to($email)->send(new \App\Mail\RegistrationStatusMail($tournament, $registration, $status, $name, $remarks));
+            $this->safeMail($email, new \App\Mail\RegistrationStatusMail($tournament, $registration, $status, $name, $remarks));
         } catch (\Throwable $e) {
             Log::error('Failed to send registration status email: ' . $e->getMessage());
         }
@@ -614,7 +642,7 @@ class RegistrationService
     protected function sendTeamManagerCredentials(User $user, ?string $password, Tournament $tournament, ActualTeam $team, string $roleName = 'Team Manager'): void
     {
         try {
-            Mail::to($user->email)->send(new TeamManagerCredentialsMail($user, $password, $tournament, $team, $roleName));
+            $this->safeMail($user->email, new TeamManagerCredentialsMail($user, $password, $tournament, $team, $roleName));
         } catch (\Exception $e) {
             Log::error('Failed to send team manager credentials: ' . $e->getMessage());
         }
@@ -636,7 +664,7 @@ class RegistrationService
 
         if ($email) {
             try {
-                Mail::to($email)->send(new RegistrationApprovedMail($tournament, $registration));
+                $this->safeMail($email, new RegistrationApprovedMail($tournament, $registration));
             } catch (\Exception $e) {
                 Log::error('Failed to send approval email: ' . $e->getMessage());
             }
@@ -653,7 +681,7 @@ class RegistrationService
         }
 
         try {
-            Mail::to($email)->send(new ApplicationUnderReviewMail($tournament, $registration, $name));
+            $this->safeMail($email, new ApplicationUnderReviewMail($tournament, $registration, $name));
         } catch (\Throwable $e) {
             Log::error('Failed to send under-review email: ' . $e->getMessage());
         }

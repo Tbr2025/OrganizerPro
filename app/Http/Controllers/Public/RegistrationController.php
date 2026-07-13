@@ -12,10 +12,13 @@ use App\Models\KitSize;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
 use App\Models\Team;
+use App\Models\Player;
 use App\Models\Tournament;
+use App\Models\TournamentRegistration;
 use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -59,9 +62,9 @@ class RegistrationController extends Controller
             'tournament' => $tournament,
             'settings' => $settings,
             'fieldConfig' => $fieldConfig,
-            'battingProfiles' => BattingProfile::all(),
+            'battingProfiles' => BattingProfile::whereIn('style', ['Right-hand Bat', 'Left-hand Bat', 'Ambidextrous'])->get(),
             'bowlingProfiles' => BowlingProfile::all(),
-            'playerTypes' => PlayerType::all(),
+            'playerTypes' => PlayerType::whereIn('type', ['Batsman', 'Bowler', 'All-Rounder'])->get(),
             'kitSizes' => KitSize::all(),
             'locations' => PlayerLocation::where(function($query) use ($tournament) {
                 $query->whereNull('organization_id')
@@ -84,11 +87,62 @@ class RegistrationController extends Controller
             return redirect()->back()->with('error', __('Player registration is closed.'));
         }
 
+        // Verify Turnstile CAPTCHA (skip if keys not configured).
+        if (config('turnstile.secret_key')) {
+            $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => config('turnstile.secret_key'),
+                'response' => $request->input('cf-turnstile-response', ''),
+                'remoteip' => $request->ip(),
+            ]);
+
+            if (!$turnstileResponse->json('success')) {
+                return redirect()->back()->withInput()->with('error', __('CAPTCHA verification failed. Please try again.'));
+            }
+        }
+
+        // Prevent duplicate registrations: one email per tournament (unless rejected).
+        $existingPlayer = Player::where('email', $request->input('email'))->first();
+        if ($existingPlayer) {
+            $activeRegistration = TournamentRegistration::where('tournament_id', $tournament->id)
+                ->where('player_id', $existingPlayer->id)
+                ->where('type', 'player')
+                ->whereIn('status', ['pending', 'approved', 'queued'])
+                ->first();
+
+            if ($activeRegistration) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', __('You have already registered for this tournament. Your registration is currently :status.', [
+                        'status' => $activeRegistration->status,
+                    ]));
+            }
+        }
+
         // Compose the internal full name from first + last so the locked `name` rule passes.
         $request->merge(['name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', ''))]);
 
-        // "No travel plans" → clear any travel dates so the cross-field rule never fires.
-        if ($request->boolean('no_travel_plan')) {
+        // Merge country-code + national number into the full number fields.
+        $mobileCode = str_replace('+', '', $request->input('mobile_country_code', ''));
+        $mobileNat  = $request->input('mobile_national_number', '');
+        $request->merge(['mobile_number_full' => $mobileCode . $mobileNat]);
+
+        $cricCode = str_replace('+', '', $request->input('cricheroes_country_code', ''));
+        $cricNat  = $request->input('cricheroes_national_number', '');
+        if ($cricCode || $cricNat) {
+            $request->merge(['cricheroes_number_full' => $cricCode . $cricNat]);
+        }
+
+        // Map transportation dropdown to the existing boolean column.
+        $request->merge([
+            'transportation_required' => $request->input('transportation_mode') === 'required',
+        ]);
+
+        // Map travel plan dropdown → existing columns.
+        $hasTravelPlan = $request->input('has_travel_plan') === 'yes';
+        $request->merge([
+            'no_travel_plan' => !$hasTravelPlan,
+        ]);
+        if (!$hasTravelPlan) {
             $request->merge(['travel_date_from' => null, 'travel_date_to' => null]);
         }
 
@@ -96,6 +150,11 @@ class RegistrationController extends Controller
         // free-text only so the exists:teams rule doesn't reject it.
         if ($request->input('team_id') === 'other') {
             $request->merge(['team_id' => null]);
+        }
+
+        // "Other" playing team — store free-text name, clear actual_team_id.
+        if ($request->input('actual_team_id') === 'other') {
+            $request->merge(['actual_team_id' => null]);
         }
 
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
@@ -220,6 +279,19 @@ class RegistrationController extends Controller
         // Check if registration is open
         if (!$this->registrationService->isTeamRegistrationOpen($tournament)) {
             return redirect()->back()->with('error', __('Team registration is closed.'));
+        }
+
+        // Verify Turnstile CAPTCHA (skip if keys not configured).
+        if (config('turnstile.secret_key')) {
+            $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret' => config('turnstile.secret_key'),
+                'response' => $request->input('cf-turnstile-response', ''),
+                'remoteip' => $request->ip(),
+            ]);
+
+            if (!$turnstileResponse->json('success')) {
+                return redirect()->back()->withInput()->with('error', __('CAPTCHA verification failed. Please try again.'));
+            }
         }
 
         $teamFieldConfig = TeamFormConfig::getFieldConfig($tournament->settings);

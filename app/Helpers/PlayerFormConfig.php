@@ -35,6 +35,8 @@ class PlayerFormConfig
             'tshirt_size'            => ['visible' => true, 'required' => false],
             'pant_size'              => ['visible' => true, 'required' => false],
             'batting_profile'        => ['visible' => true, 'required' => false],
+            'batting_mode'           => ['visible' => true, 'required' => false],
+            'preferred_batting_position' => ['visible' => true, 'required' => false],
             'bowling_profile'        => ['visible' => true, 'required' => false],
             'player_type'            => ['visible' => true, 'required' => false],
             'is_wicket_keeper'       => ['visible' => true, 'required' => false],
@@ -226,7 +228,9 @@ class PlayerFormConfig
             'jersey_number'          => 'Jersey Number',
             'tshirt_size'            => 'T-Shirt Size',
             'pant_size'              => 'Pant Size',
-            'batting_profile'        => 'Batting Profile',
+            'batting_profile'        => 'Batting Dominant Hand',
+            'batting_mode'           => 'Batting Mode',
+            'preferred_batting_position' => 'Preferred Batting Position',
             'bowling_profile'        => 'Bowling Profile',
             'player_type'            => 'Player Type',
             'is_wicket_keeper'       => 'I am a wicket keeper',
@@ -234,8 +238,8 @@ class PlayerFormConfig
             'total_runs'             => 'Total Runs',
             'total_wickets'          => 'Total Wickets',
             'image'                  => 'Player Photo',
-            'transportation'         => 'I need transportation to the venue',
-            'travel_plan'            => 'I have no travel plans (available throughout)',
+            'transportation'         => 'Transportation to the Venue',
+            'travel_plan'            => 'Do you have any travel plans?',
             'terms_and_conditions'   => 'I agree to the Terms & Conditions',
         ];
     }
@@ -277,7 +281,7 @@ class PlayerFormConfig
             'Visa & Employment' => ['visa_status', 'visa_expiry', 'employer_name', 'employer_address', 'employer_position'],
             'Availability' => ['available_saturday', 'available_sunday', 'played_ys_ipl_s1'],
             'Jersey Information' => ['jersey_name', 'jersey_number', 'tshirt_size', 'pant_size'],
-            'Player Profile' => ['player_type', 'batting_profile', 'bowling_profile', 'is_wicket_keeper'],
+            'Player Profile' => ['player_type', 'batting_profile', 'batting_mode', 'preferred_batting_position', 'bowling_profile', 'is_wicket_keeper'],
             'Leather Ball Experience' => ['total_matches', 'total_runs', 'total_wickets'],
             'Travel & Transportation' => ['transportation', 'travel_plan'],
             'Player Photo' => ['image'],
@@ -370,24 +374,17 @@ class PlayerFormConfig
             $rules['played_ys_ipl_s1'] = 'nullable|boolean';
         }
 
-        // Mobile Number
+        // Mobile Number (public form uses country-code dropdown + national number)
         if ($fieldConfig['mobile_number']['visible'] ?? true) {
-            if ($context === 'public') {
-                $rules['mobile_number_full'] = ($fieldConfig['mobile_number']['required'] ?? true) ? 'required|string|max:20' : 'nullable|string|max:20';
-            } else {
-                $rules['mobile_country_code'] = ($fieldConfig['mobile_number']['required'] ?? true) ? 'required|string|max:10' : 'nullable|string|max:10';
-                $rules['mobile_national_number'] = ($fieldConfig['mobile_number']['required'] ?? true) ? 'required|string|max:20' : 'nullable|string|max:20';
-            }
+            $mobileReq = $fieldConfig['mobile_number']['required'] ?? true;
+            $rules['mobile_country_code'] = $mobileReq ? 'required|string|max:10' : 'nullable|string|max:10';
+            $rules['mobile_national_number'] = $mobileReq ? 'required|string|max:20' : 'nullable|string|max:20';
         }
 
-        // CricHeroes Number
+        // CricHeroes Number (same split pattern)
         if ($fieldConfig['cricheroes_number']['visible'] ?? true) {
-            if ($context === 'public') {
-                $rules['cricheroes_number_full'] = 'nullable|string|max:20';
-            } else {
-                $rules['cricheroes_country_code'] = 'nullable|string|max:10';
-                $rules['cricheroes_national_number'] = 'nullable|string|max:20';
-            }
+            $rules['cricheroes_country_code'] = 'nullable|string|max:10';
+            $rules['cricheroes_national_number'] = 'nullable|string|max:20';
         }
 
         // CricHeroes Profile URL
@@ -408,9 +405,10 @@ class PlayerFormConfig
             $rules['team_name_ref'] = 'nullable|string|max:100';
         }
 
-        // Playing Team (actual team the player will play for)
+        // Playing Team (actual team the player will play for — supports "other")
         if ($fieldConfig['playing_team']['visible'] ?? true) {
-            $rules['actual_team_id'] = ($fieldConfig['playing_team']['required'] ?? false) ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id';
+            $rules['actual_team_id'] = 'nullable';
+            $rules['playing_team_name_ref'] = 'nullable|string|max:100';
         }
 
         // Jersey Name
@@ -435,6 +433,17 @@ class PlayerFormConfig
         // Batting Profile
         if ($fieldConfig['batting_profile']['visible'] ?? true) {
             $rules['batting_profile_id'] = ($fieldConfig['batting_profile']['required'] ?? false) ? 'required|exists:batting_profiles,id' : 'nullable|exists:batting_profiles,id';
+        }
+
+        // Batting Mode
+        if ($fieldConfig['batting_mode']['visible'] ?? true) {
+            $rules['batting_mode'] = 'nullable|in:Aggressive Batsman,Defensive Batsman,Finisher,Anchor,Power Hitter';
+        }
+
+        // Preferred Batting Position (multi-select, max 2)
+        if ($fieldConfig['preferred_batting_position']['visible'] ?? true) {
+            $rules['preferred_batting_positions'] = 'nullable|array|max:2';
+            $rules['preferred_batting_positions.*'] = "in:Opener,3,4,5,6,7,8,I'm Flexible";
         }
 
         // Bowling Profile
@@ -470,12 +479,12 @@ class PlayerFormConfig
 
         // Transportation
         if ($fieldConfig['transportation']['visible'] ?? true) {
-            $rules['transportation_required'] = 'boolean';
+            $rules['transportation_mode'] = 'nullable|in:self,required';
         }
 
         // Travel Plan
         if ($fieldConfig['travel_plan']['visible'] ?? true) {
-            $rules['no_travel_plan'] = 'boolean';
+            $rules['has_travel_plan'] = 'nullable|in:no,yes';
             $rules['travel_date_from'] = 'nullable|date';
             $rules['travel_date_to'] = 'nullable|date|after_or_equal:travel_date_from';
         }

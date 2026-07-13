@@ -294,7 +294,7 @@
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
                                                             </svg>
-                                                            {{ $registration->player->mobile_number_full }}
+                                                            +{{ $registration->player->mobile_number_full }}
                                                         </div>
                                                     @endif
                                                     @if(!$registration->player?->email && !$registration->player?->mobile_number_full)
@@ -358,70 +358,77 @@
                                                     View
                                                 </a>
 
-                                                @if($registration->status == 'pending')
-                                                    <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST" class="inline">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700">
-                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                                            </svg>
-                                                            Approve
-                                                        </button>
-                                                    </form>
-                                                    <form action="{{ route('admin.tournaments.registrations.reject', [$tournament, $registration]) }}" method="POST" class="inline">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700">
-                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                            </svg>
-                                                            Reject
-                                                        </button>
-                                                    </form>
-                                                    <form action="{{ route('admin.tournaments.registrations.queue', [$tournament, $registration]) }}" method="POST" class="inline"
-                                                          onsubmit="return confirm('Place this registration in the queue (waitlist) and email the applicant?')">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-sky-600 rounded hover:bg-sky-700">
-                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                            </svg>
-                                                            In Queue
-                                                        </button>
-                                                    </form>
-                                                    <form action="{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}" method="POST" class="inline">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-gray-500 rounded hover:bg-gray-600">
-                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
-                                                            </svg>
-                                                            Cancel
-                                                        </button>
-                                                    </form>
-                                                @endif
-
-                                                @if($registration->status == 'approved')
-                                                    <form action="{{ route('admin.tournaments.registrations.send-temp-password', [$tournament, $registration]) }}" method="POST" class="inline"
-                                                          onsubmit="return confirm('{{ $registration->type == 'team' ? 'Email a fresh temporary password to the team owner, manager and each player?' : 'Email a fresh temporary password to this applicant?' }}')">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700" title="Send temp password">
-                                                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                                                            </svg>
-                                                            Temp password
-                                                        </button>
-                                                    </form>
-                                                @endif
-
-                                                <form action="{{ route('admin.tournaments.registrations.force-delete', [$tournament, $registration]) }}" method="POST" class="inline"
-                                                      onsubmit="return confirm('{{ $registration->type == 'team' && $registration->status == 'approved' ? 'WARNING: This will also delete the team created from this registration. Are you sure?' : 'Are you sure you want to delete this registration?' }}')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-red-800 rounded hover:bg-red-900">
-                                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                {{-- 3-dot dropdown --}}
+                                                <div class="relative" x-data="{ open: false }">
+                                                    <button @click="open = !open" @click.outside="open = false"
+                                                            class="inline-flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                                                         </svg>
-                                                        Delete
                                                     </button>
-                                                </form>
+
+                                                    <div x-show="open" x-cloak x-transition
+                                                         class="absolute right-0 z-50 mt-1 w-48 rounded-lg shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 py-1">
+
+                                                        @if($registration->status == 'pending')
+                                                            <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to approve this registration?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                                    Approve
+                                                                </button>
+                                                            </form>
+                                                            <form action="{{ route('admin.tournaments.registrations.reject', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to reject this registration?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                    Reject
+                                                                </button>
+                                                            </form>
+                                                            <form action="{{ route('admin.tournaments.registrations.queue', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to place this registration in the queue?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-sky-600 dark:text-sky-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                                    In Queue
+                                                                </button>
+                                                            </form>
+                                                            <form action="{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to cancel this registration?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                                    Cancel
+                                                                </button>
+                                                            </form>
+                                                        @endif
+
+                                                        @if($registration->status == 'approved')
+                                                            <form action="{{ route('admin.tournaments.registrations.send-temp-password', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to send a temporary password to this applicant?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                                                                    Send Temp Password
+                                                                </button>
+                                                            </form>
+                                                        @endif
+
+                                                        <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+
+                                                        <form action="{{ route('admin.tournaments.registrations.force-delete', [$tournament, $registration]) }}" method="POST"
+                                                              onsubmit="return confirm('Are you sure you want to permanently delete this registration?')">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                                Delete
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
