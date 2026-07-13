@@ -71,6 +71,14 @@ class TournamentSettingsController extends Controller
             $tournament->organizers()->sync(array_filter((array) $request->input('organizers', [])));
         }
 
+        // Handle tournament slug update (stored on Tournament, not settings)
+        if ($request->filled('tournament_slug') && $request->input('tournament_slug') !== $tournament->slug) {
+            $request->validate([
+                'tournament_slug' => 'required|string|max:255|alpha_dash|unique:tournaments,slug,' . $tournament->id,
+            ]);
+            $tournament->update(['slug' => $request->input('tournament_slug')]);
+        }
+
         $validated = $request->validate([
             // Branding
             'logo' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',

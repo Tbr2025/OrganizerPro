@@ -413,6 +413,19 @@
                         </div>
                     </div>
 
+                    {{-- Tournament Slug --}}
+                    <div class="mb-6">
+                        <label for="tournament_slug" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament URL Slug</label>
+                        <input type="text" name="tournament_slug" id="tournament_slug"
+                            value="{{ old('tournament_slug', $tournament->slug) }}"
+                            placeholder="your-tournament-slug"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <p class="text-xs text-gray-500 mt-1">URL: {{ url('/t') }}/<span id="slug-preview" class="font-medium">{{ $tournament->slug }}</span></p>
+                        @error('tournament_slug')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     {{-- Public Registration Links --}}
                     @php
                         $playerRegUrl = route('public.tournament.registration.player', $tournament->slug);
@@ -1099,6 +1112,15 @@
 </script>
 @endcannot
 <script>
+// Slug preview
+const slugInput = document.getElementById('tournament_slug');
+const slugPreview = document.getElementById('slug-preview');
+if (slugInput && slugPreview) {
+    slugInput.addEventListener('input', function() {
+        slugPreview.textContent = this.value || '{{ $tournament->slug }}';
+    });
+}
+
 function copyLink(inputId) {
     const input = document.getElementById(inputId);
     input.select();
