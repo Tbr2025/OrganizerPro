@@ -589,7 +589,8 @@ class TournamentRegistrationController extends Controller
         ];
 
         $renderService = app(\App\Services\Poster\TemplateRenderService::class);
-        $filename = \App\Services\Poster\TemplateRenderService::posterFilename('welcome-' . Str::slug($player->name));
+        $appPrefix = config('settings.app_name') ?: config('app.name');
+        $filename = \App\Services\Poster\TemplateRenderService::posterFilename($appPrefix . '-welcome-' . Str::slug($player->name));
         $posterPath = $renderService->renderAndSave($template, $data, $filename);
 
         $fullPath = storage_path('app/public/' . $posterPath);

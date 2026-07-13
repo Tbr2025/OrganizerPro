@@ -473,7 +473,8 @@ class TournamentTemplateController extends Controller
             // Save poster to storage and database
             $savedPoster = null;
             try {
-                $filename = 'poster-' . $template->type . '-' . now()->format('YmdHis') . '-' . uniqid() . '.png';
+                $appPrefix = config('settings.app_name') ?: config('app.name');
+                $filename = $appPrefix . '-' . $template->type . '-' . now()->format('YmdHis') . '-' . uniqid() . '.png';
                 $savePath = 'generated_posters/' . $tournament->id . '/' . $filename;
                 $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64Image));
                 Storage::disk('public')->put($savePath, $imageData);

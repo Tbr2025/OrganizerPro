@@ -1557,7 +1557,7 @@ function generatePoster() {
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `match-poster-${matchId}.png`;
+        a.download = `{{ config('settings.app_name') ?: config('app.name') }}-match-poster-${matchId}.png`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(downloadUrl);

@@ -951,7 +951,7 @@
                                     .then(blob => {
                                         const url = URL.createObjectURL(blob);
                                         const a = document.createElement('a');
-                                        a.href = url; a.download = 'award-poster-{{ $match->id }}.png';
+                                        a.href = url; a.download = '{{ config('settings.app_name') ?: config('app.name') }}-award-poster-{{ $match->id }}.png';
                                         document.body.appendChild(a); a.click(); document.body.removeChild(a);
                                         URL.revokeObjectURL(url);
                                         showToast('Award poster downloaded!', 'success');
@@ -1040,7 +1040,7 @@ async function downloadPoster() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `match-summary-{{ $match->id }}.png`;
+        a.download = `{{ config('settings.app_name') ?: config('app.name') }}-match-summary-{{ $match->id }}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1402,7 +1402,7 @@ function downloadAwardPoster() {
 
     const link = document.createElement('a');
     link.href = apGeneratedImageBase64;
-    link.download = `award-poster-{{ $match->id }}.png`;
+    link.download = `{{ config('settings.app_name') ?: config('app.name') }}-award-poster-{{ $match->id }}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -798,9 +798,10 @@ class MatchesController extends Controller
     public function downloadAllPosters(Matches $match)
     {
         $posters = [];
+        $appPrefix = config('settings.app_name') ?: config('app.name');
         $teamAName = \Str::slug($match->teamA?->short_name ?? $match->teamA?->name ?? 'team-a');
         $teamBName = \Str::slug($match->teamB?->short_name ?? $match->teamB?->name ?? 'team-b');
-        $matchName = $teamAName . '-vs-' . $teamBName;
+        $matchName = $appPrefix . '-' . $teamAName . '-vs-' . $teamBName;
 
         $tournament = $match->tournament;
         $renderService = new \App\Services\Poster\TemplateRenderService();
@@ -975,9 +976,10 @@ class MatchesController extends Controller
         $renderService = new \App\Services\Poster\TemplateRenderService();
         $matchData = $this->prepareMatchDataForTemplate($match, $innings);
 
+        $appPrefix = config('settings.app_name') ?: config('app.name');
         $teamAName = \Str::slug($match->teamA?->short_name ?? $match->teamA?->name ?? 'team-a');
         $teamBName = \Str::slug($match->teamB?->short_name ?? $match->teamB?->name ?? 'team-b');
-        $matchName = $teamAName . '-vs-' . $teamBName;
+        $matchName = $appPrefix . '-' . $teamAName . '-vs-' . $teamBName;
 
         // Handle built-in enhanced poster
         if ($templateId === 'enhanced') {

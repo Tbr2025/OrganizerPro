@@ -460,9 +460,10 @@ class MatchSummaryController extends Controller
 
             // If sent via AJAX, return file download
             if ($request->expectsJson() || $request->input('download')) {
+                $appPrefix = config('settings.app_name') ?: config('app.name');
                 return response()->download(
                     storage_path('app/public/' . $posterPath),
-                    "match-summary-{$match->id}.png"
+                    "{$appPrefix}-match-summary-{$match->id}.png"
                 );
             }
 
@@ -519,7 +520,8 @@ class MatchSummaryController extends Controller
             abort(404, 'Poster file not found.');
         }
 
-        $filename = "match-summary-{$match->id}.png";
+        $appPrefix = config('settings.app_name') ?: config('app.name');
+        $filename = "{$appPrefix}-match-summary-{$match->id}.png";
 
         return response()->download($path, $filename);
     }
@@ -627,9 +629,10 @@ class MatchSummaryController extends Controller
             $renderService = app(TemplateRenderService::class);
             $path = $renderService->renderAndSave($template, $matchData, TemplateRenderService::posterFilename('match-poster-' . $match->id));
 
+            $appPrefix = config('settings.app_name') ?: config('app.name');
             return response()->download(
                 storage_path('app/public/' . $path),
-                "match-poster-{$match->id}.png"
+                "{$appPrefix}-match-poster-{$match->id}.png"
             );
         } catch (\Throwable $e) {
             return response()->json(['error' => 'Failed to generate poster: ' . $e->getMessage()], 500);
@@ -667,9 +670,10 @@ class MatchSummaryController extends Controller
             $renderService = app(TemplateRenderService::class);
             $path = $renderService->renderAndSave($template, $matchData, TemplateRenderService::posterFilename('award-poster-' . $match->id));
 
+            $appPrefix = config('settings.app_name') ?: config('app.name');
             return response()->download(
                 storage_path('app/public/' . $path),
-                "award-poster-{$match->id}.png"
+                "{$appPrefix}-award-poster-{$match->id}.png"
             );
         } catch (\Throwable $e) {
             return response()->json(['error' => 'Failed to generate poster: ' . $e->getMessage()], 500);

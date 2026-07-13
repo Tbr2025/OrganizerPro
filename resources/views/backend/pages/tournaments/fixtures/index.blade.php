@@ -775,7 +775,7 @@ function downloadFxPoster() {
     if (!fxGeneratedUrl) return;
     const a = document.createElement('a');
     a.href = fxGeneratedUrl;
-    a.download = `fixtures-poster-${Date.now()}.png`;
+    a.download = `{{ config('settings.app_name') ?: config('app.name') }}-fixtures-poster-${Date.now()}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
