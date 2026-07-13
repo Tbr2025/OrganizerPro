@@ -85,11 +85,24 @@
                 {{-- Name --}}
                 <div>
                     <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-                    <input type="text" name="name" id="name" 
+                    <input type="text" name="name" id="name"
                         value="{{ old('name', $tournament->name) }}" required
                         placeholder="Enter tournament name"
                         class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     @error('name')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Slug --}}
+                <div>
+                    <label for="slug" class="block text-sm font-medium text-gray-700 dark:text-gray-300">URL Slug</label>
+                    <input type="text" name="slug" id="slug"
+                        value="{{ old('slug', $tournament->slug) }}"
+                        placeholder="tournament-url-slug"
+                        class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <p class="text-xs text-gray-500 mt-1">URL: {{ url('/t') }}/<span id="slug-preview" class="font-medium">{{ $tournament->slug }}</span></p>
+                    @error('slug')
                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                     @enderror
                 </div>
@@ -175,6 +188,15 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            // Slug preview
+            const slugInput = document.getElementById('slug');
+            const slugPreview = document.getElementById('slug-preview');
+            if (slugInput && slugPreview) {
+                slugInput.addEventListener('input', function() {
+                    slugPreview.textContent = this.value || '{{ $tournament->slug }}';
+                });
+            }
+
             const today = new Date().toISOString().split("T")[0];
 
             const startDate = "{{ old('start_date', $tournament->start_date->format('Y-m-d')) }}";

@@ -95,8 +95,22 @@
                     <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
                     <input type="text" name="name" id="name" value="{{ old('name') }}" required
                         placeholder="Enter tournament name"
+                        oninput="if(!document.getElementById('slug').dataset.manual) document.getElementById('slug').value = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')"
                         class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     @error('name')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Slug --}}
+                <div>
+                    <label for="slug" class="block text-sm font-medium text-gray-700 dark:text-gray-300">URL Slug</label>
+                    <input type="text" name="slug" id="slug" value="{{ old('slug') }}"
+                        placeholder="auto-generated-from-name"
+                        oninput="this.dataset.manual = this.value ? '1' : ''"
+                        class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <p class="text-xs text-gray-500 mt-1">URL: {{ url('/t') }}/<span id="slug-preview" class="font-medium">your-tournament-slug</span></p>
+                    @error('slug')
                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                     @enderror
                 </div>
@@ -178,6 +192,19 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            // Slug preview
+            const slugInput = document.getElementById('slug');
+            const slugPreview = document.getElementById('slug-preview');
+            slugInput.addEventListener('input', function() {
+                slugPreview.textContent = this.value || 'your-tournament-slug';
+            });
+            // Also update preview when name auto-fills slug
+            const nameInput = document.getElementById('name');
+            const origNameHandler = nameInput.oninput;
+            nameInput.addEventListener('input', function() {
+                setTimeout(() => { slugPreview.textContent = slugInput.value || 'your-tournament-slug'; }, 0);
+            });
+
             const today = new Date().toISOString().split("T")[0];
 
             flatpickr("#start_date", {

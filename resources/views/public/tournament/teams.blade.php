@@ -133,6 +133,7 @@
                         @php
                             $teamEntry = $tournament->pointTableEntries->where('actual_team_id', $team->id)->first();
                             $position = $teamEntry?->position;
+                            $squadPlayers = $team->players->filter(fn($tp) => $tp->player !== null);
                         @endphp
                         <div class="team-card tilt-card rounded-2xl overflow-hidden">
                             {{-- Team Header --}}
@@ -175,7 +176,7 @@
                             <div class="px-4 pb-4">
                                 <div class="grid grid-cols-4 gap-2">
                                     <div class="stat-item text-center">
-                                        <p class="text-xl font-bold text-blue-400 count-up" data-count="{{ $team->players->count() }}">0</p>
+                                        <p class="text-xl font-bold text-blue-400 count-up" data-count="{{ $squadPlayers->count() }}">0</p>
                                         <p class="text-xs text-gray-500">Players</p>
                                     </div>
                                     <div class="stat-item text-center">
@@ -216,13 +217,13 @@
                                     <span class="font-semibold flex items-center gap-2">
                                         <i class="fas fa-shirt text-accent"></i>
                                         View Squad
-                                        <span class="text-gray-500 text-sm font-normal">({{ $team->players->count() }})</span>
+                                        <span class="text-gray-500 text-sm font-normal">({{ $squadPlayers->count() }})</span>
                                     </span>
                                     <i class="fas transition-transform duration-300" :class="expanded ? 'fa-chevron-up rotate-0' : 'fa-chevron-down'"></i>
                                 </button>
                                 <div x-show="expanded" x-collapse x-cloak>
                                     <div class="px-4 pb-4 space-y-1">
-                                        @forelse($team->players as $teamPlayer)
+                                        @forelse($squadPlayers as $teamPlayer)
                                             <div class="player-row flex items-center justify-between py-3 px-3 rounded-lg">
                                                 <div class="flex items-center gap-3">
                                                     {{-- Player Avatar --}}

@@ -53,7 +53,14 @@ class Tournament extends Model
 
         static::creating(function ($tournament) {
             if (empty($tournament->slug)) {
-                $tournament->slug = Str::slug($tournament->name) . '-' . Str::random(6);
+                $base = Str::slug($tournament->name);
+                $slug = $base;
+                $counter = 2;
+                while (static::where('slug', $slug)->exists()) {
+                    $slug = $base . '-' . $counter;
+                    $counter++;
+                }
+                $tournament->slug = $slug;
             }
         });
     }
