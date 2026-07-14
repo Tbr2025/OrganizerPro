@@ -164,11 +164,11 @@
                   stateValue: @js(old('state')),
                   statesByCountry: @js(config('registration.states_by_country')),
                   dialCodesMap: @js(config('countries.dial_codes')),
-                  dialCode: @js(old('mobile_country_code', config('countries.dial_codes')[$defaultCountry ?: 'IN'] ?? '+91')),
-                  cricDialCode: @js(old('cricheroes_country_code', config('countries.dial_codes')[$defaultCountry ?: 'IN'] ?? '+91')),
+                  dialCode: @js(old('mobile_country_code', config('countries.dial_codes')[$defaultPhoneCountry ?? $defaultCountry ?? 'IN'] ?? '+91')),
+                  cricDialCode: @js(old('cricheroes_country_code', config('countries.dial_codes')[$defaultPhoneCountry ?? $defaultCountry ?? 'IN'] ?? '+91')),
                   selectedPositions: @js(old('preferred_batting_positions', [])),
                   get hasStates() { return Array.isArray(this.statesByCountry[this.selectedCountry]) && this.statesByCountry[this.selectedCountry].length > 0; },
-              }" x-effect="if (dialCodesMap[selectedCountry]) { dialCode = dialCodesMap[selectedCountry]; cricDialCode = dialCodesMap[selectedCountry]; }">
+              }">
             @csrf
 
             @php $allCustomFields = $tournament->customFields->where('visible', true)->where('form', 'player'); @endphp

@@ -510,6 +510,19 @@
                         </div>
 
                         <div>
+                            <label for="default_phone_country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Default Phone Country</label>
+                            <select name="default_phone_country" id="default_phone_country"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                <option value="">Same as nationality</option>
+                                @foreach (config('countries.list', []) as $code => $name)
+                                    @php $dial = config('countries.dial_codes.' . $code, ''); @endphp
+                                    <option value="{{ $code }}" {{ old('default_phone_country', $settings->default_phone_country) === $code ? 'selected' : '' }}>{{ $name }} {{ $dial ? "($dial)" : '' }}</option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Default dial code for phone fields. Use when players live in a different country than their nationality.</p>
+                        </div>
+
+                        <div>
                             <label for="min_age" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum Age</label>
                             <input type="number" name="min_age" id="min_age" min="1" max="100"
                                 value="{{ old('min_age', $settings->min_age) }}" placeholder="e.g. 12"

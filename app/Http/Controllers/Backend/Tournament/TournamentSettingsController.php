@@ -105,6 +105,7 @@ class TournamentSettingsController extends Controller
             'max_players_per_team' => 'integer|min:1|max:50',
             'min_players_per_team' => 'integer|min:1|max:50',
             'default_country' => 'nullable|string|max:2',
+            'default_phone_country' => 'nullable|string|max:2',
             'min_age' => 'nullable|integer|min:1|max:100',
             'max_age' => 'nullable|integer|min:1|max:100',
 

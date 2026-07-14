@@ -74,6 +74,7 @@ class RegistrationController extends Controller
             'actualTeams' => $actualTeams,
             // Per-tournament default nationality, falling back to the global setting.
             'defaultCountry' => ($settings?->default_country) ?: config('settings.default_country', 'IN'),
+            'defaultPhoneCountry' => ($settings?->default_phone_country) ?: ($settings?->default_country) ?: config('settings.default_country', 'IN'),
         ]);
     }
 
