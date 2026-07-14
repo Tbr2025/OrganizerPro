@@ -204,6 +204,15 @@
                                                             label="Edit" />
                                                     @endif
                                                 @endcan
+                                                @php
+                                                    $teamManagerUser = $team->users->firstWhere('pivot.role', 'Team Manager');
+                                                @endphp
+                                                @if ($teamManagerUser)
+                                                    <x-buttons.action-item
+                                                        :href="route('admin.users.login-as', $teamManagerUser->id)"
+                                                        icon="lucide:log-in"
+                                                        label="Login as Team" />
+                                                @endif
                                                 @can('actual-team.delete')
                                                     <form method="POST" action="{{ route('admin.auctions.clear', $team) }}"
                                                         onsubmit="return confirm('Are you sure you want to clear all auction data for this team? This cannot be undone.')">

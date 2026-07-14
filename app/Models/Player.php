@@ -96,6 +96,8 @@ class Player extends Model implements MustVerifyEmail
         'playing_team_name_ref',
         'batting_mode',
         'preferred_batting_positions',
+        'player_mode',
+        'retained_value',
     ];
 
     protected $casts = [

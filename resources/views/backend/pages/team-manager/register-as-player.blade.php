@@ -101,23 +101,28 @@
 
                                         @switch($key)
                                             @case('first_name')
+                                                @php $prefillFirst = explode(' ', $user->name, 2)[0] ?? ''; @endphp
                                                 <label for="first_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{!! $label !!} {!! $reqMark !!}</label>
-                                                <input type="text" name="first_name" id="first_name" value="{{ old('first_name', $user->name ? explode(' ', $user->name)[0] : '') }}"
-                                                    {{ $required ? 'required' : '' }} class="form-control @error('first_name') border-red-500 @enderror">
+                                                <input type="text" id="first_name" value="{{ $prefillFirst }}"
+                                                    disabled class="form-control bg-gray-100 dark:bg-gray-700 cursor-not-allowed">
+                                                <input type="hidden" name="first_name" value="{{ $prefillFirst }}">
                                                 @error('first_name')<p class="text-sm text-red-500">{{ $message }}</p>@enderror
                                                 @break
 
                                             @case('last_name')
+                                                @php $prefillLast = implode(' ', array_slice(explode(' ', $user->name), 1)) ?: ''; @endphp
                                                 <label for="last_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{!! $label !!} {!! $reqMark !!}</label>
-                                                <input type="text" name="last_name" id="last_name" value="{{ old('last_name', $user->name ? implode(' ', array_slice(explode(' ', $user->name), 1)) : '') }}"
-                                                    {{ $required ? 'required' : '' }} class="form-control @error('last_name') border-red-500 @enderror">
+                                                <input type="text" id="last_name" value="{{ $prefillLast }}"
+                                                    disabled class="form-control bg-gray-100 dark:bg-gray-700 cursor-not-allowed">
+                                                <input type="hidden" name="last_name" value="{{ $prefillLast }}">
                                                 @error('last_name')<p class="text-sm text-red-500">{{ $message }}</p>@enderror
                                                 @break
 
                                             @case('email')
                                                 <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">{!! $label !!} {!! $reqMark !!}</label>
-                                                <input type="email" name="email" id="email" value="{{ $user->email }}"
-                                                    readonly class="form-control bg-gray-100 dark:bg-gray-700 cursor-not-allowed">
+                                                <input type="email" id="email" value="{{ $user->email }}"
+                                                    disabled class="form-control bg-gray-100 dark:bg-gray-700 cursor-not-allowed">
+                                                <input type="hidden" name="email" value="{{ $user->email }}">
                                                 @error('email')<p class="text-sm text-red-500">{{ $message }}</p>@enderror
                                                 @break
 

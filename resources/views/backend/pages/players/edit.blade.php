@@ -547,6 +547,37 @@
                                 @enderror
                             </div>
 
+                            {{-- Player Mode --}}
+                            @if ($player->status === 'approved')
+                            <div class="space-y-1">
+                                <label for="player_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Player Mode
+                                </label>
+                                <select name="player_mode" id="player_mode"
+                                    class="form-control @error('player_mode') border-red-500 @enderror">
+                                    <option value="normal" {{ old('player_mode', $player->player_mode) !== 'retained' ? 'selected' : '' }}>Normal</option>
+                                    <option value="retained" {{ old('player_mode', $player->player_mode) === 'retained' ? 'selected' : '' }}>Retained</option>
+                                </select>
+                                @error('player_mode')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Retained Value --}}
+                            <div class="space-y-1">
+                                <label for="retained_value" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Retained Value
+                                </label>
+                                <input type="number" name="retained_value" id="retained_value"
+                                    value="{{ old('retained_value', $player->retained_value) }}"
+                                    min="0" step="any" placeholder="e.g. 500000"
+                                    class="form-control @error('retained_value') border-red-500 @enderror">
+                                @error('retained_value')
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            @endif
+
                             {{-- Player Image Upload --}}
                             <div class="sm:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

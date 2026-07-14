@@ -36,7 +36,7 @@ class ActualTeamController extends Controller
         ];
 
         // Base query — eager load tournaments pivot as well
-        $query = ActualTeam::with(['organization', 'tournament', 'auction', 'tournaments']);
+        $query = ActualTeam::with(['organization', 'tournament', 'auction', 'tournaments', 'users']);
 
         // Filter teams based on user role
         if ($user->hasRole('Superadmin')) {
@@ -1103,6 +1103,7 @@ class ActualTeamController extends Controller
                 'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
                 'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
                 'tournament_assignments.*.role' => 'nullable|string|max:50',
+                'retained_value'                => 'nullable|numeric|min:0',
             ]);
         } else {
             $request->validate([
@@ -1114,6 +1115,7 @@ class ActualTeamController extends Controller
                 'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
                 'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
                 'tournament_assignments.*.role' => 'nullable|string|max:50',
+                'retained_value'                => 'nullable|numeric|min:0',
             ]);
         }
 
@@ -1163,6 +1165,25 @@ class ActualTeamController extends Controller
                     $player->status = 'approved';
                     $player->save();
                 }
+            }
+
+            // Handle retained status if role is 'retained'
+            $hasRetainedRole = collect($request->input('tournament_assignments', []))
+                ->contains(fn($a) => ($a['role'] ?? '') === 'retained');
+            if ($hasRetainedRole) {
+                if ($player->status !== 'approved') {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Player must be approved before they can be retained.',
+                    ], 422);
+                }
+                $player->player_mode = 'retained';
+                $player->retained_value = $request->input('retained_value', 0);
+                if (!$player->actual_team_id) {
+                    $player->actual_team_id = $actualTeam->id;
+                }
+                $player->save();
             }
 
             // Handle image upload

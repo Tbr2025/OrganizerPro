@@ -243,10 +243,16 @@ class PlayerController extends Controller
             ? \App\Models\Tournament::forUser(auth()->user())->orderBy('name')->get(['id', 'name'])
             : collect();
 
+        // Actual teams for retain modal
+        $actualTeams = $user->hasRole('Superadmin')
+            ? ActualTeam::orderBy('name')->get(['id', 'name'])
+            : ActualTeam::where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name']);
+
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
             'players'         => $players,
             'teams'           => $teams,
+            'actualTeams'     => $actualTeams,
             'roles'           => $roles,
             'battingProfiles' => $battingProfiles,
             'bowlingProfiles' => $bowlingProfiles,
@@ -1006,6 +1012,8 @@ class PlayerController extends Controller
             'no_travel_plan' => 'nullable|boolean',
             'travel_date_from' => 'nullable|date',
             'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
+            'player_mode' => 'nullable|in:normal,retained',
+            'retained_value' => 'nullable|numeric|min:0',
         ]);
 
 
@@ -1072,6 +1080,8 @@ class PlayerController extends Controller
             'no_travel_plan' => $request->boolean('no_travel_plan'),
             'travel_date_from' => $validated['travel_date_from'] ?? null,
             'travel_date_to' => $validated['travel_date_to'] ?? null,
+            'player_mode' => $validated['player_mode'] ?? $player->player_mode,
+            'retained_value' => ($validated['player_mode'] ?? null) === 'retained' ? $validated['retained_value'] : null,
         ]);
 
         // ✅ Assign verified flags
@@ -1439,5 +1449,39 @@ class PlayerController extends Controller
         };
 
         return Response::stream($callback, 200, $headers);
+    }
+
+    public function retain(Request $request, Player $player): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['player.edit']);
+
+        if ($player->status !== 'approved') {
+            return redirect()->back()->with('error', 'Only approved players can be retained.');
+        }
+
+        $request->validate([
+            'actual_team_id' => 'required|exists:actual_teams,id',
+            'retained_value' => 'required|numeric|min:0',
+        ]);
+
+        $player->update([
+            'player_mode' => 'retained',
+            'actual_team_id' => $request->actual_team_id,
+            'retained_value' => $request->retained_value,
+        ]);
+
+        return redirect()->back()->with('success', $player->name . ' has been retained successfully.');
+    }
+
+    public function unretain(Player $player): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['player.edit']);
+
+        $player->update([
+            'player_mode' => 'normal',
+            'retained_value' => null,
+        ]);
+
+        return redirect()->back()->with('success', 'Retention removed for ' . $player->name . '.');
     }
 }

@@ -373,6 +373,26 @@
                                                             <iconify-icon icon="lucide:pencil" width="16" class="text-gray-400"></iconify-icon>
                                                             Edit
                                                         </a>
+                                                        @if ($player->status === 'approved' && $player->player_mode !== 'retained')
+                                                            <button type="button"
+                                                                @click="open = false; $dispatch('open-retain-modal', { playerId: {{ $player->id }}, playerName: '{{ addslashes($player->name) }}' })"
+                                                                class="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors duration-150"
+                                                                role="menuitem">
+                                                                <iconify-icon icon="lucide:lock" width="16"></iconify-icon>
+                                                                Retain Player
+                                                            </button>
+                                                        @elseif ($player->player_mode === 'retained')
+                                                            <form action="{{ route('admin.players.unretain', $player->id) }}" method="POST"
+                                                                onsubmit="return confirm('Remove retention for {{ addslashes($player->name) }}?')">
+                                                                @csrf
+                                                                <button type="submit"
+                                                                    class="w-full flex items-center gap-3 px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors duration-150"
+                                                                    role="menuitem">
+                                                                    <iconify-icon icon="lucide:unlock" width="16"></iconify-icon>
+                                                                    Remove Retention
+                                                                </button>
+                                                            </form>
+                                                        @endif
                                                     @endcan
                                                     @can('player.delete')
                                                         <form action="{{ route('admin.players.destroy', $player->id) }}"
@@ -573,6 +593,26 @@
                                                             <iconify-icon icon="lucide:pencil" width="16" class="text-gray-400"></iconify-icon>
                                                             Edit
                                                         </a>
+                                                        @if ($player->status === 'approved' && $player->player_mode !== 'retained')
+                                                            <button type="button"
+                                                                @click="open = false; $dispatch('open-retain-modal', { playerId: {{ $player->id }}, playerName: '{{ addslashes($player->name) }}' })"
+                                                                class="w-full flex items-center gap-3 px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors duration-150"
+                                                                role="menuitem">
+                                                                <iconify-icon icon="lucide:lock" width="16"></iconify-icon>
+                                                                Retain Player
+                                                            </button>
+                                                        @elseif ($player->player_mode === 'retained')
+                                                            <form action="{{ route('admin.players.unretain', $player->id) }}" method="POST"
+                                                                onsubmit="return confirm('Remove retention for {{ addslashes($player->name) }}?')">
+                                                                @csrf
+                                                                <button type="submit"
+                                                                    class="w-full flex items-center gap-3 px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors duration-150"
+                                                                    role="menuitem">
+                                                                    <iconify-icon icon="lucide:unlock" width="16"></iconify-icon>
+                                                                    Remove Retention
+                                                                </button>
+                                                            </form>
+                                                        @endif
                                                     @endcan
                                                     @can('player.delete')
                                                         <form action="{{ route('admin.players.destroy', $player->id) }}"
@@ -619,6 +659,69 @@
                     {{ $players->withQueryString()->links() }}
                 </div>
             @endif
+        </div>
+    </div>
+
+    {{-- Retain Player Modal --}}
+    <div x-data="{
+            showRetainModal: false,
+            retainPlayerId: null,
+            retainPlayerName: '',
+        }"
+        @open-retain-modal.window="
+            retainPlayerId = $event.detail.playerId;
+            retainPlayerName = $event.detail.playerName;
+            showRetainModal = true;
+        "
+    >
+        <div x-show="showRetainModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {{-- Backdrop --}}
+            <div x-show="showRetainModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-black/50" @click="showRetainModal = false"></div>
+
+            {{-- Modal --}}
+            <div x-show="showRetainModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md z-10">
+                <form method="POST" :action="'/admin/players/' + retainPlayerId + '/retain'">
+                    @csrf
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <iconify-icon icon="lucide:lock" width="20" class="text-purple-500"></iconify-icon>
+                            Retain Player
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Retaining <span class="font-medium text-gray-700 dark:text-gray-300" x-text="retainPlayerName"></span></p>
+                    </div>
+
+                    <div class="px-6 py-5 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Team <span class="text-red-500">*</span></label>
+                            <select name="actual_team_id" required class="form-control">
+                                <option value="">-- Select Team --</option>
+                                @foreach ($actualTeams as $team)
+                                    <option value="{{ $team->id }}">{{ $team->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                            <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                        <button type="button" @click="showRetainModal = false"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                            Retain Player
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 

@@ -479,6 +479,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/players/remove-background', [PlayerController::class, 'removeBackground'])->name('players.removeBackground');
 
     Route::resource('players', PlayerController::class);
+    Route::post('/players/{player}/retain', [PlayerController::class, 'retain'])->name('players.retain');
+    Route::post('/players/{player}/unretain', [PlayerController::class, 'unretain'])->name('players.unretain');
     // Organizer management: create/pick organizer users and assign tournaments/teams/matches
     Route::resource('organizers', OrganizerController::class)->except(['show'])->parameters(['organizers' => 'organizer']);
     Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');

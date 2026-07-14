@@ -521,9 +521,36 @@
                                                                             {{ ucfirst(str_replace('_', ' ', $assignment->role)) }}
                                                                         </span>
                                                                     @endif
+                                                                    @if($p->player_mode === 'retained')
+                                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                                            Retained {{ $p->retained_value ? '(' . number_format($p->retained_value) . ')' : '' }}
+                                                                        </span>
+                                                                    @endif
                                                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                                                                         Player
                                                                     </span>
+                                                                    @if($p->status === 'approved' && $p->player_mode !== 'retained')
+                                                                        <button type="button"
+                                                                            @click="$dispatch('open-retain-modal', { playerId: {{ $p->id }}, playerName: '{{ addslashes($p->name) }}', teamId: {{ $actualTeam->id }} })"
+                                                                            class="p-1.5 text-purple-500 rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                                                                            title="Retain player">
+                                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                                                            </svg>
+                                                                        </button>
+                                                                    @elseif($p->player_mode === 'retained')
+                                                                        <form action="{{ route('admin.players.unretain', $p->id) }}" method="POST" class="inline"
+                                                                            onsubmit="return confirm('Remove retention for {{ addslashes($p->name) }}?')">
+                                                                            @csrf
+                                                                            <button type="submit"
+                                                                                class="p-1.5 text-orange-500 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/50"
+                                                                                title="Remove retention">
+                                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                                                                                </svg>
+                                                                            </button>
+                                                                        </form>
+                                                                    @endif
                                                                     <button type="button"
                                                                         @click="removePlayer({{ $p->id }}, '{{ addslashes($p->name) }}')"
                                                                         class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
@@ -555,7 +582,7 @@
             <div x-show="showDrawer" x-cloak class="fixed inset-0 z-50 overflow-hidden">
                 {{-- Overlay --}}
                 <div x-show="showDrawer" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-                    class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showDrawer = false"></div>
+                    class="fixed inset-0 bg-black/50 transition-opacity" @click="showDrawer = false"></div>
 
                 {{-- Drawer panel --}}
                 <div class="fixed inset-y-0 right-0 flex max-w-full pl-10">
@@ -694,7 +721,15 @@
                                         <option value="captain">Captain</option>
                                         <option value="vice_captain">Vice Captain</option>
                                         <option value="wicket_keeper">Wicket Keeper</option>
+                                        <option value="retained">Retained</option>
                                     </select>
+                                </div>
+
+                                {{-- Retained Value (shown when role is retained) --}}
+                                <div x-show="playerRole === 'retained'" x-cloak>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Retained Value <span class="text-red-500">*</span></label>
+                                    <input type="number" x-model="retainedValue" min="0" step="any" placeholder="e.g. 500000" class="form-control mt-1 text-sm">
+                                    <p class="text-xs text-gray-500 mt-1">This amount will be deducted from the team's auction budget.</p>
                                 </div>
 
                                 {{-- Tournament Assignments (only for new player mode) --}}
@@ -744,6 +779,67 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Retain Player Modal --}}
+        <div x-data="{
+                showRetainModal: false,
+                retainPlayerId: null,
+                retainPlayerName: '',
+                retainTeamId: null,
+            }"
+            @open-retain-modal.window="
+                retainPlayerId = $event.detail.playerId;
+                retainPlayerName = $event.detail.playerName;
+                retainTeamId = $event.detail.teamId;
+                showRetainModal = true;
+            "
+        >
+            <div x-show="showRetainModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div x-show="showRetainModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                    x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                    class="fixed inset-0 bg-black/50" @click="showRetainModal = false"></div>
+
+                <div x-show="showRetainModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                    x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                    class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md z-10">
+                    <form method="POST" :action="'/admin/players/' + retainPlayerId + '/retain'">
+                        @csrf
+                        <input type="hidden" name="actual_team_id" :value="retainTeamId">
+                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                Retain Player
+                            </h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                Retaining <span class="font-medium text-gray-700 dark:text-gray-300" x-text="retainPlayerName"></span>
+                                for <span class="font-medium text-gray-700 dark:text-gray-300">{{ $actualTeam->name }}</span>
+                            </p>
+                        </div>
+
+                        <div class="px-6 py-5 space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                                <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="form-control">
+                                <p class="text-xs text-gray-500 mt-1">This amount will be deducted from the team's auction budget.</p>
+                            </div>
+                        </div>
+
+                        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                            <button type="button" @click="showRetainModal = false"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                                Retain Player
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -885,6 +981,7 @@
                     selectedExistingPlayerId: null,
                     squadSearch: '',
                     playerRole: '',
+                    retainedValue: '',
                     squadPlayers: @json($squadPlayersJson),
                     activeAccordions: {
                         @foreach($effectiveTournaments as $tournament)
@@ -929,6 +1026,7 @@
                         this.selectedExistingPlayerId = null;
                         this.squadSearch = '';
                         this.playerRole = '';
+                        this.retainedValue = '';
                         this.newPlayer = {
                             name: '',
                             email: '',
@@ -1037,6 +1135,11 @@
                             }
                         }
 
+                        if (this.playerRole === 'retained' && (!this.retainedValue || parseFloat(this.retainedValue) < 0)) {
+                            this.error = 'Retained value is required when retaining a player.';
+                            return;
+                        }
+
                         this.saving = true;
                         this.error = '';
 
@@ -1052,6 +1155,10 @@
                                 if (this.imageFile) {
                                     formData.append('player_image', this.imageFile);
                                 }
+                            }
+
+                            if (this.playerRole === 'retained' && this.retainedValue) {
+                                formData.append('retained_value', this.retainedValue);
                             }
 
                             // Build tournament assignments

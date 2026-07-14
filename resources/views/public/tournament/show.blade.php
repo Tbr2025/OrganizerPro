@@ -329,6 +329,11 @@
                         </div>
                     @endif
 
+                    <a href="{{ route('admin.login') }}"
+                       class="px-6 py-4 rounded-xl text-sm font-bold transition-all inline-flex items-center gap-2 border border-white/20 text-white hover:bg-white/10 hover:border-white/40">
+                        <i class="fas fa-sign-in-alt"></i> Login as Team
+                    </a>
+
                     @php
                         $whatsappService = app(\App\Services\Share\WhatsAppShareService::class);
                         $shareMessage = $whatsappService->getTournamentShareMessage($tournament);

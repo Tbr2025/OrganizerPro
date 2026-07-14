@@ -700,8 +700,15 @@ class TeamManagerController extends Controller
             ?? $team->tournament?->settings;
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournamentSettings);
 
-        // Compose full name from first + last
-        $request->merge(['name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', ''))]);
+        // Force name/email from user record (these fields are disabled in the form)
+        $firstName = explode(' ', $user->name, 2)[0] ?? '';
+        $lastName = implode(' ', array_slice(explode(' ', $user->name), 1)) ?: '';
+        $request->merge([
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'email' => $user->email,
+            'name' => trim($firstName . ' ' . $lastName),
+        ]);
 
         // Merge country-code + national number into full number fields
         $mobileCode = str_replace('+', '', $request->input('mobile_country_code', ''));
@@ -791,8 +798,7 @@ class TeamManagerController extends Controller
             'played_ys_ipl_s1' => $request->boolean('played_ys_ipl_s1'),
             'actual_team_id' => $team->id,
             'player_mode' => 'normal',
-            'status' => 'approved',
-            'approved_by' => $user->id,
+            'status' => 'pending',
             'created_by' => $user->id,
         ];
 
@@ -803,6 +809,11 @@ class TeamManagerController extends Controller
         }
 
         $player = Player::create($data);
+
+        // Add Player role to the manager's user account
+        if (!$user->hasRole('Player')) {
+            $user->assignRole('Player');
+        }
 
         // Create player_actual_team_tournament pivot entries
         $tournamentIds = $request->input('tournament_ids', []);
@@ -819,7 +830,7 @@ class TeamManagerController extends Controller
         }
 
         return redirect()->route('team-manager.dashboard')
-            ->with('success', 'You have been registered as a player successfully.');
+            ->with('success', 'Your player registration has been submitted and is pending admin verification.');
     }
 
     /**
