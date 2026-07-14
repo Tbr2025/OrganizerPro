@@ -156,10 +156,10 @@
         {{-- Form --}}
         <form method="POST" action="{{ route('public.tournament.registration.player.store', $tournament->slug) }}"
               enctype="multipart/form-data" x-data="{
-                  hasTravelPlan: @js(old('has_travel_plan', 'no')),
+                  hasTravelPlan: @js(old('has_travel_plan', '')),
                   visaStatus: @js(old('visa_status', '')),
                   selectedTeam: '{{ old('team_id') }}',
-                  selectedPlayingTeam: @js(old('actual_team_id', 'other')),
+                  selectedPlayingTeam: @js(old('actual_team_id', '')),
                   selectedCountry: @js(old('country', ($defaultCountry ?: 'IN'))),
                   stateValue: @js(old('state')),
                   statesByCountry: @js(config('registration.states_by_country')),

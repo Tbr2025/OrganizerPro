@@ -164,10 +164,11 @@
         <div>
             <label for="actual_team_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
             <select name="actual_team_id" id="actual_team_id" x-model="selectedPlayingTeam" class="reg-select" {{ $required ? 'required' : '' }}>
-                <option value="other">Others</option>
+                <option value="">Select playing team</option>
                 @foreach($actualTeams as $team)
                     <option value="{{ $team->id }}" {{ old('actual_team_id') == $team->id ? 'selected' : '' }}>{{ $team->name }}</option>
                 @endforeach
+                <option value="other">Others</option>
             </select>
             @error('actual_team_id')<p class="reg-err">{{ $message }}</p>@enderror
         </div>
@@ -368,7 +369,8 @@
     @case('transportation')
         <label for="transportation_mode" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
         <select name="transportation_mode" id="transportation_mode" class="reg-select">
-            <option value="self" {{ old('transportation_mode', 'self') === 'self' ? 'selected' : '' }}>Self Transportation (Preferred by Franchises)</option>
+            <option value="">Select transportation to the venue</option>
+            <option value="self" {{ old('transportation_mode') === 'self' ? 'selected' : '' }}>Self Transportation (Preferred by Franchises)</option>
             <option value="required" {{ old('transportation_mode') === 'required' ? 'selected' : '' }}>Transportation Required (Subject to Franchise Preferences)</option>
         </select>
         @error('transportation_mode')<p class="reg-err">{{ $message }}</p>@enderror
@@ -377,7 +379,8 @@
     @case('travel_plan')
         <label for="has_travel_plan" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
         <select name="has_travel_plan" id="has_travel_plan" class="reg-select" x-model="hasTravelPlan">
-            <option value="no">No</option>
+            <option value="">Select</option>
+            <option value="no" {{ old('has_travel_plan') === 'no' ? 'selected' : '' }}>No</option>
             <option value="yes" {{ old('has_travel_plan') === 'yes' ? 'selected' : '' }}>Yes</option>
         </select>
         @error('has_travel_plan')<p class="reg-err">{{ $message }}</p>@enderror
