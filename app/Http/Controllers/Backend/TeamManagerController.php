@@ -114,6 +114,8 @@ class TeamManagerController extends Controller
         $isAuctionTeam = optional($team->tournament)->isAuction()
             || $team->tournaments->contains(fn ($t) => $t->isAuction());
 
+        $managerIsPlayer = (bool) $user->player;
+
         return view('backend.pages.team-manager.dashboard', compact(
             'teams',
             'team',
@@ -125,7 +127,8 @@ class TeamManagerController extends Controller
             'isCaptain',
             'isOwner',
             'isManager',
-            'isAuctionTeam'
+            'isAuctionTeam',
+            'managerIsPlayer'
         ));
     }
 
@@ -622,6 +625,201 @@ class TeamManagerController extends Controller
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'Failed to send email. Please try again later.');
         }
+    }
+
+    /**
+     * Show form for manager to register themselves as a player
+     */
+    public function registerAsPlayer()
+    {
+        $user = Auth::user();
+
+        // Already registered as a player
+        if ($user->player) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('info', 'You are already registered as a player.');
+        }
+
+        $teams = $user->actualTeams()->with(['tournament.organization', 'tournaments.settings'])->get();
+
+        if ($teams->isEmpty()) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        $team = $teams->firstWhere('id', session('selected_team_id')) ?? $teams->first();
+
+        $effectiveTournaments = $teams->flatMap(function ($t) {
+            return $t->effectiveTournaments;
+        })->unique('id')->values();
+
+        $tournamentSettings = $team->tournaments->first()?->settings
+            ?? $team->tournament?->settings;
+        $fieldConfig = PlayerFormConfig::getFieldConfig($tournamentSettings);
+        $layout = PlayerFormConfig::getFormLayout($tournamentSettings, true);
+
+        $locations = PlayerLocation::orderBy('name')->get();
+        $kitSizes = KitSize::all();
+        $battingProfiles = BattingProfile::all();
+        $bowlingProfiles = BowlingProfile::all();
+        $playerTypes = PlayerType::all();
+        $defaultCountry = config('settings.default_country', '');
+        $defaultPhoneCountry = ($tournamentSettings?->default_phone_country) ?: ($tournamentSettings?->default_country) ?: config('settings.default_country', 'IN');
+
+        $breadcrumbs = ['title' => __('Register as Player')];
+
+        return view('backend.pages.team-manager.register-as-player', compact(
+            'team', 'effectiveTournaments', 'fieldConfig', 'layout',
+            'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles',
+            'playerTypes', 'defaultCountry', 'defaultPhoneCountry', 'breadcrumbs', 'user', 'tournamentSettings'
+        ));
+    }
+
+    /**
+     * Store the manager's own player registration
+     */
+    public function storeRegisterAsPlayer(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($user->player) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('info', 'You are already registered as a player.');
+        }
+
+        $teams = $user->actualTeams()->with(['tournament.organization', 'tournaments.settings'])->get();
+
+        if ($teams->isEmpty()) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        $team = $teams->firstWhere('id', session('selected_team_id')) ?? $teams->first();
+
+        $tournamentSettings = $team->tournaments->first()?->settings
+            ?? $team->tournament?->settings;
+        $fieldConfig = PlayerFormConfig::getFieldConfig($tournamentSettings);
+
+        // Compose full name from first + last
+        $request->merge(['name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', ''))]);
+
+        // Merge country-code + national number into full number fields
+        $mobileCode = str_replace('+', '', $request->input('mobile_country_code', ''));
+        $mobileNat  = $request->input('mobile_national_number', '');
+        $request->merge(['mobile_number_full' => $mobileCode . $mobileNat]);
+
+        $cricCode = str_replace('+', '', $request->input('cricheroes_country_code', ''));
+        $cricNat  = $request->input('cricheroes_national_number', '');
+        if ($cricCode || $cricNat) {
+            $request->merge(['cricheroes_number_full' => $cricCode . $cricNat]);
+        }
+
+        // Map transportation dropdown to boolean
+        $request->merge([
+            'transportation_required' => $request->input('transportation_mode') === 'required',
+        ]);
+
+        // Map travel plan dropdown
+        $hasTravelPlan = $request->input('has_travel_plan') === 'yes';
+        $request->merge(['no_travel_plan' => !$hasTravelPlan]);
+        if (!$hasTravelPlan) {
+            $request->merge(['travel_date_from' => null, 'travel_date_to' => null]);
+        }
+
+        $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'public', $tournamentSettings);
+
+        // Email is pre-filled from user account — skip unique check
+        $rules['email'] = 'required|email|max:255';
+
+        // Image field: pre-processed path from AJAX upload
+        unset($rules['image']);
+        $rules['image_path'] = 'nullable|string|max:500';
+
+        // Remove registration_team and playing_team rules (auto-assigned)
+        unset($rules['team_id'], $rules['team_name_ref'], $rules['actual_team_id'], $rules['playing_team_name_ref']);
+
+        $request->validate([
+            'tournament_ids' => 'nullable|array',
+            'tournament_ids.*' => 'exists:tournaments,id',
+        ]);
+
+        $validated = $request->validate($rules);
+
+        // Determine organization from team's tournament
+        $organizationId = $team->tournament?->organization_id
+            ?? $team->tournaments->first()?->organization_id;
+
+        $data = [
+            'user_id' => $user->id,
+            'organization_id' => $organizationId,
+            'name' => $validated['name'],
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'date_of_birth' => $validated['date_of_birth'] ?? null,
+            'country' => $validated['country'] ?? null,
+            'state' => $validated['state'] ?? null,
+            'visa_status' => $validated['visa_status'] ?? null,
+            'visa_expiry' => $validated['visa_expiry'] ?? null,
+            'employer_name' => $validated['employer_name'] ?? null,
+            'employer_address' => $validated['employer_address'] ?? null,
+            'employer_position' => $validated['employer_position'] ?? null,
+            'mobile_number_full' => $validated['mobile_number_full'] ?? null,
+            'cricheroes_number_full' => $validated['cricheroes_number_full'] ?? null,
+            'cricheroes_profile_url' => $validated['cricheroes_profile_url'] ?? null,
+            'location_id' => $validated['location_id'] ?? null,
+            'jersey_name' => $validated['jersey_name'] ?? null,
+            'jersey_number' => $validated['jersey_number'] ?? null,
+            'tshirt_size' => $validated['tshirt_size'] ?? null,
+            'pant_size' => $validated['pant_size'] ?? null,
+            'kit_size_id' => $validated['kit_size_id'] ?? null,
+            'player_type_id' => $validated['player_type_id'] ?? null,
+            'batting_profile_id' => $validated['batting_profile_id'] ?? null,
+            'batting_mode' => $validated['batting_mode'] ?? null,
+            'preferred_batting_positions' => $validated['preferred_batting_positions'] ?? null,
+            'bowling_profile_id' => $validated['bowling_profile_id'] ?? null,
+            'is_wicket_keeper' => $request->boolean('is_wicket_keeper'),
+            'total_matches' => $validated['total_matches'] ?? 0,
+            'total_runs' => $validated['total_runs'] ?? 0,
+            'total_wickets' => $validated['total_wickets'] ?? 0,
+            'transportation_required' => $request->boolean('transportation_required'),
+            'no_travel_plan' => $request->boolean('no_travel_plan'),
+            'travel_date_from' => $validated['travel_date_from'] ?? null,
+            'travel_date_to' => $validated['travel_date_to'] ?? null,
+            'available_saturday' => $request->boolean('available_saturday'),
+            'available_sunday' => $request->boolean('available_sunday'),
+            'played_ys_ipl_s1' => $request->boolean('played_ys_ipl_s1'),
+            'actual_team_id' => $team->id,
+            'player_mode' => 'normal',
+            'status' => 'approved',
+            'approved_by' => $user->id,
+            'created_by' => $user->id,
+        ];
+
+        // Handle image
+        if (!empty($validated['image_path']) && is_string($validated['image_path'])
+            && Storage::disk('public')->exists($validated['image_path'])) {
+            $data['image_path'] = $validated['image_path'];
+        }
+
+        $player = Player::create($data);
+
+        // Create player_actual_team_tournament pivot entries
+        $tournamentIds = $request->input('tournament_ids', []);
+        if (!empty($tournamentIds)) {
+            foreach ($tournamentIds as $tournamentId) {
+                DB::table('player_actual_team_tournament')->insert([
+                    'player_id' => $player->id,
+                    'actual_team_id' => $team->id,
+                    'tournament_id' => $tournamentId,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        return redirect()->route('team-manager.dashboard')
+            ->with('success', 'You have been registered as a player successfully.');
     }
 
     /**

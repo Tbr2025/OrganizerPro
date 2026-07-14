@@ -273,6 +273,10 @@ Route::middleware(['auth'])
         Route::post('/players/{player}/reject', [TeamManagerController::class, 'rejectPlayer'])->name('players.reject');
         Route::post('/players/{player}/resend-welcome', [TeamManagerController::class, 'resendWelcomeEmail'])->name('players.resend-welcome');
 
+        // Register as Player (manager self-registration)
+        Route::get('/register-as-player', [TeamManagerController::class, 'registerAsPlayer'])->name('register-as-player');
+        Route::post('/register-as-player', [TeamManagerController::class, 'storeRegisterAsPlayer'])->name('register-as-player.store');
+
         // Captain management
         Route::post('/assign-captain', [TeamManagerController::class, 'assignCaptain'])->name('assign-captain');
     });

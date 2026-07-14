@@ -124,12 +124,11 @@
             <div class="flex items-center justify-between h-16 md:h-20">
                 {{-- Logo --}}
                 <a href="/" class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
-                        <i class="fas fa-trophy text-gray-900 text-sm"></i>
-                    </div>
-                    <span class="text-xl font-bold tracking-tight" style="font-family:'Oswald',sans-serif;">
-                        <span class="gradient-gold">Sportzley</span>
-                    </span>
+                    @php
+                        $headerLogoRaw = config('settings.site_logo_dark') ?: config('settings.site_logo_lite') ?: 'images/logo/lara-dashboard.png';
+                        $headerLogo = \Illuminate\Support\Str::startsWith($headerLogoRaw, ['http://', 'https://']) ? $headerLogoRaw : asset(ltrim($headerLogoRaw, '/'));
+                    @endphp
+                    <img src="{{ $headerLogo }}" alt="{{ config('settings.app_name') ?: config('app.name') }}" class="h-9 w-auto object-contain" style="filter: brightness(0) invert(1);">
                 </a>
 
                 {{-- Desktop Nav --}}
@@ -494,10 +493,12 @@
         <div class="max-w-6xl mx-auto px-4">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center">
-                        <i class="fas fa-trophy text-gray-900 text-xs"></i>
-                    </div>
-                    <span class="text-sm text-gray-500">&copy; {{ date('Y') }} Sportzley. All rights reserved.</span>
+                    @php
+                        $footerLogoRaw = config('settings.site_logo_dark') ?: config('settings.site_logo_lite') ?: 'images/logo/lara-dashboard.png';
+                        $footerLogo = \Illuminate\Support\Str::startsWith($footerLogoRaw, ['http://', 'https://']) ? $footerLogoRaw : asset(ltrim($footerLogoRaw, '/'));
+                    @endphp
+                    <img src="{{ $footerLogo }}" alt="{{ config('settings.app_name') ?: config('app.name') }}" class="h-8 w-auto object-contain" style="filter: brightness(0) invert(1);">
+                    <span class="text-sm text-gray-500">&copy; {{ date('Y') }} {{ config('settings.app_name') ?: config('app.name') }}. All rights reserved.</span>
                 </div>
                 <div class="flex items-center gap-6 text-sm">
                     <a href="#features" class="text-gray-500 hover:text-yellow-400 transition">Features</a>

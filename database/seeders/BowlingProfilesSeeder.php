@@ -20,7 +20,7 @@ class BowlingProfilesSeeder extends Seeder
             ['style' => 'Left-arm Fast'],
             ['style' => 'Left-arm Orthodox'],
             ['style' => 'Left-arm Chinaman'],
-            ['style' => 'Leg Spin ']
+            ['style' => 'Right Arm Leg Spin']
         ]); //
     }
 }
