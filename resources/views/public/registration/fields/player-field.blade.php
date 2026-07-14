@@ -7,7 +7,7 @@
     $fullWidth = in_array($key, [
         'cricheroes_profile_url', 'employer_address',
         'played_ys_ipl_s1', 'is_wicket_keeper', 'transportation', 'travel_plan',
-        'image', 'terms_and_conditions', 'registration_team', 'preferred_batting_position',
+        'image', 'terms_and_conditions', 'registration_team', 'playing_team', 'preferred_batting_position',
     ], true);
 
     // Employer fields are only shown for a work visa (Alpine-driven).
