@@ -53,10 +53,8 @@ class RegistrationController extends Controller
         // Playing Team options: teams linked to this tournament (column or pivot);
         // fall back to the organization's teams so the field still renders when
         // none are linked yet.
-        $actualTeams = ActualTeam::forTournament($tournament->id)->orderBy('name')->get();
-        if ($actualTeams->isEmpty()) {
-            $actualTeams = ActualTeam::where('organization_id', $tournament->organization_id)->orderBy('name')->get();
-        }
+        // Show all organization teams in the "Current Playing Team" dropdown.
+        $actualTeams = ActualTeam::where('organization_id', $tournament->organization_id)->orderBy('name')->get();
 
         return view('public.registration.player', [
             'tournament' => $tournament,
