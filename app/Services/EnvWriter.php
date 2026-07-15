@@ -70,7 +70,15 @@ class EnvWriter
     public function getAvailableKeys()
     {
         return ld_apply_filters('available_keys', [
-            'app_name' => 'APP_NAME',
+            'app_name'          => 'APP_NAME',
+            'mail_mailer'       => 'MAIL_MAILER',
+            'mail_host'         => 'MAIL_HOST',
+            'mail_port'         => 'MAIL_PORT',
+            'mail_username'     => 'MAIL_USERNAME',
+            'mail_password'     => 'MAIL_PASSWORD',
+            'mail_encryption'   => 'MAIL_ENCRYPTION',
+            'mail_from_address' => 'MAIL_FROM_ADDRESS',
+            'mail_from_name'    => 'MAIL_FROM_NAME',
         ]);
     }
 

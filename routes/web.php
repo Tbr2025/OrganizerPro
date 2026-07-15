@@ -35,6 +35,7 @@ use App\Http\Controllers\Backend\PostsController;
 use App\Http\Controllers\Backend\ProfilesController;
 use App\Http\Controllers\Backend\RolesController;
 use App\Http\Controllers\Backend\ScorecardController;
+use App\Http\Controllers\Backend\MailTestController;
 use App\Http\Controllers\Backend\SettingsController;
 use App\Http\Controllers\Backend\TeamController;
 use App\Http\Controllers\Backend\TeamPlayerController;
@@ -272,6 +273,14 @@ Route::middleware(['auth'])
         Route::post('/players/{player}/verify', [TeamManagerController::class, 'verifyPlayer'])->name('players.verify');
         Route::post('/players/{player}/reject', [TeamManagerController::class, 'rejectPlayer'])->name('players.reject');
         Route::post('/players/{player}/resend-welcome', [TeamManagerController::class, 'resendWelcomeEmail'])->name('players.resend-welcome');
+
+        // Player pool, squad, other teams, wishlist
+        Route::get('/players', [TeamManagerController::class, 'players'])->name('players');
+        Route::get('/squad', [TeamManagerController::class, 'squad'])->name('squad');
+        Route::get('/other-teams', [TeamManagerController::class, 'otherTeams'])->name('other-teams');
+        Route::get('/other-teams/{otherTeam}', [TeamManagerController::class, 'otherTeamPlayers'])->name('other-teams.players');
+        Route::get('/wishlist', [TeamManagerController::class, 'wishlist'])->name('wishlist');
+        Route::post('/wishlist/toggle', [TeamManagerController::class, 'toggleWishlist'])->name('wishlist.toggle');
 
         // Register as Player (manager self-registration)
         Route::get('/register-as-player', [TeamManagerController::class, 'registerAsPlayer'])->name('register-as-player');
@@ -586,6 +595,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Settings Routes.
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingsController::class, 'store'])->name('settings.store');
+
+    // Mail Test (Superadmin only)
+    Route::post('/settings/test-email', [MailTestController::class, 'send'])
+        ->name('settings.test-email')
+        ->middleware(['role:Superadmin']);
 
     // Translation Routes
     Route::get('/translations', [TranslationController::class, 'index'])->name('translations.index');

@@ -70,6 +70,25 @@ class AppServiceProvider extends ServiceProvider
                     config(['app.timezone' => $tz]);
                     date_default_timezone_set($tz);
                 }
+
+                // Apply mail config from DB settings (allows admin panel switching)
+                $mailConfigMap = [
+                    'mail_mailer'       => 'mail.default',
+                    'mail_host'         => 'mail.mailers.smtp.host',
+                    'mail_port'         => 'mail.mailers.smtp.port',
+                    'mail_username'     => 'mail.mailers.smtp.username',
+                    'mail_password'     => 'mail.mailers.smtp.password',
+                    'mail_encryption'   => 'mail.mailers.smtp.encryption',
+                    'mail_from_address' => 'mail.from.address',
+                    'mail_from_name'    => 'mail.from.name',
+                ];
+
+                foreach ($mailConfigMap as $settingsKey => $configKey) {
+                    $val = config("settings.$settingsKey");
+                    if ($val !== null && $val !== '') {
+                        config([$configKey => $val]);
+                    }
+                }
             }
         } catch (\Exception $e) {
             // Skip loading settings if database connection fails

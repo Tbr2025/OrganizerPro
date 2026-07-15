@@ -22,7 +22,9 @@ use App\Models\BowlingProfile;
 use App\Models\KitSize;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
+use App\Models\TournamentRegistration as TournamentRegistrationModel;
 use App\Models\TournamentTemplate;
+use App\Models\Wishlist;
 use App\Services\Poster\TemplateRenderService;
 use Illuminate\Support\Facades\Storage;
 use App\Notifications\GeneralNotification;
@@ -752,5 +754,193 @@ class TeamManagerController extends Controller
 
         return redirect()->route('team-manager.dashboard')
             ->with('success', 'Captain has been assigned to ' . $newCaptain->name . '.');
+    }
+
+    /**
+     * All approved players in the tournament (player pool)
+     */
+    public function players()
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        $tournamentId = $team->tournament_id;
+
+        // Get all approved players registered for this tournament
+        $players = Player::where('status', 'approved')
+            ->whereHas('registrations', function ($q) use ($tournamentId) {
+                $q->where('tournament_id', $tournamentId)
+                  ->where('status', 'approved');
+            })
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam'])
+            ->orderBy('name')
+            ->get();
+
+        // Get wishlisted player IDs for current user + tournament
+        $wishlistedIds = Wishlist::where('user_id', $user->id)
+            ->where('tournament_id', $tournamentId)
+            ->pluck('player_id')
+            ->toArray();
+
+        $breadcrumbs = ['title' => __('Players')];
+
+        return view('backend.pages.team-manager.players', compact('team', 'players', 'wishlistedIds', 'breadcrumbs'));
+    }
+
+    /**
+     * Team's own players (My Squad)
+     */
+    public function squad()
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        $teamPlayers = Player::where('actual_team_id', $team->id)
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location'])
+            ->orderBy('name')
+            ->get();
+
+        $breadcrumbs = ['title' => __('My Squad')];
+
+        return view('backend.pages.team-manager.squad', compact('team', 'teamPlayers', 'breadcrumbs'));
+    }
+
+    /**
+     * List other teams in the same tournament
+     */
+    public function otherTeams()
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        $tournamentId = $team->tournament_id;
+
+        $otherTeams = ActualTeam::forTournament($tournamentId)
+            ->where('id', '!=', $team->id)
+            ->withCount(['playersPerTournament as approved_players_count' => function ($q) use ($tournamentId) {
+                $q->wherePivot('tournament_id', $tournamentId);
+            }])
+            ->orderBy('name')
+            ->get();
+
+        $breadcrumbs = ['title' => __('Other Teams')];
+
+        return view('backend.pages.team-manager.other-teams', compact('team', 'otherTeams', 'breadcrumbs'));
+    }
+
+    /**
+     * View a specific other team's players (read-only)
+     */
+    public function otherTeamPlayers(ActualTeam $otherTeam)
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        // Verify same tournament
+        if ($otherTeam->tournament_id !== $team->tournament_id) {
+            return redirect()->route('team-manager.other-teams')
+                ->with('error', 'That team is not in your tournament.');
+        }
+
+        $players = Player::where('actual_team_id', $otherTeam->id)
+            ->where('status', 'approved')
+            ->with(['playerType', 'battingProfile', 'bowlingProfile'])
+            ->orderBy('name')
+            ->get();
+
+        $tournamentId = $team->tournament_id;
+        $wishlistedIds = Wishlist::where('user_id', $user->id)
+            ->where('tournament_id', $tournamentId)
+            ->pluck('player_id')
+            ->toArray();
+
+        $breadcrumbs = ['title' => $otherTeam->name . ' - Players'];
+
+        return view('backend.pages.team-manager.other-team-players', compact('team', 'otherTeam', 'players', 'wishlistedIds', 'breadcrumbs'));
+    }
+
+    /**
+     * Toggle wishlist (AJAX)
+     */
+    public function toggleWishlist(Request $request)
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return response()->json(['error' => 'No team assigned'], 403);
+        }
+
+        $request->validate(['player_id' => 'required|exists:players,id']);
+
+        $tournamentId = $team->tournament_id;
+        $playerId = $request->input('player_id');
+
+        $existing = Wishlist::where('user_id', $user->id)
+            ->where('player_id', $playerId)
+            ->where('tournament_id', $tournamentId)
+            ->first();
+
+        if ($existing) {
+            $existing->delete();
+            return response()->json(['wishlisted' => false]);
+        }
+
+        Wishlist::create([
+            'user_id' => $user->id,
+            'player_id' => $playerId,
+            'tournament_id' => $tournamentId,
+        ]);
+
+        return response()->json(['wishlisted' => true]);
+    }
+
+    /**
+     * Wishlisted players page
+     */
+    public function wishlist()
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        $tournamentId = $team->tournament_id;
+
+        $wishlistedPlayerIds = Wishlist::where('user_id', $user->id)
+            ->where('tournament_id', $tournamentId)
+            ->pluck('player_id');
+
+        $players = Player::whereIn('id', $wishlistedPlayerIds)
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam'])
+            ->orderBy('name')
+            ->get();
+
+        $breadcrumbs = ['title' => __('Wishlist')];
+
+        return view('backend.pages.team-manager.wishlist', compact('team', 'players', 'breadcrumbs'));
     }
 }

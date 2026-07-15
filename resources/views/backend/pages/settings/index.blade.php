@@ -15,8 +15,8 @@
                 <div class="px-5 py-4 sm:px-6 sm:py-5">
                     <form method="POST" action="{{ route('admin.settings.store') }}" enctype="multipart/form-data">
                         @csrf
-                        @include('backend.pages.settings.tabs', [
-                            'tabs' => ld_apply_filters('settings_tabs', [
+                        @php
+                            $settingsTabs = [
                                 'general' => [
                                     'title' => __('General Settings'),
                                     'view' => 'backend.pages.settings.general-tab',
@@ -33,7 +33,18 @@
                                     'title' => __('Integrations'),
                                     'view' => 'backend.pages.settings.integration-settings',
                                 ],
-                            ]),
+                            ];
+
+                            if (auth()->user()->hasRole('Superadmin')) {
+                                $settingsTabs['email'] = [
+                                    'title' => __('Email'),
+                                    'view' => 'backend.pages.settings.email-tab',
+                                ];
+                            }
+                        @endphp
+
+                        @include('backend.pages.settings.tabs', [
+                            'tabs' => ld_apply_filters('settings_tabs', $settingsTabs),
                         ])
 
                         <x-buttons.submit-buttons  />
