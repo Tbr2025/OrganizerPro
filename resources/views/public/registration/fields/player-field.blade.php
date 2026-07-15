@@ -336,13 +336,13 @@
 
     @case('preferred_batting_position')
         <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <p class="reg-hint mb-2">Select up to 2 positions</p>
+        <p class="reg-hint mb-2">Select up to 3 positions</p>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
             @foreach(['Opener','3','4','5','6','7','8',"I'm Flexible"] as $pos)
                 <label class="reg-check">
                     <input type="checkbox" name="preferred_batting_positions[]" value="{{ $pos }}"
                            x-model="selectedPositions"
-                           :disabled="!selectedPositions.includes('{{ $pos }}') && selectedPositions.length >= 2">
+                           :disabled="!selectedPositions.includes('{{ $pos }}') && selectedPositions.length >= 3">
                     <span class="text-sm">{{ $pos }}</span>
                 </label>
             @endforeach

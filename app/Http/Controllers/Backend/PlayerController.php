@@ -1015,7 +1015,7 @@ class PlayerController extends Controller
             'player_mode' => 'nullable|in:normal,retained',
             'retained_value' => 'nullable|numeric|min:0',
             'batting_mode' => 'nullable|in:Aggressive Batsman,Defensive Batsman,Finisher,Anchor,Power Hitter',
-            'preferred_batting_positions' => 'nullable|array|max:2',
+            'preferred_batting_positions' => 'nullable|array|max:3',
             'preferred_batting_positions.*' => "in:Opener,3,4,5,6,7,8,I'm Flexible",
         ]);
 

@@ -440,9 +440,9 @@ class PlayerFormConfig
             $rules['batting_mode'] = 'nullable|in:Aggressive Batsman,Defensive Batsman,Finisher,Anchor,Power Hitter';
         }
 
-        // Preferred Batting Position (multi-select, max 2)
+        // Preferred Batting Position (multi-select, max 3)
         if ($fieldConfig['preferred_batting_position']['visible'] ?? true) {
-            $rules['preferred_batting_positions'] = 'nullable|array|max:2';
+            $rules['preferred_batting_positions'] = 'nullable|array|max:3';
             $rules['preferred_batting_positions.*'] = "in:Opener,3,4,5,6,7,8,I'm Flexible";
         }
 

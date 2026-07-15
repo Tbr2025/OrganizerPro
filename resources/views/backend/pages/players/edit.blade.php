@@ -628,7 +628,7 @@
                             {{-- Preferred Batting Positions --}}
                             <div class="space-y-1 sm:col-span-2" x-data="{ selectedPositions: @js(old('preferred_batting_positions', $player->preferred_batting_positions ?? [])) }">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Preferred Batting Position <span class="text-xs text-gray-500">(Select up to 2)</span>
+                                    Preferred Batting Position <span class="text-xs text-gray-500">(Select up to 3)</span>
                                 </label>
                                 <div class="grid grid-cols-4 sm:grid-cols-8 gap-2">
                                     @foreach(['Opener','3','4','5','6','7','8',"I'm Flexible"] as $pos)
@@ -636,7 +636,7 @@
                                             :class="selectedPositions.includes('{{ $pos }}') ? 'bg-blue-50 border-blue-400 dark:bg-blue-900/30 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'">
                                             <input type="checkbox" name="preferred_batting_positions[]" value="{{ $pos }}"
                                                 x-model="selectedPositions"
-                                                :disabled="!selectedPositions.includes('{{ $pos }}') && selectedPositions.length >= 2"
+                                                :disabled="!selectedPositions.includes('{{ $pos }}') && selectedPositions.length >= 3"
                                                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                             <span class="text-sm text-gray-700 dark:text-gray-300">{{ $pos }}</span>
                                         </label>
