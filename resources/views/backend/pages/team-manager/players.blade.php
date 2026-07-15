@@ -14,6 +14,81 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">All approved players in {{ $team->tournament->name ?? 'the tournament' }}</p>
     </div>
 
+    {{-- Filters --}}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+        <form method="GET" action="{{ route('team-manager.players') }}" class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {{-- Search --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Search') }}</label>
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="{{ __('Name or jersey name...') }}"
+                        class="form-control text-sm">
+                </div>
+
+                {{-- Player Type --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Role') }}</label>
+                    <select name="player_type" class="form-control text-sm">
+                        <option value="">{{ __('All Roles') }}</option>
+                        @foreach($playerTypes as $type)
+                            <option value="{{ $type->id }}" {{ request('player_type') == $type->id ? 'selected' : '' }}>{{ $type->type }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Batting --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Batting') }}</label>
+                    <select name="batting" class="form-control text-sm">
+                        <option value="">{{ __('All') }}</option>
+                        @foreach($battingProfiles as $bp)
+                            <option value="{{ $bp->id }}" {{ request('batting') == $bp->id ? 'selected' : '' }}>{{ $bp->style }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Bowling --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Bowling') }}</label>
+                    <select name="bowling" class="form-control text-sm">
+                        <option value="">{{ __('All') }}</option>
+                        @foreach($bowlingProfiles as $bw)
+                            <option value="{{ $bw->id }}" {{ request('bowling') == $bw->id ? 'selected' : '' }}>{{ $bw->style }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Team --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Team') }}</label>
+                    <select name="team" class="form-control text-sm">
+                        <option value="">{{ __('All Teams') }}</option>
+                        @foreach($teams as $t)
+                            <option value="{{ $t->id }}" {{ request('team') == $t->id ? 'selected' : '' }}>{{ $t->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button type="submit"
+                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    {{ __('Filter') }}
+                </button>
+                @if(request()->hasAny(['search', 'player_type', 'batting', 'bowling', 'team']))
+                    <a href="{{ route('team-manager.players') }}"
+                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md">
+                        {{ __('Clear') }}
+                    </a>
+                @endif
+                <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">{{ $players->count() }} {{ __('players found') }}</span>
+            </div>
+        </form>
+    </div>
+
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         @if($players->count() > 0)
             <div class="overflow-x-auto">

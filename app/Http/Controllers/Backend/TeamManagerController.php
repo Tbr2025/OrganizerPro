@@ -759,7 +759,7 @@ class TeamManagerController extends Controller
     /**
      * All approved players in the tournament (player pool)
      */
-    public function players()
+    public function players(Request $request)
     {
         $user = Auth::user();
         $team = $user->actualTeams()->first();
@@ -772,14 +772,42 @@ class TeamManagerController extends Controller
         $tournamentId = $team->tournament_id;
 
         // Get all approved players registered for this tournament
-        $players = Player::where('status', 'approved')
+        $query = Player::where('status', 'approved')
             ->whereHas('registrations', function ($q) use ($tournamentId) {
                 $q->where('tournament_id', $tournamentId)
                   ->where('status', 'approved');
             })
-            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam'])
-            ->orderBy('name')
-            ->get();
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
+
+        // Search by name or jersey name
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('jersey_name', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by player type (role)
+        if ($playerTypeId = $request->get('player_type')) {
+            $query->where('player_type_id', $playerTypeId);
+        }
+
+        // Filter by batting profile
+        if ($battingId = $request->get('batting')) {
+            $query->where('batting_profile_id', $battingId);
+        }
+
+        // Filter by bowling profile
+        if ($bowlingId = $request->get('bowling')) {
+            $query->where('bowling_profile_id', $bowlingId);
+        }
+
+        // Filter by team
+        if ($teamFilter = $request->get('team')) {
+            $query->where('actual_team_id', $teamFilter);
+        }
+
+        $players = $query->orderBy('name')->get();
 
         // Get wishlisted player IDs for current user + tournament
         $wishlistedIds = Wishlist::where('user_id', $user->id)
@@ -787,9 +815,18 @@ class TeamManagerController extends Controller
             ->pluck('player_id')
             ->toArray();
 
+        // Filter options
+        $playerTypes = PlayerType::orderBy('type')->get();
+        $battingProfiles = BattingProfile::orderBy('style')->get();
+        $bowlingProfiles = BowlingProfile::orderBy('style')->get();
+        $teams = ActualTeam::where('tournament_id', $tournamentId)->orderBy('name')->get();
+
         $breadcrumbs = ['title' => __('Players')];
 
-        return view('backend.pages.team-manager.players', compact('team', 'players', 'wishlistedIds', 'breadcrumbs'));
+        return view('backend.pages.team-manager.players', compact(
+            'team', 'players', 'wishlistedIds', 'breadcrumbs',
+            'playerTypes', 'battingProfiles', 'bowlingProfiles', 'teams'
+        ));
     }
 
     /**
