@@ -116,7 +116,7 @@ class AdminMenuService
                 'label' => __('My Team'),
                 'icon' => 'feather:users',
                 'id' => 'team-manager-submenu',
-                'active' => Route::is('team-manager.*') || Route::is('admin.actual-teams.*'),
+                'active' => Route::is('team-manager.*') || Route::is('admin.actual-teams.*') || Route::is('profileplayers.*'),
                 'priority' => 1,
                 'permissions' => 'actual-team.view',
                 'children' => [
@@ -134,13 +134,13 @@ class AdminMenuService
                         'priority' => 15,
                         'permissions' => 'actual-team.view',
                     ],
-                    [
-                        'label' => __('Add Player'),
-                        'route' => route('team-manager.players.create'),
-                        'active' => Route::is('team-manager.players.create'),
+                    ...($user->player ? [[
+                        'label' => __('My Registration'),
+                        'route' => route('profileplayers.edit'),
+                        'active' => Route::is('profileplayers.*'),
                         'priority' => 20,
-                        'permissions' => 'player.create',
-                    ],
+                        'permissions' => 'actual-team.view',
+                    ]] : []),
                 ],
             ]);
 

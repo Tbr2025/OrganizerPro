@@ -60,12 +60,6 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
             <div class="space-y-3">
-                <a href="{{ route('team-manager.players.create') }}" class="btn btn-primary w-full flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Create New Player
-                </a>
                 <a href="{{ route('team-manager.auctions') }}" class="btn btn-secondary w-full flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
@@ -82,29 +76,31 @@
                 @endunless
             </div>
 
-            {{-- Invite Link --}}
-            @if($team->invite_code)
+            {{-- Player Registration Status --}}
+            @if($managerIsPlayer && $managerRegistrations->isNotEmpty())
                 <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-                        </svg>
-                        Player Invite Link
-                    </label>
-                    <div class="flex gap-2">
-                        <input type="text" id="invite-link" value="{{ $team->invite_link }}" readonly
-                               class="form-control text-xs flex-1 bg-gray-50 dark:bg-gray-700">
-                        <button type="button" onclick="copyInviteLink()" id="copy-btn"
-                                class="btn btn-secondary btn-sm whitespace-nowrap flex items-center gap-1">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
-                            </svg>
-                            Copy
-                        </button>
+                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Player Registration</h4>
+                    <div class="space-y-2">
+                        @foreach($managerRegistrations as $reg)
+                            <a href="{{ route('profileplayers.edit', ['registration_id' => $reg->id]) }}" class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                <span class="text-sm text-gray-700 dark:text-gray-300 truncate mr-2">{{ $reg->tournament->name ?? 'Tournament' }}</span>
+                                @if($reg->status === 'approved')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 whitespace-nowrap">Approved</span>
+                                @elseif($reg->status === 'pending')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 whitespace-nowrap">Pending</span>
+                                @elseif($reg->status === 'rejected')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 whitespace-nowrap">Rejected</span>
+                                @elseif($reg->status === 'queued')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 whitespace-nowrap">Queued</span>
+                                @else
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200 whitespace-nowrap">{{ ucfirst($reg->status) }}</span>
+                                @endif
+                            </a>
+                        @endforeach
                     </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Share this link with players to join your team</p>
                 </div>
             @endif
+
         </div>
 
         {{-- Team Owner & Captain --}}
@@ -228,17 +224,8 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Players are acquired through the auction — this squad updates automatically as you win players.</p>
                 @endif
             </div>
-            @unless($isAuctionTeam)
-            <div class="flex gap-2">
-                <button type="button" onclick="document.getElementById('add-player-modal').classList.remove('hidden')"
-                    class="btn btn-secondary btn-sm">
-                    Add Existing Player
-                </button>
-                <a href="{{ route('team-manager.players.create') }}" class="btn btn-primary btn-sm">
-                    Create New Player
-                </a>
-            </div>
-            @endunless
+            {{-- Player management buttons hidden for team managers —
+                 players register themselves via the public form --}}
         </div>
 
         @if($teamPlayers->count() > 0)
@@ -367,16 +354,7 @@
                 @if($isAuctionTeam)
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Players you win in the auction will appear here automatically.</p>
                 @else
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by adding players to your team.</p>
-                    <div class="mt-6 flex justify-center gap-3">
-                        <button type="button" onclick="document.getElementById('add-player-modal').classList.remove('hidden')"
-                            class="btn btn-secondary">
-                            Add Existing Player
-                        </button>
-                        <a href="{{ route('team-manager.players.create') }}" class="btn btn-primary">
-                            Create New Player
-                        </a>
-                    </div>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Players who register for your tournament will appear here.</p>
                 @endif
             </div>
         @endif
@@ -436,60 +414,6 @@
         @endif
     </div>
 </div>
-
-{{-- Add Existing Player Modal (not applicable to auction teams) --}}
-@unless($isAuctionTeam)
-<div id="add-player-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Add Existing Player</h3>
-            <button type="button" onclick="document.getElementById('add-player-modal').classList.add('hidden')"
-                class="text-gray-400 hover:text-gray-500">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-
-        @if($availablePlayers->count() > 0)
-            <form action="{{ route('team-manager.players.add') }}" method="POST">
-                @csrf
-                <div class="mb-4">
-                    <label for="player_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Select Player
-                    </label>
-                    <select name="player_id" id="player_id" class="form-control" required>
-                        <option value="">Choose a player...</option>
-                        @foreach($availablePlayers as $player)
-                            <option value="{{ $player->id }}">
-                                {{ $player->name }}
-                                @if($player->playing_role) - {{ $player->playing_role }} @endif
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('add-player-modal').classList.add('hidden')"
-                        class="btn btn-secondary">
-                        Cancel
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Add to Team
-                    </button>
-                </div>
-            </form>
-        @else
-            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">No available players to add. All players in your organization are already assigned to teams.</p>
-            <div class="flex justify-end">
-                <button type="button" onclick="document.getElementById('add-player-modal').classList.add('hidden')"
-                    class="btn btn-secondary">
-                    Close
-                </button>
-            </div>
-        @endif
-    </div>
-</div>
-@endunless
 
 {{-- Verify Player Modal --}}
 <div id="verify-player-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -648,19 +572,5 @@
         document.getElementById('verify-player-modal').classList.add('hidden');
     }
 
-    function copyInviteLink() {
-        const input = document.getElementById('invite-link');
-        const btn = document.getElementById('copy-btn');
-        navigator.clipboard.writeText(input.value).then(() => {
-            btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
-            btn.classList.remove('btn-secondary');
-            btn.classList.add('btn-success');
-            setTimeout(() => {
-                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg> Copy';
-                btn.classList.remove('btn-success');
-                btn.classList.add('btn-secondary');
-            }, 2000);
-        });
-    }
 </script>
 @endsection

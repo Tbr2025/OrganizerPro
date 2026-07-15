@@ -61,16 +61,16 @@ class PlayerProfileController extends Controller
     {
         $user = Auth::user();
 
-        // Enforce role check for extra security
-        if (!$user->hasRole('Player')) {
-            abort(403, 'Unauthorized access. Only players can edit their profile.');
-        }
-
         // Get the related player model
         $player = $user->player;
 
         if (!$player) {
-            abort(404, 'Player profile not found for the current user.');
+            abort(404, 'Player profile not found.');
+        }
+
+        // Allow Player, Team Manager, and Team Owner roles (managers register as players too)
+        if (!$user->hasAnyRole(['Player', 'Team Manager', 'Team Owner'])) {
+            abort(403, 'Unauthorized access.');
         }
 
         // --- MODIFICATION START ---
