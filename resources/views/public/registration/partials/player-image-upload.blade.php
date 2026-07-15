@@ -54,7 +54,14 @@
     </div>
 
     {{-- Hidden input for processed path --}}
-    <input type="hidden" name="processed_image_path" x-model="processedPath" />
+    <input type="hidden" name="processed_image_path" x-model="processedPath"
+           @if($isRequired) x-ref="processedImageInput" @endif />
+    @if($isRequired)
+    <input type="hidden" x-ref="imageRequiredCheck"
+           :value="processedPath ? '1' : ''"
+           required
+           style="display:none;">
+    @endif
 
     {{-- Upload Area --}}
     <div x-show="!processedPath && !processing"
