@@ -250,11 +250,11 @@
         <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
         <div class="flex gap-3">
             <label class="reg-check" style="flex:1;">
-                <input type="radio" name="played_ys_ipl_s1" value="1" {{ old('played_ys_ipl_s1') === '1' ? 'checked' : '' }} style="accent-color:var(--accent);">
+                <input type="radio" name="played_ys_ipl_s1" value="1" {{ old('played_ys_ipl_s1') === '1' ? 'checked' : '' }} {{ $required ? 'required' : '' }} style="accent-color:var(--accent);">
                 <span class="text-sm">Yes</span>
             </label>
             <label class="reg-check" style="flex:1;">
-                <input type="radio" name="played_ys_ipl_s1" value="0" {{ old('played_ys_ipl_s1') === '0' ? 'checked' : '' }} style="accent-color:var(--accent);">
+                <input type="radio" name="played_ys_ipl_s1" value="0" {{ old('played_ys_ipl_s1') === '0' ? 'checked' : '' }} {{ $required ? 'required' : '' }} style="accent-color:var(--accent);">
                 <span class="text-sm">No</span>
             </label>
         </div>

@@ -371,7 +371,8 @@ class PlayerFormConfig
             $rules['available_sunday'] = 'nullable|boolean';
         }
         if ($fieldConfig['played_ys_ipl_s1']['visible'] ?? true) {
-            $rules['played_ys_ipl_s1'] = 'nullable|boolean';
+            $req = ($fieldConfig['played_ys_ipl_s1']['required'] ?? false) ? 'required' : 'nullable';
+            $rules['played_ys_ipl_s1'] = $req . '|boolean';
         }
 
         // Mobile Number (public form uses country-code dropdown + national number)
