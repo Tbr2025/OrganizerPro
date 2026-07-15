@@ -77,6 +77,11 @@
             </a>
           </div>
 
+          <!-- Turnstile CAPTCHA -->
+          @if(config('turnstile.site_key'))
+              <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="auto"></div>
+          @endif
+
           <!-- Sign In Button -->
           <div class="pt-2">
             <button type="submit" class="btn-primary w-full h-12 text-base font-semibold shadow-lg shadow-brand-500/30 hover:shadow-xl hover:shadow-brand-500/40 transition-all duration-200">
@@ -144,6 +149,12 @@
     </div>
 </div>
 @endsection
+
+@if(config('turnstile.site_key'))
+    @push('scripts')
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endpush
+@endif
 
 @if (config('app.demo_mode', false))
     @push('scripts')

@@ -23,8 +23,14 @@
             <label for="password-confirm">Confirm password</label>
             <input id="password-confirm" type="password" name="password_confirmation" required autocomplete="new-password" placeholder="••••••••">
         </div>
+        @if(config('turnstile.site_key'))
+            <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" style="margin-bottom: 16px;"></div>
+        @endif
         <button type="submit" class="btn">Create account</button>
     </form>
+    @if(config('turnstile.site_key'))
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endif
 @endsection
 
 @section('foot')

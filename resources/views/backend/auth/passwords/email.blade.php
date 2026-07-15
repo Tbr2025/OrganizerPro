@@ -28,6 +28,9 @@
                         placeholder="{{ __('Enter your email address') }}"
                         class="form-control">
                 </div>
+                @if(config('turnstile.site_key'))
+                    <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="auto"></div>
+                @endif
                 <div>
                     <button type="submit" class="btn-primary w-full">
                         {{ __('Send Reset Link') }}
@@ -45,4 +48,10 @@
     </div>
 </div>
 @endsection
+
+@if(config('turnstile.site_key'))
+    @push('scripts')
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endpush
+@endif
 

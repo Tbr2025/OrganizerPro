@@ -205,7 +205,7 @@
                                                     @endif
                                                 @endcan
                                                 @php
-                                                    $teamManagerUser = $team->users->first(fn($u) => in_array($u->pivot->role, ['Manager', 'Team Manager']));
+                                                    $teamManagerUser = $team->users->first(fn($u) => in_array($u->pivot->role, ['Owner', 'Manager', 'Team Manager']));
                                                 @endphp
                                                 @if ($teamManagerUser)
                                                     <x-buttons.action-item

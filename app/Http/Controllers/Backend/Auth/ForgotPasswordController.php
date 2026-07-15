@@ -3,23 +3,14 @@
 namespace App\Http\Controllers\Backend\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Traits\ValidatesTurnstile;
 use Illuminate\Foundation\Auth\SendsPasswordResetEmails;
 use Illuminate\Http\Request;
 
 class ForgotPasswordController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | Password Reset Controller
-    |--------------------------------------------------------------------------
-    |
-    | This controller is responsible for handling password reset emails and
-    | includes a trait which assists in sending these notifications from
-    | your application to your users. Feel free to explore this trait.
-    |
-    */
-
     use SendsPasswordResetEmails;
+    use ValidatesTurnstile;
 
     /**
      * Display the form to request a password reset link.
@@ -29,6 +20,13 @@ class ForgotPasswordController extends Controller
     public function showLinkRequestForm()
     {
         return view('backend.auth.passwords.email');
+    }
+
+    protected function validateEmail(Request $request)
+    {
+        $this->validateTurnstile($request);
+
+        $request->validate(['email' => 'required|email']);
     }
 
     /**

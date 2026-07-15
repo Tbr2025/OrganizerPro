@@ -78,10 +78,15 @@
             <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
                 <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Squad Size</div>
                 @php
-                    $totalPlayers = $actualTeam->users->count();
+                    // Separate players from non-player roles (Owner, Manager, Team Manager)
+                    $nonPlayerRoles = ['Owner', 'Manager', 'Team Manager'];
+                    $players = $actualTeam->users->filter(fn($u) => !in_array($u->pivot->role, $nonPlayerRoles));
+                    $teamOwner = $actualTeam->users->first(fn($u) => $u->pivot->role === 'Owner');
+                    $teamManager = $actualTeam->users->first(fn($u) => in_array($u->pivot->role, ['Manager', 'Team Manager']));
+                    $totalPlayers = $players->count();
 
                     // Count Captains
-                    $captainsCount = $actualTeam->users
+                    $captainsCount = $players
                         ->filter(function ($user) {
                             return $user->roles->contains('name', 'Captain');
                         })
@@ -89,7 +94,7 @@
 
                     // Count for all roles
                     $roleCounts = [];
-                    foreach ($actualTeam->users as $user) {
+                    foreach ($players as $user) {
                         foreach ($user->roles as $role) {
                             $roleName = $role->name;
                             if (!isset($roleCounts[$roleName])) {
@@ -176,11 +181,41 @@
         @endif
 
         {{-- ======================================================= --}}
+        {{-- TEAM MANAGEMENT (Owner / Manager) --}}
+        {{-- ======================================================= --}}
+        @if ($teamOwner || $teamManager)
+            <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                @if ($teamOwner)
+                    <div class="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow border-l-4 border-blue-500">
+                        <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                            src="{{ $teamOwner->player?->image_path ? Storage::url($teamOwner->player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($teamOwner->name) }}"
+                            alt="{{ $teamOwner->name }}">
+                        <div>
+                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Owner</div>
+                            <div class="font-bold text-gray-900 dark:text-white">{{ $teamOwner->name }}</div>
+                        </div>
+                    </div>
+                @endif
+                @if ($teamManager)
+                    <div class="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow border-l-4 border-green-500">
+                        <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                            src="{{ $teamManager->player?->image_path ? Storage::url($teamManager->player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($teamManager->name) }}"
+                            alt="{{ $teamManager->name }}">
+                        <div>
+                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Team Manager</div>
+                            <div class="font-bold text-gray-900 dark:text-white">{{ $teamManager->name }}</div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        @endif
+
+        {{-- ======================================================= --}}
         {{-- START: LEGACY SQUAD (from actual_team_users) --}}
         {{-- ======================================================= --}}
         <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-4">The Squad</h2>
         <div class="space-y-3">
-            @forelse($actualTeam->users as $user)
+            @forelse($players as $user)
 
                 @can('player.view')
                     {{-- Clickable Row --}}

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
+use App\Traits\ValidatesTurnstile;
 use Illuminate\Foundation\Auth\RegistersUsers;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -23,22 +25,26 @@ class RegisterController extends Controller
     */
 
     use RegistersUsers;
+    use ValidatesTurnstile;
 
-    /**
-     * Where to redirect users after registration.
-     *
-     * @var string
-     */
     protected $redirectTo = RouteServiceProvider::HOME;
 
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
     public function __construct()
     {
         $this->middleware('guest');
+    }
+
+    public function register(Request $request)
+    {
+        $this->validateTurnstile($request);
+
+        $this->validator($request->all())->validate();
+
+        $user = $this->create($request->all());
+
+        $this->guard()->login($user);
+
+        return redirect($this->redirectPath());
     }
 
     /**

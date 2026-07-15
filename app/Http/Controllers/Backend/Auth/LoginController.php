@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Providers\RouteServiceProvider;
 use App\Services\DemoAppService;
+use App\Traits\ValidatesTurnstile;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,6 +24,7 @@ class LoginController extends Controller
     */
 
     use AuthenticatesUsers;
+    use ValidatesTurnstile;
 
     public function __construct(private readonly DemoAppService $demoAppService)
     {
@@ -61,6 +63,8 @@ class LoginController extends Controller
      */
     public function login(LoginRequest $request)
     {
+        $this->validateTurnstile($request);
+
         if (Auth::guard('web')->attempt(['email' => $request->email, 'password' => $request->password], $request->remember)) {
             $this->demoAppService->maybeSetDemoLocaleToEnByDefault();
             session()->flash('success', 'Successfully Logged in!');

@@ -24,8 +24,14 @@
                 <a class="link" href="{{ route('password.request') }}">Forgot password?</a>
             @endif
         </div>
+        @if(config('turnstile.site_key'))
+            <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" style="margin-bottom: 16px;"></div>
+        @endif
         <button type="submit" class="btn">Sign in</button>
     </form>
+    @if(config('turnstile.site_key'))
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endif
 @endsection
 
 @if (Route::has('register'))

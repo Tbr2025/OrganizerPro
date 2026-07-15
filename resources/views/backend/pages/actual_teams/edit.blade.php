@@ -848,18 +848,35 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {{-- LEFT COLUMN (Members) --}}
             <div class="space-y-8">
-                {{-- Current Squad --}}
-              
+                {{-- Team Staff (Owner / Manager) --}}
+                @if($currentStaffMembers->count())
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+                        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Team Management</h2>
+                        </div>
+                        <div class="p-5 space-y-3">
+                            @foreach($currentStaffMembers as $member)
+                                @include('backend.pages.actual_teams.partials.member-card', [
+                                    'member' => $member,
+                                    'teamId' => $actualTeam->id,
+                                    'roles' => $availableRolesForSelection,
+                                ])
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Current Squad (Players only) --}}
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
                     <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                             Current Squad (<span id="squad-count">
-                               {{$currentMembers->count();}}
+                               {{ $currentPlayerMembers->count() }}
                             </span>)
                         </h2>
                     </div>
                     <div id="current-squad-container" class="p-5 space-y-3 max-h-[600px] overflow-y-auto">
-                        @forelse($currentMembers as $member)
+                        @forelse($currentPlayerMembers as $member)
                             @include('backend.pages.actual_teams.partials.member-card', [
                                 'member' => $member,
                                 'teamId' => $actualTeam->id,
