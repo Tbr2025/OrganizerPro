@@ -167,10 +167,15 @@ class RegistrationController extends Controller
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
         $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'public', $tournament->settings);
 
-        // If image was pre-processed via AJAX, relax the file validation
+        // Image is always uploaded via AJAX (file input has no name attribute),
+        // so validate via processed_image_path instead of the 'image' file key.
+        $imageRequired = ($fieldConfig['image']['required'] ?? false) && ($fieldConfig['image']['visible'] ?? true);
         if ($request->filled('processed_image_path')) {
             $rules['image'] = 'nullable';
             $rules['processed_image_path'] = 'required|string|max:500';
+        } elseif ($imageRequired) {
+            $rules['image'] = 'nullable';
+            $rules['processed_image_path'] = 'required';
         }
 
         // When the tournament has T&C content, a typed signature is required.
@@ -200,7 +205,9 @@ class RegistrationController extends Controller
             $rules[$key] = implode('|', $parts);
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [
+            'processed_image_path.required' => 'Please upload a player photo.',
+        ]);
 
         // Collect custom field answers keyed by cf_<id> for storage/verification.
         $customValues = [];
@@ -221,6 +228,10 @@ class RegistrationController extends Controller
         $validated['available_sunday'] = $request->boolean('available_sunday');
         $validated['available_weekends'] = $request->boolean('available_saturday') || $request->boolean('available_sunday');
         $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
+
+        // Re-attach merged full-number fields (not in validation rules, so stripped by validate()).
+        $validated['mobile_number_full'] = $request->input('mobile_number_full');
+        $validated['cricheroes_number_full'] = $request->input('cricheroes_number_full');
 
         // Digitally-signed consent: capture typed name + IP + a snapshot of the
         // T&C content the applicant accepted (timestamp set in the service).
