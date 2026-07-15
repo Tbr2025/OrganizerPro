@@ -190,10 +190,7 @@
                         </button>
                         <p class="text-xs text-gray-400 mt-1">Apply this budget to all teams in this tournament.</p>
                     </div>
-                    <form id="global-budget-form" action="{{ route('admin.tournaments.global-budget', $tournament) }}" method="POST" class="hidden">
-                        @csrf
-                        <input type="hidden" name="max_budget_per_team" id="global_budget_value" value="{{ $budgetRaw }}">
-                    </form>
+                    {{-- Moved outside main form to avoid nested forms --}}
                     <script>
                         document.getElementById('budget_display').addEventListener('input', function() {
                             document.getElementById('global_budget_value').value = this.value ? Math.round(this.value * 1000000) : '';
@@ -243,6 +240,13 @@
                     @endif
                 </div>
             </form>
+
+            @if(isset($auction) && $auction && $auction->exists)
+            <form id="global-budget-form" action="{{ route('admin.tournaments.global-budget', $tournament) }}" method="POST" class="hidden">
+                @csrf
+                <input type="hidden" name="max_budget_per_team" id="global_budget_value" value="{{ $budgetRaw ?? '' }}">
+            </form>
+            @endif
         </div>
     </div>
 @endsection
