@@ -46,8 +46,6 @@
     <div class="header">
         @if($appLogo || $tournamentLogo)
         <div class="logos">
-            @if($appLogo)<img src="{{ $appLogo }}" alt="{{ $appName }}">@endif
-            @if($appLogo && $tournamentLogo)<span class="sep"></span>@endif
             @if($tournamentLogo)<img src="{{ $tournamentLogo }}" alt="{{ $tournament->name }}">@endif
         </div>
         @endif
