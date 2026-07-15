@@ -161,6 +161,9 @@
             </div>
         @endif
 
+        {{-- Required note --}}
+        <p class="text-sm text-gray-400 mb-4 text-right"><span style="color:var(--accent);">*</span> indicates a required field</p>
+
         {{-- Form --}}
         <form method="POST" action="{{ route('public.tournament.registration.player.store', $tournament->slug) }}"
               enctype="multipart/form-data" x-data="{
