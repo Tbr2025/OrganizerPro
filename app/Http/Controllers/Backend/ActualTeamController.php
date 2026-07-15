@@ -1318,7 +1318,7 @@ class ActualTeamController extends Controller
                         'mobile_number_full' => $request->phone,
                         'user_id'            => $user->id,
                         'actual_team_id'     => $actualTeam->id,
-                        'status'             => 'approved',
+                        'status'             => 'pending',
                     ]);
                 } else {
                     // Update phone if different
@@ -1329,7 +1329,6 @@ class ActualTeamController extends Controller
                     if (!$player->actual_team_id) {
                         $player->actual_team_id = $actualTeam->id;
                     }
-                    $player->status = 'approved';
                     $player->save();
                 }
             }
