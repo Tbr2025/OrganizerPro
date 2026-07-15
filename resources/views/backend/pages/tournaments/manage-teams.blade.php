@@ -209,8 +209,11 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
-                    <input type="number" name="retained_value" required min="0" step="any" placeholder="Enter retention amount"
+                    <input type="number" id="retain_amount_display" required min="0" step="any" placeholder="e.g. 5" value="5"
+                        oninput="document.getElementById('retain_amount_raw').value = this.value ? Math.round(this.value * 1000000) : ''"
                         class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                    <input type="hidden" name="retained_value" id="retain_amount_raw" value="5000000">
+                    <p class="text-xs text-gray-500 mt-1">Enter in millions (e.g. 5 = 50,00,000). Default: 5M.</p>
                 </div>
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" @click="showModal = false"
