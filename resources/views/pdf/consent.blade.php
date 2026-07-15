@@ -7,7 +7,7 @@
         body { font-family: 'DejaVu Sans', Arial, sans-serif; color: #1f2937; font-size: 12px; line-height: 1.55; margin: 0; padding: 0; }
         .header { text-align: center; border-bottom: 3px solid #1a56db; padding-bottom: 16px; margin-bottom: 20px; }
         .logos { text-align: center; margin-bottom: 10px; }
-        .logos img { max-height: 60px; max-width: 200px; object-fit: contain; vertical-align: middle; margin: 0 14px; }
+        .logos img { width: 90px; height: 90px; object-fit: contain; vertical-align: middle; margin: 0 14px; border-radius: 8px; }
         .logos .sep { display: inline-block; width: 1px; height: 42px; background: #d1d5db; vertical-align: middle; margin: 0 4px; }
         .header h1 { font-size: 18px; margin: 6px 0 2px; color: #111827; }
         .header .sub { color: #6b7280; font-size: 12px; }

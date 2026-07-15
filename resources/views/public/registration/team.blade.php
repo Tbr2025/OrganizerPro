@@ -128,11 +128,25 @@
 
             {{-- Submit --}}
             <div class="reveal">
-                <button type="submit" class="reg-submit btn-ripple">
+                <button type="submit" class="reg-submit btn-ripple" id="team-submit-btn">
                     <i class="fas fa-paper-plane mr-2"></i> Submit Team Registration
                 </button>
             </div>
         </form>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('team-registration-form') || document.querySelector('form');
+            if (!form) return;
+            form.addEventListener('submit', function() {
+                const btn = document.getElementById('team-submit-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+                }
+            });
+        });
+        </script>
 
         {{-- Contact Info --}}
         @include('public.registration.partials.contact-info')

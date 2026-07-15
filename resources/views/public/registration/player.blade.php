@@ -476,6 +476,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (hasError) {
             e.preventDefault();
             if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            // Prevent double submission
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting...';
+            }
         }
     });
 });
