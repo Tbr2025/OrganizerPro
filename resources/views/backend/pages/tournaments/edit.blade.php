@@ -178,6 +178,28 @@
                     @error('max_budget_per_team')
                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                     @enderror
+
+                    {{-- Global Update Default --}}
+                    @if($auction && $auction->exists)
+                    <div class="mt-3">
+                        <button type="button" id="global-budget-btn"
+                            onclick="if(confirm('This will update all teams\' auction budget to ' + document.getElementById('budget_display').value + 'M. Continue?')) { document.getElementById('global-budget-form').submit(); }"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:text-indigo-300 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 rounded-lg transition">
+                            <iconify-icon icon="lucide:refresh-cw" width="14"></iconify-icon>
+                            Global Update Default
+                        </button>
+                        <p class="text-xs text-gray-400 mt-1">Apply this budget to all teams in this tournament.</p>
+                    </div>
+                    <form id="global-budget-form" action="{{ route('admin.tournaments.global-budget', $tournament) }}" method="POST" class="hidden">
+                        @csrf
+                        <input type="hidden" name="max_budget_per_team" id="global_budget_value" value="{{ $budgetRaw }}">
+                    </form>
+                    <script>
+                        document.getElementById('budget_display').addEventListener('input', function() {
+                            document.getElementById('global_budget_value').value = this.value ? Math.round(this.value * 1000000) : '';
+                        });
+                    </script>
+                    @endif
                 </div>
 
                 </fieldset>

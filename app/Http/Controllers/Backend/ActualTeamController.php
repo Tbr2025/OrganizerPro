@@ -86,12 +86,16 @@ class ActualTeamController extends Controller
         // Calculate total spent per team and auctioned players count
         $teamBudgets = [];
 
-        // Pre-load auctions keyed by tournament_id for efficiency
+        // Pre-load auctions and tournament settings keyed by tournament_id for efficiency
         $tournamentIds = $actualTeams->pluck('tournament_id')->filter()->unique();
         $auctions = Auction::whereIn('tournament_id', $tournamentIds)->get()->keyBy('tournament_id');
+        $tournamentSettings = \App\Models\TournamentSetting::whereIn('tournament_id', $tournamentIds)->get()->keyBy('tournament_id');
 
         foreach ($actualTeams as $team) {
             $auction = $team->tournament_id ? ($auctions[$team->tournament_id] ?? null) : null;
+
+            $settings = $team->tournament_id ? ($tournamentSettings[$team->tournament_id] ?? null) : null;
+            $squadMax = $settings->max_players_per_team ?? 18;
 
             if ($auction) {
                 $maxBudget = $auction->max_budget_per_team ?? 0;
@@ -113,12 +117,14 @@ class ActualTeamController extends Controller
                     'spent' => number_format($totalSpent / 1000000, 2),
                     'max_budget' => number_format($maxBudget / 1000000, 2),
                     'user_count' => $auctionedUserCount,
+                    'squad_max' => $squadMax,
                 ];
             } else {
                 $teamBudgets[$team->id] = [
                     'spent' => '0.00',
                     'max_budget' => '0.00',
                     'user_count' => 0,
+                    'squad_max' => $squadMax,
                 ];
             }
         }

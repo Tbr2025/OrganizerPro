@@ -409,6 +409,31 @@ class TournamentController extends Controller
     }
 
 
+    public function globalBudgetUpdate(Request $request, Tournament $tournament)
+    {
+        $this->checkAuthorization(auth()->user(), ['tournament.edit']);
+
+        $validated = $request->validate([
+            'max_budget_per_team' => 'required|numeric|min:0',
+        ]);
+
+        $budgetValue = $validated['max_budget_per_team'];
+
+        // Update or create the auction record with the new budget
+        Auction::updateOrCreate(
+            ['tournament_id' => $tournament->id],
+            [
+                'name' => $tournament->name . ' Auction',
+                'organization_id' => $tournament->organization_id,
+                'max_budget_per_team' => $budgetValue,
+            ]
+        );
+
+        return redirect()
+            ->route('admin.tournaments.edit', $tournament)
+            ->with('success', 'Budget updated to ' . number_format($budgetValue / 1000000, 2) . 'M for all teams.');
+    }
+
     public function destroy(Tournament $tournament)
     {
         $this->checkAuthorization(auth()->user(), ['tournament.delete']);

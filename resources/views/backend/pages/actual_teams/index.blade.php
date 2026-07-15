@@ -108,7 +108,7 @@
                                     $spent = $teamBudgets[$team->id]['spent'] ?? 0;
                                     $balance = $budget - $spent;
                                     $userCount = $teamBudgets[$team->id]['user_count'] ?? 0;
-                                    $squadMax = 18;
+                                    $squadMax = $teamBudgets[$team->id]['squad_max'] ?? 18;
                                     $squadPercent = $squadMax > 0 ? min(100, round(($userCount / $squadMax) * 100)) : 0;
                                 @endphp
                                 <tr class="group hover:bg-gray-50/70 dark:hover:bg-white/[0.02] transition-colors duration-150">

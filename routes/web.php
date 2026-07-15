@@ -473,6 +473,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     Route::resource('tournaments', TournamentController::class);
     Route::get('/tournaments/{tournament}/dashboard', [TournamentController::class, 'dashboard'])->name('tournaments.dashboard');
+    Route::post('/tournaments/{tournament}/global-budget', [TournamentController::class, 'globalBudgetUpdate'])->name('tournaments.global-budget');
     Route::post('/players/{player}/intimate', [PlayerController::class, 'intimate'])->name('players.intimate');
     Route::post('/players/save-image', [PlayerController::class, 'saveImage'])->name('players.saveImage');
     Route::get('/players/{player}/image-editor', [PlayerController::class, 'editor'])
