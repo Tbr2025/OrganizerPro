@@ -136,6 +136,7 @@ class PlayerController extends Controller
         $query = Player::with([
             'user.organization',
             'user.actualTeams', // <-- CRITICAL: Load the actual team relationship
+            'user.roles',
             'team',
             'playerType',
             'location',

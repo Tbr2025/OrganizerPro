@@ -344,16 +344,18 @@
                                         {{ $player->display_team_name ?? 'N/A' }}
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap">
-                                        @if ($player->status === 'approved')
-                                            <span
-                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400">Approved</span>
-                                        @elseif ($player->status === 'rejected')
-                                            <span
-                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-400">Rejected</span>
-                                        @else
-                                            <span
-                                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-500/10 dark:text-amber-400">Pending</span>
-                                        @endif
+                                        <div class="flex flex-wrap gap-1">
+                                            @if ($player->status === 'approved')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400">Player Approved</span>
+                                            @elseif ($player->status === 'rejected')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-400">Player Rejected</span>
+                                            @else
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-500/10 dark:text-amber-400">Player Pending</span>
+                                            @endif
+                                            @if($player->user?->hasRole('Team Manager'))
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-indigo-50 text-indigo-700 ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-400">Team Manager</span>
+                                            @endif
+                                        </div>
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {{ $player->updated_at->diffForHumans() }}</td>
