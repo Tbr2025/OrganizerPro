@@ -52,25 +52,39 @@
                                 <td class="px-6 py-4">{{ $player->battingProfile->style ?? '-' }}</td>
                                 <td class="px-6 py-4">{{ $player->bowlingProfile->style ?? '-' }}</td>
                                 <td class="px-6 py-4">
-                                    @if($player->status === 'approved')
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                                            </svg>
-                                            Verified
-                                        </span>
-                                    @elseif($player->status === 'rejected')
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                                            Rejected
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
-                                            </svg>
-                                            Pending
-                                        </span>
-                                    @endif
+                                    <div class="flex flex-wrap gap-1">
+                                        {{-- Player status --}}
+                                        @if($player->status === 'approved')
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                Player Verified
+                                            </span>
+                                        @elseif($player->status === 'rejected')
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                                Player Rejected
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                Player Pending
+                                            </span>
+                                        @endif
+
+                                        {{-- Role tag (Team Manager / Captain / Owner) --}}
+                                        @if($player->user)
+                                            @foreach($player->user->roles as $role)
+                                                @if(in_array($role->name, ['Team Manager']))
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                                                        {{ $role->name }}
+                                                    </span>
+                                                @endif
+                                            @endforeach
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-2">
@@ -203,6 +217,7 @@
             'travel_date_from' => $player->travel_date_from?->format('d M Y'),
             'travel_date_to' => $player->travel_date_to?->format('d M Y'),
             'status' => $player->status,
+            'is_team_manager' => $player->user?->hasRole('Team Manager') ?? false,
             'image_path' => $player->image_path ? asset('storage/' . $player->image_path) : null,
         ];
     })->keyBy('id');
@@ -221,9 +236,14 @@
         } else {
             html += `<div class="w-20 h-20 rounded-lg bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-2xl font-bold text-gray-600 dark:text-gray-300">${player.name.charAt(0).toUpperCase()}</div>`;
         }
+        const statusLabel = player.status === 'approved' ? 'Player Verified' : player.status === 'rejected' ? 'Player Rejected' : 'Player Pending';
+        const statusClass = player.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : player.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
         html += `<div>
             <h4 class="text-xl font-bold text-gray-900 dark:text-white">${player.name}</h4>
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${player.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : player.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}">${player.status.charAt(0).toUpperCase() + player.status.slice(1)}</span>
+            <div class="flex flex-wrap gap-1 mt-1">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${statusLabel}</span>
+                ${player.is_team_manager ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">Team Manager</span>' : ''}
+            </div>
         </div></div>`;
 
         const fields = [

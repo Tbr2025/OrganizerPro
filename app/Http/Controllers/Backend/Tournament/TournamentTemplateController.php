@@ -570,7 +570,7 @@ class TournamentTemplateController extends Controller
 
         // Get all players from both teams
         $teamAPlayers = Player::where('actual_team_id', $match->team_a_id)
-            ->where('status', 'approved')
+            ->whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournament->id)->where('status', 'approved'))
             ->get()
             ->map(fn($p) => [
                 'id' => $p->id,
@@ -582,7 +582,7 @@ class TournamentTemplateController extends Controller
             ]);
 
         $teamBPlayers = Player::where('actual_team_id', $match->team_b_id)
-            ->where('status', 'approved')
+            ->whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournament->id)->where('status', 'approved'))
             ->get()
             ->map(fn($p) => [
                 'id' => $p->id,

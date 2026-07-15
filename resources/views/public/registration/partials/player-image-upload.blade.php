@@ -215,7 +215,7 @@ function publicPlayerImageUpload_{{ $piuId }}() {
                     this.cropper = new Cropper(img, {
                         aspectRatio: 3 / 4,
                         viewMode: 1,
-                        autoCropArea: 0.9,
+                        autoCropArea: 1,
                         responsive: true,
                     });
                 });

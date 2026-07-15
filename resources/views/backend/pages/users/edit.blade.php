@@ -16,9 +16,16 @@
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800">
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Player Summary</h3>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $player->status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' }}">
-                        {{ ucfirst($player->status) }}
-                    </span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $player->status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ($player->status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400') }}">
+                            Player: {{ ucfirst($player->status ?? 'pending') }}
+                        </span>
+                        @if($user->hasRole('Team Manager'))
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                Team Manager
+                            </span>
+                        @endif
+                    </div>
                 </div>
                 <div class="p-5 sm:p-6 space-y-6">
                     {{-- Player Profile Card --}}

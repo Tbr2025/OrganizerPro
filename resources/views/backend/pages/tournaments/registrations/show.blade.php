@@ -195,8 +195,8 @@
                         $p = $registration->player;
                         $regSettings = $tournament->settings;
                         $fieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig($regSettings);
-                        // Only the fields that are visible on the public form (match the form exactly).
-                        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($regSettings, true);
+                        // Show all fields on the admin detail page so nothing is hidden.
+                        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($regSettings, false);
                         $countries = config('countries.list', []);
                         $visaList = config('registration.visa_statuses', []);
                         $valueFor = function ($key) use ($p, $countries, $visaList, $registration) {
@@ -235,8 +235,8 @@
                                 'total_matches' => $p->total_matches,
                                 'total_runs' => $p->total_runs,
                                 'total_wickets' => $p->total_wickets,
-                                'transportation' => is_null($p->transportation_required) ? null : ($p->transportation_required ? 'Yes' : 'No'),
-                                'travel_plan' => $p->no_travel_plan ? 'No travel plan' : (($p->travel_date_from || $p->travel_date_to) ? trim(($p->travel_date_from ? optional($p->travel_date_from)->format('d M Y') : '') . ' – ' . ($p->travel_date_to ? optional($p->travel_date_to)->format('d M Y') : ''), ' –') : null),
+                                'transportation' => is_null($p->transportation_required) ? null : ($p->transportation_required ? 'Transportation Required (Subject to Franchise Preferences)' : 'Self Transportation (Preferred by Franchises)'),
+                                'travel_plan' => $p->no_travel_plan ? 'No' : (($p->travel_date_from || $p->travel_date_to) ? 'Yes — ' . trim(($p->travel_date_from ? optional($p->travel_date_from)->format('d M Y') : '') . ' – ' . ($p->travel_date_to ? optional($p->travel_date_to)->format('d M Y') : ''), ' –') : 'Yes'),
                                 default => null,
                             };
                         };
@@ -446,7 +446,9 @@
                         $pcFmt = function ($field, $val) {
                             if (is_null($val) || $val === '') return '—';
                             return match ($field) {
-                                'is_wicket_keeper', 'transportation_required', 'no_travel_plan' => $val ? 'Yes' : 'No',
+                                'is_wicket_keeper' => $val ? 'Yes' : 'No',
+                                'transportation_required' => $val ? 'Transportation Required (Subject to Franchise Preferences)' : 'Self Transportation (Preferred by Franchises)',
+                                'no_travel_plan' => $val ? 'No' : 'Yes',
                                 'batting_profile_id' => optional(\App\Models\BattingProfile::find($val))->name ?? $val,
                                 'bowling_profile_id' => optional(\App\Models\BowlingProfile::find($val))->name ?? $val,
                                 'player_type_id' => optional(\App\Models\PlayerType::find($val))->name ?? $val,
@@ -578,6 +580,28 @@
                     </div>
                     <p class="text-xs text-gray-400 mt-2">Confirmation sends the approval email when approved, otherwise the "application received" email. Welcome card requires a welcome-card template. "Send Temp Password" resets the applicant's login and emails them a new temporary password so they can sign in and update their details (pending your approval).</p>
                 </div>
+
+                {{-- Admin quick-access --}}
+                @if($registration->type === 'player' && $registration->player)
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Admin Actions</h4>
+                    <div class="flex flex-wrap gap-3">
+                        <a href="{{ route('admin.players.edit', $registration->player->id) }}" target="_blank"
+                           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            Edit Player Info
+                        </a>
+                        @if($registration->player->user_id)
+                        <a href="{{ route('admin.users.login-as', $registration->player->user_id) }}" target="_blank"
+                           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+                           onclick="return confirm('You will be logged in as this player in a new tab. Use the impersonation banner to switch back.')">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            Login As Player
+                        </a>
+                        @endif
+                    </div>
+                </div>
+                @endif
 
                 {{-- Actions --}}
                 @if($registration->status == 'pending')

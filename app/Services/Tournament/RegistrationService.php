@@ -181,6 +181,18 @@ class RegistrationService
                 }
             }
 
+            // Prevent duplicate active registrations for the same player + tournament.
+            $existingRegistration = TournamentRegistration::where('tournament_id', $tournament->id)
+                ->where('player_id', $player->id)
+                ->whereIn('status', ['pending', 'approved', 'queued'])
+                ->first();
+
+            if ($existingRegistration) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'email' => ['This player already has an active registration for this tournament.'],
+                ]);
+            }
+
             // Create registration
             $registration = TournamentRegistration::create([
                 'tournament_id' => $tournament->id,
@@ -290,11 +302,11 @@ class RegistrationService
                 'processed_by' => $approvedBy,
             ]);
 
-            // Mark the player approved and give their user the Player role.
+            // Give the player's user account the Player role.
+            // Note: we no longer set players.status globally — the per-tournament
+            // registration status (tournament_registrations.status) is the source of truth.
             $player = $registration->player;
             if ($player) {
-                $player->update(['status' => 'approved', 'approved_by' => $approvedBy]);
-
                 if ($player->user) {
                     $role = \App\Models\Role::firstOrCreate(['name' => 'player']);
                     if (! $player->user->hasRole('player')) {

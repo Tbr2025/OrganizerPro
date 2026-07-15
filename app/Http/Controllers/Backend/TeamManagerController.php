@@ -774,9 +774,8 @@ class TeamManagerController extends Controller
 
         $tournamentId = $team->tournament_id;
 
-        // Get all approved players registered for this tournament
-        $query = Player::where('status', 'approved')
-            ->whereHas('registrations', function ($q) use ($tournamentId) {
+        // Get all players with approved registration for this tournament
+        $query = Player::whereHas('registrations', function ($q) use ($tournamentId) {
                 $q->where('tournament_id', $tournamentId)
                   ->where('status', 'approved');
             })
@@ -846,7 +845,7 @@ class TeamManagerController extends Controller
         }
 
         $teamPlayers = Player::where('actual_team_id', $team->id)
-            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location'])
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location', 'user.roles'])
             ->orderBy('name')
             ->get();
 

@@ -50,9 +50,10 @@ class AuctionAdminController extends Controller
         // Auctions attach only to auction-type tournaments (budget/pools apply there).
         $tournaments = Tournament::forUser(auth()->user())->where('type', 'auction')->orderBy('name')->get();
 
-        // Fetch available players (approved, not retained) for the player pool step
+        // Fetch available players (approved in at least one tournament, not retained) for the player pool step.
+        // The JS wizard will further filter by tournament once one is selected.
         $orgId = Auth::user()->organization_id;
-        $query = Player::where('status', 'approved')
+        $query = Player::whereHas('registrations', fn ($q) => $q->where('status', 'approved'))
             ->where(function ($q) {
                 $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode');
             });
@@ -838,9 +839,10 @@ class AuctionAdminController extends Controller
         $auction->load(['auctionPlayers.player', 'pools.players.player', 'tournament', 'teamBudgets']);
         $auctionPlayerIds = $auction->auctionPlayers->pluck('player.id')->toArray();
 
-        // Available = approved players not already in this auction. Retained players
-        // ARE selectable (flagged) so they can be placed in a pool and merged later.
-        $availablePlayers = Player::where('status', 'approved')
+        // Available = players with approved registration for this auction's tournament,
+        // not already in this auction. Retained players ARE selectable (flagged).
+        $tournamentId = $auction->tournament_id;
+        $availablePlayers = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'))
             ->whereNotIn('id', $auctionPlayerIds)
             ->when($auction->organization_id, function ($query) use ($auction) {
                 $query->where('organization_id', $auction->organization_id);

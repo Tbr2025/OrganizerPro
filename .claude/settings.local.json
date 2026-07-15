@@ -215,7 +215,8 @@
       "Bash(grep -n \"max_budget_per_team\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
       "Bash(grep -n \"budget\\\\|spent\\\\|balance\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
       "Bash(sqlite3 /Users/navasfazil/OrganizerPro/.sqlite/database.sqlite \"SELECT id, name, organization_id FROM users WHERE id = 20;\" 2>/dev/null || echo \"SQLite not found, checking if MySQL/Postgres is in use\")",
-      "Bash(grep -n \"retain\\\\|unretain\" /Users/navasfazil/OrganizerPro/routes/*.php 2>/dev/null | head -20)"
+      "Bash(grep -n \"retain\\\\|unretain\" /Users/navasfazil/OrganizerPro/routes/*.php 2>/dev/null | head -20)",
+      "Bash(grep -rn \"unique\\\\|migration\\\\|constraint\" /Users/navasfazil/OrganizerPro/database/migrations/*registrations* 2>/dev/null | head -30)"
     ]
   }
 }

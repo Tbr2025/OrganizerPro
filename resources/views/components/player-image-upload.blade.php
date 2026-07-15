@@ -350,10 +350,11 @@ function playerImageUpload_{{ $uniqueId }}() {
                     if (this.cropper) this.cropper.destroy();
 
                     const ratio = this.cropMode === 'free' ? NaN : parseFloat(this.cropMode);
+
                     this.cropper = new Cropper(img, {
                         aspectRatio: isNaN(ratio) ? NaN : ratio,
                         viewMode: 1,
-                        autoCropArea: 0.9,
+                        autoCropArea: 1,
                         responsive: true,
                         dragMode: 'move',
                         restore: false,

@@ -41,9 +41,10 @@ class AuctionPoolController extends Controller
             ->whereNotNull('auction_pool_id')
             ->pluck('player_id')->all();
 
-        // Available (unassigned) = approved players in the auction's org, minus pooled.
-        // Retained players (player_mode) are flagged so the UI can collect a retention price.
-        $available = Player::where('status', 'approved')
+        // Available (unassigned) = players with approved registration for this auction's
+        // tournament, minus those already pooled. Retained players are flagged for retention price.
+        $tournamentId = $auction->tournament_id;
+        $available = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'))
             ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
             ->whereNotIn('id', $pooledPlayerIds)
             ->with(['playerType', 'actualTeam:id,name'])
@@ -153,8 +154,9 @@ class AuctionPoolController extends Controller
         $isAuctionType = $auction->tournament?->isAuction() ?? true;
         $retainedPrices = $data['retained_prices'] ?? [];
 
-        // Org isolation: only approved players of this auction's org are assignable.
-        $eligible = Player::where('status', 'approved')
+        // Only players with approved registration for this auction's tournament are assignable.
+        $tournamentId = $auction->tournament_id;
+        $eligible = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'))
             ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
             ->whereIn('id', $data['player_ids'])
             ->get(['id', 'user_id', 'player_mode', 'actual_team_id']);
@@ -249,7 +251,8 @@ class AuctionPoolController extends Controller
         $pooledPlayerIds = AuctionPlayer::where('auction_id', $auction->id)
             ->whereNotNull('auction_pool_id')->pluck('player_id')->all();
 
-        $players = Player::where('status', 'approved')
+        $tournamentId = $auction->tournament_id;
+        $players = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'))
             ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
             ->whereNotIn('id', $pooledPlayerIds)
             ->with('playerType')
