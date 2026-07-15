@@ -148,6 +148,9 @@ class PlayerController extends Controller
         // Filter out orphaned player records (no associated user)
         $query->whereNotNull('user_id');
 
+        // Only show users who have the 'player' role (they may also have other roles)
+        $query->whereHas('user.roles', fn($q) => $q->where('name', 'player'));
+
         // 3. Apply role-based data scoping
         if ($user->hasRole('Superadmin')) {
             // Superadmins see all players. No initial scope is applied.
