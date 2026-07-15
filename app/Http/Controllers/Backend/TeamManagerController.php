@@ -844,7 +844,15 @@ class TeamManagerController extends Controller
                 ->with('error', 'You are not assigned to any team.');
         }
 
+        // Only show players who have been added to the Player Roster
+        // (i.e. they exist in the player_actual_team_tournament pivot table).
         $teamPlayers = Player::where('actual_team_id', $team->id)
+            ->whereExists(function ($q) use ($team) {
+                $q->select(\DB::raw(1))
+                  ->from('player_actual_team_tournament')
+                  ->whereColumn('player_actual_team_tournament.player_id', 'players.id')
+                  ->where('player_actual_team_tournament.actual_team_id', $team->id);
+            })
             ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location', 'user.roles'])
             ->orderBy('name')
             ->get();
