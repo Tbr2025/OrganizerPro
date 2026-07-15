@@ -99,6 +99,9 @@
     .reg-select.is-valid { border-color: #34d399 !important; }
     .live-err { color: #f87171; font-size: .8rem; margin-top: .35rem; display: none; }
     .live-err.show { display: block; }
+    /* Radio group + image upload invalid highlight */
+    .radio-group-invalid .reg-check { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,0.2) !important; }
+    .image-upload-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,0.2) !important; }
 </style>
 @endpush
 
@@ -166,7 +169,7 @@
 
         {{-- Form --}}
         <form method="POST" action="{{ route('public.tournament.registration.player.store', $tournament->slug) }}"
-              enctype="multipart/form-data" x-data="{
+              enctype="multipart/form-data" novalidate x-data="{
                   hasTravelPlan: @js(old('has_travel_plan', '')),
                   visaStatus: @js(old('visa_status', '')),
                   selectedTeam: '{{ old('team_id') }}',
@@ -259,21 +262,39 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.querySelector('form[method="POST"]');
     if (!form) return;
 
-    function getOrCreateErr(field) {
-        let err = field.parentElement.querySelector('.live-err');
+    /* ── Helpers ─────────────────────────────────────────── */
+
+    function getOrCreateErr(container) {
+        let err = container.querySelector('.live-err');
         if (!err) {
             err = document.createElement('p');
             err.className = 'live-err';
-            field.parentElement.appendChild(err);
+            container.appendChild(err);
         }
         return err;
     }
 
-    function validateField(field) {
-        // Skip hidden/disabled fields
-        if (field.offsetParent === null || field.disabled) return;
+    function showErr(field, container, msg) {
+        const err = getOrCreateErr(container);
+        field.classList.add('is-invalid');
+        field.classList.remove('is-valid');
+        err.textContent = msg;
+        err.classList.add('show');
+    }
 
-        const err = getOrCreateErr(field);
+    function clearErr(field, container) {
+        const err = container.querySelector('.live-err');
+        field.classList.remove('is-invalid');
+        if (field.value && field.value.trim()) field.classList.add('is-valid');
+        if (err) err.classList.remove('show');
+    }
+
+    /* ── Single-field validation ─────────────────────────── */
+
+    function validateField(field) {
+        if (field.offsetParent === null || field.disabled) return false;
+
+        const container = field.parentElement;
         let msg = '';
 
         if (field.required && !field.value.trim()) {
@@ -287,40 +308,174 @@ document.addEventListener('DOMContentLoaded', function () {
             if (field.max !== '' && Number(field.value) > Number(field.max)) msg = 'Value must be at most ' + field.max + '.';
         }
 
-        if (msg) {
-            field.classList.add('is-invalid');
-            field.classList.remove('is-valid');
-            err.textContent = msg;
+        if (msg) { showErr(field, container, msg); return true; }
+        clearErr(field, container);
+        return false;
+    }
+
+    /* ── Radio-group validation ──────────────────────────── */
+
+    function validateRadioGroup(name) {
+        const radios = form.querySelectorAll('input[type="radio"][name="' + name + '"]');
+        if (!radios.length) return false;
+        // Skip if not required
+        if (!radios[0].required) return false;
+        // Skip if hidden (section collapsed / conditional)
+        if (radios[0].offsetParent === null) return false;
+
+        const checked = form.querySelector('input[type="radio"][name="' + name + '"]:checked');
+        const wrapper = radios[0].closest('.flex, .grid') || radios[0].parentElement.parentElement;
+        const container = wrapper.parentElement;
+
+        if (!checked) {
+            wrapper.classList.add('radio-group-invalid');
+            const err = getOrCreateErr(container);
+            err.textContent = 'Please select an option.';
             err.classList.add('show');
-        } else if (field.value.trim()) {
-            field.classList.remove('is-invalid');
-            field.classList.add('is-valid');
-            err.classList.remove('show');
+            return true;
         } else {
-            field.classList.remove('is-invalid', 'is-valid');
-            err.classList.remove('show');
+            wrapper.classList.remove('radio-group-invalid');
+            const err = container.querySelector('.live-err');
+            if (err) err.classList.remove('show');
+            return false;
         }
     }
 
-    // Attach to all inputs and selects
+    /* ── Image-upload validation ─────────────────────────── */
+
+    function validateImageUpload() {
+        const hiddenCheck = form.querySelector('input[x-ref="imageRequiredCheck"]');
+        if (!hiddenCheck || !hiddenCheck.required) return false;
+        // Check if processedPath has a value
+        if (hiddenCheck.value) return false;
+
+        // Find the upload drop-zone area
+        const uploadArea = hiddenCheck.closest('[x-data]');
+        if (!uploadArea) return false;
+        const dropZone = uploadArea.querySelector('.border-dashed');
+        if (dropZone) dropZone.classList.add('image-upload-invalid');
+
+        const err = getOrCreateErr(uploadArea);
+        err.textContent = 'Please upload a player photo.';
+        err.classList.add('show');
+        return true;
+    }
+
+    function clearImageUploadErr() {
+        const hiddenCheck = form.querySelector('input[x-ref="imageRequiredCheck"]');
+        if (!hiddenCheck) return;
+        const uploadArea = hiddenCheck.closest('[x-data]');
+        if (!uploadArea) return;
+        const dropZone = uploadArea.querySelector('.border-dashed');
+        if (dropZone) dropZone.classList.remove('image-upload-invalid');
+        const err = uploadArea.querySelector('.live-err');
+        if (err) err.classList.remove('show');
+    }
+
+    /* ── Terms checkbox validation ───────────────────────── */
+
+    function validateTerms() {
+        const cb = form.querySelector('#terms_and_conditions');
+        if (!cb || !cb.required) return false;
+        if (cb.checked) return false;
+
+        const wrapper = cb.closest('.reg-check') || cb.parentElement;
+        const container = wrapper.parentElement;
+        wrapper.style.borderColor = '#f87171';
+        wrapper.style.boxShadow = '0 0 0 3px rgba(248,113,113,0.2)';
+        const err = getOrCreateErr(container);
+        err.textContent = 'You must accept the terms and conditions.';
+        err.classList.add('show');
+        return true;
+    }
+
+    function clearTermsErr() {
+        const cb = form.querySelector('#terms_and_conditions');
+        if (!cb) return;
+        const wrapper = cb.closest('.reg-check') || cb.parentElement;
+        const container = wrapper.parentElement;
+        wrapper.style.borderColor = '';
+        wrapper.style.boxShadow = '';
+        const err = container.querySelector('.live-err');
+        if (err) err.classList.remove('show');
+    }
+
+    /* ── Live validation on blur / change ────────────────── */
+
     form.querySelectorAll('input, select, textarea').forEach(function (field) {
-        if (field.type === 'hidden' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'file') return;
+        if (field.type === 'hidden' || field.type === 'file') return;
+        if (field.type === 'radio') {
+            field.addEventListener('change', function () { validateRadioGroup(this.name); });
+            return;
+        }
+        if (field.type === 'checkbox' && field.id === 'terms_and_conditions') {
+            field.addEventListener('change', function () { if (this.checked) clearTermsErr(); });
+            return;
+        }
+        if (field.type === 'checkbox') return;
         field.addEventListener('blur', function () { validateField(this); });
         field.addEventListener('change', function () { validateField(this); });
     });
 
-    // Validate all on submit
+    // Clear image error when a file is processed (watch the hidden input)
+    const imgHidden = form.querySelector('input[name="processed_image_path"]');
+    if (imgHidden) {
+        const observer = new MutationObserver(function () { if (imgHidden.value) clearImageUploadErr(); });
+        observer.observe(imgHidden, { attributes: true, attributeFilter: ['value'] });
+        // Also watch via Alpine's x-model which sets .value directly
+        let lastVal = imgHidden.value;
+        setInterval(function () { if (imgHidden.value !== lastVal) { lastVal = imgHidden.value; if (lastVal) clearImageUploadErr(); } }, 500);
+    }
+
+    /* ── Submit: validate ALL fields at once ─────────────── */
+
     form.addEventListener('submit', function (e) {
+        let firstInvalid = null;
         let hasError = false;
+
+        // 1. Text / select / textarea fields
         form.querySelectorAll('input, select, textarea').forEach(function (field) {
             if (field.type === 'hidden' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'file') return;
-            validateField(field);
-            if (field.classList.contains('is-invalid')) hasError = true;
+            if (validateField(field)) {
+                hasError = true;
+                if (!firstInvalid) firstInvalid = field;
+            }
         });
+
+        // 2. Radio groups (collect unique required radio names)
+        const radioNames = new Set();
+        form.querySelectorAll('input[type="radio"][required]').forEach(function (r) { radioNames.add(r.name); });
+        radioNames.forEach(function (name) {
+            if (validateRadioGroup(name)) {
+                hasError = true;
+                if (!firstInvalid) {
+                    const r = form.querySelector('input[type="radio"][name="' + name + '"]');
+                    if (r) firstInvalid = r.closest('.flex, .grid') || r;
+                }
+            }
+        });
+
+        // 3. Image upload
+        if (validateImageUpload()) {
+            hasError = true;
+            if (!firstInvalid) {
+                const el = form.querySelector('.image-upload-invalid');
+                if (el) firstInvalid = el;
+            }
+        }
+
+        // 4. Terms checkbox
+        if (validateTerms()) {
+            hasError = true;
+            if (!firstInvalid) {
+                const cb = form.querySelector('#terms_and_conditions');
+                if (cb) firstInvalid = cb.closest('.reg-check') || cb;
+            }
+        }
+
         if (hasError) {
             e.preventDefault();
-            const first = form.querySelector('.is-invalid');
-            if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
 });

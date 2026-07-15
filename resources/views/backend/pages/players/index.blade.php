@@ -86,8 +86,8 @@
                             <label for="status"
                                 class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
                             <select name="status" id="status" class="form-control mt-1">
-                                <option value="">All Status</option>
-                                <option value="approved" @selected(request('status') == 'approved')>Approved</option>
+                                <option value="all" @selected(request('status') == 'all')>All Status</option>
+                                <option value="approved" @selected(request('status', 'approved') == 'approved')>Approved</option>
                                 <option value="pending" @selected(request('status') == 'pending')>Pending</option>
                                 <option value="rejected" @selected(request('status') == 'rejected')>Rejected</option>
                             </select>
@@ -311,21 +311,31 @@
                                         </div>
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap text-sm">
+                                        @php
+                                            $mobileDisplay = $player->mobile_number_full
+                                                ?: (($player->mobile_country_code && $player->mobile_national_number)
+                                                    ? str_replace('+', '', $player->mobile_country_code) . $player->mobile_national_number
+                                                    : null);
+                                            $cricDisplay = $player->cricheroes_number_full
+                                                ?: (($player->cricheroes_country_code && $player->cricheroes_national_number)
+                                                    ? str_replace('+', '', $player->cricheroes_country_code) . $player->cricheroes_national_number
+                                                    : null);
+                                        @endphp
                                         <div class="space-y-1">
-                                            @if ($player->mobile_number_full)
+                                            @if ($mobileDisplay)
                                             <div class="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                                                 <iconify-icon icon="lucide:phone" width="14" class="text-blue-500"></iconify-icon>
-                                                <a href="tel:{{ $player->mobile_number_full }}"
-                                                    class="hover:underline">+{{ ltrim($player->mobile_number_full, '+') }}</a>
+                                                <a href="tel:{{ $mobileDisplay }}"
+                                                    class="hover:underline">+{{ ltrim($mobileDisplay, '+') }}</a>
                                             </div>
                                             @endif
-                                            @if ($player->cricheroes_number_full)
+                                            @if ($cricDisplay)
                                                 <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                                                     <iconify-icon icon="lucide:check-circle" width="14" class="text-green-500"></iconify-icon>
-                                                    <span>+{{ ltrim($player->cricheroes_number_full, '+') }}</span>
+                                                    <span>+{{ ltrim($cricDisplay, '+') }}</span>
                                                 </div>
                                             @endif
-                                            @if (!$player->mobile_number_full && !$player->cricheroes_number_full)
+                                            @if (!$mobileDisplay && !$cricDisplay)
                                                 <span class="text-gray-400">—</span>
                                             @endif
                                         </div>

@@ -124,7 +124,7 @@ class PlayerController extends Controller
             'role'             => request('role'),
             'batting_profile'  => request('batting_profile'),
             'bowling_profile'  => request('bowling_profile'),
-            'status'           => request('status'),
+            'status'           => request('status', 'approved'),
             'updated_sort'     => request('updated_sort'),
             'player_mode'     => request('player_mode'),
             'tournament'       => request('tournament'), // Superadmin-only filter
@@ -199,7 +199,7 @@ class PlayerController extends Controller
             ->when($filters['bowling_profile'], function ($q) use ($filters) {
                 $q->whereHas('bowlingProfile', fn($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
             })
-            ->when($filters['status'], function ($q) use ($filters) {
+            ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
                 if ($filters['status'] === 'approved') $q->where('status', 'approved');
                 elseif ($filters['status'] === 'pending') $q->where(fn($q) => $q->where('status', 'pending')->orWhereNull('status'));
                 elseif ($filters['status'] === 'rejected') $q->where('status', 'rejected');
