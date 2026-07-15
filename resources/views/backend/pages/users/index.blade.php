@@ -55,7 +55,7 @@
                                         {{ __('All Roles') }}
                                     </li>
                                     @foreach ($roles as $id => $name)
-                                        @if ($name !== 'Player' && $name !== 'Superadmin')
+                                        @if ($name !== 'Superadmin')
                                         <li class="cursor-pointer text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-2 rounded-md transition-colors {{ request('role') === $name ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 font-medium' : '' }}"
                                             onclick="handleRoleFilter('{{ $name }}')">
                                             {{ ucfirst($name) }}
@@ -153,33 +153,40 @@
                                         <span class="text-sm text-gray-600 dark:text-gray-300">{{ $user->email }}</span>
                                     </td>
                                     <td class="px-5 py-3.5">
-                                        <div class="flex flex-wrap gap-1">
+                                        <div class="flex flex-wrap gap-1.5">
+                                            @php
+                                                $roleStyles = [
+                                                    'Superadmin' => ['bg' => 'bg-red-50 dark:bg-red-500/10', 'text' => 'text-red-700 dark:text-red-400', 'ring' => 'ring-red-600/10 dark:ring-red-500/20', 'dot' => 'bg-red-500'],
+                                                    'Admin'      => ['bg' => 'bg-indigo-50 dark:bg-indigo-500/10', 'text' => 'text-indigo-700 dark:text-indigo-400', 'ring' => 'ring-indigo-600/10 dark:ring-indigo-500/20', 'dot' => 'bg-indigo-500'],
+                                                    'Organizer'  => ['bg' => 'bg-amber-50 dark:bg-amber-500/10', 'text' => 'text-amber-700 dark:text-amber-400', 'ring' => 'ring-amber-600/10 dark:ring-amber-500/20', 'dot' => 'bg-amber-500'],
+                                                    'Team Manager' => ['bg' => 'bg-purple-50 dark:bg-purple-500/10', 'text' => 'text-purple-700 dark:text-purple-400', 'ring' => 'ring-purple-600/10 dark:ring-purple-500/20', 'dot' => 'bg-purple-500'],
+                                                    'player'     => ['bg' => 'bg-emerald-50 dark:bg-emerald-500/10', 'text' => 'text-emerald-700 dark:text-emerald-400', 'ring' => 'ring-emerald-600/10 dark:ring-emerald-500/20', 'dot' => 'bg-emerald-500'],
+                                                ];
+                                                $defaultStyle = ['bg' => 'bg-gray-50 dark:bg-gray-500/10', 'text' => 'text-gray-600 dark:text-gray-300', 'ring' => 'ring-gray-500/10 dark:ring-gray-500/20', 'dot' => 'bg-gray-400'];
+                                            @endphp
                                             @foreach ($user->roles as $role)
                                                 @php
-                                                    $roleColors = [
-                                                        'Superadmin' => 'bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20',
-                                                        'Admin' => 'bg-indigo-50 text-indigo-700 ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-400 dark:ring-indigo-500/20',
-                                                        'Organizer' => 'bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20',
-                                                        'Team Manager' => 'bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400 dark:ring-purple-500/20',
-                                                    ];
-                                                    $colors = $roleColors[$role->name] ?? 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-500/20';
+                                                    $s = $roleStyles[$role->name] ?? $defaultStyle;
+
+                                                    // Determine status per role
+                                                    if (strtolower($role->name) === 'player') {
+                                                        $playerStatus = $user->player?->status ?? 'pending';
+                                                        $statusLabel = ucfirst($playerStatus);
+                                                        $statusDot = match($playerStatus) {
+                                                            'approved' => 'bg-emerald-500',
+                                                            'rejected' => 'bg-red-500',
+                                                            default    => 'bg-amber-500',
+                                                        };
+                                                    } else {
+                                                        // Non-player roles: active if role is assigned
+                                                        $statusLabel = 'Active';
+                                                        $statusDot = 'bg-emerald-500';
+                                                    }
                                                 @endphp
-                                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md ring-1 ring-inset {{ $colors }}">
-                                                    @if (auth()->user()->can('role.edit'))
-                                                        <a href="{{ route('admin.roles.edit', $role->id) }}"
-                                                            data-tooltip-target="tooltip-role-{{ $role->id }}-{{ $user->id }}"
-                                                            class="hover:underline">
-                                                            {{ $role->name }}
-                                                        </a>
-                                                        <div id="tooltip-role-{{ $role->id }}-{{ $user->id }}"
-                                                            role="tooltip"
-                                                            class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-xs opacity-0 tooltip dark:bg-gray-700">
-                                                            {{ __('Edit') }} {{ $role->name }} {{ __('Role') }}
-                                                            <div class="tooltip-arrow" data-popper-arrow></div>
-                                                        </div>
-                                                    @else
-                                                        {{ $role->name }}
-                                                    @endif
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg ring-1 ring-inset {{ $s['bg'] }} {{ $s['text'] }} {{ $s['ring'] }}">
+                                                    <span class="w-1.5 h-1.5 rounded-full {{ $statusDot }}"></span>
+                                                    {{ $role->name === 'player' ? 'Player' : $role->name }}
+                                                    <span class="text-[10px] opacity-70">{{ $statusLabel }}</span>
                                                 </span>
                                             @endforeach
                                         </div>

@@ -24,12 +24,17 @@ class UserService
             $q->where('name', 'Superadmin');
         });
 
-        // Exclude users with the "Player" role — they belong in the Players section
+        // Exclude users who ONLY have the Player role (no other roles).
+        // Users with Player + another role (e.g. Team Manager) stay visible.
         if (empty($filters['role']) || $filters['role'] !== 'Player') {
-            $query->whereDoesntHave('roles', function ($q) {
-                $q->where('name', 'Player');
+            $query->where(function ($q) {
+                $q->whereDoesntHave('roles', fn($r) => $r->where('name', 'Player'))
+                  ->orWhereHas('roles', fn($r) => $r->where('name', '!=', 'Player')->where('name', '!=', 'Superadmin'));
             });
         }
+
+        // Eager-load player for status display
+        $query->with('player');
 
         return $query->paginateData([
             'per_page' => $filters['per_page'] ?? config('settings.default_pagination') ?? 10,
