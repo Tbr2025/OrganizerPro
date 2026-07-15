@@ -225,8 +225,15 @@
                             <span class="text-xs text-gray-500 dark:text-gray-400">Tick to mark every field below as verified.</span>
                         </div>
                         @if($p && $p->image_path)
-                        <div>
-                            <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                        @php $photoVerified = in_array('image_path', $verifiedFields, true); @endphp
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $photoVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }} inline-block">
+                            <div class="flex items-start gap-4">
+                                <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                                <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
+                                    <input type="checkbox" name="verified[]" value="image_path" {{ $photoVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                    <span>Verified</span>
+                                </label>
+                            </div>
                         </div>
                         @endif
 

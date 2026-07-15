@@ -412,6 +412,7 @@
         @break
 
     @case('image')
+        <label class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
         @include('public.registration.partials.player-image-upload', ['fieldConfig' => $fieldConfig, 'embedded' => true, 'fieldLabel' => $label])
         @break
 
