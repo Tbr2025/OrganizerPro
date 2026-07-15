@@ -10,7 +10,7 @@ trait ValidatesTurnstile
 {
     protected function validateTurnstile(Request $request): void
     {
-        if (!config('turnstile.secret_key')) {
+        if (!config('turnstile.secret_key') || app()->environment('local')) {
             return;
         }
 

@@ -87,7 +87,7 @@ class RegistrationController extends Controller
         }
 
         // Verify Turnstile CAPTCHA (skip if keys not configured).
-        if (config('turnstile.secret_key')) {
+        if (config('turnstile.secret_key') && !app()->environment('local')) {
             $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
                 'secret' => config('turnstile.secret_key'),
                 'response' => $request->input('cf-turnstile-response', ''),
@@ -281,7 +281,7 @@ class RegistrationController extends Controller
         }
 
         // Verify Turnstile CAPTCHA (skip if keys not configured).
-        if (config('turnstile.secret_key')) {
+        if (config('turnstile.secret_key') && !app()->environment('local')) {
             $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
                 'secret' => config('turnstile.secret_key'),
                 'response' => $request->input('cf-turnstile-response', ''),

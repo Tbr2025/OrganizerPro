@@ -78,7 +78,7 @@
           </div>
 
           <!-- Turnstile CAPTCHA -->
-          @if(config('turnstile.site_key'))
+          @if(config('turnstile.site_key') && !app()->environment('local'))
               <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="auto"></div>
           @endif
 
@@ -150,7 +150,7 @@
 </div>
 @endsection
 
-@if(config('turnstile.site_key'))
+@if(config('turnstile.site_key') && !app()->environment('local'))
     @push('scripts')
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     @endpush
