@@ -295,7 +295,15 @@ class TournamentRegistrationController extends Controller
                 }
             }
 
-            Mail::to($email)->send(new RegistrationCorrectionMail($tournament, $registration, $accepted, $pending, $request->input('note')));
+            // Generate a temp password so the player can log in and correct their details.
+            $tempPassword = null;
+            $user = $registration->player?->user ?? User::where('email', $email)->first();
+            if ($user) {
+                $tempPassword = Str::random(10);
+                $user->update(['password' => Hash::make($tempPassword)]);
+            }
+
+            Mail::to($email)->send(new RegistrationCorrectionMail($tournament, $registration, $accepted, $pending, $request->input('note'), $tempPassword));
 
             return back()->with('success', __('Verification saved and status emailed to :email.', ['email' => $email]));
         }

@@ -24,6 +24,7 @@ class RegistrationCorrectionMail extends Mailable
         public array $acceptedGroups = [],
         public array $pendingGroups = [],
         public ?string $note = null,
+        public ?string $tempPassword = null,
     ) {}
 
     public function envelope(): Envelope
@@ -49,6 +50,9 @@ class RegistrationCorrectionMail extends Mailable
                 'pendingGroups' => $this->pendingGroups,
                 'note' => $this->note,
                 'tournamentName' => $this->tournament->name,
+                'tempPassword' => $this->tempPassword,
+                'loginUrl' => url('/login'),
+                'loginEmail' => $this->registration->player?->email ?? $this->registration->captain_email,
             ],
         );
     }

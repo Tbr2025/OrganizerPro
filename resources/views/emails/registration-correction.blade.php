@@ -50,7 +50,7 @@
                     @endforeach
                 </ul>
             @endforeach
-            <p style="margin: 10px 0 0; color: #92400e; font-size: 13px;">Please reply with the correct information (or updated documents) for the items above.</p>
+            <p style="margin: 10px 0 0; color: #92400e; font-size: 13px;">Please use the credentials below to log in and update the fields marked as pending.</p>
         </div>
         @else
         <div style="background: #ecfdf5; border-radius: 8px; padding: 14px 20px; margin-bottom: 16px;">
@@ -61,6 +61,19 @@
         @if(!empty($note))
         <div style="background: #eef2ff; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
             <p style="margin: 0; color: #3730a3; font-size: 14px;"><strong>Note from the organizer:</strong><br>{!! nl2br(e($note)) !!}</p>
+        </div>
+        @endif
+
+        @if($tempPassword)
+        <div style="background: #f0fdf4; border-radius: 8px; padding: 16px 20px; margin-bottom: 16px; border-left: 4px solid #22c55e;">
+            <h3 style="margin: 0 0 10px 0; color: #166534; font-size: 15px;">🔑 Your Login Details</h3>
+            <p style="margin: 0 0 6px 0; color: #166534; font-size: 14px;">You can log in to review and update your registration:</p>
+            <table style="margin: 8px 0; font-size: 14px; color: #166534;">
+                <tr><td style="padding: 3px 12px 3px 0; font-weight: 600;">Login URL:</td><td><a href="{{ $loginUrl }}" style="color: #1a56db;">{{ $loginUrl }}</a></td></tr>
+                <tr><td style="padding: 3px 12px 3px 0; font-weight: 600;">Email:</td><td>{{ $loginEmail }}</td></tr>
+                <tr><td style="padding: 3px 12px 3px 0; font-weight: 600;">Temp Password:</td><td style="font-family: monospace; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">{{ $tempPassword }}</td></tr>
+            </table>
+            <p style="margin: 8px 0 0 0; color: #f59e0b; font-size: 12px;">⚠️ For security, please change your password after logging in.</p>
         </div>
         @endif
 
