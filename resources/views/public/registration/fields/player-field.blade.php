@@ -96,7 +96,7 @@
                 @endforeach
             </select>
             <input type="tel" name="cricheroes_national_number" class="reg-input flex-1"
-                   placeholder="501234567" value="{{ old('cricheroes_national_number') }}">
+                   placeholder="501234567" value="{{ old('cricheroes_national_number') }}" {{ $required ? 'required' : '' }}>
         </div>
         @error('cricheroes_country_code')<p class="reg-err">{{ $message }}</p>@enderror
         @error('cricheroes_national_number')<p class="reg-err">{{ $message }}</p>@enderror
@@ -104,7 +104,7 @@
 
     @case('cricheroes_profile_url')
         <label for="cricheroes_profile_url" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="url" name="cricheroes_profile_url" id="cricheroes_profile_url" value="{{ old('cricheroes_profile_url') }}" class="reg-input" placeholder="https://cricheroes.com/player-profile/...">
+        <input type="url" name="cricheroes_profile_url" id="cricheroes_profile_url" value="{{ old('cricheroes_profile_url') }}" {{ $required ? 'required' : '' }} class="reg-input" placeholder="https://cricheroes.com/player-profile/...">
         @error('cricheroes_profile_url')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
@@ -134,7 +134,7 @@
     @case('location')
         @if($locations->count() > 0)
         <label for="location_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="location_id" id="location_id" class="reg-select">
+        <select name="location_id" id="location_id" class="reg-select" {{ $required ? 'required' : '' }}>
             <option value="">Select your location</option>
             @foreach($locations as $location)
                 <option value="{{ $location->id }}" {{ old('location_id') == $location->id ? 'selected' : '' }}>{{ $location->name }}</option>
@@ -300,7 +300,7 @@
     @case('player_type')
         @if($playerTypes->count() > 0)
         <label for="player_type_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="player_type_id" id="player_type_id" class="reg-select">
+        <select name="player_type_id" id="player_type_id" class="reg-select" {{ $required ? 'required' : '' }}>
             <option value="">Select type</option>
             @foreach($playerTypes as $type)
                 <option value="{{ $type->id }}" {{ old('player_type_id') == $type->id ? 'selected' : '' }}>{{ $type->name ?? $type->type }}</option>
@@ -313,7 +313,7 @@
     @case('batting_profile')
         @if($battingProfiles->count() > 0)
         <label for="batting_profile_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="batting_profile_id" id="batting_profile_id" class="reg-select">
+        <select name="batting_profile_id" id="batting_profile_id" class="reg-select" {{ $required ? 'required' : '' }}>
             <option value="">Select dominant hand</option>
             @foreach($battingProfiles as $profile)
                 <option value="{{ $profile->id }}" {{ old('batting_profile_id') == $profile->id ? 'selected' : '' }}>{{ $profile->name ?? $profile->style }}</option>
@@ -325,7 +325,7 @@
 
     @case('batting_mode')
         <label for="batting_mode" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="batting_mode" id="batting_mode" class="reg-select">
+        <select name="batting_mode" id="batting_mode" class="reg-select" {{ $required ? 'required' : '' }}>
             <option value="">Select batting mode</option>
             @foreach(['Aggressive Batsman','Defensive Batsman','Finisher','Anchor','Power Hitter'] as $mode)
                 <option value="{{ $mode }}" {{ old('batting_mode') === $mode ? 'selected' : '' }}>{{ $mode }}</option>
@@ -354,7 +354,7 @@
     @case('bowling_profile')
         @if($bowlingProfiles->count() > 0)
         <label for="bowling_profile_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="bowling_profile_id" id="bowling_profile_id" class="reg-select">
+        <select name="bowling_profile_id" id="bowling_profile_id" class="reg-select" {{ $required ? 'required' : '' }}>
             <option value="">Select bowling style</option>
             @foreach($bowlingProfiles as $profile)
                 <option value="{{ $profile->id }}" {{ old('bowling_profile_id') == $profile->id ? 'selected' : '' }}>{{ $profile->name ?? $profile->style }}</option>
@@ -375,13 +375,13 @@
     @case('total_runs')
     @case('total_wickets')
         <label for="{{ $key }}" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="number" name="{{ $key }}" id="{{ $key }}" value="{{ old($key, 0) }}" min="0" class="reg-input" placeholder="0">
+        <input type="number" name="{{ $key }}" id="{{ $key }}" value="{{ old($key, 0) }}" min="0" {{ $required ? 'required' : '' }} class="reg-input" placeholder="0">
         @error($key)<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('transportation')
         <label for="transportation_mode" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="transportation_mode" id="transportation_mode" class="reg-select">
+        <select name="transportation_mode" id="transportation_mode" class="reg-select" {{ $required ? 'required' : '' }}>
             <option value="">Select transportation to the venue</option>
             <option value="self" {{ old('transportation_mode') === 'self' ? 'selected' : '' }}>Self Transportation (Preferred by Franchises)</option>
             <option value="required" {{ old('transportation_mode') === 'required' ? 'selected' : '' }}>Transportation Required (Subject to Franchise Preferences)</option>
@@ -391,7 +391,7 @@
 
     @case('travel_plan')
         <label for="has_travel_plan" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="has_travel_plan" id="has_travel_plan" class="reg-select" x-model="hasTravelPlan">
+        <select name="has_travel_plan" id="has_travel_plan" class="reg-select" x-model="hasTravelPlan" {{ $required ? 'required' : '' }}>
             <option value="">Select</option>
             <option value="no" {{ old('has_travel_plan') === 'no' ? 'selected' : '' }}>No</option>
             <option value="yes" {{ old('has_travel_plan') === 'yes' ? 'selected' : '' }}>Yes</option>
