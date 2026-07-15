@@ -5,19 +5,19 @@
 @endsection
 
 @section('admin-content')
-    <div class="p-4 mx-auto  md:p-6 lg:p-8">
+    <div class="p-4 mx-auto max-w-4xl md:p-6">
 
-        {{-- HEADER: Breadcrumbs & Edit Button --}}
-        <div class="flex justify-between items-center mb-6">
+        {{-- Breadcrumbs & Actions --}}
+        <div class="flex justify-between items-center mb-4">
             <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
             <div class="flex items-center gap-2">
                 @can('player.edit')
-                    <a href="{{ route('admin.players.edit', $player->id) }}" class="btn btn-primary inline-flex items-center gap-2">
+                    <a href="{{ route('admin.players.edit', $player->id) }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 0l1.172 1.172a2 2 0 010 2.828L13 15l-4 1 1-4z" />
                         </svg>
-                        Edit Player
+                        Edit
                     </a>
                 @endcan
                 @can('player.delete')
@@ -25,7 +25,7 @@
                         onsubmit="return confirm('Are you sure you want to delete this player? This action cannot be undone.');">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md shadow-sm">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -37,174 +37,399 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {{-- LEFT COLUMN: Player Identity & Key Stats --}}
-            <div class="lg:col-span-1 space-y-8">
+        <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden">
 
-                <!-- Player Hero Card -->
-                <div
-                    class="relative rounded-lg shadow-xl overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 text-center">
-                    <img src="{{ $player->image_path ? Storage::url($player->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($player->name) . '&size=128&background=4F46E5&color=FFFFFF' }}"
-                        alt="{{ $player->name }}"
-                        class="w-32 h-32 object-cover rounded-full mx-auto mb-4 border-4 border-gray-700 ring-4 ring-blue-500">
-                    <h1 class="text-3xl font-extrabold tracking-tight">{{ $player->name }}</h1>
-                    @if ($player->jersey_name)
-                        <p class="text-lg text-blue-300 font-medium">{{ $player->jersey_name }}</p>
-                    @endif
-
-                    @if ($verifiedProfile)
-                        <div class="absolute top-4 right-4" title="Fully Verified Profile">
-                            <div
-                                class="flex items-center gap-1 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                        clip-rule="evenodd" />
+            {{-- ═══════════════════════════════════════════════════════ --}}
+            {{-- Gradient Header                                        --}}
+            {{-- ═══════════════════════════════════════════════════════ --}}
+            <div class="p-8 bg-gradient-to-r from-blue-600 to-cyan-700">
+                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                    {{-- Player Photo --}}
+                    <div class="relative flex-shrink-0">
+                        @if($player->image_path)
+                            <img src="{{ Storage::url($player->image_path) }}" alt="{{ $player->name }}" class="w-28 h-36 rounded-xl object-cover border-3 border-white/30 shadow-lg">
+                        @else
+                            <div class="w-28 h-36 rounded-xl bg-white/20 flex items-center justify-center">
+                                <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                                 </svg>
-                                Verified
                             </div>
-                        </div>
-                    @endif
-                </div>
+                        @endif
+                        @if($verifiedProfile)
+                            <span class="absolute -bottom-1 -right-1 flex items-center justify-center w-7 h-7 bg-blue-500 rounded-full ring-2 ring-white shadow" title="Verified Player">
+                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </span>
+                        @endif
+                    </div>
 
-                <!-- Key Stats Card -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5">
-                    <h3 class="font-semibold text-lg mb-4 text-gray-800 dark:text-white">Career Stats</h3>
-                    <div class="flex justify-around text-center">
-                        <div>
-                            <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ $player->total_matches ?? 0 }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Matches</p>
-                        </div>
-                        <div>
-                            <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ $player->total_runs ?? 0 }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Runs</p>
-                        </div>
-                        <div>
-                            <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">{{ $player->total_wickets ?? 0 }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Wickets</p>
+                    {{-- Player Info --}}
+                    <div class="flex-1 text-center sm:text-left">
+                        <h2 class="text-3xl font-bold text-white">{{ $player->name }}</h2>
+                        @if($player->jersey_name)
+                            <p class="text-white/70 text-sm mt-0.5">{{ $player->jersey_name }}</p>
+                        @endif
+                        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-900/50 text-white">
+                                {{ $player->playerType?->type ?? 'Player' }}
+                            </span>
+                            @if($player->actualTeam)
+                                <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-white/20 text-white">
+                                    {{ $player->actualTeam->name }}
+                                </span>
+                            @endif
                         </div>
                     </div>
-                </div>
 
+                    {{-- Quick Stats --}}
+                    <div class="hidden sm:flex items-center gap-6 ml-auto mr-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-white">{{ $player->total_matches ?? 0 }}</div>
+                            <div class="text-[10px] text-white/60 uppercase tracking-wider">Matches</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-white">{{ $player->total_runs ?? 0 }}</div>
+                            <div class="text-[10px] text-white/60 uppercase tracking-wider">Runs</div>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-white">{{ $player->total_wickets ?? 0 }}</div>
+                            <div class="text-[10px] text-white/60 uppercase tracking-wider">Wickets</div>
+                        </div>
+                    </div>
+
+                    {{-- Status Badge --}}
+                    <div class="flex items-start gap-2 mt-2 sm:mt-0">
+                        @if($player->status === 'approved')
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-400 text-green-900">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                Approved
+                            </span>
+                        @elseif($player->status === 'rejected')
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-400 text-red-900">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                Rejected
+                            </span>
+                        @else
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-400 text-yellow-900">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Pending
+                            </span>
+                        @endif
+                    </div>
+                </div>
             </div>
 
-            {{-- RIGHT COLUMN: Detailed Information --}}
-            <div class="lg:col-span-2 space-y-8">
+            {{-- ═══════════════════════════════════════════════════════ --}}
+            {{-- Details Body                                           --}}
+            {{-- ═══════════════════════════════════════════════════════ --}}
+            <div class="p-6 space-y-6">
 
-                {{-- ======================================================= --}}
-                {{-- THE FIX IS HERE: Defining the $fields variable          --}}
-                {{-- ======================================================= --}}
                 @php
-                    $fields = [
-                        'email' => 'Email Address',
-                        'mobile_number_full' => 'Mobile Number',
-                        'cricheroes_number_full' => 'Cricheroes Number',
-                        'country_display' => 'Country',
-                        'location.name' => 'Player Location',
-                        'team.name' => 'Current Team',
-                        'team_name_ref' => 'If Others',
-                        'kitSize.size' => 'Jersey Size',
-                        'jersey_number' => 'Jersey Number',
-                        'battingProfile.style' => 'Batting Profile',
-                        'bowlingProfile.style' => 'Bowling Profile',
-                        'playerType.type' => 'Player Type',
-                    ];
+                    $countries = config('countries.list', []);
+                    $visaList = config('registration.visa_statuses', []);
                 @endphp
 
-                @if (!$verifiedProfile && !$player->isApproved())
-                    <div class="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500 text-yellow-800 dark:text-yellow-200 p-4 rounded-r-lg"
-                        role="alert">
-                        <p class="font-bold">Pending Approval & Verification</p>
-                        <p>This player's profile is awaiting review by an administrator.</p>
-                    </div>
-                @endif
+                {{-- Section: Basic Information --}}
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Basic Information</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @php
+                            $isTeamManagerView = auth()->user()?->hasAnyRole(['Team Manager', 'Team Owner']) && !auth()->user()?->hasAnyRole(['Superadmin', 'Admin', 'Organizer']);
 
-                <!-- Personal & Contact Details -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-                    <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="font-semibold text-lg text-gray-800 dark:text-white">Personal Details</h3>
-                    </div>
-                    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        @php $personalFields = ['email', 'mobile_number_full', 'cricheroes_number_full', 'country_display', 'location.name']; @endphp
-                        @foreach ($personalFields as $field)
-                            <div>
-                                <label
-                                    class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $fields[$field] }}</label>
-                                <p class="mt-1 text-md font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                    @if ($field === 'country_display')
-                                        {{ $player->country ? config('countries.list.' . $player->country, $player->country) : 'N/A' }}
-                                    @else
-                                        {{ data_get($player, $field, 'N/A') }}
-                                    @endif
-                                    @php
-                                        $verifiedKey = $field === 'country_display' ? 'verified_country' : 'verified_' . str_replace('.', '_', $field);
-                                    @endphp
-                                    @if ($player->$verifiedKey ?? false)
-                                        <span class="text-green-500" title="Verified"><svg class="w-4 h-4"
-                                                fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd"
-                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                                    clip-rule="evenodd" />
-                                            </svg></span>
-                                    @endif
-                                </p>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-
-                <!-- Cricketing Profile -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-                    <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="font-semibold text-lg text-gray-800 dark:text-white">Cricketing Profile</h3>
-                    </div>
-                    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {{-- CORRECTED: Removed 'team_name_ref' from the array to prevent it from displaying as a separate row --}}
-                        @php $cricketFields = ['team.name', 'kitSize.size','jersey_number', 'battingProfile.style', 'bowlingProfile.style', 'playerType.type']; @endphp
-
-                        @foreach ($cricketFields as $field)
-                            <div>
-                                {{-- The label for "Team" is now more generic to cover both cases --}}
-                                <label class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                    @if ($field === 'team.name')
-                                        Current Team
-                                    @else
-                                        {{ $fields[$field] }}
-                                    @endif
-                                </label>
-
-                                <p class="mt-1 text-md font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                    {{-- **THIS IS THE FIX** --}}
-                                    {{-- Conditionally display the team name or the reference name --}}
-                                    @if ($field === 'team.name' && data_get($player, 'team.name') === 'Others')
-                                        {{ data_get($player, 'team_name_ref', 'N/A') }}
-                                    @else
-                                        {{ data_get($player, $field, 'N/A') }}
-                                    @endif
-
-                                    {{-- The verification check remains the same. It will check the original 'team.name' field's verification status --}}
-                                    @if ($player->{'verified_' . str_replace('.', '_', $field)})
+                            $basicFields = [
+                                ['label' => 'First Name', 'value' => $player->first_name, 'verified' => $player->verified_name ?? false],
+                                ['label' => 'Last Name', 'value' => $player->last_name, 'verified' => $player->verified_name ?? false],
+                                ...($isTeamManagerView ? [] : [['label' => 'Email', 'value' => $player->email, 'verified' => $player->verified_email ?? false]]),
+                                ['label' => 'Date of Birth', 'value' => $player->date_of_birth ? \Carbon\Carbon::parse($player->date_of_birth)->format('d M Y') : null],
+                                ['label' => 'Nationality', 'value' => $player->country ? ($countries[$player->country] ?? $player->country) : null, 'verified' => $player->verified_country ?? false],
+                                ['label' => 'State / Province', 'value' => $player->state],
+                                ['label' => 'Mobile Number', 'value' => $player->mobile_number_full, 'verified' => $player->verified_mobile_number_full ?? false],
+                                ['label' => 'CricHeroes Number', 'value' => $player->cricheroes_number_full, 'verified' => $player->verified_cricheroes_number_full ?? false],
+                                ['label' => 'CricHeroes Profile URL', 'value' => $player->cricheroes_profile_url, 'verified' => $player->verified_cricheroes_profile_url ?? false, 'link' => true],
+                                ['label' => 'Location', 'value' => $player->location?->name],
+                                ['label' => 'Registration Team', 'value' => $player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : $player->team?->name, 'verified' => $player->verified_team_id ?? false],
+                                ['label' => 'Playing Team', 'value' => $player->actualTeam?->name],
+                            ];
+                        @endphp
+                        @foreach($basicFields as $field)
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($field['verified'] ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $field['label'] }}</h4>
+                                    @if($field['verified'] ?? false)
                                         <span class="text-green-500" title="Verified">
-                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd"
-                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                                    clip-rule="evenodd" />
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                             </svg>
                                         </span>
                                     @endif
-                                </p>
+                                </div>
+                                @if(empty($field['value']))
+                                    <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                @elseif($field['link'] ?? false)
+                                    <a href="{{ $field['value'] }}" target="_blank" class="mt-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline break-all">{{ $field['value'] }}</a>
+                                @else
+                                    <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $field['value'] }}</p>
+                                @endif
                             </div>
                         @endforeach
                     </div>
                 </div>
 
+                {{-- Section: Visa & Employment --}}
+                @if($player->visa_status)
+                @if($isTeamManagerView)
+                    {{-- Team Manager view: show visa type and validity (hide employer details) --}}
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Visa Information</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Type</h4>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $visaList[$player->visa_status] ?? $player->visa_status }}</p>
+                            </div>
+                            @if($player->visa_status === 'visit_visa' && $player->visa_expiry)
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Validity</h4>
+                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($player->visa_expiry)->format('d M Y') }}</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @else
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Visa & Employment</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Status</h4>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $visaList[$player->visa_status] ?? $player->visa_status }}</p>
+                        </div>
+                        @if($player->visa_status === 'visit_visa' && $player->visa_expiry)
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Expiry</h4>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($player->visa_expiry)->format('d M Y') }}</p>
+                        </div>
+                        @endif
+                        @if($player->visa_status === 'work_visa')
+                            @foreach([
+                                'Employer Name' => $player->employer_name,
+                                'Position' => $player->employer_position,
+                                'Employer Address' => $player->employer_address,
+                            ] as $label => $value)
+                                @if($value)
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }}</h4>
+                                    <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
+                                </div>
+                                @endif
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+                @endif
+                @endif
+
+                {{-- Section: Availability --}}
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Availability</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Available Saturdays</h4>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->available_saturday) ? 'Not provided' : ($player->available_saturday ? 'Yes' : 'No') }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Available Sundays</h4>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->available_sunday) ? 'Not provided' : ($player->available_sunday ? 'Yes' : 'No') }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Played YS IPL Season 1</h4>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->played_ys_ipl_s1) ? 'Not provided' : ($player->played_ys_ipl_s1 ? 'Yes' : 'No') }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Section: Jersey Information --}}
+                @if(!$isTeamManagerView)
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Jersey Information</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @php
+                            $jerseyFields = [
+                                ['label' => 'Jersey Name', 'value' => $player->jersey_name, 'verified' => $player->verified_jersey_name ?? false],
+                                ['label' => 'Jersey Number', 'value' => $player->jersey_number, 'verified' => $player->verified_jersey_number ?? false],
+                                ['label' => 'T-Shirt Size', 'value' => $player->tshirt_size],
+                                ['label' => 'Pant Size', 'value' => $player->pant_size],
+                                ['label' => 'Jersey Size', 'value' => $player->kitSize?->size, 'verified' => $player->verified_kit_size_id ?? false],
+                            ];
+                        @endphp
+                        @foreach($jerseyFields as $field)
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($field['verified'] ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $field['label'] }}</h4>
+                                    @if($field['verified'] ?? false)
+                                        <span class="text-green-500" title="Verified">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                        </span>
+                                    @endif
+                                </div>
+                                @if(empty($field['value']) && $field['value'] !== 0 && $field['value'] !== '0')
+                                    <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                @else
+                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $field['value'] }}</p>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                @endif
+
+                {{-- Section: Player Profile --}}
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Player Profile</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @php
+                            $profileFields = [
+                                ['label' => 'Player Type', 'value' => $player->playerType?->type, 'verified' => $player->verified_player_type_id ?? false],
+                                ['label' => 'Batting Profile', 'value' => $player->battingProfile?->style, 'verified' => $player->verified_batting_profile_id ?? false],
+                                ['label' => 'Batting Mode', 'value' => $player->batting_mode],
+                                ['label' => 'Bowling Profile', 'value' => $player->bowlingProfile?->style, 'verified' => $player->verified_bowling_profile_id ?? false],
+                                ['label' => 'Wicket Keeper', 'value' => is_null($player->is_wicket_keeper) ? null : ($player->is_wicket_keeper ? 'Yes' : 'No'), 'verified' => $player->verified_is_wicket_keeper ?? false],
+                            ];
+                        @endphp
+                        @foreach($profileFields as $field)
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($field['verified'] ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $field['label'] }}</h4>
+                                    @if($field['verified'] ?? false)
+                                        <span class="text-green-500" title="Verified">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                        </span>
+                                    @endif
+                                </div>
+                                @if(is_null($field['value']) || $field['value'] === '')
+                                    <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                @else
+                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $field['value'] }}</p>
+                                @endif
+                            </div>
+                        @endforeach
+
+                        {{-- Preferred Batting Positions --}}
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preferred Batting Positions</h4>
+                            @if(!empty($player->preferred_batting_positions) && is_array($player->preferred_batting_positions))
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    @foreach($player->preferred_batting_positions as $pos)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{{ $pos }}</span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Section: Leather Ball Experience --}}
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Leather Ball Experience</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @foreach([
+                            'Total Matches' => $player->total_matches,
+                            'Total Runs' => $player->total_runs,
+                            'Total Wickets' => $player->total_wickets,
+                        ] as $label => $value)
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }}</h4>
+                                @if(is_null($value))
+                                    <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                @else
+                                    <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $value }}</p>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Section: Travel & Transportation --}}
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Travel & Transportation</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($player->verified_transportation_required ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                            <div class="flex items-start justify-between gap-2">
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Transportation Required</h4>
+                                @if($player->verified_transportation_required ?? false)
+                                    <span class="text-green-500" title="Verified">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                    </span>
+                                @endif
+                            </div>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->transportation_required ? 'Yes' : 'No' }}</p>
+                        </div>
+
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($player->verified_no_travel_plan ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                            <div class="flex items-start justify-between gap-2">
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">No Travel Plan</h4>
+                                @if($player->verified_no_travel_plan ?? false)
+                                    <span class="text-green-500" title="Verified">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                    </span>
+                                @endif
+                            </div>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->no_travel_plan ? 'Yes' : 'No' }}</p>
+                        </div>
+
+                        @if($player->travel_date_from || $player->travel_date_to)
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Travel Dates</h4>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">
+                                {{ $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('d M Y') : '—' }}
+                                &rarr;
+                                {{ $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('d M Y') : '—' }}
+                            </p>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Section: Player Mode & Team (only for approved) --}}
+                @if($player->status === 'approved')
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Player Mode & Team</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Player Mode</h4>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ ucfirst($player->player_mode ?? 'Normal') }}</p>
+                        </div>
+                        @if($player->player_mode === 'retained')
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Retained Value</h4>
+                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->retained_value ? number_format($player->retained_value) : '—' }}</p>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
 
-        {{-- TOURNAMENT STATISTICS (Full Width) --}}
+        {{-- ═══════════════════════════════════════════════════════ --}}
+        {{-- TOURNAMENT STATISTICS (Full Width)                     --}}
+        {{-- ═══════════════════════════════════════════════════════ --}}
         @if($tournamentAssignments->count() > 0)
             <div class="mt-8 space-y-6" x-data="{ openTab: {{ $tournamentAssignments->first()->tournament_id }} }">
                 <h2 class="text-xl font-bold text-gray-800 dark:text-white">Tournament Statistics</h2>
@@ -274,46 +499,23 @@
                                     <div class="p-4">
                                         <table class="w-full text-sm">
                                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                @foreach([
+                                                    'Innings' => $stats->innings_batted,
+                                                    'Runs' => $stats->runs,
+                                                    'Balls Faced' => $stats->balls_faced,
+                                                    'Highest Score' => $stats->highest_score_display,
+                                                    'Average' => $stats->batting_average,
+                                                    'Strike Rate' => $stats->strike_rate,
+                                                    '4s / 6s' => $stats->fours . ' / ' . $stats->sixes,
+                                                    '50s / 100s' => $stats->fifties . ' / ' . $stats->hundreds,
+                                                    'Not Outs' => $stats->not_outs,
+                                                    'Ducks' => $stats->ducks,
+                                                ] as $label => $value)
                                                 <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Innings</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->innings_batted }}</td>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">{{ $label }}</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $value }}</td>
                                                 </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Runs</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->runs }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Balls Faced</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->balls_faced }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Highest Score</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->highest_score_display }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Average</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->batting_average }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Strike Rate</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->strike_rate }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">4s / 6s</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->fours }} / {{ $stats->sixes }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">50s / 100s</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->fifties }} / {{ $stats->hundreds }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Not Outs</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->not_outs }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Ducks</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->ducks }}</td>
-                                                </tr>
+                                                @endforeach
                                             </tbody>
                                         </table>
                                     </div>
@@ -330,42 +532,22 @@
                                     <div class="p-4">
                                         <table class="w-full text-sm">
                                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                @foreach([
+                                                    'Innings' => $stats->innings_bowled,
+                                                    'Overs' => $stats->overs_bowled,
+                                                    'Wickets' => $stats->wickets,
+                                                    'Runs Conceded' => $stats->runs_conceded,
+                                                    'Best Bowling' => $stats->best_bowling ?? '-',
+                                                    'Average' => $stats->bowling_average,
+                                                    'Economy' => $stats->economy_rate,
+                                                    'Maidens' => $stats->maidens,
+                                                    '4W / 5W' => $stats->four_wickets . ' / ' . $stats->five_wickets,
+                                                ] as $label => $value)
                                                 <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Innings</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->innings_bowled }}</td>
+                                                    <td class="py-2 text-gray-500 dark:text-gray-400">{{ $label }}</td>
+                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $value }}</td>
                                                 </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Overs</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->overs_bowled }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Wickets</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->wickets }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Runs Conceded</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->runs_conceded }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Best Bowling</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->best_bowling ?? '-' }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Average</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->bowling_average }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Economy</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->economy_rate }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">Maidens</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->maidens }}</td>
-                                                </tr>
-                                                <tr>
-                                                    <td class="py-2 text-gray-500 dark:text-gray-400">4W / 5W</td>
-                                                    <td class="py-2 text-right font-semibold text-gray-800 dark:text-white">{{ $stats->four_wickets }} / {{ $stats->five_wickets }}</td>
-                                                </tr>
+                                                @endforeach
                                             </tbody>
                                         </table>
                                     </div>
@@ -409,6 +591,5 @@
                 @endforeach
             </div>
         @endif
-    </div>
     </div>
 @endsection

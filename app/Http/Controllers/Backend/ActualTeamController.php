@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NewPlayerAddedMail;
 use App\Mail\TeamManagerCredentialsMail;
 use App\Models\ActualTeam;
 use App\Models\Auction;
@@ -266,11 +267,13 @@ class ActualTeamController extends Controller
 
         $approvedPlayers = collect();
         if ($actualTeam->tournament_id) {
+            $playerTypeIds = [1, 2, 3, 4, 5, 6]; // Batsman, Bowler, All-Rounder, Captain, Vice-Captain, Substitute
             $approvedPlayers = Player::whereHas('registrations', fn($q) =>
                 $q->where('tournament_id', $actualTeam->tournament_id)
                   ->where('status', 'approved')
                   ->where('type', 'player')
-            )->with(['playerType', 'actualTeam'])->get();
+            )->whereIn('player_type_id', $playerTypeIds)
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'user'])->get();
         }
 
         return view('backend.pages.actual_teams.show', compact('actualTeam', 'approvedPlayers'));
@@ -450,11 +453,15 @@ class ActualTeamController extends Controller
                 ->whereHas('actualTeam', fn ($q) => $q->where('tournament_id', $tournamentId))
                 ->pluck('id');
 
-            $eligibleUserIds = Player::whereIn('id', $approvedPlayerIds->merge($retainedPlayerIds)->unique()->all())
+            $eligiblePlayerUserIds = Player::whereIn('id', $approvedPlayerIds->merge($retainedPlayerIds)->unique()->all())
                 ->whereNotNull('user_id')
                 ->pluck('user_id');
 
-            $usersQuery = User::whereIn('id', $eligibleUserIds)
+            $usersQuery = User::query()
+                ->where(function ($q) use ($eligiblePlayerUserIds) {
+                    $q->whereIn('id', $eligiblePlayerUserIds)
+                      ->orWhereDoesntHave('roles', fn ($r) => $r->whereIn('name', ['Superadmin', 'Admin']));
+                })
                 ->whereNotIn('id', $allExcludedUserIds);
 
             if (! $authUser->hasRole('Superadmin')) {
@@ -462,22 +469,15 @@ class ActualTeamController extends Controller
             }
         } else {
             // OPEN tournament: only players who REGISTERED for THIS tournament (via its
-            // link), plus staff/manager users — never the whole org's player base.
-            $eligibleUserIds = Player::whereIn('id', $approvedPlayerIds->unique()->all())
+            // link) — never the whole org's player base or staff users.
+            $eligiblePlayerUserIds = Player::whereIn('id', $approvedPlayerIds->unique()->all())
                 ->whereNotNull('user_id')
-                ->pluck('user_id')->all();
+                ->pluck('user_id');
 
             $usersQuery = User::query()
-                ->where(function ($query) use ($eligibleUserIds) {
-                    // Registered-for-this-tournament players...
-                    $query->whereIn('id', $eligibleUserIds)
-                        // ...OR non-player staff (managers, coaches, etc.)
-                        ->orWhereDoesntHave('roles', function ($roleQuery) {
-                            $roleQuery->where('name', 'Player');
-                        });
-                })
-                ->whereDoesntHave('roles', function ($query) {
-                    $query->whereIn('name', ['Superadmin', 'Admin']);
+                ->where(function ($q) use ($eligiblePlayerUserIds) {
+                    $q->whereIn('id', $eligiblePlayerUserIds)
+                      ->orWhereDoesntHave('roles', fn ($r) => $r->whereIn('name', ['Superadmin', 'Admin']));
                 })
                 ->whereNotIn('id', $allExcludedUserIds);
 
@@ -487,7 +487,7 @@ class ActualTeamController extends Controller
         }
 
         // Execute the query to get the final list of available users.
-        $availableUsers = $usersQuery->get();
+        $availableUsers = $usersQuery->with(['player.playerType', 'roles'])->get();
         // Exclude admin roles from the roles dropdown
         $allRolesForCombobox = Role::whereNotIn('name', ['Superadmin', 'Admin'])->get();
 
@@ -551,7 +551,8 @@ class ActualTeamController extends Controller
         }
 
         // Build squad players JSON for the roster "From Squad" picker
-        $squadPlayersJson = $currentPlayerMembers
+        // Includes current squad members + available users who have player records
+        $squadPlayersFromMembers = $currentPlayerMembers
             ->filter(fn($m) => $m->player)
             ->map(fn($m) => [
                 'id' => $m->player->id,
@@ -560,7 +561,28 @@ class ActualTeamController extends Controller
                 'email' => $m->email,
                 'phone' => $m->player->mobile_number_full ?? '',
                 'image' => $m->player->image_path ? asset('storage/' . $m->player->image_path) : null,
-            ])
+                'roles' => $m->roles->pluck('name')->reject(fn($r) => in_array($r, ['Superadmin', 'Admin']))->values()->toArray(),
+                'player_type' => $m->player->playerType?->type,
+                'status' => $m->player->status,
+            ]);
+
+        $squadPlayersFromAvailable = $availableUsers
+            ->filter(fn($u) => $u->player)
+            ->map(fn($u) => [
+                'id' => $u->player->id,
+                'user_id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'phone' => $u->player->mobile_number_full ?? '',
+                'image' => $u->player->image_path ? asset('storage/' . $u->player->image_path) : null,
+                'roles' => $u->roles->pluck('name')->reject(fn($r) => in_array($r, ['Superadmin', 'Admin']))->values()->toArray(),
+                'player_type' => $u->player->playerType?->type,
+                'status' => $u->player->status,
+            ]);
+
+        $squadPlayersJson = $squadPlayersFromMembers
+            ->concat($squadPlayersFromAvailable)
+            ->unique('id')
             ->values();
 
         // --- Return the View ---
@@ -757,11 +779,20 @@ class ActualTeamController extends Controller
             // Sync roles
             $user->syncRoles($roles);
 
+            // Ensure the user inherits the team's organization so the OrganizationScope
+            // doesn't block their access to organization-scoped models (e.g. ActualTeam).
+            if (empty($user->organization_id) && $actualTeam->organization_id) {
+                $user->organization_id = $actualTeam->organization_id;
+                $user->save();
+            }
+
             // Determine pivot role from the Spatie roles being assigned
             $pivotRole = 'Player'; // default
             if (in_array('owner', $roles)) {
                 $pivotRole = 'Owner';
-            } elseif (in_array('team manager', $roles) || in_array('manager', $roles)) {
+            } elseif (in_array('team manager', $roles)) {
+                $pivotRole = 'Team Manager';
+            } elseif (in_array('manager', $roles)) {
                 $pivotRole = 'Manager';
             } elseif (in_array('captain', $roles)) {
                 $pivotRole = 'captain';
@@ -773,7 +804,7 @@ class ActualTeamController extends Controller
                     'actual_team_id' => $actualTeam->id,
                     'user_id'        => $userId,
                 ],
-                ['role' => $pivotRole, 'updated_at' => now()]
+                ['role' => $pivotRole, 'created_at' => now(), 'updated_at' => now()]
             );
 
             if ($isPlayer) {
@@ -1101,6 +1132,126 @@ class ActualTeamController extends Controller
     }
 
     /**
+     * Search organization users for team manager assignment (AJAX)
+     */
+    public function searchOrgUsers(Request $request, ActualTeam $actualTeam)
+    {
+        $search = $request->get('search', '');
+        $authUser = Auth::user();
+
+        // Get IDs of users already assigned as Team Manager on this team
+        $existingManagerIds = DB::table('actual_team_users')
+            ->where('actual_team_id', $actualTeam->id)
+            ->where('role', 'Team Manager')
+            ->pluck('user_id')
+            ->toArray();
+
+        $query = User::query()
+            ->whereNotIn('id', $existingManagerIds)
+            ->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', ['Superadmin', 'Admin']);
+            });
+
+        // Scope by organization for non-Superadmin users
+        if (!$authUser->hasRole('Superadmin')) {
+            $query->where('organization_id', $actualTeam->organization_id);
+        } else {
+            // For Superadmin, show users from same org or with no org
+            $query->where(function ($q) use ($actualTeam) {
+                $q->where('organization_id', $actualTeam->organization_id)
+                  ->orWhereNull('organization_id');
+            });
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->select('id', 'name', 'email')
+            ->orderBy('name')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'users' => $users,
+        ]);
+    }
+
+    /**
+     * Assign an existing user as Team Manager on this team (AJAX)
+     */
+    public function assignTeamManager(Request $request, ActualTeam $actualTeam)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        $userId = $request->user_id;
+
+        // Check if already a Team Manager on this team
+        $alreadyManager = DB::table('actual_team_users')
+            ->where('actual_team_id', $actualTeam->id)
+            ->where('user_id', $userId)
+            ->where('role', 'Team Manager')
+            ->exists();
+
+        if ($alreadyManager) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This user is already a Team Manager on this team.',
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $user = User::findOrFail($userId);
+
+            // Assign Team Manager role (additive — doesn't remove existing roles)
+            $user->assignRole('Team Manager');
+
+            // Set organization if needed
+            if (empty($user->organization_id) && $actualTeam->organization_id) {
+                $user->organization_id = $actualTeam->organization_id;
+                $user->save();
+            }
+
+            // Insert/update pivot
+            DB::table('actual_team_users')->updateOrInsert(
+                [
+                    'actual_team_id' => $actualTeam->id,
+                    'user_id' => $userId,
+                ],
+                ['role' => 'Team Manager', 'created_at' => now(), 'updated_at' => now()]
+            );
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Team manager assigned successfully!',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Error assigning team manager for team {$actualTeam->id}: {$e->getMessage()}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to assign team manager: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Add a player to the team (AJAX) — creates player + user if needed
      */
     public function addPlayer(Request $request, ActualTeam $actualTeam)
@@ -1236,6 +1387,17 @@ class ActualTeamController extends Controller
             }
 
             DB::commit();
+
+            // Send email notification to the player
+            try {
+                if ($player->user && $player->user->email) {
+                    Mail::to($player->user->email)->send(
+                        new NewPlayerAddedMail($player, $actualTeam, Auth::user())
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Failed to send player added email: {$e->getMessage()}");
+            }
 
             return response()->json([
                 'success' => true,

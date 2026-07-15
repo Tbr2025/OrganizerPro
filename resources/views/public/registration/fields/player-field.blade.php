@@ -1,5 +1,6 @@
 @php
     /** @var string $key */
+    $prefill = $prefill ?? [];
     $cfg = $fieldConfig[$key] ?? ['label' => $key, 'required' => false];
     $label = $cfg['label'] ?? $key;
     $required = $cfg['required'] ?? false;
@@ -23,16 +24,28 @@
 
     @case('first_name')
     @case('last_name')
+        @php $isPrefilled = !empty($prefill[$key]); @endphp
         <label for="{{ $key }}" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="text" name="{{ $key }}" id="{{ $key }}" value="{{ old($key) }}" {{ $required ? 'required' : '' }}
-               class="reg-input" placeholder="{{ $label }}">
+        @if($isPrefilled)
+            <input type="text" id="{{ $key }}" value="{{ $prefill[$key] }}" disabled class="reg-input bg-gray-100 dark:bg-gray-700 cursor-not-allowed opacity-75">
+            <input type="hidden" name="{{ $key }}" value="{{ $prefill[$key] }}">
+        @else
+            <input type="text" name="{{ $key }}" id="{{ $key }}" value="{{ old($key) }}" {{ $required ? 'required' : '' }}
+                   class="reg-input" placeholder="{{ $label }}">
+        @endif
         @error($key)<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
     @case('email')
+        @php $isPrefilled = !empty($prefill['email']); @endphp
         <label for="email" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="email" name="email" id="email" value="{{ old('email') }}" {{ $required ? 'required' : '' }}
-               class="reg-input" placeholder="your@email.com">
+        @if($isPrefilled)
+            <input type="email" id="email" value="{{ $prefill['email'] }}" disabled class="reg-input bg-gray-100 dark:bg-gray-700 cursor-not-allowed opacity-75">
+            <input type="hidden" name="email" value="{{ $prefill['email'] }}">
+        @else
+            <input type="email" name="email" id="email" value="{{ old('email') }}" {{ $required ? 'required' : '' }}
+                   class="reg-input" placeholder="your@email.com">
+        @endif
         @error('email')<p class="reg-err">{{ $message }}</p>@enderror
         @break
 

@@ -206,7 +206,7 @@
             </form>
 
             {{-- Registrations Table --}}
-            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden">
+            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl">
                 @if($registrations->count() > 0)
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
@@ -306,9 +306,23 @@
 
                                         {{-- Type Column --}}
                                         <td class="px-6 py-4">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $registration->type == 'player' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' }}">
-                                                {{ ucfirst($registration->type) }}
-                                            </span>
+                                            <div class="flex flex-wrap gap-1">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $registration->type == 'player' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' }}">
+                                                    {{ ucfirst($registration->type) }}
+                                                </span>
+                                                @if($registration->type === 'player' && $registration->player?->user)
+                                                    @if($registration->player->user->hasRole('Team Manager'))
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                                                            Team Manager
+                                                        </span>
+                                                    @endif
+                                                    @if($registration->player->user->hasRole('Team Owner'))
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                            Team Owner
+                                                        </span>
+                                                    @endif
+                                                @endif
+                                            </div>
                                         </td>
 
                                         {{-- Status Column --}}

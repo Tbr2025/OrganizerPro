@@ -1014,6 +1014,9 @@ class PlayerController extends Controller
             'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
             'player_mode' => 'nullable|in:normal,retained',
             'retained_value' => 'nullable|numeric|min:0',
+            'batting_mode' => 'nullable|in:Aggressive Batsman,Defensive Batsman,Finisher,Anchor,Power Hitter',
+            'preferred_batting_positions' => 'nullable|array|max:2',
+            'preferred_batting_positions.*' => "in:Opener,3,4,5,6,7,8,I'm Flexible",
         ]);
 
 
@@ -1082,6 +1085,8 @@ class PlayerController extends Controller
             'travel_date_to' => $validated['travel_date_to'] ?? null,
             'player_mode' => $validated['player_mode'] ?? $player->player_mode,
             'retained_value' => ($validated['player_mode'] ?? null) === 'retained' ? $validated['retained_value'] : null,
+            'batting_mode' => $validated['batting_mode'] ?? null,
+            'preferred_batting_positions' => $validated['preferred_batting_positions'] ?? null,
         ]);
 
         // ✅ Assign verified flags

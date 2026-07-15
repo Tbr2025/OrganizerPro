@@ -133,7 +133,7 @@
                                     </td>
                                     <td class="px-5 py-3.5">
                                         <a data-tooltip-target="tooltip-user-{{ $user->id }}"
-                                            href="{{ auth()->user()->canBeModified($user) ? route('admin.users.edit', $user->id) : '#' }}"
+                                            href="{{ route('admin.users.show', $user->id) }}"
                                             class="flex items-center gap-3 min-w-[180px]">
                                             <img src="{{ ld_apply_filters('user_list_page_avatar_item', $user->getGravatarUrl(40), $user) }}"
                                                 alt="{{ $user->name }}"
@@ -143,13 +143,11 @@
                                                 <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ '@' . $user->username }}</p>
                                             </div>
                                         </a>
-                                        @if (auth()->user()->canBeModified($user))
-                                            <div id="tooltip-user-{{ $user->id }}"
-                                                class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-xs opacity-0 tooltip dark:bg-gray-700">
-                                                {{ __('Edit User') }}
-                                                <div class="tooltip-arrow" data-popper-arrow></div>
-                                            </div>
-                                        @endif
+                                        <div id="tooltip-user-{{ $user->id }}"
+                                            class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-xs opacity-0 tooltip dark:bg-gray-700">
+                                            {{ __('View User') }}
+                                            <div class="tooltip-arrow" data-popper-arrow></div>
+                                        </div>
                                     </td>
                                     <td class="px-5 py-3.5">
                                         <span class="text-sm text-gray-600 dark:text-gray-300">{{ $user->email }}</span>
@@ -189,6 +187,9 @@
                                     @php ld_apply_filters('user_list_page_table_row_before_action', '', $user) @endphp
                                     <td class="px-5 py-3.5 text-right">
                                         <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
+                                            <x-buttons.action-item :href="route('admin.users.show', $user->id)" icon="eye"
+                                                :label="__('View')" />
+
                                             @if (auth()->user()->canBeModified($user))
                                                 <x-buttons.action-item :href="route('admin.users.edit', $user->id)" icon="pencil"
                                                     :label="__('Edit')" />

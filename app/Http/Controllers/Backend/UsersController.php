@@ -103,6 +103,60 @@ class UsersController extends Controller
         return redirect()->route('admin.users.index');
     }
 
+    public function show(int $id): Renderable
+    {
+        $this->checkAuthorization(Auth::user(), ['user.view']);
+
+        $user = User::with(['roles', 'organization'])->findOrFail($id);
+
+        // Load player profile if user has one
+        $player = $user->player;
+        $tournamentAssignments = collect();
+        $tournamentStats = collect();
+
+        if ($player) {
+            $player->load([
+                'actualTeam', 'team', 'location', 'kitSize',
+                'battingProfile', 'bowlingProfile', 'playerType',
+            ]);
+
+            $tournamentAssignments = \DB::table('player_actual_team_tournament')
+                ->join('tournaments', 'tournaments.id', '=', 'player_actual_team_tournament.tournament_id')
+                ->join('actual_teams', 'actual_teams.id', '=', 'player_actual_team_tournament.actual_team_id')
+                ->where('player_actual_team_tournament.player_id', $player->id)
+                ->select(
+                    'player_actual_team_tournament.*',
+                    'tournaments.name as tournament_name',
+                    'actual_teams.name as team_name',
+                    'actual_teams.team_logo'
+                )
+                ->get();
+
+            $tournamentStats = PlayerStatistic::where('player_id', $player->id)
+                ->with('tournament')
+                ->get()
+                ->keyBy('tournament_id');
+        }
+
+        // Load organizer assignments
+        $assignedTournaments = $user->assignedTournaments ?? collect();
+
+        return view('backend.pages.users.show', [
+            'user' => $user,
+            'player' => $player,
+            'tournamentAssignments' => $tournamentAssignments,
+            'tournamentStats' => $tournamentStats,
+            'assignedTournaments' => $assignedTournaments,
+            'verifiedProfile' => $player ? $player->allFieldsVerified() : false,
+            'breadcrumbs' => [
+                'title' => __('View User'),
+                'items' => [
+                    ['label' => __('Users'), 'url' => route('admin.users.index')],
+                ],
+            ],
+        ]);
+    }
+
     public function edit(int $id): Renderable
     {
         $this->checkAuthorization(Auth::user(), ['user.edit']);

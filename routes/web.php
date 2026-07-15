@@ -275,7 +275,6 @@ Route::middleware(['auth'])
 
         // Register as Player (manager self-registration)
         Route::get('/register-as-player', [TeamManagerController::class, 'registerAsPlayer'])->name('register-as-player');
-        Route::post('/register-as-player', [TeamManagerController::class, 'storeRegisterAsPlayer'])->name('register-as-player.store');
 
         // Captain management
         Route::post('/assign-captain', [TeamManagerController::class, 'assignCaptain'])->name('assign-captain');
@@ -418,6 +417,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('actual-teams/{actualTeam}/team-managers', [ActualTeamController::class, 'getTeamManagers'])->name('actual-teams.get-team-managers');
     Route::post('actual-teams/{actualTeam}/team-manager/{user}/reset-password', [ActualTeamController::class, 'resetTeamManagerPassword'])->name('actual-teams.reset-team-manager-password');
     Route::post('actual-teams/{actualTeam}/team-manager/{user}/resend-credentials', [ActualTeamController::class, 'resendTeamManagerCredentials'])->name('actual-teams.resend-team-manager-credentials');
+    Route::get('actual-teams/{actualTeam}/search-org-users', [ActualTeamController::class, 'searchOrgUsers'])->name('actual-teams.search-org-users');
+    Route::post('actual-teams/{actualTeam}/assign-team-manager', [ActualTeamController::class, 'assignTeamManager'])->name('actual-teams.assign-team-manager');
 
     // Player management on teams
     Route::post('actual-teams/{actualTeam}/players', [ActualTeamController::class, 'addPlayer'])->name('actual-teams.add-player');

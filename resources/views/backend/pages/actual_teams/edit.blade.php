@@ -340,26 +340,26 @@
                             <p class="text-center text-gray-500 py-4">Loading...</p>
                         </template>
                         <template x-for="manager in managers" :key="manager.id">
-                            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                            <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg gap-3">
+                                <div class="flex items-center gap-4 min-w-0 flex-1">
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                                         <span x-text="manager.name.charAt(0).toUpperCase()"></span>
                                     </div>
-                                    <div>
-                                        <p class="font-semibold text-gray-800 dark:text-white" x-text="manager.name"></p>
-                                        <p class="text-sm text-gray-500 dark:text-gray-400" x-text="manager.email"></p>
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-gray-800 dark:text-white truncate" x-text="manager.name"></p>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400 truncate" x-text="manager.email"></p>
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                                             <i class="fas fa-user-shield mr-1"></i> <span x-text="manager.role"></span>
                                         </span>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 flex-shrink-0">
                                     <button type="button" @click="resendCredentials(manager)" class="btn btn-sm btn-primary" title="Send Credentials Email" :disabled="manager.sending">
-                                        <i class="fas fa-envelope" x-show="!manager.sending"></i>
-                                        <i class="fas fa-spinner fa-spin" x-show="manager.sending"></i>
+                                        <svg x-show="!manager.sending" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                        <svg x-show="manager.sending" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                                     </button>
                                     <button type="button" @click="resetPassword(manager)" class="btn btn-sm btn-secondary" title="Reset Password">
-                                        <i class="fas fa-key"></i>
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
                                     </button>
                                 </div>
                             </div>
@@ -368,15 +368,70 @@
                 </div>
             </div>
 
-            {{-- Create Team Manager Modal --}}
+            {{-- Add Team Manager Modal (Two Tabs: Select Existing / Create New) --}}
             <div x-show="showCreateModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
                 <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                    <div x-show="showCreateModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showCreateModal = false"></div>
+                    <div x-show="showCreateModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="closeModal()"></div>
                     <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
                     <div x-show="showCreateModal" @click.stop x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                         <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                             <h3 class="text-lg leading-6 font-semibold text-gray-900 dark:text-white mb-4">Add Team Manager</h3>
-                            <div class="space-y-4">
+
+                            {{-- Tab Switcher --}}
+                            <div class="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 mb-4">
+                                <button type="button" @click="activeTab = 'existing'; createError = ''"
+                                    :class="activeTab === 'existing' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors text-center">
+                                    Select Existing
+                                </button>
+                                <button type="button" @click="activeTab = 'create'; createError = ''"
+                                    :class="activeTab === 'create' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                                    class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors text-center">
+                                    Create New
+                                </button>
+                            </div>
+
+                            {{-- Tab 1: Select Existing User --}}
+                            <div x-show="activeTab === 'existing'" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Users</label>
+                                    <input type="text" x-model="searchQuery" @input.debounce.300ms="searchUsers()" class="form-control mt-1" placeholder="Search by name or email...">
+                                </div>
+
+                                {{-- Search Results --}}
+                                <div class="max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                                    <template x-if="searching">
+                                        <div class="p-4 text-center text-gray-500">
+                                            <i class="fas fa-spinner fa-spin mr-2"></i>Searching...
+                                        </div>
+                                    </template>
+                                    <template x-if="!searching && searchResults.length === 0 && searchQuery.length > 0">
+                                        <div class="p-4 text-center text-gray-500 text-sm">No users found.</div>
+                                    </template>
+                                    <template x-if="!searching && searchResults.length === 0 && searchQuery.length === 0">
+                                        <div class="p-4 text-center text-gray-400 text-sm">Type to search for organization users...</div>
+                                    </template>
+                                    <template x-for="user in searchResults" :key="user.id">
+                                        <button type="button" @click="selectedUserId = user.id"
+                                            :class="selectedUserId === user.id ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                            class="w-full flex items-center gap-3 p-3 transition-colors text-left border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                <span x-text="user.name.charAt(0).toUpperCase()"></span>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-sm font-medium text-gray-800 dark:text-white truncate" x-text="user.name"></p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="user.email"></p>
+                                            </div>
+                                            <svg x-show="selectedUserId === user.id" class="w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            {{-- Tab 2: Create New User --}}
+                            <div x-show="activeTab === 'create'" class="space-y-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
                                     <input type="text" x-model="newManager.name" class="form-control mt-1" placeholder="Enter name">
@@ -390,16 +445,24 @@
                                     <input type="text" x-model="newManager.password" class="form-control mt-1" placeholder="Enter password or leave blank">
                                 </div>
                             </div>
+
+                            {{-- Error display --}}
                             <div x-show="createError" class="mt-4 p-3 bg-red-100 text-red-700 rounded">
                                 <span x-text="createError"></span>
                             </div>
                         </div>
                         <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
-                            <button type="button" @click="createManager()" :disabled="creating" class="btn btn-primary">
+                            {{-- Existing tab: Assign button --}}
+                            <button x-show="activeTab === 'existing'" type="button" @click="assignExistingManager()" :disabled="assigning || !selectedUserId" class="btn btn-primary">
+                                <span x-show="assigning"><i class="fas fa-spinner fa-spin mr-2"></i></span>
+                                Assign as Team Manager
+                            </button>
+                            {{-- Create tab: Create button --}}
+                            <button x-show="activeTab === 'create'" type="button" @click="createManager()" :disabled="creating" class="btn btn-primary">
                                 <span x-show="creating"><i class="fas fa-spinner fa-spin mr-2"></i></span>
                                 Create Manager
                             </button>
-                            <button type="button" @click="showCreateModal = false" class="btn btn-secondary">Cancel</button>
+                            <button type="button" @click="closeModal()" class="btn btn-secondary">Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -466,9 +529,10 @@
                                 @endphp
                                 <div class="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden"
                                      :class="activeAccordions[{{ $tournament->id }}] ? 'border-l-4 border-l-blue-500' : ''">
-                                    {{-- Accordion Header --}}
+                                    {{-- Accordion Header (also a drop target for collapsed state) --}}
                                     <button type="button"
                                         @click="toggleAccordion({{ $tournament->id }})"
+                                        data-accordion-header="{{ $tournament->id }}"
                                         class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                         <div class="flex items-center gap-3">
                                             <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-200"
@@ -499,7 +563,7 @@
                                          x-transition:leave-start="opacity-100 translate-y-0"
                                          x-transition:leave-end="opacity-0 -translate-y-1"
                                          x-cloak>
-                                        <div class="p-4" id="roster-tournament-{{ $tournament->id }}">
+                                        <div class="p-4 drop-zone transition-all duration-150" id="roster-tournament-{{ $tournament->id }}" data-tournament-id="{{ $tournament->id }}">
                                             @if($tournamentPlayers->count() > 0)
                                                 <div class="space-y-2">
                                                     @foreach($tournamentPlayers as $assignment)
@@ -601,10 +665,10 @@
                             <div class="flex-1 overflow-y-auto px-6 py-4 space-y-5">
                                 {{-- Mode Toggle --}}
                                 <div class="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
-                                    <button type="button" @click="addMode = 'existing'; selectedExistingPlayerId = null; squadSearch = ''"
+                                    <button type="button" @click="addMode = 'existing'; selectedExistingPlayerId = null; selectedPlayerIds = []; playerRetainedSettings = {}; squadSearch = ''"
                                         :class="addMode === 'existing' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'"
                                         class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors text-center">
-                                        From Squad
+                                        Available Players
                                     </button>
                                     <button type="button" @click="addMode = 'new'"
                                         :class="addMode === 'new' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'"
@@ -618,40 +682,99 @@
                                     <div class="space-y-4">
                                         {{-- Search --}}
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Squad</label>
-                                            <input type="text" x-model="squadSearch" class="form-control mt-1" placeholder="Search by name or phone...">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search Players</label>
+                                            <input type="text" x-model="squadSearch" class="form-control mt-1" placeholder="Search by name, phone, or email...">
                                         </div>
 
-                                        {{-- Player List --}}
+                                        {{-- Select All / Deselect All --}}
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" @click="selectAll()" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 font-medium">Select All</button>
+                                            <span class="text-gray-300 dark:text-gray-600">|</span>
+                                            <button type="button" @click="deselectAll()" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 font-medium">Deselect All</button>
+                                            <span x-show="selectedPlayerIds.length > 0" class="ml-auto text-xs font-semibold text-blue-600 dark:text-blue-400" x-text="selectedPlayerIds.length + ' selected'"></span>
+                                        </div>
+
+                                        {{-- Player List with Checkboxes --}}
                                         <div class="max-h-52 overflow-y-auto space-y-1 border border-gray-200 dark:border-gray-600 rounded-lg p-2">
                                             <template x-for="sp in filteredSquadPlayers" :key="sp.id">
-                                                <button type="button" @click="selectedExistingPlayerId = sp.id"
-                                                    :class="selectedExistingPlayerId === sp.id ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                                <button type="button" @click="togglePlayer(sp.id)"
+                                                    :class="selectedPlayerIds.includes(sp.id) ? 'bg-blue-50 dark:bg-blue-900/30 ring-2 ring-blue-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700'"
                                                     class="w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors text-left">
+                                                    {{-- Checkbox --}}
+                                                    <div class="flex-shrink-0">
+                                                        <div :class="selectedPlayerIds.includes(sp.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-gray-500'"
+                                                             class="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors">
+                                                            <svg x-show="selectedPlayerIds.includes(sp.id)" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                    {{-- Avatar --}}
                                                     <img :src="sp.image || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(sp.name) + '&color=7F9CF5&background=EBF4FF')"
                                                          class="h-9 w-9 rounded-full object-cover flex-shrink-0" :alt="sp.name">
                                                     <div class="min-w-0 flex-1">
                                                         <p class="text-sm font-medium text-gray-800 dark:text-white truncate" x-text="sp.name"></p>
                                                         <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="sp.phone || sp.email"></p>
+                                                        {{-- Role Tags & Player Type --}}
+                                                        <div class="flex flex-wrap gap-1 mt-1">
+                                                            <template x-for="role in (sp.roles || [])" :key="role">
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300" x-text="role"></span>
+                                                            </template>
+                                                            <template x-if="sp.player_type">
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300" x-text="sp.player_type"></span>
+                                                            </template>
+                                                        </div>
                                                     </div>
-                                                    <svg x-show="selectedExistingPlayerId === sp.id" class="w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                                    </svg>
                                                 </button>
                                             </template>
                                             <template x-if="filteredSquadPlayers.length === 0">
-                                                <p class="text-sm text-gray-400 italic text-center py-3">No squad players found.</p>
+                                                <p class="text-sm text-gray-400 italic text-center py-3">No available players found.</p>
                                             </template>
                                         </div>
 
-                                        {{-- Selected Player Preview --}}
-                                        <template x-if="selectedSquadPlayer">
-                                            <div class="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg flex items-center gap-3">
-                                                <img :src="selectedSquadPlayer.image || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(selectedSquadPlayer.name) + '&color=7F9CF5&background=EBF4FF')"
-                                                     class="h-10 w-10 rounded-full object-cover" :alt="selectedSquadPlayer.name">
-                                                <div>
-                                                    <p class="text-sm font-semibold text-green-800 dark:text-green-200" x-text="selectedSquadPlayer.name"></p>
-                                                    <p class="text-xs text-green-600 dark:text-green-400" x-text="selectedSquadPlayer.phone || selectedSquadPlayer.email"></p>
+                                        {{-- Selected Players Summary Panel --}}
+                                        <template x-if="selectedPlayerIds.length > 0">
+                                            <div class="border border-blue-200 dark:border-blue-700 rounded-lg overflow-hidden">
+                                                <button type="button" @click="showSelectedPanel = !showSelectedPanel"
+                                                    class="w-full flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-sm font-medium text-blue-700 dark:text-blue-300">
+                                                    <span x-text="'Selected Players (' + selectedPlayerIds.length + ')'"></span>
+                                                    <svg :class="showSelectedPanel ? 'rotate-180' : ''" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                                    </svg>
+                                                </button>
+                                                <div x-show="showSelectedPanel" x-cloak class="max-h-48 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+                                                    <template x-for="spId in selectedPlayerIds" :key="spId">
+                                                        <div class="px-3 py-2 space-y-2">
+                                                            <div class="flex items-center gap-2">
+                                                                <img :src="getPlayerById(spId)?.image || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(getPlayerById(spId)?.name || '') + '&color=7F9CF5&background=EBF4FF')"
+                                                                     class="h-7 w-7 rounded-full object-cover flex-shrink-0">
+                                                                <span class="text-sm font-medium text-gray-800 dark:text-white flex-1 truncate" x-text="getPlayerById(spId)?.name"></span>
+                                                                <button type="button" @click="togglePlayer(spId)" class="text-gray-400 hover:text-red-500 flex-shrink-0" title="Deselect">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                </button>
+                                                            </div>
+                                                            {{-- Retained checkbox + value --}}
+                                                            <div class="flex items-center gap-2 ml-9">
+                                                                <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                                                                    <input type="checkbox"
+                                                                        :checked="playerRetainedSettings[spId]?.retained"
+                                                                        @change="toggleRetained(spId, $event.target.checked)"
+                                                                        :disabled="getPlayerById(spId)?.status !== 'approved'"
+                                                                        class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-3.5 w-3.5">
+                                                                    <span class="text-xs text-gray-600 dark:text-gray-400">Retained</span>
+                                                                </label>
+                                                                <template x-if="getPlayerById(spId)?.status !== 'approved'">
+                                                                    <span class="text-[10px] text-amber-500" title="Player must be approved to retain">Not approved</span>
+                                                                </template>
+                                                                <template x-if="playerRetainedSettings[spId]?.retained">
+                                                                    <input type="number" min="0" step="any" placeholder="Value"
+                                                                        :value="playerRetainedSettings[spId]?.value"
+                                                                        @input="playerRetainedSettings[spId].value = $event.target.value"
+                                                                        class="form-control text-xs py-1 px-2 w-28">
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
                                                 </div>
                                             </div>
                                         </template>
@@ -713,8 +836,8 @@
                                     </div>
                                 </template>
 
-                                {{-- Player Role --}}
-                                <div>
+                                {{-- Player Role (only for new player / single add mode) --}}
+                                <div x-show="addMode === 'new'">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Role</label>
                                     <select x-model="playerRole" class="form-control mt-1 text-sm">
                                         <option value="">-- None --</option>
@@ -725,8 +848,8 @@
                                     </select>
                                 </div>
 
-                                {{-- Retained Value (shown when role is retained) --}}
-                                <div x-show="playerRole === 'retained'" x-cloak>
+                                {{-- Retained Value (shown when role is retained, new mode only) --}}
+                                <div x-show="addMode === 'new' && playerRole === 'retained'" x-cloak>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Retained Value <span class="text-red-500">*</span></label>
                                     <input type="number" x-model="retainedValue" min="0" step="any" placeholder="e.g. 500000" class="form-control mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">This amount will be deducted from the team's auction budget.</p>
@@ -774,7 +897,8 @@
                                 <button type="button" @click="showDrawer = false" class="btn btn-secondary">Cancel</button>
                                 <button type="button" @click="savePlayer()" :disabled="saving" class="btn btn-primary">
                                     <span x-show="saving"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></span>
-                                    Save Player
+                                    <span x-show="addMode === 'existing' && selectedPlayerIds.length > 1" x-text="'Add ' + selectedPlayerIds.length + ' Players'"></span>
+                                    <span x-show="addMode === 'new' || selectedPlayerIds.length <= 1">Save Player</span>
                                 </button>
                             </div>
                         </div>
@@ -849,22 +973,22 @@
             {{-- LEFT COLUMN (Members) --}}
             <div class="space-y-8">
                 {{-- Team Staff (Owner / Manager) --}}
-                @if($currentStaffMembers->count())
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-                        <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Team Management</h2>
-                        </div>
-                        <div class="p-5 space-y-3">
-                            @foreach($currentStaffMembers as $member)
-                                @include('backend.pages.actual_teams.partials.member-card', [
-                                    'member' => $member,
-                                    'teamId' => $actualTeam->id,
-                                    'roles' => $availableRolesForSelection,
-                                ])
-                            @endforeach
-                        </div>
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700"
+                    @if($currentStaffMembers->isEmpty()) style="display:none" @endif
+                    id="staff-section">
+                    <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Team Management</h2>
                     </div>
-                @endif
+                    <div id="current-staff-container" class="p-5 space-y-3">
+                        @foreach($currentStaffMembers as $member)
+                            @include('backend.pages.actual_teams.partials.member-card', [
+                                'member' => $member,
+                                'teamId' => $actualTeam->id,
+                                'roles' => $availableRolesForSelection,
+                            ])
+                        @endforeach
+                    </div>
+                </div>
 
                 {{-- Current Squad (Players only) --}}
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
@@ -996,6 +1120,10 @@
                     targetTournamentId: null,
                     addMode: 'new', // 'new' or 'existing'
                     selectedExistingPlayerId: null,
+                    // Multi-select state
+                    selectedPlayerIds: [],
+                    playerRetainedSettings: {},
+                    showSelectedPanel: true,
                     squadSearch: '',
                     playerRole: '',
                     retainedValue: '',
@@ -1025,12 +1153,56 @@
                         if (!this.squadSearch) return this.squadPlayers;
                         const q = this.squadSearch.toLowerCase();
                         return this.squadPlayers.filter(p =>
-                            p.name.toLowerCase().includes(q) || (p.phone && p.phone.includes(q))
+                            p.name.toLowerCase().includes(q) ||
+                            (p.phone && p.phone.includes(q)) ||
+                            (p.email && p.email.toLowerCase().includes(q))
                         );
                     },
 
                     get selectedSquadPlayer() {
                         return this.squadPlayers.find(p => p.id === this.selectedExistingPlayerId);
+                    },
+
+                    getPlayerById(id) {
+                        return this.squadPlayers.find(p => p.id === id);
+                    },
+
+                    togglePlayer(playerId) {
+                        const idx = this.selectedPlayerIds.indexOf(playerId);
+                        if (idx === -1) {
+                            this.selectedPlayerIds.push(playerId);
+                            this.playerRetainedSettings[playerId] = { retained: false, value: '' };
+                        } else {
+                            this.selectedPlayerIds.splice(idx, 1);
+                            delete this.playerRetainedSettings[playerId];
+                        }
+                        // Keep backward compat for single-select
+                        this.selectedExistingPlayerId = this.selectedPlayerIds.length === 1 ? this.selectedPlayerIds[0] : null;
+                    },
+
+                    selectAll() {
+                        this.filteredSquadPlayers.forEach(sp => {
+                            if (!this.selectedPlayerIds.includes(sp.id)) {
+                                this.selectedPlayerIds.push(sp.id);
+                                this.playerRetainedSettings[sp.id] = { retained: false, value: '' };
+                            }
+                        });
+                    },
+
+                    deselectAll() {
+                        this.selectedPlayerIds = [];
+                        this.playerRetainedSettings = {};
+                        this.selectedExistingPlayerId = null;
+                    },
+
+                    toggleRetained(playerId, checked) {
+                        if (!this.playerRetainedSettings[playerId]) {
+                            this.playerRetainedSettings[playerId] = { retained: false, value: '' };
+                        }
+                        this.playerRetainedSettings[playerId].retained = checked;
+                        if (!checked) {
+                            this.playerRetainedSettings[playerId].value = '';
+                        }
                     },
 
                     toggleAccordion(id) {
@@ -1041,6 +1213,9 @@
                         this.targetTournamentId = tournamentId;
                         this.addMode = 'new';
                         this.selectedExistingPlayerId = null;
+                        this.selectedPlayerIds = [];
+                        this.playerRetainedSettings = {};
+                        this.showSelectedPanel = true;
                         this.squadSearch = '';
                         this.playerRole = '';
                         this.retainedValue = '';
@@ -1146,73 +1321,149 @@
                                 return;
                             }
                         } else {
-                            if (!this.selectedExistingPlayerId) {
-                                this.error = 'Please select a player from the squad.';
+                            if (this.selectedPlayerIds.length === 0) {
+                                this.error = 'Please select at least one player.';
                                 return;
                             }
                         }
 
-                        if (this.playerRole === 'retained' && (!this.retainedValue || parseFloat(this.retainedValue) < 0)) {
+                        if (this.addMode === 'new' && this.playerRole === 'retained' && (!this.retainedValue || parseFloat(this.retainedValue) < 0)) {
                             this.error = 'Retained value is required when retaining a player.';
                             return;
+                        }
+
+                        // Validate retained values for multi-select
+                        if (this.addMode === 'existing') {
+                            for (const spId of this.selectedPlayerIds) {
+                                const settings = this.playerRetainedSettings[spId];
+                                if (settings?.retained && (!settings.value || parseFloat(settings.value) < 0)) {
+                                    const player = this.getPlayerById(spId);
+                                    this.error = `Retained value is required for ${player?.name || 'selected player'}.`;
+                                    return;
+                                }
+                            }
                         }
 
                         this.saving = true;
                         this.error = '';
 
                         try {
-                            const formData = new FormData();
-
                             if (this.addMode === 'existing') {
-                                formData.append('existing_player_id', this.selectedExistingPlayerId);
+                                // Multi-select: POST each selected player sequentially
+                                let successCount = 0;
+                                let lastError = '';
+                                for (const playerId of this.selectedPlayerIds) {
+                                    const formData = new FormData();
+                                    formData.append('existing_player_id', playerId);
+
+                                    const settings = this.playerRetainedSettings[playerId];
+                                    const isRetained = settings?.retained;
+
+                                    if (isRetained && settings.value) {
+                                        formData.append('retained_value', settings.value);
+                                    }
+
+                                    // Build tournament assignments — only target tournament if set
+                                    const assignmentEntries = this.targetTournamentId
+                                        ? [[String(this.targetTournamentId), this.newPlayer.assignments[this.targetTournamentId] || '{{ $actualTeam->id }}']]
+                                        : Object.entries(this.newPlayer.assignments);
+                                    let idx = 0;
+                                    for (const [tournamentId, teamId] of assignmentEntries) {
+                                        formData.append(`tournament_assignments[${idx}][tournament_id]`, tournamentId);
+                                        formData.append(`tournament_assignments[${idx}][team_id]`, teamId);
+                                        if (isRetained) {
+                                            formData.append(`tournament_assignments[${idx}][role]`, 'retained');
+                                        }
+                                        idx++;
+                                    }
+
+                                    try {
+                                        const res = await fetch('{{ route("admin.actual-teams.add-player", $actualTeam->id) }}', {
+                                            method: 'POST',
+                                            headers: {
+                                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                                'Accept': 'application/json',
+                                                'X-Requested-With': 'XMLHttpRequest'
+                                            },
+                                            body: formData
+                                        });
+
+                                        const data = await res.json();
+
+                                        if (res.ok && data.success) {
+                                            for (const [tournamentId] of assignmentEntries) {
+                                                this.insertPlayerCard(parseInt(tournamentId), data.player);
+                                            }
+                                            successCount++;
+                                        } else {
+                                            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                                            lastError = firstError || data.message || 'Failed to add player.';
+                                        }
+                                    } catch (e) {
+                                        console.error('Error adding player:', e);
+                                        lastError = 'An error occurred adding a player.';
+                                    }
+                                }
+
+                                if (successCount > 0) {
+                                    this.showDrawer = false;
+                                }
+                                if (lastError && successCount < this.selectedPlayerIds.length) {
+                                    this.error = `Added ${successCount}/${this.selectedPlayerIds.length} players. Last error: ${lastError}`;
+                                    if (successCount > 0) {
+                                        // Some succeeded, still close but show a toast-style alert
+                                        setTimeout(() => alert(this.error), 100);
+                                    }
+                                }
                             } else {
+                                // New player mode: single POST
+                                const formData = new FormData();
                                 formData.append('name', this.newPlayer.name);
                                 formData.append('email', this.newPlayer.email);
                                 formData.append('phone', this.newPlayer.phone);
                                 if (this.imageFile) {
                                     formData.append('player_image', this.imageFile);
                                 }
-                            }
 
-                            if (this.playerRole === 'retained' && this.retainedValue) {
-                                formData.append('retained_value', this.retainedValue);
-                            }
-
-                            // Build tournament assignments
-                            let idx = 0;
-                            for (const [tournamentId, teamId] of Object.entries(this.newPlayer.assignments)) {
-                                formData.append(`tournament_assignments[${idx}][tournament_id]`, tournamentId);
-                                formData.append(`tournament_assignments[${idx}][team_id]`, teamId);
-                                if (this.playerRole) {
-                                    formData.append(`tournament_assignments[${idx}][role]`, this.playerRole);
+                                if (this.playerRole === 'retained' && this.retainedValue) {
+                                    formData.append('retained_value', this.retainedValue);
                                 }
-                                idx++;
-                            }
 
-                            const res = await fetch('{{ route("admin.actual-teams.add-player", $actualTeam->id) }}', {
-                                method: 'POST',
-                                headers: {
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                                    // Ensure Laravel returns JSON (incl. 422 validation errors)
-                                    // instead of an HTML redirect, so real messages are shown.
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest'
-                                },
-                                body: formData
-                            });
-
-                            const data = await res.json();
-
-                            if (res.ok && data.success) {
-                                // Insert player card into all assigned tournament accordions
-                                for (const [tournamentId, teamId] of Object.entries(this.newPlayer.assignments)) {
-                                    this.insertPlayerCard(parseInt(tournamentId), data.player);
+                                // Build tournament assignments — only target tournament if set
+                                const newAssignmentEntries = this.targetTournamentId
+                                    ? [[String(this.targetTournamentId), this.newPlayer.assignments[this.targetTournamentId] || '{{ $actualTeam->id }}']]
+                                    : Object.entries(this.newPlayer.assignments);
+                                let idx = 0;
+                                for (const [tournamentId, teamId] of newAssignmentEntries) {
+                                    formData.append(`tournament_assignments[${idx}][tournament_id]`, tournamentId);
+                                    formData.append(`tournament_assignments[${idx}][team_id]`, teamId);
+                                    if (this.playerRole) {
+                                        formData.append(`tournament_assignments[${idx}][role]`, this.playerRole);
+                                    }
+                                    idx++;
                                 }
-                                this.showDrawer = false;
-                            } else {
-                                // Surface the first validation error if present
-                                const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
-                                this.error = firstError || data.message || 'Failed to add player.';
+
+                                const res = await fetch('{{ route("admin.actual-teams.add-player", $actualTeam->id) }}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: formData
+                                });
+
+                                const data = await res.json();
+
+                                if (res.ok && data.success) {
+                                    for (const [tournamentId] of newAssignmentEntries) {
+                                        this.insertPlayerCard(parseInt(tournamentId), data.player);
+                                    }
+                                    this.showDrawer = false;
+                                } else {
+                                    const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                                    this.error = firstError || data.message || 'Failed to add player.';
+                                }
                             }
                         } catch (e) {
                             this.error = 'An error occurred. Please try again.';
@@ -1286,9 +1537,76 @@
                         email: '',
                         password: ''
                     },
+                    // Existing user assignment
+                    activeTab: 'existing',
+                    searchQuery: '',
+                    searchResults: [],
+                    selectedUserId: null,
+                    searching: false,
+                    assigning: false,
 
                     init() {
                         this.loadManagers();
+                    },
+
+                    closeModal() {
+                        this.showCreateModal = false;
+                        this.activeTab = 'existing';
+                        this.searchQuery = '';
+                        this.searchResults = [];
+                        this.selectedUserId = null;
+                        this.createError = '';
+                        this.newManager = { name: '', email: '', password: '' };
+                    },
+
+                    async searchUsers() {
+                        if (!this.searchQuery || this.searchQuery.length < 1) {
+                            this.searchResults = [];
+                            return;
+                        }
+                        this.searching = true;
+                        try {
+                            const res = await fetch(`{{ route("admin.actual-teams.search-org-users", $actualTeam->id) }}?search=${encodeURIComponent(this.searchQuery)}`);
+                            const data = await res.json();
+                            if (data.success) {
+                                this.searchResults = data.users;
+                            }
+                        } catch (e) {
+                            console.error('Search failed:', e);
+                        }
+                        this.searching = false;
+                    },
+
+                    async assignExistingManager() {
+                        if (!this.selectedUserId) return;
+
+                        this.assigning = true;
+                        this.createError = '';
+
+                        try {
+                            const res = await fetch('{{ route("admin.actual-teams.assign-team-manager", $actualTeam->id) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                                },
+                                body: JSON.stringify({ user_id: this.selectedUserId })
+                            });
+
+                            const data = await res.json();
+
+                            if (data.success) {
+                                this.closeModal();
+                                this.loadManagers();
+                            } else {
+                                this.createError = data.message || 'Failed to assign manager.';
+                            }
+                        } catch (e) {
+                            this.createError = 'An error occurred. Please try again.';
+                            console.error(e);
+                        }
+
+                        this.assigning = false;
                     },
 
                     async loadManagers() {
@@ -1458,7 +1776,17 @@
 
                 /** Create a member card (supports MULTIPLE roles) */
                 function createMemberCardHtml(memberData) {
-                    const container = document.getElementById('current-squad-container');
+                    const staffRoles = ['owner', 'team manager', 'manager', 'captain'];
+                    const isStaff = memberData.roles.some(r => staffRoles.includes(r.toLowerCase()));
+                    const container = isStaff
+                        ? document.getElementById('current-staff-container')
+                        : document.getElementById('current-squad-container');
+
+                    // Show the staff section if adding a staff member
+                    if (isStaff) {
+                        const staffSection = document.getElementById('staff-section');
+                        if (staffSection) staffSection.style.display = '';
+                    }
 
                     const retainedTag = memberData.player_mode === 'retained' ?
                         `<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
@@ -1581,24 +1909,14 @@
                 /** Global click handling: Add / Remove */
                 document.addEventListener('click', async (e) => {
                     if (e.target.closest('.add-member-btn')) {
-                        const card = e.target.closest('.parent'); // 🔹 gets the parent card
+                        const clickedBtn = e.target.closest('.add-member-btn');
+                        const card = clickedBtn.closest('.parent');
                         const userId = card.dataset.userId;
+                        const selectedRole = clickedBtn.dataset.role;
+                        const roles = [selectedRole];
 
-                        console.log('Adding user:', userId);
-
-                        // Find hidden inputs for this user's roles
-                        const roleInputs = card.querySelectorAll(`input[name^="user_roles[${userId}]"]`);
-                        const roles = Array.from(roleInputs).map(input => input.value);
-
-                        console.log(`Roles for user ${userId}:`, roles);
-
-
-
-
-
-
-                        if (!roles.length) {
-                            alert('Please select at least one role before adding.');
+                        if (!selectedRole) {
+                            alert('Please select a role before adding.');
                             return;
                         }
                         const retainedStatusInput = card.querySelector(`#user_retained_${userId}`);
@@ -1701,6 +2019,126 @@
 
                 updateCounts();
                 togglePlaceholders();
+
+                // ===================================================
+                // Drag-and-Drop: Available Users → Tournament Pools
+                // ===================================================
+                const dropZones = document.querySelectorAll('.drop-zone[data-tournament-id]');
+                const highlightClasses = ['ring-2', 'ring-blue-400', 'bg-blue-50/50', 'dark:bg-blue-900/20'];
+
+                // Shared drop handler for adding a player to a tournament
+                async function handlePlayerDrop(tournamentId, playerData) {
+                    const zone = document.getElementById('roster-tournament-' + tournamentId);
+
+                    // Duplicate check
+                    if (zone && zone.querySelector(`[data-player-id="${playerData.playerId}"]`)) {
+                        if (zone) {
+                            zone.classList.add('ring-2', 'ring-yellow-400');
+                            setTimeout(() => zone.classList.remove('ring-2', 'ring-yellow-400'), 1000);
+                        }
+                        return;
+                    }
+
+                    try {
+                        const res = await fetch('{{ route("admin.actual-teams.add-player", $actualTeam->id) }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrf,
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: JSON.stringify({
+                                existing_player_id: playerData.playerId,
+                                tournament_assignments: [{
+                                    tournament_id: tournamentId,
+                                    team_id: {{ $actualTeam->id }}
+                                }]
+                            })
+                        });
+
+                        const data = await res.json();
+
+                        if (res.ok && data.success) {
+                            const rosterEl = document.querySelector('[x-data="playerRosterHandler()"]');
+                            const handler = rosterEl && rosterEl._x_dataStack ? rosterEl._x_dataStack[0] : null;
+                            if (handler && handler.insertPlayerCard) {
+                                handler.playerRole = '';
+                                handler.activeAccordions[tournamentId] = true;
+                                handler.insertPlayerCard(tournamentId, data.player || {
+                                    id: playerData.playerId,
+                                    name: playerData.name,
+                                    email: playerData.email,
+                                    image: playerData.avatar
+                                });
+                            } else {
+                                window.location.reload();
+                            }
+                        } else {
+                            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                            alert(firstError || data.message || 'Failed to add player.');
+                        }
+                    } catch (err) {
+                        console.error('Drop error:', err);
+                        alert('An error occurred while adding the player.');
+                    }
+                }
+
+                // Handle drops on accordion headers (works even when collapsed)
+                document.querySelectorAll('[data-accordion-header]').forEach(header => {
+                    header.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                        header.classList.add('ring-2', 'ring-blue-400');
+                    });
+                    header.addEventListener('dragleave', (e) => {
+                        if (!header.contains(e.relatedTarget)) {
+                            header.classList.remove('ring-2', 'ring-blue-400');
+                        }
+                    });
+                    header.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        header.classList.remove('ring-2', 'ring-blue-400');
+                        let playerData;
+                        try {
+                            playerData = JSON.parse(e.dataTransfer.getData('application/json'));
+                        } catch { return; }
+                        const tId = parseInt(header.dataset.accordionHeader);
+                        handlePlayerDrop(tId, playerData);
+                    });
+                });
+
+                // Handle drops on tournament body zones
+                dropZones.forEach(zone => {
+                    zone.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                        zone.classList.add(...highlightClasses);
+                    });
+
+                    zone.addEventListener('dragenter', (e) => {
+                        e.preventDefault();
+                        zone.classList.add(...highlightClasses);
+                    });
+
+                    zone.addEventListener('dragleave', (e) => {
+                        if (!zone.contains(e.relatedTarget)) {
+                            zone.classList.remove(...highlightClasses);
+                        }
+                    });
+
+                    zone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove(...highlightClasses);
+                        let playerData;
+                        try {
+                            playerData = JSON.parse(e.dataTransfer.getData('application/json'));
+                        } catch { return; }
+                        const tournamentId = parseInt(zone.dataset.tournamentId);
+                        handlePlayerDrop(tournamentId, playerData);
+                    });
+                });
             });
         </script>
     @endpush

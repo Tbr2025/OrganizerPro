@@ -32,7 +32,7 @@ class RegistrationController extends Controller
     /**
      * Show player registration form
      */
-    public function playerForm(Tournament $tournament): View
+    public function playerForm(Request $request, Tournament $tournament): View
     {
         $settings = $tournament->settings;
 
@@ -56,6 +56,13 @@ class RegistrationController extends Controller
         // Show all organization teams in the "Current Playing Team" dropdown.
         $actualTeams = ActualTeam::where('organization_id', $tournament->organization_id)->orderBy('name')->get();
 
+        // Prefill values (used when team managers redirect here to register themselves)
+        $prefill = [
+            'first_name' => $request->query('prefill_first_name'),
+            'last_name'  => $request->query('prefill_last_name'),
+            'email'      => $request->query('prefill_email'),
+        ];
+
         return view('public.registration.player', [
             'tournament' => $tournament,
             'settings' => $settings,
@@ -73,6 +80,7 @@ class RegistrationController extends Controller
             // Per-tournament default nationality, falling back to the global setting.
             'defaultCountry' => ($settings?->default_country) ?: config('settings.default_country', 'IN'),
             'defaultPhoneCountry' => ($settings?->default_phone_country) ?: ($settings?->default_country) ?: config('settings.default_country', 'IN'),
+            'prefill' => $prefill,
         ]);
     }
 
