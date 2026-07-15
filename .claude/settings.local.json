@@ -197,7 +197,25 @@
       "Bash(echo \"exit=$?\")",
       "Bash(grep -rn \"fillable\\\\|casts\\\\|protected \\\\$\" /Users/navasfazil/OrganizerPro/app/Models/TournamentSetting.php)",
       "Bash(grep -n 'reg-banner\\\\|registration-theme\\\\|banner\\\\|$settings\\\\|registrationTheme' /Users/navasfazil/OrganizerPro/resources/views/public/registration/player.blade.php)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -n \"actual_team_id\" /Users/navasfazil/OrganizerPro/database/migrations/*.php 2>/dev/null | head -20)",
+      "Bash(grep -l \"actual_team_id\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
+      "Bash(find /Users/navasfazil/OrganizerPro/database/migrations -name \"*players*\" | sort | head -1 | xargs cat | head -150)",
+      "Bash(npm run build 2>&1 | tail -20)",
+      "Bash(npm run build 2>&1 | tail -10)",
+      "Bash(npm run build 2>&1)",
+      "Bash(grep -r \"webhook\\\\|Webhook\" /Users/navasfazil/OrganizerPro/app --include=\"*.php\" 2>/dev/null | head -20)",
+      "Bash(grep -l \"create.*player\\\\|add.*player\" /Users/navasfazil/OrganizerPro/resources/views/**/*.blade.php 2>/dev/null | head -10)",
+      "Bash(grep -n \"class ActualTeam\\\\|class Player\\\\|class TournamentRegistration\" /Users/navasfazil/OrganizerPro/app/Models/*.php)",
+      "Bash(grep -rn \"auction\" /Users/navasfazil/OrganizerPro/resources/views/public/ --include=\"*.blade.php\" 2>/dev/null | head -20)",
+      "Bash(git log --all --oneline --grep=\"login\" -i -10)",
+      "Bash(git log --all --oneline --grep=\"team.*login\\\\|login.*team\\\\|team.*auction\\\\|auction.*team\" -i -10)",
+      "Bash(find /Users/navasfazil/OrganizerPro/app/Models -name \"AuctionBid.php\" | xargs cat)",
+      "Bash(grep -l \"actual_team_users\" \"/Users/navasfazil/OrganizerPro/database/migrations\"/*.php)",
+      "Bash(grep -n \"max_budget_per_team\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
+      "Bash(grep -n \"budget\\\\|spent\\\\|balance\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
+      "Bash(sqlite3 /Users/navasfazil/OrganizerPro/.sqlite/database.sqlite \"SELECT id, name, organization_id FROM users WHERE id = 20;\" 2>/dev/null || echo \"SQLite not found, checking if MySQL/Postgres is in use\")",
+      "Bash(grep -n \"retain\\\\|unretain\" /Users/navasfazil/OrganizerPro/routes/*.php 2>/dev/null | head -20)"
     ]
   }
 }
