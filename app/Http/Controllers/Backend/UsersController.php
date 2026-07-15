@@ -141,9 +141,18 @@ class UsersController extends Controller
         // Load organizer assignments
         $assignedTournaments = $user->assignedTournaments ?? collect();
 
+        // Load tournament registrations to derive the real per-tournament status
+        $registrations = $player
+            ? \App\Models\TournamentRegistration::where('player_id', $player->id)
+                ->with('tournament')
+                ->latest()
+                ->get()
+            : collect();
+
         return view('backend.pages.users.show', [
             'user' => $user,
             'player' => $player,
+            'registrations' => $registrations,
             'tournamentAssignments' => $tournamentAssignments,
             'tournamentStats' => $tournamentStats,
             'assignedTournaments' => $assignedTournaments,

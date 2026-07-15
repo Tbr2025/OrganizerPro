@@ -56,37 +56,53 @@
                     </div>
 
                     @if($player)
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
                             @if($verifiedProfile)
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-400 text-green-900">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                     </svg>
-                                    Verified
+                                    Fields Verified
                                 </span>
                             @endif
-                            @if($player->status === 'approved')
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-400 text-green-900">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                    Approved
-                                </span>
-                            @elseif($player->status === 'rejected')
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-400 text-red-900">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                    </svg>
-                                    Rejected
-                                </span>
+
+                            {{-- Per-tournament registration status (source of truth) --}}
+                            @if($registrations->count())
+                                @foreach($registrations as $reg)
+                                    @php
+                                        $regStatusColor = match($reg->status) {
+                                            'approved' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                                            'rejected' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+                                            'queued' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+                                            default => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+                                        };
+                                    @endphp
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $regStatusColor }}">
+                                        {{ $reg->tournament?->name ?? 'Tournament' }}: {{ ucfirst($reg->status) }}
+                                    </span>
+                                @endforeach
                             @else
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-400 text-yellow-900">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                    Pending
+                                {{-- Fallback to player.status when no registrations exist --}}
+                                @php
+                                    $statusColor = match($player->status) {
+                                        'approved' => 'bg-green-400 text-green-900',
+                                        'rejected' => 'bg-red-400 text-red-900',
+                                        default => 'bg-yellow-400 text-yellow-900',
+                                    };
+                                @endphp
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {{ $statusColor }}">
+                                    Player: {{ ucfirst($player->status ?? 'pending') }}
                                 </span>
                             @endif
+
+                            {{-- Role tags --}}
+                            @foreach($user->roles as $role)
+                                @if(in_array($role->name, ['Team Manager', 'Admin', 'Superadmin']))
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                        {{ $role->name }}
+                                    </span>
+                                @endif
+                            @endforeach
                         </div>
                     @endif
                 </div>
