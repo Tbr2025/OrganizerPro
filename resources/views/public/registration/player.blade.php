@@ -91,6 +91,14 @@
         transition: transform .2s, box-shadow .2s; box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.25);
     }
     .reg-submit:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(var(--accent-rgb), 0.35); }
+
+    /* Live validation styles */
+    .reg-input.is-invalid,
+    .reg-select.is-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,0.2) !important; }
+    .reg-input.is-valid,
+    .reg-select.is-valid { border-color: #34d399 !important; }
+    .live-err { color: #f87171; font-size: .8rem; margin-top: .35rem; display: none; }
+    .live-err.show { display: block; }
 </style>
 @endpush
 
@@ -241,3 +249,77 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 @endpush
 @endif
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form[method="POST"]');
+    if (!form) return;
+
+    function getOrCreateErr(field) {
+        let err = field.parentElement.querySelector('.live-err');
+        if (!err) {
+            err = document.createElement('p');
+            err.className = 'live-err';
+            field.parentElement.appendChild(err);
+        }
+        return err;
+    }
+
+    function validateField(field) {
+        // Skip hidden/disabled fields
+        if (field.offsetParent === null || field.disabled) return;
+
+        const err = getOrCreateErr(field);
+        let msg = '';
+
+        if (field.required && !field.value.trim()) {
+            msg = 'This field is required.';
+        } else if (field.type === 'email' && field.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(field.value)) {
+            msg = 'Please enter a valid email address.';
+        } else if (field.type === 'tel' && field.value && !/^[\d\s\-+()]{4,20}$/.test(field.value)) {
+            msg = 'Please enter a valid phone number.';
+        } else if (field.type === 'number' && field.value) {
+            if (field.min !== '' && Number(field.value) < Number(field.min)) msg = 'Value must be at least ' + field.min + '.';
+            if (field.max !== '' && Number(field.value) > Number(field.max)) msg = 'Value must be at most ' + field.max + '.';
+        }
+
+        if (msg) {
+            field.classList.add('is-invalid');
+            field.classList.remove('is-valid');
+            err.textContent = msg;
+            err.classList.add('show');
+        } else if (field.value.trim()) {
+            field.classList.remove('is-invalid');
+            field.classList.add('is-valid');
+            err.classList.remove('show');
+        } else {
+            field.classList.remove('is-invalid', 'is-valid');
+            err.classList.remove('show');
+        }
+    }
+
+    // Attach to all inputs and selects
+    form.querySelectorAll('input, select, textarea').forEach(function (field) {
+        if (field.type === 'hidden' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'file') return;
+        field.addEventListener('blur', function () { validateField(this); });
+        field.addEventListener('change', function () { validateField(this); });
+    });
+
+    // Validate all on submit
+    form.addEventListener('submit', function (e) {
+        let hasError = false;
+        form.querySelectorAll('input, select, textarea').forEach(function (field) {
+            if (field.type === 'hidden' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'file') return;
+            validateField(field);
+            if (field.classList.contains('is-invalid')) hasError = true;
+        });
+        if (hasError) {
+            e.preventDefault();
+            const first = form.querySelector('.is-invalid');
+            if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+});
+</script>
+@endpush

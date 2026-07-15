@@ -58,7 +58,7 @@ class PlayerFormConfig
      */
     public static function lockedFields(): array
     {
-        return ['name', 'first_name', 'last_name', 'email', 'mobile_number', 'cricheroes_number'];
+        return ['name', 'first_name', 'last_name', 'email', 'mobile_number'];
     }
 
     public static function getFieldConfig(?TournamentSetting $settings): array
