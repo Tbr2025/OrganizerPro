@@ -78,9 +78,13 @@
             <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
                 <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Squad Size</div>
                 @php
-                    // Separate players from non-player roles (Owner, Manager, Team Manager)
+                    // Only show users who are actual activated players (not Owner/Manager/Team Manager)
                     $nonPlayerRoles = ['Owner', 'Manager', 'Team Manager'];
-                    $players = $actualTeam->users->filter(fn($u) => !in_array($u->pivot->role, $nonPlayerRoles));
+                    $players = $actualTeam->users->filter(fn($u) =>
+                        !in_array($u->pivot->role, $nonPlayerRoles)
+                        && $u->player
+                        && $u->player->status === 'approved'
+                    );
                     $teamOwner = $actualTeam->users->first(fn($u) => $u->pivot->role === 'Owner');
                     $teamManager = $actualTeam->users->first(fn($u) => in_array($u->pivot->role, ['Manager', 'Team Manager']));
                     $totalPlayers = $players->count();
@@ -207,6 +211,121 @@
                         </div>
                     </div>
                 @endif
+            </div>
+        @endif
+
+        {{-- ======================================================= --}}
+        {{-- APPROVED PLAYERS FOR AUCTION (Retain Management) --}}
+        {{-- ======================================================= --}}
+        @if($approvedPlayers->count() > 0)
+            <div class="mb-8" x-data="{ retainModal: false, retainPlayer: null, retainPlayerName: '', retainAmount: '' }">
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-4">Approved Players for Auction</h2>
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Player</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Contact</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden md:table-cell">Role</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                @foreach($approvedPlayers as $ap)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        {{-- Player --}}
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="flex items-center gap-3">
+                                                <img class="h-9 w-9 rounded-full object-cover"
+                                                    src="{{ $ap->image_path ? Storage::url($ap->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($ap->name) . '&color=7F9CF5&background=EBF4FF' }}"
+                                                    alt="{{ $ap->name }}">
+                                                <span class="font-medium text-gray-900 dark:text-white">{{ $ap->name }}</span>
+                                            </div>
+                                        </td>
+                                        {{-- Contact --}}
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                                            {{ $ap->mobile_number_full ?? '-' }}
+                                        </td>
+                                        {{-- Role --}}
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
+                                            {{ $ap->playerType->type ?? '-' }}
+                                        </td>
+                                        {{-- Status --}}
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            @if($ap->player_mode === 'retained' && $ap->actual_team_id == $actualTeam->id)
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300">
+                                                    Retained ({{ number_format($ap->retained_value) }})
+                                                </span>
+                                            @elseif($ap->player_mode === 'retained' && $ap->actual_team_id && $ap->actual_team_id != $actualTeam->id)
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300">
+                                                    Retained by {{ $ap->actualTeam->name ?? 'Other' }}
+                                                </span>
+                                            @else
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
+                                                    Available
+                                                </span>
+                                            @endif
+                                        </td>
+                                        {{-- Action --}}
+                                        <td class="px-4 py-3 whitespace-nowrap text-right">
+                                            @can('player.edit')
+                                                @if($ap->player_mode === 'retained' && $ap->actual_team_id == $actualTeam->id)
+                                                    <form action="{{ route('admin.players.unretain', $ap) }}" method="POST" class="inline"
+                                                        onsubmit="return confirm('Remove retention for {{ $ap->name }}?')">
+                                                        @csrf
+                                                        <button type="submit" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 dark:text-red-300 dark:bg-red-900/30 dark:hover:bg-red-900/50 transition">
+                                                            Unretain
+                                                        </button>
+                                                    </form>
+                                                @elseif(!($ap->player_mode === 'retained' && $ap->actual_team_id && $ap->actual_team_id != $actualTeam->id))
+                                                    <button type="button"
+                                                        @click="retainModal = true; retainPlayer = {{ $ap->id }}; retainPlayerName = '{{ addslashes($ap->name) }}'; retainAmount = ''"
+                                                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 dark:text-purple-300 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 transition">
+                                                        Retain
+                                                    </button>
+                                                @endif
+                                            @endcan
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Retain Modal --}}
+                <div x-show="retainModal" x-cloak
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                    @keydown.escape.window="retainModal = false">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
+                        @click.outside="retainModal = false">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                            Retain <span x-text="retainPlayerName"></span>
+                        </h3>
+                        <form method="POST" x-bind:action="'{{ url('admin/players') }}/' + retainPlayer + '/retain'">
+                            @csrf
+                            <input type="hidden" name="actual_team_id" value="{{ $actualTeam->id }}">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value</label>
+                                <input type="number" name="retained_value" x-model="retainAmount" min="0" step="any" required
+                                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                                    placeholder="Enter amount">
+                            </div>
+                            <div class="flex justify-end gap-3">
+                                <button type="button" @click="retainModal = false"
+                                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                                    Cancel
+                                </button>
+                                <button type="submit"
+                                    class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 transition">
+                                    Retain Player
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         @endif
 

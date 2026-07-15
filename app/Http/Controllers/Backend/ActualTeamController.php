@@ -251,19 +251,24 @@ class ActualTeamController extends Controller
     {
         $this->authorize('actual-team.view');
 
-        // **THIS IS THE FIX**
-        // We tell Eloquent: "When you get the team, also get its organization,
-        // its tournament, all of its users, AND for each of those users,
-        // get their associated player record."
-        // This solves the N+1 query problem.
         $actualTeam->load([
             'organization',
             'tournament',
-            'users.player.playerType',      // For each user, get their player profile and its type
-            'users.player.battingProfile',  // Also get their batting profile
-            'users.player.bowlingProfile',  // And their bowling profile
+            'users.player.playerType',
+            'users.player.battingProfile',
+            'users.player.bowlingProfile',
         ]);
-        return view('backend.pages.actual_teams.show', compact('actualTeam'));
+
+        $approvedPlayers = collect();
+        if ($actualTeam->tournament_id) {
+            $approvedPlayers = Player::whereHas('registrations', fn($q) =>
+                $q->where('tournament_id', $actualTeam->tournament_id)
+                  ->where('status', 'approved')
+                  ->where('type', 'player')
+            )->with(['playerType', 'actualTeam'])->get();
+        }
+
+        return view('backend.pages.actual_teams.show', compact('actualTeam', 'approvedPlayers'));
     }
 
     // public function edit(ActualTeam $actualTeam)

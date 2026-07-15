@@ -133,7 +133,12 @@
                         @php
                             $teamEntry = $tournament->pointTableEntries->where('actual_team_id', $team->id)->first();
                             $position = $teamEntry?->position;
-                            $squadPlayers = $team->players->filter(fn($tp) => $tp->player !== null);
+                            $nonPlayerRoles = ['Owner', 'Manager', 'Team Manager'];
+                            $squadPlayers = $team->players->filter(fn($tp) =>
+                                $tp->player !== null
+                                && !in_array($tp->role, $nonPlayerRoles)
+                                && $tp->player->status === 'approved'
+                            );
                         @endphp
                         <div class="team-card tilt-card rounded-2xl overflow-hidden">
                             {{-- Team Header --}}
@@ -210,66 +215,88 @@
                                 @endif
                             </div>
 
-                            {{-- Players List (Collapsible) --}}
-                            <div x-data="{ expanded: false }" class="border-t border-gray-700/50">
-                                <button @click="expanded = !expanded"
+                            {{-- View Squad Button + Modal --}}
+                            <div x-data="{ showSquad: false }" class="border-t border-gray-700/50">
+                                <button @click="showSquad = true"
                                         class="squad-header w-full px-4 py-4 flex justify-between items-center text-gray-300 hover:text-white transition">
                                     <span class="font-semibold flex items-center gap-2">
                                         <i class="fas fa-shirt text-accent"></i>
                                         View Squad
                                         <span class="text-gray-500 text-sm font-normal">({{ $squadPlayers->count() }})</span>
                                     </span>
-                                    <i class="fas transition-transform duration-300" :class="expanded ? 'fa-chevron-up rotate-0' : 'fa-chevron-down'"></i>
+                                    <i class="fas fa-arrow-right text-sm"></i>
                                 </button>
-                                <div x-show="expanded" x-collapse x-cloak>
-                                    <div class="px-4 pb-4 space-y-1">
-                                        @forelse($squadPlayers as $teamPlayer)
-                                            <div class="player-row flex items-center justify-between py-3 px-3 rounded-lg">
-                                                <div class="flex items-center gap-3">
-                                                    {{-- Player Avatar --}}
-                                                    @if($teamPlayer->player?->image)
-                                                        <img src="{{ Storage::url($teamPlayer->player->image) }}"
-                                                             alt="{{ $teamPlayer->player->name }}"
-                                                             class="h-10 w-10 rounded-full object-cover border-2 border-gray-700">
-                                                    @else
-                                                        <div class="player-avatar h-10 w-10 rounded-full flex items-center justify-center border-2 border-gray-700">
-                                                            <i class="fas fa-user text-gray-500"></i>
-                                                        </div>
-                                                    @endif
 
-                                                    {{-- Player Info --}}
-                                                    <div>
-                                                        <p class="font-medium text-white">{{ $teamPlayer->player?->name ?? 'Unknown' }}</p>
-                                                        <div class="flex items-center gap-2 mt-0.5">
-                                                            @if($teamPlayer->is_captain)
-                                                                <span class="captain-badge text-xs font-bold px-2 py-0.5 rounded">
-                                                                    <i class="fas fa-crown mr-1"></i>C
-                                                                </span>
-                                                            @elseif($teamPlayer->is_vice_captain)
-                                                                <span class="vice-captain-badge text-xs font-bold px-2 py-0.5 rounded">
-                                                                    VC
-                                                                </span>
-                                                            @endif
-                                                            @if($teamPlayer->role)
-                                                                <span class="text-xs text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded">{{ ucfirst($teamPlayer->role) }}</span>
-                                                            @endif
+                                {{-- Squad Modal --}}
+                                <div x-show="showSquad" x-cloak
+                                     class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                                     @keydown.escape.window="showSquad = false"
+                                     style="background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+                                    <div class="w-full max-w-lg max-h-[80vh] rounded-2xl overflow-hidden"
+                                         style="background: linear-gradient(145deg, var(--secondary) 0%, var(--primary) 100%); border: 1px solid rgba(255,255,255,0.1);"
+                                         @click.outside="showSquad = false">
+
+                                        {{-- Modal Header --}}
+                                        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-700/50">
+                                            <div class="flex items-center gap-3">
+                                                @if($team->team_logo)
+                                                    <img src="{{ Storage::url($team->team_logo) }}" alt="{{ $team->name }}" class="w-8 h-8 object-contain">
+                                                @endif
+                                                <div>
+                                                    <h3 class="text-lg font-bold text-white">{{ $team->name }}</h3>
+                                                    <p class="text-xs text-gray-400">{{ $squadPlayers->count() }} {{ Str::plural('Player', $squadPlayers->count()) }}</p>
+                                                </div>
+                                            </div>
+                                            <button @click="showSquad = false" class="text-gray-400 hover:text-white transition p-1">
+                                                <i class="fas fa-times text-lg"></i>
+                                            </button>
+                                        </div>
+
+                                        {{-- Modal Body (scrollable) --}}
+                                        <div class="overflow-y-auto px-4 py-3 space-y-1" style="max-height: calc(80vh - 70px);">
+                                            @forelse($squadPlayers as $teamPlayer)
+                                                <div class="player-row flex items-center justify-between py-3 px-3 rounded-lg">
+                                                    <div class="flex items-center gap-3">
+                                                        @if($teamPlayer->player?->image)
+                                                            <img src="{{ Storage::url($teamPlayer->player->image) }}"
+                                                                 alt="{{ $teamPlayer->player->name }}"
+                                                                 class="h-10 w-10 rounded-full object-cover border-2 border-gray-700">
+                                                        @else
+                                                            <div class="player-avatar h-10 w-10 rounded-full flex items-center justify-center border-2 border-gray-700">
+                                                                <i class="fas fa-user text-gray-500"></i>
+                                                            </div>
+                                                        @endif
+                                                        <div>
+                                                            <p class="font-medium text-white">{{ $teamPlayer->player?->name ?? 'Unknown' }}</p>
+                                                            <div class="flex items-center gap-2 mt-0.5">
+                                                                @if($teamPlayer->is_captain)
+                                                                    <span class="captain-badge text-xs font-bold px-2 py-0.5 rounded">
+                                                                        <i class="fas fa-crown mr-1"></i>C
+                                                                    </span>
+                                                                @elseif($teamPlayer->is_vice_captain)
+                                                                    <span class="vice-captain-badge text-xs font-bold px-2 py-0.5 rounded">
+                                                                        VC
+                                                                    </span>
+                                                                @endif
+                                                                @if($teamPlayer->role)
+                                                                    <span class="text-xs text-gray-500 bg-gray-700/50 px-2 py-0.5 rounded">{{ ucfirst($teamPlayer->role) }}</span>
+                                                                @endif
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                    @if($teamPlayer->jersey_number)
+                                                        <span class="jersey-number text-gray-400 text-sm font-mono">
+                                                            #{{ $teamPlayer->jersey_number }}
+                                                        </span>
+                                                    @endif
                                                 </div>
-
-                                                {{-- Jersey Number --}}
-                                                @if($teamPlayer->jersey_number)
-                                                    <span class="jersey-number text-gray-400 text-sm font-mono">
-                                                        #{{ $teamPlayer->jersey_number }}
-                                                    </span>
-                                                @endif
-                                            </div>
-                                        @empty
-                                            <div class="text-center py-6">
-                                                <i class="fas fa-user-slash text-2xl text-gray-600 mb-2"></i>
-                                                <p class="text-gray-500 text-sm">No players assigned yet</p>
-                                            </div>
-                                        @endforelse
+                                            @empty
+                                                <div class="text-center py-8">
+                                                    <i class="fas fa-user-slash text-2xl text-gray-600 mb-2"></i>
+                                                    <p class="text-gray-500 text-sm">No players assigned yet</p>
+                                                </div>
+                                            @endforelse
+                                        </div>
                                     </div>
                                 </div>
                             </div>
