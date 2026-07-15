@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
+use App\Models\Auction;
 use App\Models\Organization;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
@@ -334,10 +335,13 @@ class TournamentController extends Controller
             ->orderBy('name')
             ->get();
 
+        $auction = Auction::where('tournament_id', $tournament->id)->first();
+
         return view('backend.pages.tournaments.edit', [
             'tournament'    => $tournament,
             'organizations' => $organizations,
             'zones'         => $zones,
+            'auction'       => $auction,
             'breadcrumbs'   => [
                 ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
                 ['label' => 'Edit Tournament'],
@@ -361,6 +365,7 @@ class TournamentController extends Controller
             'location'       => 'nullable|string|max:255',
             'status'         => 'nullable|in:draft,registration,active,completed',
             'type'           => 'nullable|in:open,auction',
+            'max_budget_per_team' => 'nullable|numeric|min:0',
         ]);
 
         // Handle empty zone_id
@@ -382,6 +387,21 @@ class TournamentController extends Controller
         unset($validated['logo_cropped']);
 
         $tournament->update($validated);
+
+        // Save budget setting to auction (create if needed)
+        if ($request->has('max_budget_per_team')) {
+            $budgetValue = $request->input('max_budget_per_team');
+            if ($budgetValue !== null && $budgetValue !== '') {
+                Auction::updateOrCreate(
+                    ['tournament_id' => $tournament->id],
+                    [
+                        'name' => $tournament->name . ' Auction',
+                        'organization_id' => $tournament->organization_id,
+                        'max_budget_per_team' => $budgetValue,
+                    ]
+                );
+            }
+        }
 
         return redirect()
             ->route('admin.tournaments.index')

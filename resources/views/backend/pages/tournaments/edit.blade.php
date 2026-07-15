@@ -159,6 +159,20 @@
                     @enderror
                 </div>
 
+                {{-- Budget Per Team --}}
+                <div class="mt-4">
+                    <label for="max_budget_per_team" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Budget Per Team</label>
+                    <input type="number" name="max_budget_per_team" id="max_budget_per_team"
+                        value="{{ old('max_budget_per_team', $auction->max_budget_per_team ?? '') }}"
+                        placeholder="e.g. 5000000"
+                        min="0" step="any"
+                        class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Maximum budget each team can spend (used in retain &amp; auction). Leave empty if not applicable.</p>
+                    @error('max_budget_per_team')
+                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 </fieldset>
 
                 {{-- Actions --}}
