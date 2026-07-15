@@ -280,6 +280,7 @@ class PlayerProfileController extends Controller
         }
         $tournament = $registration->tournament;
         $recipients = collect([
+            config('mail.from.address'),
             $tournament?->settings?->contact_email,
             $tournament?->organization?->email,
         ])->merge($notifyUsers->pluck('email'))->filter()->unique()->values();
