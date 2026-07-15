@@ -60,16 +60,16 @@
                 <div class="space-y-2">
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500 dark:text-gray-400">Total</span>
-                        <span class="font-mono tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($budget['total']) }}</span>
+                        <span class="font-mono tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($budget['total'] / 1000000, 2) }}M</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500 dark:text-gray-400">Retained</span>
-                        <span class="font-mono tabular-nums text-purple-600 dark:text-purple-400">{{ number_format($budget['retained']) }}</span>
+                        <span class="font-mono tabular-nums text-purple-600 dark:text-purple-400">{{ number_format($budget['retained'] / 1000000, 2) }}M</span>
                     </div>
                     <div class="border-t border-gray-100 dark:border-gray-700 pt-2 flex justify-between text-sm font-medium">
                         <span class="text-gray-500 dark:text-gray-400">Balance</span>
                         <span class="font-mono tabular-nums {{ $budget['balance'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($budget['balance'] < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500') }}">
-                            {{ number_format($budget['balance']) }}
+                            {{ number_format($budget['balance'] / 1000000, 2) }}M
                         </span>
                     </div>
                 </div>
@@ -132,7 +132,7 @@
                                 @if ($player->player_mode === 'retained' && $player->actualTeam)
                                     <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-500/20">
                                         <iconify-icon icon="lucide:lock" width="12"></iconify-icon>
-                                        Retained by {{ $player->actualTeam->name }} ({{ number_format($player->retained_value) }})
+                                        Retained by {{ $player->actualTeam->name }} ({{ number_format($player->retained_value / 1000000, 2) }}M)
                                     </span>
                                 @else
                                     <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20">
