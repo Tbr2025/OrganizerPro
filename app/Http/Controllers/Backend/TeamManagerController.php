@@ -870,7 +870,7 @@ class TeamManagerController extends Controller
         $otherTeams = ActualTeam::forTournament($tournamentId)
             ->where('id', '!=', $team->id)
             ->withCount(['playersPerTournament as approved_players_count' => function ($q) use ($tournamentId) {
-                $q->wherePivot('tournament_id', $tournamentId);
+                $q->where('player_actual_team_tournament.tournament_id', $tournamentId);
             }])
             ->orderBy('name')
             ->get();
