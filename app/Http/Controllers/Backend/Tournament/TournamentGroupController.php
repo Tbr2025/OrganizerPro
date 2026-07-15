@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
+use App\Models\Auction;
+use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentGroup;
 use App\Services\Tournament\PointTableService;
@@ -193,5 +195,51 @@ class TournamentGroupController extends Controller
         }
 
         return redirect()->back()->with('success', __('Teams reordered successfully.'));
+    }
+
+    public function manageTeams(Tournament $tournament): View
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+
+        $teams = ActualTeam::forTournament($tournament->id)->get();
+        $auction = Auction::where('tournament_id', $tournament->id)->first();
+        $maxBudget = $auction->max_budget_per_team ?? 0;
+
+        $teamBudgets = [];
+        foreach ($teams as $team) {
+            $retainedSpend = Player::where('actual_team_id', $team->id)
+                ->where('player_mode', 'retained')
+                ->sum('retained_value');
+            $retainedCount = Player::where('actual_team_id', $team->id)
+                ->where('player_mode', 'retained')
+                ->count();
+
+            $teamBudgets[$team->id] = [
+                'total' => $maxBudget,
+                'retained' => $retainedSpend,
+                'balance' => $maxBudget - $retainedSpend,
+                'retained_count' => $retainedCount,
+            ];
+        }
+
+        $approvedPlayers = Player::whereHas('registrations', function ($q) use ($tournament) {
+            $q->where('tournament_id', $tournament->id)
+              ->where('status', 'approved')
+              ->where('type', 'player');
+        })->with(['playerType', 'actualTeam'])->get();
+
+        return view('backend.pages.tournaments.manage-teams', [
+            'tournament' => $tournament,
+            'teams' => $teams,
+            'teamBudgets' => $teamBudgets,
+            'approvedPlayers' => $approvedPlayers,
+            'breadcrumbs' => [
+                'title' => __('Manage Teams'),
+                'items' => [
+                    ['label' => __('Tournaments'), 'url' => route('admin.tournaments.index')],
+                    ['label' => $tournament->name, 'url' => route('admin.tournaments.dashboard', $tournament)],
+                ],
+            ],
+        ]);
     }
 }

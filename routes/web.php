@@ -872,6 +872,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/fixtures/{match}/generate-poster', [TournamentFixtureController::class, 'generatePoster'])->name('fixtures.generate-poster');
         Route::get('/fixtures/export-csv', [TournamentFixtureController::class, 'exportCsv'])->name('fixtures.export-csv');
 
+        // Manage Teams (retain/budget)
+        Route::get('/manage-teams', [TournamentGroupController::class, 'manageTeams'])->name('manage-teams');
+
         // Point Table
         Route::get('/point-table', [PointTableController::class, 'index'])->name('point-table.index');
         Route::post('/point-table/recalculate', [PointTableController::class, 'recalculate'])->name('point-table.recalculate');
