@@ -83,7 +83,7 @@
             </div>
 
             {{-- Teams Table --}}
-            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden">
+            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left text-gray-600 dark:text-gray-300">
                         <thead>
