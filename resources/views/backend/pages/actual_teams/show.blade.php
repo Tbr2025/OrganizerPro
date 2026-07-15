@@ -184,7 +184,7 @@
 
                 @can('player.view')
                     {{-- Clickable Row --}}
-                    <a href="{{ route('admin.players.show', $user->player->id ?? $user->id) }}" class="block group">
+                    <a href="{{ $user->player ? route('admin.players.show', $user->player->id) : '#' }}" class="block group">
                         <div
                             class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-transparent transition-all duration-300 ease-in-out group-hover:shadow-xl group-hover:border-blue-500 group-hover:scale-[1.02]">
                             <div class="flex items-center p-3 gap-4">
