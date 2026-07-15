@@ -3,7 +3,32 @@
 @section('title', 'Registration Details | ' . config('app.name'))
 
 @section('admin-content')
-    <div class="p-4 mx-auto max-w-4xl md:p-6">
+    <div class="p-4 mx-auto max-w-4xl md:p-6" x-data="{
+        imageModal: false,
+        imageSrc: '',
+        imageInfo: { size: '', width: 0, height: 0, ratio: '' },
+        openImage(url) {
+            this.imageSrc = url;
+            this.imageInfo = { size: 'Loading\u2026', width: 0, height: 0, ratio: '' };
+            this.imageModal = true;
+            const img = new Image();
+            img.onload = () => {
+                this.imageInfo.width = img.naturalWidth;
+                this.imageInfo.height = img.naturalHeight;
+                const gcd = (a, b) => b ? gcd(b, a % b) : a;
+                const d = gcd(img.naturalWidth, img.naturalHeight);
+                this.imageInfo.ratio = (img.naturalWidth / d) + ':' + (img.naturalHeight / d);
+            };
+            img.src = url;
+            fetch(url, { method: 'HEAD' }).then(r => {
+                const len = r.headers.get('Content-Length');
+                if (len) {
+                    const kb = parseInt(len) / 1024;
+                    this.imageInfo.size = kb >= 1024 ? (kb / 1024).toFixed(1) + ' MB' : Math.round(kb) + ' KB';
+                } else { this.imageInfo.size = '\u2014'; }
+            }).catch(() => { this.imageInfo.size = '\u2014'; });
+        }
+    }">
         <x-breadcrumbs :breadcrumbs="[
             ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
             ['label' => $tournament->name],
@@ -18,7 +43,7 @@
                     <div class="flex items-center gap-4">
                         @if($registration->type == 'team')
                             @if($registration->team_logo)
-                                <img src="{{ Storage::url($registration->team_logo) }}" alt="Team Logo" class="w-16 h-16 rounded-xl object-cover border-2 border-white/30">
+                                <img src="{{ Storage::url($registration->team_logo) }}" alt="Team Logo" class="w-16 h-16 rounded-xl object-cover border-2 border-white/30 cursor-pointer" @click="openImage('{{ Storage::url($registration->team_logo) }}')">
                             @else
                                 <div class="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center">
                                     <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -37,7 +62,7 @@
                             </div>
                         @else
                             @if($registration->player?->image_path)
-                                <img src="{{ Storage::url($registration->player->image_path) }}" alt="Player" class="w-16 h-16 rounded-full object-cover border-2 border-white/30">
+                                <img src="{{ Storage::url($registration->player->image_path) }}" alt="Player" class="w-16 h-16 rounded-full object-cover border-2 border-white/30 cursor-pointer" @click="openImage('{{ Storage::url($registration->player->image_path) }}')">
                             @else
                                 <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
                                     <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -228,7 +253,7 @@
                         @php $photoVerified = in_array('image_path', $verifiedFields, true); @endphp
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $photoVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }} inline-block">
                             <div class="flex items-start gap-4">
-                                <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                                <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer" @click="openImage('{{ Storage::url($p->image_path) }}')">
                                 <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
                                     <input type="checkbox" name="verified[]" value="image_path" {{ $photoVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
                                     <span>Verified</span>
@@ -451,12 +476,12 @@
                                             @if($field === 'image_path')
                                                 <td class="py-2 pr-4">
                                                     @if($pcPlayer?->image_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($pcPlayer->image_path))
-                                                        <img src="{{ \Illuminate\Support\Facades\Storage::url($pcPlayer->image_path) }}" class="w-12 h-14 object-cover rounded border border-gray-200 dark:border-gray-700">
+                                                        <img src="{{ \Illuminate\Support\Facades\Storage::url($pcPlayer->image_path) }}" class="w-12 h-14 object-cover rounded border border-gray-200 dark:border-gray-700 cursor-pointer" @click="openImage('{{ \Illuminate\Support\Facades\Storage::url($pcPlayer->image_path) }}')">
                                                     @else — @endif
                                                 </td>
                                                 <td class="py-2">
                                                     @if($val && \Illuminate\Support\Facades\Storage::disk('public')->exists($val))
-                                                        <img src="{{ \Illuminate\Support\Facades\Storage::url($val) }}" class="w-12 h-14 object-cover rounded border-2 border-amber-400">
+                                                        <img src="{{ \Illuminate\Support\Facades\Storage::url($val) }}" class="w-12 h-14 object-cover rounded border-2 border-amber-400 cursor-pointer" @click="openImage('{{ \Illuminate\Support\Facades\Storage::url($val) }}')">
                                                     @else <span class="text-gray-400">Removed</span> @endif
                                                 </td>
                                             @else
@@ -617,6 +642,22 @@
                         </form>
                     </div>
                 @endif
+            </div>
+        </div>
+        {{-- Image Lightbox Modal --}}
+        <div x-show="imageModal" x-transition.opacity x-cloak
+             class="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+             @click.self="imageModal = false" @keydown.escape.window="imageModal = false">
+            <div class="relative max-w-4xl w-full flex flex-col items-center">
+                <button @click="imageModal = false" class="absolute -top-10 right-0 text-white/70 hover:text-white transition">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+                <img :src="imageSrc" alt="Full size" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain">
+                <div class="flex items-center gap-4 mt-3 text-sm text-white/80">
+                    <span x-show="imageInfo.width" x-text="imageInfo.width + ' \u00d7 ' + imageInfo.height + ' px'"></span>
+                    <span x-show="imageInfo.ratio" x-text="imageInfo.ratio"></span>
+                    <span x-text="imageInfo.size"></span>
+                </div>
             </div>
         </div>
     </div>
