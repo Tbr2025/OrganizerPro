@@ -336,12 +336,14 @@ class TournamentController extends Controller
             ->get();
 
         $auction = Auction::where('tournament_id', $tournament->id)->first();
+        $settings = $tournament->settings;
 
         return view('backend.pages.tournaments.edit', [
             'tournament'    => $tournament,
             'organizations' => $organizations,
             'zones'         => $zones,
             'auction'       => $auction,
+            'settings'      => $settings,
             'breadcrumbs'   => [
                 ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
                 ['label' => 'Edit Tournament'],
@@ -366,6 +368,8 @@ class TournamentController extends Controller
             'status'         => 'nullable|in:draft,registration,active,completed',
             'type'           => 'nullable|in:open,auction',
             'max_budget_per_team' => 'nullable|numeric|min:0',
+            'max_players_per_team' => 'nullable|integer|min:1|max:50',
+            'min_players_per_team' => 'nullable|integer|min:1|max:50',
         ]);
 
         // Handle empty zone_id
@@ -399,6 +403,21 @@ class TournamentController extends Controller
                         'organization_id' => $tournament->organization_id,
                         'max_budget_per_team' => $budgetValue,
                     ]
+                );
+            }
+        }
+
+        // Save squad size settings
+        if ($request->hasAny(['max_players_per_team', 'min_players_per_team'])) {
+            $settingsData = array_filter([
+                'max_players_per_team' => $request->input('max_players_per_team'),
+                'min_players_per_team' => $request->input('min_players_per_team'),
+            ], fn($v) => $v !== null);
+
+            if (!empty($settingsData)) {
+                \App\Models\TournamentSetting::updateOrCreate(
+                    ['tournament_id' => $tournament->id],
+                    $settingsData
                 );
             }
         }

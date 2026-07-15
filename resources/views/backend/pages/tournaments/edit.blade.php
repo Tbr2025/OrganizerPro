@@ -202,6 +202,30 @@
                     @endif
                 </div>
 
+                {{-- Squad Size --}}
+                <div class="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="max_players_per_team" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Max Players Per Team</label>
+                        <input type="number" name="max_players_per_team" id="max_players_per_team"
+                            value="{{ old('max_players_per_team', $settings->max_players_per_team ?? 15) }}"
+                            min="1" max="50"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        @error('max_players_per_team')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="min_players_per_team" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Min Players Per Team</label>
+                        <input type="number" name="min_players_per_team" id="min_players_per_team"
+                            value="{{ old('min_players_per_team', $settings->min_players_per_team ?? 11) }}"
+                            min="1" max="50"
+                            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        @error('min_players_per_team')
+                            <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
                 </fieldset>
 
                 {{-- Actions --}}
