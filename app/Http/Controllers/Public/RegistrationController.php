@@ -160,12 +160,20 @@ class RegistrationController extends Controller
         }
 
         // "Other" playing team — store free-text name, clear actual_team_id.
-        if ($request->input('actual_team_id') === 'other') {
+        $playingTeamIsOther = $request->input('actual_team_id') === 'other';
+        if ($playingTeamIsOther) {
             $request->merge(['actual_team_id' => null]);
         }
 
         $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
         $rules = PlayerFormConfig::buildValidationRules($fieldConfig, 'public', $tournament->settings);
+
+        // When "Others" is selected, actual_team_id is null — make it optional
+        // and require the free-text team name instead.
+        if ($playingTeamIsOther) {
+            $rules['actual_team_id'] = 'nullable';
+            $rules['playing_team_name_ref'] = 'required|string|max:100';
+        }
 
         // Image is always uploaded via AJAX (file input has no name attribute),
         // so validate via processed_image_path instead of the 'image' file key.
