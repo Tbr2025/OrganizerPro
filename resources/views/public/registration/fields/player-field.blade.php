@@ -375,7 +375,7 @@
     @case('total_runs')
     @case('total_wickets')
         <label for="{{ $key }}" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <input type="number" name="{{ $key }}" id="{{ $key }}" value="{{ old($key, 0) }}" min="0" {{ $required ? 'required' : '' }} class="reg-input" placeholder="0">
+        <input type="number" name="{{ $key }}" id="{{ $key }}" value="{{ old($key) }}" min="0" {{ $required ? 'required' : '' }} class="reg-input" placeholder="0">
         @error($key)<p class="reg-err">{{ $message }}</p>@enderror
         @break
 
