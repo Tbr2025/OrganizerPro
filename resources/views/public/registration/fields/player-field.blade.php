@@ -177,11 +177,11 @@
         <div>
             <label for="actual_team_id" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
             <select name="actual_team_id" id="actual_team_id" x-model="selectedPlayingTeam" class="reg-select" {{ $required ? 'required' : '' }}>
-                <option value="">Select playing team</option>
+                <option value="">Select current playing team</option>
+                <option value="other" {{ old('actual_team_id') == 'other' ? 'selected' : '' }}>Others</option>
                 @foreach($actualTeams as $team)
                     <option value="{{ $team->id }}" {{ old('actual_team_id') == $team->id ? 'selected' : '' }}>{{ $team->name }}</option>
                 @endforeach
-                <option value="other">Others</option>
             </select>
             @error('actual_team_id')<p class="reg-err">{{ $message }}</p>@enderror
         </div>
