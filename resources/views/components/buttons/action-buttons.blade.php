@@ -24,7 +24,10 @@
             dropdown.style.position = 'fixed';
             dropdown.style.zIndex = '9999';
 
-            if ('{{ $position }}' === 'top') {
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const openUp = '{{ $position }}' === 'top' || spaceBelow < dropdown.offsetHeight + 10;
+
+            if (openUp) {
                 dropdown.style.top = (rect.top - dropdown.offsetHeight - 5) + 'px';
             } else {
                 dropdown.style.top = (rect.bottom + 5) + 'px';
