@@ -60,11 +60,14 @@ class TeamManagerController extends Controller
         // Store selected team in session for other pages (matches, players, etc.)
         session(['selected_team_id' => $team->id]);
 
-        // Get approved players on this team (exclude staff roles)
-        $staffUserIds = $team->users()->wherePivotIn('role', ['Owner', 'Manager', 'Captain'])->pluck('users.id');
+        // Only count players who are on the roster (player_actual_team_tournament pivot)
         $teamPlayers = Player::where('actual_team_id', $team->id)
-            ->where('status', 'approved')
-            ->when($staffUserIds->isNotEmpty(), fn ($q) => $q->whereNotIn('user_id', $staffUserIds))
+            ->whereExists(function ($q) use ($team) {
+                $q->select(\DB::raw(1))
+                  ->from('player_actual_team_tournament')
+                  ->whereColumn('player_actual_team_tournament.player_id', 'players.id')
+                  ->where('player_actual_team_tournament.actual_team_id', $team->id);
+            })
             ->with(['playerType', 'battingProfile', 'bowlingProfile'])
             ->orderBy('name')
             ->get();

@@ -72,6 +72,7 @@ class DashboardController extends Controller
             ? TournamentRegistration::query()
             : TournamentRegistration::whereIn('tournament_id', $orgTournamentIds);
         $pendingRegistrations = (clone $registrationQuery)->where('status', 'pending')->count();
+        $pendingCorrections = (clone $registrationQuery)->whereNotNull('pending_changes')->count();
         $recentRegistrations = (clone $registrationQuery)->with(['tournament', 'team', 'player'])
             ->latest()
             ->take(5)
@@ -105,6 +106,7 @@ class DashboardController extends Controller
                 'team_count' => $teamCount,
                 'player_count' => $playerCount,
                 'pending_registrations' => $pendingRegistrations,
+                'pending_corrections' => $pendingCorrections,
                 'recent_registrations' => $recentRegistrations,
                 'upcoming_matches' => $upcomingMatches,
                 'recent_tournaments' => $recentTournaments,

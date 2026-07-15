@@ -223,6 +223,22 @@
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $pending_registrations }}</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Pending</p>
             </a>
+
+            {{-- Pending Corrections --}}
+            <a href="#" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition group relative">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                    </div>
+                    @if($pending_corrections > 0)
+                        <span class="absolute top-2 right-2 px-2 py-0.5 text-xs font-bold bg-blue-500 text-white rounded-full animate-pulse">{{ $pending_corrections }}</span>
+                    @endif
+                </div>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $pending_corrections }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Corrections</p>
+            </a>
         </div>
 
         {{-- Tournament Status Overview --}}
