@@ -281,19 +281,22 @@
 
                                                         {{-- Player Profile Card --}}
                                                         @php
-                                                            $hasProfile = $teamPlayer->playerType || $teamPlayer->battingProfile || $teamPlayer->batting_mode || $teamPlayer->bowlingProfile || $teamPlayer->is_wicket_keeper;
+                                                            $playerTypeName = $teamPlayer->playerType ? ($teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '') : '';
+                                                            $battingName = $teamPlayer->battingProfile->name ?? '';
+                                                            $bowlingName = $teamPlayer->bowlingProfile->name ?? '';
+                                                            $hasProfile = $playerTypeName || $battingName || $teamPlayer->batting_mode || $bowlingName || $teamPlayer->is_wicket_keeper;
                                                         @endphp
                                                         @if($hasProfile)
-                                                            <div class="mt-2 ml-13 bg-gray-800/60 rounded-lg px-3 py-2" style="margin-left: 3.25rem;">
+                                                            <div class="mt-2 bg-gray-800/60 rounded-lg px-3 py-2" style="margin-left: 3.25rem;">
                                                                 <div class="flex flex-wrap items-center gap-1.5">
-                                                                    @if($teamPlayer->playerType)
+                                                                    @if($playerTypeName)
                                                                         <span class="text-xs text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded">
-                                                                            <i class="fas fa-user-tag mr-1 opacity-70"></i>{{ $teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '' }}
+                                                                            <i class="fas fa-user-tag mr-1 opacity-70"></i>{{ $playerTypeName }}
                                                                         </span>
                                                                     @endif
-                                                                    @if($teamPlayer->battingProfile)
+                                                                    @if($battingName)
                                                                         <span class="text-xs text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded">
-                                                                            <i class="fas fa-baseball-ball mr-1 opacity-70"></i>{{ $teamPlayer->battingProfile->name }}
+                                                                            <i class="fas fa-baseball-ball mr-1 opacity-70"></i>{{ $battingName }}
                                                                         </span>
                                                                     @endif
                                                                     @if($teamPlayer->batting_mode)
@@ -301,9 +304,9 @@
                                                                             <i class="fas fa-bolt mr-1 opacity-70"></i>{{ $teamPlayer->batting_mode }}
                                                                         </span>
                                                                     @endif
-                                                                    @if($teamPlayer->bowlingProfile)
+                                                                    @if($bowlingName)
                                                                         <span class="text-xs text-green-400 bg-green-500/15 px-2 py-0.5 rounded">
-                                                                            <i class="fas fa-bowling-ball mr-1 opacity-70"></i>{{ $teamPlayer->bowlingProfile->name }}
+                                                                            <i class="fas fa-bowling-ball mr-1 opacity-70"></i>{{ $bowlingName }}
                                                                         </span>
                                                                     @endif
                                                                     @if($teamPlayer->is_wicket_keeper)
