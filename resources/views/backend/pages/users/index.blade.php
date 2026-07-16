@@ -141,9 +141,15 @@
                                         {{-- 2. Avatar + Name + @username (~25%) --}}
                                         <div class="flex items-center gap-3 flex-shrink-0 min-w-0" style="flex-basis: 25%;">
                                             <a href="{{ route('admin.users.show', $user->id) }}" class="flex-shrink-0">
-                                                <img src="{{ ld_apply_filters('user_list_page_avatar_item', $user->getGravatarUrl(80), $user) }}"
-                                                    alt="{{ $user->name }}"
-                                                    class="h-11 w-11 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700">
+                                                @if($user->player && $user->player->image_path)
+                                                    <img src="{{ asset('storage/' . $user->player->image_path) }}"
+                                                        alt="{{ $user->name }}"
+                                                        class="h-11 w-11 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700">
+                                                @else
+                                                    <img src="{{ ld_apply_filters('user_list_page_avatar_item', $user->getGravatarUrl(80), $user) }}"
+                                                        alt="{{ $user->name }}"
+                                                        class="h-11 w-11 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700">
+                                                @endif
                                             </a>
                                             <div class="min-w-0">
                                                 <a href="{{ route('admin.users.show', $user->id) }}" class="block">

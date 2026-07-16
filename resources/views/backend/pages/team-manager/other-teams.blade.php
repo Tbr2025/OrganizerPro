@@ -15,32 +15,44 @@
     </div>
 
     @if($otherTeams->count() > 0)
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="space-y-3">
             @foreach($otherTeams as $otherTeam)
-                <a href="{{ route('team-manager.other-teams.players', $otherTeam) }}"
-                   class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow block">
-                    <div class="flex items-center gap-4 mb-4">
-                        @if($otherTeam->team_logo)
-                            <img src="{{ asset('storage/' . $otherTeam->team_logo) }}" alt="{{ $otherTeam->name }}" class="w-16 h-16 rounded-lg object-cover">
-                        @else
-                            <div class="w-16 h-16 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold">
-                                {{ strtoupper(substr($otherTeam->name, 0, 2)) }}
+                <a href="{{ route('team-manager.other-teams.players', $otherTeam) }}" class="block group">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-transparent transition-all duration-300 ease-in-out group-hover:shadow-xl group-hover:border-blue-500 group-hover:scale-[1.02]">
+                        <div class="flex items-center p-3 gap-4">
+                            {{-- Team Logo --}}
+                            <div class="flex-shrink-0">
+                                @if($otherTeam->team_logo)
+                                    <img src="{{ asset('storage/' . $otherTeam->team_logo) }}" alt="{{ $otherTeam->name }}" class="h-14 w-14 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700">
+                                @else
+                                    <div class="h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center border-2 border-gray-200 dark:border-gray-700">
+                                        <span class="text-xl font-bold text-white">{{ strtoupper(substr($otherTeam->name, 0, 2)) }}</span>
+                                    </div>
+                                @endif
                             </div>
-                        @endif
-                        <div class="flex-1 min-w-0">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">{{ $otherTeam->name }}</h3>
-                            @if($otherTeam->short_name)
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $otherTeam->short_name }}</p>
-                            @endif
+
+                            {{-- Team Name & Short Name --}}
+                            <div class="min-w-0" style="flex-basis: 50%;">
+                                <h3 class="font-bold text-lg text-gray-900 dark:text-white truncate">{{ $otherTeam->name }}</h3>
+                                @if($otherTeam->short_name)
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $otherTeam->short_name }}</p>
+                                @endif
+                            </div>
+
+                            {{-- Player Count Badge --}}
+                            <div class="hidden sm:flex items-center" style="flex-basis: 30%;">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                    {{ $otherTeam->approved_players_count ?? 0 }} Players
+                                </span>
+                            </div>
+
+                            {{-- Arrow --}}
+                            <div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                            {{ $otherTeam->approved_players_count ?? 0 }} Players
-                        </span>
-                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                        </svg>
                     </div>
                 </a>
             @endforeach
