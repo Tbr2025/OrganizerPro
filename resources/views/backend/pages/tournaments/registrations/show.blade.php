@@ -393,7 +393,7 @@
                                                 editing: false, saving: false,
                                                 selected: '{{ $isStandard ? addslashes($matchedOpt) : ($isEmpty ? '' : 'Other') }}',
                                                 customVal: '{{ !$isStandard && !$isEmpty ? addslashes($value) : '' }}',
-                                                displayVal: '{{ addslashes($value ?? '') }}',
+                                                displayVal: '{{ addslashes($isStandard ? $matchedOpt : ($value ?? '')) }}',
                                                 get finalVal() { return this.selected === 'Other' ? this.customVal : this.selected; }
                                             }" class="mt-1">
                                                 <div x-show="!editing" class="flex items-center gap-1 group cursor-pointer" @click="editing = true">
