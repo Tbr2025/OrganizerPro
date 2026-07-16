@@ -346,13 +346,19 @@
                                     </label>
                                 </div>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    @php $editableFields = ['jersey_name', 'jersey_number', 'tshirt_size', 'pant_size', 'batting_mode', 'total_matches', 'total_runs', 'total_wickets']; @endphp
+                                    @php
+                                        $editableFields = ['jersey_name', 'jersey_number', 'tshirt_size', 'pant_size', 'batting_mode', 'total_matches', 'total_runs', 'total_wickets'];
+                                        $tshirtOpts = \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes());
+                                        $pantOpts = \App\Helpers\PlayerFormConfig::sizeOptions('pant_sizes', \App\Helpers\PlayerFormConfig::defaultPantSizes());
+                                        $sizeDropdowns = ['tshirt_size' => $tshirtOpts, 'pant_size' => $pantOpts];
+                                    @endphp
                                     @foreach($rows as $key => $value)
                                     @php
                                         $isVerified = in_array($key, $verifiedFields, true);
                                         $isEmpty = ($value === null || $value === '');
                                         $isRequired = $fieldConfig[$key]['required'] ?? false;
                                         $isEditable = in_array($key, $editableFields, true);
+                                        $isSizeDropdown = isset($sizeDropdowns[$key]);
                                     @endphp
                                     <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
                                         <input type="hidden" name="all_fields[]" value="{{ $key }}">
@@ -370,7 +376,49 @@
                                                 <span>Verified</span>
                                             </label>
                                         </div>
-                                        @if($isEditable)
+                                        @if($isSizeDropdown)
+                                            {{-- Dropdown editor for T-shirt / Pant size (mirrors public form options) --}}
+                                            @php $opts = $sizeDropdowns[$key]; $isStandard = in_array($value, $opts, true); @endphp
+                                            <div x-data="{
+                                                editing: false, saving: false,
+                                                selected: '{{ $isStandard ? addslashes($value) : ($isEmpty ? '' : 'Other') }}',
+                                                customVal: '{{ !$isStandard && !$isEmpty ? addslashes($value) : '' }}',
+                                                displayVal: '{{ addslashes($value ?? '') }}',
+                                                get finalVal() { return this.selected === 'Other' ? this.customVal : this.selected; }
+                                            }" class="mt-1">
+                                                <div x-show="!editing" class="flex items-center gap-1 group cursor-pointer" @click="editing = true">
+                                                    <p x-text="displayVal || 'Not provided'" class="text-sm break-words" :class="displayVal ? 'text-gray-900 dark:text-white' : 'italic text-gray-400 dark:text-gray-500'"></p>
+                                                    <i class="fas fa-pencil-alt text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition"></i>
+                                                </div>
+                                                <div x-show="editing" x-cloak class="space-y-1.5">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <select x-model="selected" class="flex-1 text-sm rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1">
+                                                            <option value="">Select size</option>
+                                                            @foreach($opts as $opt)
+                                                                <option value="{{ $opt }}">{{ $opt }}</option>
+                                                            @endforeach
+                                                            <option value="Other">Other</option>
+                                                        </select>
+                                                        <button type="button" :disabled="saving"
+                                                                @click="saving = true; fetch('{{ route('admin.tournaments.registrations.update-field', [$tournament, $registration]) }}', {
+                                                                    method: 'PATCH', headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
+                                                                    body: JSON.stringify({field: '{{ $key }}', value: finalVal || null})
+                                                                }).then(r => r.json()).then(d => { saving = false; editing = false; if(d.value !== undefined) displayVal = d.value ?? ''; }).catch(() => { saving = false; })"
+                                                                class="text-green-600 hover:text-green-700 text-xs px-1.5 py-1 rounded bg-green-50 dark:bg-green-900/30">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                        <button type="button" @click="editing = false" class="text-gray-400 hover:text-gray-600 text-xs px-1.5 py-1">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div x-show="selected === 'Other'" x-cloak>
+                                                        <input type="text" x-model="customVal" placeholder="Enter custom size"
+                                                               class="w-full text-sm rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @elseif($isEditable)
+                                            {{-- Plain text editor for other editable fields --}}
                                             <div x-data="{ editing: false, val: '{{ addslashes($value ?? '') }}', saving: false }" class="mt-1">
                                                 <div x-show="!editing" class="flex items-center gap-1 group cursor-pointer" @click="editing = true">
                                                     <p x-text="val || 'Not provided'" class="text-sm break-words" :class="val ? 'text-gray-900 dark:text-white' : 'italic text-gray-400 dark:text-gray-500'"></p>
