@@ -158,7 +158,11 @@ class TournamentPublicController extends Controller
     public function teams(Tournament $tournament): View
     {
         $teams = $tournament->actualTeams()
-            ->with(['players.player'])
+            ->with(['playersPerTournament' => function ($q) use ($tournament) {
+                $q->wherePivot('tournament_id', $tournament->id)
+                  ->where('players.status', 'approved')
+                  ->with(['playerType', 'battingProfile', 'bowlingProfile']);
+            }])
             ->get();
 
         return view('public.tournament.teams', [
