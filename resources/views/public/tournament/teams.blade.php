@@ -284,6 +284,9 @@
                                                                         @if($teamPlayer->bowlingProfile)
                                                                             <span class="text-xs text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded">{{ $teamPlayer->bowlingProfile->name }}</span>
                                                                         @endif
+                                                                        @if($teamPlayer->is_wicket_keeper)
+                                                                            <span class="text-xs text-purple-400 bg-purple-500/15 px-1.5 py-0.5 rounded"><i class="fas fa-mitten mr-0.5"></i>WK</span>
+                                                                        @endif
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -293,13 +296,6 @@
                                                                 </span>
                                                             @endif
                                                         </div>
-                                                        @if($teamPlayer->total_matches || $teamPlayer->total_runs || $teamPlayer->total_wickets)
-                                                            <div class="flex items-center gap-3 mt-1.5 ml-[52px] text-xs text-gray-500">
-                                                                <span><i class="fas fa-cricket-bat-ball mr-1"></i>{{ $teamPlayer->total_matches ?? 0 }} Mat</span>
-                                                                <span><i class="fas fa-baseball mr-1"></i>{{ $teamPlayer->total_runs ?? 0 }} Runs</span>
-                                                                <span><i class="fas fa-bullseye mr-1"></i>{{ $teamPlayer->total_wickets ?? 0 }} Wkts</span>
-                                                            </div>
-                                                        @endif
                                                     </div>
                                                 @empty
                                                     <div class="text-center py-8">
