@@ -68,7 +68,7 @@ class TeamManagerController extends Controller
                   ->whereColumn('player_actual_team_tournament.player_id', 'players.id')
                   ->where('player_actual_team_tournament.actual_team_id', $team->id);
             })
-            ->with(['playerType', 'battingProfile', 'bowlingProfile'])
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location'])
             ->orderBy('name')
             ->get();
 
@@ -98,10 +98,17 @@ class TeamManagerController extends Controller
         // Calculate budget info for active auctions
         $auctionBudgets = [];
         foreach ($upcomingAuctions as $auction) {
-            $spent = $team->auctionPlayers()
+            $soldSpent = $team->auctionPlayers()
                 ->where('auction_id', $auction->id)
                 ->where('status', 'sold')
                 ->sum('final_price');
+
+            $retainedSpent = Player::where('actual_team_id', $team->id)
+                ->where('player_mode', 'retained')
+                ->whereNotNull('retained_value')
+                ->sum('retained_value');
+
+            $spent = $soldSpent + $retainedSpent;
 
             $auctionBudgets[$auction->id] = [
                 'max' => $auction->max_budget_per_team ?? 0,
@@ -429,10 +436,17 @@ class TeamManagerController extends Controller
 
         // Add budget info to each auction
         foreach ($auctions as $auction) {
-            $spent = $team->auctionPlayers()
+            $soldSpent = $team->auctionPlayers()
                 ->where('auction_id', $auction->id)
                 ->where('status', 'sold')
                 ->sum('final_price');
+
+            $retainedSpent = Player::where('actual_team_id', $team->id)
+                ->where('player_mode', 'retained')
+                ->whereNotNull('retained_value')
+                ->sum('retained_value');
+
+            $spent = $soldSpent + $retainedSpent;
 
             $auction->budget_info = [
                 'max' => $auction->max_budget_per_team ?? 0,
@@ -782,7 +796,7 @@ class TeamManagerController extends Controller
                 $q->where('tournament_id', $tournamentId)
                   ->where('status', 'approved');
             })
-            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'location', 'kitSize']);
 
         // Search by name or jersey name
         if ($search = $request->get('search')) {

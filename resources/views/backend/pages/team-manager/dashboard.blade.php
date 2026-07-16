@@ -372,6 +372,8 @@
             'travel_date_from' => $player->travel_date_from?->format('d M Y'),
             'travel_date_to' => $player->travel_date_to?->format('d M Y'),
             'status' => $player->status,
+            'player_mode' => $player->player_mode,
+            'retained_value' => $player->retained_value,
             'image_path' => $player->image_path ? asset('storage/' . $player->image_path) : null,
             'photo' => $player->photo ? asset('storage/' . $player->photo) : null,
         ];
@@ -392,7 +394,10 @@
             html += `<div class="w-20 h-20 rounded-lg bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-2xl font-bold text-gray-600 dark:text-gray-300">${player.name.charAt(0).toUpperCase()}</div>`;
         }
         html += `<div><h4 class="text-xl font-bold text-gray-900 dark:text-white">${player.name}</h4>
+            <div class="flex gap-1 mt-1">
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${player.status === 'approved' ? 'bg-green-100 text-green-800' : player.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">${player.status.charAt(0).toUpperCase() + player.status.slice(1)}</span>
+            ${player.player_mode === 'retained' ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>Retained${player.retained_value ? ' (' + Number(player.retained_value).toLocaleString() + ')' : ''}</span>` : ''}
+            </div>
         </div></div>`;
         const fields = [
             ['Email', player.email], ['Mobile', player.mobile_number_full], ['CricHeroes', player.cricheroes_number_full],

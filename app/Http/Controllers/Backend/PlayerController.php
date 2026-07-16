@@ -1486,6 +1486,18 @@ class PlayerController extends Controller
             'retained_value' => $request->retained_value,
         ]);
 
+        // Add to squad count via pivot table
+        $team = ActualTeam::find($request->actual_team_id);
+        if ($team) {
+            $tournamentId = $team->tournament_id;
+            if ($tournamentId) {
+                \DB::table('player_actual_team_tournament')->updateOrInsert(
+                    ['player_id' => $player->id, 'tournament_id' => $tournamentId],
+                    ['actual_team_id' => $team->id, 'updated_at' => now(), 'created_at' => now()]
+                );
+            }
+        }
+
         return redirect()->back()->with('success', $player->name . ' has been retained successfully.');
     }
 
@@ -1493,10 +1505,22 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.edit']);
 
+        $teamId = $player->actual_team_id;
+        $team = $teamId ? ActualTeam::find($teamId) : null;
+
         $player->update([
             'player_mode' => 'normal',
+            'actual_team_id' => null,
             'retained_value' => null,
         ]);
+
+        // Remove from squad count pivot
+        if ($team && $team->tournament_id) {
+            \DB::table('player_actual_team_tournament')
+                ->where('player_id', $player->id)
+                ->where('tournament_id', $team->tournament_id)
+                ->delete();
+        }
 
         return redirect()->back()->with('success', 'Retention removed for ' . $player->name . '.');
     }

@@ -97,6 +97,7 @@
                         <tr>
                             <th class="px-6 py-3">Player</th>
                             <th class="px-6 py-3">Team</th>
+                            <th class="px-6 py-3">Status</th>
                             <th class="px-6 py-3">Role</th>
                             <th class="px-6 py-3">Batting</th>
                             <th class="px-6 py-3">Bowling</th>
@@ -124,6 +125,16 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">{{ $player->actualTeam->name ?? '-' }}</td>
+                                <td class="px-6 py-4">
+                                    @if($player->player_mode === 'retained')
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm">
+                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                                            Retained{{ $player->actualTeam ? ' by ' . $player->actualTeam->name : '' }}
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Available</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4">{{ $player->playerType->type ?? '-' }}</td>
                                 <td class="px-6 py-4">{{ $player->battingProfile->style ?? '-' }}</td>
                                 <td class="px-6 py-4">{{ $player->bowlingProfile->style ?? '-' }}</td>
@@ -186,6 +197,8 @@
             'name' => $player->name,
             'email' => $player->email,
             'mobile_number_full' => $player->mobile_number_full,
+            'cricheroes_number_full' => $player->cricheroes_number_full,
+            'cricheroes_profile_url' => $player->cricheroes_profile_url,
             'jersey_name' => $player->jersey_name,
             'jersey_number' => $player->jersey_number,
             'player_type' => $player->playerType->type ?? null,
@@ -193,10 +206,22 @@
             'bowling_profile' => $player->bowlingProfile->style ?? null,
             'is_wicket_keeper' => $player->is_wicket_keeper,
             'team_name' => $player->actualTeam->name ?? null,
+            'kit_size' => $player->kitSize->name ?? null,
+            'location' => $player->location->name ?? null,
             'total_matches' => $player->total_matches,
             'total_runs' => $player->total_runs,
             'total_wickets' => $player->total_wickets,
+            'transportation_required' => $player->transportation_required,
+            'no_travel_plan' => $player->no_travel_plan,
+            'travel_date_from' => $player->travel_date_from?->format('d M Y'),
+            'travel_date_to' => $player->travel_date_to?->format('d M Y'),
+            'date_of_birth' => $player->date_of_birth?->format('d M Y'),
+            'country' => $player->country,
+            'status' => $player->status,
+            'player_mode' => $player->player_mode,
+            'retained_value' => $player->retained_value,
             'image_path' => $player->image_path ? asset('storage/' . $player->image_path) : null,
+            'photo' => $player->photo ? asset('storage/' . $player->photo) : null,
         ];
     })->keyBy('id');
 @endphp
@@ -210,18 +235,37 @@
         const player = playersData[playerId];
         if (!player) return;
 
+        const img = player.image_path || player.photo;
         let html = `<div class="flex items-center gap-4 mb-4">`;
-        if (player.image_path) {
-            html += `<img src="${player.image_path}" alt="${player.name}" class="w-20 h-20 rounded-lg object-cover">`;
+        if (img) {
+            html += `<img src="${img}" alt="${player.name}" class="w-20 h-20 rounded-lg object-cover">`;
         } else {
             html += `<div class="w-20 h-20 rounded-lg bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-2xl font-bold text-gray-600 dark:text-gray-300">${player.name.charAt(0).toUpperCase()}</div>`;
         }
         html += `<div>
             <h4 class="text-xl font-bold text-gray-900 dark:text-white">${player.name}</h4>
             ${player.team_name ? `<p class="text-sm text-gray-500 dark:text-gray-400">${player.team_name}</p>` : ''}
-        </div></div>`;
+            <div class="flex gap-1 mt-1">`;
+        if (player.status) {
+            const sc = player.status === 'approved' ? 'bg-green-100 text-green-800' : player.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
+            html += `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sc}">${player.status.charAt(0).toUpperCase() + player.status.slice(1)}</span>`;
+        }
+        if (player.player_mode === 'retained') {
+            html += `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                Retained${player.retained_value ? ' (' + Number(player.retained_value).toLocaleString() + ')' : ''}</span>`;
+        }
+        html += `</div></div></div>`;
 
         const fields = [
+            ['Email', player.email],
+            ['Mobile', player.mobile_number_full],
+            ['CricHeroes', player.cricheroes_number_full],
+            ['CricHeroes URL', player.cricheroes_profile_url ? `<a href="${player.cricheroes_profile_url}" target="_blank" class="text-blue-600 hover:underline">${player.cricheroes_profile_url}</a>` : null],
+            ['Date of Birth', player.date_of_birth],
+            ['Country', player.country],
+            ['Location', player.location],
+            ['Kit Size', player.kit_size],
             ['Player Type', player.player_type],
             ['Batting', player.batting_profile],
             ['Bowling', player.bowling_profile],
@@ -231,6 +275,8 @@
             ['Matches', player.total_matches],
             ['Runs', player.total_runs],
             ['Wickets', player.total_wickets],
+            ['Transport Needed', player.transportation_required ? 'Yes' : 'No'],
+            ['Travel Plan', player.no_travel_plan ? 'No travel plan' : (player.travel_date_from ? `${player.travel_date_from} - ${player.travel_date_to}` : null)],
         ];
 
         html += `<div class="grid grid-cols-2 gap-3">`;
