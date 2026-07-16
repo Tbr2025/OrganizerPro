@@ -56,7 +56,12 @@
     </div>
 
     {{-- Stats Row --}}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    @php
+        $totalBudget = collect($auctionBudgets)->sum('max');
+        $totalSpent = collect($auctionBudgets)->sum('spent');
+        $toM = fn($v) => $v ? rtrim(rtrim(number_format($v / 1000000, 2), '0'), '.') . 'M' : '0';
+    @endphp
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
@@ -79,11 +84,17 @@
                 </div>
             </div>
         </div>
-        @php
-            $totalBudget = collect($auctionBudgets)->sum('max');
-            $totalSpent = collect($auctionBudgets)->sum('spent');
-            $toM = fn($v) => $v ? rtrim(rtrim(number_format($v / 1000000, 2), '0'), '.') . 'M' : '0';
-        @endphp
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $toM($totalBudget) }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Total Budget</p>
+                </div>
+            </div>
+        </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/40 flex items-center justify-center">

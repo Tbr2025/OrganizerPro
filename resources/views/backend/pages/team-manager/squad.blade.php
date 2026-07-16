@@ -45,8 +45,28 @@
                     </div>
                 </div>
 
+                {{-- Stats Row --}}
+                <div class="bg-white dark:bg-gray-800 px-4 pt-3 pb-2">
+                    <div class="flex items-center justify-around text-center">
+                        <div>
+                            <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $player->total_matches ?? 0 }}</p>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wider">Matches</p>
+                        </div>
+                        <div class="w-px h-6 bg-gray-200 dark:bg-gray-700"></div>
+                        <div>
+                            <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $player->total_runs ?? 0 }}</p>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wider">Runs</p>
+                        </div>
+                        <div class="w-px h-6 bg-gray-200 dark:bg-gray-700"></div>
+                        <div>
+                            <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $player->total_wickets ?? 0 }}</p>
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wider">Wickets</p>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Badges Section --}}
-                <div class="bg-white dark:bg-gray-800 px-4 py-3">
+                <div class="bg-white dark:bg-gray-800 px-4 pb-3 pt-2">
                     <div class="flex flex-wrap gap-1.5">
                         @if($player->battingProfile?->style)
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ $player->battingProfile->style }}</span>
