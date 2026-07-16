@@ -88,7 +88,11 @@ class TournamentController extends Controller
         ]);
 
         // Get teams count via groups
-        $tournaments = $query->latest()->paginate(12);
+        // Order: active first, then registration, draft, completed — then latest created
+        $tournaments = $query
+            ->orderByRaw("FIELD(status, 'active', 'ongoing', 'registration', 'draft', 'completed')")
+            ->latest()
+            ->paginate(12);
 
         // Append teams count: max of actual_teams (from approvals) and group_teams (manually added)
         foreach ($tournaments as $tournament) {
