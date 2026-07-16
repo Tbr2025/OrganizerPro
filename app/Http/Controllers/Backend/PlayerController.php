@@ -249,8 +249,8 @@ class PlayerController extends Controller
 
         // Actual teams for retain modal (with tournament info, only active/registration tournaments)
         $actualTeams = $user->hasRole('Superadmin')
-            ? ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')])->orderBy('name')->get(['id', 'name', 'tournament_id'])
-            : ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')])->where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
+            ? ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->orderBy('name')->get(['id', 'name', 'tournament_id'])
+            : ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
 
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [

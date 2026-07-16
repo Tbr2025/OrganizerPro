@@ -687,7 +687,7 @@
             ])),
             allTournaments: @js(
                 $actualTeams->flatMap(fn($t) => $t->tournaments->map(fn($tr) => ['id' => $tr->id, 'name' => $tr->name]))
-                    ->unique('id')->sortBy('name')->values()
+                    ->unique('id')->sortByDesc('id')->values()
             ),
             get filteredTeams() {
                 if (!this.selectedTournament) return this.allTeams;
