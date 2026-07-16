@@ -521,7 +521,7 @@
 
                     <div class="px-6 py-5 space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Team <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Actual Team <span class="text-red-500">*</span></label>
                             <select name="actual_team_id" required class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
                                 <option value="">-- Select Team --</option>
                                 <template x-for="t in allTeams" :key="t.id">
