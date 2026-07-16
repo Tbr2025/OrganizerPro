@@ -429,13 +429,24 @@
                                                                 </button>
                                                             </form>
 
-                                                            @if($registration->type === 'player' && $registration->player && $registration->player->player_mode !== 'retained')
-                                                                <button type="button"
-                                                                    @click="open = false; $dispatch('open-retain-modal', { playerId: {{ $registration->player->id }}, playerName: '{{ addslashes($registration->player->name) }}' })"
-                                                                    class="w-full text-left px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                                                    Retain Player
-                                                                </button>
+                                                            @if($registration->type === 'player' && $registration->player)
+                                                                @if($registration->player->player_mode !== 'retained')
+                                                                    <button type="button"
+                                                                        @click="open = false; $dispatch('open-retain-modal', { playerId: {{ $registration->player->id }}, playerName: '{{ addslashes($registration->player->name) }}' })"
+                                                                        class="w-full text-left px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                                                        Retain Player
+                                                                    </button>
+                                                                @else
+                                                                    <form action="{{ route('admin.players.unretain', $registration->player->id) }}" method="POST"
+                                                                          onsubmit="return confirm('Are you sure you want to unretain this player?')">
+                                                                        @csrf
+                                                                        <button type="submit" class="w-full text-left px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                                                                            Unretain Player
+                                                                        </button>
+                                                                    </form>
+                                                                @endif
                                                             @endif
                                                         @endif
 
