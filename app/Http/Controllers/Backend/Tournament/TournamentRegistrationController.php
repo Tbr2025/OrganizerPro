@@ -325,6 +325,40 @@ class TournamentRegistrationController extends Controller
     }
 
     /**
+     * Inline-update a single player field from the registration detail page.
+     */
+    public function updateField(Request $request, Tournament $tournament, TournamentRegistration $registration): \Illuminate\Http\JsonResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        $player = $registration->player;
+        abort_if(! $player, 404, 'No player linked to this registration.');
+
+        $allowed = [
+            'jersey_name', 'jersey_number', 'tshirt_size', 'pant_size',
+            'batting_mode', 'total_matches', 'total_runs', 'total_wickets',
+        ];
+
+        $request->validate([
+            'field' => ['required', 'string', \Illuminate\Validation\Rule::in($allowed)],
+            'value' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $field = $request->input('field');
+        $value = $request->input('value');
+
+        // Cast numeric fields
+        if (in_array($field, ['jersey_number', 'total_matches', 'total_runs', 'total_wickets'])) {
+            $value = $value !== null && $value !== '' ? (int) $value : null;
+        }
+
+        $player->update([$field => $value]);
+
+        return response()->json(['success' => true, 'value' => $player->fresh()->$field]);
+    }
+
+    /**
      * Stream the signed consent as a PDF (YouSelects logo, T&C snapshot, signer
      * name + timestamp). Generated on demand via Browsershot.
      */

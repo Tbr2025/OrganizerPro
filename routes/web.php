@@ -850,6 +850,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::delete('/registrations/{registration}/force-delete', [TournamentRegistrationController::class, 'forceDelete'])->name('registrations.force-delete');
         // Per-field verification + correction (intimation) email
         Route::post('/registrations/{registration}/verification', [TournamentRegistrationController::class, 'updateVerification'])->name('registrations.verification');
+        // Inline field update (AJAX)
+        Route::patch('/registrations/{registration}/field', [TournamentRegistrationController::class, 'updateField'])->name('registrations.update-field');
         // Signed consent PDF download
         Route::get('/registrations/{registration}/consent-pdf', [TournamentRegistrationController::class, 'downloadConsent'])->name('registrations.consent-pdf');
         // Resend welcome card / confirmation emails
