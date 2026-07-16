@@ -282,8 +282,8 @@
                                                         {{-- Player Profile Card --}}
                                                         @php
                                                             $playerTypeName = $teamPlayer->playerType ? ($teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '') : '';
-                                                            $battingName = $teamPlayer->battingProfile->name ?? '';
-                                                            $bowlingName = $teamPlayer->bowlingProfile->name ?? '';
+                                                            $battingName = $teamPlayer->battingProfile->style ?? $teamPlayer->battingProfile->name ?? '';
+                                                            $bowlingName = $teamPlayer->bowlingProfile->style ?? $teamPlayer->bowlingProfile->name ?? '';
                                                             $hasProfile = $playerTypeName || $battingName || $teamPlayer->batting_mode || $bowlingName || $teamPlayer->is_wicket_keeper;
                                                         @endphp
                                                         @if($hasProfile)
