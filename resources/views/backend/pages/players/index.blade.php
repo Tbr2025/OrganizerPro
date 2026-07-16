@@ -741,9 +741,10 @@
                                 </template>
                             </select>
                         </div>
-                        <div>
+                        <div x-data="{ retainVal: '' }">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
-                            <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="form-control">
+                            <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="form-control" x-model="retainVal">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-show="retainVal > 0" x-text="(retainVal / 1000000).toFixed(2) + 'M'"></p>
                         </div>
                     </div>
 
