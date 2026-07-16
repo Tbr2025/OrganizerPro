@@ -97,6 +97,9 @@ class ActualTeamController extends Controller
             $settings = $team->tournament_id ? ($tournamentSettings[$team->tournament_id] ?? null) : null;
             $squadMax = $settings->max_players_per_team ?? 18;
 
+            // Helper to format value in millions
+            $toM = fn($v) => $v ? rtrim(rtrim(number_format($v / 1000000, 2), '0'), '.') . 'M' : '0';
+
             if ($auction) {
                 $maxBudget = $auction->max_budget_per_team ?? 0;
 
@@ -112,17 +115,25 @@ class ActualTeamController extends Controller
                     ->where('player_mode', 'retained')
                     ->count();
 
-                // Total spent by the team
-                $totalSpent = DB::table('auction_bids')
+                // Total spent by the team (auction bids + retained values)
+                $auctionSpent = DB::table('auction_bids')
                     ->where('auction_id', $auction->id)
                     ->where('team_id', $team->id)
                     ->sum('amount');
 
+                $retainedSpent = \App\Models\Player::where('actual_team_id', $team->id)
+                    ->where('player_mode', 'retained')
+                    ->sum('retained_value');
+
+                $totalSpent = $auctionSpent + $retainedSpent;
+
                 $teamBudgets[$team->id] = [
-                    'spent' => number_format($totalSpent / 1000000, 2),
-                    'max_budget' => number_format($maxBudget / 1000000, 2),
+                    'spent' => $toM($totalSpent),
+                    'max_budget' => $toM($maxBudget),
                     'user_count' => $auctionedUserCount + $retainedCount,
                     'squad_max' => $squadMax,
+                    'spent_raw' => $totalSpent,
+                    'max_budget_raw' => $maxBudget,
                 ];
             } else {
                 // Count retained players even when no auction exists
@@ -130,11 +141,17 @@ class ActualTeamController extends Controller
                     ->where('player_mode', 'retained')
                     ->count();
 
+                $retainedSpent = \App\Models\Player::where('actual_team_id', $team->id)
+                    ->where('player_mode', 'retained')
+                    ->sum('retained_value');
+
                 $teamBudgets[$team->id] = [
-                    'spent' => '0.00',
-                    'max_budget' => '0.00',
+                    'spent' => $toM($retainedSpent),
+                    'max_budget' => '0',
                     'user_count' => $retainedCount,
                     'squad_max' => $squadMax,
+                    'spent_raw' => $retainedSpent,
+                    'max_budget_raw' => 0,
                 ];
             }
         }

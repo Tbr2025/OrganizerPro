@@ -104,9 +104,10 @@
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             @forelse ($actualTeams as $team)
                                 @php
-                                    $budget = $teamBudgets[$team->id]['max_budget'] ?? 0;
-                                    $spent = $teamBudgets[$team->id]['spent'] ?? 0;
-                                    $balance = $budget - $spent;
+                                    $budgetRaw = $teamBudgets[$team->id]['max_budget_raw'] ?? 0;
+                                    $spentRaw = $teamBudgets[$team->id]['spent_raw'] ?? 0;
+                                    $balance = $budgetRaw - $spentRaw;
+                                    $toM = fn($v) => $v ? rtrim(rtrim(number_format($v / 1000000, 2), '0'), '.') . 'M' : '0';
                                     $userCount = $teamBudgets[$team->id]['user_count'] ?? 0;
                                     $squadMax = $teamBudgets[$team->id]['squad_max'] ?? 18;
                                     $squadPercent = $squadMax > 0 ? min(100, round(($userCount / $squadMax) * 100)) : 0;
@@ -162,17 +163,17 @@
 
                                     {{-- Budget / Total --}}
                                     <td class="px-5 py-3.5 font-mono text-sm tabular-nums text-gray-700 dark:text-gray-300">
-                                        {{ $teamBudgets[$team->id]['max_budget'] ?? '-' }}
+                                        {{ $teamBudgets[$team->id]['max_budget'] ?? '0' }}
                                     </td>
 
                                     {{-- Spent --}}
                                     <td class="px-5 py-3.5 font-mono text-sm tabular-nums text-gray-700 dark:text-gray-300">
-                                        {{ $teamBudgets[$team->id]['spent'] ?? '-' }}
+                                        {{ $teamBudgets[$team->id]['spent'] ?? '0' }}
                                     </td>
 
                                     {{-- Balance --}}
                                     <td class="px-5 py-3.5 font-mono text-sm tabular-nums font-medium {{ $balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400') }}">
-                                        {{ $balance }}
+                                        {{ $toM($balance) }}
                                     </td>
 
                                     {{-- Squad --}}
