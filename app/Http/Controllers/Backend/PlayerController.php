@@ -247,10 +247,10 @@ class PlayerController extends Controller
             ? \App\Models\Tournament::forUser(auth()->user())->orderBy('name')->get(['id', 'name'])
             : collect();
 
-        // Actual teams for retain modal (with tournament info)
+        // Actual teams for retain modal (with tournament info, only active/registration tournaments)
         $actualTeams = $user->hasRole('Superadmin')
-            ? ActualTeam::with('tournaments:id,name')->orderBy('name')->get(['id', 'name', 'tournament_id'])
-            : ActualTeam::with('tournaments:id,name')->where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
+            ? ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('status', ['active', 'registration'])->select('id', 'name')])->orderBy('name')->get(['id', 'name', 'tournament_id'])
+            : ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('status', ['active', 'registration'])->select('id', 'name')])->where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
 
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
