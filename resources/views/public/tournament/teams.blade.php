@@ -284,33 +284,39 @@
                                                             $playerTypeName = $teamPlayer->playerType ? ($teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '') : '';
                                                             $battingName = $teamPlayer->battingProfile->style ?? $teamPlayer->battingProfile->name ?? '';
                                                             $bowlingName = $teamPlayer->bowlingProfile->style ?? $teamPlayer->bowlingProfile->name ?? '';
-                                                            $hasProfile = $playerTypeName || $battingName || $teamPlayer->batting_mode || $bowlingName || $teamPlayer->is_wicket_keeper;
+                                                            $battingPositions = is_array($teamPlayer->preferred_batting_positions) ? array_filter($teamPlayer->preferred_batting_positions) : [];
+                                                            $hasProfile = $playerTypeName || $battingName || $teamPlayer->batting_mode || $bowlingName || $battingPositions || $teamPlayer->is_wicket_keeper;
                                                         @endphp
                                                         @if($hasProfile)
-                                                            <div class="mt-2 bg-gray-800/60 rounded-lg px-3 py-2" style="margin-left: 3.25rem;">
+                                                            <div class="mt-2 rounded-lg px-3 py-2" style="margin-left: 3.25rem; background: rgba(31, 41, 55, 0.6);">
                                                                 <div class="flex flex-wrap items-center gap-1.5">
                                                                     @if($playerTypeName)
-                                                                        <span class="text-xs text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded">
+                                                                        <span class="text-xs font-medium text-blue-300 px-2 py-0.5 rounded-full" style="background: rgba(59, 130, 246, 0.2);">
                                                                             <i class="fas fa-user-tag mr-1 opacity-70"></i>{{ $playerTypeName }}
                                                                         </span>
                                                                     @endif
                                                                     @if($battingName)
-                                                                        <span class="text-xs text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded">
+                                                                        <span class="text-xs font-medium text-amber-300 px-2 py-0.5 rounded-full" style="background: rgba(245, 158, 11, 0.2);">
                                                                             <i class="fas fa-baseball-ball mr-1 opacity-70"></i>{{ $battingName }}
                                                                         </span>
                                                                     @endif
                                                                     @if($teamPlayer->batting_mode)
-                                                                        <span class="text-xs text-orange-400 bg-orange-500/15 px-2 py-0.5 rounded">
+                                                                        <span class="text-xs font-medium text-orange-300 px-2 py-0.5 rounded-full" style="background: rgba(249, 115, 22, 0.2);">
                                                                             <i class="fas fa-bolt mr-1 opacity-70"></i>{{ $teamPlayer->batting_mode }}
                                                                         </span>
                                                                     @endif
+                                                                    @if($battingPositions)
+                                                                        <span class="text-xs font-medium text-cyan-300 px-2 py-0.5 rounded-full" style="background: rgba(6, 182, 212, 0.2);">
+                                                                            <i class="fas fa-list-ol mr-1 opacity-70"></i>{{ implode(', ', $battingPositions) }}
+                                                                        </span>
+                                                                    @endif
                                                                     @if($bowlingName)
-                                                                        <span class="text-xs text-green-400 bg-green-500/15 px-2 py-0.5 rounded">
+                                                                        <span class="text-xs font-medium text-green-300 px-2 py-0.5 rounded-full" style="background: rgba(34, 197, 94, 0.2);">
                                                                             <i class="fas fa-bowling-ball mr-1 opacity-70"></i>{{ $bowlingName }}
                                                                         </span>
                                                                     @endif
                                                                     @if($teamPlayer->is_wicket_keeper)
-                                                                        <span class="text-xs text-purple-400 bg-purple-500/15 px-2 py-0.5 rounded">
+                                                                        <span class="text-xs font-medium text-purple-300 px-2 py-0.5 rounded-full" style="background: rgba(168, 85, 247, 0.2);">
                                                                             <i class="fas fa-mitten mr-1 opacity-70"></i>WK
                                                                         </span>
                                                                     @endif
