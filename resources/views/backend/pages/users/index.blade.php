@@ -111,10 +111,10 @@
                     </div>
                 </div>
 
-                {{-- Card Grid --}}
+                {{-- Row Cards --}}
                 <div class="border-t border-gray-100 dark:border-gray-800 p-5 sm:p-6">
                     @if($users->count())
-                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div class="space-y-3">
                             @foreach ($users as $user)
                                 @php
                                     $roleStyles = [
@@ -127,108 +127,112 @@
                                     $defaultStyle = ['bg' => 'bg-gray-50 dark:bg-gray-500/10', 'text' => 'text-gray-600 dark:text-gray-300', 'ring' => 'ring-gray-500/10 dark:ring-gray-500/20', 'dot' => 'bg-gray-400'];
                                     $team = $user->actualTeams->first();
                                 @endphp
-                                <div class="relative rounded-xl border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800/50 p-4 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 group">
-                                    {{-- Checkbox --}}
-                                    <div class="absolute top-3 right-3">
-                                        <input type="checkbox"
-                                            class="user-checkbox form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
-                                            value="{{ $user->id }}" x-model="selectedUsers"
-                                            {{ !auth()->user()->canBeModified($user, 'user.delete') ? 'disabled' : '' }}>
-                                    </div>
+                                <div class="group bg-white dark:bg-gray-800 rounded-lg shadow-md border border-transparent transition-all duration-300 ease-in-out hover:shadow-xl hover:border-blue-500 hover:scale-[1.02]">
+                                    <div class="flex items-center p-3 gap-4">
 
-                                    {{-- User Info --}}
-                                    <div class="flex items-start gap-3 mb-3 pr-6">
-                                        <a href="{{ route('admin.users.show', $user->id) }}">
-                                            <img src="{{ ld_apply_filters('user_list_page_avatar_item', $user->getGravatarUrl(80), $user) }}"
-                                                alt="{{ $user->name }}"
-                                                class="w-11 h-11 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700 flex-shrink-0">
-                                        </a>
-                                        <div class="min-w-0 flex-1">
-                                            <a href="{{ route('admin.users.show', $user->id) }}" class="block">
-                                                <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ $user->name }}</p>
-                                                <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ '@' . $user->username }}</p>
+                                        {{-- 1. Checkbox (flex-shrink-0) --}}
+                                        <div class="flex-shrink-0" @click.stop>
+                                            <input type="checkbox"
+                                                class="user-checkbox form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
+                                                value="{{ $user->id }}" x-model="selectedUsers"
+                                                {{ !auth()->user()->canBeModified($user, 'user.delete') ? 'disabled' : '' }}>
+                                        </div>
+
+                                        {{-- 2. Avatar + Name + @username (~25%) --}}
+                                        <div class="flex items-center gap-3 flex-shrink-0 min-w-0" style="flex-basis: 25%;">
+                                            <a href="{{ route('admin.users.show', $user->id) }}" class="flex-shrink-0">
+                                                <img src="{{ ld_apply_filters('user_list_page_avatar_item', $user->getGravatarUrl(80), $user) }}"
+                                                    alt="{{ $user->name }}"
+                                                    class="h-11 w-11 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700">
                                             </a>
+                                            <div class="min-w-0">
+                                                <a href="{{ route('admin.users.show', $user->id) }}" class="block">
+                                                    <h3 class="font-semibold text-sm text-gray-900 dark:text-white truncate">{{ $user->name }}</h3>
+                                                    <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ '@' . $user->username }}</p>
+                                                </a>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    {{-- Email --}}
-                                    <div class="flex items-center gap-2 mb-2 text-sm text-gray-500 dark:text-gray-400">
-                                        <iconify-icon icon="lucide:mail" width="14" class="flex-shrink-0 opacity-60"></iconify-icon>
-                                        <span class="truncate">{{ $user->email }}</span>
-                                    </div>
-
-                                    {{-- Team --}}
-                                    @if($team)
-                                        <div class="flex items-center gap-2 mb-3 text-sm text-gray-500 dark:text-gray-400">
-                                            <iconify-icon icon="lucide:shield" width="14" class="flex-shrink-0 opacity-60"></iconify-icon>
-                                            <span class="truncate">{{ $team->name }}</span>
+                                        {{-- 3. Email (~25%, hidden on mobile) --}}
+                                        <div class="hidden md:flex items-center gap-2 min-w-0 text-sm text-gray-500 dark:text-gray-400" style="flex-basis: 25%;">
+                                            <iconify-icon icon="lucide:mail" width="14" class="flex-shrink-0 opacity-60"></iconify-icon>
+                                            <span class="truncate">{{ $user->email }}</span>
                                         </div>
-                                    @else
-                                        <div class="mb-3"></div>
-                                    @endif
 
-                                    {{-- Roles --}}
-                                    <div class="flex flex-wrap gap-1.5 mb-3">
-                                        @foreach ($user->roles as $role)
-                                            @php
-                                                $s = $roleStyles[$role->name] ?? $defaultStyle;
-                                                if (strtolower($role->name) === 'player') {
-                                                    $playerStatus = $user->player?->status ?? 'pending';
-                                                    $statusLabel = ucfirst($playerStatus);
-                                                    $statusDot = match($playerStatus) {
-                                                        'approved' => 'bg-emerald-500',
-                                                        'rejected' => 'bg-red-500',
-                                                        default    => 'bg-amber-500',
-                                                    };
-                                                } else {
-                                                    $statusLabel = 'Active';
-                                                    $statusDot = 'bg-emerald-500';
-                                                }
-                                            @endphp
-                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg ring-1 ring-inset {{ $s['bg'] }} {{ $s['text'] }} {{ $s['ring'] }}">
-                                                <span class="w-1.5 h-1.5 rounded-full {{ $statusDot }}"></span>
-                                                {{ $role->name === 'player' ? 'Player' : $role->name }}
-                                                <span class="text-[10px] opacity-70">{{ $statusLabel }}</span>
-                                            </span>
-                                        @endforeach
+                                        {{-- 4. Team name (~20%, hidden on mobile) --}}
+                                        <div class="hidden md:flex items-center gap-2 min-w-0 text-sm text-gray-500 dark:text-gray-400" style="flex-basis: 20%;">
+                                            @if($team)
+                                                <iconify-icon icon="lucide:shield" width="14" class="flex-shrink-0 opacity-60"></iconify-icon>
+                                                <span class="truncate">{{ $team->name }}</span>
+                                            @else
+                                                <span class="text-gray-300 dark:text-gray-600">&mdash;</span>
+                                            @endif
+                                        </div>
+
+                                        {{-- 5. Role badges (~20%) --}}
+                                        <div class="hidden sm:flex flex-wrap gap-1.5 min-w-0" style="flex-basis: 20%;">
+                                            @foreach ($user->roles as $role)
+                                                @php
+                                                    $s = $roleStyles[$role->name] ?? $defaultStyle;
+                                                    if (strtolower($role->name) === 'player') {
+                                                        $playerStatus = $user->player?->status ?? 'pending';
+                                                        $statusLabel = ucfirst($playerStatus);
+                                                        $statusDot = match($playerStatus) {
+                                                            'approved' => 'bg-emerald-500',
+                                                            'rejected' => 'bg-red-500',
+                                                            default    => 'bg-amber-500',
+                                                        };
+                                                    } else {
+                                                        $statusLabel = 'Active';
+                                                        $statusDot = 'bg-emerald-500';
+                                                    }
+                                                @endphp
+                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg ring-1 ring-inset {{ $s['bg'] }} {{ $s['text'] }} {{ $s['ring'] }}">
+                                                    <span class="w-1.5 h-1.5 rounded-full {{ $statusDot }}"></span>
+                                                    {{ $role->name === 'player' ? 'Player' : $role->name }}
+                                                    <span class="text-[10px] opacity-70">{{ $statusLabel }}</span>
+                                                </span>
+                                            @endforeach
+                                        </div>
+
+                                        {{-- 6. Actions dropdown (right-aligned) --}}
+                                        <div class="flex items-center justify-end ml-auto flex-shrink-0" @click.stop>
+                                            @php ld_apply_filters('user_list_page_table_row_before_action', '', $user) @endphp
+                                            <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
+                                                <x-buttons.action-item :href="route('admin.users.show', $user->id)" icon="eye"
+                                                    :label="__('View')" />
+
+                                                @if (auth()->user()->canBeModified($user))
+                                                    <x-buttons.action-item :href="route('admin.users.edit', $user->id)" icon="pencil"
+                                                        :label="__('Edit')" />
+                                                @endif
+
+                                                @if (auth()->user()->canBeModified($user, 'user.delete'))
+                                                    <div x-data="{ deleteModalOpen: false }">
+                                                        <x-buttons.action-item type="modal-trigger"
+                                                            modal-target="deleteModalOpen" icon="trash"
+                                                            :label="__('Delete')" class="text-red-600 dark:text-red-400" />
+
+                                                        <x-modals.confirm-delete id="delete-modal-{{ $user->id }}"
+                                                            title="{{ __('Delete User') }}"
+                                                            content="{{ __('Are you sure you want to delete this user?') }}"
+                                                            formId="delete-form-{{ $user->id }}"
+                                                            formAction="{{ route('admin.users.destroy', $user->id) }}"
+                                                            modalTrigger="deleteModalOpen"
+                                                            cancelButtonText="{{ __('No, cancel') }}"
+                                                            confirmButtonText="{{ __('Yes, Confirm') }}" />
+                                                    </div>
+                                                @endif
+
+                                                @if (auth()->user()->can('user.login_as') && $user->id != auth()->user()->id)
+                                                    <x-buttons.action-item :href="route('admin.users.login-as', $user->id)" icon="box-arrow-in-right"
+                                                        :label="__('Login as')" />
+                                                @endif
+                                            </x-buttons.action-buttons>
+                                            @php ld_apply_filters('user_list_page_table_row_after_action', '', $user) @endphp
+                                        </div>
+
                                     </div>
-
-                                    {{-- Actions --}}
-                                    @php ld_apply_filters('user_list_page_table_row_before_action', '', $user) @endphp
-                                    <div class="flex items-center justify-end border-t border-gray-100 dark:border-gray-700/50 pt-3 -mx-4 px-4">
-                                        <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
-                                            <x-buttons.action-item :href="route('admin.users.show', $user->id)" icon="eye"
-                                                :label="__('View')" />
-
-                                            @if (auth()->user()->canBeModified($user))
-                                                <x-buttons.action-item :href="route('admin.users.edit', $user->id)" icon="pencil"
-                                                    :label="__('Edit')" />
-                                            @endif
-
-                                            @if (auth()->user()->canBeModified($user, 'user.delete'))
-                                                <div x-data="{ deleteModalOpen: false }">
-                                                    <x-buttons.action-item type="modal-trigger"
-                                                        modal-target="deleteModalOpen" icon="trash"
-                                                        :label="__('Delete')" class="text-red-600 dark:text-red-400" />
-
-                                                    <x-modals.confirm-delete id="delete-modal-{{ $user->id }}"
-                                                        title="{{ __('Delete User') }}"
-                                                        content="{{ __('Are you sure you want to delete this user?') }}"
-                                                        formId="delete-form-{{ $user->id }}"
-                                                        formAction="{{ route('admin.users.destroy', $user->id) }}"
-                                                        modalTrigger="deleteModalOpen"
-                                                        cancelButtonText="{{ __('No, cancel') }}"
-                                                        confirmButtonText="{{ __('Yes, Confirm') }}" />
-                                                </div>
-                                            @endif
-
-                                            @if (auth()->user()->can('user.login_as') && $user->id != auth()->user()->id)
-                                                <x-buttons.action-item :href="route('admin.users.login-as', $user->id)" icon="box-arrow-in-right"
-                                                    :label="__('Login as')" />
-                                            @endif
-                                        </x-buttons.action-buttons>
-                                    </div>
-                                    @php ld_apply_filters('user_list_page_table_row_after_action', '', $user) @endphp
                                 </div>
                             @endforeach
                         </div>
