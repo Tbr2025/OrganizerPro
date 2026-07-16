@@ -37,7 +37,7 @@ class UserService
         $query->with(['player', 'actualTeams']);
 
         return $query->paginateData([
-            'per_page' => $filters['per_page'] ?? config('settings.default_pagination') ?? 10,
+            'per_page' => $filters['per_page'] ?? 12,
         ]);
     }
 
