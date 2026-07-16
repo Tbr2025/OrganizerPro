@@ -34,7 +34,7 @@ class UserService
         }
 
         // Eager-load player for status display
-        $query->with('player');
+        $query->with(['player', 'actualTeams']);
 
         return $query->paginateData([
             'per_page' => $filters['per_page'] ?? config('settings.default_pagination') ?? 10,

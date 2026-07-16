@@ -75,124 +75,127 @@
                     </div>
                 </div>
 
-                {{-- Table --}}
-                <div class="overflow-x-auto overflow-y-visible">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="border-t border-b border-gray-100 dark:border-gray-800">
-                                <th class="w-12 py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
-                                    <input type="checkbox"
-                                        class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
-                                        x-model="selectAll"
-                                        @click="selectAll = !selectAll; selectedUsers = selectAll ? [...document.querySelectorAll('.user-checkbox')].map(cb => cb.value) : [];">
-                                </th>
-                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
-                                    <a href="{{ request()->fullUrlWithQuery(['sort' => request()->sort === 'name' ? '-name' : 'name']) }}"
-                                       class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                                        {{ __('Name') }}
-                                        @if (request()->sort === 'name')
-                                            <iconify-icon icon="lucide:arrow-up" width="14" class="text-indigo-500"></iconify-icon>
-                                        @elseif(request()->sort === '-name')
-                                            <iconify-icon icon="lucide:arrow-down" width="14" class="text-indigo-500"></iconify-icon>
-                                        @else
-                                            <iconify-icon icon="lucide:arrow-up-down" width="14" class="opacity-40"></iconify-icon>
-                                        @endif
-                                    </a>
-                                </th>
-                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
-                                    <a href="{{ request()->fullUrlWithQuery(['sort' => request()->sort === 'email' ? '-email' : 'email']) }}"
-                                       class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
-                                        {{ __('Email') }}
-                                        @if (request()->sort === 'email')
-                                            <iconify-icon icon="lucide:arrow-up" width="14" class="text-indigo-500"></iconify-icon>
-                                        @elseif(request()->sort === '-email')
-                                            <iconify-icon icon="lucide:arrow-down" width="14" class="text-indigo-500"></iconify-icon>
-                                        @else
-                                            <iconify-icon icon="lucide:arrow-up-down" width="14" class="opacity-40"></iconify-icon>
-                                        @endif
-                                    </a>
-                                </th>
-                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-left">
-                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ __('Roles') }}</span>
-                                </th>
-                                @php ld_apply_filters('user_list_page_table_header_before_action', '') @endphp
-                                <th class="py-3 px-5 bg-gray-50/80 dark:bg-white/[0.03] text-right">
-                                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ __('Action') }}</span>
-                                </th>
-                                @php ld_apply_filters('user_list_page_table_header_after_action', '') @endphp
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @forelse ($users as $user)
-                                <tr class="group hover:bg-gray-50/70 dark:hover:bg-white/[0.02] transition-colors duration-150">
-                                    <td class="px-5 py-3.5">
+                {{-- Sort Bar --}}
+                <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-2.5 sm:px-6 flex items-center gap-4">
+                    <div class="flex items-center gap-1">
+                        <input type="checkbox"
+                            class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
+                            x-model="selectAll"
+                            @click="selectAll = !selectAll; selectedUsers = selectAll ? [...document.querySelectorAll('.user-checkbox')].map(cb => cb.value) : [];">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ __('All') }}</span>
+                    </div>
+                    <div class="flex items-center gap-3 ml-auto">
+                        <span class="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">{{ __('Sort') }}:</span>
+                        <a href="{{ request()->fullUrlWithQuery(['sort' => request()->sort === 'name' ? '-name' : 'name']) }}"
+                           class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                            {{ __('Name') }}
+                            @if (request()->sort === 'name')
+                                <iconify-icon icon="lucide:arrow-up" width="13" class="text-indigo-500"></iconify-icon>
+                            @elseif(request()->sort === '-name')
+                                <iconify-icon icon="lucide:arrow-down" width="13" class="text-indigo-500"></iconify-icon>
+                            @else
+                                <iconify-icon icon="lucide:arrow-up-down" width="13" class="opacity-40"></iconify-icon>
+                            @endif
+                        </a>
+                        <a href="{{ request()->fullUrlWithQuery(['sort' => request()->sort === 'email' ? '-email' : 'email']) }}"
+                           class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                            {{ __('Email') }}
+                            @if (request()->sort === 'email')
+                                <iconify-icon icon="lucide:arrow-up" width="13" class="text-indigo-500"></iconify-icon>
+                            @elseif(request()->sort === '-email')
+                                <iconify-icon icon="lucide:arrow-down" width="13" class="text-indigo-500"></iconify-icon>
+                            @else
+                                <iconify-icon icon="lucide:arrow-up-down" width="13" class="opacity-40"></iconify-icon>
+                            @endif
+                        </a>
+                    </div>
+                </div>
+
+                {{-- Card Grid --}}
+                <div class="border-t border-gray-100 dark:border-gray-800 p-5 sm:p-6">
+                    @if($users->count())
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            @foreach ($users as $user)
+                                @php
+                                    $roleStyles = [
+                                        'Superadmin' => ['bg' => 'bg-red-50 dark:bg-red-500/10', 'text' => 'text-red-700 dark:text-red-400', 'ring' => 'ring-red-600/10 dark:ring-red-500/20', 'dot' => 'bg-red-500'],
+                                        'Admin'      => ['bg' => 'bg-indigo-50 dark:bg-indigo-500/10', 'text' => 'text-indigo-700 dark:text-indigo-400', 'ring' => 'ring-indigo-600/10 dark:ring-indigo-500/20', 'dot' => 'bg-indigo-500'],
+                                        'Organizer'  => ['bg' => 'bg-amber-50 dark:bg-amber-500/10', 'text' => 'text-amber-700 dark:text-amber-400', 'ring' => 'ring-amber-600/10 dark:ring-amber-500/20', 'dot' => 'bg-amber-500'],
+                                        'Team Manager' => ['bg' => 'bg-purple-50 dark:bg-purple-500/10', 'text' => 'text-purple-700 dark:text-purple-400', 'ring' => 'ring-purple-600/10 dark:ring-purple-500/20', 'dot' => 'bg-purple-500'],
+                                        'player'     => ['bg' => 'bg-emerald-50 dark:bg-emerald-500/10', 'text' => 'text-emerald-700 dark:text-emerald-400', 'ring' => 'ring-emerald-600/10 dark:ring-emerald-500/20', 'dot' => 'bg-emerald-500'],
+                                    ];
+                                    $defaultStyle = ['bg' => 'bg-gray-50 dark:bg-gray-500/10', 'text' => 'text-gray-600 dark:text-gray-300', 'ring' => 'ring-gray-500/10 dark:ring-gray-500/20', 'dot' => 'bg-gray-400'];
+                                    $team = $user->actualTeams->first();
+                                @endphp
+                                <div class="relative rounded-xl border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800/50 p-4 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 group">
+                                    {{-- Checkbox --}}
+                                    <div class="absolute top-3 right-3">
                                         <input type="checkbox"
                                             class="user-checkbox form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
                                             value="{{ $user->id }}" x-model="selectedUsers"
                                             {{ !auth()->user()->canBeModified($user, 'user.delete') ? 'disabled' : '' }}>
-                                    </td>
-                                    <td class="px-5 py-3.5">
-                                        <a data-tooltip-target="tooltip-user-{{ $user->id }}"
-                                            href="{{ route('admin.users.show', $user->id) }}"
-                                            class="flex items-center gap-3 min-w-[180px]">
-                                            <img src="{{ ld_apply_filters('user_list_page_avatar_item', $user->getGravatarUrl(40), $user) }}"
+                                    </div>
+
+                                    {{-- User Info --}}
+                                    <div class="flex items-start gap-3 mb-3 pr-6">
+                                        <a href="{{ route('admin.users.show', $user->id) }}">
+                                            <img src="{{ ld_apply_filters('user_list_page_avatar_item', $user->getGravatarUrl(80), $user) }}"
                                                 alt="{{ $user->name }}"
-                                                class="w-9 h-9 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700 flex-shrink-0">
-                                            <div class="min-w-0">
+                                                class="w-11 h-11 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700 flex-shrink-0">
+                                        </a>
+                                        <div class="min-w-0 flex-1">
+                                            <a href="{{ route('admin.users.show', $user->id) }}" class="block">
                                                 <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ $user->name }}</p>
                                                 <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ '@' . $user->username }}</p>
-                                            </div>
-                                        </a>
-                                        <div id="tooltip-user-{{ $user->id }}"
-                                            class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-xs opacity-0 tooltip dark:bg-gray-700">
-                                            {{ __('View User') }}
-                                            <div class="tooltip-arrow" data-popper-arrow></div>
+                                            </a>
                                         </div>
-                                    </td>
-                                    <td class="px-5 py-3.5">
-                                        <span class="text-sm text-gray-600 dark:text-gray-300">{{ $user->email }}</span>
-                                    </td>
-                                    <td class="px-5 py-3.5">
-                                        <div class="flex flex-wrap gap-1.5">
-                                            @php
-                                                $roleStyles = [
-                                                    'Superadmin' => ['bg' => 'bg-red-50 dark:bg-red-500/10', 'text' => 'text-red-700 dark:text-red-400', 'ring' => 'ring-red-600/10 dark:ring-red-500/20', 'dot' => 'bg-red-500'],
-                                                    'Admin'      => ['bg' => 'bg-indigo-50 dark:bg-indigo-500/10', 'text' => 'text-indigo-700 dark:text-indigo-400', 'ring' => 'ring-indigo-600/10 dark:ring-indigo-500/20', 'dot' => 'bg-indigo-500'],
-                                                    'Organizer'  => ['bg' => 'bg-amber-50 dark:bg-amber-500/10', 'text' => 'text-amber-700 dark:text-amber-400', 'ring' => 'ring-amber-600/10 dark:ring-amber-500/20', 'dot' => 'bg-amber-500'],
-                                                    'Team Manager' => ['bg' => 'bg-purple-50 dark:bg-purple-500/10', 'text' => 'text-purple-700 dark:text-purple-400', 'ring' => 'ring-purple-600/10 dark:ring-purple-500/20', 'dot' => 'bg-purple-500'],
-                                                    'player'     => ['bg' => 'bg-emerald-50 dark:bg-emerald-500/10', 'text' => 'text-emerald-700 dark:text-emerald-400', 'ring' => 'ring-emerald-600/10 dark:ring-emerald-500/20', 'dot' => 'bg-emerald-500'],
-                                                ];
-                                                $defaultStyle = ['bg' => 'bg-gray-50 dark:bg-gray-500/10', 'text' => 'text-gray-600 dark:text-gray-300', 'ring' => 'ring-gray-500/10 dark:ring-gray-500/20', 'dot' => 'bg-gray-400'];
-                                            @endphp
-                                            @foreach ($user->roles as $role)
-                                                @php
-                                                    $s = $roleStyles[$role->name] ?? $defaultStyle;
+                                    </div>
 
-                                                    // Determine status per role
-                                                    if (strtolower($role->name) === 'player') {
-                                                        $playerStatus = $user->player?->status ?? 'pending';
-                                                        $statusLabel = ucfirst($playerStatus);
-                                                        $statusDot = match($playerStatus) {
-                                                            'approved' => 'bg-emerald-500',
-                                                            'rejected' => 'bg-red-500',
-                                                            default    => 'bg-amber-500',
-                                                        };
-                                                    } else {
-                                                        // Non-player roles: active if role is assigned
-                                                        $statusLabel = 'Active';
-                                                        $statusDot = 'bg-emerald-500';
-                                                    }
-                                                @endphp
-                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg ring-1 ring-inset {{ $s['bg'] }} {{ $s['text'] }} {{ $s['ring'] }}">
-                                                    <span class="w-1.5 h-1.5 rounded-full {{ $statusDot }}"></span>
-                                                    {{ $role->name === 'player' ? 'Player' : $role->name }}
-                                                    <span class="text-[10px] opacity-70">{{ $statusLabel }}</span>
-                                                </span>
-                                            @endforeach
+                                    {{-- Email --}}
+                                    <div class="flex items-center gap-2 mb-2 text-sm text-gray-500 dark:text-gray-400">
+                                        <iconify-icon icon="lucide:mail" width="14" class="flex-shrink-0 opacity-60"></iconify-icon>
+                                        <span class="truncate">{{ $user->email }}</span>
+                                    </div>
+
+                                    {{-- Team --}}
+                                    @if($team)
+                                        <div class="flex items-center gap-2 mb-3 text-sm text-gray-500 dark:text-gray-400">
+                                            <iconify-icon icon="lucide:shield" width="14" class="flex-shrink-0 opacity-60"></iconify-icon>
+                                            <span class="truncate">{{ $team->name }}</span>
                                         </div>
-                                    </td>
+                                    @else
+                                        <div class="mb-3"></div>
+                                    @endif
+
+                                    {{-- Roles --}}
+                                    <div class="flex flex-wrap gap-1.5 mb-3">
+                                        @foreach ($user->roles as $role)
+                                            @php
+                                                $s = $roleStyles[$role->name] ?? $defaultStyle;
+                                                if (strtolower($role->name) === 'player') {
+                                                    $playerStatus = $user->player?->status ?? 'pending';
+                                                    $statusLabel = ucfirst($playerStatus);
+                                                    $statusDot = match($playerStatus) {
+                                                        'approved' => 'bg-emerald-500',
+                                                        'rejected' => 'bg-red-500',
+                                                        default    => 'bg-amber-500',
+                                                    };
+                                                } else {
+                                                    $statusLabel = 'Active';
+                                                    $statusDot = 'bg-emerald-500';
+                                                }
+                                            @endphp
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg ring-1 ring-inset {{ $s['bg'] }} {{ $s['text'] }} {{ $s['ring'] }}">
+                                                <span class="w-1.5 h-1.5 rounded-full {{ $statusDot }}"></span>
+                                                {{ $role->name === 'player' ? 'Player' : $role->name }}
+                                                <span class="text-[10px] opacity-70">{{ $statusLabel }}</span>
+                                            </span>
+                                        @endforeach
+                                    </div>
+
+                                    {{-- Actions --}}
                                     @php ld_apply_filters('user_list_page_table_row_before_action', '', $user) @endphp
-                                    <td class="px-5 py-3.5 text-right">
+                                    <div class="flex items-center justify-end border-t border-gray-100 dark:border-gray-700/50 pt-3 -mx-4 px-4">
                                         <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
                                             <x-buttons.action-item :href="route('admin.users.show', $user->id)" icon="eye"
                                                 :label="__('View')" />
@@ -224,27 +227,23 @@
                                                     :label="__('Login as')" />
                                             @endif
                                         </x-buttons.action-buttons>
-                                    </td>
+                                    </div>
                                     @php ld_apply_filters('user_list_page_table_row_after_action', '', $user) @endphp
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="text-center py-12">
-                                        <div class="flex flex-col items-center gap-2">
-                                            <iconify-icon icon="lucide:users" width="32" class="text-gray-300 dark:text-gray-600"></iconify-icon>
-                                            <p class="text-sm text-gray-400 dark:text-gray-500">{{ __('No users found') }}</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="flex flex-col items-center gap-2 py-12">
+                            <iconify-icon icon="lucide:users" width="32" class="text-gray-300 dark:text-gray-600"></iconify-icon>
+                            <p class="text-sm text-gray-400 dark:text-gray-500">{{ __('No users found') }}</p>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Pagination --}}
                 @if($users->hasPages())
                     <div class="border-t border-gray-100 dark:border-gray-800 px-5 py-4 sm:px-6">
-                        {{ $users->links() }}
+                        {{ $users->withQueryString()->links() }}
                     </div>
                 @endif
             </div>
