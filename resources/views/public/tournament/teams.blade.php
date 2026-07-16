@@ -251,19 +251,27 @@
                                             {{-- Modal Body (scrollable) --}}
                                             <div class="overflow-y-auto px-4 py-3 space-y-1" style="max-height: calc(80vh - 70px);">
                                                 @forelse($squadPlayers as $teamPlayer)
+                                                    @php
+                                                        $playerTypeName = $teamPlayer->playerType ? ($teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '') : '';
+                                                        $battingName = $teamPlayer->battingProfile->style ?? $teamPlayer->battingProfile->name ?? '';
+                                                        $bowlingName = $teamPlayer->bowlingProfile->style ?? $teamPlayer->bowlingProfile->name ?? '';
+                                                        $battingPositions = is_array($teamPlayer->preferred_batting_positions) ? array_filter($teamPlayer->preferred_batting_positions) : [];
+                                                    @endphp
                                                     <div class="player-row py-3 px-3 rounded-lg">
-                                                        {{-- Top row: Image + Name + Role --}}
-                                                        <div class="flex items-center gap-3 min-w-0">
+                                                        <div class="flex items-start gap-3">
+                                                            {{-- Player Image --}}
                                                             @if($teamPlayer->image_path)
                                                                 <img src="{{ Storage::url($teamPlayer->image_path) }}"
                                                                      alt="{{ $teamPlayer->name }}"
-                                                                     class="h-10 w-10 rounded-full object-cover border-2 border-gray-700 flex-shrink-0">
+                                                                     class="h-11 w-11 rounded-full object-cover border-2 border-gray-700 flex-shrink-0 mt-0.5">
                                                             @else
-                                                                <div class="player-avatar h-10 w-10 rounded-full flex items-center justify-center border-2 border-gray-700 flex-shrink-0">
+                                                                <div class="player-avatar h-11 w-11 rounded-full flex items-center justify-center border-2 border-gray-700 flex-shrink-0 mt-0.5">
                                                                     <i class="fas fa-user text-gray-500"></i>
                                                                 </div>
                                                             @endif
-                                                            <div class="min-w-0">
+
+                                                            {{-- Name + Tags --}}
+                                                            <div class="min-w-0 flex-1">
                                                                 <div class="flex items-center gap-2">
                                                                     <p class="font-medium text-white truncate">{{ $teamPlayer->name }}</p>
                                                                     @if($teamPlayer->pivot->role === 'captain')
@@ -276,20 +284,7 @@
                                                                         </span>
                                                                     @endif
                                                                 </div>
-                                                            </div>
-                                                        </div>
-
-                                                        {{-- Player Profile Card --}}
-                                                        @php
-                                                            $playerTypeName = $teamPlayer->playerType ? ($teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '') : '';
-                                                            $battingName = $teamPlayer->battingProfile->style ?? $teamPlayer->battingProfile->name ?? '';
-                                                            $bowlingName = $teamPlayer->bowlingProfile->style ?? $teamPlayer->bowlingProfile->name ?? '';
-                                                            $battingPositions = is_array($teamPlayer->preferred_batting_positions) ? array_filter($teamPlayer->preferred_batting_positions) : [];
-                                                            $hasProfile = $playerTypeName || $battingName || $teamPlayer->batting_mode || $bowlingName || $battingPositions || $teamPlayer->is_wicket_keeper;
-                                                        @endphp
-                                                        @if($hasProfile)
-                                                            <div class="mt-2 rounded-lg px-3 py-2" style="margin-left: 3.25rem; background: rgba(31, 41, 55, 0.6);">
-                                                                <div class="flex flex-wrap items-center gap-1.5">
+                                                                <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
                                                                     @if($playerTypeName)
                                                                         <span class="text-xs font-medium text-blue-300 px-2 py-0.5 rounded-full" style="background: rgba(59, 130, 246, 0.2);">
                                                                             <i class="fas fa-user-tag mr-1 opacity-70"></i>{{ $playerTypeName }}
@@ -322,7 +317,7 @@
                                                                     @endif
                                                                 </div>
                                                             </div>
-                                                        @endif
+                                                        </div>
                                                     </div>
                                                 @empty
                                                     <div class="text-center py-8">
