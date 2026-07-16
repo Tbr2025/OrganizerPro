@@ -1010,6 +1010,7 @@ class TeamManagerController extends Controller
         }
 
         $players = Player::where('actual_team_id', $otherTeam->id)
+            ->where('status', 'approved')
             ->with(['playerType', 'battingProfile', 'bowlingProfile'])
             ->orderBy('name')
             ->get();

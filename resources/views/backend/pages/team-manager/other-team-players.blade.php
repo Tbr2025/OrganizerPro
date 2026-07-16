@@ -20,7 +20,7 @@
         @endif
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $otherTeam->name }}</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ $players->count() }} player{{ $players->count() !== 1 ? 's' : '' }} in squad</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">{{ $players->count() }} approved player{{ $players->count() !== 1 ? 's' : '' }}</p>
         </div>
     </div>
 
