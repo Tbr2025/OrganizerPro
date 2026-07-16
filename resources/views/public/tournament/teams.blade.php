@@ -255,7 +255,6 @@
                                                         $playerTypeName = $teamPlayer->playerType ? ($teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '') : '';
                                                         $battingName = $teamPlayer->battingProfile->style ?? $teamPlayer->battingProfile->name ?? '';
                                                         $bowlingName = $teamPlayer->bowlingProfile->style ?? $teamPlayer->bowlingProfile->name ?? '';
-                                                        $battingPositions = is_array($teamPlayer->preferred_batting_positions) ? array_filter($teamPlayer->preferred_batting_positions) : [];
                                                     @endphp
                                                     <div class="player-row py-3 px-3 rounded-lg">
                                                         <div class="flex items-start gap-3">
@@ -298,11 +297,6 @@
                                                                     @if($teamPlayer->batting_mode)
                                                                         <span class="text-xs font-medium text-orange-300 px-2 py-0.5 rounded-full" style="background: rgba(249, 115, 22, 0.2);">
                                                                             <i class="fas fa-bolt mr-1 opacity-70"></i>{{ $teamPlayer->batting_mode }}
-                                                                        </span>
-                                                                    @endif
-                                                                    @if($battingPositions)
-                                                                        <span class="text-xs font-medium text-cyan-300 px-2 py-0.5 rounded-full" style="background: rgba(6, 182, 212, 0.2);">
-                                                                            <i class="fas fa-list-ol mr-1 opacity-70"></i>{{ implode(', ', $battingPositions) }}
                                                                         </span>
                                                                     @endif
                                                                     @if($bowlingName)
