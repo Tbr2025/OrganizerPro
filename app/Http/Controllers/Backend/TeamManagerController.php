@@ -1009,8 +1009,8 @@ class TeamManagerController extends Controller
                 ->with('error', 'That team is not in your tournament.');
         }
 
-        $players = Player::where('actual_team_id', $otherTeam->id)
-            ->where('status', 'approved')
+        $players = $otherTeam->playersPerTournament()
+            ->wherePivot('tournament_id', $team->tournament_id)
             ->with(['playerType', 'battingProfile', 'bowlingProfile'])
             ->orderBy('name')
             ->get();
