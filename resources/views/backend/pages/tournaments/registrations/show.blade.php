@@ -38,9 +38,9 @@
 
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden">
             {{-- Header --}}
-            <div class="p-6 {{ $registration->type == 'team' ? 'bg-gradient-to-r from-purple-600 to-indigo-700' : 'bg-gradient-to-r from-blue-600 to-cyan-700' }}">
-                <div class="flex justify-between items-start">
-                    <div class="flex items-center gap-4">
+            <div class="{{ $registration->type == 'player' ? 'p-8' : 'p-6' }} {{ $registration->type == 'team' ? 'bg-gradient-to-r from-purple-600 to-indigo-700' : 'bg-gradient-to-r from-blue-600 to-cyan-700' }}">
+                <div class="flex {{ $registration->type == 'player' ? 'flex-col sm:flex-row' : '' }} justify-between items-start">
+                    <div class="flex {{ $registration->type == 'player' ? 'flex-col sm:flex-row items-center sm:items-start gap-6' : 'items-center gap-4' }}">
                         @if($registration->type == 'team')
                             @if($registration->team_logo)
                                 <img src="{{ Storage::url($registration->team_logo) }}" alt="Team Logo" class="w-16 h-16 rounded-xl object-cover border-2 border-white/30 cursor-pointer" @click="openImage('{{ Storage::url($registration->team_logo) }}')">
@@ -61,20 +61,64 @@
                                 </span>
                             </div>
                         @else
-                            @if($registration->player?->image_path)
-                                <img src="{{ Storage::url($registration->player->image_path) }}" alt="Player" class="w-16 h-16 rounded-full object-cover border-2 border-white/30 cursor-pointer" @click="openImage('{{ Storage::url($registration->player->image_path) }}')">
-                            @else
-                                <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
-                                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                    </svg>
+                            {{-- Player Photo --}}
+                            <div class="relative flex-shrink-0">
+                                @if($registration->player?->image_path)
+                                    <img src="{{ Storage::url($registration->player->image_path) }}" alt="{{ $registration->player->name }}" class="w-28 h-36 rounded-xl object-cover border-3 border-white/30 shadow-lg cursor-pointer" @click="openImage('{{ Storage::url($registration->player->image_path) }}')">
+                                @else
+                                    <div class="w-28 h-36 rounded-xl bg-white/20 flex items-center justify-center">
+                                        <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                        </svg>
+                                    </div>
+                                @endif
+                            </div>
+
+                            {{-- Player Info --}}
+                            <div class="flex-1 text-center sm:text-left">
+                                <h2 class="text-3xl font-bold text-white">{{ $registration->player->name ?? 'N/A' }}</h2>
+                                @if($registration->player?->jersey_name)
+                                    <p class="text-white/70 text-sm mt-0.5">{{ $registration->player->jersey_name }}</p>
+                                @endif
+                                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900/50 text-white">
+                                        Player Registration
+                                    </span>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-white/20 text-white">
+                                        {{ $registration->player->playerType?->type ?? 'Player' }}
+                                    </span>
+                                    @if($registration->player?->battingProfile)
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-white/10 text-white/90">
+                                            {{ $registration->player->battingProfile->style }}
+                                        </span>
+                                    @endif
+                                    @if($registration->player?->bowlingProfile)
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-white/10 text-white/90">
+                                            {{ $registration->player->bowlingProfile->style }}
+                                        </span>
+                                    @endif
+                                    @if($registration->player?->is_wicket_keeper)
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-yellow-500/30 text-yellow-100">
+                                            WK
+                                        </span>
+                                    @endif
                                 </div>
-                            @endif
-                            <div>
-                                <h2 class="text-2xl font-bold text-white">{{ $registration->player->name ?? 'N/A' }}</h2>
-                                <span class="inline-flex items-center px-2 py-0.5 mt-1 rounded text-xs font-medium bg-blue-900/50 text-white">
-                                    Player Registration
-                                </span>
+                            </div>
+
+                            {{-- Quick Stats --}}
+                            <div class="hidden sm:flex items-center gap-6 ml-auto mr-4 text-center">
+                                <div>
+                                    <div class="text-2xl font-bold text-white">{{ $registration->player->total_matches ?? 0 }}</div>
+                                    <div class="text-[10px] text-white/60 uppercase tracking-wider">Matches</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-white">{{ $registration->player->total_runs ?? 0 }}</div>
+                                    <div class="text-[10px] text-white/60 uppercase tracking-wider">Runs</div>
+                                </div>
+                                <div>
+                                    <div class="text-2xl font-bold text-white">{{ $registration->player->total_wickets ?? 0 }}</div>
+                                    <div class="text-[10px] text-white/60 uppercase tracking-wider">Wickets</div>
+                                </div>
                             </div>
                         @endif
                     </div>
