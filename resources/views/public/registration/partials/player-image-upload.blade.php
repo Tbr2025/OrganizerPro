@@ -30,6 +30,7 @@
                 'Minimum 400×533px, portrait (3:4)',
                 'PNG or JPG, max 6MB',
             ];
+        $sampleUrl = $tcSettings?->photo_sample_url;
     @endphp
 
     {{-- Hidden input for processed path --}}
@@ -45,7 +46,7 @@
     {{-- Upload Area --}}
     <div x-show="!processedPath && !processing"
          class="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-yellow-500 transition cursor-pointer"
-         @click="$refs.pubFileInput_{{ $piuId }}.click()"
+         @click="showGuidelinesModal = true"
          @drop.prevent="handleDrop($event)" @dragover.prevent>
         <input type="file" accept="image/png,image/jpeg" class="hidden"
                x-ref="pubFileInput_{{ $piuId }}" @change="handleFileSelect($event)">
@@ -114,6 +115,80 @@
         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
     @enderror
 
+    {{-- Photo Guidelines Modal (shown before upload) --}}
+    <template x-teleport="body">
+    <div x-show="showGuidelinesModal" x-cloak
+         class="fixed inset-0 flex items-center justify-center"
+         style="z-index: 99998; background: rgba(0,0,0,0.85);"
+         @keydown.escape.window="closeGuidelinesModal()">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-gray-700" @click.outside="closeGuidelinesModal()">
+            {{-- Header --}}
+            <div class="flex items-center justify-between p-4 border-b border-gray-700">
+                <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5" style="color:#f59e0b;" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/>
+                    </svg>
+                    Photo Guidelines
+                </h3>
+                <button type="button" @click="closeGuidelinesModal()" class="text-gray-400 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Body --}}
+            <div class="p-5">
+                {{-- Sample Image --}}
+                <div class="flex justify-center mb-4">
+                    <div class="w-24 h-32 rounded-lg overflow-hidden flex items-center justify-center" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);">
+                        @if($sampleUrl)
+                            <img src="{{ $sampleUrl }}" alt="Sample photo" class="w-full h-full object-cover">
+                        @else
+                            <svg class="w-12 h-16 text-white/80" fill="currentColor" viewBox="0 0 24 32">
+                                <ellipse cx="12" cy="8" rx="5" ry="6"/>
+                                <path d="M2 28c0-6 4-10 10-10s10 4 10 10"/>
+                            </svg>
+                        @endif
+                    </div>
+                </div>
+
+                <p class="text-sm text-white/90 mb-3">Please make sure your photo meets these requirements:</p>
+                <ul class="space-y-2 text-sm text-white/80">
+                    @foreach($guidelineLines as $line)
+                        @if(trim($line) !== '')
+                        <li class="flex items-start gap-2">
+                            <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+                            </svg>
+                            <span>{{ trim($line) }}</span>
+                        </li>
+                        @endif
+                    @endforeach
+                </ul>
+                <div class="mt-4 rounded-lg p-3" style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);">
+                    <p class="text-xs text-white/70 italic">
+                        <span class="font-semibold" style="color:#f59e0b;">Note:</span>
+                        Images not meeting these guidelines may result in your registration being rejected.
+                    </p>
+                </div>
+            </div>
+
+            {{-- Footer --}}
+            <div class="flex justify-end gap-3 p-4 border-t border-gray-700">
+                <button type="button" @click="closeGuidelinesModal()"
+                        class="px-4 py-2 text-sm text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600">
+                    Cancel
+                </button>
+                <button type="button" @click="proceedToUpload()"
+                        class="px-4 py-2 text-sm text-gray-900 bg-yellow-500 rounded-lg hover:bg-yellow-400 font-medium">
+                    I Understand, Upload Photo
+                </button>
+            </div>
+        </div>
+    </div>
+    </template>
+
     {{-- Crop Modal (teleported to body so it escapes the section's transform/stacking context) --}}
     <template x-teleport="body">
     <div x-show="showCropModal" x-cloak
@@ -168,6 +243,8 @@ function publicPlayerImageUpload_{{ $piuId }}() {
         processing: false,
         bgProcessing: false,
         errorMsg: '',
+        showGuidelinesModal: false,
+        pendingFile: null,
         showCropModal: false,
         cropMode: 'portrait',
         cropper: null,
@@ -188,7 +265,26 @@ function publicPlayerImageUpload_{{ $piuId }}() {
 
         handleDrop(event) {
             const file = event.dataTransfer.files[0];
-            if (file) this.openCropper(file);
+            if (file) {
+                this.pendingFile = file;
+                this.showGuidelinesModal = true;
+            }
+        },
+
+        closeGuidelinesModal() {
+            this.showGuidelinesModal = false;
+            this.pendingFile = null;
+        },
+
+        proceedToUpload() {
+            this.showGuidelinesModal = false;
+            if (this.pendingFile) {
+                const file = this.pendingFile;
+                this.pendingFile = null;
+                this.openCropper(file);
+            } else {
+                this.$refs.pubFileInput_{{ $piuId }}.click();
+            }
         },
 
         openCropper(file) {
