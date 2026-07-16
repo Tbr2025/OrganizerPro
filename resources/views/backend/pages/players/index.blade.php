@@ -22,26 +22,42 @@
 
         <!-- Filter Section -->
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-5 mb-6">
-            <form method="GET" action="{{ route('admin.players.index') }}">
-                {{-- Increased grid columns to accommodate new filters --}}
+            <form method="GET" action="{{ route('admin.players.index') }}" id="playerFilterForm">
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
+
+                    {{-- Tournament — first, full width --}}
+                    <div class="sm:col-span-2">
+                        <label for="tournament" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament</label>
+                        <select name="tournament" id="tournament" class="form-control mt-1" onchange="document.getElementById('playerFilterForm').submit()">
+                            <option value="">All Tournaments</option>
+                            @foreach ($tournaments as $t)
+                                <option value="{{ $t->id }}" @selected(request('tournament') == $t->id)>{{ $t->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Search --}}
                     <div class="lg:col-span-2">
                         <label for="search"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search</label>
                         <input type="text" name="search" id="search" value="{{ request('search') }}"
                             placeholder="By name or email..." class="form-control mt-1">
                     </div>
+
+                    {{-- Team (actual teams) --}}
                     <div>
-                        <label for="team_name"
+                        <label for="actual_team_id"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Team</label>
-                        <select name="team_name" id="team_name" class="form-control mt-1">
+                        <select name="actual_team_id" id="actual_team_id" class="form-control mt-1">
                             <option value="">All Teams</option>
-                            @foreach ($teams as $team)
-                                <option value="{{ $team->name }}" @selected(request('team_name') == $team->name)>{{ $team->name }}
+                            @foreach ($filterTeams as $ft)
+                                <option value="{{ $ft->id }}" @selected(request('actual_team_id') == $ft->id)>{{ $ft->name }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
+
+                    {{-- Player Role --}}
                     <div>
                         <label for="role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player
                             Role</label>
@@ -55,7 +71,7 @@
                         </select>
                     </div>
 
-                    {{-- **NEW**: Batting Profile Filter --}}
+                    {{-- Batting Style --}}
                     <div>
                         <label for="batting_profile"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Batting Style</label>
@@ -68,7 +84,7 @@
                         </select>
                     </div>
 
-                    {{-- **NEW**: Bowling Profile Filter --}}
+                    {{-- Bowling Style --}}
                     <div>
                         <label for="bowling_profile"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Bowling Style</label>
@@ -81,6 +97,7 @@
                         </select>
                     </div>
 
+                    {{-- Status --}}
                     @if (!auth()->user()->hasRole('Team Manager'))
                         <div>
                             <label for="status"
@@ -89,10 +106,13 @@
                                 <option value="all" @selected(request('status') == 'all')>All Status</option>
                                 <option value="approved" @selected(request('status', 'approved') == 'approved')>Approved</option>
                                 <option value="pending" @selected(request('status') == 'pending')>Pending</option>
+                                <option value="queued" @selected(request('status') == 'queued')>Queued</option>
                                 <option value="rejected" @selected(request('status') == 'rejected')>Rejected</option>
                             </select>
                         </div>
                     @endif
+
+                    {{-- Player Mode --}}
                     <div>
                         <label for="player_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player
                             Mode</label>
@@ -101,22 +121,9 @@
                             <option value="retained" @selected(request('player_mode') == 'retained')>Retained</option>
                             <option value="normal" @selected(request('player_mode') == 'normal')>Available</option>
                             <option value="sold" @selected(request('player_mode') == 'sold')>Sold</option>
-                            <option value="Unsold" @selected(request('player_mode') == 'sold')>Unsold</option>
+                            <option value="Unsold" @selected(request('player_mode') == 'Unsold')>Unsold</option>
                         </select>
                     </div>
-
-                    {{-- Tournament filter — Superadmin only (organizers are already org-scoped) --}}
-                    @if (auth()->user()->hasRole('Superadmin'))
-                        <div>
-                            <label for="tournament" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament</label>
-                            <select name="tournament" id="tournament" class="form-control mt-1">
-                                <option value="">All Tournaments</option>
-                                @foreach ($tournaments as $t)
-                                    <option value="{{ $t->id }}" @selected(request('tournament') == $t->id)>{{ $t->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    @endif
 
                     {{-- Sort by --}}
                     <div>

@@ -10,7 +10,55 @@
         {{-- Breadcrumbs & Actions --}}
         <div class="flex justify-between items-center mb-4">
             <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+                @can('player.edit')
+                    @if($player->status !== 'approved')
+                        <form action="{{ route('admin.players.approve', $player->id) }}" method="POST"
+                            onsubmit="return confirm('Are you sure you want to approve this player?');">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                Approve
+                            </button>
+                        </form>
+                    @endif
+                    @if($player->status !== 'rejected')
+                        <form action="{{ route('admin.players.reject', $player->id) }}" method="POST"
+                            onsubmit="return confirm('Are you sure you want to reject this player?');">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-orange-600 hover:bg-orange-700 text-white">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                Reject
+                            </button>
+                        </form>
+                    @endif
+                    @if($player->player_mode !== 'retained' && $player->status === 'approved')
+                        <button type="button"
+                            onclick="document.getElementById('show-retain-modal').classList.remove('hidden')"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            Retain
+                        </button>
+                    @endif
+                    @if($player->player_mode === 'retained')
+                        <form action="{{ route('admin.players.unretain', $player->id) }}" method="POST"
+                            onsubmit="return confirm('Are you sure you want to unretain this player?');">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-orange-500 hover:bg-orange-600 text-white">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                                </svg>
+                                Unretain
+                            </button>
+                        </form>
+                    @endif
+                @endcan
                 @can('player.edit')
                     <a href="{{ route('admin.players.edit', $player->id) }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -623,4 +671,48 @@
             </div>
         @endif
     </div>
+
+    {{-- Retain Player Modal --}}
+    @if($player->player_mode !== 'retained' && $player->status === 'approved')
+        <div id="show-retain-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/50" onclick="document.getElementById('show-retain-modal').classList.add('hidden')"></div>
+            <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md z-10">
+                <form method="POST" action="{{ route('admin.players.retain', $player->id) }}">
+                    @csrf
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            Retain Player
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Retaining <span class="font-medium text-gray-700 dark:text-gray-300">{{ $player->name }}</span></p>
+                    </div>
+                    <div class="px-6 py-5 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Team <span class="text-red-500">*</span></label>
+                            <select name="actual_team_id" required class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                                <option value="">-- Select Team --</option>
+                                @foreach($actualTeams as $at)
+                                    <option value="{{ $at->id }}" @selected($player->actual_team_id == $at->id)>{{ $at->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                            <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                        <button type="button" onclick="document.getElementById('show-retain-modal').classList.add('hidden')"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                            Retain Player
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 @endsection

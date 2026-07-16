@@ -120,14 +120,14 @@ class PlayerController extends Controller
         // 1. Read all potential filters from the request
         $filters = [
             'search'           => request('search'),
-            'team_name'        => request('team_name'),
+            'actual_team_id'   => request('actual_team_id'),
             'role'             => request('role'),
             'batting_profile'  => request('batting_profile'),
             'bowling_profile'  => request('bowling_profile'),
             'status'           => request('status', 'approved'),
             'updated_sort'     => request('updated_sort'),
             'player_mode'     => request('player_mode'),
-            'tournament'       => request('tournament'), // Superadmin-only filter
+            'tournament'       => request('tournament'),
             'sort'             => request('sort'),
         ];
 
@@ -178,8 +178,8 @@ class PlayerController extends Controller
             ->when($filters['search'], function ($q) use ($filters) {
                 $q->where(fn($q) => $q->where('name', 'like', "%{$filters['search']}%")->orWhere('email', 'like', "%{$filters['search']}%"));
             })
-            ->when($filters['team_name'], function ($q) use ($filters) {
-                $q->whereHas('team', fn($teamQuery) => $teamQuery->where('name', $filters['team_name']));
+            ->when($filters['actual_team_id'], function ($q) use ($filters) {
+                $q->where('actual_team_id', $filters['actual_team_id']);
             })
             ->when($filters['role'], function ($q) use ($filters) {
                 if ($filters['role'] === 'Wicket Keeper') {
@@ -207,11 +207,13 @@ class PlayerController extends Controller
             ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
                 if ($filters['status'] === 'approved') $q->where('status', 'approved');
                 elseif ($filters['status'] === 'pending') $q->where(fn($q) => $q->where('status', 'pending')->orWhereNull('status'));
+                elseif ($filters['status'] === 'queued') $q->where('status', 'queued');
                 elseif ($filters['status'] === 'rejected') $q->where('status', 'rejected');
             })
-            // Superadmin-only: filter by the tournament a player registered under.
-            ->when($user->hasRole('Superadmin') && $filters['tournament'], function ($q) use ($filters) {
-                $q->whereHas('registrations', fn($r) => $r->where('tournament_id', $filters['tournament']));
+            // Filter by the tournament the player is assigned to (via actual team).
+            ->when($filters['tournament'], function ($q) use ($filters) {
+                $tournamentTeamIds = ActualTeam::forTournament($filters['tournament'])->pluck('id');
+                $q->whereIn('actual_team_id', $tournamentTeamIds);
             })
             // Sort: explicit "sort" dropdown wins; else legacy updated_sort; else newest-updated.
             ->when(true, function ($q) use ($filters) {
@@ -233,20 +235,33 @@ class PlayerController extends Controller
             ->appends($filters); // Ensures filters are remembered on pagination links
 
         // 5. Fetch data needed for the filter dropdowns
-        if ($user->hasRole('Superadmin')) {
-            $teams = Team::orderBy('name')->get();
-        } else {
-            $teams = Team::where('organization_id', $user->organization_id)->orderBy('name')->get();
-        }
+        $selectedTournamentId = $filters['tournament'];
 
-        $roles = PlayerType::whereIn('type', ['Bowler', 'Batsman', 'All-Rounder'])->get();
-        $battingProfiles = BattingProfile::orderBy('style')->get();
-        $bowlingProfiles = BowlingProfile::orderBy('style')->get();
+        // Tournaments — available for all roles
+        $tournaments = Tournament::forUser($user)->orderBy('name')->get(['id', 'name']);
 
-        // Tournaments for the Superadmin-only tournament filter.
-        $tournaments = $user->hasRole('Superadmin')
-            ? \App\Models\Tournament::forUser(auth()->user())->orderBy('name')->get(['id', 'name'])
-            : collect();
+        // Actual teams for filter — scoped to tournament if selected
+        $filterTeams = $selectedTournamentId
+            ? ActualTeam::forTournament($selectedTournamentId)->orderBy('name')->get()
+            : ($user->hasRole('Superadmin')
+                ? ActualTeam::orderBy('name')->get()
+                : ActualTeam::where('organization_id', $user->organization_id)->orderBy('name')->get());
+
+        // Only show dropdown values present among players (scoped by tournament if selected)
+        $baseQuery = Player::whereNotNull('user_id')
+            ->whereHas('user.roles', fn($q) => $q->where('name', 'player'))
+            ->when($selectedTournamentId, function ($q) use ($selectedTournamentId) {
+                $tournamentTeamIds = ActualTeam::forTournament($selectedTournamentId)->pluck('id');
+                $q->whereIn('actual_team_id', $tournamentTeamIds);
+            })
+            ->when(!$selectedTournamentId && !$user->hasRole('Superadmin') && $user->organization_id, function ($q) use ($user) {
+                $orgTeamIds = ActualTeam::whereHas('tournament', fn($tq) => $tq->where('organization_id', $user->organization_id))->pluck('id');
+                $q->whereIn('actual_team_id', $orgTeamIds);
+            });
+
+        $roles = PlayerType::whereIn('id', (clone $baseQuery)->whereNotNull('player_type_id')->pluck('player_type_id')->unique())->orderBy('type')->get();
+        $battingProfiles = BattingProfile::whereIn('id', (clone $baseQuery)->whereNotNull('batting_profile_id')->pluck('batting_profile_id')->unique())->orderBy('style')->get();
+        $bowlingProfiles = BowlingProfile::whereIn('id', (clone $baseQuery)->whereNotNull('bowling_profile_id')->pluck('bowling_profile_id')->unique())->orderBy('style')->get();
 
         // Actual teams for retain modal (with tournament info, only active/registration tournaments)
         $actualTeams = $user->hasRole('Superadmin')
@@ -256,7 +271,7 @@ class PlayerController extends Controller
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
             'players'         => $players,
-            'teams'           => $teams,
+            'filterTeams'     => $filterTeams,
             'actualTeams'     => $actualTeams,
             'roles'           => $roles,
             'battingProfiles' => $battingProfiles,
@@ -618,9 +633,16 @@ class PlayerController extends Controller
             ->get()
             ->keyBy('tournament_id');
 
+        // Actual teams for retain modal
+        $user = Auth::user();
+        $actualTeams = $user->hasRole('Superadmin')
+            ? ActualTeam::orderBy('name')->get(['id', 'name', 'tournament_id'])
+            : ActualTeam::where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
+
         return view('backend.pages.players.show', [
             'player' => $player,
             'teams' => Team::all(),
+            'actualTeams' => $actualTeams,
             'locations' => PlayerLocation::all(),
             'kitSizes' => KitSize::all(),
             'battingProfiles' => BattingProfile::all(),

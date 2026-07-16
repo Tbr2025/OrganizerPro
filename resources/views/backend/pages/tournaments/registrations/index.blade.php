@@ -70,9 +70,10 @@
                 @endforeach
             </div>
 
-            {{-- Stats Cards ({{ ucfirst($type) }} registrations) --}}
+            {{-- Stats Cards ({{ ucfirst($type) }} registrations) — clickable to filter --}}
             <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-                <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'all']) }}"
+                   class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,9 +85,10 @@
                             <p class="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{{ $totalCount }}</p>
                         </div>
                     </div>
-                </div>
+                </a>
 
-                <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'pending']) }}"
+                   class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,9 +100,10 @@
                             <p class="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{{ $pendingCount }}</p>
                         </div>
                     </div>
-                </div>
+                </a>
 
-                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'approved']) }}"
+                   class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,9 +115,10 @@
                             <p class="text-2xl font-bold text-green-900 dark:text-green-100">{{ $approvedCount }}</p>
                         </div>
                     </div>
-                </div>
+                </a>
 
-                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'rejected']) }}"
+                   class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,9 +130,10 @@
                             <p class="text-2xl font-bold text-red-900 dark:text-red-100">{{ $rejectedCount }}</p>
                         </div>
                     </div>
-                </div>
+                </a>
 
-                <div class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'cancelled']) }}"
+                   class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <svg class="w-8 h-8 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,9 +145,10 @@
                             <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $cancelledCount }}</p>
                         </div>
                     </div>
-                </div>
+                </a>
 
-                <div class="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-lg p-4">
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'queued']) }}"
+                   class="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <svg class="w-8 h-8 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,7 +160,7 @@
                             <p class="text-2xl font-bold text-sky-900 dark:text-sky-100">{{ $queuedCount }}</p>
                         </div>
                     </div>
-                </div>
+                </a>
             </div>
 
             {{-- Filter Tabs (preserve search/sort when switching) --}}
@@ -417,6 +423,43 @@
                                                                     Cancel
                                                                 </button>
                                                             </form>
+                                                        @endif
+
+                                                        @if($registration->status == 'queued')
+                                                            <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to approve this queued registration?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                                    Approve
+                                                                </button>
+                                                            </form>
+                                                            <form action="{{ route('admin.tournaments.registrations.reject', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to reject this queued registration?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                    Reject
+                                                                </button>
+                                                            </form>
+                                                            <form action="{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Are you sure you want to cancel this queued registration?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                                    Cancel
+                                                                </button>
+                                                            </form>
+                                                            @if($registration->type === 'player' && $registration->player)
+                                                                @if($registration->player->player_mode !== 'retained')
+                                                                    <button type="button"
+                                                                        @click="open = false; $dispatch('open-retain-modal', { playerId: {{ $registration->player->id }}, playerName: '{{ addslashes($registration->player->name) }}' })"
+                                                                        class="w-full text-left px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                                                        Retain Player
+                                                                    </button>
+                                                                @endif
+                                                            @endif
                                                         @endif
 
                                                         @if($registration->status == 'approved')
