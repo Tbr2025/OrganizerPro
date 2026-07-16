@@ -378,17 +378,27 @@
                                         </div>
                                         @if($isSizeDropdown)
                                             {{-- Dropdown editor for T-shirt / Pant size (mirrors public form options) --}}
-                                            @php $opts = $sizeDropdowns[$key]; $isStandard = in_array($value, $opts, true); @endphp
+                                            @php
+                                                $opts = $sizeDropdowns[$key];
+                                                $isStandard = in_array($value, $opts, true);
+                                                // Match old stored values (e.g. "34") to labelled options (e.g. "34 (M)")
+                                                $matchedOpt = $value;
+                                                if (!$isStandard && !$isEmpty) {
+                                                    foreach ($opts as $opt) {
+                                                        if (str_starts_with($opt, $value . ' ')) { $matchedOpt = $opt; $isStandard = true; break; }
+                                                    }
+                                                }
+                                            @endphp
                                             <div x-data="{
                                                 editing: false, saving: false,
-                                                selected: '{{ $isStandard ? addslashes($value) : ($isEmpty ? '' : 'Other') }}',
+                                                selected: '{{ $isStandard ? addslashes($matchedOpt) : ($isEmpty ? '' : 'Other') }}',
                                                 customVal: '{{ !$isStandard && !$isEmpty ? addslashes($value) : '' }}',
                                                 displayVal: '{{ addslashes($value ?? '') }}',
                                                 get finalVal() { return this.selected === 'Other' ? this.customVal : this.selected; }
                                             }" class="mt-1">
                                                 <div x-show="!editing" class="flex items-center gap-1 group cursor-pointer" @click="editing = true">
                                                     <p x-text="displayVal || 'Not provided'" class="text-sm break-words" :class="displayVal ? 'text-gray-900 dark:text-white' : 'italic text-gray-400 dark:text-gray-500'"></p>
-                                                    <i class="fas fa-pencil-alt text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition"></i>
+                                                    <i class="fas fa-pencil-alt text-[10px] text-gray-400"></i>
                                                 </div>
                                                 <div x-show="editing" x-cloak class="space-y-1.5">
                                                     <div class="flex items-center gap-1.5">
@@ -422,7 +432,7 @@
                                             <div x-data="{ editing: false, val: '{{ addslashes($value ?? '') }}', saving: false }" class="mt-1">
                                                 <div x-show="!editing" class="flex items-center gap-1 group cursor-pointer" @click="editing = true">
                                                     <p x-text="val || 'Not provided'" class="text-sm break-words" :class="val ? 'text-gray-900 dark:text-white' : 'italic text-gray-400 dark:text-gray-500'"></p>
-                                                    <i class="fas fa-pencil-alt text-[10px] text-gray-400 opacity-0 group-hover:opacity-100 transition"></i>
+                                                    <i class="fas fa-pencil-alt text-[10px] text-gray-400"></i>
                                                 </div>
                                                 <div x-show="editing" x-cloak class="flex items-center gap-1.5">
                                                     <input type="text" x-model="val" x-ref="editInput" @keydown.enter="$refs.saveBtn.click()" @keydown.escape="editing = false"
