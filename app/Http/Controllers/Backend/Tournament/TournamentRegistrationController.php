@@ -54,7 +54,16 @@ class TournamentRegistrationController extends Controller
 
         $query->where('tournament_registrations.type', $type);
 
-        if ($status && $status !== 'all') {
+        if ($status === 'retained') {
+            $query->where('tournament_registrations.status', 'approved')
+                  ->where('players.player_mode', 'retained');
+        } elseif ($status === 'unretained') {
+            $query->where('tournament_registrations.status', 'approved')
+                  ->where(function ($q) {
+                      $q->whereNull('players.player_mode')
+                        ->orWhere('players.player_mode', '!=', 'retained');
+                  });
+        } elseif ($status && $status !== 'all') {
             $query->where('tournament_registrations.status', $status);
         }
 

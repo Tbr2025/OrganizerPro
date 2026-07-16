@@ -161,7 +161,7 @@
             @php $q = request()->query(); @endphp
             <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
                 <nav class="-mb-px flex flex-wrap gap-x-8">
-                    @foreach(['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'queued' => 'In Queue', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled'] as $key => $label)
+                    @foreach(['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'queued' => 'In Queue', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'retained' => 'Retained', 'unretained' => 'Unretained'] as $key => $label)
                         @php $active = request('status', 'pending') === $key; @endphp
                         <a href="{{ route('admin.tournaments.registrations.index', array_merge($q, ['tournament' => $tournament, 'status' => $key])) }}"
                             class="py-2 px-1 border-b-2 font-medium text-sm {{ $active ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
@@ -206,9 +206,9 @@
             </form>
 
             {{-- Registrations Table --}}
-            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-visible">
+            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl">
                 @if($registrations->count() > 0)
-                    <div class="overflow-x-auto overflow-y-visible">
+                    <div>
                         <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
