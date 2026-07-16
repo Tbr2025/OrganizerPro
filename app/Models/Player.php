@@ -379,8 +379,13 @@ class Player extends Model implements MustVerifyEmail
         return Attribute::make(
             get: function ($value, $attributes) {
                 // Check if the player is retained and if their user has an actual team.
-                if ($attributes['player_mode'] === 'retained' && $this->user?->actualTeams->first()) {
+                if (($attributes['player_mode'] ?? null) === 'retained' && $this->user?->actualTeams->first()) {
                     return $this->user->actualTeams->first()->name;
+                }
+
+                // Fallback to actual team if assigned (sold, assigned, etc.)
+                if ($this->actualTeam?->name) {
+                    return $this->actualTeam->name;
                 }
 
                 // Check if the registration team is 'Others' and show team_name_ref.

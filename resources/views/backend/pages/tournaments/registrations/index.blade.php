@@ -428,6 +428,15 @@
                                                                     Send Temp Password
                                                                 </button>
                                                             </form>
+
+                                                            @if($registration->type === 'player' && $registration->player && $registration->player->player_mode !== 'retained')
+                                                                <button type="button"
+                                                                    @click="open = false; $dispatch('open-retain-modal', { playerId: {{ $registration->player->id }}, playerName: '{{ addslashes($registration->player->name) }}' })"
+                                                                    class="w-full text-left px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                                                    Retain Player
+                                                                </button>
+                                                            @endif
                                                         @endif
 
                                                         <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
@@ -467,6 +476,69 @@
         </div>
     </div>
 @endsection
+
+    {{-- Retain Player Modal --}}
+    <div x-data="{
+            showRetainModal: false,
+            retainPlayerId: null,
+            retainPlayerName: '',
+            allTeams: @js($actualTeams->map(fn($t) => ['id' => $t->id, 'name' => $t->name])),
+        }"
+        @open-retain-modal.window="
+            retainPlayerId = $event.detail.playerId;
+            retainPlayerName = $event.detail.playerName;
+            showRetainModal = true;
+        "
+    >
+        <div x-show="showRetainModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div x-show="showRetainModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-black/50" @click="showRetainModal = false"></div>
+
+            <div x-show="showRetainModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md z-10">
+                <form method="POST" :action="'/admin/players/' + retainPlayerId + '/retain'">
+                    @csrf
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            Retain Player
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Retaining <span class="font-medium text-gray-700 dark:text-gray-300" x-text="retainPlayerName"></span></p>
+                    </div>
+
+                    <div class="px-6 py-5 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Team <span class="text-red-500">*</span></label>
+                            <select name="actual_team_id" required class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                                <option value="">-- Select Team --</option>
+                                <template x-for="t in allTeams" :key="t.id">
+                                    <option :value="t.id" x-text="t.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div x-data="{ retainVal: '' }">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                            <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" x-model="retainVal">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-show="retainVal > 0" x-text="(retainVal / 1000000).toFixed(2) + 'M'"></p>
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                        <button type="button" @click="showRetainModal = false"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                            Retain Player
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
 @push('scripts')
 <script>

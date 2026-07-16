@@ -262,8 +262,7 @@
                                                         {{ $player->name }}
                                                     </a>
 
-                                                    {{-- **NEW**: Retained Status Badge --}}
-                                                    @if ($player->player_status == 'Retained')
+                                                    @if ($player->player_mode == 'retained')
                                                         <span
                                                             class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400">
                                                             Retained
@@ -279,18 +278,24 @@
                                                         {{ $player->email }}
                                                     </a>
                                                 </div>
-                                                {{-- Retained Status Badge --}}
-                                                @if ($player->player_mode == 'retained')
-                                                    <span
-                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400">
-                                                        Retained
-                                                    </span>
-                                                @endif
+
+                                                {{-- Player type & style badges --}}
+                                                <div class="flex flex-wrap gap-1 mt-1">
+                                                    @if ($player->playerType?->type)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">{{ $player->playerType->type }}</span>
+                                                    @endif
+                                                    @if ($player->battingProfile?->style)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ $player->battingProfile->style }}</span>
+                                                    @endif
+                                                    @if ($player->bowlingProfile?->style)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">{{ $player->bowlingProfile->style }}</span>
+                                                    @endif
+                                                </div>
 
                                                 {{-- Sold Status Badge --}}
                                                 @if ($player->player_mode === 'sold' && $player->actualTeam)
                                                     <span
-                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400">
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400 mt-1">
                                                         Sold to {{ $player->actualTeam->name }}
                                                     </span>
                                                 @endif
@@ -342,6 +347,9 @@
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                                         {{ $player->display_team_name ?? 'N/A' }}
+                                        @if($player->actualTeam && $player->team && $player->actualTeam->name !== $player->team->name && $player->team->name !== 'Others')
+                                            <div class="text-[10px] text-gray-400 dark:text-gray-500">Reg: {{ $player->team->name }}</div>
+                                        @endif
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap">
                                         <div class="flex flex-wrap gap-1">
@@ -458,22 +466,12 @@
                                                         {{ $player->name }}
                                                     </a>
 
-                                                    {{-- Retained Status Badge --}}
-                                                    @if ($player->player_mode === 'retained')
+                                                    @if ($player->player_mode == 'retained')
                                                         <span
                                                             class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400">
                                                             Retained
                                                         </span>
                                                     @endif
-
-                                                    {{-- Sold Status Badge --}}
-                                                    @if ($player->player_mode === 'sold' && $player->actualTeam)
-                                                        <span
-                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400">
-                                                            Sold to {{ $player->actualTeam->name }}
-                                                        </span>
-                                                    @endif
-
                                                 </div>
 
                                                 {{-- Email as a clickable mailto link --}}
@@ -484,19 +482,25 @@
                                                         {{ $player->email }}
                                                     </a>
                                                 </div>
-                                                {{-- Retained Status Badge with team --}}
-                                                @if ($player->player_mode == 'retained')
+
+                                                {{-- Player type & style badges --}}
+                                                <div class="flex flex-wrap gap-1 mt-1">
+                                                    @if ($player->playerType?->type)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">{{ $player->playerType->type }}</span>
+                                                    @endif
+                                                    @if ($player->battingProfile?->style)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ $player->battingProfile->style }}</span>
+                                                    @endif
+                                                    @if ($player->bowlingProfile?->style)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">{{ $player->bowlingProfile->style }}</span>
+                                                    @endif
+                                                </div>
+
+                                                {{-- Sold Status Badge --}}
+                                                @if ($player->player_mode === 'sold' && $player->actualTeam)
                                                     <span
-                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400">
-                                                        Retained
-                                                    </span>
-                                                    <span
-                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold">
-                                                        in
-                                                    </span>
-                                                    <span
-                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-purple-50 text-gray-800 ring-purple-600/10 dark:bg-purple-500/10 dark:text-red-200">
-                                                        {{ $player->display_team_name ?? 'N/A' }}
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400 mt-1">
+                                                        Sold to {{ $player->actualTeam->name }}
                                                     </span>
                                                 @endif
 

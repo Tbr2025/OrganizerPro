@@ -9,6 +9,7 @@ use App\Mail\PlayerCredentialsMail;
 use App\Mail\RegistrationApprovedMail;
 use App\Mail\RegistrationCorrectionMail;
 use App\Mail\TeamManagerCredentialsMail;
+use App\Models\ActualTeam;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Models\User;
@@ -47,7 +48,7 @@ class TournamentRegistrationController extends Controller
         // leftJoin players so we can search AND sort by the player's name uniformly
         // across mixed player/team rows.
         $query = $tournament->registrations()
-            ->with(['player.user', 'processedBy', 'actualTeam'])
+            ->with(['player.user', 'player.actualTeam', 'processedBy', 'actualTeam'])
             ->leftJoin('players', 'players.id', '=', 'tournament_registrations.player_id')
             ->select('tournament_registrations.*');
 
@@ -84,9 +85,12 @@ class TournamentRegistrationController extends Controller
         // Counts scoped to the current type (players vs teams) so each page is self-contained.
         $countBase = fn () => $tournament->registrations()->where('type', $type);
 
+        $actualTeams = ActualTeam::forTournament($tournament->id)->orderBy('name')->get();
+
         return view('backend.pages.tournaments.registrations.index', [
             'tournament' => $tournament,
             'registrations' => $registrations,
+            'actualTeams' => $actualTeams,
             'type' => $type,
             'totalCount' => $countBase()->count(),
             'pendingCount' => $countBase()->pending()->count(),

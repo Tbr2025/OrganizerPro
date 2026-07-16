@@ -138,6 +138,7 @@ class PlayerController extends Controller
             'user.actualTeams', // <-- CRITICAL: Load the actual team relationship
             'user.roles',
             'team',
+            'actualTeam',
             'playerType',
             'location',
             'battingProfile',
@@ -1496,6 +1497,14 @@ class PlayerController extends Controller
                     ['actual_team_id' => $team->id, 'updated_at' => now(), 'created_at' => now()]
                 );
             }
+
+            // Sync to actual_team_users so retained players appear on public teams page
+            if ($player->user_id) {
+                \DB::table('actual_team_users')->updateOrInsert(
+                    ['actual_team_id' => $team->id, 'user_id' => $player->user_id],
+                    ['role' => 'Player', 'created_at' => now(), 'updated_at' => now()]
+                );
+            }
         }
 
         return redirect()->back()->with('success', $player->name . ' has been retained successfully.');
@@ -1520,6 +1529,14 @@ class PlayerController extends Controller
             \DB::table('player_actual_team_tournament')
                 ->where('player_id', $player->id)
                 ->where('tournament_id', $unretainTournamentId)
+                ->delete();
+        }
+
+        // Remove from actual_team_users so player no longer appears on public teams page
+        if ($team && $player->user_id) {
+            \DB::table('actual_team_users')
+                ->where('actual_team_id', $team->id)
+                ->where('user_id', $player->user_id)
                 ->delete();
         }
 
