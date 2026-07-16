@@ -409,7 +409,8 @@
                 {{-- Section: Player Mode & Team --}}
                 @if($player->status === 'approved')
                 @if($isTeamManagerView)
-                {{-- TM view: show only team name and retained value --}}
+                {{-- TM view: show only team name and retained value (hide if neither exists) --}}
+                @if($player->actualTeam || ($player->player_mode === 'retained' && $player->retained_value))
                 <div>
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Team & Retention</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -427,6 +428,7 @@
                         @endif
                     </div>
                 </div>
+                @endif
                 @else
                 {{-- Admin view: full Player Mode & Team section --}}
                 <div>
