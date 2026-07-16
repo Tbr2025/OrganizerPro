@@ -214,21 +214,22 @@
             {{-- Registrations Table --}}
             <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl">
                 @if($registrations->count() > 0)
-                    <div>
+                    <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
                                     <th class="px-6 py-3">Name / Team</th>
-                                    <th class="px-6 py-3">Contact</th>
-                                    <th class="px-6 py-3">Type</th>
+                                    <th class="px-6 py-3 hidden sm:table-cell">Contact</th>
+                                    <th class="px-6 py-3 hidden md:table-cell">Type</th>
                                     <th class="px-6 py-3">Status</th>
-                                    <th class="px-6 py-3">Date</th>
+                                    <th class="px-6 py-3 hidden lg:table-cell">Date</th>
                                     <th class="px-6 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($registrations as $registration)
-                                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                                        onclick="if(!event.target.closest('button, a, form, select')) window.location='{{ route('admin.tournaments.registrations.show', [$tournament, $registration]) }}'">
                                         {{-- Name / Team Column --}}
                                         <td class="px-6 py-4">
                                             @if($registration->type == 'team')
@@ -269,7 +270,7 @@
                                         </td>
 
                                         {{-- Contact Column --}}
-                                        <td class="px-6 py-4">
+                                        <td class="px-6 py-4 hidden sm:table-cell">
                                             @if($registration->type == 'team')
                                                 <div class="text-xs space-y-1">
                                                     <div class="flex items-center gap-1 text-gray-600 dark:text-gray-400">
@@ -311,7 +312,7 @@
                                         </td>
 
                                         {{-- Type Column --}}
-                                        <td class="px-6 py-4">
+                                        <td class="px-6 py-4 hidden md:table-cell">
                                             <div class="flex flex-wrap gap-1">
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $registration->type == 'player' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' }}">
                                                     {{ ucfirst($registration->type) }}
@@ -357,7 +358,7 @@
                                         </td>
 
                                         {{-- Date Column --}}
-                                        <td class="px-6 py-4">
+                                        <td class="px-6 py-4 hidden lg:table-cell">
                                             <div class="text-sm">{{ $registration->created_at->format('M d, Y') }}</div>
                                             <div class="text-xs text-gray-500">{{ $registration->created_at->format('h:i A') }}</div>
                                             @if($registration->updated_at && $registration->updated_at->ne($registration->created_at))
