@@ -63,7 +63,7 @@
             </div>
             <div>
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('Pant Sizes') }}</label>
-                <textarea name="pant_sizes" rows="3" class="form-control" placeholder="28, 30, 32, 34, 36, 38, 40, 42">{{ config('settings.pant_sizes') }}</textarea>
+                <textarea name="pant_sizes" rows="3" class="form-control" placeholder="30 (XS), 32 (S), 34 (M), 36 (L), 38 (XL), 40 (XXL), 42 (3XL), 44 (4XL)">{{ config('settings.pant_sizes') }}</textarea>
                 <p class="text-xs text-gray-500 mt-1">One per line or comma-separated. Shown as options on the registration form.</p>
             </div>
         </div>

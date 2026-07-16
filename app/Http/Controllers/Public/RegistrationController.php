@@ -229,6 +229,15 @@ class RegistrationController extends Controller
         }
         $validated['custom_field_values'] = $customValues;
 
+        // Resolve "Other" size selections to the custom value
+        if (($validated['tshirt_size'] ?? null) === 'Other' && !empty($validated['tshirt_size_custom'])) {
+            $validated['tshirt_size'] = $validated['tshirt_size_custom'];
+        }
+        if (($validated['pant_size'] ?? null) === 'Other' && !empty($validated['pant_size_custom'])) {
+            $validated['pant_size'] = $validated['pant_size_custom'];
+        }
+        unset($validated['tshirt_size_custom'], $validated['pant_size_custom']);
+
         $validated['is_wicket_keeper'] = $request->boolean('is_wicket_keeper');
         $validated['transportation_required'] = $request->boolean('transportation_required');
         $validated['no_travel_plan'] = $request->boolean('no_travel_plan');

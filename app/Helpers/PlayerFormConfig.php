@@ -270,7 +270,7 @@ class PlayerFormConfig
     /** Default pant/waist size options. */
     public static function defaultPantSizes(): array
     {
-        return ['28', '30', '32', '34', '36', '38', '40', '42'];
+        return ['30 (XS)', '32 (S)', '34 (M)', '36 (L)', '38 (XL)', '40 (XXL)', '42 (3XL)', '44 (4XL)'];
     }
 
     public static function fieldGroups(): array
@@ -426,10 +426,12 @@ class PlayerFormConfig
         // T-Shirt Size (admin-managed list, stored as a string)
         if ($fieldConfig['tshirt_size']['visible'] ?? true) {
             $rules['tshirt_size'] = ($fieldConfig['tshirt_size']['required'] ?? false) ? 'required|string|max:50' : 'nullable|string|max:50';
+            $rules['tshirt_size_custom'] = 'nullable|string|max:50';
         }
         // Pant Size (admin-managed list, stored as a string)
         if ($fieldConfig['pant_size']['visible'] ?? true) {
             $rules['pant_size'] = ($fieldConfig['pant_size']['required'] ?? false) ? 'required|string|max:50' : 'nullable|string|max:50';
+            $rules['pant_size_custom'] = 'nullable|string|max:50';
         }
 
         // Batting Profile

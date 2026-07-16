@@ -275,26 +275,44 @@
 
     @case('tshirt_size')
         @php $tshirtOptions = \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes()); @endphp
-        <label for="tshirt_size" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="tshirt_size" id="tshirt_size" class="reg-select" {{ $required ? 'required' : '' }}>
-            <option value="">Select size</option>
-            @foreach($tshirtOptions as $size)
-                <option value="{{ $size }}" {{ old('tshirt_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
-            @endforeach
-        </select>
-        @error('tshirt_size')<p class="reg-err">{{ $message }}</p>@enderror
+        <div x-data="{ tshirtOther: '{{ old('tshirt_size') === 'Other' ? 'true' : 'false' }}' === 'true' }">
+            <label for="tshirt_size" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+            <select name="tshirt_size" id="tshirt_size" class="reg-select" {{ $required ? 'required' : '' }}
+                    x-on:change="tshirtOther = ($event.target.value === 'Other')">
+                <option value="">Select size</option>
+                @foreach($tshirtOptions as $size)
+                    <option value="{{ $size }}" {{ old('tshirt_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
+                @endforeach
+                <option value="Other" {{ old('tshirt_size') === 'Other' ? 'selected' : '' }}>Other</option>
+            </select>
+            @error('tshirt_size')<p class="reg-err">{{ $message }}</p>@enderror
+            <div x-show="tshirtOther" x-cloak class="mt-2">
+                <input type="text" name="tshirt_size_custom" class="reg-input" placeholder="Enter your T-shirt size"
+                       value="{{ old('tshirt_size_custom') }}" x-bind:required="tshirtOther">
+                @error('tshirt_size_custom')<p class="reg-err">{{ $message }}</p>@enderror
+            </div>
+        </div>
         @break
 
     @case('pant_size')
         @php $pantOptions = \App\Helpers\PlayerFormConfig::sizeOptions('pant_sizes', \App\Helpers\PlayerFormConfig::defaultPantSizes()); @endphp
-        <label for="pant_size" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
-        <select name="pant_size" id="pant_size" class="reg-select" {{ $required ? 'required' : '' }}>
-            <option value="">Select size</option>
-            @foreach($pantOptions as $size)
-                <option value="{{ $size }}" {{ old('pant_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
-            @endforeach
-        </select>
-        @error('pant_size')<p class="reg-err">{{ $message }}</p>@enderror
+        <div x-data="{ pantOther: '{{ old('pant_size') === 'Other' ? 'true' : 'false' }}' === 'true' }">
+            <label for="pant_size" class="reg-label">{!! $label !!} {!! $reqMark !!}</label>
+            <select name="pant_size" id="pant_size" class="reg-select" {{ $required ? 'required' : '' }}
+                    x-on:change="pantOther = ($event.target.value === 'Other')">
+                <option value="">Select size</option>
+                @foreach($pantOptions as $size)
+                    <option value="{{ $size }}" {{ old('pant_size') === $size ? 'selected' : '' }}>{{ $size }}</option>
+                @endforeach
+                <option value="Other" {{ old('pant_size') === 'Other' ? 'selected' : '' }}>Other</option>
+            </select>
+            @error('pant_size')<p class="reg-err">{{ $message }}</p>@enderror
+            <div x-show="pantOther" x-cloak class="mt-2">
+                <input type="text" name="pant_size_custom" class="reg-input" placeholder="Enter your pant size"
+                       value="{{ old('pant_size_custom') }}" x-bind:required="pantOther">
+                @error('pant_size_custom')<p class="reg-err">{{ $message }}</p>@enderror
+            </div>
+        </div>
         @break
 
     @case('player_type')
