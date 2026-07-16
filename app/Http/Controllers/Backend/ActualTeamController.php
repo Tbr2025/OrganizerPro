@@ -107,6 +107,11 @@ class ActualTeamController extends Controller
                     ->distinct('user_id')
                     ->count('user_id');
 
+                // Count retained players
+                $retainedCount = \App\Models\Player::where('actual_team_id', $team->id)
+                    ->where('player_mode', 'retained')
+                    ->count();
+
                 // Total spent by the team
                 $totalSpent = DB::table('auction_bids')
                     ->where('auction_id', $auction->id)
@@ -116,14 +121,19 @@ class ActualTeamController extends Controller
                 $teamBudgets[$team->id] = [
                     'spent' => number_format($totalSpent / 1000000, 2),
                     'max_budget' => number_format($maxBudget / 1000000, 2),
-                    'user_count' => $auctionedUserCount,
+                    'user_count' => $auctionedUserCount + $retainedCount,
                     'squad_max' => $squadMax,
                 ];
             } else {
+                // Count retained players even when no auction exists
+                $retainedCount = \App\Models\Player::where('actual_team_id', $team->id)
+                    ->where('player_mode', 'retained')
+                    ->count();
+
                 $teamBudgets[$team->id] = [
                     'spent' => '0.00',
                     'max_budget' => '0.00',
-                    'user_count' => 0,
+                    'user_count' => $retainedCount,
                     'squad_max' => $squadMax,
                 ];
             }

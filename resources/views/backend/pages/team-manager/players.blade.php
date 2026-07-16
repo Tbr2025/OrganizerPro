@@ -140,14 +140,14 @@
                                 <td class="px-6 py-4">{{ $player->bowlingProfile->style ?? '-' }}</td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-2">
-                                        <button type="button" onclick="openViewPlayerModal({{ $player->id }})"
+                                        <a href="{{ route('team-manager.players.show', $player) }}"
                                             class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-gray-600 hover:bg-gray-700 rounded-md">
                                             <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                             </svg>
                                             View
-                                        </button>
+                                        </a>
                                         <button type="button" onclick="toggleWishlist({{ $player->id }}, this)"
                                             class="wishlist-btn p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                             data-wishlisted="{{ in_array($player->id, $wishlistedIds) ? '1' : '0' }}">

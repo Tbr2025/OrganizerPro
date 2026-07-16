@@ -1489,7 +1489,7 @@ class PlayerController extends Controller
         // Add to squad count via pivot table
         $team = ActualTeam::find($request->actual_team_id);
         if ($team) {
-            $tournamentId = $team->tournament_id;
+            $tournamentId = $team->tournament_id ?? $team->tournaments()->first()?->id;
             if ($tournamentId) {
                 \DB::table('player_actual_team_tournament')->updateOrInsert(
                     ['player_id' => $player->id, 'tournament_id' => $tournamentId],
@@ -1515,10 +1515,11 @@ class PlayerController extends Controller
         ]);
 
         // Remove from squad count pivot
-        if ($team && $team->tournament_id) {
+        $unretainTournamentId = $team ? ($team->tournament_id ?? $team->tournaments()->first()?->id) : null;
+        if ($team && $unretainTournamentId) {
             \DB::table('player_actual_team_tournament')
                 ->where('player_id', $player->id)
-                ->where('tournament_id', $team->tournament_id)
+                ->where('tournament_id', $unretainTournamentId)
                 ->delete();
         }
 

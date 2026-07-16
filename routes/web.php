@@ -275,6 +275,7 @@ Route::middleware(['auth'])
         Route::post('/players/{player}/resend-welcome', [TeamManagerController::class, 'resendWelcomeEmail'])->name('players.resend-welcome');
 
         // Player pool, squad, other teams, wishlist
+        Route::get('/players/{player}', [TeamManagerController::class, 'showPlayer'])->name('players.show');
         Route::get('/players', [TeamManagerController::class, 'players'])->name('players');
         Route::get('/squad', [TeamManagerController::class, 'squad'])->name('squad');
         Route::get('/other-teams', [TeamManagerController::class, 'otherTeams'])->name('other-teams');

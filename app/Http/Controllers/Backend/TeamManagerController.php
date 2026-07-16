@@ -849,6 +849,88 @@ class TeamManagerController extends Controller
     }
 
     /**
+     * Show full player profile (read-only, TM view)
+     */
+    public function showPlayer(Player $player)
+    {
+        $user = Auth::user();
+        $team = $user->actualTeams()->first();
+
+        if (!$team) {
+            return redirect()->route('team-manager.dashboard')
+                ->with('error', 'You are not assigned to any team.');
+        }
+
+        $tournamentId = $team->tournament_id;
+
+        // Verify player belongs to this tournament (has approved registration)
+        $belongsToTournament = $player->registrations()
+            ->where('tournament_id', $tournamentId)
+            ->where('status', 'approved')
+            ->exists();
+
+        if (!$belongsToTournament) {
+            return redirect()->route('team-manager.players')
+                ->with('error', 'Player not found in your tournament.');
+        }
+
+        $verifiedFields = [
+            'name' => (bool) $player->verified_name,
+            'email' => (bool) $player->verified_email,
+            'mobile_number_full' => (bool) $player->verified_mobile_number_full,
+            'cricheroes_number_full' => (bool) $player->verified_cricheroes_number_full,
+            'jersey_name' => (bool) $player->verified_jersey_name,
+            'kit_size_id' => (bool) $player->verified_kit_size_id,
+            'batting_profile_id' => (bool) $player->verified_batting_profile_id,
+            'bowling_profile_id' => (bool) $player->verified_bowling_profile_id,
+            'player_type_id' => (bool) $player->verified_player_type_id,
+            'team_id' => (bool) $player->verified_team_id,
+            'is_wicket_keeper' => (bool) $player->verified_is_wicket_keeper,
+            'transportation_required' => (bool) $player->verified_transportation_required,
+            'no_travel_plan' => (bool) $player->verified_no_travel_plan,
+            'image_path' => (bool) $player->verified_image_path,
+        ];
+
+        $tournamentAssignments = DB::table('player_actual_team_tournament')
+            ->join('tournaments', 'tournaments.id', '=', 'player_actual_team_tournament.tournament_id')
+            ->join('actual_teams', 'actual_teams.id', '=', 'player_actual_team_tournament.actual_team_id')
+            ->where('player_actual_team_tournament.player_id', $player->id)
+            ->select(
+                'player_actual_team_tournament.*',
+                'tournaments.name as tournament_name',
+                'actual_teams.name as team_name',
+                'actual_teams.team_logo'
+            )
+            ->get();
+
+        $tournamentStats = \App\Models\PlayerStatistic::where('player_id', $player->id)
+            ->with('tournament')
+            ->get()
+            ->keyBy('tournament_id');
+
+        return view('backend.pages.players.show', [
+            'player' => $player,
+            'teams' => collect(),
+            'locations' => PlayerLocation::all(),
+            'kitSizes' => KitSize::all(),
+            'battingProfiles' => BattingProfile::all(),
+            'bowlingProfiles' => BowlingProfile::all(),
+            'playerTypes' => PlayerType::all(),
+            'templates' => collect(),
+            'breadcrumbs' => [
+                'title' => __('View Player'),
+                'items' => [
+                    ['label' => __('Players'), 'url' => route('team-manager.players')],
+                ],
+            ],
+            'verifiedFields' => $verifiedFields,
+            'verifiedProfile' => $player->allFieldsVerified(),
+            'tournamentAssignments' => $tournamentAssignments,
+            'tournamentStats' => $tournamentStats,
+        ]);
+    }
+
+    /**
      * Team's own players (My Squad)
      */
     public function squad()
