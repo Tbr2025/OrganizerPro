@@ -17,7 +17,7 @@
     </div>
     @endunless
 
-    {{-- Photo Guidelines (admin-editable text + sample image; falls back to defaults) --}}
+    {{-- Photo guideline lines (used in post-upload warning) --}}
     @php
         $tcSettings = $settings ?? null;
         $guidelineText = trim((string) ($tcSettings->photo_guidelines ?? ''));
@@ -30,28 +30,7 @@
                 'Minimum 400×533px, portrait (3:4)',
                 'PNG or JPG, max 6MB',
             ];
-        $sampleUrl = $tcSettings?->photo_sample_url;
     @endphp
-    <div class="mb-3 flex items-start gap-3 p-3 rounded-lg" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);">
-        <div class="flex-shrink-0 w-16 h-20 rounded overflow-hidden flex items-center justify-center" style="background:rgba(255,255,255,0.12);">
-            @if($sampleUrl)
-                <img src="{{ $sampleUrl }}" alt="Sample photo" class="w-full h-full object-cover">
-            @else
-                <svg class="w-8 h-10 text-white/80" fill="currentColor" viewBox="0 0 24 32">
-                    <ellipse cx="12" cy="8" rx="5" ry="6"/>
-                    <path d="M2 28c0-6 4-10 10-10s10 4 10 10"/>
-                </svg>
-            @endif
-        </div>
-        <div class="text-xs text-white/90">
-            <p class="font-semibold text-white mb-1">Photo Guidelines</p>
-            <ul class="space-y-0.5 list-disc list-inside text-white/80">
-                @foreach($guidelineLines as $line)
-                    @if(trim($line) !== '')<li>{{ trim($line) }}</li>@endif
-                @endforeach
-            </ul>
-        </div>
-    </div>
 
     {{-- Hidden input for processed path --}}
     <input type="hidden" name="processed_image_path" x-model="processedPath"
@@ -76,7 +55,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
             <p class="text-sm">Click or drag & drop to upload your photo</p>
-            <p class="text-xs mt-1">PNG or JPG (max 6MB)</p>
+            <p class="text-xs mt-1">Front-facing photo, 3:4 portrait, PNG/JPG (max 6MB)</p>
         </div>
     </div>
 
@@ -104,6 +83,24 @@
                 class="text-sm text-yellow-500 hover:text-yellow-400 hover:underline">
             Change Photo
         </button>
+
+        {{-- Post-upload photo guidelines warning --}}
+        <div class="mt-3 rounded-lg p-3 text-left" style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);">
+            <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 flex-shrink-0 mt-0.5" style="color:#f59e0b;" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.168-.168 2.63-1.516 2.63H3.72c-1.347 0-2.189-1.462-1.515-2.63L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                </svg>
+                <div class="text-xs">
+                    <p class="font-semibold mb-1" style="color:#f59e0b;">Photo Requirements</p>
+                    <ul class="space-y-0.5 list-disc list-inside text-white/80">
+                        @foreach($guidelineLines as $line)
+                            @if(trim($line) !== '')<li>{{ trim($line) }}</li>@endif
+                        @endforeach
+                    </ul>
+                    <p class="mt-2 text-white/60 italic">Images not meeting these guidelines may result in your registration being rejected.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- Error --}}
