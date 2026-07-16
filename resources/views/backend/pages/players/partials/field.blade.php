@@ -146,17 +146,47 @@
             @break
 
         @case('tshirt_size')
-            <select name="tshirt_size" class="{{ $selectCls }}">
-                <option value="">-- Select --</option>
-                @foreach($tshirtOptions as $s)<option value="{{ $s }}" {{ old('tshirt_size', $val) === $s ? 'selected' : '' }}>{{ $s }}</option>@endforeach
-            </select>
+            @php
+                $tshirtVal = old('tshirt_size', $val);
+                $tshirtIsStandard = in_array($tshirtVal, $tshirtOptions, true);
+                $tshirtIsOther = !$tshirtIsStandard && $tshirtVal !== null && $tshirtVal !== '';
+            @endphp
+            <div x-data="{ isOther: {{ $tshirtIsOther ? 'true' : 'false' }} }">
+                <select name="tshirt_size" class="{{ $selectCls }}" x-on:change="isOther = ($event.target.value === 'Other')">
+                    <option value="">-- Select --</option>
+                    @foreach($tshirtOptions as $s)<option value="{{ $s }}" {{ $tshirtVal === $s ? 'selected' : '' }}>{{ $s }}</option>@endforeach
+                    <option value="Other" {{ $tshirtIsOther ? 'selected' : '' }}>Other</option>
+                </select>
+                <div x-show="isOther" x-cloak class="mt-2">
+                    <input type="text" name="tshirt_size_custom" class="{{ $inputCls }}" placeholder="Enter custom T-shirt size"
+                           value="{{ $tshirtIsOther ? $tshirtVal : '' }}">
+                </div>
+            </div>
             @break
 
         @case('pant_size')
-            <select name="pant_size" class="{{ $selectCls }}">
-                <option value="">-- Select --</option>
-                @foreach($pantOptions as $s)<option value="{{ $s }}" {{ old('pant_size', $val) === $s ? 'selected' : '' }}>{{ $s }}</option>@endforeach
-            </select>
+            @php
+                $pantVal = old('pant_size', $val);
+                $pantIsStandard = in_array($pantVal, $pantOptions, true);
+                $pantMatchedOpt = $pantVal;
+                if (!$pantIsStandard && $pantVal !== null && $pantVal !== '') {
+                    foreach ($pantOptions as $opt) {
+                        if (str_starts_with($opt, $pantVal . ' ')) { $pantMatchedOpt = $opt; $pantIsStandard = true; break; }
+                    }
+                }
+                $pantIsOther = !$pantIsStandard && $pantVal !== null && $pantVal !== '';
+            @endphp
+            <div x-data="{ isOther: {{ $pantIsOther ? 'true' : 'false' }} }">
+                <select name="pant_size" class="{{ $selectCls }}" x-on:change="isOther = ($event.target.value === 'Other')">
+                    <option value="">-- Select --</option>
+                    @foreach($pantOptions as $s)<option value="{{ $s }}" {{ $pantMatchedOpt === $s ? 'selected' : '' }}>{{ $s }}</option>@endforeach
+                    <option value="Other" {{ $pantIsOther ? 'selected' : '' }}>Other</option>
+                </select>
+                <div x-show="isOther" x-cloak class="mt-2">
+                    <input type="text" name="pant_size_custom" class="{{ $inputCls }}" placeholder="Enter custom pant size"
+                           value="{{ $pantIsOther ? $pantVal : '' }}">
+                </div>
+            </div>
             @break
 
         @case('batting_profile')

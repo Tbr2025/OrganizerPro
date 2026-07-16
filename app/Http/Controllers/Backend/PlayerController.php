@@ -1027,6 +1027,10 @@ class PlayerController extends Controller
             'cricheroes_number_full' => $req('cricheroes_number') ? 'required|string|max:20' : 'nullable|string|max:20',
             'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',
             'jersey_number' => 'nullable',
+            'tshirt_size' => 'nullable|string|max:50',
+            'tshirt_size_custom' => 'nullable|string|max:50',
+            'pant_size' => 'nullable|string|max:50',
+            'pant_size_custom' => 'nullable|string|max:50',
 
             'team_id' => $req('registration_team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
             'actual_team_id' => $req('playing_team') ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id',
@@ -1077,6 +1081,15 @@ class PlayerController extends Controller
         }
 
 
+        // Resolve "Other" size selections to the custom value
+        if (($validated['tshirt_size'] ?? null) === 'Other' && !empty($validated['tshirt_size_custom'])) {
+            $validated['tshirt_size'] = $validated['tshirt_size_custom'];
+        }
+        if (($validated['pant_size'] ?? null) === 'Other' && !empty($validated['pant_size_custom'])) {
+            $validated['pant_size'] = $validated['pant_size_custom'];
+        }
+        unset($validated['tshirt_size_custom'], $validated['pant_size_custom']);
+
         // ✅ Assign validated fields
         $player->fill([
             'name' => $validated['name'],
@@ -1108,6 +1121,8 @@ class PlayerController extends Controller
             'actual_team_id' => $validated['actual_team_id'] ?? null,
             'jersey_name' => $validated['jersey_name'] ?? null,
             'jersey_number' => $validated['jersey_number'] ?? null,
+            'tshirt_size' => $validated['tshirt_size'] ?? null,
+            'pant_size' => $validated['pant_size'] ?? null,
             'kit_size_id' => $validated['kit_size_id'] ?? null,
             'batting_profile_id' => $validated['batting_profile_id'] ?? null,
             'bowling_profile_id' => $validated['bowling_profile_id'] ?? null,
