@@ -679,10 +679,26 @@
             showRetainModal: false,
             retainPlayerId: null,
             retainPlayerName: '',
+            selectedTournament: '',
+            allTeams: @js($actualTeams->map(fn($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'tournament_ids' => collect([$t->tournament_id])->merge($t->tournaments->pluck('id'))->filter()->unique()->values(),
+            ])),
+            allTournaments: @js(
+                $actualTeams->flatMap(fn($t) => $t->tournaments->map(fn($tr) => ['id' => $tr->id, 'name' => $tr->name]))
+                    ->unique('id')->sortBy('name')->values()
+            ),
+            get filteredTeams() {
+                if (!this.selectedTournament) return this.allTeams;
+                const tid = parseInt(this.selectedTournament);
+                return this.allTeams.filter(t => t.tournament_ids.includes(tid));
+            }
         }"
         @open-retain-modal.window="
             retainPlayerId = $event.detail.playerId;
             retainPlayerName = $event.detail.playerName;
+            selectedTournament = '';
             showRetainModal = true;
         "
     >
@@ -708,12 +724,21 @@
 
                     <div class="px-6 py-5 space-y-4">
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tournament</label>
+                            <select x-model="selectedTournament" class="form-control">
+                                <option value="">-- All Tournaments --</option>
+                                <template x-for="t in allTournaments" :key="t.id">
+                                    <option :value="t.id" x-text="t.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Team <span class="text-red-500">*</span></label>
                             <select name="actual_team_id" required class="form-control">
                                 <option value="">-- Select Team --</option>
-                                @foreach ($actualTeams as $team)
-                                    <option value="{{ $team->id }}">{{ $team->name }}</option>
-                                @endforeach
+                                <template x-for="t in filteredTeams" :key="t.id">
+                                    <option :value="t.id" x-text="t.name"></option>
+                                </template>
                             </select>
                         </div>
                         <div>
