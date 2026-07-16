@@ -291,7 +291,7 @@ class RegistrationService
      */
     public function approvePlayerRegistration(TournamentRegistration $registration, int $approvedBy): bool
     {
-        if (!$registration->isPlayerRegistration() || !$registration->isPending()) {
+        if (!$registration->isPlayerRegistration() || (!$registration->isPending() && !$registration->isQueued())) {
             return false;
         }
 
@@ -330,7 +330,7 @@ class RegistrationService
      */
     public function approveTeamRegistration(TournamentRegistration $registration, int $approvedBy, ?int $captainUserId = null): ?ActualTeam
     {
-        if (!$registration->isTeamRegistration() || !$registration->isPending()) {
+        if (!$registration->isTeamRegistration() || (!$registration->isPending() && !$registration->isQueued())) {
             return null;
         }
 
