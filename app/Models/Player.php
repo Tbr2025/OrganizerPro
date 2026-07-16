@@ -388,6 +388,11 @@ class Player extends Model implements MustVerifyEmail
                     return $this->actualTeam->name;
                 }
 
+                // Fallback: check if assigned via actual_team_users pivot (e.g. auction)
+                if ($teamViaUser = $this->user?->actualTeams->first()?->name) {
+                    return $teamViaUser;
+                }
+
                 // Check if the registration team is 'Others' and show team_name_ref.
                 if ($this->team?->name === 'Others') {
                     return $this->team_name_ref;

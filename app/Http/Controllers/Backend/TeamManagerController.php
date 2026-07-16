@@ -834,10 +834,11 @@ class TeamManagerController extends Controller
             ->pluck('player_id')
             ->toArray();
 
-        // Filter options
-        $playerTypes = PlayerType::orderBy('type')->get();
-        $battingProfiles = BattingProfile::orderBy('style')->get();
-        $bowlingProfiles = BowlingProfile::orderBy('style')->get();
+        // Filter options — only show values present among approved players
+        $baseIds = Player::whereHas('registrations', fn($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'));
+        $playerTypes = PlayerType::whereIn('id', (clone $baseIds)->whereNotNull('player_type_id')->pluck('player_type_id')->unique())->orderBy('type')->get();
+        $battingProfiles = BattingProfile::whereIn('id', (clone $baseIds)->whereNotNull('batting_profile_id')->pluck('batting_profile_id')->unique())->orderBy('style')->get();
+        $bowlingProfiles = BowlingProfile::whereIn('id', (clone $baseIds)->whereNotNull('bowling_profile_id')->pluck('bowling_profile_id')->unique())->orderBy('style')->get();
         $teams = ActualTeam::where('tournament_id', $tournamentId)->orderBy('name')->get();
 
         $breadcrumbs = ['title' => __('Players')];

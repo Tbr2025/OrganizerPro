@@ -82,6 +82,7 @@
         @php
             $totalBudget = collect($auctionBudgets)->sum('max');
             $totalSpent = collect($auctionBudgets)->sum('spent');
+            $toM = fn($v) => $v ? rtrim(rtrim(number_format($v / 1000000, 2), '0'), '.') . 'M' : '0';
         @endphp
         <div class="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-700">
             <div class="flex items-center gap-3">
@@ -89,7 +90,7 @@
                     <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
                 <div>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($totalBudget - $totalSpent) }}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $toM($totalBudget - $totalSpent) }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Budget Left</p>
                 </div>
             </div>
@@ -100,7 +101,7 @@
                     <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
                 <div>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($totalSpent) }}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $toM($totalSpent) }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Spent</p>
                 </div>
             </div>
@@ -161,13 +162,13 @@
                                     <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span></span>
                                 @endif
                             </div>
-                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ number_format($budget['spent']) }} / {{ number_format($budget['max']) }}</span>
+                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $toM($budget['spent']) }} / {{ $toM($budget['max']) }}</span>
                         </div>
                         <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                             <div class="h-2 rounded-full transition-all {{ $percentage > 80 ? 'bg-red-500' : ($percentage > 50 ? 'bg-amber-500' : 'bg-indigo-500') }}" style="width: {{ min($percentage, 100) }}%"></div>
                         </div>
                         <div class="flex items-center justify-between mt-2">
-                            <span class="text-xs text-gray-400">{{ number_format($budget['remaining']) }} remaining</span>
+                            <span class="text-xs text-gray-400">{{ $toM($budget['remaining']) }} remaining</span>
                             @if($auction->status === 'running')
                                 <a href="{{ route('team.auction.bidding.show', $auction) }}" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Join Bidding &rarr;</a>
                             @endif

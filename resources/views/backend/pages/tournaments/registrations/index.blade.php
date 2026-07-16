@@ -206,9 +206,9 @@
             </form>
 
             {{-- Registrations Table --}}
-            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl">
+            <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-visible">
                 @if($registrations->count() > 0)
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto overflow-y-visible">
                         <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                 <tr>
