@@ -121,11 +121,11 @@
          class="fixed inset-0 flex items-center justify-center"
          style="z-index: 99998; background: rgba(0,0,0,0.85);"
          @keydown.escape.window="closeGuidelinesModal()">
-        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-gray-700" @click.outside="closeGuidelinesModal()">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md md:max-w-xl mx-4 overflow-hidden border border-gray-700" @click.outside="closeGuidelinesModal()">
             {{-- Header --}}
-            <div class="flex items-center justify-between p-4 border-b border-gray-700">
-                <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                    <svg class="w-5 h-5" style="color:#f59e0b;" fill="currentColor" viewBox="0 0 20 20">
+            <div class="flex items-center justify-between p-4 md:p-5 border-b border-gray-700">
+                <h3 class="text-lg md:text-xl font-semibold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 md:w-6 md:h-6" style="color:#f59e0b;" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/>
                     </svg>
                     Photo Guidelines
@@ -138,10 +138,10 @@
             </div>
 
             {{-- Body --}}
-            <div class="p-5">
+            <div class="p-5 md:p-6 overflow-y-auto" style="max-height: 65vh;">
                 {{-- Sample Image --}}
-                <div class="flex justify-center mb-4">
-                    <div class="w-24 h-32 rounded-lg overflow-hidden flex items-center justify-center" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);">
+                <div class="flex justify-center mb-4 md:mb-5">
+                    <div class="w-24 h-32 md:w-32 md:h-44 rounded-lg overflow-hidden flex items-center justify-center" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);">
                         @if($sampleUrl)
                             <img src="{{ $sampleUrl }}" alt="Sample photo" class="w-full h-full object-cover">
                         @else
@@ -153,12 +153,12 @@
                     </div>
                 </div>
 
-                <p class="text-sm text-white/90 mb-3">Please make sure your photo meets these requirements:</p>
-                <ul class="space-y-2 text-sm text-white/80">
+                <p class="text-sm md:text-base text-white/90 mb-3">Please make sure your photo meets these requirements:</p>
+                <ul class="space-y-2 md:space-y-2.5 text-sm md:text-base text-white/80">
                     @foreach($guidelineLines as $line)
                         @if(trim($line) !== '')
-                        <li class="flex items-start gap-2">
-                            <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <li class="flex items-start gap-2.5">
+                            <svg class="w-4 h-4 md:w-5 md:h-5 flex-shrink-0 mt-0.5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
                             </svg>
                             <span>{{ trim($line) }}</span>
@@ -166,8 +166,8 @@
                         @endif
                     @endforeach
                 </ul>
-                <div class="mt-4 rounded-lg p-3" style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);">
-                    <p class="text-xs text-white/70 italic">
+                <div class="mt-4 md:mt-5 rounded-lg p-3 md:p-4" style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);">
+                    <p class="text-xs md:text-sm text-white/70 italic">
                         <span class="font-semibold" style="color:#f59e0b;">Note:</span>
                         Images not meeting these guidelines may result in your registration being rejected.
                     </p>
@@ -175,13 +175,13 @@
             </div>
 
             {{-- Footer --}}
-            <div class="flex justify-end gap-3 p-4 border-t border-gray-700">
+            <div class="flex justify-end gap-3 p-4 md:p-5 border-t border-gray-700">
                 <button type="button" @click="closeGuidelinesModal()"
-                        class="px-4 py-2 text-sm text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600">
+                        class="px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base text-gray-300 bg-gray-700 rounded-lg hover:bg-gray-600">
                     Cancel
                 </button>
                 <button type="button" @click="proceedToUpload()"
-                        class="px-4 py-2 text-sm text-gray-900 bg-yellow-500 rounded-lg hover:bg-yellow-400 font-medium">
+                        class="px-4 py-2 md:px-5 md:py-2.5 text-sm md:text-base text-gray-900 bg-yellow-500 rounded-lg hover:bg-yellow-400 font-medium">
                     I Understand, Upload Photo
                 </button>
             </div>
