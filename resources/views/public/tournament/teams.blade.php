@@ -252,50 +252,68 @@
                                             <div class="overflow-y-auto px-4 py-3 space-y-1" style="max-height: calc(80vh - 70px);">
                                                 @forelse($squadPlayers as $teamPlayer)
                                                     <div class="player-row py-3 px-3 rounded-lg">
-                                                        <div class="flex items-center justify-between">
-                                                            <div class="flex items-center gap-3 min-w-0">
-                                                                @if($teamPlayer->image_path)
-                                                                    <img src="{{ Storage::url($teamPlayer->image_path) }}"
-                                                                         alt="{{ $teamPlayer->name }}"
-                                                                         class="h-10 w-10 rounded-full object-cover border-2 border-gray-700 flex-shrink-0">
-                                                                @else
-                                                                    <div class="player-avatar h-10 w-10 rounded-full flex items-center justify-center border-2 border-gray-700 flex-shrink-0">
-                                                                        <i class="fas fa-user text-gray-500"></i>
-                                                                    </div>
-                                                                @endif
-                                                                <div class="min-w-0">
+                                                        {{-- Top row: Image + Name + Role --}}
+                                                        <div class="flex items-center gap-3 min-w-0">
+                                                            @if($teamPlayer->image_path)
+                                                                <img src="{{ Storage::url($teamPlayer->image_path) }}"
+                                                                     alt="{{ $teamPlayer->name }}"
+                                                                     class="h-10 w-10 rounded-full object-cover border-2 border-gray-700 flex-shrink-0">
+                                                            @else
+                                                                <div class="player-avatar h-10 w-10 rounded-full flex items-center justify-center border-2 border-gray-700 flex-shrink-0">
+                                                                    <i class="fas fa-user text-gray-500"></i>
+                                                                </div>
+                                                            @endif
+                                                            <div class="min-w-0">
+                                                                <div class="flex items-center gap-2">
                                                                     <p class="font-medium text-white truncate">{{ $teamPlayer->name }}</p>
-                                                                    <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                                                        @if($teamPlayer->pivot->role === 'captain')
-                                                                            <span class="captain-badge text-xs font-bold px-2 py-0.5 rounded">
-                                                                                <i class="fas fa-crown mr-1"></i>C
-                                                                            </span>
-                                                                        @elseif($teamPlayer->pivot->role === 'vice_captain')
-                                                                            <span class="vice-captain-badge text-xs font-bold px-2 py-0.5 rounded">
-                                                                                VC
-                                                                            </span>
-                                                                        @endif
-                                                                        @if($teamPlayer->playerType)
-                                                                            <span class="text-xs text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded">{{ $teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '' }}</span>
-                                                                        @endif
-                                                                        @if($teamPlayer->battingProfile)
-                                                                            <span class="text-xs text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded">{{ $teamPlayer->battingProfile->name }}</span>
-                                                                        @endif
-                                                                        @if($teamPlayer->bowlingProfile)
-                                                                            <span class="text-xs text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded">{{ $teamPlayer->bowlingProfile->name }}</span>
-                                                                        @endif
-                                                                        @if($teamPlayer->is_wicket_keeper)
-                                                                            <span class="text-xs text-purple-400 bg-purple-500/15 px-1.5 py-0.5 rounded"><i class="fas fa-mitten mr-0.5"></i>WK</span>
-                                                                        @endif
-                                                                    </div>
+                                                                    @if($teamPlayer->pivot->role === 'captain')
+                                                                        <span class="captain-badge text-xs font-bold px-2 py-0.5 rounded flex-shrink-0">
+                                                                            <i class="fas fa-crown mr-1"></i>C
+                                                                        </span>
+                                                                    @elseif($teamPlayer->pivot->role === 'vice_captain')
+                                                                        <span class="vice-captain-badge text-xs font-bold px-2 py-0.5 rounded flex-shrink-0">
+                                                                            VC
+                                                                        </span>
+                                                                    @endif
                                                                 </div>
                                                             </div>
-                                                            @if($teamPlayer->jersey_number)
-                                                                <span class="jersey-number text-gray-400 text-sm font-mono flex-shrink-0 ml-2">
-                                                                    #{{ $teamPlayer->jersey_number }}
-                                                                </span>
-                                                            @endif
                                                         </div>
+
+                                                        {{-- Player Profile Card --}}
+                                                        @php
+                                                            $hasProfile = $teamPlayer->playerType || $teamPlayer->battingProfile || $teamPlayer->batting_mode || $teamPlayer->bowlingProfile || $teamPlayer->is_wicket_keeper;
+                                                        @endphp
+                                                        @if($hasProfile)
+                                                            <div class="mt-2 ml-13 bg-gray-800/60 rounded-lg px-3 py-2" style="margin-left: 3.25rem;">
+                                                                <div class="flex flex-wrap items-center gap-1.5">
+                                                                    @if($teamPlayer->playerType)
+                                                                        <span class="text-xs text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded">
+                                                                            <i class="fas fa-user-tag mr-1 opacity-70"></i>{{ $teamPlayer->playerType->name ?? $teamPlayer->playerType->type ?? '' }}
+                                                                        </span>
+                                                                    @endif
+                                                                    @if($teamPlayer->battingProfile)
+                                                                        <span class="text-xs text-amber-400 bg-amber-500/15 px-2 py-0.5 rounded">
+                                                                            <i class="fas fa-baseball-ball mr-1 opacity-70"></i>{{ $teamPlayer->battingProfile->name }}
+                                                                        </span>
+                                                                    @endif
+                                                                    @if($teamPlayer->batting_mode)
+                                                                        <span class="text-xs text-orange-400 bg-orange-500/15 px-2 py-0.5 rounded">
+                                                                            <i class="fas fa-bolt mr-1 opacity-70"></i>{{ $teamPlayer->batting_mode }}
+                                                                        </span>
+                                                                    @endif
+                                                                    @if($teamPlayer->bowlingProfile)
+                                                                        <span class="text-xs text-green-400 bg-green-500/15 px-2 py-0.5 rounded">
+                                                                            <i class="fas fa-bowling-ball mr-1 opacity-70"></i>{{ $teamPlayer->bowlingProfile->name }}
+                                                                        </span>
+                                                                    @endif
+                                                                    @if($teamPlayer->is_wicket_keeper)
+                                                                        <span class="text-xs text-purple-400 bg-purple-500/15 px-2 py-0.5 rounded">
+                                                                            <i class="fas fa-mitten mr-1 opacity-70"></i>WK
+                                                                        </span>
+                                                                    @endif
+                                                                </div>
+                                                            </div>
+                                                        @endif
                                                     </div>
                                                 @empty
                                                     <div class="text-center py-8">
