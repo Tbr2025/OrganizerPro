@@ -311,7 +311,7 @@
                                                             </span>
                                                         @elseif($registration->player?->playing_team_name_ref)
                                                             <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                                                                {{ $registration->player->playing_team_name_ref }} (Others)
+                                                                {{ $registration->player->playing_team_name_ref }}
                                                             </span>
                                                         @endif
                                                     </div>
@@ -398,8 +398,13 @@
                                                     @endif
                                                 @elseif($registration->player?->playing_team_name_ref)
                                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                                                        {{ $registration->player->playing_team_name_ref }} (Others)
+                                                        {{ $registration->player->playing_team_name_ref }}
                                                     </span>
+                                                    <div class="mt-1">
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                                            Others
+                                                        </span>
+                                                    </div>
                                                 @else
                                                     <span class="text-xs text-gray-400">—</span>
                                                 @endif
