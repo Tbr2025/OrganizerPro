@@ -580,6 +580,14 @@
                                                                     </div>
                                                                 </div>
                                                                 <div class="flex items-center gap-2">
+                                                                    {{-- Status tag with toggle --}}
+                                                                    <button type="button"
+                                                                        onclick="toggleApprove({{ $p->id }}, this)"
+                                                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors {{ $p->status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' }}"
+                                                                        data-status="{{ $p->status }}"
+                                                                        title="Click to {{ $p->status === 'approved' ? 'unapprove' : 'approve' }}">
+                                                                        {{ ucfirst($p->status) }}
+                                                                    </button>
                                                                     @if($assignment->role)
                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
                                                                             {{ ucfirst(str_replace('_', ' ', $assignment->role)) }}
@@ -1047,6 +1055,47 @@
 
     @push('scripts')
         <script>
+            // Quick approve/unapprove toggle
+            function toggleApprove(playerId, btn) {
+                const currentStatus = btn.dataset.status;
+                const action = currentStatus === 'approved' ? 'unapprove' : 'approve';
+                if (!confirm(`Are you sure you want to ${action} this player?`)) return;
+
+                btn.disabled = true;
+                btn.textContent = '...';
+
+                fetch(`/admin/actual-teams/{{ $actualTeam->id }}/players/${playerId}/toggle-approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                    },
+                })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (data.success) {
+                        btn.dataset.status = data.status;
+                        btn.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                        btn.title = 'Click to ' + (data.status === 'approved' ? 'unapprove' : 'approve');
+                        if (data.status === 'approved') {
+                            btn.className = btn.className.replace(/bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200/g, 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200');
+                        } else {
+                            btn.className = btn.className.replace(/bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200/g, 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200');
+                        }
+                    } else {
+                        alert(data.message || 'Failed to update status');
+                        btn.textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
+                    alert('Network error. Please try again.');
+                });
+            }
+
             // Color picker sync
             document.addEventListener('DOMContentLoaded', function() {
                 const primaryColor = document.getElementById('primary_color');
@@ -1284,6 +1333,9 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
+                                <button type="button" onclick="toggleApprove(${player.id}, this)"
+                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                    data-status="approved" title="Click to unapprove">Approved</button>
                                 ${roleBadge}
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Player</span>
                                 <button type="button" class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 remove-player-btn" title="Remove player"

@@ -434,6 +434,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('actual-teams/{actualTeam}/players', [ActualTeamController::class, 'addPlayer'])->name('actual-teams.add-player');
     Route::put('actual-teams/{actualTeam}/players/{player}', [ActualTeamController::class, 'updatePlayer'])->name('actual-teams.update-player');
     Route::delete('actual-teams/{actualTeam}/players/{player}', [ActualTeamController::class, 'removePlayer'])->name('actual-teams.remove-player');
+    Route::post('actual-teams/{actualTeam}/players/{player}/toggle-approve', [ActualTeamController::class, 'toggleApprove'])->name('actual-teams.toggle-approve');
 
     // Auctions
     // Route::prefix('auctions')->as('auctions.')->group(function () {

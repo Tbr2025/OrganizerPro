@@ -35,6 +35,15 @@
                 default => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
             };
         @endphp
+        @if($member->player)
+            <button type="button"
+                onclick="toggleApprove({{ $member->player->id }}, this)"
+                class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded cursor-pointer transition-colors {{ $member->player->status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' }}"
+                data-status="{{ $member->player->status }}"
+                title="Click to {{ $member->player->status === 'approved' ? 'unapprove' : 'approve' }}">
+                {{ ucfirst($member->player->status) }}
+            </button>
+        @endif
         <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded {{ $roleColors }}">
             {{ $roleLabel }}
         </span>

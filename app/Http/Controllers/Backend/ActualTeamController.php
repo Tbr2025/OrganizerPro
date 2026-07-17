@@ -1566,4 +1566,24 @@ class ActualTeamController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Toggle player approved/pending status via AJAX.
+     */
+    public function toggleApprove(ActualTeam $actualTeam, Player $player)
+    {
+        if ($player->status === 'approved') {
+            $player->status = 'pending';
+        } else {
+            $player->status = 'approved';
+            $player->approved_by = auth()->id();
+        }
+        $player->save();
+
+        return response()->json([
+            'success' => true,
+            'status' => $player->status,
+            'message' => 'Player ' . ($player->status === 'approved' ? 'approved' : 'unapproved') . ' successfully.',
+        ]);
+    }
 }
