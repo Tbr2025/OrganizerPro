@@ -50,7 +50,7 @@ class TournamentRegistrationController extends Controller
         // leftJoin players so we can search AND sort by the player's name uniformly
         // across mixed player/team rows.
         $query = $tournament->registrations()
-            ->with(['player.user', 'player.actualTeam.tournament', 'processedBy', 'actualTeam'])
+            ->with(['player.user', 'player.actualTeam.tournament', 'player.team', 'processedBy', 'actualTeam'])
             ->leftJoin('players', 'players.id', '=', 'tournament_registrations.player_id')
             ->select('tournament_registrations.*');
 
