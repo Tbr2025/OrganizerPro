@@ -1418,6 +1418,14 @@ class ActualTeamController extends Controller
                 $player->save();
             }
 
+            // Sync TournamentRegistration status to approved
+            if ($player && $actualTeam->tournament_id) {
+                TournamentRegistration::where('tournament_id', $actualTeam->tournament_id)
+                    ->where('player_id', $player->id)
+                    ->where('type', 'player')
+                    ->update(['status' => 'approved']);
+            }
+
             // Handle retained status if role is 'retained'
             $hasRetainedRole = collect($request->input('tournament_assignments', []))
                 ->contains(fn($a) => ($a['role'] ?? '') === 'retained');
@@ -1645,6 +1653,14 @@ class ActualTeamController extends Controller
             $player->approved_by = auth()->id();
         }
         $player->save();
+
+        // Sync the corresponding TournamentRegistration status
+        if ($actualTeam->tournament_id) {
+            TournamentRegistration::where('tournament_id', $actualTeam->tournament_id)
+                ->where('player_id', $player->id)
+                ->where('type', 'player')
+                ->update(['status' => $newStatus]);
+        }
 
         return response()->json([
             'success' => true,
