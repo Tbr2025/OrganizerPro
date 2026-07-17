@@ -6,6 +6,17 @@
 
 @push('styles')
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<style>
+    input.is-invalid,
+    select.is-invalid,
+    textarea.is-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,0.2) !important; }
+    input.is-valid,
+    select.is-valid,
+    textarea.is-valid { border-color: #34d399 !important; }
+    .live-err { color: #f87171; font-size: .8rem; margin-top: .35rem; display: none; }
+    .live-err.show { display: block; }
+    .radio-group-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,0.2) !important; }
+</style>
 @endpush
 
 @section('admin-content')
@@ -296,5 +307,135 @@
         updateMobileFullNumber();
         updateCricheroesFullNumber();
     });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form[method="POST"]');
+    if (!form) return;
+
+    /* ── Helpers ─────────────────────────────────────────── */
+
+    function getOrCreateErr(container) {
+        let err = container.querySelector('.live-err');
+        if (!err) {
+            err = document.createElement('p');
+            err.className = 'live-err';
+            container.appendChild(err);
+        }
+        return err;
+    }
+
+    function showErr(field, container, msg) {
+        const err = getOrCreateErr(container);
+        field.classList.add('is-invalid');
+        field.classList.remove('is-valid');
+        err.textContent = msg;
+        err.classList.add('show');
+    }
+
+    function clearErr(field, container) {
+        const err = container.querySelector('.live-err');
+        field.classList.remove('is-invalid');
+        if (field.value && field.value.trim()) field.classList.add('is-valid');
+        if (err) err.classList.remove('show');
+    }
+
+    /* ── Single-field validation ─────────────────────────── */
+
+    function validateField(field) {
+        if (field.offsetParent === null || field.disabled) return false;
+
+        const container = field.parentElement;
+        let msg = '';
+
+        if (field.required && !field.value.trim()) {
+            msg = 'This field is required.';
+        } else if (field.type === 'email' && field.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(field.value)) {
+            msg = 'Please enter a valid email address.';
+        } else if (field.type === 'tel' && field.value && !/^[\d\s\-+()]{4,20}$/.test(field.value)) {
+            msg = 'Please enter a valid phone number.';
+        } else if (field.type === 'number' && field.value) {
+            if (field.min !== '' && Number(field.value) < Number(field.min)) msg = 'Value must be at least ' + field.min + '.';
+            if (field.max !== '' && Number(field.value) > Number(field.max)) msg = 'Value must be at most ' + field.max + '.';
+        }
+
+        if (msg) { showErr(field, container, msg); return true; }
+        clearErr(field, container);
+        return false;
+    }
+
+    /* ── Radio-group validation ──────────────────────────── */
+
+    function validateRadioGroup(name) {
+        const radios = form.querySelectorAll('input[type="radio"][name="' + name + '"]');
+        if (!radios.length) return false;
+        if (!radios[0].required) return false;
+        if (radios[0].offsetParent === null) return false;
+
+        const checked = form.querySelector('input[type="radio"][name="' + name + '"]:checked');
+        const wrapper = radios[0].closest('.flex, .grid') || radios[0].parentElement.parentElement;
+        const container = wrapper.parentElement;
+
+        if (!checked) {
+            wrapper.classList.add('radio-group-invalid');
+            const err = getOrCreateErr(container);
+            err.textContent = 'Please select an option.';
+            err.classList.add('show');
+            return true;
+        } else {
+            wrapper.classList.remove('radio-group-invalid');
+            const err = container.querySelector('.live-err');
+            if (err) err.classList.remove('show');
+            return false;
+        }
+    }
+
+    /* ── Live validation on blur / change ────────────────── */
+
+    form.querySelectorAll('input, select, textarea').forEach(function (field) {
+        if (field.type === 'hidden' || field.type === 'file') return;
+        if (field.type === 'radio') {
+            field.addEventListener('change', function () { validateRadioGroup(this.name); });
+            return;
+        }
+        if (field.type === 'checkbox') return;
+        field.addEventListener('blur', function () { validateField(this); });
+        field.addEventListener('change', function () { validateField(this); });
+    });
+
+    /* ── Submit: validate ALL fields at once ─────────────── */
+
+    form.addEventListener('submit', function (e) {
+        let firstInvalid = null;
+        let hasError = false;
+
+        // 1. Text / select / textarea fields
+        form.querySelectorAll('input, select, textarea').forEach(function (field) {
+            if (field.type === 'hidden' || field.type === 'checkbox' || field.type === 'radio' || field.type === 'file') return;
+            if (validateField(field)) {
+                hasError = true;
+                if (!firstInvalid) firstInvalid = field;
+            }
+        });
+
+        // 2. Radio groups (collect unique required radio names)
+        const radioNames = new Set();
+        form.querySelectorAll('input[type="radio"][required]').forEach(function (r) { radioNames.add(r.name); });
+        radioNames.forEach(function (name) {
+            if (validateRadioGroup(name)) {
+                hasError = true;
+                if (!firstInvalid) {
+                    const r = form.querySelector('input[type="radio"][name="' + name + '"]');
+                    if (r) firstInvalid = r.closest('.flex, .grid') || r;
+                }
+            }
+        });
+
+        if (hasError) {
+            e.preventDefault();
+            if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+});
 </script>
 @endpush

@@ -1061,7 +1061,7 @@ class PlayerController extends Controller
             'pant_size' => 'nullable|string|max:50',
             'pant_size_custom' => 'nullable|string|max:50',
 
-            'team_id' => $req('registration_team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
+            'team_id' => 'nullable|exists:teams,id',
             'actual_team_id' => $req('playing_team') ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id',
             'location_id' => $req('location') ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',
