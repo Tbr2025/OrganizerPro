@@ -159,7 +159,35 @@ class TournamentTemplateController extends Controller
             ->where('status', 'approved')
             ->get();
 
-        $players = $teamPlayers->merge($pivotPlayers)->merge($registeredPlayers);
+        // Also include players linked via actual_team_users (team membership pivot)
+        $allLoadedIds = $allLoadedIds->merge($registeredPlayers->pluck('id'));
+        $memberUserIds = DB::table('actual_team_users')
+            ->whereIn('actual_team_id', $allTeamIds)
+            ->where('role', 'Player')
+            ->pluck('user_id');
+        $memberPlayers = Player::whereIn('user_id', $memberUserIds)
+            ->whereNotIn('id', $allLoadedIds)
+            ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
+            ->where('status', 'approved')
+            ->get();
+
+        // Map member players to their team via actual_team_users
+        if ($memberPlayers->isNotEmpty()) {
+            $memberTeamMap = DB::table('actual_team_users')
+                ->whereIn('actual_team_id', $allTeamIds)
+                ->where('role', 'Player')
+                ->whereIn('user_id', $memberPlayers->pluck('user_id'))
+                ->get()
+                ->keyBy('user_id');
+            foreach ($memberPlayers as $mp) {
+                $entry = $memberTeamMap->get($mp->user_id);
+                if ($entry && !isset($tournamentTeamMap[$mp->id])) {
+                    $tournamentTeamMap[$mp->id] = $entry->actual_team_id;
+                }
+            }
+        }
+
+        $players = $teamPlayers->merge($pivotPlayers)->merge($registeredPlayers)->merge($memberPlayers);
 
         // Load actual teams for the team filter dropdown (welcome_card)
         $teams = ActualTeam::whereIn('id', $allTeamIds)->orderBy('name')->get();

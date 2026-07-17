@@ -751,7 +751,7 @@
                                                          class="h-9 w-9 rounded-full object-cover flex-shrink-0" :alt="sp.name">
                                                     <div class="min-w-0 flex-1">
                                                         <p class="text-sm font-medium text-gray-800 dark:text-white truncate" x-text="sp.name"></p>
-                                                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="sp.phone || sp.email"></p>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="[sp.phone, sp.email].filter(Boolean).join(' · ')"></p>
                                                         {{-- Role Tags & Player Type --}}
                                                         <div class="flex flex-wrap gap-1 mt-1">
                                                             <template x-for="role in (sp.roles || [])" :key="role">
