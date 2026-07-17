@@ -1643,6 +1643,7 @@ class ActualTeamController extends Controller
     public function toggleApprove(Request $request, ActualTeam $actualTeam, Player $player)
     {
         $newStatus = $request->input('status');
+        $tournamentId = $request->input('tournament_id');
 
         if (!in_array($newStatus, ['approved', 'pending', 'rejected'])) {
             return response()->json(['success' => false, 'message' => 'Invalid status.'], 422);
@@ -1654,9 +1655,10 @@ class ActualTeamController extends Controller
         }
         $player->save();
 
-        // Sync the corresponding TournamentRegistration status
-        if ($actualTeam->tournament_id) {
-            TournamentRegistration::where('tournament_id', $actualTeam->tournament_id)
+        // Sync the specific tournament's registration (fall back to team's tournament_id)
+        $targetTournamentId = $tournamentId ?: $actualTeam->tournament_id;
+        if ($targetTournamentId) {
+            TournamentRegistration::where('tournament_id', $targetTournamentId)
                 ->where('player_id', $player->id)
                 ->where('type', 'player')
                 ->update(['status' => $newStatus]);

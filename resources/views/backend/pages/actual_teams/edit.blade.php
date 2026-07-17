@@ -594,24 +594,24 @@
                                                                             default => ['bg' => 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200', 'label' => 'Pending'],
                                                                         };
                                                                     @endphp
-                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $statusConfig['bg'] }} status-badge-{{ $p->id }}">
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $statusConfig['bg'] }} status-badge-{{ $p->id }}-{{ $tournament->id }}">
                                                                         {{ $statusConfig['label'] }}
                                                                     </span>
-                                                                    <div class="flex items-center gap-1 status-actions-{{ $p->id }}">
+                                                                    <div class="flex items-center gap-1 status-actions-{{ $p->id }}-{{ $tournament->id }}">
                                                                         @if($p->status !== 'approved')
-                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'approved', this)"
+                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'approved', this, {{ $tournament->id }})"
                                                                                 class="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded" title="Approve">
                                                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                                                             </button>
                                                                         @endif
                                                                         @if($p->status !== 'rejected')
-                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'rejected', this)"
+                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'rejected', this, {{ $tournament->id }})"
                                                                                 class="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Reject">
                                                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                                                             </button>
                                                                         @endif
                                                                         @if($p->status !== 'pending')
-                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'pending', this)"
+                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'pending', this, {{ $tournament->id }})"
                                                                                 class="p-1 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded" title="Set Pending">
                                                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                                                             </button>
@@ -1112,7 +1112,7 @@
     @push('scripts')
         <script>
             // Set player status (approve / reject / pending) — no email sent
-            function setPlayerStatus(playerId, newStatus, btn) {
+            function setPlayerStatus(playerId, newStatus, btn, tournamentId) {
                 if (!confirm(`Set player status to "${newStatus}"? No email will be sent.`)) return;
 
                 btn.disabled = true;
@@ -1124,36 +1124,37 @@
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
                         'Accept': 'application/json',
                     },
-                    body: JSON.stringify({ status: newStatus }),
+                    body: JSON.stringify({ status: newStatus, tournament_id: tournamentId }),
                 })
                 .then(r => r.json())
                 .then(data => {
                     btn.disabled = false;
                     if (data.success) {
-                        // Update all status badges and action buttons for this player
                         const statusColors = {
                             approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
                             rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
                             pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
                         };
-                        document.querySelectorAll('.status-badge-' + playerId).forEach(badge => {
+                        // Update only the badge for this player in this tournament
+                        const suffix = tournamentId ? `${playerId}-${tournamentId}` : playerId;
+                        document.querySelectorAll('.status-badge-' + suffix).forEach(badge => {
                             badge.className = badge.className.replace(/bg-\S+ text-\S+ dark:bg-\S+ dark:text-\S+/g, '');
-                            badge.className = `inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded ${statusColors[data.status]} status-badge-${playerId}`;
+                            badge.className = `inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded ${statusColors[data.status]} status-badge-${suffix}`;
                             badge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
                         });
-                        // Rebuild action buttons
-                        document.querySelectorAll('.status-actions-' + playerId).forEach(container => {
+                        // Rebuild action buttons only for this tournament
+                        document.querySelectorAll('.status-actions-' + suffix).forEach(container => {
                             let html = '';
                             const sz = container.closest('#current-squad-container') ? '3.5' : '4';
                             const pad = sz === '3.5' ? 'p-0.5' : 'p-1';
                             if (data.status !== 'approved') {
-                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'approved', this)" class="${pad} text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded" title="Approve"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>`;
+                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'approved', this, ${tournamentId})" class="${pad} text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded" title="Approve"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>`;
                             }
                             if (data.status !== 'rejected') {
-                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'rejected', this)" class="${pad} text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Reject"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'rejected', this, ${tournamentId})" class="${pad} text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Reject"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
                             }
                             if (data.status !== 'pending') {
-                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'pending', this)" class="${pad} text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded" title="Set Pending"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>`;
+                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'pending', this, ${tournamentId})" class="${pad} text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded" title="Set Pending"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>`;
                             }
                             container.innerHTML = html;
                         });

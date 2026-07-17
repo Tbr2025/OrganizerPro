@@ -694,6 +694,12 @@ class PlayerController extends Controller
             ->first();
         $hasWelcomeTemplate = (bool) $welcomeRegistration?->tournament?->getTemplate(TournamentTemplate::TYPE_WELCOME_CARD);
 
+        $tournamentRegistrations = TournamentRegistration::where('player_id', $player->id)
+            ->where('type', 'player')
+            ->with('tournament')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('backend.pages.players.edit', [
             'player' => $player,
             'layout' => PlayerFormConfig::getFormLayout(null, false),
@@ -722,7 +728,8 @@ class PlayerController extends Controller
                 ],
             ],
             'verifiedFields' => $verifiedFields,
-            'verifiedProfile' => $player->allFieldsVerified()
+            'verifiedProfile' => $player->allFieldsVerified(),
+            'tournamentRegistrations' => $tournamentRegistrations,
         ]);
     }
 

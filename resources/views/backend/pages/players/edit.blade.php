@@ -208,6 +208,46 @@
                 </div>
             </div>
         </div>
+
+        {{-- Tournament Registrations --}}
+        @if(isset($tournamentRegistrations) && $tournamentRegistrations->count() > 0)
+        <div class="col-span-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Tournament Registrations</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Tournament</th>
+                                    <th>Status</th>
+                                    <th>Registered At</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($tournamentRegistrations as $reg)
+                                    <tr>
+                                        <td>{{ $reg->tournament->name ?? 'N/A' }}</td>
+                                        <td>
+                                            @php
+                                                $badgeClass = match($reg->status) {
+                                                    'approved' => 'badge bg-success',
+                                                    'rejected' => 'badge bg-danger',
+                                                    default => 'badge bg-warning text-dark',
+                                                };
+                                            @endphp
+                                            <span class="{{ $badgeClass }}">{{ ucfirst($reg->status) }}</span>
+                                        </td>
+                                        <td>{{ $reg->created_at?->format('d M Y, h:i A') ?? '-' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
     </div>
 @endsection
 
