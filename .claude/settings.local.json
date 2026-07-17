@@ -216,7 +216,24 @@
       "Bash(grep -n \"budget\\\\|spent\\\\|balance\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
       "Bash(sqlite3 /Users/navasfazil/OrganizerPro/.sqlite/database.sqlite \"SELECT id, name, organization_id FROM users WHERE id = 20;\" 2>/dev/null || echo \"SQLite not found, checking if MySQL/Postgres is in use\")",
       "Bash(grep -n \"retain\\\\|unretain\" /Users/navasfazil/OrganizerPro/routes/*.php 2>/dev/null | head -20)",
-      "Bash(grep -rn \"unique\\\\|migration\\\\|constraint\" /Users/navasfazil/OrganizerPro/database/migrations/*registrations* 2>/dev/null | head -30)"
+      "Bash(grep -rn \"unique\\\\|migration\\\\|constraint\" /Users/navasfazil/OrganizerPro/database/migrations/*registrations* 2>/dev/null | head -30)",
+      "Bash(grep -r \"actual-teams\\\\|actual_teams\" /Users/navasfazil/OrganizerPro/routes --include=\"*.php\" 2>/dev/null | head -30)",
+      "Bash(grep -r \"players.*retain\\\\|retain.*player\" /Users/navasfazil/OrganizerPro/resources/views --include=\"*.blade.php\" 2>/dev/null | head -20)",
+      "Bash(grep -A 30 \"create.*table.*actual_teams\" /Users/navasfazil/OrganizerPro/database/migrations/*.php | grep -A 30 \"actual_teams\" | head -50)",
+      "Bash(grep -r \"tournament_id.*nullable\\\\|nullable.*tournament_id\" /Users/navasfazil/OrganizerPro/database/migrations/*.php | head -10)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro diff resources/views/backend/pages/tournaments/registrations/show.blade.php)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro diff app/Http/Controllers/Backend/TeamManagerController.php)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro diff resources/views/backend/pages/team-manager/other-team-players.blade.php)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro diff resources/views/backend/layouts/partials/impersonation-banner.blade.php)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro diff resources/views/public/registration/partials/player-image-upload.blade.php)",
+      "Bash(grep -r \"tournaments.*teams\\\\|teams.*tournament\" /Users/navasfazil/OrganizerPro/routes --include=\"*.php\" 2>/dev/null | head -20)",
+      "Bash(grep -r \"api.*teams\\\\|ajax.*teams\" /Users/navasfazil/OrganizerPro/app/Http/Controllers --include=\"*.php\" 2>/dev/null | head -10)",
+      "Bash(grep -n \"player_type\\\\|first_name\\\\|last_name\" /Users/navasfazil/OrganizerPro/database/migrations/*.php | grep -E \"\\(2025_07|2026\\)\" | head -30)",
+      "Bash(grep -n \"class.*Middleware\" /Users/navasfazil/OrganizerPro/app/Http/Middleware/*.php | head -10)",
+      "Bash(git add app/Http/Controllers/Backend/EmailLogController.php app/Listeners/LogEmailSending.php app/Listeners/LogEmailSent.php app/Models/EmailLog.php app/Providers/EventServiceProvider.php database/migrations/2026_07_17_000001_enhance_email_logs_table.php resources/views/backend/pages/email-logs/index.blade.php routes/web.php && git rm --cached app/Listeners/LogSentEmail.php 2>/dev/null; git add app/Listeners/LogSentEmail.php 2>/dev/null; true)",
+      "Bash(grep -l \"create_players_table\" /Users/navasfazil/OrganizerPro/database/migrations/*.php)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro diff app/Http/Controllers/Backend/ActualTeamController.php)",
+      "Bash(git -C /Users/navasfazil/OrganizerPro add resources/views/backend/pages/tournaments/templates/generate.blade.php && git -C /Users/navasfazil/OrganizerPro commit -m \"$\\(cat <<'EOF'\nfix: add scrollable container to player select dropdown\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

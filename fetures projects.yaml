@@ -1,62 +1,73 @@
-fetures projects
+# OrganizerPro - Feature & Fix History
+# =====================================
 
-redirct to porfolico
+# 2026-07-16
+# ----------
 
-https://dubown.com/demo/deep-cleaning-services/
+## 1. Admin Player Edit Form Rewrite
+- Rewrote admin player edit page (`/admin/players/{id}/edit`) from ~900 lines hardcoded form to dynamic card-based 3-column layout
+- Created `resources/views/backend/pages/players/partials/field.blade.php` with verification toggles on each field
+- Uses `PlayerFormConfig::getFormLayout()` to drive sections dynamically
+- Supports all field types: text, date, select, radio, checkbox, phone with country code, transportation dropdown, travel plan with conditional dates, batting mode, preferred batting positions (multi-checkbox), kit size
+- Admin-only sections (Player Mode & Team, Submit buttons) kept at bottom
+- Updated `PlayerController::edit()` to pass layout, countries, visaList, tshirtOptions, pantOptions, battingModes, battingPositions
 
-to cleaning service
+## 2. Squad Page - Separate Player & Role Status Tags
+- Team Manager squad page now shows "Player Pending"/"Player Verified" + "Team Manager" as separate tags
+- Prevents confusion when a Team Manager also registers as a player
+- Applied same fix to User edit page and User show page
 
-Maintanace service
-https://dubown.com/demo/elementor-5590/ link here
+## 3. Image Upload Auto-Crop Full Height
+- Changed `autoCropArea` from 0.9 to 1 in both:
+  - `resources/views/components/player-image-upload.blade.php` (admin)
+  - `resources/views/public/registration/partials/player-image-upload.blade.php` (public registration)
+- When a 3:4 image is uploaded, the crop box now covers the full image automatically
 
-get in touch popup - need header background imprve design
-add maintance service too
+## 4. CricHeroes Phone Number Missing on Registration Show
+- Changed `getFormLayout()` from `visibleOnly: true` to `false` on admin registration detail page
+- Admin always sees all fields regardless of tournament visibility settings
 
-working hours 24/7
+## 5. Squad Page Redesign - View Only with Full Details
+- Replaced table + modal layout with card grid (3-column)
+- Each player card shows: photo, name, jersey, status tags, and ALL details inline (contact, cricket profile, jersey, travel, availability, stats, etc.)
+- Removed all action buttons (Verify, Reject, Resend Email) - view-only for team managers
 
-00971 50 503 8584 to +971 
+## 6. Squad Page - Only Show Roster Players
+- Squad page now only shows players in `player_actual_team_tournament` pivot table
+- Unrostered players hidden until added to Player Roster
 
-About us - our team section to add photots
+## 7. Player Status Fix - Team Manager Auto-Approve
+- Fixed `ActualTeamController` to set new players as `status: 'pending'` instead of `'approved'` when adding team staff
+- Existing players no longer force-set to 'approved' when added to a team
+- Only explicit admin approval sets status to 'approved'
 
-Home - We Offer Different Services
-only need 3 sericce master 
+## 8. Admin Players List - Separate Status Tags
+- Added "Player Approved"/"Player Pending" + "Team Manager" role tag on admin players list
+- Eager-loaded `user.roles` for display
 
+## 9. Admin Players List - Filter by Player Role
+- Only shows users who have the 'player' role
+- Users with only Team Manager role (no player role) are excluded from the players list
 
+## 10. Admin Users List - All Roles with Status Display
+- Each role badge now shows a status indicator dot:
+  - Player: green (Approved), amber (Pending), red (Rejected)
+  - Team Manager/Admin/Organizer: green (Active)
+- Multi-role users (e.g. Team Manager + Player) are now visible instead of hidden
+- Added "Player" to the role filter dropdown
 
-first one- land line
+## 11. User Show Page - Per-Tournament Registration Status
+- Shows actual tournament registration status (e.g. "Alpha Open Cup: Pending") instead of stale `players.status`
+- Shows role tags (Team Manager, Admin) separately
 
-google review - 3 reviews
-Andrew -
-and another 5 star  - total 5 reviews
+## 12. Team Manager Dashboard - Roster Player Count
+- Player count now uses roster pivot table instead of `actual_team_id` + `status = 'approved'`
+- Shows 0 if no players are on the roster
 
-footer service only need 3 main service
+## 13. Admin Dashboard - Pending Corrections Card
+- New "Corrections" card (blue) showing count of registrations with pending profile changes
+- Pulsing badge when count > 0
 
-copyright at cneter
-
-add tagline - just below banner
-
-our client - logs need to be aded as carousal
-
-add 3 button in banner - services
-
-
-sectors we serve - and then fumigation inside yellow box
-
-Residential
-Villas, Apartments, Houses & Furniture
-
-Commercial
-Offices, Workspaces, Warehouses & Storage
-
-Industrial
-Bulk grain silos, Warehousing & Logistics
-
-Transportation
-Ships, Trucks, Aircraft & Cargo holds
-
-free inspection - remove to inspection
-
-direction - images - videos (anywhere in home page)
-just above footer 
-
- 
+## 14. Player Correction Email to noreply
+- Added `noreply@sportzley.com` (MAIL_FROM_ADDRESS) as recipient for player change request emails
+- Email sent when player submits profile corrections now goes to: noreply, tournament contact, organization email, and all Superadmin/Admin users
