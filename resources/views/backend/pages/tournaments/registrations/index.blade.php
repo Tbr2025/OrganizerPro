@@ -234,6 +234,21 @@
                 </div>
             </form>
 
+            {{-- Active filter indicator --}}
+            @if(($filters['playingTeam'] ?? '') !== '' || ($filters['teamType'] ?? '') !== '' || ($filters['search'] ?? '') !== '')
+                <div class="mb-3 flex items-center gap-2 text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg px-4 py-2">
+                    <iconify-icon icon="lucide:filter" class="text-base"></iconify-icon>
+                    <span>Showing <strong>{{ $registrations->total() }}</strong> filtered results</span>
+                    @if(($filters['teamType'] ?? '') !== '')
+                        <span class="ml-1 px-2 py-0.5 rounded-full text-xs font-medium {{ $filters['teamType'] === 'auction' ? 'bg-amber-100 text-amber-800' : ($filters['teamType'] === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800') }}">
+                            {{ $filters['teamType'] === 'open' ? 'Open Tournament' : ($filters['teamType'] === 'auction' ? 'Auction Tournament' : 'No Team') }}
+                        </span>
+                    @endif
+                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $filters['type'], 'status' => $filters['status']]) }}"
+                       class="ml-auto text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 underline">Clear filters</a>
+                </div>
+            @endif
+
             {{-- Registrations Table --}}
             <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl">
                 @if($registrations->count() > 0)
