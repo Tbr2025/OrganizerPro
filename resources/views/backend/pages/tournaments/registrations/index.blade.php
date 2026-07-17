@@ -391,7 +391,7 @@
                                                     </span>
                                                     @if($registration->player->actualTeam->tournament)
                                                         <div class="mt-1">
-                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {{ $registration->player->actualTeam->tournament->isAuction() ? 'bg-amber-600 text-white' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' }}">
+                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {{ $registration->player->actualTeam->tournament->isAuction() ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' }}">
                                                                 {{ ucfirst($registration->player->actualTeam->tournament->type) }}
                                                             </span>
                                                         </div>
