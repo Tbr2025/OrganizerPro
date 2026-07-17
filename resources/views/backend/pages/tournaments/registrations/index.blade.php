@@ -308,6 +308,10 @@
                                                             <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium {{ $registration->player->actualTeam->tournament?->isAuction() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
                                                                 {{ $registration->player->actualTeam->name }}
                                                             </span>
+                                                        @elseif($registration->player?->playing_team_name_ref)
+                                                            <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                                {{ $registration->player->playing_team_name_ref }} (Others)
+                                                            </span>
                                                         @endif
                                                     </div>
                                                 </div>
@@ -391,6 +395,10 @@
                                                             </span>
                                                         </div>
                                                     @endif
+                                                @elseif($registration->player?->playing_team_name_ref)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                        {{ $registration->player->playing_team_name_ref }} (Others)
+                                                    </span>
                                                 @else
                                                     <span class="text-xs text-gray-400">—</span>
                                                 @endif
