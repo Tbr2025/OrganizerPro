@@ -86,14 +86,12 @@
     <div class="flex items-start justify-between gap-2 mb-1.5">
         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }} @if($isRequired)<span class="text-red-500">*</span>@endif</h4>
         @if($verifiedCol)
-            <label class="relative inline-flex items-center flex-shrink-0 {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+            <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}" title="Mark as verified">
                 <input type="checkbox" name="{{ $verifiedCol }}" value="1"
-                    class="sr-only peer"
+                    class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
                     {{ $isVerified ? 'checked' : '' }}
                     @unless($canVerify) disabled @endunless>
-                <div class="w-9 h-5 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300"></div>
-                <div class="absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition-transform duration-300 peer-checked:translate-x-4"></div>
-                <span class="ml-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Verified</span>
+                <span>Verified</span>
             </label>
         @endif
     </div>

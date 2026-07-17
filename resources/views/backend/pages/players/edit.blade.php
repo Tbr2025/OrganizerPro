@@ -100,14 +100,12 @@
                                 <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ ($player->verified_kit_size_id ?? false) ? 'border-green-400 dark:border-green-600' : 'border-gray-200 dark:border-gray-700' }}">
                                     <div class="flex items-start justify-between gap-2 mb-1.5">
                                         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jersey Size</h4>
-                                        <label class="relative inline-flex items-center flex-shrink-0 {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+                                        <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}" title="Mark as verified">
                                             <input type="checkbox" name="verified_kit_size_id" value="1"
-                                                class="sr-only peer"
+                                                class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                                 {{ old('verified_kit_size_id', $player->verified_kit_size_id ?? false) ? 'checked' : '' }}
                                                 @unless($canVerify) disabled @endunless>
-                                            <div class="w-9 h-5 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300"></div>
-                                            <div class="absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition-transform duration-300 peer-checked:translate-x-4"></div>
-                                            <span class="ml-2 text-[10px] font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Verified</span>
+                                            <span>Verified</span>
                                         </label>
                                     </div>
                                     <select name="kit_size_id" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
@@ -131,14 +129,12 @@
                                     </label>
                                 @endif
                                 <div class="mt-3">
-                                    <label class="relative inline-flex items-center {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
+                                    <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}" title="Mark as verified">
                                         <input type="checkbox" name="verified_image_path" value="1"
-                                            class="sr-only peer"
+                                            class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
                                             {{ old('verified_image_path', $player->verified_image_path ?? false) ? 'checked' : '' }}
                                             @unless($canVerify) disabled @endunless>
-                                        <div class="w-9 h-5 bg-gray-300 rounded-full peer-focus:ring-2 peer-focus:ring-indigo-400 dark:bg-gray-600 peer-checked:bg-green-500 transition-all duration-300"></div>
-                                        <div class="absolute left-0.5 top-0.5 bg-white w-4 h-4 rounded-full transition-transform duration-300 peer-checked:translate-x-4"></div>
-                                        <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Verified</span>
+                                        <span>Verified</span>
                                     </label>
                                 </div>
                             </div>
@@ -213,69 +209,43 @@
                     </button>
                 @endif
             </div>
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm space-y-2 col-span-2">
-                <div class="flex items-start">
-                    <span class="material-icons text-blue-400 mr-2">info</span>
-                    <p>
-                        <strong>Intimate Player:</strong> Sends an email to the player listing all missing
-                        or unverified details.
-                    </p>
-                </div>
-                <div class="flex items-start">
-                    <span class="material-icons text-blue-400 mr-2">info</span>
-                    <p>
-                        <strong>Welcome Player - Generate Image:</strong> Creates a welcome image using the
-                        selected template and sends it via email. Need to verify all the details to send
-                        welcome message.
-                    </p>
-                </div>
-                <div class="flex items-start">
-                    <span class="material-icons text-blue-400 mr-2">info</span>
-                    <p>
-                        <strong>Active Player</strong> So that player can edit their information from their
-                        profile page.
-                    </p>
-                </div>
-            </div>
 
         </form>
 
         {{-- Tournament Registrations --}}
         @if(isset($tournamentRegistrations) && $tournamentRegistrations->count() > 0)
-        <div class="col-span-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">Tournament Registrations</h5>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-striped mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Tournament</th>
-                                    <th>Status</th>
-                                    <th>Registered At</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($tournamentRegistrations as $reg)
-                                    <tr>
-                                        <td>{{ $reg->tournament->name ?? 'N/A' }}</td>
-                                        <td>
-                                            @php
-                                                $badgeClass = match($reg->status) {
-                                                    'approved' => 'badge bg-success',
-                                                    'rejected' => 'badge bg-danger',
-                                                    default => 'badge bg-warning text-dark',
-                                                };
-                                            @endphp
-                                            <span class="{{ $badgeClass }}">{{ ucfirst($reg->status) }}</span>
-                                        </td>
-                                        <td>{{ $reg->created_at?->format('d M Y, h:i A') ?? '-' }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden mt-6">
+            <div class="px-5 pt-5 pb-3">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Tournament Registrations</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-50 dark:bg-gray-800 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <tr>
+                            <th class="px-5 py-3">Tournament</th>
+                            <th class="px-5 py-3">Status</th>
+                            <th class="px-5 py-3">Registered At</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach($tournamentRegistrations as $reg)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <td class="px-5 py-3 text-gray-900 dark:text-white">{{ $reg->tournament->name ?? 'N/A' }}</td>
+                                <td class="px-5 py-3">
+                                    @php
+                                        $badgeClasses = match($reg->status) {
+                                            'approved' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+                                            'rejected' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+                                            default => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+                                        };
+                                    @endphp
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $badgeClasses }}">{{ ucfirst($reg->status) }}</span>
+                                </td>
+                                <td class="px-5 py-3 text-gray-500 dark:text-gray-400">{{ $reg->created_at?->format('d M Y, h:i A') ?? '-' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         </div>
         @endif
