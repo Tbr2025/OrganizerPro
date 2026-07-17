@@ -366,40 +366,20 @@
                                         {{-- Playing Team Column (player rows only) --}}
                                         @if($type === 'player')
                                             <td class="px-6 py-4 hidden md:table-cell">
-                                                <div class="space-y-1.5">
-                                                    {{-- Registration Team (Team Selected) --}}
-                                                    @php $regTeamName = $registration->player?->team?->name; @endphp
-                                                    <div class="flex items-center gap-1">
-                                                        <span class="text-[10px] text-gray-400 w-14 shrink-0">Selected:</span>
-                                                        @if($regTeamName)
-                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ $regTeamName }}</span>
-                                                        @else
-                                                            <span class="text-[11px] text-gray-400">—</span>
-                                                        @endif
-                                                    </div>
-                                                    {{-- Current Playing Team --}}
-                                                    <div class="flex items-center gap-1">
-                                                        <span class="text-[10px] text-gray-400 w-14 shrink-0">Playing:</span>
-                                                        @if($registration->player?->actualTeam)
-                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium {{ $registration->player->actualTeam->tournament?->isAuction() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                                                                {{ $registration->player->actualTeam->name }}
-                                                            </span>
-                                                        @else
-                                                            <span class="text-[11px] text-gray-400">—</span>
-                                                        @endif
-                                                    </div>
-                                                    {{-- Tournament Type --}}
-                                                    <div class="flex items-center gap-1">
-                                                        <span class="text-[10px] text-gray-400 w-14 shrink-0">Type:</span>
-                                                        @if($registration->player?->actualTeam?->tournament)
+                                                @if($registration->player?->actualTeam)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium {{ $registration->player->actualTeam->tournament?->isAuction() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
+                                                        {{ $registration->player->actualTeam->name }}
+                                                    </span>
+                                                    @if($registration->player->actualTeam->tournament)
+                                                        <div class="mt-1">
                                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {{ $registration->player->actualTeam->tournament->isAuction() ? 'bg-amber-600 text-white' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' }}">
                                                                 {{ ucfirst($registration->player->actualTeam->tournament->type) }}
                                                             </span>
-                                                        @else
-                                                            <span class="text-[11px] text-gray-400">—</span>
-                                                        @endif
-                                                    </div>
-                                                </div>
+                                                        </div>
+                                                    @endif
+                                                @else
+                                                    <span class="text-xs text-gray-400">—</span>
+                                                @endif
                                             </td>
                                         @endif
 
