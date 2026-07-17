@@ -487,7 +487,8 @@ class PlayerController extends Controller
             ],
 
             'team_id' => $req('registration_team') ? 'required|exists:teams,id' : 'nullable|exists:teams,id',
-            'actual_team_id' => $req('playing_team') ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id',
+            'actual_team_id' => $req('playing_team') ? 'required|string' : 'nullable|string',
+            'playing_team_name_ref' => 'nullable|string|max:100',
             'jersey_number' => 'nullable',
             'team_name_ref' => 'nullable|string|max:100',
             'jersey_name' => $req('jersey_name') ? 'required|string|max:50' : 'nullable|string|max:50',
@@ -574,6 +575,13 @@ class PlayerController extends Controller
 
         // Add user_id to validated data before creating player
         $validated['user_id'] = $user->id;
+
+        // Handle "Other" playing team selection
+        if (($validated['actual_team_id'] ?? null) === 'other') {
+            $validated['actual_team_id'] = null;
+        } else {
+            $validated['playing_team_name_ref'] = null;
+        }
 
         // Now create player
         $player = Player::create($validated);
@@ -1062,7 +1070,8 @@ class PlayerController extends Controller
             'pant_size_custom' => 'nullable|string|max:50',
 
             'team_id' => 'nullable|exists:teams,id',
-            'actual_team_id' => $req('playing_team') ? 'required|exists:actual_teams,id' : 'nullable|exists:actual_teams,id',
+            'actual_team_id' => $req('playing_team') ? 'required|string' : 'nullable|string',
+            'playing_team_name_ref' => 'nullable|string|max:100',
             'location_id' => $req('location') ? 'required|exists:player_locations,id' : 'nullable|exists:player_locations,id',
             'total_matches' => 'nullable|integer|min:0',
             'total_runs' => 'nullable|integer|min:0',
@@ -1147,7 +1156,10 @@ class PlayerController extends Controller
             'cricheroes_number_full' => $validated['cricheroes_number_full'] ?? null,
             'cricheroes_profile_url' => $validated['cricheroes_profile_url'] ?? null,
             'team_id' => $validated['team_id'] ?? null,
-            'actual_team_id' => $validated['actual_team_id'] ?? null,
+            'actual_team_id' => ($validated['actual_team_id'] ?? null) === 'other' ? null : ($validated['actual_team_id'] ?? null),
+            'playing_team_name_ref' => ($validated['actual_team_id'] ?? null) === 'other'
+                ? ($validated['playing_team_name_ref'] ?? null)
+                : null,
             'jersey_name' => $validated['jersey_name'] ?? null,
             'jersey_number' => $validated['jersey_number'] ?? null,
             'tshirt_size' => $validated['tshirt_size'] ?? null,

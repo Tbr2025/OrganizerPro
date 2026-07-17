@@ -210,7 +210,7 @@
                                 ['label' => 'CricHeroes Profile URL', 'value' => $player->cricheroes_profile_url, 'verified' => $player->verified_cricheroes_profile_url ?? false, 'link' => true],
                                 ['label' => 'Location', 'value' => $player->location?->name],
                                 ['label' => 'Registration Team', 'value' => $player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : $player->team?->name, 'verified' => $player->verified_team_id ?? false],
-                                ['label' => 'Playing Team', 'value' => $player->actualTeam?->name],
+                                ['label' => 'Playing Team', 'value' => $player->actualTeam?->name ?? $player->playing_team_name_ref],
                             ];
                         @endphp
                         @foreach($basicFields as $field)

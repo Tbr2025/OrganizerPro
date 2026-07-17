@@ -119,16 +119,25 @@
             @break
 
         @case('playing_team')
-            @php $auctionTeamIds = $actualTeams->filter(fn($t) => $t->tournament?->type === 'auction')->pluck('id')->toArray(); @endphp
-            <div x-data="{ selectedTeam: '{{ old('actual_team_id', $val) }}', auctionIds: @js($auctionTeamIds) }">
+            @php
+                $auctionTeamIds = $actualTeams->filter(fn($t) => $t->tournament?->type === 'auction')->pluck('id')->toArray();
+                $currentTeamId = old('actual_team_id', $val);
+                $isOtherTeam = !$currentTeamId && ($player->playing_team_name_ref ?? '') !== '';
+            @endphp
+            <div x-data="{ selectedTeam: '{{ $isOtherTeam ? 'other' : $currentTeamId }}', auctionIds: @js($auctionTeamIds) }">
                 <select name="actual_team_id" class="{{ $selectCls }}" x-model="selectedTeam">
                     <option value="">-- Select --</option>
-                    @foreach($actualTeams as $t)<option value="{{ $t->id }}" {{ (string) old('actual_team_id', $val) === (string) $t->id ? 'selected' : '' }}>{{ $t->name }} ({{ ucfirst($t->tournament?->type ?? 'unknown') }})</option>@endforeach
+                    @foreach($actualTeams as $t)<option value="{{ $t->id }}">{{ $t->name }} ({{ ucfirst($t->tournament?->type ?? 'unknown') }})</option>@endforeach
+                    <option value="other" {{ $isOtherTeam ? 'selected' : '' }}>Other</option>
                 </select>
                 <p x-show="auctionIds.includes(parseInt(selectedTeam))" x-cloak class="mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <iconify-icon icon="lucide:alert-triangle" class="text-sm"></iconify-icon>
                     This team belongs to an auction tournament
                 </p>
+                <div x-show="selectedTeam === 'other'" x-cloak class="mt-2">
+                    <input type="text" name="playing_team_name_ref" class="{{ $inputCls }}" placeholder="Enter team name"
+                           value="{{ old('playing_team_name_ref', $player->playing_team_name_ref) }}">
+                </div>
             </div>
             @break
 

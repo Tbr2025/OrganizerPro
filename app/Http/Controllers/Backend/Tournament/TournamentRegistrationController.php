@@ -90,8 +90,10 @@ class TournamentRegistrationController extends Controller
         }
 
         if ($tournamentType !== '' && $type === 'player') {
-            $filteredTeamIds = ActualTeam::whereHas('tournament', fn($q) => $q->where('type', $tournamentType))
-                ->pluck('id');
+            $filteredTeamIds = ActualTeam::where(function ($q) use ($tournamentType) {
+                $q->whereHas('tournament', fn($sub) => $sub->where('type', $tournamentType))
+                  ->orWhereHas('tournaments', fn($sub) => $sub->where('tournaments.type', $tournamentType));
+            })->pluck('id');
             $query->whereIn('players.actual_team_id', $filteredTeamIds);
         }
 
