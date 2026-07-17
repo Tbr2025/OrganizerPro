@@ -206,6 +206,7 @@
                             <option value="">All</option>
                             <option value="open" @selected(($filters['tournamentType'] ?? '') === 'open')>Open</option>
                             <option value="auction" @selected(($filters['tournamentType'] ?? '') === 'auction')>Auction</option>
+                            <option value="others" @selected(($filters['tournamentType'] ?? '') === 'others')>Others</option>
                         </select>
                     </div>
                 @endif
@@ -239,8 +240,8 @@
                     <iconify-icon icon="lucide:filter" class="text-base"></iconify-icon>
                     <span>Showing <strong>{{ $registrations->total() }}</strong> filtered results</span>
                     @if(($filters['tournamentType'] ?? '') !== '')
-                        <span class="ml-1 px-2 py-0.5 rounded-full text-xs font-medium {{ $filters['tournamentType'] === 'auction' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800' }}">
-                            {{ $filters['tournamentType'] === 'open' ? 'Open Tournament' : 'Auction Tournament' }}
+                        <span class="ml-1 px-2 py-0.5 rounded-full text-xs font-medium {{ $filters['tournamentType'] === 'auction' ? 'bg-amber-100 text-amber-800' : ($filters['tournamentType'] === 'others' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-800') }}">
+                            {{ $filters['tournamentType'] === 'open' ? 'Open Tournament' : ($filters['tournamentType'] === 'auction' ? 'Auction Tournament' : 'Others') }}
                         </span>
                     @endif
                     <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $filters['type'], 'status' => $filters['status']]) }}"

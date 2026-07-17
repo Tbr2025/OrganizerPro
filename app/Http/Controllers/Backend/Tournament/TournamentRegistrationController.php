@@ -94,10 +94,12 @@ class TournamentRegistrationController extends Controller
                 $q->whereHas('tournament', fn($sub) => $sub->where('type', $tournamentType))
                   ->orWhereHas('tournaments', fn($sub) => $sub->where('tournaments.type', $tournamentType));
             })->pluck('id');
-            $query->where(function ($q) use ($filteredTeamIds) {
-                $q->whereIn('players.actual_team_id', $filteredTeamIds)
-                  ->orWhereNull('players.actual_team_id');
-            });
+            if ($tournamentType === 'others') {
+                $query->whereNull('players.actual_team_id')
+                      ->whereNotNull('players.playing_team_name_ref');
+            } else {
+                $query->whereIn('players.actual_team_id', $filteredTeamIds);
+            }
         }
 
         // Sort whitelist -> column. "name" coalesces team name / player name.
