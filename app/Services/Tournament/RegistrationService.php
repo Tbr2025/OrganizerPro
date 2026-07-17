@@ -302,16 +302,34 @@ class RegistrationService
                 'processed_by' => $approvedBy,
             ]);
 
-            // Give the player's user account the Player role.
-            // Note: we no longer set players.status globally — the per-tournament
-            // registration status (tournament_registrations.status) is the source of truth.
+            // Give the player's user account the Player role and sync team assignment.
             $player = $registration->player;
             if ($player) {
+                // Update global player status for backward compatibility
+                $player->status = 'approved';
+                $player->approved_by = $approvedBy;
+                $player->save();
+
                 if ($player->user) {
                     $role = \App\Models\Role::firstOrCreate(['name' => 'player']);
                     if (! $player->user->hasRole('player')) {
                         $player->user->assignRole($role);
                     }
+                }
+
+                // Create pivot entry so the player appears on the team edit page
+                if ($player->actual_team_id && $registration->tournament_id) {
+                    DB::table('player_actual_team_tournament')->updateOrInsert(
+                        [
+                            'player_id'     => $player->id,
+                            'tournament_id' => $registration->tournament_id,
+                        ],
+                        [
+                            'actual_team_id' => $player->actual_team_id,
+                            'updated_at'     => now(),
+                            'created_at'     => now(),
+                        ]
+                    );
                 }
             }
 
