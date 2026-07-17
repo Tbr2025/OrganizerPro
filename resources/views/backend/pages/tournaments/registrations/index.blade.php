@@ -244,6 +244,9 @@
                                     <th class="px-6 py-3">Name / Team</th>
                                     <th class="px-6 py-3 hidden sm:table-cell">Contact</th>
                                     <th class="px-6 py-3 hidden md:table-cell">Type</th>
+                                    @if($type === 'player')
+                                        <th class="px-6 py-3 hidden md:table-cell">Playing Team</th>
+                                    @endif
                                     <th class="px-6 py-3">Status</th>
                                     <th class="px-6 py-3 hidden lg:table-cell">Date</th>
                                     <th class="px-6 py-3 text-right">Actions</th>
@@ -359,6 +362,20 @@
                                                 @endif
                                             </div>
                                         </td>
+
+                                        {{-- Playing Team Column (player rows only) --}}
+                                        @if($type === 'player')
+                                            <td class="px-6 py-4 hidden md:table-cell">
+                                                @if($registration->player?->actualTeam)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $registration->player->actualTeam->tournament?->isAuction() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
+                                                        {{ $registration->player->actualTeam->name }}
+                                                    </span>
+                                                    <div class="text-[10px] text-gray-400 mt-0.5">{{ ucfirst($registration->player->actualTeam->tournament?->type ?? 'unknown') }}</div>
+                                                @else
+                                                    <span class="text-xs text-gray-400">—</span>
+                                                @endif
+                                            </td>
+                                        @endif
 
                                         {{-- Status Column --}}
                                         <td class="px-6 py-4">
