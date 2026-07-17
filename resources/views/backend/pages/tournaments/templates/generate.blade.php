@@ -352,6 +352,7 @@
                                                 <span x-show="player.jersey" class="text-[10px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded" x-text="'#' + player.jersey"></span>
                                             </div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="player.team || 'Registered'"></div>
+                                            <div x-show="player.email" class="text-[10px] text-gray-400 dark:text-gray-500 truncate" x-text="player.email"></div>
                                             <div class="flex flex-wrap gap-1 mt-0.5">
                                                 <template x-if="player.type">
                                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300" x-text="player.type"></span>
@@ -1813,6 +1814,7 @@ function playerDropdown() {
             return [
                 'id' => (string) $p->id,
                 'name' => $p->name,
+                'email' => $p->email,
                 'jersey' => $p->jersey_number,
                 'team' => $p->actualTeam?->name,
                 'teamId' => (string) $p->actual_team_id,
@@ -1838,7 +1840,7 @@ function playerDropdown() {
             const q = this.search.toLowerCase();
             this.filteredPlayers = this.allPlayers.filter(p => {
                 const matchesTeam = !this.teamFilter || p.teamId === this.teamFilter;
-                const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.team && p.team.toLowerCase().includes(q));
+                const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.team && p.team.toLowerCase().includes(q)) || (p.email && p.email.toLowerCase().includes(q));
                 return matchesTeam && matchesSearch;
             });
         },
