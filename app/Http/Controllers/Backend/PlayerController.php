@@ -1103,13 +1103,6 @@ class PlayerController extends Controller
         ]);
 
 
-        \Log::info('PLAYER_UPDATE_DEBUG', [
-            'actual_team_id_raw' => $request->input('actual_team_id'),
-            'actual_team_id_validated' => $validated['actual_team_id'] ?? 'NOT_SET',
-            'playing_team_name_ref_raw' => $request->input('playing_team_name_ref'),
-            'playing_team_name_ref_validated' => $validated['playing_team_name_ref'] ?? 'NOT_SET',
-        ]);
-
         // Image path comes pre-processed from AJAX upload (string path)
         if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
             if (Storage::disk('public')->exists($validated['image_path'])) {
