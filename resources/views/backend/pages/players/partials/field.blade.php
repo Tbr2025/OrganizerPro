@@ -243,8 +243,8 @@
             @php $currentTransportMode = old('transportation_mode', $player->transportation_required ? 'required' : ($player->transportation_required === false ? 'self' : '')); @endphp
             <select name="transportation_mode" class="{{ $selectCls }}">
                 <option value="">-- Select --</option>
-                <option value="self" {{ $currentTransportMode === 'self' ? 'selected' : '' }}>Self Transportation</option>
-                <option value="required" {{ $currentTransportMode === 'required' ? 'selected' : '' }}>Transportation Required</option>
+                <option value="self" {{ $currentTransportMode === 'self' ? 'selected' : '' }}>Self Transportation (Preferred by Franchises)</option>
+                <option value="required" {{ $currentTransportMode === 'required' ? 'selected' : '' }}>Transportation Required (Subject to Franchise Preferences)</option>
             </select>
             @break
 
