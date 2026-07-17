@@ -2,7 +2,8 @@
     /** Admin-editable player field with verification toggle.
      *  Expects: $key, $player, $canVerify + option lists from the parent view. */
     $labels = \App\Helpers\PlayerFormConfig::fieldLabels();
-    $label = $labels[$key] ?? ucwords(str_replace('_', ' ', $key));
+    $label = ($fieldConfig[$key]['label'] ?? null) ?: ($labels[$key] ?? ucwords(str_replace('_', ' ', $key)));
+    $isRequired = $fieldConfig[$key]['required'] ?? false;
 
     // Map field key → the DB column used for the value.
     $columnMap = [
@@ -83,7 +84,7 @@
 
 <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
     <div class="flex items-start justify-between gap-2 mb-1">
-        <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }}</h4>
+        <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }} @if($isRequired)<span class="text-red-500">*</span>@endif</h4>
         @if($verifiedCol)
             <label class="relative inline-flex items-center flex-shrink-0 {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}">
                 <input type="checkbox" name="{{ $verifiedCol }}" value="1"

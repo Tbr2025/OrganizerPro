@@ -161,29 +161,13 @@
                                 class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Intimate Player
                             </button>
-                            @if ($hasWelcomeTemplate)
-                                @if ($verifiedProfile)
-                                    <input type="hidden" name="allverified" value="1">
-                                    <button type="submit"
-                                        onclick="document.getElementById('allverified').value = '{{ $verifiedProfile }}';"
-                                        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                        Welcome Player - Generate Image
-                                    </button>
-                                @endif
-                            @else
-                                <button type="button" disabled
-                                    class="inline-flex items-center px-4 py-2 bg-gray-400 text-white text-sm font-medium rounded-md shadow-sm cursor-not-allowed">
+                            @if ($hasWelcomeTemplate && $verifiedProfile)
+                                <input type="hidden" name="allverified" value="1">
+                                <button type="submit"
+                                    onclick="document.getElementById('allverified').value = '{{ $verifiedProfile }}';"
+                                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Welcome Player - Generate Image
                                 </button>
-                                <p class="text-sm text-red-600 mt-2">
-                                    @if ($welcomeRegistration && $welcomeRegistration->tournament)
-                                        No <strong>welcome_card</strong> template for {{ $welcomeRegistration->tournament->name }}.
-                                        <a href="{{ route('admin.tournaments.templates.create', $welcomeRegistration->tournament) }}?type=welcome_card"
-                                            class="underline text-blue-600 hover:text-blue-800">Create one now.</a>
-                                    @else
-                                        This player isn't linked to a tournament yet, so a welcome card can't be generated.
-                                    @endif
-                                </p>
                             @endif
                             @if (!$player->isApproved())
                                 <input type="hidden" name="isapproved" value="1">
@@ -192,8 +176,6 @@
                                     class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Approve
                                 </button>
-                            @else
-                                <span class="text-gray-500">Player already approved</span>
                             @endif
                         </div>
                         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm space-y-2 col-span-2">

@@ -704,7 +704,7 @@ class PlayerController extends Controller
             ? PlayerFormConfig::getFieldConfig($settings)
             : PlayerFormConfig::defaultFormFields();
 
-        $layout = PlayerFormConfig::getFormLayout($settings, false);
+        $layout = PlayerFormConfig::getFormLayout($settings, true);
 
         // Welcome card uses the player's tournament's welcome_card editor template.
         $welcomeRegistration = TournamentRegistration::where('player_id', $player->id)
