@@ -632,6 +632,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     // Email Log Routes.
     Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
+    Route::post('/email-logs/batch-retry', [EmailLogController::class, 'batchRetry'])->name('email-logs.batch-retry');
+    Route::get('/email-logs/{emailLog}', [EmailLogController::class, 'show'])->name('email-logs.show');
+    Route::post('/email-logs/{emailLog}/retry', [EmailLogController::class, 'retry'])->name('email-logs.retry');
     Route::delete('/email-logs', [EmailLogController::class, 'clear'])->name('email-logs.clear');
 
     // Content Management Routes
