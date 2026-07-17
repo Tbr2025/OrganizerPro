@@ -97,7 +97,7 @@
                             {{-- Kit Size (admin-only field, not in PlayerFormConfig) --}}
                             @if($section['key'] === 'Jersey Information')
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ ($player->verified_kit_size_id ?? false) ? 'border-green-400 dark:border-green-600' : 'border-gray-200 dark:border-gray-700' }}">
                                     <div class="flex items-start justify-between gap-2 mb-1.5">
                                         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jersey Size</h4>
                                     </div>
@@ -220,6 +220,55 @@
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $badgeClasses }}">{{ ucfirst($reg->status) }}</span>
                                 </td>
                                 <td class="px-5 py-3 text-gray-500 dark:text-gray-400">{{ $reg->created_at?->format('d M Y, h:i A') ?? '-' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @endif
+
+        {{-- Update Log --}}
+        @if(isset($actionLogs) && $actionLogs->count() > 0)
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50 shadow-sm overflow-hidden mt-6">
+            <div class="flex items-center gap-3 px-5 pt-5 pb-3">
+                <div class="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50">
+                    <i class="fas fa-history text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white leading-tight">Update Log</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Recent changes to this player</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-50 dark:bg-gray-800 text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        <tr>
+                            <th class="px-5 py-3">Date</th>
+                            <th class="px-5 py-3">Updated By</th>
+                            <th class="px-5 py-3">Fields Changed</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach($actionLogs as $log)
+                            @php
+                                $logData = json_decode($log->data, true);
+                                $changedFields = $logData['changed_fields'] ?? [];
+                            @endphp
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <td class="px-5 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ $log->created_at->format('d M Y, h:i A') }}</td>
+                                <td class="px-5 py-3 text-gray-900 dark:text-white">{{ $log->user->name ?? 'System' }}</td>
+                                <td class="px-5 py-3">
+                                    @if(count($changedFields))
+                                        <div class="flex flex-wrap gap-1">
+                                            @foreach($changedFields as $field)
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">{{ str_replace('_', ' ', $field) }}</span>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <span class="text-gray-400 text-xs">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -40,9 +40,12 @@ use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 use Illuminate\Support\Facades\Validator;
 use Intervention\Image\ImageManager;
+use App\Models\ActionLog;
+use App\Traits\HasActionLogTrait;
 
 class PlayerController extends Controller
 {
+    use HasActionLogTrait;
 
     // public function index(): View
     // {
@@ -745,6 +748,10 @@ class PlayerController extends Controller
             'verifiedFields' => $verifiedFields,
             'verifiedProfile' => $player->allFieldsVerified(),
             'tournamentRegistrations' => $tournamentRegistrations,
+            'actionLogs' => ActionLog::where('data', 'like', '%"player_id":' . $player->id . '%')
+                ->orderByDesc('created_at')
+                ->limit(20)
+                ->get(),
         ]);
     }
 
@@ -1181,8 +1188,20 @@ class PlayerController extends Controller
         $player->verified_no_travel_plan = $request->boolean('verified_no_travel_plan');
         $player->verified_country = $request->boolean('verified_country');
 
+        // Track changed fields before saving
+        $changedFields = $player->getDirty();
+        // Exclude verified_* flags from the change log display
+        $fieldChanges = array_filter($changedFields, fn($k) => !str_starts_with($k, 'verified_'), ARRAY_FILTER_USE_KEY);
 
         $player->save();
+
+        // Log the update with changed fields
+        if (!empty($fieldChanges)) {
+            $this->logAction("Player Updated: {$player->name}", $player, [
+                'player_id' => $player->id,
+                'changed_fields' => array_keys($fieldChanges),
+            ]);
+        }
 
 
         if ($request->isapproved == '1') {

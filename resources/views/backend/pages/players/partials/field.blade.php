@@ -82,7 +82,7 @@
     $selectCls = $inputCls;
 @endphp
 
-<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-gray-200 dark:border-gray-700' }}">
     <div class="flex items-start justify-between gap-2 mb-1.5">
         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }} @if($isRequired)<span class="text-red-500">*</span>@endif</h4>
     </div>
