@@ -280,9 +280,9 @@
                                                 {{-- Email as a clickable mailto link --}}
                                                 <div class="flex items-center gap-1.5 mt-1">
                                                     <iconify-icon icon="lucide:mail" width="12" class="text-gray-400"></iconify-icon>
-                                                    <a href="mailto:{{ $player->email }}"
+                                                    <a href="mailto:{{ $player->email ?: $player->user->email ?? '' }}"
                                                         class="text-sm text-gray-500 dark:text-gray-400 hover:underline">
-                                                        {{ $player->email }}
+                                                        {{ $player->email ?: $player->user->email ?? '' }}
                                                     </a>
                                                 </div>
 
@@ -487,9 +487,9 @@
                                                 {{-- Email as a clickable mailto link --}}
                                                 <div class="flex items-center gap-1.5 mt-1">
                                                     <iconify-icon icon="lucide:mail" width="12" class="text-gray-400"></iconify-icon>
-                                                    <a href="mailto:{{ $player->email }}"
+                                                    <a href="mailto:{{ $player->email ?: $player->user->email ?? '' }}"
                                                         class="text-sm text-gray-500 dark:text-gray-400 hover:underline">
-                                                        {{ $player->email }}
+                                                        {{ $player->email ?: $player->user->email ?? '' }}
                                                     </a>
                                                 </div>
 

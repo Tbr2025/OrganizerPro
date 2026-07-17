@@ -1337,6 +1337,25 @@ class ActualTeamController extends Controller
             // If existing player ID is provided, use that directly
             if ($request->filled('existing_player_id')) {
                 $player = Player::findOrFail($request->existing_player_id);
+
+                // Backfill missing fields from the linked user
+                $user = $player->user;
+                if ($user) {
+                    if (!$player->email && $user->email) {
+                        $player->email = $user->email;
+                    }
+                    if (!$player->first_name && $player->name) {
+                        $nameParts = explode(' ', $player->name, 2);
+                        $player->first_name = $nameParts[0];
+                        if (!$player->last_name && isset($nameParts[1])) {
+                            $player->last_name = $nameParts[1];
+                        }
+                    }
+                    if (!$player->actual_team_id) {
+                        $player->actual_team_id = $actualTeam->id;
+                    }
+                    $player->save();
+                }
             } else {
                 // Look up existing player by phone number
                 if ($request->filled('phone')) {
@@ -1382,8 +1401,10 @@ class ActualTeamController extends Controller
                         $player->mobile_number_full = preg_replace('/\D+/', '', $request->phone);
                     }
                     // Fill missing fields on existing player
-                    if (!$player->email && $request->email) {
-                        $player->email = strtolower($request->email);
+                    if (!$player->email) {
+                        $player->email = $request->email
+                            ? strtolower($request->email)
+                            : ($player->user->email ?? null);
                     }
                     if (!$player->first_name && $player->name) {
                         $nameParts = explode(' ', $player->name, 2);
