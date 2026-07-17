@@ -1808,18 +1808,23 @@ function filterPlayersByTeam() {
 }
 
 function playerDropdown() {
-    const allPlayers = @json($players->map(fn($p) => [
-        'id' => (string) $p->id,
-        'name' => $p->name,
-        'jersey' => $p->jersey_number,
-        'team' => $p->actualTeam?->name,
-        'teamId' => (string) $p->actual_team_id,
-        'teamLogo' => $p->actualTeam?->team_logo_url ?? '',
-        'photo' => $p->image_path ? asset('storage/' . $p->image_path) : '',
-        'type' => $p->playerType?->type ?? '',
-        'batting' => $p->battingProfile?->style ?? '',
-        'bowling' => $p->bowlingProfile?->style ?? '',
-    ])->values());
+    @php
+        $playerDropdownData = $players->map(function($p) {
+            return [
+                'id' => (string) $p->id,
+                'name' => $p->name,
+                'jersey' => $p->jersey_number,
+                'team' => $p->actualTeam?->name,
+                'teamId' => (string) $p->actual_team_id,
+                'teamLogo' => $p->actualTeam?->team_logo_url ?? '',
+                'photo' => $p->image_path ? asset('storage/' . $p->image_path) : '',
+                'type' => $p->playerType?->type ?? '',
+                'batting' => $p->battingProfile?->style ?? '',
+                'bowling' => $p->bowlingProfile?->style ?? '',
+            ];
+        })->values();
+    @endphp
+    const allPlayers = @json($playerDropdownData);
 
     return {
         open: false,

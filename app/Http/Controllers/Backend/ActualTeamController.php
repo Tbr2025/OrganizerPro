@@ -1360,6 +1360,12 @@ class ActualTeamController extends Controller
                 }
             }
 
+            // Auto-approve player when added to a squad
+            if ($player && $player->status !== 'approved') {
+                $player->status = 'approved';
+                $player->save();
+            }
+
             // Handle retained status if role is 'retained'
             $hasRetainedRole = collect($request->input('tournament_assignments', []))
                 ->contains(fn($a) => ($a['role'] ?? '') === 'retained');
