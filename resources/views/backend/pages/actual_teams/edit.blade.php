@@ -873,23 +873,13 @@
                                             </label>
                                         </div>
 
-                                        {{-- Player Image --}}
+                                        {{-- Player Image (Cropper Component) --}}
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Image</label>
-                                            <div class="mt-2 flex items-center gap-4">
-                                                <template x-if="imagePreview">
-                                                    <img :src="imagePreview" class="h-16 w-16 rounded-full object-cover">
-                                                </template>
-                                                <template x-if="!imagePreview">
-                                                    <div class="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                                        <svg class="w-8 h-8 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.997A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                                                    </div>
-                                                </template>
-                                                <label class="cursor-pointer bg-white dark:bg-gray-700 py-2 px-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                                    <span>Upload</span>
-                                                    <input type="file" class="sr-only" accept="image/*" @change="handleImageChange($event)">
-                                                </label>
-                                            </div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Player Image</label>
+                                            <x-player-image-upload
+                                                name="processed_image_path"
+                                                mode="player"
+                                            />
                                         </div>
 
                                         {{-- Home Team (read-only) --}}
@@ -1357,6 +1347,10 @@
                             name: '',
                             email: '',
                             phone: '',
+                            country_code: '+971',
+                            national_number: '',
+                            player_type_id: '',
+                            is_wicket_keeper: false,
                             assignments: {
                                 @foreach($effectiveTournaments as $tournament)
                                     {{ $tournament->id }}: '{{ $actualTeam->id }}',
@@ -1365,17 +1359,7 @@
                         };
                         this.error = '';
                         this.lookupResult = '';
-                        this.imagePreview = '';
-                        this.imageFile = null;
                         this.showDrawer = true;
-                    },
-
-                    handleImageChange(event) {
-                        const file = event.target.files[0];
-                        if (file && file.type.startsWith('image/')) {
-                            this.imageFile = file;
-                            this.imagePreview = URL.createObjectURL(file);
-                        }
                     },
 
                     async lookupPlayer() {
@@ -1566,8 +1550,11 @@
                                     formData.append('player_type_id', this.newPlayer.player_type_id);
                                 }
                                 formData.append('is_wicket_keeper', this.newPlayer.is_wicket_keeper ? '1' : '0');
-                                if (this.imageFile) {
-                                    formData.append('player_image', this.imageFile);
+
+                                // Send processed image path from cropper component (hidden input)
+                                const processedImageInput = document.querySelector('input[name="processed_image_path"]');
+                                if (processedImageInput && processedImageInput.value) {
+                                    formData.append('processed_image_path', processedImageInput.value);
                                 }
 
                                 if (this.playerRole === 'retained' && this.retainedValue) {

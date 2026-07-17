@@ -1310,6 +1310,7 @@ class ActualTeamController extends Controller
                 'email'                         => 'required|email|max:255',
                 'phone'                         => 'required|string|max:20',
                 'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:6144',
+                'processed_image_path'          => 'nullable|string|max:500',
                 'tournament_assignments'        => 'nullable|array',
                 'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
                 'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
@@ -1325,6 +1326,12 @@ class ActualTeamController extends Controller
         try {
             DB::beginTransaction();
 
+            // Sanitize country_code — JS may send literal "undefined"
+            $countryCode = $request->input('country_code', '');
+            if (in_array($countryCode, ['undefined', 'null', ''], true)) {
+                $countryCode = '';
+            }
+
             $player = null;
 
             // If existing player ID is provided, use that directly
@@ -1334,6 +1341,11 @@ class ActualTeamController extends Controller
                 // Look up existing player by phone number
                 if ($request->filled('phone')) {
                     $player = Player::where('mobile_number_full', $request->phone)->first();
+                }
+
+                // Also look up by email to avoid duplicate email errors
+                if (!$player && $request->filled('email')) {
+                    $player = Player::where('email', strtolower($request->email))->first();
                 }
 
                 // If no existing player, create new Player + User
@@ -1356,7 +1368,7 @@ class ActualTeamController extends Controller
                         'last_name'              => $nameParts[1] ?? null,
                         'email'                  => strtolower($request->email),
                         'mobile_number_full'     => preg_replace('/\D+/', '', $request->phone),
-                        'mobile_country_code'    => $request->input('country_code', ''),
+                        'mobile_country_code'    => $countryCode,
                         'mobile_national_number' => $request->input('national_number', ''),
                         'player_type_id'         => $request->input('player_type_id'),
                         'is_wicket_keeper'       => $request->boolean('is_wicket_keeper'),
@@ -1380,8 +1392,8 @@ class ActualTeamController extends Controller
                             $player->last_name = $nameParts[1];
                         }
                     }
-                    if (!$player->mobile_country_code && $request->input('country_code')) {
-                        $player->mobile_country_code = $request->input('country_code');
+                    if (!$player->mobile_country_code && $countryCode) {
+                        $player->mobile_country_code = $countryCode;
                     }
                     if (!$player->mobile_national_number && $request->input('national_number')) {
                         $player->mobile_national_number = $request->input('national_number');
@@ -1425,8 +1437,10 @@ class ActualTeamController extends Controller
                 $player->save();
             }
 
-            // Handle image upload with background removal
-            if ($request->hasFile('player_image')) {
+            // Handle image: prefer processed_image_path from cropper component, fallback to raw file upload
+            if ($request->filled('processed_image_path')) {
+                $player->update(['image_path' => $request->input('processed_image_path')]);
+            } elseif ($request->hasFile('player_image')) {
                 $imagePath = $request->file('player_image')->store('player-images', 'public');
                 $player->update(['image_path' => $imagePath]);
 
