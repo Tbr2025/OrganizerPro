@@ -44,11 +44,12 @@ class TournamentRegistrationController extends Controller
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'date');
         $direction = strtolower($request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $playingTeam = $request->get('playing_team', '');
 
         // leftJoin players so we can search AND sort by the player's name uniformly
         // across mixed player/team rows.
         $query = $tournament->registrations()
-            ->with(['player.user', 'player.actualTeam', 'processedBy', 'actualTeam'])
+            ->with(['player.user', 'player.actualTeam.tournament', 'processedBy', 'actualTeam'])
             ->leftJoin('players', 'players.id', '=', 'tournament_registrations.player_id')
             ->select('tournament_registrations.*');
 
@@ -79,6 +80,14 @@ class TournamentRegistrationController extends Controller
             });
         }
 
+        if ($playingTeam !== '' && $type === 'player') {
+            if ($playingTeam === 'none') {
+                $query->whereNull('players.actual_team_id');
+            } else {
+                $query->where('players.actual_team_id', $playingTeam);
+            }
+        }
+
         // Sort whitelist -> column. "name" coalesces team name / player name.
         $column = match ($sort) {
             'modified' => 'tournament_registrations.updated_at',
@@ -96,10 +105,20 @@ class TournamentRegistrationController extends Controller
 
         $actualTeams = ActualTeam::forTournament($tournament->id)->orderBy('name')->get();
 
+        // Build playing-team filter options from teams that players are actually assigned to.
+        $playingTeamOptions = ActualTeam::whereIn('id', function ($q) use ($tournament) {
+            $q->select('players.actual_team_id')
+              ->from('players')
+              ->join('tournament_registrations', 'tournament_registrations.player_id', '=', 'players.id')
+              ->where('tournament_registrations.tournament_id', $tournament->id)
+              ->whereNotNull('players.actual_team_id');
+        })->orderBy('name')->get();
+
         return view('backend.pages.tournaments.registrations.index', [
             'tournament' => $tournament,
             'registrations' => $registrations,
             'actualTeams' => $actualTeams,
+            'playingTeamOptions' => $playingTeamOptions,
             'type' => $type,
             'totalCount' => $countBase()->count(),
             'pendingCount' => $countBase()->pending()->count(),
@@ -107,7 +126,7 @@ class TournamentRegistrationController extends Controller
             'rejectedCount' => $countBase()->rejected()->count(),
             'cancelledCount' => $countBase()->cancelled()->count(),
             'queuedCount' => $countBase()->queued()->count(),
-            'filters' => compact('type', 'status', 'search', 'sort', 'direction'),
+            'filters' => compact('type', 'status', 'search', 'sort', 'direction', 'playingTeam'),
             'breadcrumbs' => [
                 'title' => __('Registrations'),
                 'items' => [

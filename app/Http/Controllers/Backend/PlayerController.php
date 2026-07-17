@@ -722,7 +722,7 @@ class PlayerController extends Controller
             'layout' => $layout,
             'selectedTournament' => $selectedTournament,
             'teams' => Team::all(),
-            'actualTeams' => ActualTeam::all(),
+            'actualTeams' => ActualTeam::whereHas('tournament', fn($q) => $q->where('type', 'open'))->orderBy('name')->get(),
             'locations' => PlayerLocation::all(),
             'kitSizes' => KitSize::all(),
             'battingProfiles' => BattingProfile::all(),

@@ -187,6 +187,18 @@
                     <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="Name, team, or email…"
                            class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
                 </div>
+                @if($filters['type'] === 'player' && $playingTeamOptions->isNotEmpty())
+                    <div class="min-w-[160px]">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Playing Team</label>
+                        <select name="playing_team" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                            <option value="">All Teams</option>
+                            <option value="none" @selected(($filters['playingTeam'] ?? '') === 'none')>No Team</option>
+                            @foreach($playingTeamOptions as $pt)
+                                <option value="{{ $pt->id }}" @selected(($filters['playingTeam'] ?? '') == $pt->id)>{{ $pt->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Sort by</label>
                     <select name="sort" class="text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
@@ -264,6 +276,11 @@
                                                     @endif
                                                     <div>
                                                         <div class="font-semibold text-gray-900 dark:text-white">{{ $registration->player->name ?? 'N/A' }}</div>
+                                                        @if($registration->player?->actualTeam)
+                                                            <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium {{ $registration->player->actualTeam->tournament?->isAuction() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
+                                                                {{ $registration->player->actualTeam->name }}
+                                                            </span>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             @endif
