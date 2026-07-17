@@ -199,6 +199,17 @@
                         </select>
                     </div>
                 @endif
+                @if($filters['type'] === 'player')
+                    <div class="min-w-[140px]">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Team Type</label>
+                        <select name="team_type" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                            <option value="">All</option>
+                            <option value="none" @selected(($filters['teamType'] ?? '') === 'none')>No Team</option>
+                            <option value="open" @selected(($filters['teamType'] ?? '') === 'open')>Open Tournament</option>
+                            <option value="auction" @selected(($filters['teamType'] ?? '') === 'auction')>Auction Tournament</option>
+                        </select>
+                    </div>
+                @endif
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Sort by</label>
                     <select name="sort" class="text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">

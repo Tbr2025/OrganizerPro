@@ -45,6 +45,7 @@ class TournamentRegistrationController extends Controller
         $sort = $request->get('sort', 'date');
         $direction = strtolower($request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
         $playingTeam = $request->get('playing_team', '');
+        $teamType = $request->get('team_type', '');
 
         // leftJoin players so we can search AND sort by the player's name uniformly
         // across mixed player/team rows.
@@ -88,6 +89,21 @@ class TournamentRegistrationController extends Controller
             }
         }
 
+        if ($teamType !== '' && $type === 'player') {
+            if ($teamType === 'none') {
+                $query->whereNull('players.actual_team_id');
+            } else {
+                $query->whereNotNull('players.actual_team_id')
+                      ->whereExists(function ($sub) use ($teamType) {
+                          $sub->select(DB::raw(1))
+                              ->from('actual_teams')
+                              ->join('tournaments', 'tournaments.id', '=', 'actual_teams.tournament_id')
+                              ->whereColumn('actual_teams.id', 'players.actual_team_id')
+                              ->where('tournaments.type', $teamType);
+                      });
+            }
+        }
+
         // Sort whitelist -> column. "name" coalesces team name / player name.
         $column = match ($sort) {
             'modified' => 'tournament_registrations.updated_at',
@@ -126,7 +142,7 @@ class TournamentRegistrationController extends Controller
             'rejectedCount' => $countBase()->rejected()->count(),
             'cancelledCount' => $countBase()->cancelled()->count(),
             'queuedCount' => $countBase()->queued()->count(),
-            'filters' => compact('type', 'status', 'search', 'sort', 'direction', 'playingTeam'),
+            'filters' => compact('type', 'status', 'search', 'sort', 'direction', 'playingTeam', 'teamType'),
             'breadcrumbs' => [
                 'title' => __('Registrations'),
                 'items' => [
