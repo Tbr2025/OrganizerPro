@@ -293,11 +293,15 @@
                         <option value="">-- Select a player --</option>
                         @foreach($players as $player)
                             <option value="{{ $player->id }}"
+                                    @php
+                                        $effectiveTeamId = $tournamentTeamMap[$player->id] ?? $player->actual_team_id;
+                                        $effectiveTeam = $effectiveTeamId ? $teams->firstWhere('id', $effectiveTeamId) : $player->actualTeam;
+                                    @endphp
                                     data-name="{{ $player->name }}"
                                     data-jersey="{{ $player->jersey_number }}"
-                                    data-team="{{ $player->actualTeam?->name }}"
-                                    data-team-id="{{ $player->actual_team_id }}"
-                                    data-team-logo="{{ $player->actualTeam?->team_logo_url ?? '' }}"
+                                    data-team="{{ $effectiveTeam?->name ?? $player->actualTeam?->name }}"
+                                    data-team-id="{{ $effectiveTeamId }}"
+                                    data-team-logo="{{ $effectiveTeam?->team_logo_url ?? $player->actualTeam?->team_logo_url ?? '' }}"
                                     data-photo="{{ $player->image_path ? asset('storage/' . $player->image_path) : '' }}"
                                     data-type="{{ $player->playerType?->type ?? '' }}"
                                     data-batting="{{ $player->battingProfile?->style ?? '' }}"
@@ -1811,15 +1815,17 @@ function filterPlayersByTeam() {
 
 function playerDropdown() {
     @php
-        $playerDropdownData = $players->map(function($p) {
+        $playerDropdownData = $players->map(function($p) use ($tournamentTeamMap, $teams) {
+            $effTeamId = $tournamentTeamMap[$p->id] ?? $p->actual_team_id;
+            $effTeam = $effTeamId ? $teams->firstWhere('id', $effTeamId) : $p->actualTeam;
             return [
                 'id' => (string) $p->id,
                 'name' => $p->name,
                 'email' => $p->email,
                 'jersey' => $p->jersey_number,
-                'team' => $p->actualTeam?->name,
-                'teamId' => (string) $p->actual_team_id,
-                'teamLogo' => $p->actualTeam?->team_logo_url ?? '',
+                'team' => $effTeam?->name ?? $p->actualTeam?->name,
+                'teamId' => (string) $effTeamId,
+                'teamLogo' => $effTeam?->team_logo_url ?? $p->actualTeam?->team_logo_url ?? '',
                 'photo' => $p->image_path ? asset('storage/' . $p->image_path) : '',
                 'type' => $p->playerType?->type ?? '',
                 'batting' => $p->battingProfile?->style ?? '',

@@ -127,6 +127,24 @@ class TournamentTemplateController extends Controller
             ->where('status', 'approved')
             ->get();
 
+        // Also include players assigned to tournament teams via pivot (may have different home team)
+        $pivotPlayerIds = DB::table('player_actual_team_tournament')
+            ->where('tournament_id', $tournament->id)
+            ->whereIn('actual_team_id', $allTeamIds)
+            ->pluck('player_id');
+
+        $pivotPlayers = Player::whereIn('id', $pivotPlayerIds)
+            ->whereNotIn('id', $teamPlayers->pluck('id'))
+            ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
+            ->where('status', 'approved')
+            ->get();
+
+        // Build a map of tournament-specific team assignments (pivot overrides home team)
+        $tournamentTeamMap = DB::table('player_actual_team_tournament')
+            ->where('tournament_id', $tournament->id)
+            ->whereIn('actual_team_id', $allTeamIds)
+            ->pluck('actual_team_id', 'player_id');
+
         // Also include players who registered via registration link for this tournament
         $registeredPlayerIds = TournamentRegistration::where('tournament_id', $tournament->id)
             ->where('type', 'player')
@@ -134,13 +152,14 @@ class TournamentTemplateController extends Controller
             ->whereNotNull('player_id')
             ->pluck('player_id');
 
+        $allLoadedIds = $teamPlayers->pluck('id')->merge($pivotPlayers->pluck('id'));
         $registeredPlayers = Player::whereIn('id', $registeredPlayerIds)
-            ->whereNotIn('id', $teamPlayers->pluck('id'))
+            ->whereNotIn('id', $allLoadedIds)
             ->with(['actualTeam', 'playerType', 'battingProfile', 'bowlingProfile'])
             ->where('status', 'approved')
             ->get();
 
-        $players = $teamPlayers->merge($registeredPlayers);
+        $players = $teamPlayers->merge($pivotPlayers)->merge($registeredPlayers);
 
         // Load actual teams for the team filter dropdown (welcome_card)
         $teams = ActualTeam::whereIn('id', $allTeamIds)->orderBy('name')->get();
@@ -163,6 +182,7 @@ class TournamentTemplateController extends Controller
             'matches',
             'players',
             'teams',
+            'tournamentTeamMap',
             'groups',
             'savedPosters',
             'autoWelcome'
