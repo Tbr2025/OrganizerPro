@@ -189,6 +189,17 @@ class TournamentTemplateController extends Controller
 
         $players = $teamPlayers->merge($pivotPlayers)->merge($registeredPlayers)->merge($memberPlayers);
 
+        // Exclude players whose tournament registration is rejected or pending
+        $excludedPlayerIds = TournamentRegistration::where('tournament_id', $tournament->id)
+            ->where('type', 'player')
+            ->whereNotNull('player_id')
+            ->whereIn('status', ['rejected', 'pending'])
+            ->pluck('player_id');
+
+        if ($excludedPlayerIds->isNotEmpty()) {
+            $players = $players->whereNotIn('id', $excludedPlayerIds);
+        }
+
         // Load actual teams for the team filter dropdown (welcome_card)
         $teams = ActualTeam::whereIn('id', $allTeamIds)->orderBy('name')->get();
 
