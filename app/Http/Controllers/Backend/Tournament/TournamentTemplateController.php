@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Matches;
 use App\Models\Player;
 use App\Models\Tournament;
+use App\Models\ActualTeam;
 use App\Models\GeneratedPoster;
 use App\Models\TournamentRegistration;
 use App\Models\TournamentTemplate;
@@ -141,6 +142,9 @@ class TournamentTemplateController extends Controller
 
         $players = $teamPlayers->merge($registeredPlayers);
 
+        // Load actual teams for the team filter dropdown (welcome_card)
+        $teams = ActualTeam::whereIn('id', $allTeamIds)->orderBy('name')->get();
+
         // Load groups for point table type
         $groups = $tournament->groups;
 
@@ -158,6 +162,7 @@ class TournamentTemplateController extends Controller
             'templates',
             'matches',
             'players',
+            'teams',
             'groups',
             'savedPosters',
             'autoWelcome'
@@ -470,9 +475,10 @@ class TournamentTemplateController extends Controller
                 || $template->type === TournamentTemplate::TYPE_FIXTURES_POSTER;
             $base64Image = $renderService->renderToBase64($template, $data, true, (bool) $hasMatchData);
 
-            // Save poster to storage and database
+            // Save poster to storage and database (only when explicitly requested)
+            $shouldSave = $request->boolean('save_poster', false);
             $savedPoster = null;
-            try {
+            if ($shouldSave) try {
                 $appPrefix = config('settings.app_name') ?: config('app.name');
                 $filename = $appPrefix . '-' . $template->type . '-' . now()->format('YmdHis') . '-' . uniqid() . '.png';
                 $savePath = 'generated_posters/' . $tournament->id . '/' . $filename;

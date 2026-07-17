@@ -278,6 +278,14 @@
                         </button>
                     </div>
 
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Filter by Team</label>
+                    <select id="teamFilter" onchange="filterPlayersByTeam()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 mb-3">
+                        <option value="">All Teams</option>
+                        @foreach($teams as $team)
+                            <option value="{{ $team->id }}">{{ $team->name }}</option>
+                        @endforeach
+                    </select>
+
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Player</label>
                     <select id="playerSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                         <option value="">-- Select a player --</option>
@@ -286,6 +294,7 @@
                                     data-name="{{ $player->name }}"
                                     data-jersey="{{ $player->jersey_number }}"
                                     data-team="{{ $player->actualTeam?->name }}"
+                                    data-team-id="{{ $player->actual_team_id }}"
                                     data-team-logo="{{ $player->actualTeam?->team_logo_url ?? '' }}"
                                     data-photo="{{ $player->image_path ? asset('storage/' . $player->image_path) : '' }}"
                                     data-type="{{ $player->playerType?->type ?? '' }}"
@@ -735,13 +744,21 @@
 
                 {{-- Action Buttons --}}
                 <div class="border-t border-gray-100 dark:border-gray-700 p-4 flex gap-3">
-                    <button type="button" onclick="generatePreview()" id="previewBtn"
+                    <button type="button" onclick="generatePreview(false)" id="previewBtn"
                             class="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 text-sm flex items-center justify-center">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
-                        Generate
+                        Preview
+                    </button>
+
+                    <button type="button" onclick="generatePreview(true)" id="generateSaveBtn"
+                            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-green-500/25 hover:shadow-green-500/40 text-sm flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                        </svg>
+                        Generate & Save
                     </button>
 
                     <button type="button" onclick="downloadPoster()" id="downloadBtn" disabled
@@ -1527,7 +1544,7 @@ function showDataSummary(data) {
     }
 }
 
-function generatePreview() {
+function generatePreview(saveMode = false) {
     const data = getSelectedData();
 
     if (!data.template_id) {
@@ -1550,19 +1567,27 @@ function generatePreview() {
         return;
     }
 
+    // Add save flag to data
+    data.save_poster = saveMode;
+
+    // Determine which button triggered
+    const activeBtn = saveMode ? document.getElementById('generateSaveBtn') : document.getElementById('previewBtn');
+    const activeLabel = saveMode ? 'Saving...' : 'Generating...';
+
     // Show loading
     document.getElementById('previewPlaceholder').classList.add('hidden');
     document.getElementById('previewImage').classList.add('hidden');
     document.getElementById('previewLoading').classList.remove('hidden');
-    document.getElementById('previewStatus').textContent = 'Generating...';
+    document.getElementById('previewStatus').textContent = activeLabel;
     document.getElementById('previewStatus').className = 'text-xs text-purple-500 font-medium animate-pulse';
     document.getElementById('previewBtn').disabled = true;
-    document.getElementById('previewBtn').innerHTML = `
+    document.getElementById('generateSaveBtn').disabled = true;
+    activeBtn.innerHTML = `
         <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        Generating...
+        ${activeLabel}
     `;
 
     showDataSummary(data);
@@ -1635,7 +1660,8 @@ function generatePreview() {
             document.getElementById('previewImage').src = result.image;
             document.getElementById('previewImage').classList.remove('hidden');
             document.getElementById('downloadBtn').disabled = false;
-            document.getElementById('previewStatus').textContent = 'Generated';
+            const statusText = result.poster_id ? 'Saved' : 'Preview';
+            document.getElementById('previewStatus').textContent = statusText;
             document.getElementById('previewStatus').className = 'text-xs text-emerald-500 font-medium';
             generatedImageUrl = result.image;
             savedDownloadUrl = result.download_url || null;
@@ -1672,15 +1698,38 @@ function generatePreview() {
 }
 
 function resetPreviewBtn() {
-    const btn = document.getElementById('previewBtn');
-    btn.disabled = false;
-    btn.innerHTML = `
+    const previewBtn = document.getElementById('previewBtn');
+    previewBtn.disabled = false;
+    previewBtn.innerHTML = `
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
         </svg>
-        Generate
+        Preview
     `;
+    const saveBtn = document.getElementById('generateSaveBtn');
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = `
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+        </svg>
+        Generate & Save
+    `;
+}
+
+function filterPlayersByTeam() {
+    const teamId = document.getElementById('teamFilter').value;
+    const playerSelect = document.getElementById('playerSelect');
+    const options = playerSelect.querySelectorAll('option[value]');
+
+    playerSelect.value = '';
+    options.forEach(opt => {
+        if (!teamId || opt.dataset.teamId === teamId) {
+            opt.style.display = '';
+        } else {
+            opt.style.display = 'none';
+        }
+    });
 }
 
 function downloadPoster() {
