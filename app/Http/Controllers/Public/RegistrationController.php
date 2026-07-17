@@ -50,11 +50,13 @@ class RegistrationController extends Controller
 
         $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
 
-        // Playing Team options: teams linked to this tournament (column or pivot);
-        // fall back to the organization's teams so the field still renders when
-        // none are linked yet.
-        // Show all organization teams in the "Current Playing Team" dropdown.
-        $actualTeams = ActualTeam::where('organization_id', $tournament->organization_id)->orderBy('name')->get();
+        // Playing Team options: only show teams from open tournaments
+        $actualTeams = ActualTeam::where('organization_id', $tournament->organization_id)
+            ->whereHas('tournament', function ($q) {
+                $q->where('type', 'open');
+            })
+            ->orderBy('name')
+            ->get();
 
         // Prefill values (used when team managers redirect here to register themselves)
         $prefill = [
