@@ -96,6 +96,7 @@ class PublicTeamJoinController extends Controller
             'actual_team_id' => $team->id,
             'player_mode' => 'normal',
             'status' => 'pending',
+            'organization_id' => $team->tournament?->organization_id,
         ];
 
         if ($request->hasFile('image')) {

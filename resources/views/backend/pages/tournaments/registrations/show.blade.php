@@ -703,23 +703,16 @@
                 </div>
                 @endif
 
-                {{-- Email actions: resend welcome card / confirmation --}}
+                {{-- Email actions: resend approval email / temp password --}}
                 <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Email Actions</h4>
                     <div class="flex flex-wrap gap-3">
-                        <form action="{{ route('admin.tournaments.registrations.resend-confirmation', [$tournament, $registration]) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                                Resend Confirmation Email
-                            </button>
-                        </form>
                         @if($registration->isPlayerRegistration())
                         <form action="{{ route('admin.tournaments.registrations.resend-welcome', [$tournament, $registration]) }}" method="POST">
                             @csrf
                             <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-                                Resend Welcome Card
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                Resend Approval Email
                             </button>
                         </form>
                         @endif

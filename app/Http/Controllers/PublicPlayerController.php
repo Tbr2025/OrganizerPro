@@ -222,6 +222,7 @@ class PublicPlayerController extends Controller
 
 
         // Build player data
+        $registrationTeam = Team::with('tournament')->find($validated['team_id']);
         $player = Player::create(array_merge([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -242,6 +243,7 @@ class PublicPlayerController extends Controller
             'no_travel_plan' => $noTravel,
             'travel_date_from' => $validated['travel_date_from'] ?? null,
             'travel_date_to' => $validated['travel_date_to'] ?? null,
+            'organization_id' => $registrationTeam?->tournament?->organization_id,
         ], collect([
             'team_id',
             'team_name_ref',

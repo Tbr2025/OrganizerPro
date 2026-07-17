@@ -7,6 +7,7 @@ use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Services\Email\EmailTemplateService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Attachment;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -18,14 +19,16 @@ class RegistrationApprovedMail extends Mailable
 
     public Tournament $tournament;
     public TournamentRegistration $registration;
+    public ?string $posterPath;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Tournament $tournament, TournamentRegistration $registration)
+    public function __construct(Tournament $tournament, TournamentRegistration $registration, ?string $posterPath = null)
     {
         $this->tournament = $tournament;
         $this->registration = $registration;
+        $this->posterPath = $posterPath;
     }
 
     /** @var array{subject:string, html:string}|null */
@@ -57,7 +60,22 @@ class RegistrationApprovedMail extends Mailable
      */
     public function content(): Content
     {
-        return new Content(htmlString: $this->resolved()['html']);
+        $html = $this->resolved()['html'];
+
+        // Inject welcome card inline before </body> if poster exists
+        if ($this->posterPath && $this->posterFullPath() && is_file($this->posterFullPath())) {
+            $base64 = base64_encode(file_get_contents($this->posterFullPath()));
+            $mime = mime_content_type($this->posterFullPath()) ?: 'image/png';
+            $imgTag = '<div style="text-align:center;margin:24px 0;"><img src="data:' . $mime . ';base64,' . $base64 . '" alt="Welcome Card" style="max-width:100%;height:auto;border-radius:8px;" /></div>';
+
+            if (stripos($html, '</body>') !== false) {
+                $html = str_ireplace('</body>', $imgTag . '</body>', $html);
+            } else {
+                $html .= $imgTag;
+            }
+        }
+
+        return new Content(htmlString: $html);
     }
 
     /**
@@ -67,6 +85,26 @@ class RegistrationApprovedMail extends Mailable
      */
     public function attachments(): array
     {
+        if ($this->posterPath && $this->posterFullPath() && is_file($this->posterFullPath())) {
+            return [
+                Attachment::fromPath($this->posterFullPath())
+                    ->as('welcome-card.png')
+                    ->withMime('image/png'),
+            ];
+        }
+
         return [];
+    }
+
+    /**
+     * Resolve the full filesystem path to the poster.
+     */
+    private function posterFullPath(): ?string
+    {
+        if (!$this->posterPath) {
+            return null;
+        }
+
+        return storage_path('app/public/' . $this->posterPath);
     }
 }

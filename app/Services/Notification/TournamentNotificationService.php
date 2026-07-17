@@ -38,6 +38,45 @@ class TournamentNotificationService
     }
 
     /**
+     * Generate the welcome card poster for a registration (without sending email).
+     * Returns the relative storage path, or null if no template/player.
+     */
+    public function generateWelcomeCard(TournamentRegistration $registration): ?string
+    {
+        if (!$registration->isPlayerRegistration() || !$registration->player) {
+            return null;
+        }
+
+        $tournament = $registration->tournament;
+        $player = $registration->player;
+        $settings = $tournament->settings;
+
+        $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_WELCOME_CARD);
+        if (!$template) {
+            return null;
+        }
+
+        $data = [
+            'player_name' => $player->name,
+            'jersey_name' => $player->jersey_name ?: $player->name,
+            'jersey_number' => (string) ($player->jersey_number ?? ''),
+            'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
+            'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
+            'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
+            'team_name' => $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? $player->team?->name ?? ''),
+            'team_logo' => $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? $player->team?->logo ?? ''),
+            'tournament_name' => $tournament->name,
+            'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
+            'player_image' => $player->image_path ?? '',
+            'playing_team_name' => $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? ''),
+            'playing_team_logo' => $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? ''),
+        ];
+
+        return app(\App\Services\Poster\TemplateRenderService::class)
+            ->renderAndSave($template, $data, TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name)));
+    }
+
+    /**
      * Send welcome card to a registration
      */
     public function sendWelcomeCard(TournamentRegistration $registration, bool $manual = false, bool $force = false): bool

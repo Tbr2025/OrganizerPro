@@ -202,6 +202,18 @@
                                                     {{ ucfirst($tAssignment->role) }}
                                                 </span>
                                             @endif
+                                            @if($tPlayer->player_mode === 'retained')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 ml-1">
+                                                    Retained{{ $tPlayer->retained_value ? ' (' . number_format($tPlayer->retained_value) . ')' : '' }}
+                                                </span>
+                                                <form action="{{ route('admin.players.unretain', $tPlayer) }}" method="POST" class="inline ml-1"
+                                                    onsubmit="return confirm('Remove retention for {{ $tPlayer->name }}?')">
+                                                    @csrf
+                                                    <button type="submit" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:hover:bg-amber-800 transition">
+                                                        Unretain
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     @endif
                                 @endforeach
@@ -449,6 +461,9 @@
                             </thead>
                             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                                 @foreach($approvedPlayers as $ap)
+                                    @if($ap->player_mode === 'retained' && $ap->actual_team_id == $actualTeam->id)
+                                        @continue
+                                    @endif
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                         data-player-name="{{ strtolower($ap->name) }}"
                                         data-player-type="{{ $ap->playerType?->type ?? '' }}"

@@ -4,7 +4,6 @@ namespace App\Services\Tournament;
 
 use App\Mail\ApplicationUnderReviewMail;
 use App\Mail\NewRegistrationAdminMail;
-use App\Mail\PlayerWelcomeMail;
 use App\Mail\RegistrationApprovedMail;
 use App\Mail\TeamManagerCredentialsMail;
 use App\Models\ActualTeam;
@@ -333,11 +332,8 @@ class RegistrationService
                 }
             }
 
-            // Send approval email to player
+            // Send approval email to player (with welcome card poster if applicable)
             $this->sendApprovalEmail($registration);
-
-            // Send the greeting / invite card (generated poster attached).
-            $this->sendGreetingCard($registration);
 
             return true;
         });
@@ -679,7 +675,7 @@ class RegistrationService
     }
 
     /**
-     * Send approval email to registrant
+     * Send approval email to registrant (with welcome card poster for players).
      */
     protected function sendApprovalEmail(TournamentRegistration $registration): void
     {
@@ -692,12 +688,44 @@ class RegistrationService
             $email = $registration->captain_email;
         }
 
-        if ($email) {
-            try {
-                $this->safeMail($email, new RegistrationApprovedMail($tournament, $registration));
-            } catch (\Exception $e) {
-                Log::error('Failed to send approval email: ' . $e->getMessage());
+        if (!$email) {
+            return;
+        }
+
+        try {
+            $posterPath = null;
+
+            // For player registrations, generate welcome card if auto_send is enabled
+            if ($registration->isPlayerRegistration()) {
+                $settings = $tournament->settings;
+                $autoSend = !$settings || $settings->shouldAutoSendWelcomeCards();
+
+                if ($autoSend) {
+                    try {
+                        $posterPath = app(\App\Services\Notification\TournamentNotificationService::class)
+                            ->generateWelcomeCard($registration);
+                    } catch (\Throwable $e) {
+                        Log::error('Failed to generate welcome card for approval email: ' . $e->getMessage());
+                    }
+                }
             }
+
+            $this->safeMail($email, new RegistrationApprovedMail($tournament, $registration, $posterPath));
+
+            // Log notification and mark welcome card sent if poster was included
+            if ($posterPath && $registration->isPlayerRegistration()) {
+                \App\Models\NotificationLog::log(
+                    $tournament,
+                    $registration,
+                    \App\Models\NotificationLog::TYPE_WELCOME_CARD,
+                    \App\Models\NotificationLog::CHANNEL_EMAIL,
+                    $email,
+                    $posterPath
+                );
+                $registration->markWelcomeCardSent();
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send approval email: ' . $e->getMessage());
         }
     }
 
@@ -717,20 +745,4 @@ class RegistrationService
         }
     }
 
-    /**
-     * Send the greeting / welcome card (with generated poster) on player approval.
-     * Failures are logged, never block approval.
-     */
-    protected function sendGreetingCard(TournamentRegistration $registration): void
-    {
-        try {
-            // Respect the tournament's auto_send_welcome_cards setting.
-            // When auto mode is off, the card won't be sent automatically on approval.
-            app(\App\Services\Notification\TournamentNotificationService::class)
-                ->sendWelcomeCard($registration);
-        } catch (\Throwable $e) {
-            // Never let card generation (TypeError/GD/etc.) break the approval.
-            Log::error('Failed to send greeting card: ' . $e->getMessage());
-        }
-    }
 }

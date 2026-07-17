@@ -434,7 +434,7 @@ class TournamentRegistrationController extends Controller
     }
 
     /**
-     * Resend the welcome card email to the player (bypasses the already-sent guard).
+     * Resend the approval email (with welcome card poster) to the player.
      */
     public function resendWelcome(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
@@ -442,14 +442,26 @@ class TournamentRegistrationController extends Controller
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         if (! $registration->isPlayerRegistration()) {
-            return back()->with('error', __('Welcome cards are only available for player registrations.'));
+            return back()->with('error', __('This action is only available for player registrations.'));
         }
 
-        $sent = app(TournamentNotificationService::class)->sendWelcomeCard($registration, true, true);
+        $email = $registration->player?->email;
+        if (! $email) {
+            return back()->with('error', __('No email address on file for this player.'));
+        }
 
-        return $sent
-            ? back()->with('success', __('Welcome card resent to the player.'))
-            : back()->with('error', __('Could not send the welcome card. Ensure a welcome-card template exists and the player has an email address.'));
+        try {
+            $posterPath = app(TournamentNotificationService::class)->generateWelcomeCard($registration);
+            Mail::to($email)->send(new RegistrationApprovedMail($tournament, $registration, $posterPath));
+
+            if ($posterPath) {
+                $registration->markWelcomeCardSent();
+            }
+
+            return back()->with('success', __('Approval email resent to :email.', ['email' => $email]));
+        } catch (\Throwable $e) {
+            return back()->with('error', __('Failed to resend approval email: :error', ['error' => $e->getMessage()]));
+        }
     }
 
     /**

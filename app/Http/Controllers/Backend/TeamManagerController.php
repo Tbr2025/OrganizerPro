@@ -61,7 +61,8 @@ class TeamManagerController extends Controller
         session(['selected_team_id' => $team->id]);
 
         // Only count players who are on the roster (player_actual_team_tournament pivot)
-        $teamPlayers = Player::where('actual_team_id', $team->id)
+        // Use withoutOrganizationScope() so retained players with NULL org_id are included
+        $teamPlayers = Player::withoutOrganizationScope()->where('actual_team_id', $team->id)
             ->whereExists(function ($q) use ($team) {
                 $q->select(\DB::raw(1))
                   ->from('player_actual_team_tournament')
@@ -792,7 +793,8 @@ class TeamManagerController extends Controller
         $tournamentId = $team->tournament_id;
 
         // Get all players with approved registration for this tournament
-        $query = Player::whereHas('registrations', function ($q) use ($tournamentId) {
+        // Use withoutOrganizationScope() so players with NULL org_id are included
+        $query = Player::withoutOrganizationScope()->whereHas('registrations', function ($q) use ($tournamentId) {
                 $q->where('tournament_id', $tournamentId)
                   ->where('status', 'approved');
             })
@@ -947,7 +949,8 @@ class TeamManagerController extends Controller
 
         // Only show players who have been added to the Player Roster
         // (i.e. they exist in the player_actual_team_tournament pivot table).
-        $teamPlayers = Player::where('actual_team_id', $team->id)
+        // Use withoutOrganizationScope() so retained players with NULL org_id are included
+        $teamPlayers = Player::withoutOrganizationScope()->where('actual_team_id', $team->id)
             ->whereExists(function ($q) use ($team) {
                 $q->select(\DB::raw(1))
                   ->from('player_actual_team_tournament')
