@@ -302,7 +302,7 @@
                                     data-team="{{ $effectiveTeam?->name ?? $player->actualTeam?->name }}"
                                     data-team-id="{{ $effectiveTeamId }}"
                                     data-team-logo="{{ $effectiveTeam?->team_logo_url ?? $player->actualTeam?->team_logo_url ?? '' }}"
-                                    data-playing-team-name="{{ $effectiveTeam?->name ?? $player->actualTeam?->name ?? '' }}"
+                                    data-playing-team-name="{{ $effectiveTeam?->name ?? $player->actualTeam?->name ?? $player->playing_team_name_ref ?? '' }}"
                                     data-playing-team-logo="{{ $effectiveTeam?->team_logo_url ?? $player->actualTeam?->team_logo_url ?? '' }}"
                                     data-photo="{{ $player->image_path ? asset('storage/' . $player->image_path) : '' }}"
                                     data-type="{{ $player->playerType?->type ?? '' }}"
@@ -1837,7 +1837,7 @@ function playerDropdown() {
                 'team' => $effTeam?->name ?? $p->actualTeam?->name,
                 'teamId' => (string) $effTeamId,
                 'teamLogo' => $effTeam?->team_logo_url ?? $p->actualTeam?->team_logo_url ?? '',
-                'playingTeamName' => $effTeam?->name ?? $p->actualTeam?->name ?? '',
+                'playingTeamName' => $effTeam?->name ?? $p->actualTeam?->name ?? $p->playing_team_name_ref ?? '',
                 'playingTeamLogo' => $effTeam?->team_logo_url ?? $p->actualTeam?->team_logo_url ?? '',
                 'photo' => $p->image_path ? asset('storage/' . $p->image_path) : '',
                 'type' => $p->playerType?->type ?? '',
