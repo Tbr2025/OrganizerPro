@@ -662,6 +662,9 @@ class TournamentRegistrationController extends Controller
             return back()->with('error', __('No welcome card template found. Please create one first.'));
         }
 
+        $teamName = $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? $player->team?->name ?? '');
+        $teamLogo = $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? $player->team?->logo ?? '');
+
         $data = [
             'player_name' => $player->name,
             'jersey_name' => $player->jersey_name ?: $player->name,
@@ -669,8 +672,10 @@ class TournamentRegistrationController extends Controller
             'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
             'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
             'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
-            'team_name' => $player->actualTeam?->name ?? $player->team?->name ?? '',
-            'team_logo' => $player->actualTeam?->team_logo ?? $player->team?->logo ?? '',
+            'team_name' => $teamName,
+            'team_logo' => $teamLogo,
+            'playing_team_name' => $teamName,
+            'playing_team_logo' => $teamLogo,
             'tournament_name' => $tournament->name,
             'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
             'player_image' => $player->image_path ?? '',
@@ -703,6 +708,9 @@ class TournamentRegistrationController extends Controller
             return response()->json(['error' => 'No welcome card template found.'], 404);
         }
 
+        $teamName = $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? $player->team?->name ?? '');
+        $teamLogo = $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? $player->team?->logo ?? '');
+
         $data = [
             'player_name' => $player->name,
             'jersey_name' => $player->jersey_name ?: $player->name,
@@ -710,8 +718,10 @@ class TournamentRegistrationController extends Controller
             'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
             'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
             'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
-            'team_name' => $player->actualTeam?->name ?? $player->team?->name ?? '',
-            'team_logo' => $player->actualTeam?->team_logo ?? $player->team?->logo ?? '',
+            'team_name' => $teamName,
+            'team_logo' => $teamLogo,
+            'playing_team_name' => $teamName,
+            'playing_team_logo' => $teamLogo,
             'tournament_name' => $tournament->name,
             'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
             'player_image' => $player->image_path ?? '',

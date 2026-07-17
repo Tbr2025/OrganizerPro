@@ -86,13 +86,13 @@ class TournamentNotificationService
                 'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
                 'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
                 'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
-                'team_name' => $player->team?->name ?? '',
-                'team_logo' => $player->team?->logo ?? '',
+                'team_name' => $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? $player->team?->name ?? ''),
+                'team_logo' => $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? $player->team?->logo ?? ''),
                 'tournament_name' => $tournament->name,
                 'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
                 'player_image' => $player->image_path ?? '',
-                'playing_team_name' => $player->actualTeam?->name ?? '',
-                'playing_team_logo' => $player->actualTeam?->team_logo ?? '',
+                'playing_team_name' => $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? ''),
+                'playing_team_logo' => $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? ''),
             ];
 
             $posterPath = app(\App\Services\Poster\TemplateRenderService::class)
