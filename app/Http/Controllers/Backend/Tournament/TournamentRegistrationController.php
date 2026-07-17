@@ -122,7 +122,7 @@ class TournamentRegistrationController extends Controller
         $actualTeams = ActualTeam::forTournament($tournament->id)->orderBy('name')->get();
 
         // Build playing-team filter options from teams that players are actually assigned to.
-        $playingTeamOptions = ActualTeam::whereIn('id', function ($q) use ($tournament) {
+        $playingTeamOptions = ActualTeam::with('tournament')->whereIn('id', function ($q) use ($tournament) {
             $q->select('players.actual_team_id')
               ->from('players')
               ->join('tournament_registrations', 'tournament_registrations.player_id', '=', 'players.id')

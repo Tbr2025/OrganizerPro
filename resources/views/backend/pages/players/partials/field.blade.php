@@ -119,10 +119,17 @@
             @break
 
         @case('playing_team')
-            <select name="actual_team_id" class="{{ $selectCls }}">
-                <option value="">-- Select --</option>
-                @foreach($actualTeams as $t)<option value="{{ $t->id }}" {{ (string) old('actual_team_id', $val) === (string) $t->id ? 'selected' : '' }}>{{ $t->name }}</option>@endforeach
-            </select>
+            @php $auctionTeamIds = $actualTeams->filter(fn($t) => $t->tournament?->type === 'auction')->pluck('id')->toArray(); @endphp
+            <div x-data="{ selectedTeam: '{{ old('actual_team_id', $val) }}', auctionIds: @js($auctionTeamIds) }">
+                <select name="actual_team_id" class="{{ $selectCls }}" x-model="selectedTeam">
+                    <option value="">-- Select --</option>
+                    @foreach($actualTeams as $t)<option value="{{ $t->id }}" {{ (string) old('actual_team_id', $val) === (string) $t->id ? 'selected' : '' }}>{{ $t->name }} ({{ ucfirst($t->tournament?->type ?? 'unknown') }})</option>@endforeach
+                </select>
+                <p x-show="auctionIds.includes(parseInt(selectedTeam))" x-cloak class="mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <iconify-icon icon="lucide:alert-triangle" class="text-sm"></iconify-icon>
+                    This team belongs to an auction tournament
+                </p>
+            </div>
             @break
 
         @case('registration_team')

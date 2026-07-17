@@ -194,7 +194,7 @@
                             <option value="">All Teams</option>
                             <option value="none" @selected(($filters['playingTeam'] ?? '') === 'none')>No Team</option>
                             @foreach($playingTeamOptions as $pt)
-                                <option value="{{ $pt->id }}" @selected(($filters['playingTeam'] ?? '') == $pt->id)>{{ $pt->name }}</option>
+                                <option value="{{ $pt->id }}" @selected(($filters['playingTeam'] ?? '') == $pt->id)>{{ $pt->name }} ({{ ucfirst($pt->tournament?->type ?? 'unknown') }})</option>
                             @endforeach
                         </select>
                     </div>
