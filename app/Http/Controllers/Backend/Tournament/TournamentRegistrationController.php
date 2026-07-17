@@ -44,8 +44,8 @@ class TournamentRegistrationController extends Controller
         $search = trim((string) $request->get('search', ''));
         $sort = $request->get('sort', 'date');
         $direction = strtolower($request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $playingTeam = $request->get('playing_team', '');
-        $tournamentType = $request->get('tournament_type', '');
+        $playingTeam = (string) $request->get('playing_team', '');
+        $tournamentType = (string) $request->get('tournament_type', '');
 
         // leftJoin players so we can search AND sort by the player's name uniformly
         // across mixed player/team rows.
