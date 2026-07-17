@@ -292,11 +292,11 @@
                     <select id="playerSelect" class="hidden">
                         <option value="">-- Select a player --</option>
                         @foreach($players as $player)
+                            @php
+                                $effectiveTeamId = $tournamentTeamMap[$player->id] ?? $player->actual_team_id;
+                                $effectiveTeam = $effectiveTeamId ? $teams->firstWhere('id', $effectiveTeamId) : $player->actualTeam;
+                            @endphp
                             <option value="{{ $player->id }}"
-                                    @php
-                                        $effectiveTeamId = $tournamentTeamMap[$player->id] ?? $player->actual_team_id;
-                                        $effectiveTeam = $effectiveTeamId ? $teams->firstWhere('id', $effectiveTeamId) : $player->actualTeam;
-                                    @endphp
                                     data-name="{{ $player->name }}"
                                     data-jersey="{{ $player->jersey_number }}"
                                     data-team="{{ $effectiveTeam?->name ?? $player->actualTeam?->name }}"
@@ -1197,6 +1197,11 @@ let savedDownloadUrl = null;
 
 function updateType(type) {
     currentType = type;
+
+    // Update URL so refresh stays on same type
+    const url = new URL(window.location);
+    url.searchParams.set('type', type);
+    window.history.replaceState({}, '', url);
 
     // Show/hide data selection sections
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
