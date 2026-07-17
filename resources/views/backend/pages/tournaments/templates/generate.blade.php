@@ -335,7 +335,7 @@
 
                         {{-- Dropdown panel --}}
                         <div x-show="open" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
-                             class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl max-h-72 overflow-hidden flex flex-col">
+                             class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl max-h-96 overflow-hidden flex flex-col">
                             {{-- Search --}}
                             <div class="p-2 border-b border-gray-100 dark:border-gray-700">
                                 <input type="text" x-model="search" x-ref="searchInput" @input="filterPlayers()"
@@ -343,7 +343,7 @@
                                        class="w-full text-sm border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded-md px-3 py-1.5 focus:ring-purple-500 focus:border-purple-500">
                             </div>
                             {{-- Player list --}}
-                            <div class="overflow-y-auto flex-1">
+                            <div class="overflow-y-auto" style="max-height: 320px;">
                                 <template x-for="player in filteredPlayers" :key="player.id">
                                     <div @click="selectPlayer(player)"
                                          class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border-b border-gray-50 dark:border-gray-700/50"
