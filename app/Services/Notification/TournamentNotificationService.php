@@ -91,6 +91,8 @@ class TournamentNotificationService
                 'tournament_name' => $tournament->name,
                 'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
                 'player_image' => $player->image_path ?? '',
+                'playing_team_name' => $player->actualTeam?->name ?? '',
+                'playing_team_logo' => $player->actualTeam?->team_logo ?? '',
             ];
 
             $posterPath = app(\App\Services\Poster\TemplateRenderService::class)

@@ -70,6 +70,8 @@ class TournamentTemplate extends Model
                 'player_type',
                 'batting_style',
                 'bowling_style',
+                'playing_team_name',
+                'playing_team_logo',
             ],
             self::TYPE_MATCH_POSTER => [
                 // Tournament

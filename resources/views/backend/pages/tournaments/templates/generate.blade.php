@@ -302,6 +302,8 @@
                                     data-team="{{ $effectiveTeam?->name ?? $player->actualTeam?->name }}"
                                     data-team-id="{{ $effectiveTeamId }}"
                                     data-team-logo="{{ $effectiveTeam?->team_logo_url ?? $player->actualTeam?->team_logo_url ?? '' }}"
+                                    data-playing-team-name="{{ $effectiveTeam?->name ?? $player->actualTeam?->name ?? '' }}"
+                                    data-playing-team-logo="{{ $effectiveTeam?->team_logo_url ?? $player->actualTeam?->team_logo_url ?? '' }}"
                                     data-photo="{{ $player->image_path ? asset('storage/' . $player->image_path) : '' }}"
                                     data-type="{{ $player->playerType?->type ?? '' }}"
                                     data-batting="{{ $player->battingProfile?->style ?? '' }}"
@@ -1381,6 +1383,8 @@ function getSelectedData() {
             data.jersey_number = selected.dataset.jersey;
             data.team_name = selected.dataset.team;
             data.team_logo = selected.dataset.teamLogo;
+            data.playing_team_name = selected.dataset.playingTeamName;
+            data.playing_team_logo = selected.dataset.playingTeamLogo;
             data.player_image = selected.dataset.photo;
             data.player_type = selected.dataset.type;
             data.batting_style = selected.dataset.batting;
@@ -1528,6 +1532,7 @@ const fieldLabels = {
     'award_name': 'Award Name', 'achievement_text': 'Achievement',
     'match_details': 'Match Details', 'batting_figures': 'Batting Figures', 'bowling_figures': 'Bowling Figures',
     'jersey_number': 'Jersey Number', 'team_name': 'Team Name', 'team_logo': 'Team Logo',
+    'playing_team_name': 'Playing Team', 'playing_team_logo': 'Playing Team Logo',
 };
 
 function buildFieldToggles() {
@@ -1611,6 +1616,7 @@ function showDataSummary(data) {
     }
     if (data.player_name) html += `<p>Player: <strong>${data.player_name}</strong></p>`;
     if (data.team_name) html += `<p>Team: ${data.team_name}</p>`;
+    if (data.playing_team_name) html += `<p>Playing Team: ${data.playing_team_name}</p>`;
     if (data.award_name) html += `<p>Award: ${data.award_name}</p>`;
     if (data.group_name) html += `<p>Group: <strong>${data.group_name}</strong></p>`;
     if (data.fixture_count) html += `<p>Fixtures: <strong>${data.fixture_count === '100' ? 'All' : data.fixture_count} upcoming matches</strong> (${data.fixture_layout === 'card' ? 'Card Grid' : 'Row List'})</p>`;
@@ -1831,6 +1837,8 @@ function playerDropdown() {
                 'team' => $effTeam?->name ?? $p->actualTeam?->name,
                 'teamId' => (string) $effTeamId,
                 'teamLogo' => $effTeam?->team_logo_url ?? $p->actualTeam?->team_logo_url ?? '',
+                'playingTeamName' => $effTeam?->name ?? $p->actualTeam?->name ?? '',
+                'playingTeamLogo' => $effTeam?->team_logo_url ?? $p->actualTeam?->team_logo_url ?? '',
                 'photo' => $p->image_path ? asset('storage/' . $p->image_path) : '',
                 'type' => $p->playerType?->type ?? '',
                 'batting' => $p->battingProfile?->style ?? '',

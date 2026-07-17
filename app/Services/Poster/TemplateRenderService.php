@@ -1964,6 +1964,7 @@ class TemplateRenderService extends PosterGeneratorService
             'jersey_name' => 'J. DOE',
             'jersey_number' => '10',
             'team_name' => 'Sample Team FC',
+            'playing_team_name' => 'Playing Team FC',
             'tournament_name' => 'Tournament Name',
             // Team A placeholders
             'team_a_name' => 'Mountrich Cricket Club',

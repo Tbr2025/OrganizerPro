@@ -277,6 +277,7 @@ class TournamentTemplateController extends Controller
                 'result_summary', 'batting_figures', 'bowling_figures',
                 'batting_runs', 'batting_balls', 'batting_fours', 'batting_sixes',
                 'bowling_overs', 'bowling_runs', 'bowling_maidens', 'bowling_wickets',
+                'playing_team_name', 'playing_team_logo',
             ]);
 
             // Add tournament info
@@ -937,7 +938,7 @@ class TournamentTemplateController extends Controller
 
         // Get all placeholders for this template type
         $placeholders = TournamentTemplate::getDefaultPlaceholders($template->type);
-        $imagePlaceholders = ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo',
+        $imagePlaceholders = ['player_image', 'team_logo', 'playing_team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo',
                               'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image',
                               'team_a_sponsor_logo', 'team_b_sponsor_logo', 'qr_code'];
 
@@ -1019,6 +1020,8 @@ class TournamentTemplateController extends Controller
             'jersey_number' => '10',
             'team_name' => 'Sample Team FC',
             'team_logo' => '[Team Logo]',
+            'playing_team_name' => 'Playing Team FC',
+            'playing_team_logo' => '[Playing Team Logo]',
             'team_a_name', 'team_a_short_name' => 'Team Alpha',
             'team_b_name', 'team_b_short_name' => 'Team Beta',
             'team_a_logo', 'team_b_logo' => '[Team Logo]',

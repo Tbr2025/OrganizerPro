@@ -928,6 +928,7 @@ class TeamManagerController extends Controller
             'verifiedProfile' => $player->allFieldsVerified(),
             'tournamentAssignments' => $tournamentAssignments,
             'tournamentStats' => $tournamentStats,
+            'actualTeams' => collect(),
         ]);
     }
 
