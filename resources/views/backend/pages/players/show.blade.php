@@ -464,18 +464,17 @@
                 {{-- Section: Player Mode & Team --}}
                 @if($player->status === 'approved')
                 @if($isTeamManagerView)
-                {{-- TM view: show only team name and retained value (hide if neither exists) --}}
-                @if($player->actualTeam || ($player->player_mode === 'retained' && $player->retained_value))
+                {{-- TM view: show team name + auction fields only for auction tournaments --}}
+                @if($player->actualTeam)
+                @php $tmIsAuction = $player->actualTeam->tournament?->isAuction(); @endphp
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Team & Retention</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $tmIsAuction ? 'Team & Retention' : 'Team' }}</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        @if($player->actualTeam)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Team</h4>
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->actualTeam->name }}</p>
                         </div>
-                        @endif
-                        @if($player->player_mode === 'retained' && $player->retained_value)
+                        @if($tmIsAuction && $player->player_mode === 'retained' && $player->retained_value)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Retained Value</h4>
                             <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ number_format($player->retained_value) }}</p>
@@ -485,21 +484,23 @@
                 </div>
                 @endif
                 @else
-                {{-- Admin view: full Player Mode & Team section --}}
+                {{-- Admin view: Team + auction fields only if auction tournament --}}
+                @if($player->actualTeam)
+                @php $isAuctionTournament = $player->actualTeam->tournament?->isAuction(); @endphp
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Player Mode & Team</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $isAuctionTournament ? 'Player Mode & Team' : 'Team' }}</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @if($isAuctionTournament)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Player Mode</h4>
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ ucfirst($player->player_mode ?? 'Normal') }}</p>
                         </div>
-                        @if($player->actualTeam)
+                        @endif
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Team</h4>
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->actualTeam->name }}</p>
                         </div>
-                        @endif
-                        @if($player->player_mode === 'retained')
+                        @if($isAuctionTournament && $player->player_mode === 'retained')
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Retained Value</h4>
                             <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->retained_value ? number_format($player->retained_value) : '—' }}</p>
@@ -507,6 +508,7 @@
                         @endif
                     </div>
                 </div>
+                @endif
                 @endif
                 @endif
             </div>
