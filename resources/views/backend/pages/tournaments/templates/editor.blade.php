@@ -411,7 +411,7 @@
                     </div>
 
                     @php
-                        $isImage = fn($p) => in_array($p, ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo', 'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image', 'best_batsman_image', 'best_bowler_image', 'winner_logo', 'qr_code']);
+                        $isImage = fn($p) => in_array($p, ['player_image', 'team_logo', 'playing_team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo', 'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image', 'best_batsman_image', 'best_bowler_image', 'winner_logo', 'qr_code']);
                         $awardGroups = [
                             'Man of the Match' => ['prefix' => 'man_of_the_match', 'color' => '#f59e0b, #d97706'],
                             'Best Batsman' => ['prefix' => 'best_batsman', 'color' => '#10b981, #059669'],

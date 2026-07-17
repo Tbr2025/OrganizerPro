@@ -3,7 +3,7 @@
 @section('title', 'Preview Template | ' . $tournament->name)
 
 @php
-    $imagePlaceholders = ['player_image', 'team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo',
+    $imagePlaceholders = ['player_image', 'team_logo', 'playing_team_logo', 'tournament_logo', 'team_a_logo', 'team_b_logo',
                           'team_a_captain_image', 'team_b_captain_image', 'man_of_the_match_image',
                           'team_a_sponsor_logo', 'team_b_sponsor_logo', 'qr_code'];
     $placeholders = \App\Models\TournamentTemplate::getDefaultPlaceholders($template->type);
