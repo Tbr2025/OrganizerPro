@@ -1035,13 +1035,6 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.edit']);
 
-        \Log::info('PLAYER_UPDATE', [
-            'player_id' => $player->id,
-            'actual_team_id' => $request->input('actual_team_id'),
-            'playing_team_name_ref' => $request->input('playing_team_name_ref'),
-            'tournament_context' => $request->input('tournament_context'),
-        ]);
-
         // Use tournament-specific field config when a tournament context is provided,
         // otherwise fall back to defaults (all visible).
         $tournamentId = $request->input('tournament_context');
