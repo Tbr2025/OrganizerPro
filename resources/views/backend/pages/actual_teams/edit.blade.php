@@ -575,19 +575,48 @@
                                                                         src="{{ $p->image_path ? asset('storage/' . $p->image_path) : 'https://ui-avatars.com/api/?name=' . urlencode($p->name) . '&color=7F9CF5&background=EBF4FF' }}"
                                                                         alt="{{ $p->name }}">
                                                                     <div>
-                                                                        <p class="font-medium text-gray-800 dark:text-white text-sm">{{ $p->name }}</p>
+                                                                        <div class="flex items-center gap-2">
+                                                                            <p class="font-medium text-gray-800 dark:text-white text-sm">{{ $p->name }}</p>
+                                                                            <a href="{{ route('admin.players.show', $p->id) }}" target="_blank"
+                                                                                class="text-indigo-500 hover:text-indigo-700" title="View details">
+                                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                                            </a>
+                                                                        </div>
                                                                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ $p->user->email ?? $p->mobile_number_full ?? 'No contact' }}</p>
                                                                     </div>
                                                                 </div>
                                                                 <div class="flex items-center gap-2">
-                                                                    {{-- Status tag with toggle --}}
-                                                                    <button type="button"
-                                                                        onclick="toggleApprove({{ $p->id }}, this)"
-                                                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors {{ $p->status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' }}"
-                                                                        data-status="{{ $p->status }}"
-                                                                        title="Click to {{ $p->status === 'approved' ? 'unapprove' : 'approve' }}">
-                                                                        {{ ucfirst($p->status) }}
-                                                                    </button>
+                                                                    {{-- Status buttons --}}
+                                                                    @php
+                                                                        $statusConfig = match($p->status) {
+                                                                            'approved' => ['bg' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 'label' => 'Approved'],
+                                                                            'rejected' => ['bg' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', 'label' => 'Rejected'],
+                                                                            default => ['bg' => 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200', 'label' => 'Pending'],
+                                                                        };
+                                                                    @endphp
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $statusConfig['bg'] }} status-badge-{{ $p->id }}">
+                                                                        {{ $statusConfig['label'] }}
+                                                                    </span>
+                                                                    <div class="flex items-center gap-1 status-actions-{{ $p->id }}">
+                                                                        @if($p->status !== 'approved')
+                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'approved', this)"
+                                                                                class="p-1 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded" title="Approve">
+                                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                                            </button>
+                                                                        @endif
+                                                                        @if($p->status !== 'rejected')
+                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'rejected', this)"
+                                                                                class="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Reject">
+                                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                            </button>
+                                                                        @endif
+                                                                        @if($p->status !== 'pending')
+                                                                            <button type="button" onclick="setPlayerStatus({{ $p->id }}, 'pending', this)"
+                                                                                class="p-1 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded" title="Set Pending">
+                                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                                            </button>
+                                                                        @endif
+                                                                    </div>
                                                                     @if($assignment->role)
                                                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
                                                                             {{ ucfirst(str_replace('_', ' ', $assignment->role)) }}
@@ -999,6 +1028,16 @@
                 </div>
 
                 {{-- Current Squad (Players only) --}}
+                <div class="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        </svg>
+                        <p class="text-xs text-amber-700 dark:text-amber-300">
+                            <strong>Note:</strong> Changing player status here (approve / reject / pending) will <strong>not</strong> send any email or notification to the player. Use the player detail page for full approval with notifications.
+                        </p>
+                    </div>
+                </div>
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
                     <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -1055,14 +1094,11 @@
 
     @push('scripts')
         <script>
-            // Quick approve/unapprove toggle
-            function toggleApprove(playerId, btn) {
-                const currentStatus = btn.dataset.status;
-                const action = currentStatus === 'approved' ? 'unapprove' : 'approve';
-                if (!confirm(`Are you sure you want to ${action} this player?`)) return;
+            // Set player status (approve / reject / pending) — no email sent
+            function setPlayerStatus(playerId, newStatus, btn) {
+                if (!confirm(`Set player status to "${newStatus}"? No email will be sent.`)) return;
 
                 btn.disabled = true;
-                btn.textContent = '...';
 
                 fetch(`/admin/actual-teams/{{ $actualTeam->id }}/players/${playerId}/toggle-approve`, {
                     method: 'POST',
@@ -1071,27 +1107,45 @@
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
                         'Accept': 'application/json',
                     },
+                    body: JSON.stringify({ status: newStatus }),
                 })
                 .then(r => r.json())
                 .then(data => {
                     btn.disabled = false;
                     if (data.success) {
-                        btn.dataset.status = data.status;
-                        btn.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
-                        btn.title = 'Click to ' + (data.status === 'approved' ? 'unapprove' : 'approve');
-                        if (data.status === 'approved') {
-                            btn.className = btn.className.replace(/bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200/g, 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200');
-                        } else {
-                            btn.className = btn.className.replace(/bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200/g, 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200');
-                        }
+                        // Update all status badges and action buttons for this player
+                        const statusColors = {
+                            approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                            rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+                            pending: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+                        };
+                        document.querySelectorAll('.status-badge-' + playerId).forEach(badge => {
+                            badge.className = badge.className.replace(/bg-\S+ text-\S+ dark:bg-\S+ dark:text-\S+/g, '');
+                            badge.className = `inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded ${statusColors[data.status]} status-badge-${playerId}`;
+                            badge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                        });
+                        // Rebuild action buttons
+                        document.querySelectorAll('.status-actions-' + playerId).forEach(container => {
+                            let html = '';
+                            const sz = container.closest('#current-squad-container') ? '3.5' : '4';
+                            const pad = sz === '3.5' ? 'p-0.5' : 'p-1';
+                            if (data.status !== 'approved') {
+                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'approved', this)" class="${pad} text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded" title="Approve"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>`;
+                            }
+                            if (data.status !== 'rejected') {
+                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'rejected', this)" class="${pad} text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Reject"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+                            }
+                            if (data.status !== 'pending') {
+                                html += `<button type="button" onclick="setPlayerStatus(${playerId}, 'pending', this)" class="${pad} text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded" title="Set Pending"><svg class="w-${sz} h-${sz}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>`;
+                            }
+                            container.innerHTML = html;
+                        });
                     } else {
                         alert(data.message || 'Failed to update status');
-                        btn.textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
                     }
                 })
                 .catch(() => {
                     btn.disabled = false;
-                    btn.textContent = currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1);
                     alert('Network error. Please try again.');
                 });
             }
@@ -1333,9 +1387,11 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button type="button" onclick="toggleApprove(${player.id}, this)"
-                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                                    data-status="approved" title="Click to unapprove">Approved</button>
+                                <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 status-badge-${player.id}">Approved</span>
+                                <div class="flex items-center gap-1 status-actions-${player.id}">
+                                    <button type="button" onclick="setPlayerStatus(${player.id}, 'rejected', this)" class="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Reject"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                                    <button type="button" onclick="setPlayerStatus(${player.id}, 'pending', this)" class="p-1 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded" title="Set Pending"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
+                                </div>
                                 ${roleBadge}
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Player</span>
                                 <button type="button" class="p-1.5 text-red-500 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 remove-player-btn" title="Remove player"

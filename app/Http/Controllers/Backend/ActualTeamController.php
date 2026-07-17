@@ -1568,14 +1568,19 @@ class ActualTeamController extends Controller
     }
 
     /**
-     * Toggle player approved/pending status via AJAX.
+     * Set player status via AJAX (approve / reject / pending).
+     * Note: This does NOT send any email or notification to the player.
      */
-    public function toggleApprove(ActualTeam $actualTeam, Player $player)
+    public function toggleApprove(Request $request, ActualTeam $actualTeam, Player $player)
     {
-        if ($player->status === 'approved') {
-            $player->status = 'pending';
-        } else {
-            $player->status = 'approved';
+        $newStatus = $request->input('status');
+
+        if (!in_array($newStatus, ['approved', 'pending', 'rejected'])) {
+            return response()->json(['success' => false, 'message' => 'Invalid status.'], 422);
+        }
+
+        $player->status = $newStatus;
+        if ($newStatus === 'approved') {
             $player->approved_by = auth()->id();
         }
         $player->save();
@@ -1583,7 +1588,7 @@ class ActualTeamController extends Controller
         return response()->json([
             'success' => true,
             'status' => $player->status,
-            'message' => 'Player ' . ($player->status === 'approved' ? 'approved' : 'unapproved') . ' successfully.',
+            'message' => 'Player status changed to ' . $newStatus . '.',
         ]);
     }
 }

@@ -1,5 +1,5 @@
 @php
-    $playerImage = $member->player?->image_path 
+    $playerImage = $member->player?->image_path
         ? Storage::url($member->player->image_path)
         : null;
 @endphp
@@ -15,6 +15,12 @@
     <div class="flex-1">
         <div class="flex items-center gap-2">
             <div class="font-semibold text-gray-800 dark:text-gray-200">{{ $member->name }}</div>
+            @if($member->player)
+                <a href="{{ route('admin.players.show', $member->player->id) }}" target="_blank"
+                    class="text-indigo-500 hover:text-indigo-700" title="View details">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+            @endif
             @if ($member->player && $member->player->player_mode === 'retained')
                 <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
                     Retained
@@ -35,18 +41,43 @@
                 default => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
             };
         @endphp
-        @if($member->player)
-            <button type="button"
-                onclick="toggleApprove({{ $member->player->id }}, this)"
-                class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded cursor-pointer transition-colors {{ $member->player->status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' }}"
-                data-status="{{ $member->player->status }}"
-                title="Click to {{ $member->player->status === 'approved' ? 'unapprove' : 'approve' }}">
-                {{ ucfirst($member->player->status) }}
-            </button>
-        @endif
-        <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded {{ $roleColors }}">
-            {{ $roleLabel }}
-        </span>
+        <div class="flex items-center gap-1.5 mt-0.5">
+            @if($member->player)
+                @php
+                    $mStatusConfig = match($member->player->status) {
+                        'approved' => ['bg' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 'label' => 'Approved'],
+                        'rejected' => ['bg' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', 'label' => 'Rejected'],
+                        default => ['bg' => 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200', 'label' => 'Pending'],
+                    };
+                @endphp
+                <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded {{ $mStatusConfig['bg'] }} status-badge-{{ $member->player->id }}">
+                    {{ $mStatusConfig['label'] }}
+                </span>
+                <div class="flex items-center gap-0.5 status-actions-{{ $member->player->id }}">
+                    @if($member->player->status !== 'approved')
+                        <button type="button" onclick="setPlayerStatus({{ $member->player->id }}, 'approved', this)"
+                            class="p-0.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 rounded" title="Approve">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        </button>
+                    @endif
+                    @if($member->player->status !== 'rejected')
+                        <button type="button" onclick="setPlayerStatus({{ $member->player->id }}, 'rejected', this)"
+                            class="p-0.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50 rounded" title="Reject">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    @endif
+                    @if($member->player->status !== 'pending')
+                        <button type="button" onclick="setPlayerStatus({{ $member->player->id }}, 'pending', this)"
+                            class="p-0.5 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded" title="Set Pending">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </button>
+                    @endif
+                </div>
+            @endif
+            <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded {{ $roleColors }}">
+                {{ $roleLabel }}
+            </span>
+        </div>
     </div>
 
     {{-- Remove button --}}
