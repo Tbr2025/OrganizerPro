@@ -97,16 +97,9 @@
                             {{-- Kit Size (admin-only field, not in PlayerFormConfig) --}}
                             @if($section['key'] === 'Jersey Information')
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ ($player->verified_kit_size_id ?? false) ? 'border-green-400 dark:border-green-600' : 'border-gray-200 dark:border-gray-700' }}">
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                                     <div class="flex items-start justify-between gap-2 mb-1.5">
                                         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jersey Size</h4>
-                                        <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}" title="Mark as verified">
-                                            <input type="checkbox" name="verified_kit_size_id" value="1"
-                                                class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                                {{ old('verified_kit_size_id', $player->verified_kit_size_id ?? false) ? 'checked' : '' }}
-                                                @unless($canVerify) disabled @endunless>
-                                            <span>Verified</span>
-                                        </label>
                                     </div>
                                     <select name="kit_size_id" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                                         <option value="">-- Select --</option>
@@ -128,15 +121,6 @@
                                         <input type="checkbox" name="clear_image" value="1"> <span>Remove existing image</span>
                                     </label>
                                 @endif
-                                <div class="mt-3">
-                                    <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap {{ !$canVerify ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer' }}" title="Mark as verified">
-                                        <input type="checkbox" name="verified_image_path" value="1"
-                                            class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                            {{ old('verified_image_path', $player->verified_image_path ?? false) ? 'checked' : '' }}
-                                            @unless($canVerify) disabled @endunless>
-                                        <span>Verified</span>
-                                    </label>
-                                </div>
                             </div>
                             @endif
                         </div>
@@ -181,17 +165,11 @@
                 @endif
             </div>
 
-            <input type="hidden" name="intimate" id="intimate" value="0">
-
             {{-- Submit Buttons --}}
             <div class="mt-6">
                 <x-buttons.submit-buttons cancelUrl="{{ route('admin.players.index') }}" />
             </div>
             <div class="mt-5 mb-5">
-                <button type="submit" onclick="document.getElementById('intimate').value = 1;"
-                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    Intimate Player
-                </button>
                 @if ($hasWelcomeTemplate && $verifiedProfile)
                     <input type="hidden" name="allverified" value="1">
                     <button type="submit"
