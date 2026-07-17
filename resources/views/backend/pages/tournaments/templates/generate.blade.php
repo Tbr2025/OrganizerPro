@@ -354,7 +354,6 @@
                                             <div class="flex items-center gap-2">
                                                 <span class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="player.name"></span>
                                                 <span class="text-[10px] font-mono bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 px-1.5 py-0.5 rounded" x-text="'ID:' + player.id"></span>
-                                                <span x-show="player.jersey" class="text-[10px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded" x-text="'#' + player.jersey"></span>
                                             </div>
                                             <div class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="player.team || 'Registered'"></div>
                                             <div x-show="player.email" class="text-[10px] text-gray-400 dark:text-gray-500 truncate" x-text="player.email"></div>
