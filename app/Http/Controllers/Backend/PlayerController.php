@@ -683,8 +683,28 @@ class PlayerController extends Controller
             'image_path' => (bool) $player->verified_image_path,
         ];
 
-        // Admin edit uses defaults (all fields visible) since admin should see everything
-        $fieldConfig = PlayerFormConfig::defaultFormFields();
+        // Load tournament registrations with settings for tournament-aware form
+        $tournamentRegistrations = TournamentRegistration::where('player_id', $player->id)
+            ->where('type', 'player')
+            ->with('tournament.settings')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Determine selected tournament from query param or default to latest registration
+        $selectedTournamentId = request('tournament');
+        $selectedRegistration = $selectedTournamentId
+            ? $tournamentRegistrations->firstWhere('tournament_id', $selectedTournamentId)
+            : $tournamentRegistrations->first();
+
+        $selectedTournament = $selectedRegistration?->tournament;
+        $settings = $selectedTournament?->settings;
+
+        // Use tournament-specific field config when available, else defaults (all visible)
+        $fieldConfig = $settings
+            ? PlayerFormConfig::getFieldConfig($settings)
+            : PlayerFormConfig::defaultFormFields();
+
+        $layout = PlayerFormConfig::getFormLayout($settings, false);
 
         // Welcome card uses the player's tournament's welcome_card editor template.
         $welcomeRegistration = TournamentRegistration::where('player_id', $player->id)
@@ -694,15 +714,10 @@ class PlayerController extends Controller
             ->first();
         $hasWelcomeTemplate = (bool) $welcomeRegistration?->tournament?->getTemplate(TournamentTemplate::TYPE_WELCOME_CARD);
 
-        $tournamentRegistrations = TournamentRegistration::where('player_id', $player->id)
-            ->where('type', 'player')
-            ->with('tournament')
-            ->orderBy('created_at', 'desc')
-            ->get();
-
         return view('backend.pages.players.edit', [
             'player' => $player,
-            'layout' => PlayerFormConfig::getFormLayout(null, false),
+            'layout' => $layout,
+            'selectedTournament' => $selectedTournament,
             'teams' => Team::all(),
             'actualTeams' => ActualTeam::all(),
             'locations' => PlayerLocation::all(),

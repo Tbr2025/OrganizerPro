@@ -24,6 +24,22 @@
             @endcan
         </div>
 
+        {{-- Tournament Context Selector --}}
+        @if($tournamentRegistrations->count() > 0)
+        <div class="mb-4">
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Tournament Context</label>
+            <select onchange="window.location.href='{{ route('admin.players.edit', $player->id) }}?tournament=' + this.value"
+                    class="mt-1 block w-full sm:w-auto text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                @foreach($tournamentRegistrations as $reg)
+                    <option value="{{ $reg->tournament_id }}"
+                        @selected($reg->tournament_id == ($selectedTournament->id ?? null))>
+                        {{ $reg->tournament->name ?? 'N/A' }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        @endif
+
         <div class="space-y-6">
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="p-5 space-y-6 sm:p-6">
@@ -31,6 +47,7 @@
                         enctype="multipart/form-data">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="tournament_context" value="{{ $selectedTournament->id ?? '' }}">
 
                         @php
                             $canVerify = auth()->user()->hasAnyRole(['Superadmin', 'Admin']);
@@ -108,9 +125,9 @@
                         @endforeach
 
                         {{-- ═══════════════════════════════════════════════════════ --}}
-                        {{-- Admin-only: Player Mode & Team                        --}}
+                        {{-- Admin-only: Player Mode & Team (auction only)         --}}
                         {{-- ═══════════════════════════════════════════════════════ --}}
-                        @if($player->status === 'approved')
+                        @if($player->status === 'approved' && ($selectedTournament?->isAuction() ?? false))
                         <div class="mb-6">
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">Player Mode & Team</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
