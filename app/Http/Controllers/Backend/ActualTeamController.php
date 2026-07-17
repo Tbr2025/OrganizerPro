@@ -1418,12 +1418,29 @@ class ActualTeamController extends Controller
                 $player->save();
             }
 
-            // Sync TournamentRegistration status to approved
-            if ($player && $actualTeam->tournament_id) {
-                TournamentRegistration::where('tournament_id', $actualTeam->tournament_id)
-                    ->where('player_id', $player->id)
-                    ->where('type', 'player')
-                    ->update(['status' => 'approved']);
+            // Sync TournamentRegistration for each assigned tournament
+            $assignedTournamentIds = collect($request->input('tournament_assignments', []))
+                ->pluck('tournament_id')
+                ->filter()
+                ->unique();
+
+            // Also include the team's own tournament_id as fallback
+            if ($actualTeam->tournament_id) {
+                $assignedTournamentIds = $assignedTournamentIds->push($actualTeam->tournament_id)->unique();
+            }
+
+            foreach ($assignedTournamentIds as $tid) {
+                TournamentRegistration::updateOrCreate(
+                    [
+                        'tournament_id' => $tid,
+                        'player_id'     => $player->id,
+                        'type'          => 'player',
+                    ],
+                    [
+                        'status'          => 'approved',
+                        'organization_id' => $actualTeam->organization_id,
+                    ]
+                );
             }
 
             // Handle retained status if role is 'retained'
@@ -1607,11 +1624,34 @@ class ActualTeamController extends Controller
         try {
             DB::beginTransaction();
 
+            // Get tournament IDs this player was assigned to on this team (before deleting)
+            $removedTournamentIds = DB::table('player_actual_team_tournament')
+                ->where('player_id', $player->id)
+                ->where('actual_team_id', $actualTeam->id)
+                ->pluck('tournament_id');
+
             // Remove all pivot assignments for this player on this team
             DB::table('player_actual_team_tournament')
                 ->where('player_id', $player->id)
                 ->where('actual_team_id', $actualTeam->id)
                 ->delete();
+
+            // Remove TournamentRegistration records for tournaments where the player
+            // is no longer assigned to any team
+            if ($removedTournamentIds->isNotEmpty()) {
+                $stillAssignedTournamentIds = DB::table('player_actual_team_tournament')
+                    ->where('player_id', $player->id)
+                    ->whereIn('tournament_id', $removedTournamentIds)
+                    ->pluck('tournament_id');
+
+                $tournamentsToRemove = $removedTournamentIds->diff($stillAssignedTournamentIds);
+                if ($tournamentsToRemove->isNotEmpty()) {
+                    TournamentRegistration::where('player_id', $player->id)
+                        ->where('type', 'player')
+                        ->whereIn('tournament_id', $tournamentsToRemove)
+                        ->delete();
+                }
+            }
 
             // Reset home team if this was their home team
             if ($player->actual_team_id === $actualTeam->id) {
