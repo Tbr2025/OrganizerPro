@@ -451,6 +451,19 @@
                                                     </button>
                                                 </div>
                                             </div>
+                                        @elseif($key === 'playing_team' && !$isEmpty)
+                                            <div class="mt-1">
+                                                <p class="text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
+                                                @if($p->actualTeam?->tournament)
+                                                    <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium {{ $p->actualTeam->tournament->isAuction() ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' }}">
+                                                        {{ ucfirst($p->actualTeam->tournament->type) }}
+                                                    </span>
+                                                @elseif($p->playing_team_name_ref)
+                                                    <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                                        Others
+                                                    </span>
+                                                @endif
+                                            </div>
                                         @elseif($isEmpty)
                                             <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
                                         @elseif($key === 'cricheroes_profile_url')

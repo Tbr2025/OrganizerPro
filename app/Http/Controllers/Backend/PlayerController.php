@@ -1035,8 +1035,15 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.edit']);
 
-        // Admin edit uses defaults (all visible, only name/email/mobile required)
-        $fieldConfig = PlayerFormConfig::defaultFormFields();
+        // Use tournament-specific field config when a tournament context is provided,
+        // otherwise fall back to defaults (all visible).
+        $tournamentId = $request->input('tournament_context');
+        $settings = $tournamentId
+            ? \App\Models\TournamentSetting::where('tournament_id', $tournamentId)->first()
+            : null;
+        $fieldConfig = $settings
+            ? PlayerFormConfig::getFieldConfig($settings)
+            : PlayerFormConfig::defaultFormFields();
 
         // Helper: check if a field is visible AND required per config
         $req = fn($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
@@ -1061,7 +1068,7 @@ class PlayerController extends Controller
             'played_ys_ipl_s1' => 'nullable|boolean',
             'email' => 'required|email|unique:players,email,' . $player->id,
             'mobile_number_full' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
-            'cricheroes_number_full' => $req('cricheroes_number') ? 'required|string|max:20' : 'nullable|string|max:20',
+            'cricheroes_number_full' => 'nullable|string|max:20',
             'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',
             'jersey_number' => 'nullable',
             'tshirt_size' => 'nullable|string|max:50',
