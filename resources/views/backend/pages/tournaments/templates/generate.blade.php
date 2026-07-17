@@ -287,7 +287,9 @@
                     </select>
 
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Player</label>
-                    <select id="playerSelect" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+
+                    {{-- Hidden native select for existing JS compatibility --}}
+                    <select id="playerSelect" class="hidden">
                         <option value="">-- Select a player --</option>
                         @foreach($players as $player)
                             <option value="{{ $player->id }}"
@@ -304,6 +306,70 @@
                             </option>
                         @endforeach
                     </select>
+
+                    {{-- Custom rich player dropdown --}}
+                    <div x-data="playerDropdown()" class="relative" x-on:click.away="open = false" x-on:keydown.escape="open = false">
+                        {{-- Trigger --}}
+                        <button type="button" @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())"
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-left text-sm flex items-center gap-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                                :class="open ? 'ring-2 ring-purple-500 border-purple-500' : ''">
+                            <template x-if="selectedPlayer">
+                                <div class="flex items-center gap-3 flex-1 min-w-0">
+                                    <img :src="selectedPlayer.photo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(selectedPlayer.name) + '&background=EBF4FF&color=7F9CF5'"
+                                         class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-medium text-gray-900 dark:text-white truncate" x-text="selectedPlayer.name"></div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="selectedPlayer.team || 'Registered'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="!selectedPlayer">
+                                <span class="text-gray-400 flex-1">-- Select a player --</span>
+                            </template>
+                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+
+                        {{-- Dropdown panel --}}
+                        <div x-show="open" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0"
+                             class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-xl max-h-72 overflow-hidden flex flex-col">
+                            {{-- Search --}}
+                            <div class="p-2 border-b border-gray-100 dark:border-gray-700">
+                                <input type="text" x-model="search" x-ref="searchInput" @input="filterPlayers()"
+                                       placeholder="Search player..."
+                                       class="w-full text-sm border-gray-200 dark:border-gray-600 dark:bg-gray-700 rounded-md px-3 py-1.5 focus:ring-purple-500 focus:border-purple-500">
+                            </div>
+                            {{-- Player list --}}
+                            <div class="overflow-y-auto flex-1">
+                                <template x-for="player in filteredPlayers" :key="player.id">
+                                    <div @click="selectPlayer(player)"
+                                         class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border-b border-gray-50 dark:border-gray-700/50"
+                                         :class="selectedPlayer && selectedPlayer.id === player.id ? 'bg-purple-50 dark:bg-purple-900/20' : ''">
+                                        <img :src="player.photo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(player.name) + '&background=EBF4FF&color=7F9CF5'"
+                                             class="w-10 h-10 rounded-full object-cover flex-shrink-0 ring-2 ring-gray-100 dark:ring-gray-700" alt="">
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="player.name"></span>
+                                                <span x-show="player.jersey" class="text-[10px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded" x-text="'#' + player.jersey"></span>
+                                            </div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="player.team || 'Registered'"></div>
+                                            <div class="flex flex-wrap gap-1 mt-0.5">
+                                                <template x-if="player.type">
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300" x-text="player.type"></span>
+                                                </template>
+                                                <template x-if="player.batting">
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" x-text="player.batting"></span>
+                                                </template>
+                                                <template x-if="player.bowling">
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300" x-text="player.bowling"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="filteredPlayers.length === 0" class="px-3 py-4 text-sm text-gray-400 text-center">No players found</div>
+                            </div>
+                        </div>
+                    </div>
 
                     @if($players->isEmpty())
                         <p class="text-sm text-gray-500 mt-2">No registered players found.</p>
@@ -1730,6 +1796,60 @@ function filterPlayersByTeam() {
             opt.style.display = 'none';
         }
     });
+
+    // Also update the custom Alpine dropdown
+    const dropdownEl = document.querySelector('[x-data*="playerDropdown"]');
+    if (dropdownEl && dropdownEl._x_dataStack) {
+        const dd = dropdownEl._x_dataStack[0];
+        dd.teamFilter = teamId;
+        dd.selectedPlayer = null;
+        dd.filterPlayers();
+    }
+}
+
+function playerDropdown() {
+    const allPlayers = @json($players->map(fn($p) => [
+        'id' => (string) $p->id,
+        'name' => $p->name,
+        'jersey' => $p->jersey_number,
+        'team' => $p->actualTeam?->name,
+        'teamId' => (string) $p->actual_team_id,
+        'teamLogo' => $p->actualTeam?->team_logo_url ?? '',
+        'photo' => $p->image_path ? asset('storage/' . $p->image_path) : '',
+        'type' => $p->playerType?->type ?? '',
+        'batting' => $p->battingProfile?->style ?? '',
+        'bowling' => $p->bowlingProfile?->style ?? '',
+    ])->values());
+
+    return {
+        open: false,
+        search: '',
+        teamFilter: '',
+        selectedPlayer: null,
+        allPlayers: allPlayers,
+        filteredPlayers: allPlayers,
+
+        filterPlayers() {
+            const q = this.search.toLowerCase();
+            this.filteredPlayers = this.allPlayers.filter(p => {
+                const matchesTeam = !this.teamFilter || p.teamId === this.teamFilter;
+                const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.team && p.team.toLowerCase().includes(q));
+                return matchesTeam && matchesSearch;
+            });
+        },
+
+        selectPlayer(player) {
+            this.selectedPlayer = player;
+            this.open = false;
+            this.search = '';
+            this.filterPlayers();
+
+            // Sync with native hidden select
+            const sel = document.getElementById('playerSelect');
+            sel.value = player.id;
+            sel.dispatchEvent(new Event('change'));
+        }
+    };
 }
 
 function downloadPoster() {
