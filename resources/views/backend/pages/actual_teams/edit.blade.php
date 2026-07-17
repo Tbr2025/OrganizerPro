@@ -836,14 +836,41 @@
                                         {{-- Phone --}}
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number <span class="text-red-500">*</span></label>
-                                            <input type="text" x-model="newPlayer.phone" class="form-control mt-1" placeholder="e.g., +919876543210"
-                                                @blur="lookupPlayer()">
+                                            <div class="flex gap-2 mt-1">
+                                                <select x-model="newPlayer.country_code" class="form-control w-28 text-sm">
+                                                    @foreach(config('countries.dial_codes') as $code => $dial)
+                                                        <option value="{{ $dial }}">{{ $dial }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <input type="text" x-model="newPlayer.national_number" class="form-control flex-1" placeholder="e.g., 501234567"
+                                                    @blur="newPlayer.phone = newPlayer.country_code + newPlayer.national_number; lookupPlayer()">
+                                            </div>
                                             <p class="text-xs text-gray-500 mt-1">If an existing player is found by phone, they will be linked instead of creating a new one.</p>
                                             <template x-if="lookupResult">
                                                 <div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-700 dark:text-green-300">
                                                     Found existing player: <strong x-text="lookupResult"></strong>
                                                 </div>
                                             </template>
+                                        </div>
+
+                                        {{-- Player Type --}}
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Type</label>
+                                            <select x-model="newPlayer.player_type_id" class="form-control mt-1 text-sm">
+                                                <option value="">-- Select --</option>
+                                                @foreach($playerTypes as $type)
+                                                    <option value="{{ $type->id }}">{{ $type->type }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        {{-- Wicket Keeper --}}
+                                        <div>
+                                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                <input type="checkbox" x-model="newPlayer.is_wicket_keeper"
+                                                    class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-4 w-4">
+                                                Wicket Keeper
+                                            </label>
                                         </div>
 
                                         {{-- Player Image --}}
@@ -1245,6 +1272,10 @@
                         name: '',
                         email: '',
                         phone: '',
+                        country_code: '+971',
+                        national_number: '',
+                        player_type_id: '',
+                        is_wicket_keeper: false,
                         assignments: {
                             @foreach($effectiveTournaments as $tournament)
                                 {{ $tournament->id }}: '{{ $actualTeam->id }}',
@@ -1528,7 +1559,13 @@
                                 const formData = new FormData();
                                 formData.append('name', this.newPlayer.name);
                                 formData.append('email', this.newPlayer.email);
-                                formData.append('phone', this.newPlayer.phone);
+                                formData.append('phone', this.newPlayer.country_code + this.newPlayer.national_number);
+                                formData.append('country_code', this.newPlayer.country_code);
+                                formData.append('national_number', this.newPlayer.national_number);
+                                if (this.newPlayer.player_type_id) {
+                                    formData.append('player_type_id', this.newPlayer.player_type_id);
+                                }
+                                formData.append('is_wicket_keeper', this.newPlayer.is_wicket_keeper ? '1' : '0');
                                 if (this.imageFile) {
                                     formData.append('player_image', this.imageFile);
                                 }

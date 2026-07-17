@@ -14,6 +14,8 @@ use App\Models\Role;
 use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Models\User;
+use App\Jobs\RemoveImageBackground;
+use App\Models\PlayerType;
 use App\Services\ImageBackgroundRemovalService;
 use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
@@ -619,6 +621,8 @@ class ActualTeamController extends Controller
             ->values();
 
         // --- Return the View ---
+        $playerTypes = PlayerType::whereIn('type', ['Batsman', 'Bowler', 'All-Rounder'])->get();
+
         return view('backend.pages.actual_teams.edit', compact(
             'actualTeam',
             'organizations',
@@ -637,7 +641,8 @@ class ActualTeamController extends Controller
             'teamPlayersByTournament',
             'playersMap',
             'allTeamsForTournaments',
-            'squadPlayersJson'
+            'squadPlayersJson',
+            'playerTypes'
         ));
     }
 
@@ -1310,6 +1315,10 @@ class ActualTeamController extends Controller
                 'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
                 'tournament_assignments.*.role' => 'nullable|string|max:50',
                 'retained_value'                => 'nullable|numeric|min:0',
+                'player_type_id'                => 'nullable|exists:player_types,id',
+                'is_wicket_keeper'              => 'nullable|boolean',
+                'country_code'                  => 'nullable|string|max:10',
+                'national_number'               => 'nullable|string|max:20',
             ]);
         }
 
@@ -1340,17 +1349,48 @@ class ActualTeamController extends Controller
                         'email_verified_at' => now(),
                     ]);
 
+                    $nameParts = explode(' ', $request->name, 2);
                     $player = Player::create([
-                        'name'               => $request->name,
-                        'mobile_number_full' => $request->phone,
-                        'user_id'            => $user->id,
-                        'actual_team_id'     => $actualTeam->id,
-                        'status'             => 'pending',
+                        'name'                   => $request->name,
+                        'first_name'             => $nameParts[0],
+                        'last_name'              => $nameParts[1] ?? null,
+                        'email'                  => strtolower($request->email),
+                        'mobile_number_full'     => preg_replace('/\D+/', '', $request->phone),
+                        'mobile_country_code'    => $request->input('country_code', ''),
+                        'mobile_national_number' => $request->input('national_number', ''),
+                        'player_type_id'         => $request->input('player_type_id'),
+                        'is_wicket_keeper'       => $request->boolean('is_wicket_keeper'),
+                        'user_id'                => $user->id,
+                        'actual_team_id'         => $actualTeam->id,
+                        'status'                 => 'pending',
                     ]);
                 } else {
                     // Update phone if different
                     if ($request->filled('phone') && $player->mobile_number_full !== $request->phone) {
-                        $player->mobile_number_full = $request->phone;
+                        $player->mobile_number_full = preg_replace('/\D+/', '', $request->phone);
+                    }
+                    // Fill missing fields on existing player
+                    if (!$player->email && $request->email) {
+                        $player->email = strtolower($request->email);
+                    }
+                    if (!$player->first_name && $player->name) {
+                        $nameParts = explode(' ', $player->name, 2);
+                        $player->first_name = $nameParts[0];
+                        if (!$player->last_name && isset($nameParts[1])) {
+                            $player->last_name = $nameParts[1];
+                        }
+                    }
+                    if (!$player->mobile_country_code && $request->input('country_code')) {
+                        $player->mobile_country_code = $request->input('country_code');
+                    }
+                    if (!$player->mobile_national_number && $request->input('national_number')) {
+                        $player->mobile_national_number = $request->input('national_number');
+                    }
+                    if ($request->input('player_type_id')) {
+                        $player->player_type_id = $request->input('player_type_id');
+                    }
+                    if ($request->boolean('is_wicket_keeper')) {
+                        $player->is_wicket_keeper = true;
                     }
                     // Only set home team if player doesn't already have one
                     if (!$player->actual_team_id) {
@@ -1385,10 +1425,17 @@ class ActualTeamController extends Controller
                 $player->save();
             }
 
-            // Handle image upload
+            // Handle image upload with background removal
             if ($request->hasFile('player_image')) {
                 $imagePath = $request->file('player_image')->store('player-images', 'public');
                 $player->update(['image_path' => $imagePath]);
+
+                RemoveImageBackground::dispatch(
+                    $imagePath,
+                    Player::class,
+                    $player->id,
+                    'image_path'
+                );
             }
 
             // Insert tournament-team assignments
