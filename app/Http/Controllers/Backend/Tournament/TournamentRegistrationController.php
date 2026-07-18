@@ -44,7 +44,9 @@ class TournamentRegistrationController extends Controller
         $type = in_array($request->get('type'), ['player', 'team'], true) ? $request->get('type') : 'player';
         $status = $request->get('status', 'pending');
         $search = trim((string) $request->get('search', ''));
-        $sort = $request->get('sort', 'date');
+        // Default sort: "modified" for most tabs, "date" for pending/all
+        $defaultSort = in_array($status, ['pending', 'all']) ? 'date' : 'modified';
+        $sort = $request->get('sort', $defaultSort);
         $direction = strtolower($request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
         $playingTeam = (string) $request->get('playing_team', '');
         $tournamentType = (string) $request->get('tournament_type', '');
@@ -62,6 +64,13 @@ class TournamentRegistrationController extends Controller
             $query->where('tournament_registrations.status', 'approved')
                   ->where('players.player_mode', 'retained');
         } elseif ($status === 'unretained') {
+            $query->where('tournament_registrations.status', 'approved')
+                  ->where(function ($q) {
+                      $q->whereNull('players.player_mode')
+                        ->orWhere('players.player_mode', '!=', 'retained');
+                  });
+        } elseif ($status === 'approved') {
+            // Approved tab excludes retained players (they have their own tab)
             $query->where('tournament_registrations.status', 'approved')
                   ->where(function ($q) {
                       $q->whereNull('players.player_mode')
