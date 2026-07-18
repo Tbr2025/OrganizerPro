@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\ApplicationUnderReviewMail;
 use App\Mail\PlayerCredentialsMail;
 use App\Mail\ProfileChangesApprovedMail;
+use App\Mail\ProfileChangesRejectedMail;
 use App\Mail\RegistrationApprovedMail;
 use App\Mail\RegistrationCorrectionMail;
 use App\Mail\TeamManagerCredentialsMail;
@@ -647,15 +648,60 @@ class TournamentRegistrationController extends Controller
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
+        $player = $registration->player;
         $changes = (array) $registration->pending_changes;
+
+        // Build summary of rejected changes for the player email
+        $labels = [
+            'name' => 'Name', 'mobile_number_full' => 'Mobile Number', 'jersey_name' => 'Jersey Name',
+            'cricheroes_number_full' => 'CricHeroes Number', 'cricheroes_profile_url' => 'CricHeroes Profile',
+            'jersey_number' => 'Jersey Number', 'team_name_ref' => 'Registration Team', 'location_id' => 'Location',
+            'total_matches' => 'Total Matches', 'total_runs' => 'Total Runs', 'total_wickets' => 'Total Wickets',
+            'travel_date_from' => 'Travel From', 'travel_date_to' => 'Travel To', 'no_travel_plan' => 'No Travel Plan',
+            'tshirt_size' => 'T-Shirt Size', 'pant_size' => 'Pant Size', 'batting_profile_id' => 'Batting Profile',
+            'bowling_profile_id' => 'Bowling Profile', 'player_type_id' => 'Player Type',
+            'is_wicket_keeper' => 'Wicket Keeper', 'transportation_required' => 'Transportation', 'image_path' => 'Profile Photo',
+        ];
+        $fmt = function ($field, $val) {
+            if (is_null($val) || $val === '') return '—';
+            return match ($field) {
+                'is_wicket_keeper' => $val ? 'Yes' : 'No',
+                'transportation_required' => $val ? 'Yes' : 'No',
+                'no_travel_plan' => $val ? 'No travel' : 'Has travel plan',
+                'batting_profile_id' => optional(\App\Models\BattingProfile::find($val))->name ?? (string) $val,
+                'bowling_profile_id' => optional(\App\Models\BowlingProfile::find($val))->name ?? (string) $val,
+                'player_type_id' => optional(\App\Models\PlayerType::find($val))->name ?? (string) $val,
+                'location_id' => optional(\App\Models\PlayerLocation::find($val))->name ?? (string) $val,
+                'image_path' => 'New photo',
+                default => (string) $val,
+            };
+        };
+        $changeSummary = [];
+        foreach ($changes as $field => $newVal) {
+            $changeSummary[] = [
+                'label' => $labels[$field] ?? $field,
+                'value' => $fmt($field, $newVal),
+            ];
+        }
+
         // Clean up an orphaned uploaded image the player will no longer use.
         if (! empty($changes['image_path'])
-            && $changes['image_path'] !== $registration->player?->image_path
+            && $changes['image_path'] !== $player?->image_path
             && Storage::disk('public')->exists($changes['image_path'])) {
             Storage::disk('public')->delete($changes['image_path']);
         }
 
         $registration->update(['pending_changes' => null, 'pending_changes_submitted_at' => null]);
+
+        // Notify the player via email
+        $email = $player?->email;
+        if ($email && !empty($changeSummary)) {
+            try {
+                Mail::to($email)->send(new ProfileChangesRejectedMail($tournament, $registration, $changeSummary));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to send profile changes rejected email: ' . $e->getMessage());
+            }
+        }
 
         return back()->with('success', __('Profile change request rejected.'));
     }
