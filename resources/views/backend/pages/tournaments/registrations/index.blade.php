@@ -382,7 +382,11 @@
                                                     <p class="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 leading-tight">{{ $registration->player->actualTeam->name }}</p>
                                                 @endif
                                                 @if($registration->player->retained_value)
-                                                    <p class="text-[10px] font-semibold text-purple-700 dark:text-purple-300 leading-tight">{{ number_format($registration->player->retained_value) }}</p>
+                                                    @php
+                                                        $rv = $registration->player->retained_value;
+                                                        $rvFormatted = $rv >= 1000000 ? round($rv / 1000000, 1) . 'M' : ($rv >= 1000 ? round($rv / 1000, 1) . 'K' : number_format($rv));
+                                                    @endphp
+                                                    <p class="text-[10px] font-semibold text-purple-700 dark:text-purple-300 leading-tight">{{ $rvFormatted }}</p>
                                                 @endif
                                             @endif
                                         </td>
