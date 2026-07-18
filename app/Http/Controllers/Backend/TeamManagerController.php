@@ -794,15 +794,14 @@ class TeamManagerController extends Controller
 
         // Get all players with approved registration for this tournament
         // Use withoutOrganizationScope() so players with NULL org_id are included
-        // Exclude retained players that belong to this team (they're already on the roster)
+        // Exclude all retained players (they're already locked to their teams)
         $query = Player::withoutOrganizationScope()->whereHas('registrations', function ($q) use ($tournamentId) {
                 $q->where('tournament_id', $tournamentId)
                   ->where('status', 'approved');
             })
-            ->where(function ($q) use ($team) {
+            ->where(function ($q) {
                 $q->where('player_mode', '!=', 'retained')
-                  ->orWhereNull('player_mode')
-                  ->orWhere('actual_team_id', '!=', $team->id);
+                  ->orWhereNull('player_mode');
             })
             ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'location', 'kitSize']);
 
