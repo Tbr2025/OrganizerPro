@@ -326,7 +326,7 @@
                 }
             }">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Approved Players for Auction</h2>
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Approved Players</h2>
                     <span class="text-sm text-gray-500 dark:text-gray-400" x-show="hasFilters" x-cloak>
                         Showing filtered results
                     </span>
