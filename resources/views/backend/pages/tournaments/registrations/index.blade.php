@@ -70,25 +70,33 @@
                 @endforeach
             </div>
 
-            {{-- Stats Cards — compact, vertical layout --}}
+            {{-- Stats Cards — compact with icons, gradients & hover animation --}}
             @php
                 $statCards = [
-                    ['status' => 'all',        'label' => 'Total',      'count' => $totalCount,      'bg' => 'bg-indigo-50 dark:bg-indigo-900/20', 'border' => 'border-indigo-200 dark:border-indigo-800', 'text' => 'text-indigo-600 dark:text-indigo-400', 'num' => 'text-indigo-900 dark:text-indigo-100'],
-                    ['status' => 'pending',    'label' => 'Pending',    'count' => $pendingCount,    'bg' => 'bg-yellow-50 dark:bg-yellow-900/20', 'border' => 'border-yellow-200 dark:border-yellow-800', 'text' => 'text-yellow-600 dark:text-yellow-400', 'num' => 'text-yellow-900 dark:text-yellow-100'],
-                    ['status' => 'approved',   'label' => 'Approved',   'count' => $approvedCount,   'bg' => 'bg-green-50 dark:bg-green-900/20',   'border' => 'border-green-200 dark:border-green-800',   'text' => 'text-green-600 dark:text-green-400',   'num' => 'text-green-900 dark:text-green-100'],
-                    ['status' => 'rejected',   'label' => 'Rejected',   'count' => $rejectedCount,   'bg' => 'bg-red-50 dark:bg-red-900/20',       'border' => 'border-red-200 dark:border-red-800',       'text' => 'text-red-600 dark:text-red-400',       'num' => 'text-red-900 dark:text-red-100'],
-                    ['status' => 'cancelled',  'label' => 'Cancelled',  'count' => $cancelledCount,  'bg' => 'bg-gray-50 dark:bg-gray-800/50',     'border' => 'border-gray-200 dark:border-gray-700',     'text' => 'text-gray-500 dark:text-gray-400',     'num' => 'text-gray-900 dark:text-gray-100'],
-                    ['status' => 'queued',     'label' => 'In Queue',   'count' => $queuedCount,     'bg' => 'bg-sky-50 dark:bg-sky-900/20',       'border' => 'border-sky-200 dark:border-sky-800',       'text' => 'text-sky-600 dark:text-sky-400',       'num' => 'text-sky-900 dark:text-sky-100'],
-                    ['status' => 'retained',   'label' => 'Retained',   'count' => $retainedCount,   'bg' => 'bg-purple-50 dark:bg-purple-900/20', 'border' => 'border-purple-200 dark:border-purple-800', 'text' => 'text-purple-600 dark:text-purple-400', 'num' => 'text-purple-900 dark:text-purple-100'],
-                    ['status' => 'unretained', 'label' => 'Unretained', 'count' => $unretainedCount, 'bg' => 'bg-teal-50 dark:bg-teal-900/20',     'border' => 'border-teal-200 dark:border-teal-800',     'text' => 'text-teal-600 dark:text-teal-400',     'num' => 'text-teal-900 dark:text-teal-100'],
+                    ['status' => 'all',        'label' => 'Total',      'count' => $totalCount,      'from' => 'from-indigo-500',  'to' => 'to-blue-600',    'icon' => 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
+                    ['status' => 'pending',    'label' => 'Pending',    'count' => $pendingCount,    'from' => 'from-amber-400',   'to' => 'to-yellow-500',  'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
+                    ['status' => 'approved',   'label' => 'Approved',   'count' => $approvedCount,   'from' => 'from-emerald-400', 'to' => 'to-green-600',   'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
+                    ['status' => 'rejected',   'label' => 'Rejected',   'count' => $rejectedCount,   'from' => 'from-rose-400',    'to' => 'to-red-600',     'icon' => 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z'],
+                    ['status' => 'cancelled',  'label' => 'Cancelled',  'count' => $cancelledCount,  'from' => 'from-gray-400',    'to' => 'to-slate-500',   'icon' => 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'],
+                    ['status' => 'queued',     'label' => 'In Queue',   'count' => $queuedCount,     'from' => 'from-sky-400',     'to' => 'to-cyan-600',    'icon' => 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'],
+                    ['status' => 'retained',   'label' => 'Retained',   'count' => $retainedCount,   'from' => 'from-purple-400',  'to' => 'to-violet-600',  'icon' => 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z'],
+                    ['status' => 'unretained', 'label' => 'Unretained', 'count' => $unretainedCount, 'from' => 'from-teal-400',    'to' => 'to-emerald-600', 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
                 ];
             @endphp
             <div class="grid grid-cols-4 md:grid-cols-8 gap-2 mb-6">
                 @foreach($statCards as $card)
+                    @php $isActive = $filters['status'] === $card['status']; @endphp
                     <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => $card['status']]) }}"
-                       class="{{ $card['bg'] }} border {{ $card['border'] }} rounded-lg px-3 py-3 hover:shadow-md transition-shadow cursor-pointer text-center {{ $filters['status'] === $card['status'] ? 'ring-2 ring-offset-1 ring-blue-500' : '' }}">
-                        <p class="text-xl font-bold {{ $card['num'] }}">{{ $card['count'] }}</p>
-                        <p class="text-[11px] font-medium {{ $card['text'] }} mt-0.5 leading-tight">{{ $card['label'] }}</p>
+                       class="group relative overflow-hidden rounded-xl border {{ $isActive ? 'border-white/50 ring-2 ring-offset-1 ring-blue-500 dark:ring-offset-gray-900' : 'border-white/20 dark:border-gray-700' }} bg-gradient-to-br {{ $card['from'] }} {{ $card['to'] }} p-3 text-center transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-{{ explode('-', $card['from'])[1] }}-500/25 cursor-pointer">
+                        {{-- Shine effect on hover --}}
+                        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
+                        <div class="relative">
+                            <svg class="w-5 h-5 text-white/80 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $card['icon'] }}"></path>
+                            </svg>
+                            <p class="text-xl font-bold text-white drop-shadow-sm">{{ $card['count'] }}</p>
+                            <p class="text-[10px] font-semibold text-white/80 mt-0.5 leading-tight uppercase tracking-wide">{{ $card['label'] }}</p>
+                        </div>
                     </a>
                 @endforeach
             </div>
