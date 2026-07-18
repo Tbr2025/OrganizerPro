@@ -165,11 +165,11 @@
                                             <span class="truncate">{{ $user->email }}</span>
                                         </div>
 
-                                        {{-- 4. Team name (~20%, hidden on mobile) --}}
+                                        {{-- 4. Team name(s) (~20%, hidden on mobile) --}}
                                         <div class="hidden md:flex items-center gap-2 min-w-0 text-sm text-gray-500 dark:text-gray-400" style="flex-basis: 20%;">
-                                            @if($team)
+                                            @if($user->actualTeams->isNotEmpty())
                                                 <iconify-icon icon="lucide:shield" width="14" class="flex-shrink-0 opacity-60"></iconify-icon>
-                                                <span class="truncate">{{ $team->name }}</span>
+                                                <span class="truncate">{{ $user->actualTeams->pluck('name')->join(', ') }}</span>
                                             @else
                                                 <span class="text-gray-300 dark:text-gray-600">&mdash;</span>
                                             @endif
