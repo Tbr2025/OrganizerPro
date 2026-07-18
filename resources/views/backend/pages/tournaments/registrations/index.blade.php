@@ -70,127 +70,27 @@
                 @endforeach
             </div>
 
-            {{-- Stats Cards ({{ ucfirst($type) }} registrations) — clickable to filter --}}
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'all']) }}"
-                   class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-indigo-600 dark:text-indigo-400">Total received</p>
-                            <p class="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{{ $totalCount }}</p>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'pending']) }}"
-                   class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-yellow-600 dark:text-yellow-400">Pending</p>
-                            <p class="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{{ $pendingCount }}</p>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'approved']) }}"
-                   class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-green-600 dark:text-green-400">Approved</p>
-                            <p class="text-2xl font-bold text-green-900 dark:text-green-100">{{ $approvedCount }}</p>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'rejected']) }}"
-                   class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-red-600 dark:text-red-400">Rejected</p>
-                            <p class="text-2xl font-bold text-red-900 dark:text-red-100">{{ $rejectedCount }}</p>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'cancelled']) }}"
-                   class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelled</p>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $cancelledCount }}</p>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'queued']) }}"
-                   class="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-sky-600 dark:text-sky-400">In Queue</p>
-                            <p class="text-2xl font-bold text-sky-900 dark:text-sky-100">{{ $queuedCount }}</p>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'retained']) }}"
-                   class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-purple-600 dark:text-purple-400">Retained</p>
-                            <p class="text-2xl font-bold text-purple-900 dark:text-purple-100">{{ $retainedCount }}</p>
-                        </div>
-                    </div>
-                </a>
-
-                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'unretained']) }}"
-                   class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="w-8 h-8 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-teal-600 dark:text-teal-400">Unretained</p>
-                            <p class="text-2xl font-bold text-teal-900 dark:text-teal-100">{{ $unretainedCount }}</p>
-                        </div>
-                    </div>
-                </a>
+            {{-- Stats Cards — compact, vertical layout --}}
+            @php
+                $statCards = [
+                    ['status' => 'all',        'label' => 'Total',      'count' => $totalCount,      'bg' => 'bg-indigo-50 dark:bg-indigo-900/20', 'border' => 'border-indigo-200 dark:border-indigo-800', 'text' => 'text-indigo-600 dark:text-indigo-400', 'num' => 'text-indigo-900 dark:text-indigo-100'],
+                    ['status' => 'pending',    'label' => 'Pending',    'count' => $pendingCount,    'bg' => 'bg-yellow-50 dark:bg-yellow-900/20', 'border' => 'border-yellow-200 dark:border-yellow-800', 'text' => 'text-yellow-600 dark:text-yellow-400', 'num' => 'text-yellow-900 dark:text-yellow-100'],
+                    ['status' => 'approved',   'label' => 'Approved',   'count' => $approvedCount,   'bg' => 'bg-green-50 dark:bg-green-900/20',   'border' => 'border-green-200 dark:border-green-800',   'text' => 'text-green-600 dark:text-green-400',   'num' => 'text-green-900 dark:text-green-100'],
+                    ['status' => 'rejected',   'label' => 'Rejected',   'count' => $rejectedCount,   'bg' => 'bg-red-50 dark:bg-red-900/20',       'border' => 'border-red-200 dark:border-red-800',       'text' => 'text-red-600 dark:text-red-400',       'num' => 'text-red-900 dark:text-red-100'],
+                    ['status' => 'cancelled',  'label' => 'Cancelled',  'count' => $cancelledCount,  'bg' => 'bg-gray-50 dark:bg-gray-800/50',     'border' => 'border-gray-200 dark:border-gray-700',     'text' => 'text-gray-500 dark:text-gray-400',     'num' => 'text-gray-900 dark:text-gray-100'],
+                    ['status' => 'queued',     'label' => 'In Queue',   'count' => $queuedCount,     'bg' => 'bg-sky-50 dark:bg-sky-900/20',       'border' => 'border-sky-200 dark:border-sky-800',       'text' => 'text-sky-600 dark:text-sky-400',       'num' => 'text-sky-900 dark:text-sky-100'],
+                    ['status' => 'retained',   'label' => 'Retained',   'count' => $retainedCount,   'bg' => 'bg-purple-50 dark:bg-purple-900/20', 'border' => 'border-purple-200 dark:border-purple-800', 'text' => 'text-purple-600 dark:text-purple-400', 'num' => 'text-purple-900 dark:text-purple-100'],
+                    ['status' => 'unretained', 'label' => 'Unretained', 'count' => $unretainedCount, 'bg' => 'bg-teal-50 dark:bg-teal-900/20',     'border' => 'border-teal-200 dark:border-teal-800',     'text' => 'text-teal-600 dark:text-teal-400',     'num' => 'text-teal-900 dark:text-teal-100'],
+                ];
+            @endphp
+            <div class="grid grid-cols-4 md:grid-cols-8 gap-2 mb-6">
+                @foreach($statCards as $card)
+                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => $card['status']]) }}"
+                       class="{{ $card['bg'] }} border {{ $card['border'] }} rounded-lg px-3 py-3 hover:shadow-md transition-shadow cursor-pointer text-center {{ $filters['status'] === $card['status'] ? 'ring-2 ring-offset-1 ring-blue-500' : '' }}">
+                        <p class="text-xl font-bold {{ $card['num'] }}">{{ $card['count'] }}</p>
+                        <p class="text-[11px] font-medium {{ $card['text'] }} mt-0.5 leading-tight">{{ $card['label'] }}</p>
+                    </a>
+                @endforeach
             </div>
 
             {{-- Filter Tabs (preserve search/sort when switching) --}}
