@@ -372,6 +372,19 @@
                                                     Rejected
                                                 </span>
                                             @endif
+                                            @if($registration->player?->player_mode === 'retained')
+                                                <div class="mt-1">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                        Retained
+                                                    </span>
+                                                </div>
+                                                @if($registration->player->actualTeam)
+                                                    <p class="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5 leading-tight">{{ $registration->player->actualTeam->name }}</p>
+                                                @endif
+                                                @if($registration->player->retained_value)
+                                                    <p class="text-[10px] font-semibold text-purple-700 dark:text-purple-300 leading-tight">{{ number_format($registration->player->retained_value) }}</p>
+                                                @endif
+                                            @endif
                                         </td>
 
                                         {{-- Date Column --}}
