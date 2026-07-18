@@ -71,7 +71,7 @@
             </div>
 
             {{-- Stats Cards ({{ ucfirst($type) }} registrations) — clickable to filter --}}
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
                 <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'all']) }}"
                    class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
                     <div class="flex items-center">
@@ -158,6 +158,36 @@
                         <div class="ml-4">
                             <p class="text-sm font-medium text-sky-600 dark:text-sky-400">In Queue</p>
                             <p class="text-2xl font-bold text-sky-900 dark:text-sky-100">{{ $queuedCount }}</p>
+                        </div>
+                    </div>
+                </a>
+
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'retained']) }}"
+                   class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-purple-600 dark:text-purple-400">Retained</p>
+                            <p class="text-2xl font-bold text-purple-900 dark:text-purple-100">{{ $retainedCount }}</p>
+                        </div>
+                    </div>
+                </a>
+
+                <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $type, 'status' => 'unretained']) }}"
+                   class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <svg class="w-8 h-8 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-teal-600 dark:text-teal-400">Unretained</p>
+                            <p class="text-2xl font-bold text-teal-900 dark:text-teal-100">{{ $unretainedCount }}</p>
                         </div>
                     </div>
                 </a>

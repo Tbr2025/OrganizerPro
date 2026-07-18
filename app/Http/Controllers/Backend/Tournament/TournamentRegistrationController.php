@@ -151,6 +151,12 @@ class TournamentRegistrationController extends Controller
             'rejectedCount' => $countBase()->rejected()->count(),
             'cancelledCount' => $countBase()->cancelled()->count(),
             'queuedCount' => $countBase()->queued()->count(),
+            'retainedCount' => $countBase()->approved()
+                ->whereHas('player', fn ($q) => $q->where('player_mode', 'retained'))
+                ->count(),
+            'unretainedCount' => $countBase()->approved()
+                ->whereHas('player', fn ($q) => $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode'))
+                ->count(),
             'filters' => compact('type', 'status', 'search', 'sort', 'direction', 'playingTeam', 'tournamentType'),
             'breadcrumbs' => [
                 'title' => __('Registrations'),
