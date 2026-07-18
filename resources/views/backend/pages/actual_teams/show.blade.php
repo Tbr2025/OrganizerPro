@@ -461,7 +461,7 @@
                             </thead>
                             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                                 @foreach($approvedPlayers as $ap)
-                                    @if($ap->player_mode === 'retained' && $ap->actual_team_id == $actualTeam->id)
+                                    @if($ap->player_mode === 'retained')
                                         @continue
                                     @endif
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50"
