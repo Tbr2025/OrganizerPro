@@ -498,6 +498,14 @@
                                                         @endif
 
                                                         @if($registration->status == 'approved')
+                                                            <form action="{{ route('admin.tournaments.registrations.unapprove', [$tournament, $registration]) }}" method="POST"
+                                                                  onsubmit="return confirm('Revert this registration to pending?')">
+                                                                @csrf
+                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                                                                    Unapprove
+                                                                </button>
+                                                            </form>
                                                             @if($registration->type === 'team' && $registration->actual_team_id)
                                                                 <a href="{{ route('admin.actual-teams.edit', $registration->actual_team_id) }}"
                                                                    class="w-full text-left px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">

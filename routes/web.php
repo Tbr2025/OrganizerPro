@@ -850,6 +850,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/registrations/{registration}/reject', [TournamentRegistrationController::class, 'reject'])->name('registrations.reject');
         Route::post('/registrations/{registration}/queue', [TournamentRegistrationController::class, 'queue'])->name('registrations.queue');
         Route::post('/registrations/{registration}/cancel', [TournamentRegistrationController::class, 'cancel'])->name('registrations.cancel');
+        Route::post('/registrations/{registration}/unapprove', [TournamentRegistrationController::class, 'unapprove'])->name('registrations.unapprove');
         Route::post('/registrations/bulk-approve', [TournamentRegistrationController::class, 'bulkApprove'])->name('registrations.bulk-approve');
         Route::delete('/registrations/{registration}/force-delete', [TournamentRegistrationController::class, 'forceDelete'])->name('registrations.force-delete');
         // Per-field verification + correction (intimation) email

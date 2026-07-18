@@ -278,6 +278,24 @@ class TournamentRegistrationController extends Controller
         return redirect()->back()->with('success', __('Registration cancelled.'));
     }
 
+    public function unapprove(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+
+        if ($registration->status !== 'approved') {
+            return redirect()->back()->with('error', __('Only approved registrations can be unapproved.'));
+        }
+
+        $registration->update([
+            'status' => 'pending',
+            'processed_at' => null,
+            'processed_by' => null,
+        ]);
+
+        return redirect()->back()->with('success', __('Registration reverted to pending.'));
+    }
+
     public function forceDelete(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
