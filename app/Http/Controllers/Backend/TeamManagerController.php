@@ -32,6 +32,21 @@ use App\Notifications\GeneralNotification;
 class TeamManagerController extends Controller
 {
     /**
+     * Resolve the selected team from session, falling back to the first team.
+     */
+    private function selectedTeam(User $user): ?ActualTeam
+    {
+        $teams = $user->actualTeams()->get();
+        if ($teams->isEmpty()) {
+            return null;
+        }
+        if ($selectedId = session('selected_team_id')) {
+            return $teams->firstWhere('id', $selectedId) ?? $teams->first();
+        }
+        return $teams->first();
+    }
+
+    /**
      * Team Manager Dashboard - Shows their team, players, and upcoming auctions
      */
     public function dashboard(Request $request)
@@ -323,7 +338,7 @@ class TeamManagerController extends Controller
     public function addPlayerToRoster(Request $request)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -358,7 +373,7 @@ class TeamManagerController extends Controller
     public function removePlayerFromRoster(Request $request, Player $player)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -467,7 +482,7 @@ class TeamManagerController extends Controller
     public function verifyPlayer(Request $request, Player $player)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -563,7 +578,7 @@ class TeamManagerController extends Controller
     public function rejectPlayer(Player $player)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -587,7 +602,7 @@ class TeamManagerController extends Controller
     public function resendWelcomeEmail(Player $player)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -697,7 +712,7 @@ class TeamManagerController extends Controller
     public function assignCaptain(Request $request)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -783,7 +798,7 @@ class TeamManagerController extends Controller
     public function players(Request $request)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -862,7 +877,7 @@ class TeamManagerController extends Controller
     public function showPlayer(Player $player)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -945,7 +960,7 @@ class TeamManagerController extends Controller
     public function squad()
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -977,7 +992,7 @@ class TeamManagerController extends Controller
     public function otherTeams()
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -1005,7 +1020,7 @@ class TeamManagerController extends Controller
     public function otherTeamPlayers(ActualTeam $otherTeam)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
@@ -1041,7 +1056,7 @@ class TeamManagerController extends Controller
     public function toggleWishlist(Request $request)
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return response()->json(['error' => 'No team assigned'], 403);
@@ -1077,7 +1092,7 @@ class TeamManagerController extends Controller
     public function wishlist()
     {
         $user = Auth::user();
-        $team = $user->actualTeams()->first();
+        $team = $this->selectedTeam($user);
 
         if (!$team) {
             return redirect()->route('team-manager.dashboard')
