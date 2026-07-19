@@ -351,6 +351,11 @@
                                         <span class="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold bg-red-500 text-white rounded-full px-1">{{ $tournament->pending_registrations_count }}</span>
                                     @endif
                                 </a>
+                                <a href="{{ route('admin.pending-approvals.index', ['tournament_id' => $tournament->id]) }}"
+                                   class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    <iconify-icon icon="lucide:clock" width="15" class="text-amber-500"></iconify-icon>
+                                    Pending Approvals
+                                </a>
                                 <a href="{{ route('admin.tournaments.awards.index', $tournament) }}"
                                    class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                                     <iconify-icon icon="lucide:star" width="15" class="text-gray-400"></iconify-icon>
