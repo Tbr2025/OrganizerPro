@@ -356,7 +356,7 @@ class TournamentRegistrationController extends Controller
 
             $fieldConfig = PlayerFormConfig::getFieldConfig($tournament->settings);
             $label = fn ($k) => $fieldConfig[$k]['label'] ?? ucwords(str_replace('_', ' ', $k));
-            $skip = ['name', 'image', 'terms_and_conditions'];
+            $skip = ['name', 'terms_and_conditions'];
 
             // Group the verification status by SECTION: a group is "accepted" only
             // when every one of its (displayed) fields is verified; otherwise it's
