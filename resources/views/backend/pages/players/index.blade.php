@@ -379,13 +379,13 @@
                                         {{ $player->updated_at->diffForHumans() }}</td>
                                     <td class="px-5 py-3.5 whitespace-nowrap text-right text-sm font-medium">
                                         {{-- Actions Kebab Menu --}}
-                                        <div x-data="{ open: false }" class="relative">
-                                            <button @click="open = !open" @click.away="open = false"
+                                        <div x-data="{ open: false, menuStyle: '' }" class="relative">
+                                            <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); menuStyle = 'position:fixed;top:'+(r.bottom+4)+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
                                                 class="p-2 text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150">
                                                 <iconify-icon icon="lucide:more-vertical" width="18"></iconify-icon>
                                             </button>
-                                            <div x-show="open" x-transition
-                                                class="absolute z-20 w-48 right-0 mt-2 origin-top-right bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none"
+                                            <div x-show="open" x-transition :style="menuStyle"
+                                                class="w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none"
                                                 style="display: none;">
                                                 <div class="py-1" role="menu" aria-orientation="vertical">
                                                     @canany(['player.show', 'player.view'])
@@ -606,13 +606,13 @@
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap text-right text-sm font-medium">
                                         {{-- Actions Kebab Menu --}}
-                                        <div x-data="{ open: false }" class="relative">
-                                            <button @click="open = !open" @click.away="open = false"
+                                        <div x-data="{ open: false, menuStyle: '' }" class="relative">
+                                            <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); menuStyle = 'position:fixed;top:'+(r.bottom+4)+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
                                                 class="p-2 text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150">
                                                 <iconify-icon icon="lucide:more-vertical" width="18"></iconify-icon>
                                             </button>
-                                            <div x-show="open" x-transition
-                                                class="absolute z-20 w-48 right-0 mt-2 origin-top-right bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none"
+                                            <div x-show="open" x-transition :style="menuStyle"
+                                                class="w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none"
                                                 style="display: none;">
                                                 <div class="py-1" role="menu" aria-orientation="vertical">
                                                     @canany(['player.show', 'player.view'])
