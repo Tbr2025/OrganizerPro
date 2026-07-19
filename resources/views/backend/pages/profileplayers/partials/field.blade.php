@@ -77,13 +77,15 @@
     $inputCls = $selectCls;
 @endphp
 
-<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $locked ? 'border-green-400 dark:border-green-600' : ($hasPending ? 'border-amber-300 dark:border-amber-600' : 'border-transparent') }}">
+<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $locked ? 'border-green-400 dark:border-green-600' : ($hasPending ? 'border-amber-300 dark:border-amber-600' : 'border-orange-300 dark:border-orange-600') }}">
     <div class="flex items-start justify-between gap-2 mb-1">
         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }}</h4>
         @if($locked)
             <span class="text-[10px] font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">✔ Verified · locked</span>
         @elseif($hasPending)
             <span class="text-[10px] font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">⏳ pending approval</span>
+        @else
+            <span class="text-[10px] font-semibold text-orange-500 dark:text-orange-400 whitespace-nowrap">○ Not yet verified</span>
         @endif
     </div>
 

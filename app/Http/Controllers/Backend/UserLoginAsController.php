@@ -34,9 +34,9 @@ class UserLoginAsController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        // Player role — redirect to their profile page
+        // Player role — redirect to the welcome dashboard
         if ($user->hasRole('Player') && $user->player) {
-            return redirect()->route('profileplayers.edit');
+            return redirect()->route('home');
         }
 
         return redirect()->route('home');
