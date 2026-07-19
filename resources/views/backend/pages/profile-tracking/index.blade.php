@@ -142,15 +142,18 @@
                                     {{ $log->changedBy?->name ?? 'System' }}
                                 </td>
                                 <td class="px-4 py-3 hidden lg:table-cell">
-                                    @if($log->changes && count($log->changes) > 0)
+                                    @php
+                                        $formatted = $log->changes ? \App\Models\ProfileChangeLog::formatChangesForDisplay($log->changes) : [];
+                                    @endphp
+                                    @if(count($formatted) > 0)
                                         <button @click="expanded = !expanded" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-                                            <span x-text="expanded ? 'Hide' : '{{ count($log->changes) }} field(s)'"></span>
+                                            <span x-text="expanded ? 'Hide' : '{{ count($formatted) }} field(s)'"></span>
                                         </button>
                                         <div x-show="expanded" x-cloak class="mt-2 text-xs space-y-1 max-w-xs">
-                                            @foreach($log->changes as $field => $value)
+                                            @foreach($formatted as $label => $displayValue)
                                                 <div class="flex gap-2">
-                                                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ ucwords(str_replace('_', ' ', $field)) }}:</span>
-                                                    <span class="text-gray-500 dark:text-gray-400 truncate">{{ is_array($value) ? json_encode($value) : Str::limit((string) $value, 40) }}</span>
+                                                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ $label }}:</span>
+                                                    <span class="text-gray-500 dark:text-gray-400 truncate">{{ Str::limit($displayValue, 40) }}</span>
                                                 </div>
                                             @endforeach
                                         </div>
