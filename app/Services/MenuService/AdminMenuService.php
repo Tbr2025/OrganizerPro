@@ -302,7 +302,7 @@ class AdminMenuService
             'label' => __('Players'),
             'icon' => 'feather:user',
             'id' => 'players-submenu',
-            'active' => Route::is('admin.players.*'),
+            'active' => Route::is('admin.players.*') || Route::is('admin.profile-tracking.*'),
             'priority' => 20,
             'permissions' => ['player.create', 'player.view', 'player.edit', 'player.delete'],
             'children' => [
@@ -319,6 +319,13 @@ class AdminMenuService
                     'active' => Route::is('admin.players.create'),
                     'priority' => 20,
                     'permissions' => 'player.create',
+                ],
+                [
+                    'label' => __('Track Profiles'),
+                    'route' => route('admin.profile-tracking.index'),
+                    'active' => Route::is('admin.profile-tracking.*'),
+                    'priority' => 30,
+                    'permissions' => 'player.view',
                 ],
             ],
         ]);

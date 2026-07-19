@@ -51,13 +51,9 @@
     {{-- INFO BAR --}}
     @php
         $retainedCount = $players->where('player_mode', 'retained')->count();
-        $availableCount = $players->where('player_mode', '!=', 'retained')->count();
+        $soldCount = $players->where('player_mode', 'sold')->count();
     @endphp
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 text-center">
-        <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Tournament</div>
-            <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $otherTeam->tournament->name ?? 'N/A' }}</div>
-        </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 text-center">
         <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
             <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Players</div>
             <div class="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{{ $players->count() }}</div>
@@ -67,8 +63,8 @@
             <div class="mt-1 text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $retainedCount }}</div>
         </div>
         <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Available</div>
-            <div class="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $availableCount }}</div>
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Sold</div>
+            <div class="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">{{ $soldCount }}</div>
         </div>
     </div>
 
@@ -198,8 +194,8 @@
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Status</label>
                         <select x-model="filterStatus" class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
                             <option value="">All</option>
-                            <option value="available">Available</option>
                             <option value="retained">Retained</option>
+                            <option value="sold">Sold</option>
                         </select>
                     </div>
                 </div>
@@ -233,7 +229,7 @@
                                     data-batting="{{ $player->battingProfile?->style ?? '' }}"
                                     data-bowling="{{ $player->bowlingProfile?->style ?? '' }}"
                                     data-wk="{{ $player->is_wicket_keeper ? '1' : '0' }}"
-                                    data-player-status="{{ ($player->player_mode === 'retained') ? 'retained' : 'available' }}"
+                                    data-player-status="{{ $player->player_mode ?? 'sold' }}"
                                     data-matches="{{ $player->total_matches ?? 0 }}"
                                     data-runs="{{ $player->total_runs ?? 0 }}"
                                     data-wickets="{{ $player->total_wickets ?? 0 }}"
@@ -259,13 +255,18 @@
                                                 </div>
                                             @endif
                                             <div>
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-medium text-gray-900 dark:text-white">{{ $player->name }}</span>
-                                                    @if($player->jersey_number)
-                                                        <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-bold text-gray-600 dark:text-gray-300">#{{ $player->jersey_number }}</span>
+                                                <span class="font-medium text-gray-900 dark:text-white">{{ $player->name }}</span>
+                                                <div class="flex flex-wrap gap-1 mt-0.5">
+                                                    @if($player->playerType)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">{{ $player->playerType->type }}</span>
+                                                    @endif
+                                                    @if($player->battingProfile)
+                                                        <span class="text-[10px] text-gray-500">{{ $player->battingProfile->style }}</span>
+                                                    @endif
+                                                    @if($player->bowlingProfile)
+                                                        <span class="text-[10px] text-gray-500">{{ $player->bowlingProfile->style }}</span>
                                                     @endif
                                                 </div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ $player->mobile_number_full ?? '' }}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -315,8 +316,8 @@
                                                 Retained
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
-                                                Available
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                                                Sold
                                             </span>
                                         @endif
                                     </td>

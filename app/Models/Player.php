@@ -419,6 +419,24 @@ class Player extends Model implements MustVerifyEmail
         return $this->belongsTo(ActualTeam::class, 'actual_team_id');
     }
 
+    /**
+     * Resolve the player's team for a specific tournament via the pivot table,
+     * falling back to the direct actualTeam relationship.
+     */
+    public function tournamentTeam(int $tournamentId): ?ActualTeam
+    {
+        $pivotTeamId = \DB::table('player_actual_team_tournament')
+            ->where('player_id', $this->id)
+            ->where('tournament_id', $tournamentId)
+            ->value('actual_team_id');
+
+        if ($pivotTeamId) {
+            return ActualTeam::find($pivotTeamId);
+        }
+
+        return $this->actualTeam;
+    }
+
     // Player type
     public function player_type()
     {

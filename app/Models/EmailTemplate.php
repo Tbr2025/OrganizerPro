@@ -12,11 +12,13 @@ class EmailTemplate extends Model
     public const TYPE_UNDER_REVIEW = 'under_review';
     public const TYPE_APPROVED = 'approved';
     public const TYPE_WELCOME_CARD = 'welcome_card';
+    public const TYPE_RETAINED_WELCOME_CARD = 'retained_welcome_card';
 
     public const TYPES = [
         self::TYPE_UNDER_REVIEW,
         self::TYPE_APPROVED,
         self::TYPE_WELCOME_CARD,
+        self::TYPE_RETAINED_WELCOME_CARD,
     ];
 
     protected $fillable = [

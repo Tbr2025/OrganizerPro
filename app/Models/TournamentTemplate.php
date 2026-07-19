@@ -40,9 +40,11 @@ class TournamentTemplate extends Model
     public const TYPE_CHAMPIONS_POSTER = 'champions_poster';
     public const TYPE_POINT_TABLE = 'point_table';
     public const TYPE_FIXTURES_POSTER = 'fixtures_poster';
+    public const TYPE_RETAINED_WELCOME_CARD = 'retained_welcome_card';
 
     public const TYPES = [
         self::TYPE_WELCOME_CARD,
+        self::TYPE_RETAINED_WELCOME_CARD,
         self::TYPE_MATCH_POSTER,
         self::TYPE_MATCH_SUMMARY,
         self::TYPE_AWARD_POSTER,
@@ -58,7 +60,7 @@ class TournamentTemplate extends Model
     public static function getDefaultPlaceholders(string $type): array
     {
         return match ($type) {
-            self::TYPE_WELCOME_CARD => [
+            self::TYPE_WELCOME_CARD, self::TYPE_RETAINED_WELCOME_CARD => [
                 'player_name',
                 'jersey_name',
                 'jersey_number',
@@ -297,6 +299,11 @@ class TournamentTemplate extends Model
         return $query->where('type', self::TYPE_FIXTURES_POSTER);
     }
 
+    public function scopeRetainedWelcomeCards($query)
+    {
+        return $query->where('type', self::TYPE_RETAINED_WELCOME_CARD);
+    }
+
     public function scopeDefault($query)
     {
         return $query->where('is_default', true);
@@ -330,6 +337,7 @@ class TournamentTemplate extends Model
     {
         return match ($type) {
             self::TYPE_WELCOME_CARD => 'Welcome Card',
+            self::TYPE_RETAINED_WELCOME_CARD => 'Retained Welcome Card',
             self::TYPE_MATCH_POSTER => 'Match Poster',
             self::TYPE_MATCH_SUMMARY => 'Match Summary',
             self::TYPE_AWARD_POSTER => 'Award Poster',

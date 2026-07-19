@@ -703,6 +703,41 @@
                 </div>
                 @endif
 
+                {{-- Retained Welcome Card Preview & Download (retained players) --}}
+                @if($registration->isPlayerRegistration() && $registration->player && $registration->player->player_mode === 'retained')
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700"
+                     x-data="{ loading: false, imageUrl: null, error: null }">
+                    <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Retained Welcome Card</h4>
+                    <div class="flex flex-wrap items-center gap-3 mb-3">
+                        <button type="button"
+                                @click="loading = true; error = null;
+                                    fetch('{{ route('admin.tournaments.registrations.retained-welcome-card.preview', [$tournament, $registration]) }}')
+                                    .then(r => { if (!r.ok) throw r; return r.json(); })
+                                    .then(d => { imageUrl = d.image; loading = false; })
+                                    .catch(e => { error = 'Could not generate preview. Ensure a retained welcome card template exists.'; loading = false; })"
+                                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30"
+                                :disabled="loading">
+                            <template x-if="!loading">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            </template>
+                            <template x-if="loading">
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            </template>
+                            <span x-text="loading ? 'Generating...' : 'Preview Retained Welcome Card'"></span>
+                        </button>
+                        <a href="{{ route('admin.tournaments.registrations.retained-welcome-card.download', [$tournament, $registration]) }}"
+                           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Download Retained Welcome Card
+                        </a>
+                    </div>
+                    <p x-show="error" x-text="error" class="text-sm text-red-500 mb-3" x-cloak></p>
+                    <div x-show="imageUrl" x-cloak class="mt-3 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 inline-block">
+                        <img :src="imageUrl" alt="Retained Welcome Card Preview" class="max-w-full max-h-[500px] object-contain">
+                    </div>
+                </div>
+                @endif
+
                 {{-- Email actions: resend approval email / temp password --}}
                 <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Email Actions</h4>

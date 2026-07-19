@@ -1277,6 +1277,12 @@ class AuctionAdminController extends Controller
                 'actual_team_id' => $team->id,
             ]);
 
+            // Write to tournament-specific pivot table
+            DB::table('player_actual_team_tournament')->updateOrInsert(
+                ['player_id' => $auctionPlayer->player_id, 'tournament_id' => $auction->tournament_id],
+                ['actual_team_id' => $team->id, 'updated_at' => now()]
+            );
+
             // Add to team roster
             $team->users()->syncWithoutDetaching([
                 $auctionPlayer->player->user_id => ['role' => 'Player']
@@ -1291,6 +1297,19 @@ class AuctionAdminController extends Controller
             // Broadcast player sold event with team info
         });
         broadcast(new PlayerSoldEvent($auctionPlayer, $team));
+
+        // Auto-send retained welcome card on sell
+        try {
+            $reg = \App\Models\TournamentRegistration::where('player_id', $auctionPlayer->player_id)
+                ->where('tournament_id', $auction->tournament_id)
+                ->first();
+            if ($reg) {
+                app(\App\Services\Notification\TournamentNotificationService::class)
+                    ->sendRetainedWelcomeCard($reg);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to auto-send retained welcome card on auction sell: ' . $e->getMessage());
+        }
 
         return back()->with('success', 'Player has been successfully assigned, sold, and added to the team.');
     }

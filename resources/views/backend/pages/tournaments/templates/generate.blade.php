@@ -56,6 +56,12 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                 Welcome
             </button>
+            <button type="button" @click="type = 'retained_welcome_card'; updateType('retained_welcome_card')"
+                    :class="type === 'retained_welcome_card' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-purple-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                Retained Welcome
+            </button>
             <button type="button" @click="type = 'point_table'; updateType('point_table')"
                     :class="type === 'point_table' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-blue-300'"
                     class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
@@ -253,7 +259,7 @@
                 </div>
 
                 {{-- Player Selection (for welcome_card) --}}
-                <div id="playerSelection" class="{{ request('type') === 'welcome_card' ? '' : 'hidden' }}">
+                <div id="playerSelection" class="{{ in_array(request('type'), ['welcome_card', 'retained_welcome_card']) ? '' : 'hidden' }}">
                     {{-- Auto Mode Toggle --}}
                     <div class="flex items-center justify-between mb-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
                          x-data="{ autoMode: {{ $autoWelcome ?? true ? 'true' : 'false' }}, toggling: false }">
@@ -887,6 +893,7 @@
                                 'match_summary' => 'bg-yellow-500',
                                 'award_poster' => 'bg-red-500',
                                 'welcome_card' => 'bg-green-500',
+                                'retained_welcome_card' => 'bg-purple-500',
                                 'point_table' => 'bg-blue-500',
                                 'fixtures_poster' => 'bg-teal-500',
                                 'flyer' => 'bg-orange-500',
@@ -1143,8 +1150,8 @@ function addPosterToGallery(data) {
 
     const typeColors = {
         'match_poster': 'bg-cyan-500', 'match_summary': 'bg-yellow-500', 'award_poster': 'bg-red-500',
-        'welcome_card': 'bg-green-500', 'point_table': 'bg-blue-500', 'fixtures_poster': 'bg-teal-500',
-        'flyer': 'bg-orange-500', 'champions_poster': 'bg-amber-500',
+        'welcome_card': 'bg-green-500', 'retained_welcome_card': 'bg-purple-500', 'point_table': 'bg-blue-500',
+        'fixtures_poster': 'bg-teal-500', 'flyer': 'bg-orange-500', 'champions_poster': 'bg-amber-500',
     };
     const badgeColor = typeColors[data.poster_type] || 'bg-gray-500';
     const typeLabel = (data.poster_type || '').replace(/_/g, ' ').substring(0, 10).toUpperCase();
@@ -1207,7 +1214,7 @@ function updateType(type) {
 
     // Show/hide data selection sections
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
-    document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card');
+    document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card' && type !== 'retained_welcome_card');
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
     document.getElementById('groupSelection').classList.toggle('hidden', type !== 'point_table');
     document.getElementById('fixturesSelection').classList.toggle('hidden', type !== 'fixtures_poster');

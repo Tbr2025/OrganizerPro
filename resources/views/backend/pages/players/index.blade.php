@@ -438,6 +438,14 @@
                                                             </button>
                                                         </form>
                                                     @endcan
+                                                    @if($player->user_id && auth()->user()->can('user.login_as') && $player->user_id !== auth()->id())
+                                                        <a href="{{ route('admin.users.login-as', $player->user_id) }}"
+                                                            class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
+                                                            role="menuitem">
+                                                            <iconify-icon icon="lucide:log-in" width="16" class="text-gray-400"></iconify-icon>
+                                                            Login as Player
+                                                        </a>
+                                                    @endif
                                                 </div>
                                             </div>
                                         </div>
@@ -657,6 +665,14 @@
                                                             </button>
                                                         </form>
                                                     @endcan
+                                                    @if($player->user_id && auth()->user()->can('user.login_as') && $player->user_id !== auth()->id())
+                                                        <a href="{{ route('admin.users.login-as', $player->user_id) }}"
+                                                            class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
+                                                            role="menuitem">
+                                                            <iconify-icon icon="lucide:log-in" width="16" class="text-gray-400"></iconify-icon>
+                                                            Login as Player
+                                                        </a>
+                                                    @endif
                                                 </div>
                                             </div>
                                         </div>

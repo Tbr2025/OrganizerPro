@@ -89,6 +89,12 @@
         </form>
     </div>
 
+    <div class="flex items-center justify-between mb-3">
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+            Showing {{ $players->firstItem() ?? 0 }}–{{ $players->lastItem() ?? 0 }} of {{ $players->total() }} players
+        </p>
+    </div>
+
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md">
         @if($players->count() > 0)
             <div class="overflow-x-auto">
@@ -118,9 +124,17 @@
                                         @endif
                                         <div>
                                             <div class="font-medium text-gray-900 dark:text-white">{{ $player->name }}</div>
-                                            @if($player->jersey_number)
-                                                <div class="text-xs text-gray-500">#{{ $player->jersey_number }}</div>
-                                            @endif
+                                            <div class="flex flex-wrap gap-1 mt-0.5">
+                                                @if($player->playerType)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">{{ $player->playerType->type }}</span>
+                                                @endif
+                                                @if($player->battingProfile)
+                                                    <span class="text-[10px] text-gray-500">{{ $player->battingProfile->style }}</span>
+                                                @endif
+                                                @if($player->bowlingProfile)
+                                                    <span class="text-[10px] text-gray-500">{{ $player->bowlingProfile->style }}</span>
+                                                @endif
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
@@ -174,6 +188,12 @@
             </div>
         @endif
     </div>
+
+    @if($players->hasPages())
+        <div class="mt-4">
+            {{ $players->links() }}
+        </div>
+    @endif
 </div>
 
 {{-- View Player Modal --}}

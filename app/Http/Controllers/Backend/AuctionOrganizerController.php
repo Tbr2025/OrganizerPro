@@ -481,6 +481,12 @@ class AuctionOrganizerController extends Controller
                     'actual_team_id' => $winningBid->team_id,
                 ]);
 
+                // Write to tournament-specific pivot table
+                DB::table('player_actual_team_tournament')->updateOrInsert(
+                    ['player_id' => $player->id, 'tournament_id' => $auction->tournament_id],
+                    ['actual_team_id' => $winningBid->team_id, 'updated_at' => now()]
+                );
+
                 // Add to team roster (actual_team_users pivot)
                 $team = $winningBid->team;
                 if ($team && $player->user_id) {
@@ -497,6 +503,19 @@ class AuctionOrganizerController extends Controller
             }
 
             broadcast(new PlayerSoldEvent($auctionPlayer, $winningBid->team));
+
+            // Auto-send retained welcome card on sell
+            try {
+                $reg = \App\Models\TournamentRegistration::where('player_id', $auctionPlayer->player_id)
+                    ->where('tournament_id', $auction->tournament_id)
+                    ->first();
+                if ($reg) {
+                    app(\App\Services\Notification\TournamentNotificationService::class)
+                        ->sendRetainedWelcomeCard($reg);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Failed to auto-send retained welcome card on auction sell: ' . $e->getMessage());
+            }
 
             // Send notifications
             $this->notifyPlayerSold($auctionPlayer->player_id, $winningBid->team, $auction, $winningBid->amount);

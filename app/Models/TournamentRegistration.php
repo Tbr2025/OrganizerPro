@@ -38,6 +38,8 @@ class TournamentRegistration extends Model
         // Notification tracking
         'welcome_card_sent',
         'welcome_card_sent_at',
+        'retained_welcome_card_sent',
+        'retained_welcome_card_sent_at',
         'flyer_sent',
         'flyer_sent_at',
         // Admin per-field verification
@@ -58,6 +60,8 @@ class TournamentRegistration extends Model
         'processed_at' => 'datetime',
         'welcome_card_sent' => 'boolean',
         'welcome_card_sent_at' => 'datetime',
+        'retained_welcome_card_sent' => 'boolean',
+        'retained_welcome_card_sent_at' => 'datetime',
         'flyer_sent' => 'boolean',
         'flyer_sent_at' => 'datetime',
         'verified_fields' => 'array',
@@ -183,6 +187,14 @@ class TournamentRegistration extends Model
         $this->update([
             'welcome_card_sent' => true,
             'welcome_card_sent_at' => now(),
+        ]);
+    }
+
+    public function markRetainedWelcomeCardSent(): void
+    {
+        $this->update([
+            'retained_welcome_card_sent' => true,
+            'retained_welcome_card_sent_at' => now(),
         ]);
     }
 

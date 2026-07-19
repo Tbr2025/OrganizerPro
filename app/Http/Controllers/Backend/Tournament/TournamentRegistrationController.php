@@ -660,6 +660,15 @@ class TournamentRegistrationController extends Controller
         $player->update($changes);
         $registration->update(['pending_changes' => null, 'pending_changes_submitted_at' => null]);
 
+        // Log the approval
+        \App\Models\ProfileChangeLog::record(
+            $player->id,
+            \App\Models\ProfileChangeLog::ACTION_APPROVED,
+            $changes,
+            $registration->id,
+            $tournament->id
+        );
+
         // Notify the player via email
         $email = $player->email;
         if ($email && !empty($changeSummary)) {
@@ -725,6 +734,17 @@ class TournamentRegistrationController extends Controller
         }
 
         $registration->update(['pending_changes' => null, 'pending_changes_submitted_at' => null]);
+
+        // Log the rejection
+        if ($player) {
+            \App\Models\ProfileChangeLog::record(
+                $player->id,
+                \App\Models\ProfileChangeLog::ACTION_REJECTED,
+                $changes,
+                $registration->id,
+                $tournament->id
+            );
+        }
 
         // Notify the player via email
         $email = $player?->email;
@@ -798,8 +818,9 @@ class TournamentRegistrationController extends Controller
             return back()->with('error', __('No welcome card template found. Please create one first.'));
         }
 
-        $teamName = $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? $player->team?->name ?? '');
-        $teamLogo = $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? $player->team?->logo ?? '');
+        $tournamentTeam = $player->tournamentTeam($tournament->id);
+        $teamName = $player->playing_team_name_ref ?: ($tournamentTeam?->name ?? $player->team?->name ?? '');
+        $teamLogo = $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? $player->team?->logo ?? '');
 
         $data = [
             'player_name' => $player->name,
@@ -844,8 +865,99 @@ class TournamentRegistrationController extends Controller
             return response()->json(['error' => 'No welcome card template found.'], 404);
         }
 
-        $teamName = $player->playing_team_name_ref ?: ($player->actualTeam?->name ?? $player->team?->name ?? '');
-        $teamLogo = $player->playing_team_name_ref ? '' : ($player->actualTeam?->team_logo ?? $player->team?->logo ?? '');
+        $tournamentTeam = $player->tournamentTeam($tournament->id);
+        $teamName = $player->playing_team_name_ref ?: ($tournamentTeam?->name ?? $player->team?->name ?? '');
+        $teamLogo = $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? $player->team?->logo ?? '');
+
+        $data = [
+            'player_name' => $player->name,
+            'jersey_name' => $player->jersey_name ?: $player->name,
+            'jersey_number' => (string) ($player->jersey_number ?? ''),
+            'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
+            'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
+            'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
+            'team_name' => $teamName,
+            'team_logo' => $teamLogo,
+            'playing_team_name' => $teamName,
+            'playing_team_logo' => $teamLogo,
+            'tournament_name' => $tournament->name,
+            'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
+            'player_image' => $player->image_path ?? '',
+        ];
+
+        $renderService = app(\App\Services\Poster\TemplateRenderService::class);
+        $base64 = $renderService->renderToBase64($template, $data);
+
+        return response()->json(['image' => $base64]);
+    }
+
+    /**
+     * Download the retained welcome card poster.
+     */
+    public function downloadRetainedWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+
+        $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
+        $settings = $tournament->settings;
+
+        $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_RETAINED_WELCOME_CARD);
+        if (!$template) {
+            return back()->with('error', __('No retained welcome card template found. Please create one first.'));
+        }
+
+        $tournamentTeam = $player->tournamentTeam($tournament->id);
+        $teamName = $player->playing_team_name_ref ?: ($tournamentTeam?->name ?? $player->team?->name ?? '');
+        $teamLogo = $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? $player->team?->logo ?? '');
+
+        $data = [
+            'player_name' => $player->name,
+            'jersey_name' => $player->jersey_name ?: $player->name,
+            'jersey_number' => (string) ($player->jersey_number ?? ''),
+            'player_type' => $player->playerType?->type ?? $player->playerType?->name ?? '',
+            'batting_style' => $player->battingProfile?->style ?? $player->battingProfile?->name ?? '',
+            'bowling_style' => $player->bowlingProfile?->style ?? $player->bowlingProfile?->name ?? '',
+            'team_name' => $teamName,
+            'team_logo' => $teamLogo,
+            'playing_team_name' => $teamName,
+            'playing_team_logo' => $teamLogo,
+            'tournament_name' => $tournament->name,
+            'tournament_logo' => $settings->logo ?? $tournament->logo ?? '',
+            'player_image' => $player->image_path ?? '',
+        ];
+
+        $renderService = app(\App\Services\Poster\TemplateRenderService::class);
+        $appPrefix = config('settings.app_name') ?: config('app.name');
+        $filename = \App\Services\Poster\TemplateRenderService::posterFilename($appPrefix . '-retained-welcome-' . Str::slug($player->name));
+        $posterPath = $renderService->renderAndSave($template, $data, $filename);
+
+        $fullPath = storage_path('app/public/' . $posterPath);
+
+        return response()->download($fullPath, $filename)->deleteFileAfterSend(false);
+    }
+
+    /**
+     * Generate and return the retained welcome card poster as inline image (AJAX preview).
+     */
+    public function previewRetainedWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        abort_if($registration->tournament_id !== $tournament->id, 404);
+        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+
+        $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
+        $settings = $tournament->settings;
+
+        $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_RETAINED_WELCOME_CARD);
+        if (!$template) {
+            return response()->json(['error' => 'No retained welcome card template found.'], 404);
+        }
+
+        $tournamentTeam = $player->tournamentTeam($tournament->id);
+        $teamName = $player->playing_team_name_ref ?: ($tournamentTeam?->name ?? $player->team?->name ?? '');
+        $teamLogo = $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? $player->team?->logo ?? '');
 
         $data = [
             'player_name' => $player->name,

@@ -57,6 +57,23 @@
                                 </div>
                             @endif
 
+                            {{-- Player Name (read-only display) --}}
+                            <div class="flex items-center gap-4 mb-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                @if($player->image_path)
+                                    <img src="{{ asset('storage/' . $player->image_path) }}" alt="{{ $player->name }}" class="w-14 h-14 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600">
+                                @else
+                                    <div class="w-14 h-14 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xl font-bold text-gray-500 dark:text-gray-400">
+                                        {{ strtoupper(substr($player->name, 0, 1)) }}
+                                    </div>
+                                @endif
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $player->name }}</h3>
+                                    @if($player->email)
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ $player->email }}</p>
+                                    @endif
+                                </div>
+                            </div>
+
                             <fieldset @if($isLocked ?? false) disabled @endif class="space-y-6">
                                 @php $skip = ['name', 'terms_and_conditions']; @endphp
                                 @foreach($layout as $section)

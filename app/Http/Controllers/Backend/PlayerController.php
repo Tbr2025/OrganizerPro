@@ -1220,6 +1220,15 @@ class PlayerController extends Controller
                 'player_id' => $player->id,
                 'changed_fields' => array_keys($fieldChanges),
             ]);
+
+            // Log in profile change audit trail
+            \App\Models\ProfileChangeLog::record(
+                $player->id,
+                \App\Models\ProfileChangeLog::ACTION_ADMIN_EDIT,
+                $fieldChanges,
+                null,
+                $tournamentId ? (int) $tournamentId : null
+            );
         }
 
 
@@ -1601,6 +1610,21 @@ class PlayerController extends Controller
                     ['actual_team_id' => $team->id, 'user_id' => $player->user_id],
                     ['role' => 'Player', 'created_at' => now(), 'updated_at' => now()]
                 );
+            }
+        }
+
+        // Auto-send retained welcome card if template exists
+        if ($team && $tournamentId) {
+            $registration = \App\Models\TournamentRegistration::where('player_id', $player->id)
+                ->where('tournament_id', $tournamentId)
+                ->first();
+            if ($registration) {
+                try {
+                    app(\App\Services\Notification\TournamentNotificationService::class)
+                        ->sendRetainedWelcomeCard($registration);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to auto-send retained welcome card on retain: ' . $e->getMessage());
+                }
             }
         }
 

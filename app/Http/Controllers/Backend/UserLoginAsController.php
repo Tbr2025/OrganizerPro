@@ -26,12 +26,17 @@ class UserLoginAsController extends Controller
         // Send the impersonated user to a landing page their role can actually
         // access. The admin dashboard requires the "dashboard.view" permission,
         // so users without it (e.g. Players) would otherwise hit a 403.
-        if ($user->hasRole('Team Manager') && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+        if ($user->hasAnyRole(['Team Manager', 'Team Owner']) && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
             return redirect()->route('team-manager.dashboard');
         }
 
         if ($user->can('dashboard.view')) {
             return redirect()->route('admin.dashboard');
+        }
+
+        // Player role — redirect to their profile page
+        if ($user->hasRole('Player') && $user->player) {
+            return redirect()->route('profileplayers.edit');
         }
 
         return redirect()->route('home');

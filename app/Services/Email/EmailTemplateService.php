@@ -46,6 +46,11 @@ class EmailTemplateService
                 'subject' => 'Your Welcome Card!',
                 'placeholders' => array_merge($common, ['{player_name}', '{complete_profile_url}']),
             ],
+            EmailTemplate::TYPE_RETAINED_WELCOME_CARD => [
+                'label' => 'Retained Welcome Card (on retention, with poster attached)',
+                'subject' => 'Welcome to the Team!',
+                'placeholders' => array_merge($common, ['{player_name}', '{team_name}', '{complete_profile_url}']),
+            ],
         ];
     }
 
@@ -260,6 +265,10 @@ class EmailTemplateService
             ],
             EmailTemplate::TYPE_WELCOME_CARD => [
                 'subject' => 'Your {brand_name} Welcome Card!',
+                'body_html' => $this->seedWelcome(),
+            ],
+            EmailTemplate::TYPE_RETAINED_WELCOME_CARD => [
+                'subject' => 'Welcome to the Team! - {tournament_name}',
                 'body_html' => $this->seedWelcome(),
             ],
             default => ['subject' => '', 'body_html' => ''],

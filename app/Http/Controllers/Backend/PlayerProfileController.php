@@ -261,6 +261,15 @@ class PlayerProfileController extends Controller
             'pending_changes_submitted_at' => now(),
         ]);
 
+        // Log the profile change submission
+        \App\Models\ProfileChangeLog::record(
+            $player->id,
+            \App\Models\ProfileChangeLog::ACTION_SUBMITTED,
+            $pending,
+            $registration->id,
+            $registration->tournament_id
+        );
+
         $reviewUrl = route('admin.tournaments.registrations.show', [$registration->tournament_id, $registration->id]);
 
         // In-app notification for Superadmin & Admin.

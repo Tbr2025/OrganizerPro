@@ -502,6 +502,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     Route::get('players/sample-csv', [PlayerController::class, 'downloadSampleCsv'])->name('players.sample');
 
+    Route::get('profile-tracking', [\App\Http\Controllers\Backend\ProfileTrackingController::class, 'index'])->name('profile-tracking.index');
+
 
 
 
@@ -870,6 +872,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         // Welcome card preview & download on registration page
         Route::get('/registrations/{registration}/welcome-card/preview', [TournamentRegistrationController::class, 'previewWelcomeCard'])->name('registrations.welcome-card.preview');
         Route::get('/registrations/{registration}/welcome-card/download', [TournamentRegistrationController::class, 'downloadWelcomeCard'])->name('registrations.welcome-card.download');
+        Route::get('/registrations/{registration}/retained-welcome-card/preview', [TournamentRegistrationController::class, 'previewRetainedWelcomeCard'])->name('registrations.retained-welcome-card.preview');
+        Route::get('/registrations/{registration}/retained-welcome-card/download', [TournamentRegistrationController::class, 'downloadRetainedWelcomeCard'])->name('registrations.retained-welcome-card.download');
 
         // Groups
         Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');

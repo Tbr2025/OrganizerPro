@@ -848,7 +848,7 @@ class TeamManagerController extends Controller
             $query->where('actual_team_id', $teamFilter);
         }
 
-        $players = $query->orderBy('name')->get();
+        $players = $query->orderBy('name')->paginate(20)->appends($request->query());
 
         // Get wishlisted player IDs for current user + tournament
         $wishlistedIds = Wishlist::where('user_id', $user->id)
@@ -1035,6 +1035,7 @@ class TeamManagerController extends Controller
 
         $players = $otherTeam->playersPerTournament()
             ->wherePivot('tournament_id', $team->tournament_id)
+            ->whereIn('player_mode', ['retained', 'sold'])
             ->with(['playerType', 'battingProfile', 'bowlingProfile'])
             ->orderBy('name')
             ->get();
