@@ -302,7 +302,7 @@ class AdminMenuService
             'label' => __('Players'),
             'icon' => 'feather:user',
             'id' => 'players-submenu',
-            'active' => Route::is('admin.players.*') || Route::is('admin.profile-tracking.*') || Route::is('admin.pending-approvals.*'),
+            'active' => Route::is('admin.players.*'),
             'priority' => 20,
             'permissions' => ['player.create', 'player.view', 'player.edit', 'player.delete'],
             'children' => [
@@ -319,20 +319,6 @@ class AdminMenuService
                     'active' => Route::is('admin.players.create'),
                     'priority' => 20,
                     'permissions' => 'player.create',
-                ],
-                [
-                    'label' => __('Pending Approvals'),
-                    'route' => route('admin.pending-approvals.index'),
-                    'active' => Route::is('admin.pending-approvals.*'),
-                    'priority' => 25,
-                    'permissions' => 'player.view',
-                ],
-                [
-                    'label' => __('Track Profiles'),
-                    'route' => route('admin.profile-tracking.index'),
-                    'active' => Route::is('admin.profile-tracking.*'),
-                    'priority' => 30,
-                    'permissions' => 'player.view',
                 ],
             ],
         ]);
@@ -525,7 +511,7 @@ class AdminMenuService
             'label' => __('Tournaments'),
             'icon' => 'feather:flag',
             'id' => 'tournaments-submenu',
-            'active' => Route::is('admin.tournaments.*'),
+            'active' => Route::is('admin.tournaments.*') || Route::is('admin.pending-approvals.*') || Route::is('admin.profile-tracking.*'),
             'priority' => 24,
             'permissions' => [
                 'tournament.create',
@@ -554,6 +540,20 @@ class AdminMenuService
                     'active' => Route::is('admin.tournaments.create'),
                     'priority' => 20,
                     'permissions' => 'tournament.create',
+                ],
+                [
+                    'label' => __('Pending Approvals'),
+                    'route' => route('admin.pending-approvals.index'),
+                    'active' => Route::is('admin.pending-approvals.*'),
+                    'priority' => 30,
+                    'permissions' => 'player.view',
+                ],
+                [
+                    'label' => __('Track Profiles'),
+                    'route' => route('admin.profile-tracking.index'),
+                    'active' => Route::is('admin.profile-tracking.*'),
+                    'priority' => 40,
+                    'permissions' => 'player.view',
                 ],
             ],
         ]);
