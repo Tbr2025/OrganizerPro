@@ -503,6 +503,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('players/sample-csv', [PlayerController::class, 'downloadSampleCsv'])->name('players.sample');
 
     Route::get('profile-tracking', [\App\Http\Controllers\Backend\ProfileTrackingController::class, 'index'])->name('profile-tracking.index');
+    Route::get('pending-approvals', [\App\Http\Controllers\Backend\PendingApprovalsController::class, 'index'])->name('pending-approvals.index');
 
 
 
