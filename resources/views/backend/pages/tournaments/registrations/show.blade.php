@@ -300,7 +300,97 @@
                         };
                         $skip = ['name', 'image', 'terms_and_conditions'];
                         $verifiedFields = (array) ($registration->verified_fields ?? []);
+
+                        // --- Verification summary computation ---
+                        $regCustomAll = $tournament->customFields->where('form', 'player');
+                        $summaryTotal = 0;
+                        $summaryVerified = 0;
+                        $summarySections = [];
+
+                        // Image field
+                        if ($p && $p->image_path) {
+                            $summaryTotal++;
+                            $imgV = in_array('image', $verifiedFields, true);
+                            if ($imgV) $summaryVerified++;
+                            $summarySections['Photo'] = $imgV ? ['pending' => []] : ['pending' => ['Photo']];
+                        }
+
+                        foreach ($layout as $sec) {
+                            $secPending = [];
+                            foreach ($sec['fields'] as $fk) {
+                                if (in_array($fk, $skip, true)) continue;
+                                $summaryTotal++;
+                                if (in_array($fk, $verifiedFields, true)) {
+                                    $summaryVerified++;
+                                } else {
+                                    $secPending[] = $fieldConfig[$fk]['label'] ?? $fk;
+                                }
+                            }
+                            // Custom fields for this section
+                            $secCustom = $regCustomAll->where('visible', true)->where('section', $sec['key']);
+                            foreach ($secCustom as $scf) {
+                                $summaryTotal++;
+                                if (in_array('cf_' . $scf->id, $verifiedFields, true)) {
+                                    $summaryVerified++;
+                                } else {
+                                    $secPending[] = $scf->label;
+                                }
+                            }
+                            if ($summaryTotal > 0 || count($secPending) > 0) {
+                                $summarySections[$sec['title']] = ['pending' => $secPending];
+                            }
+                        }
+                        $summaryPending = $summaryTotal - $summaryVerified;
+                        $summaryPct = $summaryTotal > 0 ? round(($summaryVerified / $summaryTotal) * 100) : 0;
                     @endphp
+
+                    {{-- Verification Summary Panel --}}
+                    <div class="mb-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden" x-data="{ open: false }">
+                        <div class="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer" @click="open = !open">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
+                                    {{ $summaryPct === 100 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : ($summaryPct >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300') }}">
+                                    {{ $summaryPct }}%
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                                        {{ $summaryVerified }} of {{ $summaryTotal }} fields verified
+                                    </p>
+                                    @if($summaryPending > 0)
+                                        <p class="text-xs text-amber-600 dark:text-amber-400">{{ $summaryPending }} field{{ $summaryPending > 1 ? 's' : '' }} pending</p>
+                                    @else
+                                        <p class="text-xs text-green-600 dark:text-green-400">All fields verified</p>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                {{-- Progress bar --}}
+                                <div class="hidden sm:block w-32 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                    <div class="h-full rounded-full {{ $summaryPct === 100 ? 'bg-green-500' : ($summaryPct >= 50 ? 'bg-amber-500' : 'bg-red-500') }}" style="width: {{ $summaryPct }}%"></div>
+                                </div>
+                                <i class="fas fa-chevron-down text-xs text-gray-400 transition-transform" :class="{ 'rotate-180': open }"></i>
+                            </div>
+                        </div>
+                        <div x-show="open" x-collapse x-cloak class="px-4 pb-4 border-t border-gray-100 dark:border-gray-800">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3">
+                                @foreach($summarySections as $secTitle => $secData)
+                                    <div class="flex items-start gap-2 text-xs">
+                                        @if(empty($secData['pending']))
+                                            <i class="fas fa-check-circle text-green-500 mt-0.5"></i>
+                                            <span class="text-green-700 dark:text-green-400 font-medium">{{ $secTitle }}</span>
+                                        @else
+                                            <i class="fas fa-clock text-amber-500 mt-0.5"></i>
+                                            <div>
+                                                <span class="text-amber-700 dark:text-amber-400 font-medium">{{ $secTitle }}</span>
+                                                <span class="text-gray-400 dark:text-gray-500"> &mdash; {{ implode(', ', $secData['pending']) }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+
                     <form method="POST" action="{{ route('admin.tournaments.registrations.verification', [$tournament, $registration]) }}" class="space-y-6">
                         @csrf
                         {{-- Verify-all toggle: ticks every field's Verified box at once --}}
