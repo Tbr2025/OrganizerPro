@@ -142,6 +142,8 @@ class PlayerProfileController extends Controller
             'visaList' => config('registration.visa_statuses', []),
             'tshirtOptions' => \App\Helpers\PlayerFormConfig::sizeOptions('tshirt_sizes', \App\Helpers\PlayerFormConfig::defaultTshirtSizes()),
             'pantOptions' => \App\Helpers\PlayerFormConfig::sizeOptions('pant_sizes', \App\Helpers\PlayerFormConfig::defaultPantSizes()),
+            'battingModes' => ['Aggressive Batsman', 'Defensive Batsman', 'Finisher', 'Anchor', 'Power Hitter'],
+            'battingPositions' => ['Opener', '3', '4', '5', '6', '7', '8', "I'm Flexible"],
             'actualTeams' => \App\Models\ActualTeam::where('tournament_id', $selectedRegistration?->tournament_id)->orderBy('name')->get(),
             'customFields' => $selectedRegistration?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect(),
             'customValues' => (array) ($selectedRegistration?->custom_field_values ?? []),
@@ -212,12 +214,25 @@ class PlayerProfileController extends Controller
             'travel_date_from' => 'nullable|date',
             'travel_date_to' => 'nullable|date|after_or_equal:travel_date_from',
             'image_path' => 'nullable|string|max:500',
+            'batting_mode' => 'nullable|in:Aggressive Batsman,Defensive Batsman,Finisher,Anchor,Power Hitter',
+            'preferred_batting_positions' => 'nullable|array|max:3',
+            'preferred_batting_positions.*' => "in:Opener,3,4,5,6,7,8,I'm Flexible",
+            'transportation_mode' => 'nullable|in:self,required',
+            'has_travel_plan' => 'nullable|in:no,yes',
         ]);
 
         // Booleans / Yes-No radios.
         $validated['is_wicket_keeper'] = $request->boolean('wicket_keeper');
-        $validated['transportation_required'] = $request->boolean('need_transportation');
-        $validated['no_travel_plan'] = $request->boolean('no_travel_plan');
+        if ($request->has('transportation_mode')) {
+            $validated['transportation_required'] = $request->input('transportation_mode') === 'required';
+        }
+        if ($request->has('has_travel_plan')) {
+            $validated['no_travel_plan'] = $request->input('has_travel_plan') !== 'yes';
+            if ($request->input('has_travel_plan') !== 'yes') {
+                $validated['travel_date_from'] = null;
+                $validated['travel_date_to'] = null;
+            }
+        }
         $validated['available_saturday'] = $request->boolean('available_saturday');
         $validated['available_sunday'] = $request->boolean('available_sunday');
         $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');

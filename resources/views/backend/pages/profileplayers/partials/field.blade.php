@@ -38,6 +38,10 @@
             'total_matches' => $player->total_matches,
             'total_runs' => $player->total_runs,
             'total_wickets' => $player->total_wickets,
+            'batting_mode' => $player->batting_mode,
+            'transportation' => $player->transportation_required,
+            'travel_plan' => $player->no_travel_plan,
+            'preferred_batting_position' => $player->preferred_batting_positions,
             default => null,
         };
     };
@@ -55,6 +59,10 @@
             'available_sunday' => is_null($player->available_sunday) ? null : ($player->available_sunday ? 'Yes' : 'No'),
             'played_ys_ipl_s1' => is_null($player->played_ys_ipl_s1) ? null : ($player->played_ys_ipl_s1 ? 'Yes' : 'No'),
             'is_wicket_keeper' => $player->is_wicket_keeper ? 'Yes' : 'No',
+            'batting_mode' => $player->batting_mode,
+            'transportation' => is_null($player->transportation_required) ? null : ($player->transportation_required ? 'Transportation Required' : 'Self Transportation'),
+            'travel_plan' => is_null($player->no_travel_plan) ? null : ($player->no_travel_plan ? 'No' : ('Yes' . ($player->travel_date_from ? ' (' . \Carbon\Carbon::parse($player->travel_date_from)->format('d M') . ' – ' . ($player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('d M Y') : '') . ')' : ''))),
+            'preferred_batting_position' => !empty($player->preferred_batting_positions) ? implode(', ', $player->preferred_batting_positions) : null,
             'date_of_birth' => optional($player->date_of_birth)->format('d M Y'),
             'visa_expiry' => optional($player->visa_expiry)->format('d M Y'),
             default => $player->{$k} ?? null,
@@ -66,6 +74,9 @@
         'location' => 'location_id', 'playing_team' => 'actual_team_id', 'registration_team' => 'team_name_ref',
         'batting_profile' => 'batting_profile_id', 'bowling_profile' => 'bowling_profile_id',
         'player_type' => 'player_type_id',
+        'transportation' => 'transportation_required',
+        'travel_plan' => 'no_travel_plan',
+        'preferred_batting_position' => 'preferred_batting_positions',
     ];
     $col = $columnMap[$key] ?? $key;
     // A pending (submitted, not-yet-approved) value takes precedence so the player
@@ -160,6 +171,57 @@
                 @break
             @case('employer_address')
                 <textarea name="employer_address" rows="2" class="{{ $inputCls }}">{{ old('employer_address', $val) }}</textarea>
+                @break
+            @case('batting_mode')
+                <select name="batting_mode" class="{{ $selectCls }}">
+                    <option value="">-- Select --</option>
+                    @foreach($battingModes as $mode)
+                        <option value="{{ $mode }}" {{ old('batting_mode', $val) === $mode ? 'selected' : '' }}>{{ $mode }}</option>
+                    @endforeach
+                </select>
+                @break
+            @case('preferred_batting_position')
+                @php $selectedPositions = old('preferred_batting_positions', $player->preferred_batting_positions ?? []); @endphp
+                <div class="grid grid-cols-4 gap-1 pt-1" x-data="{ selectedPositions: @js($selectedPositions) }">
+                    @foreach($battingPositions as $pos)
+                        <label class="flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition-colors text-xs"
+                            :class="selectedPositions.includes('{{ $pos }}') ? 'bg-blue-50 border-blue-400 dark:bg-blue-900/30 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'">
+                            <input type="checkbox" name="preferred_batting_positions[]" value="{{ $pos }}"
+                                x-model="selectedPositions"
+                                :disabled="!selectedPositions.includes('{{ $pos }}') && selectedPositions.length >= 3"
+                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3 h-3">
+                            <span class="text-gray-700 dark:text-gray-300">{{ $pos }}</span>
+                        </label>
+                    @endforeach
+                </div>
+                @break
+            @case('transportation')
+                @php $currentTransportMode = old('transportation_mode', $player->transportation_required ? 'required' : ($player->transportation_required === false ? 'self' : '')); @endphp
+                <select name="transportation_mode" class="{{ $selectCls }}">
+                    <option value="">-- Select --</option>
+                    <option value="self" {{ $currentTransportMode === 'self' ? 'selected' : '' }}>Self Transportation</option>
+                    <option value="required" {{ $currentTransportMode === 'required' ? 'selected' : '' }}>Transportation Required</option>
+                </select>
+                @break
+            @case('travel_plan')
+                @php $currentTravelPlan = old('has_travel_plan', $player->no_travel_plan ? 'no' : ($player->no_travel_plan === false ? 'yes' : '')); @endphp
+                <div x-data="{ hasTravelPlan: '{{ $currentTravelPlan }}' }">
+                    <select name="has_travel_plan" class="{{ $selectCls }}" x-model="hasTravelPlan">
+                        <option value="">-- Select --</option>
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                    </select>
+                    <div x-show="hasTravelPlan === 'yes'" x-cloak class="mt-2 grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] text-gray-500">From</label>
+                            <input type="date" name="travel_date_from" value="{{ old('travel_date_from', $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('Y-m-d') : '') }}" class="{{ $inputCls }}">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500">To</label>
+                            <input type="date" name="travel_date_to" value="{{ old('travel_date_to', $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('Y-m-d') : '') }}" class="{{ $inputCls }}">
+                        </div>
+                    </div>
+                </div>
                 @break
             @default
                 <input type="text" name="{{ $col }}" value="{{ old($col, $val) }}" class="{{ $inputCls }}">
