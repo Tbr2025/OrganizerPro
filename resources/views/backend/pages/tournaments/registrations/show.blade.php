@@ -314,11 +314,11 @@
                         @if($p && $p->image_path)
                         @php $photoVerified = in_array('image', $verifiedFields, true); @endphp
                         <input type="hidden" name="all_fields[]" value="image">
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $photoVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }} inline-block">
+                        <div id="imageVerifyBox" class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $photoVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }} inline-block">
                             <div class="flex items-start gap-4">
                                 <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer" @click="openImage('{{ Storage::url($p->image_path) }}')">
                                 <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
-                                    <input type="checkbox" name="verified[]" value="image" {{ $photoVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                    <input type="checkbox" id="imageVerifyCheckbox" name="verified[]" value="image" {{ $photoVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
                                     <span>Verified</span>
                                 </label>
                             </div>
@@ -880,11 +880,26 @@
         const master = document.getElementById('verifyAllToggle');
         const getBoxes = () => Array.from(document.querySelectorAll('input[name="verified[]"]'));
 
+        // Image verify checkbox — toggle green border live.
+        const imgCb = document.getElementById('imageVerifyCheckbox');
+        const imgBox = document.getElementById('imageVerifyBox');
+        const syncImageBorder = function () {
+            if (!imgCb || !imgBox) return;
+            if (imgCb.checked) {
+                imgBox.classList.remove('border-transparent');
+                imgBox.classList.add('border-green-400', 'dark:border-green-600');
+            } else {
+                imgBox.classList.remove('border-green-400', 'dark:border-green-600');
+                imgBox.classList.add('border-transparent');
+            }
+        };
+
         // Global "Verify all" toggle.
         if (master) {
             master.addEventListener('change', function () {
                 getBoxes().forEach(function (cb) { cb.checked = master.checked; });
                 syncSections();
+                syncImageBorder();
             });
         }
         const syncMaster = function () {
@@ -915,7 +930,7 @@
 
         // Keep all toggles in sync when individual boxes change.
         getBoxes().forEach(function (cb) {
-            cb.addEventListener('change', function () { syncMaster(); syncSections(); });
+            cb.addEventListener('change', function () { syncMaster(); syncSections(); syncImageBorder(); });
         });
         syncMaster();
         syncSections();
