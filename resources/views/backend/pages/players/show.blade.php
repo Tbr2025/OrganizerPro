@@ -422,7 +422,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($player->verified_transportation_required ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
                             <div class="flex items-start justify-between gap-2">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Transportation Required</h4>
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Transportation</h4>
                                 @if($player->verified_transportation_required ?? false)
                                     <span class="text-green-500" title="Verified">
                                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -431,12 +431,12 @@
                                     </span>
                                 @endif
                             </div>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->transportation_required ? 'Yes' : 'No' }}</p>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->transportation_required) ? '—' : ($player->transportation_required ? 'Transportation Required' : 'Self Transportation') }}</p>
                         </div>
 
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($player->verified_no_travel_plan ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
                             <div class="flex items-start justify-between gap-2">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">No Travel Plan</h4>
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Travel Plan</h4>
                                 @if($player->verified_no_travel_plan ?? false)
                                     <span class="text-green-500" title="Verified">
                                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -445,7 +445,7 @@
                                     </span>
                                 @endif
                             </div>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->no_travel_plan ? 'Yes' : 'No' }}</p>
+                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->no_travel_plan) ? '—' : ($player->no_travel_plan ? 'No' : 'Yes') }}</p>
                         </div>
 
                         @if($player->travel_date_from || $player->travel_date_to)
