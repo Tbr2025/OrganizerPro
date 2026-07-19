@@ -66,13 +66,7 @@
                             @php
                                 $player = $reg->player;
                                 $changes = (array) $reg->pending_changes;
-                                $labels = [
-                                    'name' => 'Name', 'mobile_number_full' => 'Mobile', 'jersey_name' => 'Jersey Name',
-                                    'jersey_number' => 'Jersey #', 'team_name_ref' => 'Team', 'location_id' => 'Location',
-                                    'batting_profile_id' => 'Batting', 'bowling_profile_id' => 'Bowling',
-                                    'player_type_id' => 'Player Type', 'image_path' => 'Photo',
-                                    'tshirt_size' => 'T-Shirt', 'pant_size' => 'Pant',
-                                ];
+                                $formatted = \App\Models\ProfileChangeLog::formatChangesForDisplay($changes);
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                 <td class="px-4 py-3 whitespace-nowrap">
@@ -103,19 +97,35 @@
                                 </td>
                                 <td class="px-4 py-3 hidden lg:table-cell">
                                     <div class="flex flex-wrap gap-1">
-                                        @foreach(array_keys($changes) as $field)
+                                        @foreach($formatted as $label => $displayValue)
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                                                {{ $labels[$field] ?? ucwords(str_replace('_', ' ', $field)) }}
+                                                {{ $label }}
                                             </span>
                                         @endforeach
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right">
-                                    <a href="{{ route('admin.tournaments.registrations.show', [$reg->tournament_id, $reg->id]) }}"
-                                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                        Review
-                                    </a>
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <form action="{{ route('admin.tournaments.registrations.pending-changes.approve', [$reg->tournament_id, $reg->id]) }}" method="POST" onsubmit="return confirm('Approve all pending changes for {{ addslashes($player?->name ?? 'this player') }}?')">
+                                            @csrf
+                                            <button type="submit" class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                Approve
+                                            </button>
+                                        </form>
+                                        <form action="{{ route('admin.tournaments.registrations.pending-changes.reject', [$reg->tournament_id, $reg->id]) }}" method="POST" onsubmit="return confirm('Reject all pending changes for {{ addslashes($player?->name ?? 'this player') }}?')">
+                                            @csrf
+                                            <button type="submit" class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                Reject
+                                            </button>
+                                        </form>
+                                        <a href="{{ route('admin.tournaments.registrations.show', [$reg->tournament_id, $reg->id]) }}"
+                                           class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            Review
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
