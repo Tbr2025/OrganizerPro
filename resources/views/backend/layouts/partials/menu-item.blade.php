@@ -26,6 +26,11 @@
                 </span>
             @endif
             <span class="menu-item-text">{!! $item->label !!}</span>
+            @if($item->badge)
+                <span class="ml-auto mr-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold leading-none {{ $item->badgeColor ?? 'bg-red-500 text-white' }}">
+                    {{ $item->badge }}
+                </span>
+            @endif
             <iconify-icon icon="lucide:chevron-down" class="menu-item-arrow transition-transform duration-150 {{ $rotateClass }} w-4 h-4 text-gray-400 dark:text-gray-500"></iconify-icon>
         </button>
         <ul id="{{ $submenuId }}" class="submenu mt-0.5 ml-4 pl-3 border-l border-gray-200 dark:border-gray-700/60 space-y-px overflow-hidden transition-all duration-150 {{ $showSubmenu ? '' : 'hidden' }}">
@@ -52,6 +57,11 @@
                 </span>
             @endif
             <span class="menu-item-text">{!! $item->label !!}</span>
+            @if($item->badge)
+                <span class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold leading-none {{ $item->badgeColor ?? 'bg-red-500 text-white' }}">
+                    {{ $item->badge }}
+                </span>
+            @endif
         </a>
     </li>
 @endif

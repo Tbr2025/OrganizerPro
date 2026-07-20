@@ -33,6 +33,10 @@ class AdminMenuItem
 
     public string $title = '';
 
+    public ?int $badge = null;
+
+    public ?string $badgeColor = null;
+
     public function setLabel(string $label): self
     {
         $this->label = $label;
@@ -159,6 +163,20 @@ class AdminMenuItem
         return false;
     }
 
+    public function setBadge(?int $badge): self
+    {
+        $this->badge = $badge;
+
+        return $this;
+    }
+
+    public function setBadgeColor(?string $badgeColor): self
+    {
+        $this->badgeColor = $badgeColor;
+
+        return $this;
+    }
+
     public function setHtml(string $htmlData): self
     {
         $this->htmlData = $htmlData;
@@ -194,6 +212,8 @@ class AdminMenuItem
             'permissions' => $this->permissions,
             'priority' => $this->priority,
             'htmlData' => $this->htmlData,
+            'badge' => $this->badge,
+            'badgeColor' => $this->badgeColor,
             'children' => array_map(function ($child) {
                 return $child->toArray();
             }, $this->children),

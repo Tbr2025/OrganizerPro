@@ -2,6 +2,7 @@
 
 namespace App\Services\MenuService;
 
+use App\Models\TournamentRegistration;
 use App\Services\Content\ContentService;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -507,12 +508,16 @@ class AdminMenuService
                 ],
             ],
         ]);
+        $pendingApprovalsCount = TournamentRegistration::whereNotNull('pending_changes')->count();
+
         $this->addMenuItem([
             'label' => __('Tournaments'),
             'icon' => 'feather:flag',
             'id' => 'tournaments-submenu',
             'active' => Route::is('admin.tournaments.*') || Route::is('admin.pending-approvals.*') || Route::is('admin.profile-tracking.*'),
             'priority' => 24,
+            'badge' => $pendingApprovalsCount ?: null,
+            'badgeColor' => 'bg-amber-500 text-white',
             'permissions' => [
                 'tournament.create',
                 'tournament.view',
@@ -547,6 +552,8 @@ class AdminMenuService
                     'active' => Route::is('admin.pending-approvals.*'),
                     'priority' => 30,
                     'permissions' => 'player.view',
+                    'badge' => $pendingApprovalsCount ?: null,
+                    'badgeColor' => 'bg-amber-500 text-white',
                 ],
                 [
                     'label' => __('Track Profiles'),
