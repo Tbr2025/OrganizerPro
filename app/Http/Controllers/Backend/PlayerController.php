@@ -153,7 +153,7 @@ class PlayerController extends Controller
         $query->whereNotNull('user_id');
 
         // Only show users who have the 'player' role (they may also have other roles)
-        $query->whereHas('user.roles', fn($q) => $q->where('name', 'player'));
+        $query->whereHas('user.roles', fn($q) => $q->where('name', 'Player'));
 
         // 3. Apply role-based data scoping
         if ($user->hasRole('Superadmin')) {
@@ -252,7 +252,7 @@ class PlayerController extends Controller
 
         // Only show dropdown values present among players (scoped by tournament if selected)
         $baseQuery = Player::whereNotNull('user_id')
-            ->whereHas('user.roles', fn($q) => $q->where('name', 'player'))
+            ->whereHas('user.roles', fn($q) => $q->where('name', 'Player'))
             ->when($selectedTournamentId, function ($q) use ($selectedTournamentId) {
                 $tournamentTeamIds = ActualTeam::forTournament($selectedTournamentId)->pluck('id');
                 $q->whereIn('actual_team_id', $tournamentTeamIds);
