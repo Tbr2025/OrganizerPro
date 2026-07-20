@@ -125,23 +125,36 @@
         @endif
     </div>
 
-    {{-- Search Bar --}}
-    <div class="mb-6">
-        <form method="GET" class="flex gap-2.5">
+    {{-- Search & Filters --}}
+    <div class="mb-6 space-y-3">
+        <form method="GET" class="flex flex-wrap gap-2.5">
             <input type="hidden" name="status" value="{{ $currentStatus }}">
-            <div class="relative flex-1">
+            <div class="relative flex-1 min-w-[200px]">
                 <div class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
                     <iconify-icon icon="lucide:search" width="16" class="text-gray-400"></iconify-icon>
                 </div>
                 <input type="text" name="search" value="{{ request('search') }}"
-                       placeholder="Search tournaments by name, location, or organization..."
+                       placeholder="Search by name, location, or organization..."
                        class="form-control pl-10 w-full rounded-xl">
             </div>
+            <select name="type" class="form-control rounded-xl w-auto min-w-[140px]">
+                <option value="">All Types</option>
+                <option value="open" @selected(request('type') === 'open')>Open</option>
+                <option value="auction" @selected(request('type') === 'auction')>Auction</option>
+            </select>
+            <select name="sort_by" class="form-control rounded-xl w-auto min-w-[170px]">
+                <option value="default" @selected(request('sort_by', 'default') === 'default')>Sort: Default</option>
+                <option value="created_newest" @selected(request('sort_by') === 'created_newest')>Created: Newest</option>
+                <option value="created_oldest" @selected(request('sort_by') === 'created_oldest')>Created: Oldest</option>
+                <option value="updated_newest" @selected(request('sort_by') === 'updated_newest')>Updated: Newest</option>
+                <option value="updated_oldest" @selected(request('sort_by') === 'updated_oldest')>Updated: Oldest</option>
+                <option value="start_date" @selected(request('sort_by') === 'start_date')>Start Date</option>
+            </select>
             <button type="submit" class="btn btn-primary rounded-xl inline-flex items-center gap-1.5">
                 <iconify-icon icon="lucide:search" width="15"></iconify-icon>
                 Search
             </button>
-            @if(request('search'))
+            @if(request('search') || request('type') || (request('sort_by') && request('sort_by') !== 'default'))
                 <a href="{{ route('admin.tournaments.index', ['status' => $currentStatus]) }}" class="btn btn-secondary rounded-xl inline-flex items-center gap-1.5">
                     <iconify-icon icon="lucide:x" width="15"></iconify-icon>
                     Clear

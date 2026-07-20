@@ -68,6 +68,12 @@ class TournamentController extends Controller
             });
         }
 
+        // Apply type filter (open / auction)
+        $typeFilter = $request->input('type');
+        if ($typeFilter && in_array($typeFilter, ['open', 'auction'])) {
+            $query->where('type', $typeFilter);
+        }
+
         // Load additional relationships for enhanced cards
         $query->with([
             'settings',
@@ -87,12 +93,25 @@ class TournamentController extends Controller
             },
         ]);
 
-        // Get teams count via groups
-        // Order: active first, then registration, draft, completed — then latest created
-        $tournaments = $query
-            ->orderByRaw("FIELD(status, 'registration', 'active', 'ongoing', 'draft', 'completed')")
-            ->latest()
-            ->paginate(12);
+        // Sorting
+        $sortBy = $request->input('sort_by', 'default');
+        if ($sortBy === 'created_newest') {
+            $query->latest('created_at');
+        } elseif ($sortBy === 'created_oldest') {
+            $query->oldest('created_at');
+        } elseif ($sortBy === 'updated_newest') {
+            $query->latest('updated_at');
+        } elseif ($sortBy === 'updated_oldest') {
+            $query->oldest('updated_at');
+        } elseif ($sortBy === 'start_date') {
+            $query->orderByDesc('start_date');
+        } else {
+            // Default: active/registration first, then latest created
+            $query->orderByRaw("FIELD(status, 'registration', 'active', 'ongoing', 'draft', 'completed')")
+                  ->latest();
+        }
+
+        $tournaments = $query->paginate(12);
 
         // Append teams count: max of actual_teams (from approvals) and group_teams (manually added)
         foreach ($tournaments as $tournament) {
