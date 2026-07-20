@@ -356,7 +356,7 @@
                                         </div>
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                                        {{ ($player->actualTeam?->name === 'Others' && $player->playing_team_name_ref) ? $player->playing_team_name_ref : ($player->actualTeam?->name ?? ($player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : ($player->team?->name ?? 'N/A'))) }}
+                                        {{ ($player->actualTeam?->name === 'Others' && $player->playing_team_name_ref) ? $player->playing_team_name_ref : ($player->actualTeam?->name ?? ($player->playing_team_name_ref ?: ($player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : ($player->team?->name ?? 'N/A')))) }}
                                         @if($player->actualTeam && $player->team && $player->actualTeam->name !== $player->team->name && $player->team->name !== 'Others')
                                             <div class="text-[10px] text-gray-400 dark:text-gray-500">Reg: {{ $player->team->name }}</div>
                                         @endif
