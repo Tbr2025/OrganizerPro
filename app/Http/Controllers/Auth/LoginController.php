@@ -29,4 +29,29 @@ class LoginController extends Controller
             'password' => 'required|string',
         ]);
     }
+
+    /**
+     * Redirect users to their role-appropriate dashboard after login.
+     */
+    protected function authenticated(Request $request, $user)
+    {
+        // Team Manager / Team Owner (without higher roles)
+        if ($user->hasAnyRole(['Team Manager', 'Team Owner'])
+            && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return redirect()->intended(route('team-manager.dashboard'));
+        }
+
+        // Superadmin, Admin, Organizer
+        if ($user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return redirect()->intended(route('admin.dashboard'));
+        }
+
+        // Player
+        if ($user->hasRole('Player')) {
+            return redirect()->intended(route('profileplayers.edit'));
+        }
+
+        // Fallback
+        return redirect()->intended(RouteServiceProvider::HOME);
+    }
 }

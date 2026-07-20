@@ -22,12 +22,31 @@ class HomeController extends Controller
     }
 
     /**
-     * Show the application dashboard.
+     * Redirect authenticated users to their role-appropriate dashboard.
      *
-     * @return \Illuminate\Contracts\Support\Renderable
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function index()
     {
+        $user = auth()->user();
+
+        // Team Manager / Team Owner (without higher roles) → team manager dashboard
+        if ($user->hasAnyRole(['Team Manager', 'Team Owner'])
+            && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return redirect()->route('team-manager.dashboard');
+        }
+
+        // Superadmin, Admin, Organizer → admin dashboard
+        if ($user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        // Player → player profile / registration details
+        if ($user->hasRole('Player')) {
+            return redirect()->route('profileplayers.edit');
+        }
+
+        // Fallback: show the generic home view
         return view('home');
     }
 }
