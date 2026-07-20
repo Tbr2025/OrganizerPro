@@ -42,7 +42,7 @@ class HomeController extends Controller
         }
 
         // Player → player profile / registration details
-        if ($user->hasRole('Player')) {
+        if ($user->hasRole('Player') || $user->player) {
             return redirect()->route('profileplayers.edit');
         }
 

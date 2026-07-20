@@ -46,8 +46,8 @@ class LoginController extends Controller
             return redirect()->intended(route('admin.dashboard'));
         }
 
-        // Player
-        if ($user->hasRole('Player')) {
+        // Player (check role OR player record for users with missing role)
+        if ($user->hasRole('Player') || $user->player) {
             return redirect()->intended(route('profileplayers.edit'));
         }
 
