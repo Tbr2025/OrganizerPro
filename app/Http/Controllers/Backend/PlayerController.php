@@ -608,22 +608,31 @@ class PlayerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['player.view']);
 
-        $verifiedFields = [
-            'name' => (bool) $player->verified_name,
-            'email' => (bool) $player->verified_email,
-            'mobile_number_full' => (bool) $player->verified_mobile_number_full,
-            'cricheroes_number_full' => (bool) $player->verified_cricheroes_number_full,
-            'jersey_name' => (bool) $player->verified_jersey_name,
-            'kit_size_id' => (bool) $player->verified_kit_size_id,
-            'batting_profile_id' => (bool) $player->verified_batting_profile_id,
-            'bowling_profile_id' => (bool) $player->verified_bowling_profile_id,
-            'player_type_id' => (bool) $player->verified_player_type_id,
-            'team_id' => (bool) $player->verified_team_id,
-            'is_wicket_keeper' => (bool) $player->verified_is_wicket_keeper,
-            'transportation_required' => (bool) $player->verified_transportation_required,
-            'no_travel_plan' => (bool) $player->verified_no_travel_plan,
-            'image_path' => (bool) $player->verified_image_path,
-        ];
+        // Load registrations with tournament for the context selector
+        $registrations = $player->registrations()->with('tournament')->latest()->get();
+        $selectedRegistration = $registrations->firstWhere('tournament_id', request('tournament')) ?? $registrations->first();
+
+        // Tournament-context-aware form layout
+        $settings = $selectedRegistration?->tournament?->settings;
+        $layout = PlayerFormConfig::getFormLayout($settings, false);
+        $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
+
+        // Verified fields from selected registration
+        $verifiedFields = (array) ($selectedRegistration?->verified_fields ?? []);
+
+        // Custom fields for selected tournament
+        $customFields = $selectedRegistration?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
+        $customValues = (array) ($selectedRegistration?->custom_field_values ?? []);
+
+        // Change logs
+        $changeLogs = \App\Models\ProfileChangeLog::where('player_id', $player->id)
+            ->when($selectedRegistration, fn($q) => $q->where(fn($q2) =>
+                $q2->where('tournament_registration_id', $selectedRegistration->id)
+                   ->orWhere('tournament_id', $selectedRegistration->tournament_id)))
+            ->with('changedBy')
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
 
         // Load tournament assignments with tournament details
         $tournamentAssignments = \DB::table('player_actual_team_tournament')
@@ -666,10 +675,17 @@ class PlayerController extends Controller
                     ['label' => __('Players'), 'url' => route('admin.players.index')],
                 ],
             ],
-            'verifiedFields' => $verifiedFields,
             'verifiedProfile' => $player->allFieldsVerified(),
             'tournamentAssignments' => $tournamentAssignments,
             'tournamentStats' => $tournamentStats,
+            'registrations' => $registrations,
+            'selectedRegistration' => $selectedRegistration,
+            'layout' => $layout,
+            'fieldConfig' => $fieldConfig,
+            'verifiedFields' => $verifiedFields,
+            'customFields' => $customFields,
+            'customValues' => $customValues,
+            'changeLogs' => $changeLogs,
         ]);
     }
 

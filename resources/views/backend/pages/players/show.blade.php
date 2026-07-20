@@ -182,293 +182,295 @@
             </div>
 
             {{-- ═══════════════════════════════════════════════════════ --}}
-            {{-- Details Body                                           --}}
+            {{-- Tournament Context Selector                             --}}
+            {{-- ═══════════════════════════════════════════════════════ --}}
+            @if($registrations->count() > 0)
+            <div class="px-6 pt-5 pb-0">
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Tournament Context</label>
+                    <select onchange="window.location.href='{{ route('admin.players.show', $player->id) }}?tournament=' + this.value"
+                            class="text-sm rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                        @foreach($registrations as $reg)
+                            <option value="{{ $reg->tournament_id }}" @selected($selectedRegistration && $selectedRegistration->id === $reg->id)>
+                                {{ $reg->tournament->name ?? 'N/A' }} &mdash; {{ ucfirst($reg->status) }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @if($selectedRegistration)
+                        <a href="{{ route('admin.tournaments.registrations.show', [$selectedRegistration->tournament_id, $selectedRegistration->id]) }}"
+                           class="text-xs text-blue-600 dark:text-blue-400 hover:underline">View Registration &rarr;</a>
+                    @endif
+                </div>
+            </div>
+            @endif
+
+            {{-- ═══════════════════════════════════════════════════════ --}}
+            {{-- Details Body (PlayerFormConfig-driven)                  --}}
             {{-- ═══════════════════════════════════════════════════════ --}}
             <div class="p-6 space-y-6">
 
                 @php
                     $countries = config('countries.list', []);
                     $visaList = config('registration.visa_statuses', []);
+                    $isTeamManagerView = auth()->user()?->hasAnyRole(['Team Manager', 'Team Owner']) && !auth()->user()?->hasAnyRole(['Superadmin', 'Admin', 'Organizer']);
+                    $p = $player;
+
+                    $valueFor = function ($key) use ($p, $countries, $visaList, $selectedRegistration) {
+                        if (!$p) return null;
+                        return match ($key) {
+                            'first_name' => $p->first_name,
+                            'last_name' => $p->last_name,
+                            'email' => $p->email,
+                            'date_of_birth' => $p->date_of_birth ? \Illuminate\Support\Carbon::parse($p->date_of_birth)->format('d M Y') : null,
+                            'mobile_number' => $p->mobile_number_full,
+                            'cricheroes_number' => $p->cricheroes_number_full,
+                            'cricheroes_profile_url' => $p->cricheroes_profile_url,
+                            'country' => $p->country ? ($countries[$p->country] ?? $p->country) : null,
+                            'state' => $p->state,
+                            'location' => $p->location?->name,
+                            'registration_team' => $p->team?->name === 'Others' ? ($p->team_name_ref ?? 'Others') : $p->team?->name,
+                            'playing_team' => $p->actualTeam?->name ?? $p->playing_team_name_ref,
+                            'visa_status' => $p->visa_status ? ($visaList[$p->visa_status] ?? $p->visa_status) : null,
+                            'visa_expiry' => $p->visa_expiry ? \Illuminate\Support\Carbon::parse($p->visa_expiry)->format('d M Y') : null,
+                            'employer_name' => $p->employer_name,
+                            'employer_address' => $p->employer_address,
+                            'employer_position' => $p->employer_position,
+                            'available_saturday' => is_null($p->available_saturday) ? null : ($p->available_saturday ? 'Yes' : 'No'),
+                            'available_sunday' => is_null($p->available_sunday) ? null : ($p->available_sunday ? 'Yes' : 'No'),
+                            'played_ys_ipl_s1' => is_null($p->played_ys_ipl_s1) ? null : ($p->played_ys_ipl_s1 ? 'Yes' : 'No'),
+                            'jersey_name' => $p->jersey_name,
+                            'jersey_number' => $p->jersey_number,
+                            'tshirt_size' => $p->tshirt_size,
+                            'pant_size' => $p->pant_size,
+                            'player_type' => $p->playerType?->name ?? $p->playerType?->type,
+                            'batting_profile' => $p->battingProfile?->name ?? $p->battingProfile?->style,
+                            'batting_mode' => $p->batting_mode,
+                            'preferred_batting_position' => is_array($p->preferred_batting_positions) ? implode(', ', $p->preferred_batting_positions) : $p->preferred_batting_positions,
+                            'bowling_profile' => $p->bowlingProfile?->name ?? $p->bowlingProfile?->style,
+                            'is_wicket_keeper' => is_null($p->is_wicket_keeper) ? null : ($p->is_wicket_keeper ? 'Yes' : 'No'),
+                            'total_matches' => $p->total_matches,
+                            'total_runs' => $p->total_runs,
+                            'total_wickets' => $p->total_wickets,
+                            'transportation' => is_null($p->transportation_required) ? null : ($p->transportation_required ? 'Transportation Required' : 'Self Transportation'),
+                            'travel_plan' => $p->no_travel_plan ? 'No' : (($p->travel_date_from || $p->travel_date_to) ? 'Yes — ' . trim(($p->travel_date_from ? \Illuminate\Support\Carbon::parse($p->travel_date_from)->format('d M Y') : '') . ' – ' . ($p->travel_date_to ? \Illuminate\Support\Carbon::parse($p->travel_date_to)->format('d M Y') : ''), ' –') : (is_null($p->no_travel_plan) ? null : 'Yes')),
+                            default => null,
+                        };
+                    };
+                    $skip = ['name', 'image', 'terms_and_conditions'];
+
+                    // --- Verification summary computation ---
+                    $summaryTotal = 0;
+                    $summaryVerified = 0;
+                    $summarySections = [];
+
+                    if ($p && $p->image_path) {
+                        $summaryTotal++;
+                        $imgV = in_array('image', $verifiedFields, true);
+                        if ($imgV) $summaryVerified++;
+                        $summarySections['Photo'] = $imgV ? ['pending' => []] : ['pending' => ['Photo']];
+                    }
+
+                    foreach ($layout as $sec) {
+                        $secPending = [];
+                        foreach ($sec['fields'] as $fk) {
+                            if (in_array($fk, $skip, true)) continue;
+                            $summaryTotal++;
+                            if (in_array($fk, $verifiedFields, true)) {
+                                $summaryVerified++;
+                            } else {
+                                $secPending[] = $fieldConfig[$fk]['label'] ?? $fk;
+                            }
+                        }
+                        $secCustom = $customFields->where('section', $sec['key']);
+                        foreach ($secCustom as $scf) {
+                            $summaryTotal++;
+                            if (in_array('cf_' . $scf->id, $verifiedFields, true)) {
+                                $summaryVerified++;
+                            } else {
+                                $secPending[] = $scf->label;
+                            }
+                        }
+                        if ($summaryTotal > 0 || count($secPending) > 0) {
+                            $summarySections[$sec['title']] = ['pending' => $secPending];
+                        }
+                    }
+                    $summaryPending = $summaryTotal - $summaryVerified;
+                    $summaryPct = $summaryTotal > 0 ? round(($summaryVerified / $summaryTotal) * 100) : 0;
                 @endphp
 
-                {{-- Section: Basic Information --}}
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Basic Information</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        @php
-                            $isTeamManagerView = auth()->user()?->hasAnyRole(['Team Manager', 'Team Owner']) && !auth()->user()?->hasAnyRole(['Superadmin', 'Admin', 'Organizer']);
-
-                            $basicFields = [
-                                ['label' => 'First Name', 'value' => $player->first_name, 'verified' => $player->verified_name ?? false],
-                                ['label' => 'Last Name', 'value' => $player->last_name, 'verified' => $player->verified_name ?? false],
-                                ...($isTeamManagerView ? [] : [['label' => 'Email', 'value' => $player->email, 'verified' => $player->verified_email ?? false]]),
-                                ['label' => 'Date of Birth', 'value' => $player->date_of_birth ? \Carbon\Carbon::parse($player->date_of_birth)->format('d M Y') : null],
-                                ['label' => 'Nationality', 'value' => $player->country ? ($countries[$player->country] ?? $player->country) : null, 'verified' => $player->verified_country ?? false],
-                                ['label' => 'State / Province', 'value' => $player->state],
-                                ['label' => 'Mobile Number', 'value' => $player->mobile_number_full, 'verified' => $player->verified_mobile_number_full ?? false],
-                                ['label' => 'CricHeroes Number', 'value' => $player->cricheroes_number_full, 'verified' => $player->verified_cricheroes_number_full ?? false],
-                                ['label' => 'CricHeroes Profile URL', 'value' => $player->cricheroes_profile_url, 'verified' => $player->verified_cricheroes_profile_url ?? false, 'link' => true],
-                                ['label' => 'Location', 'value' => $player->location?->name],
-                                ['label' => 'Registration Team', 'value' => $player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : $player->team?->name, 'verified' => $player->verified_team_id ?? false],
-                                ['label' => 'Playing Team', 'value' => $player->actualTeam?->name ?? $player->playing_team_name_ref],
-                            ];
-                        @endphp
-                        @foreach($basicFields as $field)
-                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($field['verified'] ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
-                                <div class="flex items-start justify-between gap-2">
-                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $field['label'] }}</h4>
-                                    @if($field['verified'] ?? false)
-                                        <span class="text-green-500" title="Verified">
-                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                            </svg>
-                                        </span>
+                {{-- Verification Summary Panel --}}
+                @if($selectedRegistration && $summaryTotal > 0)
+                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden" x-data="{ open: false }">
+                    <div class="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer" @click="open = !open">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
+                                {{ $summaryPct === 100 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : ($summaryPct >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300') }}">
+                                {{ $summaryPct }}%
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {{ $summaryVerified }} of {{ $summaryTotal }} fields verified
+                                </p>
+                                @if($summaryPending > 0)
+                                    <p class="text-xs text-amber-600 dark:text-amber-400">{{ $summaryPending }} field{{ $summaryPending > 1 ? 's' : '' }} pending</p>
+                                @else
+                                    <p class="text-xs text-green-600 dark:text-green-400">All fields verified</p>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="hidden sm:block w-32 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                <div class="h-full rounded-full {{ $summaryPct === 100 ? 'bg-green-500' : ($summaryPct >= 50 ? 'bg-amber-500' : 'bg-red-500') }}" style="width: {{ $summaryPct }}%"></div>
+                            </div>
+                            <svg class="w-4 h-4 text-gray-400 transition-transform" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div x-show="open" x-collapse x-cloak class="px-4 pb-4 border-t border-gray-100 dark:border-gray-800">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3">
+                            @foreach($summarySections as $secTitle => $secData)
+                                <div class="flex items-start gap-2 text-xs">
+                                    @if(empty($secData['pending']))
+                                        <svg class="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                        <span class="text-green-700 dark:text-green-400 font-medium">{{ $secTitle }}</span>
+                                    @else
+                                        <svg class="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                                        <div>
+                                            <span class="text-amber-700 dark:text-amber-400 font-medium">{{ $secTitle }}</span>
+                                            <span class="text-gray-400 dark:text-gray-500"> &mdash; {{ implode(', ', $secData['pending']) }}</span>
+                                        </div>
                                     @endif
                                 </div>
-                                @if(empty($field['value']))
-                                    <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
-                                @elseif($field['link'] ?? false)
-                                    <a href="{{ $field['value'] }}" target="_blank" class="mt-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline break-all">{{ $field['value'] }}</a>
-                                @else
-                                    <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $field['value'] }}</p>
-                                @endif
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-
-                {{-- Section: Visa & Employment --}}
-                @if($player->visa_status)
-                @if($isTeamManagerView)
-                    {{-- Team Manager view: show visa type and validity (hide employer details) --}}
-                    <div>
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Visa Information</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Type</h4>
-                                <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $visaList[$player->visa_status] ?? $player->visa_status }}</p>
-                            </div>
-                            @if($player->visa_status === 'visit_visa' && $player->visa_expiry)
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Validity</h4>
-                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($player->visa_expiry)->format('d M Y') }}</p>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                @else
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Visa & Employment</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Status</h4>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $visaList[$player->visa_status] ?? $player->visa_status }}</p>
-                        </div>
-                        @if($player->visa_status === 'visit_visa' && $player->visa_expiry)
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Visa Expiry</h4>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($player->visa_expiry)->format('d M Y') }}</p>
-                        </div>
-                        @endif
-                        @if($player->visa_status === 'work_visa')
-                            @foreach([
-                                'Employer Name' => $player->employer_name,
-                                'Position' => $player->employer_position,
-                                'Employer Address' => $player->employer_address,
-                            ] as $label => $value)
-                                @if($value)
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }}</h4>
-                                    <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
-                                </div>
-                                @endif
                             @endforeach
-                        @endif
-                    </div>
-                </div>
-                @endif
-                @endif
-
-                {{-- Section: Availability --}}
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Availability</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Available Saturdays</h4>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->available_saturday) ? 'Not provided' : ($player->available_saturday ? 'Yes' : 'No') }}</p>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Available Sundays</h4>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->available_sunday) ? 'Not provided' : ($player->available_sunday ? 'Yes' : 'No') }}</p>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Played YS IPL Season 1</h4>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->played_ys_ipl_s1) ? 'Not provided' : ($player->played_ys_ipl_s1 ? 'Yes' : 'No') }}</p>
                         </div>
                     </div>
                 </div>
+                @endif
 
-                {{-- Section: Jersey Information --}}
-                @if(!$isTeamManagerView)
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Jersey Information</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        @php
-                            $jerseyFields = [
-                                ['label' => 'Jersey Name', 'value' => $player->jersey_name, 'verified' => $player->verified_jersey_name ?? false],
-                                ['label' => 'Jersey Number', 'value' => $player->jersey_number, 'verified' => $player->verified_jersey_number ?? false],
-                                ['label' => 'T-Shirt Size', 'value' => $player->tshirt_size],
-                                ['label' => 'Pant Size', 'value' => $player->pant_size],
-                                ['label' => 'Jersey Size', 'value' => $player->kitSize?->size, 'verified' => $player->verified_kit_size_id ?? false],
-                            ];
-                        @endphp
-                        @foreach($jerseyFields as $field)
-                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($field['verified'] ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
-                                <div class="flex items-start justify-between gap-2">
-                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $field['label'] }}</h4>
-                                    @if($field['verified'] ?? false)
-                                        <span class="text-green-500" title="Verified">
-                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                            </svg>
-                                        </span>
-                                    @endif
-                                </div>
-                                @if(empty($field['value']) && $field['value'] !== 0 && $field['value'] !== '0')
-                                    <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                {{-- Player Photo with verification status --}}
+                @if($player->image_path)
+                @php $photoVerified = in_array('image', $verifiedFields, true); @endphp
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $selectedRegistration ? ($photoVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600') : 'border-transparent' }} inline-block">
+                    <div class="flex items-start gap-4">
+                        <img src="{{ Storage::url($player->image_path) }}" alt="{{ $player->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex flex-col gap-1">
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Player Photo</h4>
+                            @if($selectedRegistration)
+                                @if($photoVerified)
+                                    <span class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                        Verified
+                                    </span>
                                 @else
-                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $field['value'] }}</p>
+                                    <span class="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                                        Pending
+                                    </span>
                                 @endif
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-
-                @endif
-
-                {{-- Section: Player Profile --}}
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Player Profile</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        @php
-                            $profileFields = [
-                                ['label' => 'Player Type', 'value' => $player->playerType?->type, 'verified' => $player->verified_player_type_id ?? false],
-                                ['label' => 'Batting Profile', 'value' => $player->battingProfile?->style, 'verified' => $player->verified_batting_profile_id ?? false],
-                                ['label' => 'Batting Mode', 'value' => $player->batting_mode],
-                                ['label' => 'Bowling Profile', 'value' => $player->bowlingProfile?->style, 'verified' => $player->verified_bowling_profile_id ?? false],
-                                ['label' => 'Wicket Keeper', 'value' => is_null($player->is_wicket_keeper) ? null : ($player->is_wicket_keeper ? 'Yes' : 'No'), 'verified' => $player->verified_is_wicket_keeper ?? false],
-                            ];
-                        @endphp
-                        @foreach($profileFields as $field)
-                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($field['verified'] ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
-                                <div class="flex items-start justify-between gap-2">
-                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $field['label'] }}</h4>
-                                    @if($field['verified'] ?? false)
-                                        <span class="text-green-500" title="Verified">
-                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                            </svg>
-                                        </span>
-                                    @endif
-                                </div>
-                                @if(is_null($field['value']) || $field['value'] === '')
-                                    <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
-                                @else
-                                    <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $field['value'] }}</p>
-                                @endif
-                            </div>
-                        @endforeach
-
-                        {{-- Preferred Batting Positions --}}
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Preferred Batting Positions</h4>
-                            @if(!empty($player->preferred_batting_positions) && is_array($player->preferred_batting_positions))
-                                <div class="mt-1 flex flex-wrap gap-1">
-                                    @foreach($player->preferred_batting_positions as $pos)
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{{ $pos }}</span>
-                                    @endforeach
-                                </div>
-                            @else
-                                <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
                             @endif
                         </div>
                     </div>
                 </div>
+                @endif
 
-                {{-- Section: Leather Ball Experience --}}
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Leather Ball Experience</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        @foreach([
-                            'Total Matches' => $player->total_matches,
-                            'Total Runs' => $player->total_runs,
-                            'Total Wickets' => $player->total_wickets,
-                        ] as $label => $value)
-                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }}</h4>
-                                @if(is_null($value))
+                {{-- Dynamic Field Sections (driven by PlayerFormConfig) --}}
+                @foreach($layout as $section)
+                    @php
+                        $rows = [];
+                        foreach ($section['fields'] as $key) {
+                            if (in_array($key, $skip, true)) continue;
+                            if ($isTeamManagerView && $key === 'email') continue;
+                            $rows[$key] = $valueFor($key);
+                        }
+                        $sectionCustom = $customFields->where('section', $section['key']);
+                    @endphp
+                    @if(count($rows) || $sectionCustom->count())
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $section['title'] }}</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            @foreach($rows as $key => $value)
+                            @php
+                                $isVerified = in_array($key, $verifiedFields, true);
+                                $isEmpty = ($value === null || $value === '');
+                                $hasBorder = $selectedRegistration !== null;
+                            @endphp
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $hasBorder ? ($isVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600') : 'border-transparent' }}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        {{ $fieldConfig[$key]['label'] ?? $key }}
+                                    </h4>
+                                    @if($isVerified)
+                                        <span class="text-green-500" title="Verified">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                        </span>
+                                    @endif
+                                </div>
+                                @if($isEmpty)
                                     <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                @elseif($key === 'cricheroes_profile_url')
+                                    <a href="{{ $value }}" target="_blank" class="mt-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline break-all">{{ $value }}</a>
+                                @elseif($key === 'playing_team')
+                                    <div class="mt-1">
+                                        <p class="text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
+                                        @if($player->actualTeam?->tournament)
+                                            <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium {{ $player->actualTeam->tournament->isAuction() ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' }}">
+                                                {{ ucfirst($player->actualTeam->tournament->type) }}
+                                            </span>
+                                        @elseif($player->playing_team_name_ref)
+                                            <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Others</span>
+                                        @endif
+                                    </div>
                                 @else
-                                    <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $value }}</p>
+                                    <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $value }}</p>
                                 @endif
                             </div>
-                        @endforeach
+                            @endforeach
+
+                            {{-- Custom fields for this section --}}
+                            @foreach($sectionCustom as $cf)
+                                @php
+                                    $cfKey = 'cf_' . $cf->id;
+                                    $cfVal = $customValues[$cfKey] ?? null;
+                                    if ($cf->type === 'checkbox') { $cfVal = ($cfVal === '1' || $cfVal === 1) ? 'Yes' : (($cfVal === '0' || $cfVal === 0) ? 'No' : null); }
+                                    $cfEmpty = ($cfVal === null || $cfVal === '');
+                                    $cfVerified = in_array($cfKey, $verifiedFields, true);
+                                @endphp
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $cfVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600' }}">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            {{ $cf->label }}
+                                            <span class="ml-1 text-[9px] normal-case font-normal text-indigo-400">custom</span>
+                                        </h4>
+                                        @if($cfVerified)
+                                            <span class="text-green-500" title="Verified">
+                                                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                                </svg>
+                                            </span>
+                                        @endif
+                                    </div>
+                                    @if($cfEmpty)
+                                        <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                    @else
+                                        <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $cfVal }}</p>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
-                </div>
-
-                {{-- Section: Travel & Transportation --}}
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Travel & Transportation</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($player->verified_transportation_required ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
-                            <div class="flex items-start justify-between gap-2">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Transportation</h4>
-                                @if($player->verified_transportation_required ?? false)
-                                    <span class="text-green-500" title="Verified">
-                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
-                                    </span>
-                                @endif
-                            </div>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->transportation_required) ? '—' : ($player->transportation_required ? 'Transportation Required' : 'Self Transportation') }}</p>
-                        </div>
-
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ ($player->verified_no_travel_plan ?? false) ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
-                            <div class="flex items-start justify-between gap-2">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Travel Plan</h4>
-                                @if($player->verified_no_travel_plan ?? false)
-                                    <span class="text-green-500" title="Verified">
-                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                        </svg>
-                                    </span>
-                                @endif
-                            </div>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ is_null($player->no_travel_plan) ? '—' : ($player->no_travel_plan ? 'No' : 'Yes') }}</p>
-                        </div>
-
-                        @if($player->travel_date_from || $player->travel_date_to)
-                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Travel Dates</h4>
-                            <p class="mt-1 text-sm text-gray-900 dark:text-white">
-                                {{ $player->travel_date_from ? \Carbon\Carbon::parse($player->travel_date_from)->format('d M Y') : '—' }}
-                                &rarr;
-                                {{ $player->travel_date_to ? \Carbon\Carbon::parse($player->travel_date_to)->format('d M Y') : '—' }}
-                            </p>
-                        </div>
-                        @endif
-                    </div>
-                </div>
+                    @endif
+                @endforeach
 
                 {{-- Section: Player Mode & Team --}}
                 @if($player->status === 'approved')
                 @if($isTeamManagerView)
-                {{-- TM view: show team name + auction fields only for auction tournaments --}}
                 @if($player->actualTeam)
                 @php $tmIsAuction = $player->actualTeam->tournament?->isAuction(); @endphp
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $tmIsAuction ? 'Team & Retention' : 'Team' }}</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $tmIsAuction ? 'Team & Retention' : 'Team' }}</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Team</h4>
@@ -484,11 +486,10 @@
                 </div>
                 @endif
                 @else
-                {{-- Admin view: Team + auction fields only if auction tournament --}}
                 @if($player->actualTeam)
                 @php $isAuctionTournament = $player->actualTeam->tournament?->isAuction(); @endphp
                 <div>
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $isAuctionTournament ? 'Player Mode & Team' : 'Team' }}</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">{{ $isAuctionTournament ? 'Player Mode & Team' : 'Team' }}</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         @if($isAuctionTournament)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
@@ -510,6 +511,60 @@
                 </div>
                 @endif
                 @endif
+                @endif
+
+                {{-- Change History --}}
+                @if(isset($changeLogs) && $changeLogs->count())
+                <div class="pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Change History</h4>
+                    <div class="space-y-3">
+                        @foreach($changeLogs as $cl)
+                            @php
+                                $clColors = [
+                                    'submitted' => 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+                                    'approved' => 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+                                    'rejected' => 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+                                    'admin_edit' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+                                    'verified' => 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+                                ];
+                                $clFormatted = $cl->changes ? \App\Models\ProfileChangeLog::formatChangesForDisplay($cl->changes) : [];
+                            @endphp
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700" x-data="{ open: false }">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $clColors[$cl->action] ?? 'bg-gray-100 text-gray-800' }}">
+                                            {{ ucfirst(str_replace('_', ' ', $cl->action)) }}
+                                        </span>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                                            by {{ $cl->changedBy?->name ?? 'System' }}
+                                        </span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500">
+                                            {{ $cl->created_at->format('d M Y, H:i') }}
+                                        </span>
+                                    </div>
+                                    @if(count($clFormatted))
+                                        <button type="button" @click="open = !open" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                            <span x-text="open ? 'Hide' : '{{ count($clFormatted) }} field(s)'"></span>
+                                        </button>
+                                    @endif
+                                </div>
+                                @if($cl->notes)
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 italic">{{ $cl->notes }}</p>
+                                @endif
+                                @if(count($clFormatted))
+                                <div x-show="open" x-cloak class="mt-2 text-xs space-y-1">
+                                    @foreach($clFormatted as $clLabel => $clVal)
+                                        <div class="flex gap-2">
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ $clLabel }}:</span>
+                                            <span class="text-gray-500 dark:text-gray-400">{{ Str::limit($clVal, 60) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
                 @endif
             </div>
         </div>
