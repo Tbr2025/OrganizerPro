@@ -142,11 +142,11 @@
                 {{-- Auth Buttons --}}
                 <div class="hidden md:flex items-center gap-3">
                     @auth
-                        <a href="{{ route('admin.dashboard') }}" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2">
+                        <a href="{{ route('home') }}" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2">
                             <i class="fas fa-th-large"></i> Dashboard
                         </a>
                     @else
-                        <a href="{{ route('admin.login') }}" class="px-5 py-2 text-sm font-medium text-gray-300 hover:text-white transition">
+                        <a href="{{ route('login') }}" class="px-5 py-2 text-sm font-medium text-gray-300 hover:text-white transition">
                             Login
                         </a>
                         <a href="{{ route('register') }}" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-bold">
@@ -173,11 +173,11 @@
                 </nav>
                 <div class="flex gap-3 mt-4 px-4">
                     @auth
-                        <a href="{{ route('admin.dashboard') }}" class="flex-1 text-center btn-primary px-4 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+                        <a href="{{ route('home') }}" class="flex-1 text-center btn-primary px-4 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
                             <i class="fas fa-th-large"></i> Dashboard
                         </a>
                     @else
-                        <a href="{{ route('admin.login') }}" class="flex-1 text-center px-4 py-2.5 rounded-lg border border-gray-700 text-gray-300 text-sm font-medium">Login</a>
+                        <a href="{{ route('login') }}" class="flex-1 text-center px-4 py-2.5 rounded-lg border border-gray-700 text-gray-300 text-sm font-medium">Login</a>
                         <a href="{{ route('register') }}" class="flex-1 text-center btn-primary px-4 py-2.5 rounded-lg text-sm font-bold">Register</a>
                     @endauth
                 </div>
@@ -504,9 +504,9 @@
                     <a href="#features" class="text-gray-500 hover:text-yellow-400 transition">Features</a>
                     <a href="{{ route('public.pricing') }}" class="text-gray-500 hover:text-yellow-400 transition">Pricing</a>
                     @auth
-                        <a href="{{ route('admin.dashboard') }}" class="text-gray-500 hover:text-yellow-400 transition">Dashboard</a>
+                        <a href="{{ route('home') }}" class="text-gray-500 hover:text-yellow-400 transition">Dashboard</a>
                     @else
-                        <a href="{{ route('admin.login') }}" class="text-gray-500 hover:text-yellow-400 transition">Login</a>
+                        <a href="{{ route('login') }}" class="text-gray-500 hover:text-yellow-400 transition">Login</a>
                         <a href="{{ route('register') }}" class="text-gray-500 hover:text-yellow-400 transition">Register</a>
                     @endauth
                 </div>

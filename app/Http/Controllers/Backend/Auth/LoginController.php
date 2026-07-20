@@ -88,8 +88,20 @@ class LoginController extends Controller
     {
         $user = Auth::guard('web')->user();
 
-        if ($user->hasRole('Team Manager') && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+        // Team Manager / Team Owner (without higher roles)
+        if ($user->hasAnyRole(['Team Manager', 'Team Owner'])
+            && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
             return redirect()->route('team-manager.dashboard');
+        }
+
+        // Superadmin, Admin, Organizer
+        if ($user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return redirect()->route('admin.dashboard');
+        }
+
+        // Player
+        if ($user->hasRole('Player') || $user->player) {
+            return redirect()->route('profileplayers.edit');
         }
 
         return redirect()->route('admin.dashboard');
