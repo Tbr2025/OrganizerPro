@@ -82,9 +82,15 @@
     $selectCls = $inputCls;
 @endphp
 
-<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-gray-200 dark:border-gray-700' }}">
+<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600' }}">
     <div class="flex items-start justify-between gap-2 mb-1.5">
         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $label }} @if($isRequired)<span class="text-red-500">*</span>@endif</h4>
+        @if(($canVerify ?? false) && $verifiedCol)
+            <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
+                <input type="checkbox" name="{{ $verifiedCol }}" value="1" {{ $isVerified ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                <span>Verified</span>
+            </label>
+        @endif
     </div>
 
     @switch($key)

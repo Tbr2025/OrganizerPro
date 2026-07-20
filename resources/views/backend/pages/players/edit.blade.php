@@ -108,9 +108,15 @@
                             {{-- Kit Size (admin-only field, not in PlayerFormConfig) --}}
                             @if($section['key'] === 'Jersey Information')
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ ($player->verified_kit_size_id ?? false) ? 'border-green-400 dark:border-green-600' : 'border-gray-200 dark:border-gray-700' }}">
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border {{ ($player->verified_kit_size_id ?? false) ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600' }}">
                                     <div class="flex items-start justify-between gap-2 mb-1.5">
                                         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jersey Size</h4>
+                                        @if($canVerify)
+                                            <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
+                                                <input type="checkbox" name="verified_kit_size_id" value="1" {{ ($player->verified_kit_size_id ?? false) ? 'checked' : '' }} class="h-3.5 w-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                                <span>Verified</span>
+                                            </label>
+                                        @endif
                                     </div>
                                     <select name="kit_size_id" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                                         <option value="">-- Select --</option>

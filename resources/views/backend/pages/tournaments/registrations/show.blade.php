@@ -404,7 +404,7 @@
                         @if($p && $p->image_path)
                         @php $photoVerified = in_array('image', $verifiedFields, true); @endphp
                         <input type="hidden" name="all_fields[]" value="image">
-                        <div id="imageVerifyBox" class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $photoVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }} inline-block">
+                        <div id="imageVerifyBox" class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $photoVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600' }} inline-block">
                             <div class="flex items-start gap-4">
                                 <img src="{{ Storage::url($p->image_path) }}" alt="{{ $p->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer" @click="openImage('{{ Storage::url($p->image_path) }}')">
                                 <label class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap cursor-pointer" title="Mark this field as verified">
@@ -451,7 +451,7 @@
                                         $isEditable = in_array($key, $editableFields, true);
                                         $isSizeDropdown = isset($sizeDropdowns[$key]);
                                     @endphp
-                                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                                    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $isVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600' }}">
                                         <input type="hidden" name="all_fields[]" value="{{ $key }}">
                                         <div class="flex items-start justify-between gap-2">
                                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -574,7 +574,7 @@
                                             $cfEmpty = ($cfVal === null || $cfVal === '');
                                             $cfVerified = in_array($cfKey, $verifiedFields, true);
                                         @endphp
-                                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $cfVerified ? 'border-green-400 dark:border-green-600' : 'border-transparent' }}">
+                                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $cfVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600' }}">
                                             <input type="hidden" name="all_fields[]" value="{{ $cfKey }}">
                                             <div class="flex items-start justify-between gap-2">
                                                 <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -757,6 +757,60 @@
                             </div>
                         </div>
                     </div>
+                @endif
+
+                {{-- Change History --}}
+                @if(isset($changeLogs) && $changeLogs->count())
+                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Change History</h4>
+                    <div class="space-y-3">
+                        @foreach($changeLogs as $cl)
+                            @php
+                                $clColors = [
+                                    'submitted' => 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+                                    'approved' => 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+                                    'rejected' => 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+                                    'admin_edit' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+                                    'verified' => 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+                                ];
+                                $clFormatted = $cl->changes ? \App\Models\ProfileChangeLog::formatChangesForDisplay($cl->changes) : [];
+                            @endphp
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700" x-data="{ open: false }">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $clColors[$cl->action] ?? 'bg-gray-100 text-gray-800' }}">
+                                            {{ ucfirst(str_replace('_', ' ', $cl->action)) }}
+                                        </span>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                                            by {{ $cl->changedBy?->name ?? 'System' }}
+                                        </span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500">
+                                            {{ $cl->created_at->format('d M Y, H:i') }}
+                                        </span>
+                                    </div>
+                                    @if(count($clFormatted))
+                                        <button type="button" @click="open = !open" class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                                            <span x-text="open ? 'Hide' : '{{ count($clFormatted) }} field(s)'"></span>
+                                        </button>
+                                    @endif
+                                </div>
+                                @if($cl->notes)
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 italic">{{ $cl->notes }}</p>
+                                @endif
+                                @if(count($clFormatted))
+                                <div x-show="open" x-cloak class="mt-2 text-xs space-y-1">
+                                    @foreach($clFormatted as $clLabel => $clVal)
+                                        <div class="flex gap-2">
+                                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ $clLabel }}:</span>
+                                            <span class="text-gray-500 dark:text-gray-400">{{ Str::limit($clVal, 60) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
                 @endif
 
                 {{-- Welcome Card Preview & Download (player registrations) --}}
@@ -976,11 +1030,11 @@
         const syncImageBorder = function () {
             if (!imgCb || !imgBox) return;
             if (imgCb.checked) {
-                imgBox.classList.remove('border-transparent');
+                imgBox.classList.remove('border-orange-300', 'dark:border-orange-600');
                 imgBox.classList.add('border-green-400', 'dark:border-green-600');
             } else {
                 imgBox.classList.remove('border-green-400', 'dark:border-green-600');
-                imgBox.classList.add('border-transparent');
+                imgBox.classList.add('border-orange-300', 'dark:border-orange-600');
             }
         };
 
@@ -990,6 +1044,7 @@
                 getBoxes().forEach(function (cb) { cb.checked = master.checked; });
                 syncSections();
                 syncImageBorder();
+                syncAllFieldBorders();
             });
         }
         const syncMaster = function () {
@@ -1012,15 +1067,32 @@
             const toggle = sec.querySelector('.section-verify-toggle');
             if (toggle) {
                 toggle.addEventListener('change', function () {
-                    sectionBoxes(sec).forEach(function (cb) { cb.checked = toggle.checked; });
+                    sectionBoxes(sec).forEach(function (cb) { cb.checked = toggle.checked; syncFieldBorder(cb); });
                     syncMaster();
                 });
             }
         });
 
+        // Toggle green/orange border on each field's container when its checkbox changes.
+        const syncFieldBorder = function (cb) {
+            if (cb === imgCb) return; // image handled separately
+            const container = cb.closest('.border');
+            if (!container) return;
+            if (cb.checked) {
+                container.classList.remove('border-orange-300', 'dark:border-orange-600');
+                container.classList.add('border-green-400', 'dark:border-green-600');
+            } else {
+                container.classList.remove('border-green-400', 'dark:border-green-600');
+                container.classList.add('border-orange-300', 'dark:border-orange-600');
+            }
+        };
+        const syncAllFieldBorders = function () {
+            getBoxes().forEach(syncFieldBorder);
+        };
+
         // Keep all toggles in sync when individual boxes change.
         getBoxes().forEach(function (cb) {
-            cb.addEventListener('change', function () { syncMaster(); syncSections(); syncImageBorder(); });
+            cb.addEventListener('change', function () { syncMaster(); syncSections(); syncImageBorder(); syncFieldBorder(cb); });
         });
         syncMaster();
         syncSections();

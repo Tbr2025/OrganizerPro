@@ -186,6 +186,16 @@ class TournamentRegistrationController extends Controller
                 ->values();
         }
 
+        $changeLogs = \App\Models\ProfileChangeLog::where('player_id', $registration->player_id)
+            ->where(function ($q) use ($registration) {
+                $q->where('tournament_registration_id', $registration->id)
+                  ->orWhere('tournament_id', $registration->tournament_id);
+            })
+            ->with('changedBy')
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
         return view('backend.pages.tournaments.registrations.show', [
             'tournament' => $tournament,
             'registration' => $registration->load([
@@ -193,6 +203,7 @@ class TournamentRegistrationController extends Controller
                 'player.kitSize', 'player.location', 'processedBy', 'actualTeam',
             ]),
             'approvedPlayerUsers' => $approvedPlayerUsers,
+            'changeLogs' => $changeLogs,
             'breadcrumbs' => [
                 'title' => __('Registration Details'),
                 'items' => [

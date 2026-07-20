@@ -251,6 +251,10 @@
                                                             <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                                                                 {{ $registration->player->playing_team_name_ref }}
                                                             </span>
+                                                        @elseif($registration->player?->team_name_ref)
+                                                            <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                                {{ $registration->player->team_name_ref }}
+                                                            </span>
                                                         @endif
                                                     </div>
                                                 </div>
@@ -341,6 +345,15 @@
                                                     <div class="mt-1">
                                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                                                             Others
+                                                        </span>
+                                                    </div>
+                                                @elseif($registration->player?->team_name_ref)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                        {{ $registration->player->team_name_ref }}
+                                                    </span>
+                                                    <div class="mt-1">
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                                            Registered
                                                         </span>
                                                     </div>
                                                 @else
