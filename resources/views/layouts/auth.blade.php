@@ -223,21 +223,22 @@
         @media (max-width: 900px) {
             .auth-wrapper { flex-direction: column; }
             .auth-brand {
-                flex: none; min-height: 220px; padding: 36px 24px 28px;
+                flex: none; min-height: auto; padding: 24px 24px 20px;
             }
-            .cricket-visual { width: 120px; height: 120px; margin-bottom: 20px; }
-            .brand-tagline { font-size: 20px; }
+            .auth-brand::before, .auth-brand::after { display: none; }
+            .cricket-visual { display: none; }
+            .brand-tagline { display: none; }
             .brand-desc { display: none; }
-            .brand-stats { gap: 24px; }
-            .brand-stat-value { font-size: 20px; }
+            .brand-stats { display: none; }
+            .stumps-deco { display: none; }
+            .brand-logo { margin-bottom: 0; }
+            .brand-logo img { height: 48px; }
             .auth-form-panel { padding: 32px 24px; }
             .back-home { top: 16px; right: 16px; }
         }
         @media (max-width: 480px) {
-            .auth-brand { min-height: 180px; padding: 28px 20px 20px; }
-            .cricket-visual { width: 90px; height: 90px; margin-bottom: 16px; }
-            .brand-tagline { font-size: 18px; }
-            .brand-stats { gap: 16px; }
+            .auth-brand { padding: 20px 20px 16px; }
+            .brand-logo img { height: 40px; }
             .auth-form-panel { padding: 24px 20px; }
             .auth-card h1 { font-size: 20px; }
         }
