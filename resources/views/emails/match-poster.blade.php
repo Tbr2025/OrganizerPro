@@ -14,7 +14,7 @@
         {{-- Header --}}
         <tr>
             <td style="padding: 30px 20px; text-align: center; background: {{ $primaryColor }};">
-                <img src="{{ $tournament->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+                <img src="{{ $tournament->settings?->logo_url ?: $tournament->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
                 <h1 style="margin: 0; color: {{ $secondaryColor }}; font-size: 24px;">{{ $tournament->name }}</h1>
             </td>
         </tr>

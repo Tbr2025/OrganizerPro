@@ -11,7 +11,7 @@
         $secondaryColor = $tournament->settings?->secondary_color ?? '#ffffff';
     @endphp
     <div style="background: {{ $primaryColor }}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <img src="{{ $tournament->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
+        <img src="{{ $tournament->settings?->logo_url ?: $tournament->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament->name }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
         @if($isNewUser)
             <h1 style="color: {{ $secondaryColor }}; margin: 0; font-size: 24px;">{{ $roleName }} Account Created</h1>
         @else

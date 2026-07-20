@@ -310,9 +310,8 @@ class RegistrationService
                 $player->save();
 
                 if ($player->user) {
-                    $role = \App\Models\Role::firstOrCreate(['name' => 'player']);
-                    if (! $player->user->hasRole('player')) {
-                        $player->user->assignRole($role);
+                    if (! $player->user->hasRole('Player')) {
+                        $player->user->assignRole('Player');
                     }
                 }
 

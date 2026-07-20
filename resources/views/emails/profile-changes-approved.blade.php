@@ -10,7 +10,7 @@
         $primaryColor = $tournament->settings?->primary_color ?? '#1a56db';
         $appLogoRaw = config('settings.site_logo_lite') ?: 'images/logo/lara-dashboard.png';
         $appLogo = \Illuminate\Support\Str::startsWith($appLogoRaw, ['http://', 'https://']) ? $appLogoRaw : asset(ltrim($appLogoRaw, '/'));
-        $tournamentLogo = $tournament->settings?->logo_url;
+        $tournamentLogo = $tournament->settings?->logo_url ?: $tournament->logo_url;
     @endphp
     <div style="background: {{ $primaryColor }}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
         <div style="margin: 0 auto 15px;">
