@@ -25,7 +25,11 @@
         }
 
         .glass-nav {
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+        }
+        .glass-nav-solid {
+            background: rgba(15, 23, 42, 0.98);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -118,7 +122,7 @@
     {{-- ═══════════ STICKY HEADER ═══════════ --}}
     <header x-data="{ scrolled: false, mobileOpen: false }"
             @scroll.window="scrolled = (window.scrollY > 50)"
-            :class="scrolled ? 'glass-nav shadow-lg' : 'bg-transparent'"
+            :class="mobileOpen ? 'glass-nav-solid shadow-lg' : (scrolled ? 'glass-nav shadow-lg' : 'bg-transparent')"
             class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6">
             <div class="flex items-center justify-between h-16 md:h-20">
