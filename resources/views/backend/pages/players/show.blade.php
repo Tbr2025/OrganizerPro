@@ -14,7 +14,7 @@
                 @can('player.edit')
                     @if($player->status !== 'approved')
                         <form action="{{ route('admin.players.approve', $player->id) }}" method="POST"
-                            onsubmit="return confirm('Are you sure you want to approve this player?');">
+                            onsubmit="return confirm('All fields will be marked as verified and approved. Do you want to proceed?');">
                             @csrf
                             <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
