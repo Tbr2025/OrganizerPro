@@ -393,6 +393,9 @@ class TournamentRegistrationController extends Controller
             if ($user) {
                 $tempPassword = Str::random(10);
                 $user->update(['password' => Hash::make($tempPassword)]);
+                if (!$user->hasRole('Player')) {
+                    $user->assignRole('Player');
+                }
             }
 
             Mail::to($email)->send(new RegistrationCorrectionMail($tournament, $registration, $accepted, $pending, $request->input('note'), $tempPassword));
@@ -566,6 +569,11 @@ class TournamentRegistrationController extends Controller
         $tempPassword = Str::random(10);
         $user->update(['password' => Hash::make($tempPassword)]);
 
+        // Ensure the user has the Player role so they can log in properly
+        if (!$user->hasRole('Player')) {
+            $user->assignRole('Player');
+        }
+
         Mail::to($email)->send(new PlayerCredentialsMail($user, $tempPassword, $tournament));
 
         return back()->with('success', __('A temporary password was emailed to :email. The player can log in and update their details.', ['email' => $email]));
@@ -594,10 +602,16 @@ class TournamentRegistrationController extends Controller
 
             $role = $user->pivot->role ?? 'Player';
             if (in_array($role, ['Owner', 'Manager'], true)) {
+                if (!$user->hasRole('Team Manager')) {
+                    $user->assignRole('Team Manager');
+                }
                 Mail::to($user->email)->send(new TeamManagerCredentialsMail(
                     $user, $tempPassword, $tournament, $team, $role === 'Owner' ? 'Team Owner' : 'Team Manager'
                 ));
             } else {
+                if (!$user->hasRole('Player')) {
+                    $user->assignRole('Player');
+                }
                 Mail::to($user->email)->send(new PlayerCredentialsMail($user, $tempPassword, $tournament));
             }
             $sent++;

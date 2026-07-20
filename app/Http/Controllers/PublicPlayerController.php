@@ -277,7 +277,7 @@ class PublicPlayerController extends Controller
         //     Log::error("Background removal error: " . $e->getMessage());
         // }
 
-        $user->assignRole('player');
+        $user->assignRole('Player');
         $user->notify(new CustomVerifyEmail($password));
 
         return redirect()->to(route('player.register.form', [], false) . '#registration-form')
