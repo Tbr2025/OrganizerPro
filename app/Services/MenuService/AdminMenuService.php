@@ -520,7 +520,7 @@ class AdminMenuService
             'id' => 'tournaments-submenu',
             'active' => Route::is('admin.tournaments.*') || Route::is('admin.pending-approvals.*') || Route::is('admin.profile-tracking.*') || Route::is('admin.requested-changes.*'),
             'priority' => 24,
-            'badge' => $pendingApprovalsCount ?: null,
+            'badge' => ($pendingApprovalsCount + $requestedChangesCount) ?: null,
             'badgeColor' => 'bg-amber-500 text-white',
             'permissions' => [
                 'tournament.create',
