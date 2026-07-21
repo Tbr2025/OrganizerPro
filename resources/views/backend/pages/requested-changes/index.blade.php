@@ -20,6 +20,54 @@
         </span>
     </div>
 
+    {{-- Summary Cards --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $totalReviewed }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Total Reviewed</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ $totalApproved }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Approved</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $totalFullyVerified }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">100% Verified</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-bold text-orange-600 dark:text-orange-400">{{ $totalPartial }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Pending Fields</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Filters --}}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6 border border-gray-100 dark:border-gray-700">
         <form method="GET" action="{{ route('admin.requested-changes.index') }}" class="flex flex-wrap items-end gap-3">
@@ -56,6 +104,7 @@
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Player</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Tournament</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Verified</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase hidden md:table-cell">Reviewed</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase hidden lg:table-cell">Fields to Correct</th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
@@ -72,14 +121,25 @@
                                 $fieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig($settings);
                                 $layout = \App\Helpers\PlayerFormConfig::getFormLayout($settings, false);
 
-                                // Collect all form fields and find unverified ones
+                                // Collect all form fields and compute verification counts
+                                $skip = ['name', 'image', 'terms_and_conditions'];
                                 $allFields = [];
+                                $vTotal = 0; $vDone = 0;
+                                if ($player?->image_path) { $vTotal++; if (in_array('image', $verifiedFields, true)) $vDone++; }
                                 foreach ($layout as $sec) {
                                     foreach ($sec['fields'] as $fk) {
-                                        if (in_array($fk, ['name', 'image', 'terms_and_conditions'])) continue;
+                                        if (in_array($fk, $skip)) continue;
                                         $allFields[] = $fk;
+                                        $vTotal++;
+                                        if (in_array($fk, $verifiedFields, true)) $vDone++;
+                                    }
+                                    $secCustom = $reg->tournament?->customFields?->where('form', 'player')->where('visible', true)->where('section', $sec['key']) ?? collect();
+                                    foreach ($secCustom as $scf) {
+                                        $vTotal++;
+                                        if (in_array('cf_' . $scf->id, $verifiedFields, true)) $vDone++;
                                     }
                                 }
+                                $vPct = $vTotal > 0 ? round(($vDone / $vTotal) * 100) : 0;
                                 $unverifiedFields = array_filter($allFields, fn($f) => !in_array($f, $verifiedFields));
                                 $unverifiedLabels = array_map(fn($f) => $fieldConfig[$f]['label'] ?? ucwords(str_replace('_', ' ', $f)), $unverifiedFields);
                             @endphp
@@ -115,6 +175,24 @@
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                     {{ $reg->tournament?->name ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    @php
+                                        $radius = 16;
+                                        $circumference = 2 * 3.14159 * $radius;
+                                        $offset = $circumference - ($vPct / 100) * $circumference;
+                                        $color = $vPct === 100 ? '#22c55e' : ($vPct > 70 ? '#eab308' : ($vPct > 40 ? '#f97316' : '#ef4444'));
+                                    @endphp
+                                    <div class="flex items-center justify-center">
+                                        <svg width="42" height="42" viewBox="0 0 42 42">
+                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="{{ $color }}" stroke-width="3"
+                                                stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}"
+                                                stroke-linecap="round" transform="rotate(-90 21 21)"/>
+                                            <text x="21" y="21" text-anchor="middle" dominant-baseline="central"
+                                                class="fill-gray-700 dark:fill-gray-200" style="font-size: 10px; font-weight: 600;">{{ $vPct }}%</text>
+                                        </svg>
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
                                     {{ $reg->updated_at->format('d M Y') }}

@@ -46,8 +46,46 @@ class RequestedChangesController extends Controller
             ->where('type', 'player')
             ->count();
 
+        // Summary stats: total reviewed, fully verified, still pending
+        $allReviewed = TournamentRegistration::whereNotNull('verified_fields')
+            ->where('type', 'player')
+            ->with(['tournament.settings', 'tournament.customFields', 'player'])
+            ->get();
+
+        $totalReviewed = $allReviewed->count();
+        $totalApproved = $allReviewed->where('status', 'approved')->count();
+        $totalFullyVerified = 0;
+        $totalPartial = 0;
+
+        foreach ($allReviewed->where('status', 'pending') as $r) {
+            $vFields = (array) ($r->verified_fields ?? []);
+            $settings = $r->tournament?->settings;
+            $rLayout = \App\Helpers\PlayerFormConfig::getFormLayout($settings, false);
+            $rCustom = $r->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
+            $rSkip = ['name', 'image', 'terms_and_conditions'];
+            $rTotal = 0; $rDone = 0;
+            if ($r->player?->image_path) { $rTotal++; if (in_array('image', $vFields, true)) $rDone++; }
+            foreach ($rLayout as $sec) {
+                foreach ($sec['fields'] as $fk) {
+                    if (in_array($fk, $rSkip)) continue;
+                    $rTotal++;
+                    if (in_array($fk, $vFields, true)) $rDone++;
+                }
+                foreach (($rCustom->where('section', $sec['key']) ?? collect()) as $scf) {
+                    $rTotal++;
+                    if (in_array('cf_' . $scf->id, $vFields, true)) $rDone++;
+                }
+            }
+            if ($rTotal > 0 && $rDone === $rTotal) {
+                $totalFullyVerified++;
+            } else {
+                $totalPartial++;
+            }
+        }
+
         return view('backend.pages.requested-changes.index', compact(
-            'registrations', 'tournaments', 'totalRequested'
+            'registrations', 'tournaments', 'totalRequested',
+            'totalReviewed', 'totalApproved', 'totalFullyVerified', 'totalPartial'
         ));
     }
 }
