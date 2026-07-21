@@ -265,6 +265,9 @@
                                     class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Team</th>
                                 <th scope="col"
+                                    class="py-3 px-5 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Verified</th>
+                                <th scope="col"
                                     class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Status</th>
                                 <th scope="col"
@@ -434,6 +437,43 @@
                                         @if($player->actualTeam && $player->team && $player->actualTeam->name !== $player->team->name && $player->team->name !== 'Others')
                                             <div class="text-[10px] text-gray-400 dark:text-gray-500">Reg: {{ $player->team->name }}</div>
                                         @endif
+                                    </td>
+                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                        @php
+                                            $verifiedFields = [
+                                                $player->verified_name,
+                                                $player->verified_email,
+                                                $player->verified_image_path,
+                                                $player->verified_mobile_number_full,
+                                                $player->verified_cricheroes_number_full,
+                                                $player->verified_jersey_name,
+                                                $player->verified_jersey_number,
+                                                $player->verified_team_id,
+                                                $player->verified_kit_size_id,
+                                                $player->verified_batting_profile_id,
+                                                $player->verified_bowling_profile_id,
+                                                $player->verified_player_type_id,
+                                                $player->verified_is_wicket_keeper,
+                                                $player->verified_transportation_required,
+                                            ];
+                                            $verifiedCount = count(array_filter($verifiedFields));
+                                            $totalFields = count($verifiedFields);
+                                            $pct = round(($verifiedCount / $totalFields) * 100);
+                                            $radius = 16;
+                                            $circumference = 2 * 3.14159 * $radius;
+                                            $offset = $circumference - ($pct / 100) * $circumference;
+                                            $color = $pct === 100 ? '#22c55e' : ($pct >= 50 ? '#f59e0b' : '#ef4444');
+                                        @endphp
+                                        <div class="flex items-center justify-center">
+                                            <svg width="42" height="42" viewBox="0 0 42 42">
+                                                <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                                                <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="{{ $color }}" stroke-width="3"
+                                                    stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}"
+                                                    stroke-linecap="round" transform="rotate(-90 21 21)"/>
+                                                <text x="21" y="21" text-anchor="middle" dominant-baseline="central"
+                                                    class="fill-gray-700 dark:fill-gray-200" style="font-size: 10px; font-weight: 600;">{{ $pct }}%</text>
+                                            </svg>
+                                        </div>
                                     </td>
                                     <td class="px-5 py-3.5 whitespace-nowrap">
                                         <div class="flex flex-wrap gap-1">
