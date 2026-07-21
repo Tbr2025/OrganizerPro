@@ -386,6 +386,11 @@
                                     Manage Templates
                                 </a>
                                 @endrole
+                                <a href="{{ route('admin.tournaments.banners.index', $tournament) }}"
+                                   class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    <iconify-icon icon="lucide:megaphone" width="15" class="text-gray-400"></iconify-icon>
+                                    Banners / Ads
+                                </a>
                                 <a href="{{ route('admin.tournaments.settings.edit', $tournament) }}"
                                    class="flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                                     <iconify-icon icon="lucide:settings" width="15" class="text-gray-400"></iconify-icon>
