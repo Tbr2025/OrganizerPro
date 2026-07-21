@@ -132,6 +132,7 @@ class PlayerController extends Controller
             'player_mode'     => request('player_mode'),
             'tournament'       => request('tournament'),
             'sort'             => request('sort'),
+            'need_transport'   => request('need_transport'),
         ];
 
         // 2. Start the base query with all necessary relationships for performance
@@ -188,6 +189,8 @@ class PlayerController extends Controller
             ->when($filters['role'], function ($q) use ($filters) {
                 if ($filters['role'] === 'Wicket Keeper') {
                     $q->where('is_wicket_keeper', true);
+                } elseif ($filters['role'] === 'Unknown') {
+                    $q->whereDoesntHave('playerType');
                 } else {
                     $q->whereHas('playerType', fn($typeQuery) => $typeQuery->where('type', $filters['role']));
                 }
@@ -207,6 +210,9 @@ class PlayerController extends Controller
             })
             ->when($filters['bowling_profile'], function ($q) use ($filters) {
                 $q->whereHas('bowlingProfile', fn($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
+            })
+            ->when($filters['need_transport'] ?? null, function ($q) {
+                $q->where('transportation_required', true);
             })
             ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
                 if ($filters['status'] === 'approved') $q->where('status', 'approved');

@@ -168,8 +168,8 @@
                 <div class="flex items-center gap-2 mb-3">
                     <iconify-icon icon="lucide:bar-chart-3" width="16" class="text-gray-400"></iconify-icon>
                     <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Filters ({{ $totalShown }} players)</h3>
-                    @if(request()->hasAny(['role', 'batting_profile', 'bowling_profile']))
-                        <a href="{{ route('admin.players.index', request()->except(['role', 'batting_profile', 'bowling_profile', 'page'])) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear tag filters</a>
+                    @if(request()->hasAny(['role', 'batting_profile', 'bowling_profile', 'need_transport']))
+                        <a href="{{ route('admin.players.index', request()->except(['role', 'batting_profile', 'bowling_profile', 'need_transport', 'page'])) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear tag filters</a>
                     @endif
                 </div>
                 <div class="flex flex-wrap gap-2">
@@ -211,9 +211,11 @@
 
                     {{-- Transportation --}}
                     @if($transportCount > 0)
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20">
-                            Need Transport <span class="bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $transportCount }}</span>
-                        </span>
+                        @php $isActive = request('need_transport') === '1'; @endphp
+                        <a href="{{ route('admin.players.index', array_merge(request()->except('page'), ['need_transport' => '1'])) }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-purple-600 text-white ring-2 ring-purple-400' : 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20 hover:bg-purple-100' }}">
+                            Need Transport <span class="{{ $isActive ? 'bg-purple-400 text-white' : 'bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $transportCount }}</span>
+                        </a>
                     @endif
                 </div>
             </div>

@@ -56,6 +56,7 @@
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Player</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Tournament</th>
+                            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Verified</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase hidden md:table-cell">Submitted</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase hidden lg:table-cell">Changes</th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
@@ -67,6 +68,31 @@
                                 $player = $reg->player;
                                 $changes = (array) $reg->pending_changes;
                                 $formatted = \App\Models\ProfileChangeLog::formatChangesForDisplay($changes);
+
+                                // Verification percentage
+                                $verifiedFields = (array) ($reg->verified_fields ?? []);
+                                $settings = $reg->tournament?->settings;
+                                $fieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig($settings);
+                                $layout = \App\Helpers\PlayerFormConfig::getFormLayout($settings, false);
+                                $skip = ['name', 'image', 'terms_and_conditions'];
+                                $vTotal = 0; $vDone = 0;
+                                if ($player?->image_path) {
+                                    $vTotal++;
+                                    if (in_array('image', $verifiedFields, true)) $vDone++;
+                                }
+                                foreach ($layout as $sec) {
+                                    foreach ($sec['fields'] as $fk) {
+                                        if (in_array($fk, $skip)) continue;
+                                        $vTotal++;
+                                        if (in_array($fk, $verifiedFields, true)) $vDone++;
+                                    }
+                                    $secCustom = $reg->tournament?->customFields?->where('form', 'player')->where('visible', true)->where('section', $sec['key']) ?? collect();
+                                    foreach ($secCustom as $scf) {
+                                        $vTotal++;
+                                        if (in_array('cf_' . $scf->id, $verifiedFields, true)) $vDone++;
+                                    }
+                                }
+                                $vPct = $vTotal > 0 ? round(($vDone / $vTotal) * 100) : 0;
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                 <td class="px-4 py-3 whitespace-nowrap">
@@ -100,6 +126,24 @@
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                     {{ $reg->tournament?->name ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    @php
+                                        $radius = 16;
+                                        $circumference = 2 * 3.14159 * $radius;
+                                        $offset = $circumference - ($vPct / 100) * $circumference;
+                                        $color = $vPct === 100 ? '#22c55e' : ($vPct > 70 ? '#eab308' : ($vPct > 40 ? '#f97316' : '#ef4444'));
+                                    @endphp
+                                    <div class="flex items-center justify-center">
+                                        <svg width="42" height="42" viewBox="0 0 42 42">
+                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="{{ $color }}" stroke-width="3"
+                                                stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}"
+                                                stroke-linecap="round" transform="rotate(-90 21 21)"/>
+                                            <text x="21" y="21" text-anchor="middle" dominant-baseline="central"
+                                                class="fill-gray-700 dark:fill-gray-200" style="font-size: 10px; font-weight: 600;">{{ $vPct }}%</text>
+                                        </svg>
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell">
                                     @if($reg->pending_changes_submitted_at)
