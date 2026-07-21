@@ -12,7 +12,7 @@
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Banners / Ads</h1>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage banner images shown on public pages for {{ $tournament->name }}</p>
         </div>
-        <a href="{{ route('tournaments.show', $tournament) }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+        <a href="{{ route('admin.tournaments.show', $tournament) }}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             Back
         </a>
