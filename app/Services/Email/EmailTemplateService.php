@@ -49,7 +49,7 @@ class EmailTemplateService
             EmailTemplate::TYPE_RETAINED_WELCOME_CARD => [
                 'label' => 'Retained Welcome Card (on retention, with poster attached)',
                 'subject' => 'Welcome to the Team!',
-                'placeholders' => array_merge($common, ['{player_name}', '{team_name}', '{complete_profile_url}']),
+                'placeholders' => array_merge($common, ['{player_name}', '{team_name}', '{retained_value}', '{complete_profile_url}']),
             ],
         ];
     }
@@ -212,6 +212,7 @@ class EmailTemplateService
             '{registration_type_label}' => $reg && $reg->type === 'team' ? 'team registration' : 'application',
             '{team_name}' => e($reg?->team_name ?? ''),
             '{player_name}' => e($player?->name ?? 'Player'),
+            '{retained_value}' => '',
             '{complete_profile_url}' => route('login'),
             '{contact_info}' => $contactHtml,
         ];
@@ -269,7 +270,7 @@ class EmailTemplateService
             ],
             EmailTemplate::TYPE_RETAINED_WELCOME_CARD => [
                 'subject' => 'Welcome to the Team! - {tournament_name}',
-                'body_html' => $this->seedWelcome(),
+                'body_html' => $this->seedRetainedWelcome(),
             ],
             default => ['subject' => '', 'body_html' => ''],
         };
@@ -290,7 +291,7 @@ class EmailTemplateService
         <p style="margin: 0 0 20px 0; font-size: 16px;">Dear <strong>{applicant_name}</strong>,</p>
         <p style="margin: 0 0 20px 0;">Congratulations — your {registration_type_label} for <strong>{tournament_name}</strong> has been submitted successfully.</p>
         <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #f0ad4e;">
-            <p style="margin: 0; color: #856404; font-size: 15px;"><strong>You're in the queue.</strong> Your application is now <strong>under review</strong> by the organizers. We'll email you again as soon as it's approved.</p>
+            <p style="margin: 0; color: #856404; font-size: 15px;">Your application is under review. We'll notify you once it's approved.</p>
         </div>
         <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {primary_color};">
             <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Tournament Details</h3>
@@ -354,26 +355,69 @@ HTML;
     {
         return <<<'HTML'
 <!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f7; margin: 0; padding: 0;">
-    <div style="max-width: 600px; margin: 20px auto; padding: 25px; background-color: #ffffff; border: 1px solid #e9ecef; border-radius: 8px;">
-        <div style="text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;">
-            <div style="margin: 0 auto 15px;">{header_logos}</div>
-            <h1 style="color: #2c3e50; margin: 0; font-size: 24px;">Welcome Aboard!</h1>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: {primary_color}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <div style="margin: 0 auto 15px;">{header_logos}</div>
+        <h1 style="color: {header_text_color}; margin: 0; font-size: 24px;">Welcome Aboard!</h1>
+    </div>
+    <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
+        <p style="margin: 0 0 20px 0; font-size: 16px;">Hi <strong>{player_name}</strong>,</p>
+        <p style="margin: 0 0 20px 0;">Welcome to <strong>{tournament_name}</strong>! We're thrilled to have you on board.</p>
+        <p style="margin: 0 0 20px 0;">To get the most out of your experience, complete your profile so organizers and teammates can find you easily.</p>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="{complete_profile_url}" style="display: inline-block; background: {primary_color}; color: {header_text_color}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">Complete Your Profile</a>
         </div>
-        <div style="font-size: 16px;">
-            <p>Hi <strong style="color: #0056b3;">{player_name}</strong>,</p>
-            <p>A warm welcome to <strong style="color: #0056b3;">{brand_name}</strong>! We are thrilled to have you join our community.</p>
-            <p>Your journey to track your performance, join events, and showcase your skills starts now. To get the most out of the platform, we recommend completing your profile.</p>
-            <a href="{complete_profile_url}" style="display: block; width: fit-content; margin: 25px auto; padding: 12px 25px; background-color: {primary_color}; color: {header_text_color} !important; text-decoration: none; border-radius: 5px; font-weight: bold;">Complete Your Profile</a>
-            <p>If you have any questions, we're happy to help!</p>
-            <p style="margin:10px 0 0;font-size:14px;">{contact_info}</p>
+        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {primary_color};">
+            <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Tournament Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 8px 0; color: #6c757d; width: 40%;">Tournament:</td><td style="padding: 8px 0; font-weight: 600;">{tournament_name}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6c757d;">Start Date:</td><td style="padding: 8px 0;">{tournament_start_date}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6c757d;">Location:</td><td style="padding: 8px 0;">{tournament_location}</td></tr>
+            </table>
         </div>
-        <div style="text-align: center; margin-top: 20px; font-size: 0.9em; color: #777;">
-            <p>Best regards,</p>
-            <p>The {brand_name} Team</p>
+        <p style="margin: 0; font-size: 14px; color: #555;">{contact_info}</p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 12px;">
+        <p style="margin: 0;">Thank you for joining {brand_name}</p>
+        <p style="margin: 5px 0 0 0;">Good luck!</p>
+    </div>
+</body>
+</html>
+HTML;
+    }
+
+    private function seedRetainedWelcome(): string
+    {
+        return <<<'HTML'
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: {primary_color}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <div style="margin: 0 auto 15px;">{header_logos}</div>
+        <h1 style="color: {header_text_color}; margin: 0; font-size: 24px;">Welcome to the Team!</h1>
+    </div>
+    <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
+        <p style="margin: 0 0 20px 0; font-size: 16px;">Dear <strong>{player_name}</strong>,</p>
+        <p style="margin: 0 0 20px 0;">You've been retained by <strong>{team_name}</strong> for <strong>{tournament_name}</strong>!</p>
+        <div style="background: #d4edda; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #155724; font-size: 14px;">Retained Value: <strong>{retained_value} Points</strong></p>
         </div>
+        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {primary_color};">
+            <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Tournament Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 8px 0; color: #6c757d; width: 40%;">Tournament:</td><td style="padding: 8px 0; font-weight: 600;">{tournament_name}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6c757d;">Start Date:</td><td style="padding: 8px 0;">{tournament_start_date}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6c757d;">Location:</td><td style="padding: 8px 0;">{tournament_location}</td></tr>
+            </table>
+        </div>
+        <p style="margin: 0; font-size: 14px; color: #555;">{contact_info}</p>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 12px;">
+        <p style="margin: 0;">Thank you for being part of {brand_name}</p>
+        <p style="margin: 5px 0 0 0;">Good luck this season!</p>
     </div>
 </body>
 </html>

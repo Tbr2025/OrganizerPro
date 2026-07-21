@@ -20,6 +20,8 @@ class PlayerWelcomeMail extends Mailable
     public Player $player;
     public string $filePath;
     public ?Tournament $tournament;
+    public string $type;
+    public array $overrides;
 
     /**
      * Create a new message instance.
@@ -27,12 +29,21 @@ class PlayerWelcomeMail extends Mailable
      * @param Player $player The player receiving the welcome card.
      * @param string $filePath The absolute path to the image file to attach.
      * @param ?Tournament $tournament The tournament context (for per-tournament templates).
+     * @param string $type The email template type to resolve.
+     * @param array $overrides Extra placeholder overrides (e.g. {team_name}).
      */
-    public function __construct(Player $player, string $filePath, ?Tournament $tournament = null)
-    {
+    public function __construct(
+        Player $player,
+        string $filePath,
+        ?Tournament $tournament = null,
+        string $type = EmailTemplate::TYPE_WELCOME_CARD,
+        array $overrides = []
+    ) {
         $this->player = $player;
         $this->filePath = $filePath;
         $this->tournament = $tournament;
+        $this->type = $type;
+        $this->overrides = $overrides;
     }
 
     /** @var array{subject:string, html:string}|null */
@@ -42,10 +53,11 @@ class PlayerWelcomeMail extends Mailable
     {
         if ($this->resolved === null) {
             $this->resolved = app(EmailTemplateService::class)->resolve(
-                EmailTemplate::TYPE_WELCOME_CARD,
+                $this->type,
                 $this->tournament,
                 null,
                 $this->player,
+                $this->overrides,
             );
         }
 

@@ -15,6 +15,7 @@ use App\Services\Poster\AwardPosterService;
 use App\Services\Poster\TemplateRenderService;
 use App\Services\Poster\TournamentFlyerService;
 use App\Mail\PlayerWelcomeMail;
+use App\Models\EmailTemplate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 
@@ -274,7 +275,16 @@ class TournamentNotificationService
                 $posterPath
             );
 
-            Mail::to($email)->send(new PlayerWelcomeMail($player, storage_path('app/public/' . $posterPath), $tournament));
+            Mail::to($email)->send(new PlayerWelcomeMail(
+                $player,
+                storage_path('app/public/' . $posterPath),
+                $tournament,
+                EmailTemplate::TYPE_RETAINED_WELCOME_CARD,
+                [
+                    '{team_name}' => e($data['team_name']),
+                    '{retained_value}' => e($player->retained_value ?? ''),
+                ]
+            ));
 
             $registration->markRetainedWelcomeCardSent();
             $log->markAsSent();
