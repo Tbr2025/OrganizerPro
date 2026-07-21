@@ -44,7 +44,7 @@ class TournamentBannerController extends Controller
             'displayTypes' => TournamentBanner::DISPLAY_TYPES,
             'breadcrumbs' => [
                 ['name' => 'Dashboard', 'route' => route('admin.dashboard')],
-                ['name' => $tournament->name, 'route' => route('tournaments.show', $tournament)],
+                ['name' => $tournament->name, 'route' => route('admin.tournaments.show', $tournament)],
                 ['name' => 'Banners / Ads'],
             ],
         ]);
