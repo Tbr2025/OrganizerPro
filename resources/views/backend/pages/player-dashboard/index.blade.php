@@ -46,6 +46,24 @@
         </div>
     </div>
 
+    {{-- CricHeroes Info (controlled by tournament settings) --}}
+    @if(($fieldConfig['cricheroes_number']['visible'] ?? false) && $player->cricheroes_number_full)
+        <div class="flex flex-wrap items-center gap-4 mb-6 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-2 text-sm">
+                <iconify-icon icon="lucide:phone" width="16" height="16" class="text-gray-400"></iconify-icon>
+                <span class="text-gray-500 dark:text-gray-400">CricHeroes Number:</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ $player->cricheroes_number_full }}</span>
+            </div>
+            @if(($fieldConfig['cricheroes_profile_url']['visible'] ?? false) && $player->cricheroes_profile_url)
+                <div class="flex items-center gap-2 text-sm">
+                    <iconify-icon icon="lucide:link" width="16" height="16" class="text-gray-400"></iconify-icon>
+                    <span class="text-gray-500 dark:text-gray-400">CricHeroes Profile:</span>
+                    <a href="{{ $player->cricheroes_profile_url }}" target="_blank" class="font-medium text-indigo-600 dark:text-indigo-400 hover:underline truncate max-w-xs">{{ $player->cricheroes_profile_url }}</a>
+                </div>
+            @endif
+        </div>
+    @endif
+
     {{-- Registration Status Overview --}}
     @if($registrations->isNotEmpty())
         <div class="mb-8">

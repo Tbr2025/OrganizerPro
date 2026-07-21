@@ -133,7 +133,7 @@ class PlayerProfileController extends Controller
             'selectedRegistration' => $selectedRegistration,
             'isLocked' => $isLocked,
             // Sectioned layout (mirrors the admin registration detail).
-            'layout' => \App\Helpers\PlayerFormConfig::getFormLayout($settings, true),
+            'layout' => \App\Helpers\PlayerFormConfig::getFormLayout($settings, false),
             'fieldConfig' => \App\Helpers\PlayerFormConfig::getFieldConfig($settings),
             'lockedFieldKeys' => \App\Helpers\PlayerFormConfig::lockedFields(),
             'verifiedKeys' => $verifiedKeys,

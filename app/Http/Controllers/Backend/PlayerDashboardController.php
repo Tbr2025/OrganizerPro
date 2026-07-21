@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\MatchAward;
 use App\Models\PlayerStatistic;
@@ -58,6 +59,9 @@ class PlayerDashboardController extends Controller
         // Match awards count
         $awardsCount = MatchAward::where('player_id', $player->id)->count();
 
+        // Field visibility from tournament settings
+        $fieldConfig = PlayerFormConfig::getFieldConfig($tournament?->settings);
+
         return view('backend.pages.player-dashboard.index', compact(
             'player',
             'registrations',
@@ -65,6 +69,7 @@ class PlayerDashboardController extends Controller
             'tournament',
             'careerStats',
             'awardsCount',
+            'fieldConfig',
         ));
     }
 }
