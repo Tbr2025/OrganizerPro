@@ -133,6 +133,7 @@ class PlayerController extends Controller
             'tournament'       => request('tournament'),
             'sort'             => request('sort'),
             'need_transport'   => request('need_transport'),
+            'source'           => request('source'),
         ];
 
         // 2. Start the base query with all necessary relationships for performance
@@ -214,6 +215,13 @@ class PlayerController extends Controller
             })
             ->when($filters['need_transport'] ?? null, function ($q) {
                 $q->where('transportation_required', true);
+            })
+            ->when($filters['source'] ?? null, function ($q) use ($filters) {
+                if ($filters['source'] === 'direct') {
+                    $q->whereNotNull('created_by');
+                } elseif ($filters['source'] === 'registration') {
+                    $q->whereNull('created_by');
+                }
             })
             ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
                 if ($filters['status'] === 'approved') $q->where('status', 'approved');

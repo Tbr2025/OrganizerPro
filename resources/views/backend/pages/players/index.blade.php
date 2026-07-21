@@ -125,6 +125,16 @@
                         </select>
                     </div>
 
+                    {{-- Source --}}
+                    <div>
+                        <label for="source" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source</label>
+                        <select name="source" id="source" class="form-control mt-1">
+                            <option value="">All</option>
+                            <option value="registration" @selected(request('source') == 'registration')>Through Registration</option>
+                            <option value="direct" @selected(request('source') == 'direct')>Direct Entry</option>
+                        </select>
+                    </div>
+
                     {{-- Sort by --}}
                     <div>
                         <label for="sort" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sort by</label>
