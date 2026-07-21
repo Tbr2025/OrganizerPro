@@ -254,38 +254,38 @@
         <!-- Players Table -->
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="min-w-full">
+                <table class="min-w-full table-fixed">
                     <thead>
                         <tr class="bg-gray-50/80 dark:bg-white/[0.03]">
                             @if (auth()->user()->hasAnyRole(['Superadmin', 'Admin']))
                                 {{-- ADMIN & SUPERADMIN VIEW HEADERS --}}
-                                <th scope="col" class="py-3 px-5">
+                                <th scope="col" class="py-3 px-3 w-10">
                                     <input type="checkbox"
                                         class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
                                         @click="selectAll = !selectAll; selectedPlayers = selectAll ? [...document.querySelectorAll('.player-checkbox')].map(cb => cb.value) : []">
                                 </th>
                                 <th scope="col"
-                                    class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    class="py-3 px-3 w-20 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     ID</th>
                                 <th scope="col"
-                                    class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    class="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400" style="min-width: 280px;">
                                     Player</th>
                                 <th scope="col"
-                                    class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    class="py-3 px-4 w-40 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Contact</th>
                                 <th scope="col"
-                                    class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    class="py-3 px-4 w-36 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Team</th>
                                 <th scope="col"
-                                    class="py-3 px-5 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    class="py-3 px-3 w-16 text-center text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Verified</th>
                                 <th scope="col"
-                                    class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    class="py-3 px-3 w-24 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Status</th>
                                 <th scope="col"
-                                    class="py-3 px-5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    class="py-3 px-3 w-28 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Last Updated</th>
-                                <th scope="col" class="relative py-3 px-5"><span class="sr-only">Actions</span></th>
+                                <th scope="col" class="relative py-3 px-3 w-20"><span class="sr-only">Actions</span></th>
                             @else
                                 {{-- OTHER ROLES (e.g., TEAM MANAGER) VIEW HEADERS --}}
                                 <th scope="col"
@@ -309,12 +309,12 @@
                             <tr class="group hover:bg-gray-50/70 dark:hover:bg-white/[0.02] transition-colors duration-150">
                                 @if (auth()->user()->hasAnyRole(['Superadmin', 'Admin']))
                                     {{-- ADMIN & SUPERADMIN VIEW CELLS --}}
-                                    <td class="px-5 py-3.5">
+                                    <td class="px-3 py-3.5">
                                         <input type="checkbox"
                                             class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 player-checkbox"
                                             value="{{ $player->id }}" x-model="selectedPlayers">
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         @php
                                             $orgName = $player->user?->organization?->name;
                                             $prefix = $orgName
@@ -326,7 +326,7 @@
                                         @endphp
                                         {{ $prefix ? $prefix . '-' . $player->id : $player->id }}
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                    <td class="px-4 py-3.5">
                                         <div class="flex items-center">
 
                                             {{-- Avatar with Verified Badge --}}
@@ -423,7 +423,7 @@
 
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap text-sm">
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-sm">
                                         @php
                                             $mobileDisplay = $player->mobile_number_full
                                                 ?: (($player->mobile_country_code && $player->mobile_national_number)
@@ -453,13 +453,13 @@
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
                                         {{ ($player->actualTeam?->name === 'Others' && $player->playing_team_name_ref) ? $player->playing_team_name_ref : ($player->actualTeam?->name ?? ($player->playing_team_name_ref ?: ($player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : ($player->team?->name ?? 'N/A')))) }}
                                         @if($player->actualTeam && $player->team && $player->actualTeam->name !== $player->team->name && $player->team->name !== 'Others')
                                             <div class="text-[10px] text-gray-400 dark:text-gray-500">Reg: {{ $player->team->name }}</div>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                    <td class="px-3 py-3.5 whitespace-nowrap">
                                         @php
                                             $reg = $player->registrations->first();
                                             $regVerified = (array) ($reg?->verified_fields ?? []);
@@ -497,7 +497,7 @@
                                             </svg>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                    <td class="px-3 py-3.5 whitespace-nowrap">
                                         <div class="flex flex-wrap gap-1">
                                             @if ($player->status === 'approved')
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400">Player Approved</span>
@@ -511,9 +511,9 @@
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {{ $player->updated_at->diffForHumans() }}</td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap text-right text-sm font-medium">
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-right text-sm font-medium">
                                         {{-- Actions Kebab Menu --}}
                                         <div x-data="{ open: false, menuStyle: '' }" class="relative">
                                             <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); menuStyle = 'position:fixed;top:'+(r.bottom+4)+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
@@ -588,7 +588,7 @@
                                     </td>
                                 @else
                                     {{-- OTHER ROLES (e.g., TEAM MANAGER) VIEW CELLS --}}
-                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                    <td class="px-4 py-3.5">
                                         <div class="flex items-center">
 
                                             {{-- Avatar with Verified Badge --}}
@@ -674,11 +674,11 @@
 
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap text-sm">
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-sm">
                                         <div class="flex items-center gap-2 text-gray-800 dark:text-gray-200">
                                             {{ $player->location?->name }}</div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                    <td class="px-3 py-3.5 whitespace-nowrap">
                                         <div class="flex flex-col items-start space-y-2">
 
                                             {{-- Primary Role (e.g., Batsman, Bowler) --}}
@@ -721,7 +721,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap">
+                                    <td class="px-3 py-3.5 whitespace-nowrap">
                                         <div class="flex items-center text-sm text-gray-600 dark:text-gray-300 space-x-4">
                                             {{-- Matches --}}
                                             <div class="text-center" title="Matches Played">
@@ -749,7 +749,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 whitespace-nowrap text-right text-sm font-medium">
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-right text-sm font-medium">
                                         {{-- Actions Kebab Menu --}}
                                         <div x-data="{ open: false, menuStyle: '' }" class="relative">
                                             <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); menuStyle = 'position:fixed;top:'+(r.bottom+4)+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
