@@ -15,7 +15,7 @@ class PendingApprovalsController extends Controller
         $this->checkAuthorization(Auth::user(), ['player.view']);
 
         $query = TournamentRegistration::whereNotNull('pending_changes')
-            ->with(['player', 'tournament'])
+            ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile', 'tournament'])
             ->latest('pending_changes_submitted_at');
 
         // Search by player name

@@ -307,19 +307,33 @@
                                                     @endif
                                                     <div>
                                                         <div class="font-semibold text-gray-900 dark:text-white">{{ $registration->player->name ?? 'N/A' }}</div>
-                                                        @if($registration->player?->actualTeam)
-                                                            <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium {{ $registration->player->actualTeam->tournament?->isAuction() ? 'bg-amber-50 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                                                                {{ $registration->player->actualTeam->name }}
-                                                            </span>
-                                                        @elseif($registration->player?->playing_team_name_ref)
-                                                            <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                                                                {{ $registration->player->playing_team_name_ref }}
-                                                            </span>
-                                                        @elseif($registration->player?->team_name_ref)
-                                                            <span class="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                                                                {{ $registration->player->team_name_ref }}
-                                                            </span>
-                                                        @endif
+                                                        <div class="flex flex-wrap gap-1 mt-0.5">
+                                                            @if($registration->player?->playerType?->type)
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">{{ $registration->player->playerType->type }}</span>
+                                                            @endif
+                                                            @if($registration->player?->is_wicket_keeper)
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">WK</span>
+                                                            @endif
+                                                            @if($registration->player?->battingProfile?->style)
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ $registration->player->battingProfile->style }}</span>
+                                                            @endif
+                                                            @if($registration->player?->bowlingProfile?->style)
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">{{ $registration->player->bowlingProfile->style }}</span>
+                                                            @endif
+                                                            @if($registration->player?->actualTeam)
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium {{ $registration->player->actualTeam->tournament?->isAuction() ? 'bg-amber-50 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
+                                                                    {{ $registration->player->actualTeam->name }}
+                                                                </span>
+                                                            @elseif($registration->player?->playing_team_name_ref)
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                                    {{ $registration->player->playing_team_name_ref }}
+                                                                </span>
+                                                            @elseif($registration->player?->team_name_ref)
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                                    {{ $registration->player->team_name_ref }}
+                                                                </span>
+                                                            @endif
+                                                        </div>
                                                     </div>
                                                 </div>
                                             @endif

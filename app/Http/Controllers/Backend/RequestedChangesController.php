@@ -19,7 +19,7 @@ class RequestedChangesController extends Controller
         $query = TournamentRegistration::where('status', 'pending')
             ->whereNotNull('verified_fields')
             ->where('type', 'player')
-            ->with(['player.user', 'player.playerType', 'tournament'])
+            ->with(['player.user', 'player.playerType', 'player.battingProfile', 'player.bowlingProfile', 'tournament'])
             ->latest('updated_at');
 
         if ($search = $request->get('search')) {

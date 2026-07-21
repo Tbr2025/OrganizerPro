@@ -35,9 +35,14 @@
                             <div class="flex items-center gap-2">
                                 <h3 class="text-base font-bold text-white truncate">{{ $player->name }}</h3>
                             </div>
-                            @if($player->playerType?->type)
-                                <p class="text-white/70 text-xs mt-0.5">{{ $player->playerType->type }}</p>
-                            @endif
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                @if($player->playerType?->type)
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/20 text-white">{{ $player->playerType->type }}</span>
+                                @endif
+                                @if($player->is_wicket_keeper)
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-400/30 text-white">WK</span>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 </div>
