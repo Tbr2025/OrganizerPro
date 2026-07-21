@@ -463,7 +463,7 @@
                                             $radius = 16;
                                             $circumference = 2 * 3.14159 * $radius;
                                             $offset = $circumference - ($pct / 100) * $circumference;
-                                            $color = $pct === 100 ? '#22c55e' : ($pct >= 50 ? '#f59e0b' : '#ef4444');
+                                            $color = $pct === 100 ? '#22c55e' : ($pct > 70 ? '#eab308' : ($pct > 40 ? '#f97316' : '#ef4444'));
                                         @endphp
                                         <div class="flex items-center justify-center">
                                             <svg width="42" height="42" viewBox="0 0 42 42">
