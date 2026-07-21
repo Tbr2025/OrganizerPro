@@ -70,6 +70,9 @@
                 {{-- Badges Section --}}
                 <div class="bg-white dark:bg-gray-800 px-4 pb-3 pt-2">
                     <div class="flex flex-wrap gap-1.5">
+                        @if($player->is_wicket_keeper)
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">WK</span>
+                        @endif
                         @if($player->battingProfile?->style)
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{{ $player->battingProfile->style }}</span>
                         @endif

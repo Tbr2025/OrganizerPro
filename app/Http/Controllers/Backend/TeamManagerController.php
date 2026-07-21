@@ -1026,10 +1026,15 @@ class TeamManagerController extends Controller
 
         $tournamentId = $team->tournament_id;
 
+        $isAuction = $team->tournament && $team->tournament->isAuction();
+
         $otherTeams = ActualTeam::forTournament($tournamentId)
             ->where('id', '!=', $team->id)
-            ->withCount(['playersPerTournament as approved_players_count' => function ($q) use ($tournamentId) {
+            ->withCount(['playersPerTournament as approved_players_count' => function ($q) use ($tournamentId, $isAuction) {
                 $q->where('player_actual_team_tournament.tournament_id', $tournamentId);
+                if ($isAuction) {
+                    $q->whereIn('players.player_mode', ['retained', 'sold']);
+                }
             }])
             ->orderBy('name')
             ->get();
