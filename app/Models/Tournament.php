@@ -165,6 +165,11 @@ class Tournament extends Model
         return $this->hasMany(NotificationLog::class);
     }
 
+    public function banners(): HasMany
+    {
+        return $this->hasMany(TournamentBanner::class);
+    }
+
     public function champion(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class, 'champion_team_id');

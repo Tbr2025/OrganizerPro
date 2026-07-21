@@ -55,6 +55,7 @@ use App\Http\Controllers\Backend\Tournament\TournamentRegistrationController;
 use App\Http\Controllers\Backend\Tournament\TournamentGroupController;
 use App\Http\Controllers\Backend\Tournament\TournamentFixtureController;
 use App\Http\Controllers\Backend\Tournament\TournamentTemplateController;
+use App\Http\Controllers\Backend\Tournament\TournamentBannerController;
 use App\Http\Controllers\Backend\Tournament\TournamentCalendarController;
 use App\Http\Controllers\Backend\Tournament\MatchSummaryController;
 use App\Http\Controllers\Backend\Tournament\AwardTemplateController;
@@ -945,6 +946,14 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/toggle-auto-welcome', [TournamentTemplateController::class, 'toggleAutoWelcome'])->name('templates.toggle-auto-welcome');
             Route::delete('/generated-posters/{poster}', [TournamentTemplateController::class, 'deleteGeneratedPoster'])->name('generated-posters.destroy');
         });
+
+        // Banners / Ads
+        Route::get('/banners', [TournamentBannerController::class, 'index'])->name('banners.index');
+        Route::post('/banners', [TournamentBannerController::class, 'store'])->name('banners.store');
+        Route::put('/banners/{banner}', [TournamentBannerController::class, 'update'])->name('banners.update');
+        Route::delete('/banners/{banner}', [TournamentBannerController::class, 'destroy'])->name('banners.destroy');
+        Route::post('/banners/reorder', [TournamentBannerController::class, 'reorder'])->name('banners.reorder');
+        Route::post('/banners/{banner}/toggle', [TournamentBannerController::class, 'toggleActive'])->name('banners.toggle');
 
         // Tournament Calendar (Calendar-based fixture scheduling)
         Route::get('/calendar', [TournamentCalendarController::class, 'index'])->name('calendar.index');

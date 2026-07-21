@@ -53,12 +53,16 @@ class PlayerDashboardController extends Controller
             ->latest()
             ->get();
 
+        // Get tournament for banner display
+        $tournament = $player->registrations()->with('tournament')->latest()->first()?->tournament;
+
         return view('public.player.dashboard', [
             'player' => $player,
             'statistics' => $statistics,
             'careerStats' => $careerStats,
             'awards' => $awards,
             'appreciations' => $appreciations,
+            'tournament' => $tournament,
         ]);
     }
 

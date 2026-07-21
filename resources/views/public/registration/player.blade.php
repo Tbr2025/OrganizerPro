@@ -126,6 +126,9 @@
     @endphp
     <div class="max-w-3xl mx-auto px-4 py-8 sm:py-10">
 
+        {{-- Top Ad Banner --}}
+        <x-tournament-banner :tournament="$tournament" page="registration" position="top" />
+
         {{-- Banner --}}
         <div class="reg-banner reveal">
             @if(($tournament->settings?->logo ?? $tournament->logo))
@@ -240,6 +243,9 @@
 
         {{-- Contact Info --}}
         @include('public.registration.partials.contact-info')
+
+        {{-- Bottom Ad Banner --}}
+        <x-tournament-banner :tournament="$tournament" page="registration" position="bottom" />
 
         {{-- Back Link --}}
         <div class="text-center mt-8">

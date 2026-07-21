@@ -21,6 +21,11 @@
         </div>
     @endif
 
+    {{-- Top Ad Banner --}}
+    @if($team->tournament ?? null)
+        <x-tournament-banner :tournament="$team->tournament" page="team_manager_dashboard" position="top" />
+    @endif
+
     {{-- Team Hero Header --}}
     <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800 p-6 md:p-8 mb-8">
         <div class="absolute inset-0 opacity-10">
@@ -443,4 +448,9 @@
         document.getElementById('verify-player-modal').classList.add('hidden');
     }
 </script>
+
+{{-- Bottom Ad Banner --}}
+@if($team->tournament ?? null)
+    <x-tournament-banner :tournament="$team->tournament" page="team_manager_dashboard" position="bottom" />
+@endif
 @endsection

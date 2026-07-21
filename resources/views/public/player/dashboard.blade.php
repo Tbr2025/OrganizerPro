@@ -17,6 +17,7 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
         body { font-family: 'Roboto', sans-serif; }
@@ -33,6 +34,11 @@
     </header>
 
     <main class="max-w-5xl mx-auto px-4 py-8">
+        {{-- Top Ad Banner --}}
+        @if($tournament ?? null)
+            <x-tournament-banner :tournament="$tournament" page="player_dashboard" position="top" />
+        @endif
+
         {{-- Player Profile Card --}}
         <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl overflow-hidden border border-gray-700 mb-8">
             <div class="md:flex">
@@ -251,6 +257,11 @@
                 <i class="fas fa-share mr-2"></i> Share Profile
             </button>
         </div>
+
+        {{-- Bottom Ad Banner --}}
+        @if($tournament ?? null)
+            <x-tournament-banner :tournament="$tournament" page="player_dashboard" position="bottom" />
+        @endif
     </main>
 
     {{-- Footer --}}
