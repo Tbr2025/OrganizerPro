@@ -157,11 +157,16 @@ class TournamentPublicController extends Controller
      */
     public function teams(Tournament $tournament): View
     {
+        $isAuction = $tournament->isAuction();
+
         $teams = $tournament->actualTeams()
-            ->with(['playersPerTournament' => function ($q) use ($tournament) {
+            ->with(['playersPerTournament' => function ($q) use ($tournament, $isAuction) {
                 $q->wherePivot('tournament_id', $tournament->id)
                   ->where('players.status', 'approved')
                   ->with(['playerType', 'battingProfile', 'bowlingProfile']);
+                if ($isAuction) {
+                    $q->whereIn('players.player_mode', ['retained', 'sold']);
+                }
             }])
             ->get();
 
