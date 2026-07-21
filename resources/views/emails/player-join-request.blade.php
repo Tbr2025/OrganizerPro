@@ -50,12 +50,6 @@
                         <td style="padding: 8px 0;">{{ $player->jersey_name }}</td>
                     </tr>
                     @endif
-                    @if($player->jersey_number)
-                    <tr>
-                        <td style="padding: 8px 0; color: #6c757d;">Jersey Number:</td>
-                        <td style="padding: 8px 0;">#{{ $player->jersey_number }}</td>
-                    </tr>
-                    @endif
                 </table>
             </div>
 

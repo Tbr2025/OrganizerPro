@@ -414,7 +414,7 @@
         const fields = [
             ['Email', player.email], ['Mobile', player.mobile_number_full], ['CricHeroes', player.cricheroes_number_full],
             ['CricHeroes URL', player.cricheroes_profile_url ? `<a href="${player.cricheroes_profile_url}" target="_blank" class="text-blue-600 hover:underline">${player.cricheroes_profile_url}</a>` : null],
-            ['Location', player.location], ['Jersey Name', player.jersey_name], ['Jersey Number', player.jersey_number],
+            ['Location', player.location], ['Jersey Name', player.jersey_name],
             ['Kit Size', player.kit_size], ['Player Type', player.player_type], ['Batting', player.batting_profile],
             ['Bowling', player.bowling_profile], ['Wicket Keeper', player.is_wicket_keeper ? 'Yes' : 'No'],
             ['Matches', player.total_matches], ['Runs', player.total_runs], ['Wickets', player.total_wickets],

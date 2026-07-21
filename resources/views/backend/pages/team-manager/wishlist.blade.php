@@ -42,9 +42,6 @@
                                         @endif
                                         <div>
                                             <div class="font-medium text-gray-900 dark:text-white">{{ $player->name }}</div>
-                                            @if($player->jersey_number)
-                                                <div class="text-xs text-gray-500">#{{ $player->jersey_number }}</div>
-                                            @endif
                                         </div>
                                     </div>
                                 </td>
@@ -149,7 +146,6 @@
             ['Bowling', player.bowling_profile],
             ['Wicket Keeper', player.is_wicket_keeper ? 'Yes' : 'No'],
             ['Jersey Name', player.jersey_name],
-            ['Jersey Number', player.jersey_number],
             ['Matches', player.total_matches],
             ['Runs', player.total_runs],
             ['Wickets', player.total_wickets],

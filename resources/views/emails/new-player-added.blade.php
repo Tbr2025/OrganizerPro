@@ -110,9 +110,6 @@
                 @if($team->tournament)
                     <p><strong>Tournament:</strong> {{ $team->tournament->name }}</p>
                 @endif
-                @if($player->jersey_number)
-                    <p><strong>Jersey Number:</strong> #{{ $player->jersey_number }}</p>
-                @endif
                 <p><strong>Status:</strong> <span class="status-pending">Pending Verification</span></p>
             </div>
 

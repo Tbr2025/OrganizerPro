@@ -42,12 +42,6 @@
                                 <span class="text-gray-500 dark:text-gray-400">Name</span>
                                 <p class="font-medium text-gray-900 dark:text-white">{{ $player->name }}</p>
                             </div>
-                            @if($player->jersey_number)
-                            <div>
-                                <span class="text-gray-500 dark:text-gray-400">Jersey #</span>
-                                <p class="font-medium text-gray-900 dark:text-white">{{ $player->jersey_number }}</p>
-                            </div>
-                            @endif
                             @if($player->player_type)
                             <div>
                                 <span class="text-gray-500 dark:text-gray-400">Type</span>

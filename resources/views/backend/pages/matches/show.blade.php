@@ -849,9 +849,9 @@
                                 <span class="{{ $isOut ? 'line-through text-red-500' : '' }}">
                                     {{ $player->player->name }}
                                 </span>
-                                <span class="{{ $isOut ? 'text-red-500 font-bold' : 'text-gray-500' }}">
-                                    {{ $isOut ? 'OUT' : ($player->player->jersey_number ?? '-') }}
-                                </span>
+                                @if($isOut)
+                                    <span class="text-red-500 font-bold">OUT</span>
+                                @endif
                             </li>
                         @endif
                     @empty
@@ -872,7 +872,7 @@
                         @if($player->player)
                             <li class="flex items-center justify-between text-sm py-1">
                                 <span>{{ $player->player->name }}</span>
-                                <span class="text-gray-500">{{ $player->player->jersey_number ?? '-' }}</span>
+                                <span class="text-gray-500">{{ $player->player->playerType?->type ?? '-' }}</span>
                             </li>
                         @endif
                     @empty

@@ -286,7 +286,6 @@
                             @php
                                 $jerseyFields = [
                                     ['label' => 'Jersey Name', 'value' => $player->jersey_name, 'verified' => $player->verified_jersey_name ?? false],
-                                    ['label' => 'Jersey Number', 'value' => $player->jersey_number, 'verified' => $player->verified_jersey_number ?? false],
                                     ['label' => 'T-Shirt Size', 'value' => $player->tshirt_size],
                                     ['label' => 'Pant Size', 'value' => $player->pant_size],
                                     ['label' => 'Jersey Size', 'value' => $player->kitSize?->size, 'verified' => $player->verified_kit_size_id ?? false],

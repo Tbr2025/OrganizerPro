@@ -223,7 +223,6 @@
                                 </template>
                             </div>
                             <div class="text-gray-600 text-sm">
-                                <span x-show="currentPlayer.player?.jersey_number">Jersey #<span x-text="currentPlayer.player?.jersey_number"></span> &bull; </span>
                                 ID: <span x-text="currentPlayer.id"></span>
                             </div>
 

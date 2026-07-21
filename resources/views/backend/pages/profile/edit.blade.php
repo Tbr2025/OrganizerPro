@@ -106,7 +106,6 @@
                             'Available Sunday' => $yn($player->available_sunday),
                             'Played YS IPL S1' => $yn($player->played_ys_ipl_s1),
                             'Jersey Name' => $player->jersey_name,
-                            'Jersey Number' => $player->jersey_number,
                             'T-Shirt Size' => $player->tshirt_size,
                             'Pant Size' => $player->pant_size,
                             'Player Type' => $player->playerType?->name ?? $player->playerType?->type,
