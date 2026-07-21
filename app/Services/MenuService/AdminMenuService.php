@@ -102,6 +102,65 @@ class AdminMenuService
     {
         // Check if the current user has the Team Manager role
         $user = auth()->user();
+
+        // Player-only users get a simplified menu
+        $isPlayerOnly = $user
+            && $user->hasRole('Player')
+            && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer', 'Team Manager', 'Team Owner']);
+
+        if ($isPlayerOnly) {
+            $this->addMenuItem([
+                'label' => __('Dashboard'),
+                'icon' => 'lucide:layout-dashboard',
+                'route' => route('player-dashboard'),
+                'active' => Route::is('player-dashboard'),
+                'id' => 'player-dashboard',
+                'priority' => 1,
+            ]);
+
+            $this->addMenuItem([
+                'label' => __('My Registration'),
+                'icon' => 'lucide:clipboard-list',
+                'route' => route('profileplayers.edit'),
+                'active' => Route::is('profileplayers.*'),
+                'id' => 'player-registration',
+                'priority' => 2,
+            ]);
+
+            $this->addMenuItem([
+                'label' => __('Account Settings'),
+                'icon' => 'lucide:settings',
+                'route' => route('profile.edit'),
+                'active' => Route::is('profile.*'),
+                'id' => 'player-settings',
+                'priority' => 3,
+            ]);
+
+            $this->addMenuItem([
+                'label' => __('Logout'),
+                'icon' => 'lucide:log-out',
+                'route' => route('player-dashboard'),
+                'active' => false,
+                'id' => 'logout',
+                'priority' => 100,
+                'html' => '
+                    <li>
+                        <form method="POST" action="' . route('logout') . '">
+                            ' . csrf_field() . '
+                            <button type="submit" class="menu-item group w-full text-left menu-item-inactive text-gray-700 dark:text-white hover:text-gray-700">
+                                <iconify-icon icon="lucide:log-out" class="menu-item-icon " width="16" height="16"></iconify-icon>
+                                <span class="menu-item-text">' . __('Logout') . '</span>
+                            </button>
+                        </form>
+                    </li>
+                ',
+            ], __('More'));
+
+            $this->groups = ld_apply_filters('admin_menu_groups_before_sorting', $this->groups);
+            $this->sortMenuItemsByPriority();
+            return $this->applyFiltersToMenuItems();
+        }
+
         $isTeamManager = $user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && !$user->hasRole('Superadmin') && !$user->hasRole('Admin');
 
         // For Team Managers, show simplified menu

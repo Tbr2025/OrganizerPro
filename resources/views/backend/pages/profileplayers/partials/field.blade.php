@@ -65,6 +65,8 @@
             'preferred_batting_position' => !empty($player->preferred_batting_positions) ? implode(', ', $player->preferred_batting_positions) : null,
             'date_of_birth' => optional($player->date_of_birth)->format('d M Y'),
             'visa_expiry' => optional($player->visa_expiry)->format('d M Y'),
+            'mobile_number' => $player->mobile_number_full,
+            'cricheroes_number' => $player->cricheroes_number_full,
             default => $player->{$k} ?? null,
         };
     };

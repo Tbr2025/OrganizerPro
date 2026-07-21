@@ -41,9 +41,9 @@ class HomeController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        // Player → player profile / registration details
+        // Player → player dashboard
         if ($user->hasRole('Player') || $user->player) {
-            return redirect()->route('profileplayers.edit');
+            return redirect()->route('player-dashboard');
         }
 
         // Fallback: show the generic home view

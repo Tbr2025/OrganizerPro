@@ -37,7 +37,7 @@
         :class="isMinified ? 'justify-center px-2' : 'justify-between px-5'"
         class="flex items-center gap-2 sidebar-header py-4 h-[72px] border-b border-gray-200 dark:border-gray-800/50"
         style="transition: padding 200ms ease-out;">
-        <a href="{{ route('admin.dashboard') }}" class="flex items-center min-w-0 overflow-hidden max-w-full flex-1">
+        <a href="{{ route('home') }}" class="flex items-center min-w-0 overflow-hidden max-w-full flex-1">
             <!-- Full Logo (shown when expanded) -->
             <span
                 class="logo flex-shrink-0 overflow-hidden"

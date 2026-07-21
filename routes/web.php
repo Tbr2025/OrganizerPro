@@ -45,6 +45,7 @@ use App\Http\Controllers\Backend\TranslationController;
 use App\Http\Controllers\Backend\UserLoginAsController;
 use App\Http\Controllers\Backend\UsersController;
 use App\Http\Controllers\Backend\PlayerVerificationController;
+use App\Http\Controllers\Backend\PlayerDashboardController as BackendPlayerDashboardController;
 use App\Http\Controllers\Backend\TeamManagerController;
 use App\Http\Controllers\PublicAuctionController;
 use App\Http\Controllers\PublicTeamJoinController;
@@ -101,6 +102,10 @@ Route::get('/pricing', [\App\Http\Controllers\Public\PricingController::class, '
 Route::get('admin/players/sample-csv', [PlayerController::class, 'downloadSampleCsv'])->name('players.sample');
 
 
+
+Route::get('/player-dashboard', [BackendPlayerDashboardController::class, 'index'])
+    ->name('player-dashboard')
+    ->middleware('auth');
 
 Route::group(['prefix' => 'profileplayers', 'as' => 'profileplayers.', 'middleware' => ['auth']], function () {
     Route::get('/edit', [PlayerProfileController::class, 'edit'])->name('edit');
