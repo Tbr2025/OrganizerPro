@@ -843,6 +843,11 @@ class TeamManagerController extends Controller
             $query->where('bowling_profile_id', $bowlingId);
         }
 
+        // Filter by wicket keeper
+        if ($request->get('wk')) {
+            $query->where('is_wicket_keeper', true);
+        }
+
         // Filter by team
         if ($teamFilter = $request->get('team')) {
             $query->where('actual_team_id', $teamFilter);
