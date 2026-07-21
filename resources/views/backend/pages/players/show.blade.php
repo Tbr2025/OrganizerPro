@@ -304,7 +304,7 @@
                     <div class="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer" @click="open = !open">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
-                                {{ $summaryPct === 100 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : ($summaryPct >= 50 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300') }}">
+                                {{ $summaryPct === 100 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : ($summaryPct > 70 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' : ($summaryPct > 40 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300')) }}">
                                 {{ $summaryPct }}%
                             </div>
                             <div class="min-w-0">
