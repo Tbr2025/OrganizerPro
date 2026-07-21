@@ -134,34 +134,48 @@
                     // Playing team counts
                     $regTeamCounts = $regItems->groupBy(fn($r) => $r->player?->actualTeam?->name)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
                 @endphp
+                @php
+                    $regTeamIdMap = $regItems->mapWithKeys(fn($r) => [$r->player?->actualTeam?->name ?? '' => $r->player?->actual_team_id])->filter();
+                @endphp
                 <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-4">
                     <div class="flex items-center gap-2 mb-3">
                         <iconify-icon icon="lucide:bar-chart-3" width="16" class="text-gray-400"></iconify-icon>
-                        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Summary ({{ $regTotal }} players)</h3>
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Filters ({{ $regTotal }} players)</h3>
+                        @if(request()->hasAny(['role', 'batting_profile', 'bowling_profile', 'playing_team']))
+                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except(['role', 'batting_profile', 'bowling_profile', 'playing_team', 'page']))) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear tag filters</a>
+                        @endif
                     </div>
                     <div class="flex flex-wrap gap-2">
                         @foreach($regTypeCounts as $rType => $rCount)
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
-                                {{ $rType }} <span class="bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                            </span>
+                            @php $isActive = request('role') === $rType; @endphp
+                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['role' => $rType])) }}"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20 hover:bg-blue-100' }}">
+                                {{ $rType }} <span class="{{ $isActive ? 'bg-blue-400 text-white' : 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                            </a>
                         @endforeach
 
                         @if($regWkCount > 0)
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20">
-                                Wicket Keeper <span class="bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $regWkCount }}</span>
-                            </span>
+                            @php $isActive = request('role') === 'Wicket Keeper'; @endphp
+                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['role' => 'Wicket Keeper'])) }}"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-orange-600 text-white ring-2 ring-orange-400' : 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20 hover:bg-orange-100' }}">
+                                Wicket Keeper <span class="{{ $isActive ? 'bg-orange-400 text-white' : 'bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $regWkCount }}</span>
+                            </a>
                         @endif
 
                         @foreach($regBatCounts as $rStyle => $rCount)
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20">
-                                {{ $rStyle }} <span class="bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                            </span>
+                            @php $isActive = request('batting_profile') === $rStyle; @endphp
+                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['batting_profile' => $rStyle])) }}"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20 hover:bg-indigo-100' }}">
+                                {{ $rStyle }} <span class="{{ $isActive ? 'bg-indigo-400 text-white' : 'bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                            </a>
                         @endforeach
 
                         @foreach($regBowlCounts as $rStyle => $rCount)
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20">
-                                {{ $rStyle }} <span class="bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                            </span>
+                            @php $isActive = request('bowling_profile') === $rStyle; @endphp
+                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['bowling_profile' => $rStyle])) }}"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-green-600 text-white ring-2 ring-green-400' : 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20 hover:bg-green-100' }}">
+                                {{ $rStyle }} <span class="{{ $isActive ? 'bg-green-400 text-white' : 'bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                            </a>
                         @endforeach
 
                         @if($regTransportCount > 0)
@@ -171,9 +185,17 @@
                         @endif
 
                         @foreach($regTeamCounts as $rTeam => $rCount)
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-400/20">
-                                {{ $rTeam }} <span class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                            </span>
+                            @php $teamId = $regTeamIdMap[$rTeam] ?? null; $isActive = $teamId && request('playing_team') == $teamId; @endphp
+                            @if($teamId)
+                                <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['playing_team' => $teamId])) }}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-gray-700 text-white ring-2 ring-gray-500' : 'bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-400/20 hover:bg-gray-200' }}">
+                                    {{ $rTeam }} <span class="{{ $isActive ? 'bg-gray-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                                </a>
+                            @else
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-400/20">
+                                    {{ $rTeam }} <span class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                                </span>
+                            @endif
                         @endforeach
                     </div>
                 </div>

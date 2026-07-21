@@ -100,6 +100,26 @@ class TournamentRegistrationController extends Controller
             }
         }
 
+        // Filter by player type (role)
+        if ($request->get('role') && $type === 'player') {
+            $role = $request->get('role');
+            if ($role === 'Wicket Keeper') {
+                $query->where('players.is_wicket_keeper', true);
+            } else {
+                $query->whereHas('player.playerType', fn($q) => $q->where('type', $role));
+            }
+        }
+
+        // Filter by batting profile
+        if ($request->get('batting_profile') && $type === 'player') {
+            $query->whereHas('player.battingProfile', fn($q) => $q->where('style', $request->get('batting_profile')));
+        }
+
+        // Filter by bowling profile
+        if ($request->get('bowling_profile') && $type === 'player') {
+            $query->whereHas('player.bowlingProfile', fn($q) => $q->where('style', $request->get('bowling_profile')));
+        }
+
         if ($tournamentType !== '' && $type === 'player') {
             $filteredTeamIds = ActualTeam::where(function ($q) use ($tournamentType) {
                 $q->whereHas('tournament', fn($sub) => $sub->where('type', $tournamentType))
