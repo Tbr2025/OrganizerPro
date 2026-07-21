@@ -123,25 +123,28 @@
 
                                 // Collect all form fields and compute verification counts
                                 $skip = ['name', 'image', 'terms_and_conditions'];
-                                $allFields = [];
                                 $vTotal = 0; $vDone = 0;
-                                if ($player?->image_path) { $vTotal++; if (in_array('image', $verifiedFields, true)) $vDone++; }
+                                $unverifiedLabels = [];
+                                if ($player?->image_path) {
+                                    $vTotal++;
+                                    if (in_array('image', $verifiedFields, true)) { $vDone++; }
+                                    else { $unverifiedLabels[] = 'Photo'; }
+                                }
                                 foreach ($layout as $sec) {
                                     foreach ($sec['fields'] as $fk) {
                                         if (in_array($fk, $skip)) continue;
-                                        $allFields[] = $fk;
                                         $vTotal++;
-                                        if (in_array($fk, $verifiedFields, true)) $vDone++;
+                                        if (in_array($fk, $verifiedFields, true)) { $vDone++; }
+                                        else { $unverifiedLabels[] = $fieldConfig[$fk]['label'] ?? ucwords(str_replace('_', ' ', $fk)); }
                                     }
                                     $secCustom = $reg->tournament?->customFields?->where('form', 'player')->where('visible', true)->where('section', $sec['key']) ?? collect();
                                     foreach ($secCustom as $scf) {
                                         $vTotal++;
-                                        if (in_array('cf_' . $scf->id, $verifiedFields, true)) $vDone++;
+                                        if (in_array('cf_' . $scf->id, $verifiedFields, true)) { $vDone++; }
+                                        else { $unverifiedLabels[] = $scf->label ?? ('Custom Field #' . $scf->id); }
                                     }
                                 }
                                 $vPct = $vTotal > 0 ? round(($vDone / $vTotal) * 100) : 0;
-                                $unverifiedFields = array_filter($allFields, fn($f) => !in_array($f, $verifiedFields));
-                                $unverifiedLabels = array_map(fn($f) => $fieldConfig[$f]['label'] ?? ucwords(str_replace('_', ' ', $f)), $unverifiedFields);
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                 <td class="px-4 py-3 whitespace-nowrap">
