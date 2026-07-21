@@ -134,6 +134,7 @@ class PlayerController extends Controller
             'sort'             => request('sort'),
             'need_transport'   => request('need_transport'),
             'source'           => request('source'),
+            'verification'     => request('verification'),
         ];
 
         // 2. Start the base query with all necessary relationships for performance
@@ -150,7 +151,7 @@ class PlayerController extends Controller
             'bowlingProfile',
             'creator', // who added the player (null = self-registered)
             'registeredTournaments', // tournament tags in the listing
-            'registrations' => fn($q) => $q->where('status', 'approved')->with('tournament.settings')->latest()->limit(1),
+            'registrations' => fn($q) => $q->where('status', 'approved')->with(['tournament.settings', 'tournament.customFields'])->latest()->limit(1),
         ]);
 
         // Filter out orphaned player records (no associated user)
@@ -249,9 +250,55 @@ class PlayerController extends Controller
                             $q->orderByDesc('updated_at');
                         }
                 }
-            })
-            ->paginate(100) // Pagination set to 100
-            ->appends($filters); // Ensures filters are remembered on pagination links
+            });
+
+        // Branch: verification filter needs post-fetch computation
+        if ($filters['verification']) {
+            $allPlayers = $query->get();
+
+            $allPlayers = $allPlayers->filter(function ($player) use ($filters) {
+                $reg = $player->registrations->first();
+                $regVerified = (array) ($reg?->verified_fields ?? []);
+                $regSettings = $reg?->tournament?->settings;
+                $vLayout = PlayerFormConfig::getFormLayout($regSettings, false);
+                $vCustom = $reg?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
+                $skip = ['name', 'image', 'terms_and_conditions'];
+                $vTotal = 0; $vDone = 0;
+                if ($player->image_path) { $vTotal++; if (in_array('image', $regVerified, true)) $vDone++; }
+                foreach ($vLayout as $sec) {
+                    foreach ($sec['fields'] as $fk) {
+                        if (in_array($fk, $skip, true)) continue;
+                        $vTotal++;
+                        if (in_array($fk, $regVerified, true)) $vDone++;
+                    }
+                    foreach (($vCustom->where('section', $sec['key']) ?? collect()) as $scf) {
+                        $vTotal++;
+                        if (in_array('cf_' . $scf->id, $regVerified, true)) $vDone++;
+                    }
+                }
+                $pct = $vTotal > 0 ? (int) round(($vDone / $vTotal) * 100) : 0;
+
+                return match ($filters['verification']) {
+                    'full'    => $pct === 100,
+                    'partial' => $pct > 0 && $pct < 100,
+                    'none'    => $pct === 0,
+                    default   => true,
+                };
+            });
+
+            $page = request()->input('page', 1);
+            $perPage = 100;
+            $players = new \Illuminate\Pagination\LengthAwarePaginator(
+                $allPlayers->forPage($page, $perPage)->values(),
+                $allPlayers->count(),
+                $perPage,
+                $page,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+            $players->appends($filters);
+        } else {
+            $players = $query->paginate(100)->appends($filters);
+        }
 
         // 5. Fetch data needed for the filter dropdowns
         $selectedTournamentId = $filters['tournament'];

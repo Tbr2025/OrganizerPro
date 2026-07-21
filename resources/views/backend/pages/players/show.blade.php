@@ -298,7 +298,7 @@
                         }
                     }
                     $summaryPending = $summaryTotal - $summaryVerified;
-                    $summaryPct = $summaryTotal > 0 ? round(($summaryVerified / $summaryTotal) * 100) : 0;
+                    $summaryPct = $summaryTotal > 0 ? (int) round(($summaryVerified / $summaryTotal) * 100) : 0;
                 @endphp
 
                 {{-- Verification Summary Panel --}}

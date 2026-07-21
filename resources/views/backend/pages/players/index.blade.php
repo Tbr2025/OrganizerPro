@@ -135,6 +135,17 @@
                         </select>
                     </div>
 
+                    {{-- Verification --}}
+                    <div>
+                        <label for="verification" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Verification</label>
+                        <select name="verification" id="verification" class="form-control mt-1">
+                            <option value="">All</option>
+                            <option value="full" @selected(request('verification') == 'full')>Fully Verified (100%)</option>
+                            <option value="partial" @selected(request('verification') == 'partial')>Partially Verified</option>
+                            <option value="none" @selected(request('verification') == 'none')>Not Verified (0%)</option>
+                        </select>
+                    </div>
+
                     {{-- Sort by --}}
                     <div>
                         <label for="sort" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Sort by</label>
@@ -480,7 +491,7 @@
                                                     if (in_array('cf_' . $scf->id, $regVerified, true)) $vDone++;
                                                 }
                                             }
-                                            $pct = $vTotal > 0 ? round(($vDone / $vTotal) * 100) : 0;
+                                            $pct = $vTotal > 0 ? (int) round(($vDone / $vTotal) * 100) : 0;
                                             $radius = 16;
                                             $circumference = 2 * 3.14159 * $radius;
                                             $offset = $circumference - ($pct / 100) * $circumference;

@@ -144,7 +144,7 @@
                                         else { $unverifiedLabels[] = $scf->label ?? ('Custom Field #' . $scf->id); }
                                     }
                                 }
-                                $vPct = $vTotal > 0 ? round(($vDone / $vTotal) * 100) : 0;
+                                $vPct = $vTotal > 0 ? (int) round(($vDone / $vTotal) * 100) : 0;
                             @endphp
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                 <td class="px-4 py-3 whitespace-nowrap">
