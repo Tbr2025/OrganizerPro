@@ -151,7 +151,7 @@ class PlayerController extends Controller
             'bowlingProfile',
             'creator', // who added the player (null = self-registered)
             'registeredTournaments', // tournament tags in the listing
-            'registrations' => fn($q) => $q->where('status', 'approved')->with(['tournament.settings', 'tournament.customFields'])->latest()->limit(1),
+            'registrations' => fn($q) => $q->with('tournament:id,name,slug')->latest(),
         ]);
 
         // Filter out orphaned player records (no associated user)

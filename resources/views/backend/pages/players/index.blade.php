@@ -472,7 +472,8 @@
                                     </td>
                                     <td class="px-3 py-3.5 whitespace-nowrap">
                                         @php
-                                            $reg = $player->registrations->first();
+                                            $reg = $player->registrations->where('status', 'approved')->first()
+                                                ?? $player->registrations->first();
                                             $regVerified = (array) ($reg?->verified_fields ?? []);
                                             $regSettings = $reg?->tournament?->settings;
                                             $vLayout = \App\Helpers\PlayerFormConfig::getFormLayout($regSettings, false);
@@ -508,15 +509,26 @@
                                             </svg>
                                         </div>
                                     </td>
-                                    <td class="px-3 py-3.5 whitespace-nowrap">
-                                        <div class="flex flex-wrap gap-1">
-                                            @if ($player->status === 'approved')
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400">Player Approved</span>
-                                            @elseif ($player->status === 'rejected')
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-400">Player Rejected</span>
-                                            @else
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-500/10 dark:text-amber-400">Player Pending</span>
-                                            @endif
+                                    <td class="px-3 py-3.5">
+                                        <div class="flex flex-col gap-1 max-w-[180px]">
+                                            @php $playerRegs = $player->registrations->whereIn('status', ['approved','pending','queued','rejected']); @endphp
+                                            @forelse($playerRegs as $pReg)
+                                                @php
+                                                    $sBadge = match($pReg->status) {
+                                                        'approved' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400',
+                                                        'rejected' => 'bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-400',
+                                                        'queued' => 'bg-sky-50 text-sky-700 ring-sky-600/10 dark:bg-sky-500/10 dark:text-sky-400',
+                                                        default => 'bg-amber-50 text-amber-700 ring-amber-600/10 dark:bg-amber-500/10 dark:text-amber-400',
+                                                    };
+                                                    $sLabel = ucfirst($pReg->status);
+                                                    $tName = \Illuminate\Support\Str::limit($pReg->tournament?->name ?? '—', 16);
+                                                @endphp
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 ring-inset {{ $sBadge }}" title="{{ $pReg->tournament?->name }} — {{ $sLabel }}">
+                                                    {{ $sLabel }} <span class="opacity-60 font-normal truncate">{{ $tName }}</span>
+                                                </span>
+                                            @empty
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-gray-50 text-gray-500 ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-400">No Registration</span>
+                                            @endforelse
                                             @if($player->user?->hasRole('Team Manager'))
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-indigo-50 text-indigo-700 ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-400">Team Manager</span>
                                             @endif
@@ -527,12 +539,12 @@
                                     <td class="px-3 py-3.5 whitespace-nowrap text-right text-sm font-medium">
                                         {{-- Actions Kebab Menu --}}
                                         <div x-data="{ open: false, menuStyle: '' }" class="relative">
-                                            <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); menuStyle = 'position:fixed;top:'+(r.bottom+4)+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
+                                            <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); let spaceBelow = window.innerHeight - r.bottom; let top = spaceBelow < 220 ? Math.max(8, r.top - 220) : (r.bottom + 4); menuStyle = 'position:fixed;top:'+top+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
                                                 class="p-2 text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150">
                                                 <iconify-icon icon="lucide:more-vertical" width="18"></iconify-icon>
                                             </button>
                                             <div x-show="open" x-transition :style="menuStyle"
-                                                class="w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none"
+                                                class="w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none max-h-[70vh] overflow-y-auto"
                                                 style="display: none;">
                                                 <div class="py-1" role="menu" aria-orientation="vertical">
                                                     @canany(['player.show', 'player.view'])
@@ -763,12 +775,12 @@
                                     <td class="px-3 py-3.5 whitespace-nowrap text-right text-sm font-medium">
                                         {{-- Actions Kebab Menu --}}
                                         <div x-data="{ open: false, menuStyle: '' }" class="relative">
-                                            <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); menuStyle = 'position:fixed;top:'+(r.bottom+4)+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
+                                            <button @click="open = !open; if(open) { let r = $el.getBoundingClientRect(); let spaceBelow = window.innerHeight - r.bottom; let top = spaceBelow < 220 ? Math.max(8, r.top - 220) : (r.bottom + 4); menuStyle = 'position:fixed;top:'+top+'px;right:'+(window.innerWidth-r.right)+'px;z-index:50;'; }" @click.away="open = false"
                                                 class="p-2 text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150">
                                                 <iconify-icon icon="lucide:more-vertical" width="18"></iconify-icon>
                                             </button>
                                             <div x-show="open" x-transition :style="menuStyle"
-                                                class="w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none"
+                                                class="w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 focus:outline-none max-h-[70vh] overflow-y-auto"
                                                 style="display: none;">
                                                 <div class="py-1" role="menu" aria-orientation="vertical">
                                                     @canany(['player.show', 'player.view'])
