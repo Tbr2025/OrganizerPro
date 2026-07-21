@@ -100,7 +100,7 @@
             $batIdMap = $allItems->mapWithKeys(fn($p) => [$p->battingProfile?->style ?? '' => $p->batting_profile_id])->filter();
             $bowlCounts = $allItems->groupBy(fn($p) => $p->bowlingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
             $bowlIdMap = $allItems->mapWithKeys(fn($p) => [$p->bowlingProfile?->style ?? '' => $p->bowling_profile_id])->filter();
-            $teamCounts = $allItems->groupBy(fn($p) => $p->actualTeam?->name ?? 'Unassigned')->map->count()->sortDesc();
+            $teamCounts = $allItems->groupBy(fn($p) => $p->actualTeam?->name ?? $p->playing_team_name_ref ?? 'Unassigned')->map->count()->sortDesc();
             $teamIdMap = $allItems->mapWithKeys(fn($p) => [$p->actualTeam?->name ?? 'Unassigned' => $p->actual_team_id])->filter();
         @endphp
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-4">
@@ -209,7 +209,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4">{{ $player->actualTeam->name ?? '-' }}</td>
+                                <td class="px-6 py-4">{{ $player->actualTeam?->name ?? $player->playing_team_name_ref ?? '-' }}</td>
                                 <td class="px-6 py-4">
                                     @if($player->player_mode === 'retained')
                                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm">
