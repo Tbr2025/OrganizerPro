@@ -147,6 +147,7 @@ class PlayerController extends Controller
             'battingProfile',
             'bowlingProfile',
             'registeredTournaments', // tournament tags in the listing
+            'registrations' => fn($q) => $q->where('status', 'approved')->with('tournament.settings')->latest()->limit(1),
         ]);
 
         // Filter out orphaned player records (no associated user)

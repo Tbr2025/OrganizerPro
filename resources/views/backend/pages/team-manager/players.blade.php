@@ -212,25 +212,23 @@
                                 </td>
                                 <td class="px-6 py-4">
                                     @php
-                                        $verifiedFields = [
-                                            $player->verified_name,
-                                            $player->verified_email,
-                                            $player->verified_image_path,
-                                            $player->verified_mobile_number_full,
-                                            $player->verified_cricheroes_number_full,
-                                            $player->verified_jersey_name,
-                                            $player->verified_jersey_number,
-                                            $player->verified_team_id,
-                                            $player->verified_kit_size_id,
-                                            $player->verified_batting_profile_id,
-                                            $player->verified_bowling_profile_id,
-                                            $player->verified_player_type_id,
-                                            $player->verified_is_wicket_keeper,
-                                            $player->verified_transportation_required,
-                                        ];
-                                        $verifiedCount = count(array_filter($verifiedFields));
-                                        $totalFields = count($verifiedFields);
-                                        $pct = round(($verifiedCount / $totalFields) * 100);
+                                        $reg = $player->registrations->first();
+                                        $regVerified = (array) ($reg?->verified_fields ?? []);
+                                        $skip = ['name', 'image', 'terms_and_conditions'];
+                                        $vTotal = 0; $vDone = 0;
+                                        if ($player->image_path) { $vTotal++; if (in_array('image', $regVerified, true)) $vDone++; }
+                                        foreach ($verifyLayout as $sec) {
+                                            foreach ($sec['fields'] as $fk) {
+                                                if (in_array($fk, $skip, true)) continue;
+                                                $vTotal++;
+                                                if (in_array($fk, $regVerified, true)) $vDone++;
+                                            }
+                                            foreach (($verifyCustomFields->where('section', $sec['key']) ?? collect()) as $scf) {
+                                                $vTotal++;
+                                                if (in_array('cf_' . $scf->id, $regVerified, true)) $vDone++;
+                                            }
+                                        }
+                                        $pct = $vTotal > 0 ? round(($vDone / $vTotal) * 100) : 0;
                                         $radius = 16;
                                         $circumference = 2 * 3.14159 * $radius;
                                         $offset = $circumference - ($pct / 100) * $circumference;

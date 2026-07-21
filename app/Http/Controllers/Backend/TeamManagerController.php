@@ -818,7 +818,9 @@ class TeamManagerController extends Controller
                 $q->where('player_mode', '!=', 'retained')
                   ->orWhereNull('player_mode');
             })
-            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'location', 'kitSize']);
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'location', 'kitSize',
+                'registrations' => fn($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved')->limit(1),
+            ]);
 
         // Search by name or jersey name
         if ($search = $request->get('search')) {
@@ -870,9 +872,17 @@ class TeamManagerController extends Controller
 
         $breadcrumbs = ['title' => __('Players')];
 
+        // Tournament settings for verification percentage calculation
+        $tournament = \App\Models\Tournament::find($tournamentId);
+        $tournamentSettings = $tournament?->settings;
+        $verifyLayout = \App\Helpers\PlayerFormConfig::getFormLayout($tournamentSettings, false);
+        $verifyFieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig($tournamentSettings);
+        $verifyCustomFields = $tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
+
         return view('backend.pages.team-manager.players', compact(
             'team', 'players', 'wishlistedIds', 'breadcrumbs',
-            'playerTypes', 'battingProfiles', 'bowlingProfiles', 'teams'
+            'playerTypes', 'battingProfiles', 'bowlingProfiles', 'teams',
+            'verifyLayout', 'verifyFieldConfig', 'verifyCustomFields'
         ));
     }
 
