@@ -148,7 +148,7 @@
                                                         </div>
                                                         <div>
                                                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Link URL (optional)</label>
-                                                            <input type="url" name="link_url" value="{{ $banner->link_url }}" placeholder="https://..." class="w-full text-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 px-3 py-1.5">
+                                                            <input type="text" name="link_url" value="{{ $banner->link_url }}" placeholder="https://..." class="w-full text-xs rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 px-3 py-1.5">
                                                         </div>
                                                         <div>
                                                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alt Text (optional)</label>
@@ -200,7 +200,7 @@
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Link URL (optional)</label>
-                                            <input type="url" name="link_url" placeholder="https://..." class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 px-3 py-2">
+                                            <input type="text" name="link_url" placeholder="https://..." class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 px-3 py-2">
                                         </div>
                                         <div class="sm:col-span-2">
                                             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Alt Text (optional)</label>

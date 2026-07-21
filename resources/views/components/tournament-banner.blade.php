@@ -31,19 +31,18 @@
                     }
                  }"
                  class="tournament-banner-slot w-full overflow-hidden my-4" id="{{ $uniqueId }}">
-                <div class="relative">
+                <div class="relative w-full">
                     @foreach($banners as $index => $banner)
                         <div x-show="current === {{ $index }}"
                              x-transition:enter="transition ease-out duration-500"
                              x-transition:enter-start="opacity-0"
                              x-transition:enter-end="opacity-100"
-                             x-transition:leave="transition ease-in duration-300"
+                             x-transition:leave="transition ease-in duration-300 absolute inset-0"
                              x-transition:leave-start="opacity-100"
                              x-transition:leave-end="opacity-0"
-                             class="w-full"
-                             style="{{ $index > 0 ? 'position:absolute;top:0;left:0;right:0;' : '' }}">
+                             class="w-full">
                             @if($banner->link_url)
-                                <a href="{{ $banner->link_url }}" target="_blank" rel="noopener noreferrer">
+                                <a href="{{ $banner->link_url }}" target="_blank" rel="noopener noreferrer" class="block">
                             @endif
                             <img src="{{ $banner->image_url }}"
                                  alt="{{ $banner->alt_text ?? 'Banner' }}"
@@ -74,7 +73,7 @@
             @php $banner = $banners->first(); @endphp
             <div class="tournament-banner-slot w-full my-4" id="{{ $uniqueId }}">
                 @if($banner->link_url)
-                    <a href="{{ $banner->link_url }}" target="_blank" rel="noopener noreferrer">
+                    <a href="{{ $banner->link_url }}" target="_blank" rel="noopener noreferrer" class="block">
                 @endif
                 <img src="{{ $banner->image_url }}"
                      alt="{{ $banner->alt_text ?? 'Banner' }}"
