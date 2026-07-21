@@ -12,33 +12,33 @@
     @endif
 
     {{-- Player Profile Header --}}
-    <div class="relative overflow-hidden rounded-2xl p-6 md:p-8 mb-8" style="background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #065f46 100%)">
+    <div class="relative overflow-hidden rounded-2xl p-4 sm:p-6 md:p-8 mb-8" style="background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #065f46 100%)">
         <div class="absolute inset-0 opacity-10">
             <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none"><path d="M0 100 Q100 20 200 100 T400 100 L400 200 L0 200 Z" fill="white"/></svg>
         </div>
-        <div class="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div class="flex items-center gap-5">
+        <div class="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
+            <div class="flex items-center gap-3 sm:gap-5">
                 @if($player->profile_image)
-                    <img src="{{ asset('storage/' . $player->profile_image) }}" alt="{{ $player->name }}" class="w-20 h-20 rounded-xl object-cover border-2 border-white/30 shadow-lg">
+                    <img src="{{ asset('storage/' . $player->profile_image) }}" alt="{{ $player->name }}" class="w-14 h-14 sm:w-20 sm:h-20 rounded-xl object-cover border-2 border-white/30 shadow-lg">
                 @else
-                    <div class="w-20 h-20 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-2xl font-bold border border-white/20">
+                    <div class="w-14 h-14 sm:w-20 sm:h-20 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xl sm:text-2xl font-bold border border-white/20">
                         {{ strtoupper(substr($player->first_name ?? $player->name, 0, 1)) }}{{ strtoupper(substr($player->last_name ?? '', 0, 1)) }}
                     </div>
                 @endif
                 <div>
-                    <h1 class="text-2xl md:text-3xl font-bold text-white">{{ $player->name }}</h1>
-                    <p class="text-white/70 text-sm mt-1">{{ $player->email }}</p>
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-white">{{ $player->name }}</h1>
+                    <p class="text-white/70 text-xs sm:text-sm mt-1">{{ $player->email }}</p>
                     @if($player->jersey_name)
                         <p class="text-white/60 text-xs mt-0.5">Jersey: {{ $player->jersey_name }} @if($player->jersey_number)#{{ $player->jersey_number }}@endif</p>
                     @endif
                 </div>
             </div>
-            <div class="flex flex-wrap gap-3">
-                <a href="{{ route('profileplayers.edit') }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-xl text-sm font-medium transition-all border border-white/20">
+            <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <a href="{{ route('profileplayers.edit') }}" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-emerald-700 hover:bg-emerald-50 rounded-xl text-sm font-semibold transition-all shadow-md hover:shadow-lg">
                     <iconify-icon icon="lucide:edit-3" width="16" height="16"></iconify-icon>
                     Edit Registration
                 </a>
-                <a href="{{ route('profile.edit') }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-xl text-sm font-medium transition-all border border-white/20">
+                <a href="{{ route('profile.edit') }}" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white rounded-xl text-sm font-semibold transition-all border border-white/30 hover:border-white/50">
                     <iconify-icon icon="lucide:settings" width="16" height="16"></iconify-icon>
                     Account Settings
                 </a>
