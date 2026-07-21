@@ -12,7 +12,7 @@
     @endif
 
     {{-- Player Profile Header --}}
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-800 p-6 md:p-8 mb-8">
+    <div class="relative overflow-hidden rounded-2xl p-6 md:p-8 mb-8" style="background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #065f46 100%)">
         <div class="absolute inset-0 opacity-10">
             <svg class="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none"><path d="M0 100 Q100 20 200 100 T400 100 L400 200 L0 200 Z" fill="white"/></svg>
         </div>
