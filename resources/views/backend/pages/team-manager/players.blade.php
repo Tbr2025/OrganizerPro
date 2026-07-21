@@ -123,7 +123,12 @@
                                             </div>
                                         @endif
                                         <div>
-                                            <div class="font-medium text-gray-900 dark:text-white">{{ $player->name }}</div>
+                                            <div class="font-medium text-gray-900 dark:text-white">
+                                                {{ $player->name }}
+                                                @if($player->is_wicket_keeper)
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 ml-1">WK</span>
+                                                @endif
+                                            </div>
                                             <div class="flex flex-wrap gap-1 mt-0.5">
                                                 @if($player->playerType)
                                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">{{ $player->playerType->type }}</span>

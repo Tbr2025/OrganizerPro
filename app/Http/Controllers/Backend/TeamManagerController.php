@@ -897,22 +897,21 @@ class TeamManagerController extends Controller
                 ->with('error', 'Player not found in your tournament.');
         }
 
-        $verifiedFields = [
-            'name' => (bool) $player->verified_name,
-            'email' => (bool) $player->verified_email,
-            'mobile_number_full' => (bool) $player->verified_mobile_number_full,
-            'cricheroes_number_full' => (bool) $player->verified_cricheroes_number_full,
-            'jersey_name' => (bool) $player->verified_jersey_name,
-            'kit_size_id' => (bool) $player->verified_kit_size_id,
-            'batting_profile_id' => (bool) $player->verified_batting_profile_id,
-            'bowling_profile_id' => (bool) $player->verified_bowling_profile_id,
-            'player_type_id' => (bool) $player->verified_player_type_id,
-            'team_id' => (bool) $player->verified_team_id,
-            'is_wicket_keeper' => (bool) $player->verified_is_wicket_keeper,
-            'transportation_required' => (bool) $player->verified_transportation_required,
-            'no_travel_plan' => (bool) $player->verified_no_travel_plan,
-            'image_path' => (bool) $player->verified_image_path,
-        ];
+        // Load registrations with tournament for the context selector
+        $registrations = $player->registrations()->with('tournament')->latest()->get();
+        $selectedRegistration = $registrations->firstWhere('tournament_id', $tournamentId) ?? $registrations->first();
+
+        // Tournament-context-aware form layout
+        $settings = $selectedRegistration?->tournament?->settings;
+        $layout = PlayerFormConfig::getFormLayout($settings, false);
+        $fieldConfig = PlayerFormConfig::getFieldConfig($settings);
+
+        // Verified fields from selected registration
+        $verifiedFields = (array) ($selectedRegistration?->verified_fields ?? []);
+
+        // Custom fields for selected tournament
+        $customFields = $selectedRegistration?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
+        $customValues = (array) ($selectedRegistration?->custom_field_values ?? []);
 
         $tournamentAssignments = DB::table('player_actual_team_tournament')
             ->join('tournaments', 'tournaments.id', '=', 'player_actual_team_tournament.tournament_id')
@@ -951,6 +950,12 @@ class TeamManagerController extends Controller
             'tournamentAssignments' => $tournamentAssignments,
             'tournamentStats' => $tournamentStats,
             'actualTeams' => collect(),
+            'registrations' => $registrations,
+            'selectedRegistration' => $selectedRegistration,
+            'layout' => $layout,
+            'fieldConfig' => $fieldConfig,
+            'customFields' => $customFields,
+            'customValues' => $customValues,
         ]);
     }
 

@@ -73,10 +73,12 @@
         @php
             // Only show users who are actual activated players (not Owner/Manager/Team Manager)
             $nonPlayerRoles = ['Owner', 'Manager', 'Team Manager'];
+            $isAuctionTournament = $actualTeam->tournament && method_exists($actualTeam->tournament, 'isAuction') && $actualTeam->tournament->isAuction();
             $players = $actualTeam->users->filter(fn($u) =>
                 !in_array($u->pivot->role, $nonPlayerRoles)
                 && $u->player
                 && $u->player->status === 'approved'
+                && (!$isAuctionTournament || in_array($u->player->player_mode, ['retained', 'sold']))
             );
             $teamOwner = $actualTeam->users->first(fn($u) => $u->pivot->role === 'Owner');
             $teamManager = $actualTeam->users->first(fn($u) => in_array($u->pivot->role, ['Manager', 'Team Manager']));
@@ -174,6 +176,15 @@
             $pivotPlayersByTournament = $pivotPlayers->groupBy('tournament_id');
             $pivotPlayerIds = $pivotPlayers->pluck('player_id')->unique()->toArray();
             $pivotPlayersMap = \App\Models\Player::whereIn('id', $pivotPlayerIds)->get()->keyBy('id');
+
+            // For auction tournaments, filter pivot roster to only retained/sold players
+            if ($isAuctionTournament) {
+                $pivotPlayers = $pivotPlayers->filter(function ($assignment) use ($pivotPlayersMap) {
+                    $player = $pivotPlayersMap->get($assignment->player_id);
+                    return $player && in_array($player->player_mode, ['retained', 'sold']);
+                });
+                $pivotPlayersByTournament = $pivotPlayers->groupBy('tournament_id');
+            }
             $showEffectiveTournaments = $actualTeam->effective_tournaments;
         @endphp
 

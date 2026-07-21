@@ -509,12 +509,16 @@ class AdminMenuService
             ],
         ]);
         $pendingApprovalsCount = TournamentRegistration::whereNotNull('pending_changes')->count();
+        $requestedChangesCount = TournamentRegistration::where('status', 'pending')
+            ->whereNotNull('verified_fields')
+            ->where('type', 'player')
+            ->count();
 
         $this->addMenuItem([
             'label' => __('Tournaments'),
             'icon' => 'feather:flag',
             'id' => 'tournaments-submenu',
-            'active' => Route::is('admin.tournaments.*') || Route::is('admin.pending-approvals.*') || Route::is('admin.profile-tracking.*'),
+            'active' => Route::is('admin.tournaments.*') || Route::is('admin.pending-approvals.*') || Route::is('admin.profile-tracking.*') || Route::is('admin.requested-changes.*'),
             'priority' => 24,
             'badge' => $pendingApprovalsCount ?: null,
             'badgeColor' => 'bg-amber-500 text-white',
@@ -554,6 +558,15 @@ class AdminMenuService
                     'permissions' => 'player.view',
                     'badge' => $pendingApprovalsCount ?: null,
                     'badgeColor' => 'bg-amber-500 text-white',
+                ],
+                [
+                    'label' => __('Requested Changes'),
+                    'route' => route('admin.requested-changes.index'),
+                    'active' => Route::is('admin.requested-changes.*'),
+                    'priority' => 35,
+                    'permissions' => 'player.view',
+                    'badge' => $requestedChangesCount ?: null,
+                    'badgeColor' => 'bg-orange-500 text-white',
                 ],
                 [
                     'label' => __('Track Profiles'),
