@@ -170,6 +170,7 @@
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
                             <th class="px-6 py-3">Player</th>
+                            <th class="px-6 py-3">Verified</th>
                             <th class="px-6 py-3">Team</th>
                             <th class="px-6 py-3">Status</th>
                             <th class="px-6 py-3">Role</th>
@@ -207,6 +208,43 @@
                                                 @endif
                                             </div>
                                         </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    @php
+                                        $verifiedFields = [
+                                            $player->verified_name,
+                                            $player->verified_email,
+                                            $player->verified_image_path,
+                                            $player->verified_mobile_number_full,
+                                            $player->verified_cricheroes_number_full,
+                                            $player->verified_jersey_name,
+                                            $player->verified_jersey_number,
+                                            $player->verified_team_id,
+                                            $player->verified_kit_size_id,
+                                            $player->verified_batting_profile_id,
+                                            $player->verified_bowling_profile_id,
+                                            $player->verified_player_type_id,
+                                            $player->verified_is_wicket_keeper,
+                                            $player->verified_transportation_required,
+                                        ];
+                                        $verifiedCount = count(array_filter($verifiedFields));
+                                        $totalFields = count($verifiedFields);
+                                        $pct = round(($verifiedCount / $totalFields) * 100);
+                                        $radius = 16;
+                                        $circumference = 2 * 3.14159 * $radius;
+                                        $offset = $circumference - ($pct / 100) * $circumference;
+                                        $color = $pct === 100 ? '#22c55e' : ($pct >= 50 ? '#f59e0b' : '#ef4444');
+                                    @endphp
+                                    <div class="flex items-center justify-center">
+                                        <svg width="42" height="42" viewBox="0 0 42 42">
+                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="{{ $color }}" stroke-width="3"
+                                                stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}"
+                                                stroke-linecap="round" transform="rotate(-90 21 21)"/>
+                                            <text x="21" y="21" text-anchor="middle" dominant-baseline="central"
+                                                class="fill-gray-700 dark:fill-gray-200" style="font-size: 10px; font-weight: 600;">{{ $pct }}%</text>
+                                        </svg>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">{{ $player->actualTeam?->name ?? $player->playing_team_name_ref ?? '-' }}</td>
