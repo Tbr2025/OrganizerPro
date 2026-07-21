@@ -4,6 +4,21 @@
 {{ __('Email Preview') }} | {{ config('app.name') }}
 @endsection
 
+@push('styles')
+<link rel="stylesheet" href="{{ asset('vendor/quill/quill.min.css') }}">
+<style>
+    .ql-editor { min-height: 180px; max-height: 350px; overflow-y: auto; }
+    .dark .ql-toolbar.ql-snow { border-color: #374151; background: #1f2937; }
+    .dark .ql-toolbar .ql-stroke { stroke: #9ca3af !important; }
+    .dark .ql-toolbar .ql-fill { fill: #9ca3af !important; }
+    .dark .ql-toolbar .ql-picker-label { color: #9ca3af !important; }
+    .dark .ql-toolbar .ql-picker-options { background: #1f2937; border-color: #374151; }
+    .dark .ql-container.ql-snow { border-color: #374151; background: #111827; }
+    .dark .ql-editor { color: #e5e7eb; }
+    .dark .ql-editor.ql-blank::before { color: #6b7280; }
+</style>
+@endpush
+
 @section('admin-content')
 <div class="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6" x-data="emailEditors()">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -71,7 +86,9 @@
         {{-- Email cards --}}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
             @foreach($editors as $type => $e)
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden flex flex-col" x-data="{ editing: false, showVars: false }">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden flex flex-col"
+                     x-data="{ editing: false, showVars: false }"
+                     x-effect="if (editing && modes['{{ $type }}'] === 'visual') $nextTick(() => initQuill('{{ $type }}'))">
                     <div class="px-4 py-3 border-b dark:border-gray-700 flex items-start justify-between gap-2">
                         <div>
                             <h2 class="font-semibold text-sm text-gray-900 dark:text-white">{{ $e['label'] }}</h2>
@@ -99,7 +116,17 @@
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="block text-[11px] font-medium text-gray-500">{{ __('HTML body') }}</label>
-                                <button type="button" @click="showVars = !showVars" class="text-[11px] text-indigo-600 hover:underline">{{ __('Placeholders') }}</button>
+                                <div class="flex items-center gap-2">
+                                    <div class="inline-flex rounded overflow-hidden border dark:border-gray-600 text-[11px]">
+                                        <button type="button" @click="switchMode('{{ $type }}', 'visual')"
+                                                :class="modes['{{ $type }}'] === 'visual' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
+                                                class="px-2 py-0.5">{{ __('Visual') }}</button>
+                                        <button type="button" @click="switchMode('{{ $type }}', 'code')"
+                                                :class="modes['{{ $type }}'] === 'code' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
+                                                class="px-2 py-0.5">{{ __('Code') }}</button>
+                                    </div>
+                                    <button type="button" @click="showVars = !showVars" class="text-[11px] text-indigo-600 hover:underline">{{ __('Placeholders') }}</button>
+                                </div>
                             </div>
                             <div x-show="showVars" x-cloak class="mb-2 p-2 rounded bg-white dark:bg-gray-800 border dark:border-gray-700 text-[11px] text-gray-600 dark:text-gray-300 flex flex-wrap gap-1">
                                 @foreach($e['placeholders'] as $ph)
@@ -107,7 +134,12 @@
                                           @click="insertVar('{{ $type }}', '{{ $ph }}')">{{ $ph }}</code>
                                 @endforeach
                             </div>
-                            <textarea x-model="t['{{ $type }}'].body" rows="12" spellcheck="false"
+                            {{-- Quill WYSIWYG editor (Visual mode) --}}
+                            <div x-show="modes['{{ $type }}'] === 'visual'" class="rounded border dark:border-gray-600 overflow-hidden">
+                                <div id="quill-{{ $type }}"></div>
+                            </div>
+                            {{-- Raw HTML textarea (Code mode) --}}
+                            <textarea x-show="modes['{{ $type }}'] === 'code'" x-model="t['{{ $type }}'].body" rows="12" spellcheck="false"
                                       class="w-full border rounded px-2 py-1.5 text-xs font-mono dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"></textarea>
                         </div>
                         <div class="flex flex-wrap gap-2 pt-1">
@@ -134,6 +166,7 @@
 </div>
 
 @push('scripts')
+<script src="{{ asset('vendor/quill/quill.min.js') }}"></script>
 <script>
 function emailEditors() {
     return {
@@ -144,6 +177,12 @@ function emailEditors() {
             '{{ $type }}': { subject: @json($e['subject']), body: @json($e['body_html']) },
             @endforeach
         },
+        modes: {
+            @foreach($editors as $type => $e)
+            '{{ $type }}': 'visual',
+            @endforeach
+        },
+        quills: {},
         token: document.querySelector('meta[name="csrf-token"]').content,
 
         _req(url, body, method = 'POST') {
@@ -154,11 +193,62 @@ function emailEditors() {
             });
         },
 
+        initQuill(type) {
+            if (this.quills[type]) return;
+            const el = document.getElementById('quill-' + type);
+            if (!el) return;
+            const quill = new Quill(el, {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ color: [] }, { background: [] }],
+                        [{ header: [1, 2, 3, false] }],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        [{ align: [] }],
+                        ['link'],
+                        ['clean'],
+                    ],
+                },
+            });
+            quill.root.innerHTML = this.t[type].body;
+            this.quills[type] = quill;
+        },
+
+        switchMode(type, mode) {
+            if (this.modes[type] === mode) return;
+            if (mode === 'visual') {
+                this.modes[type] = mode;
+                this.$nextTick(() => {
+                    this.initQuill(type);
+                    if (this.quills[type]) {
+                        this.quills[type].root.innerHTML = this.t[type].body;
+                    }
+                });
+            } else {
+                this.syncFromQuill(type);
+                this.modes[type] = mode;
+            }
+        },
+
+        syncFromQuill(type) {
+            if (this.quills[type]) {
+                this.t[type].body = this.quills[type].root.innerHTML;
+            }
+        },
+
         insertVar(type, ph) {
-            this.t[type].body += ph;
+            if (this.modes[type] === 'visual' && this.quills[type]) {
+                const quill = this.quills[type];
+                const range = quill.getSelection(true);
+                quill.insertText(range.index, ph);
+            } else {
+                this.t[type].body += ph;
+            }
         },
 
         async previewDraft(type) {
+            this.syncFromQuill(type);
             const url = `{{ url('admin/emails/preview') }}/${type}/draft?tournament_id=${this.selectedId}`;
             const res = await this._req(url, { subject: this.t[type].subject, body_html: this.t[type].body });
             const html = await res.text();
@@ -166,6 +256,7 @@ function emailEditors() {
         },
 
         async save(type) {
+            this.syncFromQuill(type);
             const res = await this._req(`{{ route('admin.emails.templates.save') }}`, {
                 type,
                 tournament_id: this.selectedId || null,
@@ -190,6 +281,9 @@ function emailEditors() {
             if (data.success) {
                 this.t[type].subject = data.subject;
                 this.t[type].body = data.body_html;
+                if (this.quills[type]) {
+                    this.quills[type].root.innerHTML = data.body_html;
+                }
                 this._refresh(type);
                 this._toast('Reset to default.');
             }
