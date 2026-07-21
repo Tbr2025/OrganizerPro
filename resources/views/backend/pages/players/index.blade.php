@@ -356,11 +356,11 @@
                                                     @endif
                                                     @if ($player->created_by)
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset bg-slate-50 text-slate-600 ring-slate-500/10 dark:bg-slate-500/10 dark:text-slate-400" title="Added by {{ $player->creator?->name ?? 'Admin' }}">
-                                                            Admin
+                                                            Direct Entry
                                                         </span>
                                                     @else
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset bg-teal-50 text-teal-700 ring-teal-600/10 dark:bg-teal-500/10 dark:text-teal-400">
-                                                            Registered
+                                                            Through Registration
                                                         </span>
                                                     @endif
                                                 </div>
@@ -618,11 +618,11 @@
                                                     @endif
                                                     @if ($player->created_by)
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset bg-slate-50 text-slate-600 ring-slate-500/10 dark:bg-slate-500/10 dark:text-slate-400" title="Added by {{ $player->creator?->name ?? 'Admin' }}">
-                                                            Admin
+                                                            Direct Entry
                                                         </span>
                                                     @else
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset bg-teal-50 text-teal-700 ring-teal-600/10 dark:bg-teal-500/10 dark:text-teal-400">
-                                                            Registered
+                                                            Through Registration
                                                         </span>
                                                     @endif
                                                 </div>
