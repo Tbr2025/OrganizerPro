@@ -303,9 +303,21 @@
                 <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden" x-data="{ open: false }">
                     <div class="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer" @click="open = !open">
                         <div class="flex items-center gap-3 min-w-0">
-                            <div class="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold
-                                {{ $summaryPct === 100 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : ($summaryPct > 70 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' : ($summaryPct > 40 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300')) }}">
-                                {{ $summaryPct }}%
+                            @php
+                                $svgRadius = 18;
+                                $svgCircum = 2 * 3.14159 * $svgRadius;
+                                $svgOffset = $svgCircum - ($summaryPct / 100) * $svgCircum;
+                                $svgColor = $summaryPct === 100 ? '#22c55e' : ($summaryPct > 70 ? '#eab308' : ($summaryPct > 40 ? '#f97316' : '#ef4444'));
+                            @endphp
+                            <div class="flex-shrink-0">
+                                <svg width="46" height="46" viewBox="0 0 46 46">
+                                    <circle cx="23" cy="23" r="{{ $svgRadius }}" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                                    <circle cx="23" cy="23" r="{{ $svgRadius }}" fill="none" stroke="{{ $svgColor }}" stroke-width="3"
+                                        stroke-dasharray="{{ $svgCircum }}" stroke-dashoffset="{{ $svgOffset }}"
+                                        stroke-linecap="round" transform="rotate(-90 23 23)"/>
+                                    <text x="23" y="23" text-anchor="middle" dominant-baseline="central"
+                                        class="fill-gray-700 dark:fill-gray-200" style="font-size: 11px; font-weight: 600;">{{ $summaryPct }}%</text>
+                                </svg>
                             </div>
                             <div class="min-w-0">
                                 <p class="text-sm font-semibold text-gray-900 dark:text-white">
@@ -320,7 +332,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="hidden sm:block w-32 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                <div class="h-full rounded-full {{ $summaryPct === 100 ? 'bg-green-500' : ($summaryPct >= 50 ? 'bg-amber-500' : 'bg-red-500') }}" style="width: {{ $summaryPct }}%"></div>
+                                <div class="h-full rounded-full {{ $summaryPct === 100 ? 'bg-green-500' : ($summaryPct > 70 ? 'bg-yellow-500' : ($summaryPct > 40 ? 'bg-orange-500' : 'bg-red-500')) }}" style="width: {{ $summaryPct }}%"></div>
                             </div>
                             <svg class="w-4 h-4 text-gray-400 transition-transform" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
