@@ -272,8 +272,10 @@
 
                     foreach ($layout as $sec) {
                         $secPending = [];
+                        $secFieldCount = 0;
                         foreach ($sec['fields'] as $fk) {
                             if (in_array($fk, $skip, true)) continue;
+                            $secFieldCount++;
                             $summaryTotal++;
                             if (in_array($fk, $verifiedFields, true)) {
                                 $summaryVerified++;
@@ -283,6 +285,7 @@
                         }
                         $secCustom = $customFields->where('section', $sec['key']);
                         foreach ($secCustom as $scf) {
+                            $secFieldCount++;
                             $summaryTotal++;
                             if (in_array('cf_' . $scf->id, $verifiedFields, true)) {
                                 $summaryVerified++;
@@ -290,7 +293,7 @@
                                 $secPending[] = $scf->label;
                             }
                         }
-                        if ($summaryTotal > 0 || count($secPending) > 0) {
+                        if ($secFieldCount > 0) {
                             $summarySections[$sec['title']] = ['pending' => $secPending];
                         }
                     }
