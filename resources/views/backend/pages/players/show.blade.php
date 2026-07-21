@@ -267,7 +267,7 @@
                         $summaryTotal++;
                         $imgV = in_array('image', $verifiedFields, true);
                         if ($imgV) $summaryVerified++;
-                        $summarySections['Photo'] = $imgV ? ['pending' => []] : ['pending' => ['Photo']];
+                        $summarySections['Player Photo'] = $imgV ? ['pending' => []] : ['pending' => ['Image']];
                     }
 
                     foreach ($layout as $sec) {
