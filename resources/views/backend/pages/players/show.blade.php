@@ -332,7 +332,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             @if(auth()->user()->hasAnyRole(['Superadmin', 'Admin']) && $selectedRegistration)
-                                <a href="{{ route('tournaments.registrations.show', [$selectedRegistration->tournament_id, $selectedRegistration->id]) }}"
+                                <a href="{{ route('admin.tournaments.registrations.show', [$selectedRegistration->tournament_id, $selectedRegistration->id]) }}"
                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition" @click.stop>
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                     Verify Fields
