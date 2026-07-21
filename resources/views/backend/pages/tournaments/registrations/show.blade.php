@@ -352,7 +352,7 @@
                                     $svgRadius = 18;
                                     $svgCircum = 2 * 3.14159 * $svgRadius;
                                     $svgOffset = $svgCircum - ($summaryPct / 100) * $svgCircum;
-                                    $svgColor = $summaryPct === 100 ? '#22c55e' : ($summaryPct > 70 ? '#eab308' : ($summaryPct > 40 ? '#f97316' : '#ef4444'));
+                                    $svgColor = $summaryPct >= 100 ? '#22c55e' : ($summaryPct > 70 ? '#eab308' : ($summaryPct > 40 ? '#f97316' : '#ef4444'));
                                 @endphp
                                 <div class="flex-shrink-0">
                                     <svg width="46" height="46" viewBox="0 0 46 46">
@@ -378,7 +378,7 @@
                             <div class="flex items-center gap-2">
                                 {{-- Progress bar --}}
                                 <div class="hidden sm:block w-32 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                    <div class="h-full rounded-full {{ $summaryPct === 100 ? 'bg-green-500' : ($summaryPct > 70 ? 'bg-yellow-500' : ($summaryPct > 40 ? 'bg-orange-500' : 'bg-red-500')) }}" style="width: {{ $summaryPct }}%"></div>
+                                    <div class="h-full rounded-full {{ $summaryPct >= 100 ? 'bg-green-500' : ($summaryPct > 70 ? 'bg-yellow-500' : ($summaryPct > 40 ? 'bg-orange-500' : 'bg-red-500')) }}" style="width: {{ $summaryPct }}%"></div>
                                 </div>
                                 <i class="fas fa-chevron-down text-xs text-gray-400 transition-transform" :class="{ 'rotate-180': open }"></i>
                             </div>
