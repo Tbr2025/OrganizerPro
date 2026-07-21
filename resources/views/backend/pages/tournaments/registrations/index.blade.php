@@ -115,6 +115,70 @@
                 </nav>
             </div>
 
+            {{-- Summary Cloud Tags --}}
+            @if($type === 'player' && $registrations->total() > 0)
+                @php
+                    $regItems = $registrations->getCollection();
+                    $regTotal = $registrations->total();
+
+                    // Player type counts
+                    $regTypeCounts = $regItems->groupBy(fn($r) => $r->player?->playerType?->type ?? 'Unknown')->map->count()->sortDesc();
+                    // Wicket keeper
+                    $regWkCount = $regItems->filter(fn($r) => $r->player?->is_wicket_keeper)->count();
+                    // Batting profiles
+                    $regBatCounts = $regItems->groupBy(fn($r) => $r->player?->battingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
+                    // Bowling profiles
+                    $regBowlCounts = $regItems->groupBy(fn($r) => $r->player?->bowlingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
+                    // Transportation
+                    $regTransportCount = $regItems->filter(fn($r) => $r->player?->transportation_required)->count();
+                    // Playing team counts
+                    $regTeamCounts = $regItems->groupBy(fn($r) => $r->player?->actualTeam?->name)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
+                @endphp
+                <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <iconify-icon icon="lucide:bar-chart-3" width="16" class="text-gray-400"></iconify-icon>
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Summary ({{ $regTotal }} players)</h3>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($regTypeCounts as $rType => $rCount)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
+                                {{ $rType }} <span class="bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                            </span>
+                        @endforeach
+
+                        @if($regWkCount > 0)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20">
+                                Wicket Keeper <span class="bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $regWkCount }}</span>
+                            </span>
+                        @endif
+
+                        @foreach($regBatCounts as $rStyle => $rCount)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20">
+                                {{ $rStyle }} <span class="bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                            </span>
+                        @endforeach
+
+                        @foreach($regBowlCounts as $rStyle => $rCount)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20">
+                                {{ $rStyle }} <span class="bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                            </span>
+                        @endforeach
+
+                        @if($regTransportCount > 0)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20">
+                                Need Transport <span class="bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $regTransportCount }}</span>
+                            </span>
+                        @endif
+
+                        @foreach($regTeamCounts as $rTeam => $rCount)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-400/20">
+                                {{ $rTeam }} <span class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             {{-- Search / filter / sort bar --}}
             <form method="GET" action="{{ route('admin.tournaments.registrations.index', $tournament) }}"
                   class="mb-4 flex flex-wrap items-end gap-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">

@@ -145,6 +145,69 @@
             </form>
         </div>
 
+        {{-- Summary Cloud Tags --}}
+        @if($players->total() > 0)
+            @php
+                $allItems = $players->getCollection();
+                $totalShown = $players->total();
+
+                // Player type counts
+                $typeCounts = $allItems->groupBy(fn($p) => $p->playerType?->type ?? 'Unknown')->map->count()->sortDesc();
+                // Wicket keeper count
+                $wkCount = $allItems->where('is_wicket_keeper', true)->count();
+                // Batting profile counts
+                $batCounts = $allItems->groupBy(fn($p) => $p->battingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
+                // Bowling profile counts
+                $bowlCounts = $allItems->groupBy(fn($p) => $p->bowlingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
+                // Status counts
+                $statusCounts = $allItems->groupBy('status')->map->count();
+                // Transportation required
+                $transportCount = $allItems->where('transportation_required', true)->count();
+            @endphp
+            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <iconify-icon icon="lucide:bar-chart-3" width="16" class="text-gray-400"></iconify-icon>
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Summary ({{ $totalShown }} players)</h3>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    {{-- Player Types --}}
+                    @foreach($typeCounts as $type => $count)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
+                            {{ $type }} <span class="bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $count }}</span>
+                        </span>
+                    @endforeach
+
+                    {{-- Wicket Keeper --}}
+                    @if($wkCount > 0)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20">
+                            Wicket Keeper <span class="bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $wkCount }}</span>
+                        </span>
+                    @endif
+
+                    {{-- Batting Profiles --}}
+                    @foreach($batCounts as $style => $count)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20">
+                            {{ $style }} <span class="bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $count }}</span>
+                        </span>
+                    @endforeach
+
+                    {{-- Bowling Profiles --}}
+                    @foreach($bowlCounts as $style => $count)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20">
+                            {{ $style }} <span class="bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $count }}</span>
+                        </span>
+                    @endforeach
+
+                    {{-- Transportation --}}
+                    @if($transportCount > 0)
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20">
+                            Need Transport <span class="bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $transportCount }}</span>
+                        </span>
+                    @endif
+                </div>
+            </div>
+        @endif
+
         <!-- Bulk Actions Bar -->
         @if (auth()->user()->hasAnyRole(['Superadmin', 'Admin']))
             <div x-show="selectedPlayers.length > 0" x-cloak
