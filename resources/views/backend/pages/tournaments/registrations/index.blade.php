@@ -539,65 +539,73 @@
                                                          class="absolute right-0 z-50 mt-1 w-48 rounded-lg shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 py-1">
 
                                                         @if($registration->status == 'pending')
-                                                            <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to approve this registration?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                                                    Approve
-                                                                </button>
-                                                            </form>
-                                                            <form action="{{ route('admin.tournaments.registrations.reject', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to reject this registration?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                                                    Reject
-                                                                </button>
-                                                            </form>
-                                                            <form action="{{ route('admin.tournaments.registrations.queue', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to place this registration in the queue?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-sky-600 dark:text-sky-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                                    In Queue
-                                                                </button>
-                                                            </form>
-                                                            <form action="{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to cancel this registration?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                                                                    Cancel
-                                                                </button>
-                                                            </form>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Approve Registration',
+                                                                message: 'Are you sure you want to approve this registration?',
+                                                                action: '{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}',
+                                                                color: 'green'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                                Approve
+                                                            </button>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Reject Registration',
+                                                                message: 'Are you sure you want to reject this registration?',
+                                                                action: '{{ route('admin.tournaments.registrations.reject', [$tournament, $registration]) }}',
+                                                                color: 'red'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                Reject
+                                                            </button>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Queue Registration',
+                                                                message: 'Move this registration to queue?',
+                                                                action: '{{ route('admin.tournaments.registrations.queue', [$tournament, $registration]) }}',
+                                                                color: 'sky',
+                                                                showNotify: true
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-sky-600 dark:text-sky-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                                In Queue
+                                                            </button>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Cancel Registration',
+                                                                message: 'Are you sure you want to cancel this registration?',
+                                                                action: '{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}',
+                                                                color: 'gray'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                                Cancel
+                                                            </button>
                                                         @endif
 
                                                         @if($registration->status == 'queued')
-                                                            <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to approve this queued registration?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                                                    Approve
-                                                                </button>
-                                                            </form>
-                                                            <form action="{{ route('admin.tournaments.registrations.reject', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to reject this queued registration?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                                                    Reject
-                                                                </button>
-                                                            </form>
-                                                            <form action="{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to cancel this queued registration?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                                                                    Cancel
-                                                                </button>
-                                                            </form>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Approve Registration',
+                                                                message: 'Approve this queued registration?',
+                                                                action: '{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}',
+                                                                color: 'green'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                                Approve
+                                                            </button>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Reject Registration',
+                                                                message: 'Reject this queued registration?',
+                                                                action: '{{ route('admin.tournaments.registrations.reject', [$tournament, $registration]) }}',
+                                                                color: 'red'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                Reject
+                                                            </button>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Cancel Registration',
+                                                                message: 'Cancel this queued registration?',
+                                                                action: '{{ route('admin.tournaments.registrations.cancel', [$tournament, $registration]) }}',
+                                                                color: 'gray'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                                Cancel
+                                                            </button>
                                                             @if($registration->type === 'player' && $registration->player)
                                                                 @if($registration->player->player_mode !== 'retained')
                                                                     <button type="button"
@@ -611,14 +619,15 @@
                                                         @endif
 
                                                         @if($registration->status == 'approved')
-                                                            <form action="{{ route('admin.tournaments.registrations.unapprove', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Revert this registration to pending?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
-                                                                    Unapprove
-                                                                </button>
-                                                            </form>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Unapprove Registration',
+                                                                message: 'Revert this registration to pending?',
+                                                                action: '{{ route('admin.tournaments.registrations.unapprove', [$tournament, $registration]) }}',
+                                                                color: 'amber'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                                                                Unapprove
+                                                            </button>
                                                             @if($registration->type === 'team' && $registration->actual_team_id)
                                                                 <a href="{{ route('admin.actual-teams.edit', $registration->actual_team_id) }}"
                                                                    class="w-full text-left px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
@@ -627,14 +636,15 @@
                                                                 </a>
                                                             @endif
 
-                                                            <form action="{{ route('admin.tournaments.registrations.send-temp-password', [$tournament, $registration]) }}" method="POST"
-                                                                  onsubmit="return confirm('Are you sure you want to send a temporary password to this applicant?')">
-                                                                @csrf
-                                                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-                                                                    Send Temp Password
-                                                                </button>
-                                                            </form>
+                                                            <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                title: 'Send Temporary Password',
+                                                                message: 'Are you sure you want to send a temporary password to this applicant?',
+                                                                action: '{{ route('admin.tournaments.registrations.send-temp-password', [$tournament, $registration]) }}',
+                                                                color: 'blue'
+                                                            })" class="w-full text-left px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                                                                Send Temp Password
+                                                            </button>
 
                                                             @if($registration->type === 'player' && $registration->player)
                                                                 @if($registration->player->player_mode !== 'retained')
@@ -645,29 +655,31 @@
                                                                         Retain Player
                                                                     </button>
                                                                 @else
-                                                                    <form action="{{ route('admin.players.unretain', $registration->player->id) }}" method="POST"
-                                                                          onsubmit="return confirm('Are you sure you want to unretain this player?')">
-                                                                        @csrf
-                                                                        <button type="submit" class="w-full text-left px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
-                                                                            Unretain Player
-                                                                        </button>
-                                                                    </form>
+                                                                    <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                                        title: 'Unretain Player',
+                                                                        message: 'Are you sure you want to unretain this player?',
+                                                                        action: '{{ route('admin.players.unretain', $registration->player->id) }}',
+                                                                        color: 'orange'
+                                                                    })" class="w-full text-left px-4 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                                                                        Unretain Player
+                                                                    </button>
                                                                 @endif
                                                             @endif
                                                         @endif
 
                                                         <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
 
-                                                        <form action="{{ route('admin.tournaments.registrations.force-delete', [$tournament, $registration]) }}" method="POST"
-                                                              onsubmit="return confirm('Are you sure you want to permanently delete this registration?')">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
-                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                                                Delete
-                                                            </button>
-                                                        </form>
+                                                        <button type="button" @click="open = false; $dispatch('open-confirm-modal', {
+                                                            title: 'Delete Registration',
+                                                            message: 'Are you sure you want to permanently delete this registration? This cannot be undone.',
+                                                            action: '{{ route('admin.tournaments.registrations.force-delete', [$tournament, $registration]) }}',
+                                                            color: 'red',
+                                                            method: 'DELETE'
+                                                        })" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                            Delete
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -690,6 +702,122 @@
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No registrations found with the selected filter.</p>
                     </div>
                 @endif
+            </div>
+        </div>
+    </div>
+
+    {{-- Confirmation Modal (Alpine.js) --}}
+    <div x-data="{
+            show: false,
+            loading: false,
+            title: '',
+            message: '',
+            action: '',
+            color: 'green',
+            method: 'POST',
+            showNotify: false,
+            notifyPlayer: true,
+            errorMsg: '',
+            colorClasses: {
+                green: 'bg-green-600 hover:bg-green-700 focus:ring-green-500',
+                red: 'bg-red-600 hover:bg-red-700 focus:ring-red-500',
+                sky: 'bg-sky-600 hover:bg-sky-700 focus:ring-sky-500',
+                blue: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500',
+                gray: 'bg-gray-600 hover:bg-gray-700 focus:ring-gray-500',
+                amber: 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500',
+                orange: 'bg-orange-600 hover:bg-orange-700 focus:ring-orange-500',
+            },
+            open(e) {
+                this.title = e.detail.title || 'Confirm';
+                this.message = e.detail.message || 'Are you sure?';
+                this.action = e.detail.action || '';
+                this.color = e.detail.color || 'green';
+                this.method = e.detail.method || 'POST';
+                this.showNotify = e.detail.showNotify || false;
+                this.notifyPlayer = true;
+                this.errorMsg = '';
+                this.loading = false;
+                this.show = true;
+            },
+            async confirm() {
+                this.loading = true;
+                this.errorMsg = '';
+                try {
+                    const body = { _token: '{{ csrf_token() }}' };
+                    if (this.method === 'DELETE') {
+                        body._method = 'DELETE';
+                    }
+                    if (this.showNotify) {
+                        body.notify_player = this.notifyPlayer ? '1' : '0';
+                    }
+                    const res = await fetch(this.action, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify(body)
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        this.show = false;
+                        window.location.reload();
+                    } else {
+                        this.errorMsg = data.error || 'Something went wrong. Please try again.';
+                    }
+                } catch (err) {
+                    this.errorMsg = 'Network error. Please try again.';
+                } finally {
+                    this.loading = false;
+                }
+            }
+        }"
+        @open-confirm-modal.window="open($event)"
+    >
+        <div x-show="show" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div x-show="show" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                class="fixed inset-0 bg-black/50" @click="show = false"></div>
+
+            <div x-show="show" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm z-10">
+
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="title"></h3>
+                </div>
+
+                <div class="px-6 py-5">
+                    <p class="text-sm text-gray-600 dark:text-gray-400" x-text="message"></p>
+
+                    <div x-show="showNotify" class="mt-4">
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" x-model="notifyPlayer" class="rounded border-gray-300 text-sky-600 focus:ring-sky-500 dark:border-gray-600 dark:bg-gray-700">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">Notify player via email</span>
+                        </label>
+                    </div>
+
+                    <div x-show="errorMsg" class="mt-3 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                        <p class="text-sm text-red-600 dark:text-red-400" x-text="errorMsg"></p>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                    <button type="button" @click="show = false" :disabled="loading"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+                        Cancel
+                    </button>
+                    <button type="button" @click="confirm()" :disabled="loading"
+                        :class="colorClasses[color] || colorClasses.green"
+                        class="px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 inline-flex items-center gap-2">
+                        <svg x-show="loading" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span x-text="loading ? 'Processing...' : 'Confirm'"></span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

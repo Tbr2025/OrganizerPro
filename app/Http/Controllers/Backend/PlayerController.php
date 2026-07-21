@@ -1710,7 +1710,7 @@ class PlayerController extends Controller
         return redirect()->back()->with('success', $player->name . ' has been retained successfully.');
     }
 
-    public function unretain(Player $player): RedirectResponse
+    public function unretain(Request $request, Player $player)
     {
         $this->checkAuthorization(Auth::user(), ['player.edit']);
 
@@ -1740,6 +1740,7 @@ class PlayerController extends Controller
                 ->delete();
         }
 
-        return redirect()->back()->with('success', 'Retention removed for ' . $player->name . '.');
+        $msg = 'Retention removed for ' . $player->name . '.';
+        return $request->expectsJson() ? response()->json(['success' => $msg]) : redirect()->back()->with('success', $msg);
     }
 }

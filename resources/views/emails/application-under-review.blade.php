@@ -31,13 +31,6 @@
             for <strong>{{ $tournament->name }}</strong> has been submitted successfully.
         </p>
 
-        <div style="background: #fff3cd; border-radius: 8px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #f0ad4e;">
-            <p style="margin: 0; color: #856404; font-size: 15px;">
-                <strong>You're in the queue.</strong> Your application is now <strong>under review</strong> by the
-                organizers. We'll email you again as soon as it's approved.
-            </p>
-        </div>
-
         <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {{ $primaryColor }};">
             <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Tournament Details</h3>
             <table style="width: 100%; border-collapse: collapse;">

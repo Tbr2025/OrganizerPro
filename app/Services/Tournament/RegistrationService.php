@@ -464,7 +464,7 @@ class RegistrationService
      */
     public function rejectRegistration(TournamentRegistration $registration, int $rejectedBy, ?string $remarks = null): bool
     {
-        if (!$registration->isPending()) {
+        if (!$registration->isPending() && !$registration->isQueued()) {
             return false;
         }
 
@@ -485,7 +485,7 @@ class RegistrationService
     /**
      * Place a pending registration in the queue (waitlist) and notify the applicant.
      */
-    public function queueRegistration(TournamentRegistration $registration, int $processedBy, ?string $remarks = null): bool
+    public function queueRegistration(TournamentRegistration $registration, int $processedBy, ?string $remarks = null, bool $notifyPlayer = true): bool
     {
         if (!$registration->isPending()) {
             return false;
@@ -498,7 +498,7 @@ class RegistrationService
             'remarks' => $remarks,
         ]);
 
-        if ($updated) {
+        if ($updated && $notifyPlayer) {
             $this->sendStatusEmail($registration->fresh(), 'queued', $remarks);
         }
 

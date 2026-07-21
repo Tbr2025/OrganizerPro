@@ -235,12 +235,13 @@ class TournamentRegistrationController extends Controller
         ]);
     }
 
-    public function approve(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function approve(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        if (!$registration->isPending()) {
-            return redirect()->back()->with('error', __('This registration has already been processed.'));
+        if (!$registration->isPending() && !$registration->isQueued()) {
+            $msg = __('This registration has already been processed.');
+            return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
 
         if ($registration->isPlayerRegistration()) {
@@ -251,18 +252,21 @@ class TournamentRegistrationController extends Controller
         }
 
         if ($result) {
-            return redirect()->back()->with('success', __('Registration approved successfully.'));
+            $msg = __('Registration approved successfully.');
+            return $request->expectsJson() ? response()->json(['success' => $msg]) : redirect()->back()->with('success', $msg);
         }
 
-        return redirect()->back()->with('error', __('Failed to approve registration.'));
+        $msg = __('Failed to approve registration.');
+        return $request->expectsJson() ? response()->json(['error' => $msg], 500) : redirect()->back()->with('error', $msg);
     }
 
-    public function reject(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function reject(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        if (!$registration->isPending()) {
-            return redirect()->back()->with('error', __('This registration has already been processed.'));
+        if (!$registration->isPending() && !$registration->isQueued()) {
+            $msg = __('This registration has already been processed.');
+            return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
 
         $remarks = $request->input('remarks');
@@ -270,34 +274,46 @@ class TournamentRegistrationController extends Controller
         $result = $this->registrationService->rejectRegistration($registration, Auth::id(), $remarks);
 
         if ($result) {
-            return redirect()->back()->with('success', __('Registration rejected.'));
+            $msg = __('Registration rejected.');
+            return $request->expectsJson() ? response()->json(['success' => $msg]) : redirect()->back()->with('success', $msg);
         }
 
-        return redirect()->back()->with('error', __('Failed to reject registration.'));
+        $msg = __('Failed to reject registration.');
+        return $request->expectsJson() ? response()->json(['error' => $msg], 500) : redirect()->back()->with('error', $msg);
     }
 
-    public function queue(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function queue(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         if (!$registration->isPending()) {
-            return redirect()->back()->with('error', __('Only pending registrations can be queued.'));
+            $msg = __('Only pending registrations can be queued.');
+            return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
 
-        $result = $this->registrationService->queueRegistration($registration, Auth::id(), $request->input('remarks'));
+        $notifyPlayer = (bool) $request->input('notify_player', true);
 
-        return $result
-            ? redirect()->back()->with('success', __('Registration placed in the queue and the applicant was emailed.'))
-            : redirect()->back()->with('error', __('Failed to queue registration.'));
+        $result = $this->registrationService->queueRegistration($registration, Auth::id(), $request->input('remarks'), $notifyPlayer);
+
+        if ($result) {
+            $msg = $notifyPlayer
+                ? __('Registration placed in the queue and the applicant was emailed.')
+                : __('Registration placed in the queue (no email sent).');
+            return $request->expectsJson() ? response()->json(['success' => $msg]) : redirect()->back()->with('success', $msg);
+        }
+
+        $msg = __('Failed to queue registration.');
+        return $request->expectsJson() ? response()->json(['error' => $msg], 500) : redirect()->back()->with('error', $msg);
     }
 
-    public function cancel(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function cancel(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        if (!$registration->isPending()) {
-            return redirect()->back()->with('error', __('Only pending registrations can be cancelled.'));
+        if (!$registration->isPending() && !$registration->isQueued()) {
+            $msg = __('Only pending or queued registrations can be cancelled.');
+            return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
 
         $registration->update([
@@ -306,16 +322,18 @@ class TournamentRegistrationController extends Controller
             'processed_by' => Auth::id(),
         ]);
 
-        return redirect()->back()->with('success', __('Registration cancelled.'));
+        $msg = __('Registration cancelled.');
+        return $request->expectsJson() ? response()->json(['success' => $msg]) : redirect()->back()->with('success', $msg);
     }
 
-    public function unapprove(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function unapprove(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         if ($registration->status !== 'approved') {
-            return redirect()->back()->with('error', __('Only approved registrations can be unapproved.'));
+            $msg = __('Only approved registrations can be unapproved.');
+            return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
 
         $registration->update([
@@ -324,10 +342,11 @@ class TournamentRegistrationController extends Controller
             'processed_by' => null,
         ]);
 
-        return redirect()->back()->with('success', __('Registration reverted to pending.'));
+        $msg = __('Registration reverted to pending.');
+        return $request->expectsJson() ? response()->json(['success' => $msg]) : redirect()->back()->with('success', $msg);
     }
 
-    public function forceDelete(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function forceDelete(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
@@ -338,8 +357,13 @@ class TournamentRegistrationController extends Controller
 
         $registration->delete();
 
+        $msg = __('Registration deleted successfully.');
+        if ($request->expectsJson()) {
+            return response()->json(['success' => $msg]);
+        }
+
         return redirect()->route('admin.tournaments.registrations.index', $tournament)
-            ->with('success', __('Registration deleted successfully.'));
+            ->with('success', $msg);
     }
 
     public function bulkApprove(Request $request, Tournament $tournament): RedirectResponse
@@ -564,7 +588,7 @@ class TournamentRegistrationController extends Controller
      * Reset the applicant's account password to a fresh temporary one and email
      * it to them, so they can log in and correct their registration details.
      */
-    public function sendTempPassword(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
+    public function sendTempPassword(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
@@ -577,13 +601,15 @@ class TournamentRegistrationController extends Controller
 
         $email = $registration->player?->email ?? $registration->captain_email;
         if (! $email) {
-            return back()->with('error', __('No email address on file for this registration.'));
+            $msg = __('No email address on file for this registration.');
+            return $request->expectsJson() ? response()->json(['error' => $msg], 422) : back()->with('error', $msg);
         }
 
         // Prefer the player's linked account; otherwise match by email.
         $user = $registration->player?->user ?? User::where('email', $email)->first();
         if (! $user) {
-            return back()->with('error', __('No login account is linked to this registration yet.'));
+            $msg = __('No login account is linked to this registration yet.');
+            return $request->expectsJson() ? response()->json(['error' => $msg], 422) : back()->with('error', $msg);
         }
 
         $tempPassword = Str::random(10);
@@ -596,7 +622,8 @@ class TournamentRegistrationController extends Controller
 
         Mail::to($email)->send(new PlayerCredentialsMail($user, $tempPassword, $tournament));
 
-        return back()->with('success', __('A temporary password was emailed to :email. The player can log in and update their details.', ['email' => $email]));
+        $msg = __('A temporary password was emailed to :email. The player can log in and update their details.', ['email' => $email]);
+        return $request->expectsJson() ? response()->json(['success' => $msg]) : back()->with('success', $msg);
     }
 
     /**
