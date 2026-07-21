@@ -737,8 +737,15 @@
                 this.notifyPlayer = true;
                 this.errorMsg = '';
                 this.loading = false;
+                this.verificationWarning = false;
+                this.markAllVerified = true;
                 this.show = true;
             },
+            verificationWarning: false,
+            verifiedPct: 0,
+            verifiedCount: 0,
+            totalCount: 0,
+            markAllVerified: true,
             async confirm() {
                 this.loading = true;
                 this.errorMsg = '';
@@ -750,6 +757,10 @@
                     if (this.showNotify) {
                         body.notify_player = this.notifyPlayer ? '1' : '0';
                     }
+                    if (this.verificationWarning) {
+                        body.confirm_unverified = true;
+                        body.mark_all_verified = this.markAllVerified;
+                    }
                     const res = await fetch(this.action, {
                         method: 'POST',
                         headers: {
@@ -760,6 +771,17 @@
                         body: JSON.stringify(body)
                     });
                     const data = await res.json();
+                    if (res.ok && data.needs_verification) {
+                        this.verificationWarning = true;
+                        this.verifiedPct = data.verified_pct;
+                        this.verifiedCount = data.verified_count;
+                        this.totalCount = data.total_count;
+                        this.title = 'Unverified Fields';
+                        this.message = `Only ${data.verified_count} of ${data.total_count} fields are verified (${data.verified_pct}%). Please verify the fields first, or they will be considered as verified.`;
+                        this.markAllVerified = true;
+                        this.loading = false;
+                        return;
+                    }
                     if (res.ok && data.success) {
                         this.show = false;
                         window.location.reload();
@@ -798,6 +820,13 @@
                         </label>
                     </div>
 
+                    <div x-show="verificationWarning" class="mt-4">
+                        <label class="inline-flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" x-model="markAllVerified" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">Mark all fields as verified</span>
+                        </label>
+                    </div>
+
                     <div x-show="errorMsg" class="mt-3 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
                         <p class="text-sm text-red-600 dark:text-red-400" x-text="errorMsg"></p>
                     </div>
@@ -815,7 +844,7 @@
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                         </svg>
-                        <span x-text="loading ? 'Processing...' : 'Confirm'"></span>
+                        <span x-text="loading ? 'Processing...' : (verificationWarning ? 'Proceed' : 'Confirm')"></span>
                     </button>
                 </div>
             </div>

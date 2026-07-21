@@ -963,11 +963,70 @@
                                     Reject Registration
                                 </button>
                             </form>
-                            <form action="{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}" method="POST" class="inline-flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                                @csrf
+                            <div x-data="{
+                                showApproveModal: false,
+                                loading: false,
+                                errorMsg: '',
+                                verificationWarning: false,
+                                verifiedPct: 0,
+                                verifiedCount: 0,
+                                totalCount: 0,
+                                markAllVerified: true,
+                                modalTitle: 'Approve Registration',
+                                modalMessage: 'Are you sure you want to approve this registration?',
+                                captainUserId: '',
+                                openApproveModal() {
+                                    this.showApproveModal = true;
+                                    this.loading = false;
+                                    this.errorMsg = '';
+                                    this.verificationWarning = false;
+                                    this.markAllVerified = true;
+                                    this.modalTitle = 'Approve Registration';
+                                    this.modalMessage = 'Are you sure you want to approve this registration?';
+                                },
+                                async submitApprove() {
+                                    this.loading = true;
+                                    this.errorMsg = '';
+                                    try {
+                                        const body = { _token: '{{ csrf_token() }}' };
+                                        if (this.captainUserId) body.captain_user_id = this.captainUserId;
+                                        if (this.verificationWarning) {
+                                            body.confirm_unverified = true;
+                                            body.mark_all_verified = this.markAllVerified;
+                                        }
+                                        const res = await fetch('{{ route('admin.tournaments.registrations.approve', [$tournament, $registration]) }}', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                                            body: JSON.stringify(body)
+                                        });
+                                        const data = await res.json();
+                                        if (res.ok && data.needs_verification) {
+                                            this.verificationWarning = true;
+                                            this.verifiedPct = data.verified_pct;
+                                            this.verifiedCount = data.verified_count;
+                                            this.totalCount = data.total_count;
+                                            this.modalTitle = 'Unverified Fields';
+                                            this.modalMessage = `Only ${data.verified_count} of ${data.total_count} fields are verified (${data.verified_pct}%). Please verify the fields first, or they will be considered as verified.`;
+                                            this.markAllVerified = true;
+                                            this.loading = false;
+                                            return;
+                                        }
+                                        if (res.ok && data.success) {
+                                            this.showApproveModal = false;
+                                            window.location.reload();
+                                        } else {
+                                            this.errorMsg = data.error || 'Something went wrong. Please try again.';
+                                        }
+                                    } catch (err) {
+                                        this.errorMsg = 'Network error. Please try again.';
+                                    } finally {
+                                        this.loading = false;
+                                    }
+                                }
+                            }" class="inline-flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                 @if($registration->isTeamRegistration() && $approvedPlayerUsers->count())
                                     <div>
-                                        <select name="captain_user_id" class="w-full form-control text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                        <select x-model="captainUserId" class="w-full form-control text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300">
                                             <option value="">-- Captain from registration form --</option>
                                             @foreach($approvedPlayerUsers as $playerUser)
                                                 <option value="{{ $playerUser->id }}">{{ $playerUser->name }} ({{ $playerUser->email }})</option>
@@ -976,14 +1035,54 @@
                                         <p class="text-xs text-gray-500 mt-1">Assign Captain from Registered Players (Optional)</p>
                                     </div>
                                 @endif
-                                <button type="submit"
+                                <button type="button" @click="openApproveModal()"
                                     class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md shadow-sm hover:bg-green-700">
                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                     </svg>
                                     Approve Registration
                                 </button>
-                            </form>
+
+                                {{-- Approve Verification Warning Modal --}}
+                                <div x-show="showApproveModal" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                                    <div x-show="showApproveModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                                        x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                                        class="fixed inset-0 bg-black/50" @click="showApproveModal = false"></div>
+                                    <div x-show="showApproveModal" x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                                        x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                                        class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm z-10">
+                                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="modalTitle"></h3>
+                                        </div>
+                                        <div class="px-6 py-5">
+                                            <p class="text-sm text-gray-600 dark:text-gray-400" x-text="modalMessage"></p>
+                                            <div x-show="verificationWarning" class="mt-4">
+                                                <label class="inline-flex items-center gap-2 cursor-pointer">
+                                                    <input type="checkbox" x-model="markAllVerified" class="rounded border-gray-300 text-green-600 focus:ring-green-500 dark:border-gray-600 dark:bg-gray-700">
+                                                    <span class="text-sm text-gray-700 dark:text-gray-300">Mark all fields as verified</span>
+                                                </label>
+                                            </div>
+                                            <div x-show="errorMsg" class="mt-3 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                                                <p class="text-sm text-red-600 dark:text-red-400" x-text="errorMsg"></p>
+                                            </div>
+                                        </div>
+                                        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                                            <button type="button" @click="showApproveModal = false" :disabled="loading"
+                                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+                                                Cancel
+                                            </button>
+                                            <button type="button" @click="submitApprove()" :disabled="loading"
+                                                class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 inline-flex items-center gap-2">
+                                                <svg x-show="loading" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                                </svg>
+                                                <span x-text="loading ? 'Processing...' : (verificationWarning ? 'Proceed' : 'Confirm')"></span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 @else

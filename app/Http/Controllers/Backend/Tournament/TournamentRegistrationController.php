@@ -244,6 +244,27 @@ class TournamentRegistrationController extends Controller
             return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
 
+        // Check verification status for player registrations
+        if ($registration->isPlayerRegistration() && !$request->input('confirm_unverified')) {
+            $status = $this->getVerificationStatus($registration);
+            if ($status['verified_pct'] < 100) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'needs_verification' => true,
+                        'verified_pct' => $status['verified_pct'],
+                        'verified_count' => $status['verified_count'],
+                        'total_count' => $status['total_count'],
+                    ]);
+                }
+            }
+        }
+
+        // If confirming unverified and mark_all_verified is checked, populate verified_fields
+        if ($request->input('confirm_unverified') && $request->input('mark_all_verified') && $registration->isPlayerRegistration()) {
+            $status = $this->getVerificationStatus($registration);
+            $registration->update(['verified_fields' => $status['all_field_keys']]);
+        }
+
         if ($registration->isPlayerRegistration()) {
             $result = $this->registrationService->approvePlayerRegistration($registration, Auth::id());
         } else {
@@ -1051,5 +1072,61 @@ class TournamentRegistrationController extends Controller
         $base64 = $renderService->renderToBase64($template, $data);
 
         return response()->json(['image' => $base64]);
+    }
+
+    /**
+     * Compute verification status for a player registration.
+     */
+    private function getVerificationStatus(TournamentRegistration $registration): array
+    {
+        $player = $registration->player;
+        $tournament = $registration->tournament;
+        $regSettings = $tournament->settings;
+        $layout = PlayerFormConfig::getFormLayout($regSettings, false);
+        $verifiedFields = (array) ($registration->verified_fields ?? []);
+        $skip = ['name', 'image', 'terms_and_conditions'];
+
+        $totalCount = 0;
+        $verifiedCount = 0;
+        $allFieldKeys = [];
+        $regCustomAll = $tournament->customFields->where('form', 'player');
+
+        // Image field
+        if ($player && $player->image_path) {
+            $totalCount++;
+            $allFieldKeys[] = 'image';
+            if (in_array('image', $verifiedFields, true)) {
+                $verifiedCount++;
+            }
+        }
+
+        foreach ($layout as $sec) {
+            foreach ($sec['fields'] as $fk) {
+                if (in_array($fk, $skip, true)) continue;
+                $totalCount++;
+                $allFieldKeys[] = $fk;
+                if (in_array($fk, $verifiedFields, true)) {
+                    $verifiedCount++;
+                }
+            }
+            // Custom fields for this section
+            $secCustom = $regCustomAll->where('visible', true)->where('section', $sec['key']);
+            foreach ($secCustom as $scf) {
+                $totalCount++;
+                $allFieldKeys[] = 'cf_' . $scf->id;
+                if (in_array('cf_' . $scf->id, $verifiedFields, true)) {
+                    $verifiedCount++;
+                }
+            }
+        }
+
+        $verifiedPct = $totalCount > 0 ? round(($verifiedCount / $totalCount) * 100) : 100;
+
+        return [
+            'verified_pct' => $verifiedPct,
+            'verified_count' => $verifiedCount,
+            'total_count' => $totalCount,
+            'all_field_keys' => $allFieldKeys,
+        ];
     }
 }
