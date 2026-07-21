@@ -34,9 +34,6 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2">
                                 <h3 class="text-base font-bold text-white truncate">{{ $player->name }}</h3>
-                                @if($player->jersey_number)
-                                    <span class="flex-shrink-0 inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-white/20 text-xs font-bold text-white">#{{ $player->jersey_number }}</span>
-                                @endif
                             </div>
                             @if($player->playerType?->type)
                                 <p class="text-white/70 text-xs mt-0.5">{{ $player->playerType->type }}</p>
