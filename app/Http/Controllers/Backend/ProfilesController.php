@@ -15,8 +15,6 @@ class ProfilesController extends Controller
 {
     public function edit(): Renderable
     {
-        $this->checkAuthorization(auth()->user(), ['profile.edit'], true);
-
         $user = Auth::user();
 
         // Load the linked player (if any) with its relations so the profile page
@@ -41,11 +39,6 @@ class ProfilesController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $this->checkAuthorization(auth()->user(), ['profile.edit'], true);
-
-        // Prevent modification of super admin in demo mode.
-        $this->preventSuperAdminModification(auth()->user(), ['profile.edit']);
-
         $user = Auth::user();
 
         $request->validate([
