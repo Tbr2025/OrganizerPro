@@ -260,7 +260,11 @@ class PlayerProfileController extends Controller
             }
             $new = $validated[$field];
             $old = $player->{$field};
-            if ((string) $old !== (string) $new) {
+            if (is_array($new) || is_array($old)) {
+                if (json_encode($old) !== json_encode($new)) {
+                    $pending[$field] = $new;
+                }
+            } elseif ((string) $old !== (string) $new) {
                 $pending[$field] = $new;
             }
         }
