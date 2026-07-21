@@ -135,8 +135,10 @@
                                 @endforeach
                             </div>
                             {{-- Quill WYSIWYG editor (Visual mode) --}}
-                            <div x-show="modes['{{ $type }}'] === 'visual'" class="rounded border dark:border-gray-600 overflow-hidden">
-                                <div id="quill-{{ $type }}"></div>
+                            <div x-show="modes['{{ $type }}'] === 'visual'">
+                                <div class="rounded border dark:border-gray-600 overflow-hidden" x-ignore>
+                                    <div id="quill-{{ $type }}"></div>
+                                </div>
                             </div>
                             {{-- Raw HTML textarea (Code mode) --}}
                             <textarea x-show="modes['{{ $type }}'] === 'code'" x-model="t['{{ $type }}'].body" rows="12" spellcheck="false"
