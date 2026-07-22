@@ -301,8 +301,8 @@
                     $summaryPct = $summaryTotal > 0 ? (int) round(($summaryVerified / $summaryTotal) * 100) : 0;
                 @endphp
 
-                {{-- Verification Summary Panel --}}
-                @if($selectedRegistration && $summaryTotal > 0)
+                {{-- Verification Summary Panel (hidden for team managers) --}}
+                @if($selectedRegistration && $summaryTotal > 0 && !$isTeamManagerView)
                 <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden" x-data="{ open: false }">
                     <div class="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer" @click="open = !open">
                         <div class="flex items-center gap-3 min-w-0">
@@ -373,12 +373,12 @@
                 {{-- Player Photo with verification status --}}
                 @if($player->image_path)
                 @php $photoVerified = in_array('image', $verifiedFields, true); @endphp
-                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $selectedRegistration ? ($photoVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600') : 'border-transparent' }} inline-block">
+                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ !$isTeamManagerView && $selectedRegistration ? ($photoVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600') : 'border-transparent' }} inline-block">
                     <div class="flex items-start gap-4">
                         <img src="{{ Storage::url($player->image_path) }}" alt="{{ $player->name }}" class="w-28 h-36 object-cover rounded-lg border border-gray-200 dark:border-gray-700">
                         <div class="flex flex-col gap-1">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Player Photo</h4>
-                            @if($selectedRegistration)
+                            @if($selectedRegistration && !$isTeamManagerView)
                                 @if($photoVerified)
                                     <span class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
@@ -417,12 +417,12 @@
                                 $isEmpty = ($value === null || $value === '');
                                 $hasBorder = $selectedRegistration !== null;
                             @endphp
-                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $hasBorder ? ($isVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600') : 'border-transparent' }}">
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ !$isTeamManagerView && $hasBorder ? ($isVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600') : 'border-transparent' }}">
                                 <div class="flex items-start justify-between gap-2">
                                     <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         {{ $fieldConfig[$key]['label'] ?? $key }}
                                     </h4>
-                                    @if($isVerified)
+                                    @if($isVerified && !$isTeamManagerView)
                                         <span class="text-green-500" title="Verified">
                                             <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
@@ -460,13 +460,13 @@
                                     $cfEmpty = ($cfVal === null || $cfVal === '');
                                     $cfVerified = in_array($cfKey, $verifiedFields, true);
                                 @endphp
-                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ $cfVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600' }}">
+                                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border {{ !$isTeamManagerView ? ($cfVerified ? 'border-green-400 dark:border-green-600' : 'border-orange-300 dark:border-orange-600') : 'border-transparent' }}">
                                     <div class="flex items-start justify-between gap-2">
                                         <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             {{ $cf->label }}
                                             <span class="ml-1 text-[9px] normal-case font-normal text-indigo-400">custom</span>
                                         </h4>
-                                        @if($cfVerified)
+                                        @if($cfVerified && !$isTeamManagerView)
                                             <span class="text-green-500" title="Verified">
                                                 <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 10-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
