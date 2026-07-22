@@ -898,6 +898,12 @@ class AdminMenuService
 
     public function shouldExpandSubmenu(AdminMenuItem $menuItem): bool
     {
+        // Team managers have a small menu — always expand all submenus
+        $user = auth()->user();
+        if ($user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return true;
+        }
+
         // If the parent menu item is active, expand the submenu.
         if ($menuItem->active) {
             return true;
