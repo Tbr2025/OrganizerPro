@@ -85,6 +85,7 @@ class TeamManagerController extends Controller
                   ->where('player_actual_team_tournament.actual_team_id', $team->id);
             })
             ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location'])
+            ->groupBy('players.id')
             ->orderBy('name')
             ->get();
 
@@ -855,7 +856,7 @@ class TeamManagerController extends Controller
             $query->where('actual_team_id', $teamFilter);
         }
 
-        $players = $query->orderBy('name')->paginate(20)->appends($request->query());
+        $players = $query->groupBy('players.id')->orderBy('name')->paginate(20)->appends($request->query());
 
         // Get wishlisted player IDs for current user + tournament
         $wishlistedIds = Wishlist::where('user_id', $user->id)
@@ -997,7 +998,8 @@ class TeamManagerController extends Controller
                   ->whereColumn('player_actual_team_tournament.player_id', 'players.id')
                   ->where('player_actual_team_tournament.actual_team_id', $team->id);
             })
-            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location', 'user.roles']);
+            ->with(['playerType', 'battingProfile', 'bowlingProfile', 'kitSize', 'location', 'user.roles'])
+            ->groupBy('players.id');
 
         // For auction tournaments, only show retained and sold (auctioned) players
         if ($team->tournament && $team->tournament->isAuction()) {

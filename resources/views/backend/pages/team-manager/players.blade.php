@@ -170,7 +170,6 @@
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
                             <th class="px-6 py-3">Player</th>
-                            <th class="px-6 py-3">Verified</th>
                             <th class="px-6 py-3">Team</th>
                             <th class="px-6 py-3">Status</th>
                             <th class="px-6 py-3">Role</th>
@@ -208,41 +207,6 @@
                                                 @endif
                                             </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    @php
-                                        $reg = $player->registrations->first();
-                                        $regVerified = (array) ($reg?->verified_fields ?? []);
-                                        $skip = ['name', 'image', 'terms_and_conditions'];
-                                        $vTotal = 0; $vDone = 0;
-                                        if ($player->image_path) { $vTotal++; if (in_array('image', $regVerified, true)) $vDone++; }
-                                        foreach ($verifyLayout as $sec) {
-                                            foreach ($sec['fields'] as $fk) {
-                                                if (in_array($fk, $skip, true)) continue;
-                                                $vTotal++;
-                                                if (in_array($fk, $regVerified, true)) $vDone++;
-                                            }
-                                            foreach (($verifyCustomFields->where('section', $sec['key']) ?? collect()) as $scf) {
-                                                $vTotal++;
-                                                if (in_array('cf_' . $scf->id, $regVerified, true)) $vDone++;
-                                            }
-                                        }
-                                        $pct = $vTotal > 0 ? round(($vDone / $vTotal) * 100) : 0;
-                                        $radius = 16;
-                                        $circumference = 2 * 3.14159 * $radius;
-                                        $offset = $circumference - ($pct / 100) * $circumference;
-                                        $color = $pct === 100 ? '#22c55e' : ($pct > 70 ? '#eab308' : ($pct > 40 ? '#f97316' : '#ef4444'));
-                                    @endphp
-                                    <div class="flex items-center justify-center">
-                                        <svg width="42" height="42" viewBox="0 0 42 42">
-                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="#e5e7eb" stroke-width="3"/>
-                                            <circle cx="21" cy="21" r="{{ $radius }}" fill="none" stroke="{{ $color }}" stroke-width="3"
-                                                stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}"
-                                                stroke-linecap="round" transform="rotate(-90 21 21)"/>
-                                            <text x="21" y="21" text-anchor="middle" dominant-baseline="central"
-                                                class="fill-gray-700 dark:fill-gray-200" style="font-size: 10px; font-weight: 600;">{{ $pct }}%</text>
-                                        </svg>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">{{ $player->actualTeam?->name ?? $player->playing_team_name_ref ?? '-' }}</td>
