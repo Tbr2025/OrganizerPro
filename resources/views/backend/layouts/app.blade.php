@@ -76,16 +76,14 @@
     loaded: true,
     darkMode: JSON.parse(localStorage.getItem('darkMode') ?? 'false'),
     stickyMenu: false,
-    sidebarToggle: {{ $isTeamManagerLayout ? 'false' : "JSON.parse(localStorage.getItem('sidebarToggle') ?? 'false')" }},
+    sidebarToggle: JSON.parse(localStorage.getItem('sidebarToggle') ?? 'false'),
     teamManagerLayout: {{ $isTeamManagerLayout ? 'true' : 'false' }},
     scrollTop: false
 }"
 x-init="
     $watch('darkMode', value => localStorage.setItem('darkMode', JSON.stringify(value)));
-    @unless($isTeamManagerLayout)
     $watch('sidebarToggle', value => localStorage.setItem('sidebarToggle', JSON.stringify(value)));
     if (window.innerWidth < 1024) { sidebarToggle = false; }
-    @endunless
 "
 :class="{ 'dark': darkMode }"
 class="bg-gray-50 dark:bg-dark-bg">

@@ -20,8 +20,8 @@
     x-init="init()"
     :style="{ backgroundColor: sidebarBg }"
     :class="{
-        'translate-x-0': sidebarToggle || teamManagerLayout,
-        '-translate-x-full lg:translate-x-0': !sidebarToggle && !teamManagerLayout,
+        'translate-x-0': sidebarToggle,
+        '-translate-x-full lg:translate-x-0': !sidebarToggle,
         'lg:w-[80px]': sidebarToggle && !isHovered && !teamManagerLayout,
         'lg:w-[280px]': !sidebarToggle || isHovered || teamManagerLayout,
         'app-sidebar-minified': sidebarToggle && !isHovered && !teamManagerLayout
