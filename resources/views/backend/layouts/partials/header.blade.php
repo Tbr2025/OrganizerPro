@@ -22,10 +22,13 @@
             class="flex w-full items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 dark:border-gray-800">
             <button
                 :class="sidebarToggle ? 'bg-cyan-50 text-cyan-500 dark:bg-cyan-500/10 dark:text-cyan-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800'"
-                class="z-99999 flex h-10 w-10 items-center justify-center rounded-xl text-gray-600 dark:text-gray-400 transition-all duration-200"
+                class="z-99999 flex h-10 items-center justify-center rounded-xl text-gray-600 dark:text-gray-400 transition-all duration-200 {{ isset($isTeamManagerLayout) && $isTeamManagerLayout ? 'gap-1.5 px-3' : 'w-10' }}"
                 id="sidebar-toggle-button"
                 @click.stop="sidebarToggle = !sidebarToggle; localStorage.setItem('sidebarToggle', sidebarToggle);">
                 <iconify-icon :icon="sidebarToggle ? 'lucide:panel-left-close' : 'lucide:panel-left-open'" width="22" height="22"></iconify-icon>
+                @if(isset($isTeamManagerLayout) && $isTeamManagerLayout)
+                    <span class="text-sm font-semibold lg:hidden">Menu</span>
+                @endif
             </button>
 
             <a href="{{ route('admin.dashboard') }}" class="lg:hidden flex-shrink-0" style="height: 32px;">
