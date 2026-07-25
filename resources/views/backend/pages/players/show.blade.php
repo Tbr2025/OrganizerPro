@@ -402,7 +402,7 @@
                         $rows = [];
                         foreach ($section['fields'] as $key) {
                             if (in_array($key, $skip, true)) continue;
-                            if ($isTeamManagerView && $key === 'email') continue;
+                            if ($isTeamManagerView && in_array($key, ['email', 'employer_name', 'employer_address', 'employer_position'])) continue;
                             $rows[$key] = $valueFor($key);
                         }
                         $sectionCustom = $customFields->where('section', $section['key']);
