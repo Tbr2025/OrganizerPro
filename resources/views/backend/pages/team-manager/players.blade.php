@@ -66,89 +66,14 @@
         </form>
     </div>
 
-    {{-- Quick filter tags — click to apply, click again to remove. Counts cover
-         every approved player in the tournament, not just the current page. --}}
-    @if(!empty($filterDefinitions))
-        @php
-            $quickKeys = [
-                'player_type'    => 'blue',
-                'wk'             => 'orange',
-                'batting'        => 'indigo',
-                'bowling'        => 'green',
-                'visa_status'    => 'cyan',
-                'transportation' => 'purple',
-            ];
-            $palette = [
-                'blue'   => ['on' => 'bg-blue-600 text-white ring-2 ring-blue-400', 'off' => 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20 hover:bg-blue-100', 'badgeOn' => 'bg-blue-400 text-white', 'badgeOff' => 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100'],
-                'orange' => ['on' => 'bg-orange-600 text-white ring-2 ring-orange-400', 'off' => 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20 hover:bg-orange-100', 'badgeOn' => 'bg-orange-400 text-white', 'badgeOff' => 'bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100'],
-                'indigo' => ['on' => 'bg-indigo-600 text-white ring-2 ring-indigo-400', 'off' => 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20 hover:bg-indigo-100', 'badgeOn' => 'bg-indigo-400 text-white', 'badgeOff' => 'bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100'],
-                'green'  => ['on' => 'bg-green-600 text-white ring-2 ring-green-400', 'off' => 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20 hover:bg-green-100', 'badgeOn' => 'bg-green-400 text-white', 'badgeOff' => 'bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100'],
-                'cyan'   => ['on' => 'bg-cyan-600 text-white ring-2 ring-cyan-400', 'off' => 'bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-600/10 dark:bg-cyan-500/10 dark:text-cyan-300 dark:ring-cyan-400/20 hover:bg-cyan-100', 'badgeOn' => 'bg-cyan-400 text-white', 'badgeOff' => 'bg-cyan-200 dark:bg-cyan-700 text-cyan-800 dark:text-cyan-100'],
-                'purple' => ['on' => 'bg-purple-600 text-white ring-2 ring-purple-400', 'off' => 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20 hover:bg-purple-100', 'badgeOn' => 'bg-purple-400 text-white', 'badgeOff' => 'bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100'],
-            ];
-            $quickTagParams = array_values(array_filter(array_keys($quickKeys), fn($k) => isset($filterDefinitions[$k])));
-        @endphp
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-4">
-            <div class="flex items-center gap-2 mb-3">
-                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Filters ({{ $playerPool->count() }} players)</h3>
-                @if(request()->hasAny($quickTagParams))
-                    <a href="{{ filter_url([], $quickTagParams) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear tag filters</a>
-                @endif
-            </div>
-            <div class="flex flex-wrap gap-2">
-                @foreach($quickKeys as $qKey => $colour)
-                    @continue(!isset($filterDefinitions[$qKey]))
-                    @php $c = $palette[$colour]; @endphp
-                    @foreach($filterDefinitions[$qKey]['options'] ?? [] as $optValue => $optLabel)
-                        @php
-                            // Option labels arrive as "Right Handed (42)" — split the count
-                            // out so it can sit in its own badge.
-                            preg_match('/^(.*?)\s*\((\d+)\)$/', $optLabel, $m);
-                            $optText = $m[1] ?? $optLabel;
-                            $optCount = $m[2] ?? null;
-                            if (in_array($optValue, ['1', '0'], true)) {
-                                $optText = $optValue === '1'
-                                    ? $filterDefinitions[$qKey]['label']
-                                    : 'No ' . $filterDefinitions[$qKey]['label'];
-                            }
-                            $isActive = filter_is_active($qKey, $optValue);
-                        @endphp
-                        @continue($optCount === '0' || $optValue === 'none')
-                        <a href="{{ toggle_filter_url($qKey, $optValue) }}"
-                           title="{{ $isActive ? 'Click to remove this filter' : 'Click to filter' }}"
-                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? $c['on'] : $c['off'] }}">
-                            {{ $optText }}
-                            @if($optCount !== null)
-                                <span class="{{ $isActive ? $c['badgeOn'] : $c['badgeOff'] }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $optCount }}</span>
-                            @endif
-                            @if($isActive)
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                            @endif
-                        </a>
-                    @endforeach
-                @endforeach
+    {{-- Quick filter tags, one labelled row per parameter. Click to apply, click
+         again to remove. Counts cover every approved player matching the current
+         search, not just this page. --}}
+    <x-filters.quick-tags
+        :definitions="$filterDefinitions"
+        :total="$playerPool->count()"
+        noun="players" />
 
-                {{-- Team tags --}}
-                @foreach($teams as $t)
-                    @php
-                        $tCount = $playerPool->where('actual_team_id', $t->id)->count();
-                        $isActive = filter_is_active('team', $t->id);
-                    @endphp
-                    @continue($tCount === 0 && !$isActive)
-                    <a href="{{ toggle_filter_url('team', $t->id) }}"
-                       title="{{ $isActive ? 'Click to remove this filter' : 'Click to filter' }}"
-                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? 'bg-gray-700 text-white ring-2 ring-gray-500' : 'bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-600 hover:bg-gray-200' }}">
-                        {{ $t->name }}
-                        <span class="{{ $isActive ? 'bg-gray-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $tCount }}</span>
-                        @if($isActive)
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                        @endif
-                    </a>
-                @endforeach
-            </div>
-        </div>
-    @endif
 
     {{-- Every registration parameter as a filter, grouped like the registration form --}}
     <x-filters.player-filters

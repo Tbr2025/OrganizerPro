@@ -244,9 +244,9 @@ class PlayerFilters
         ]);
 
         // ---- Availability ------------------------------------------------------
-        $add('available_saturday', 'available_saturday', self::boolFilter($players, 'available_saturday', 'players.available_saturday'));
-        $add('available_sunday', 'available_sunday', self::boolFilter($players, 'available_sunday', 'players.available_sunday'));
-        $add('played_ys_ipl_s1', 'played_ys_ipl_s1', self::boolFilter($players, 'played_ys_ipl_s1', 'players.played_ys_ipl_s1'));
+        $add('available_saturday', 'available_saturday', self::boolFilter($players, 'available_saturday', 'players.available_saturday', 'Free on Saturdays', 'Not free Saturdays'));
+        $add('available_sunday', 'available_sunday', self::boolFilter($players, 'available_sunday', 'players.available_sunday', 'Free on Sundays', 'Not free Sundays'));
+        $add('played_ys_ipl_s1', 'played_ys_ipl_s1', self::boolFilter($players, 'played_ys_ipl_s1', 'players.played_ys_ipl_s1', 'Played last season', 'New this season'));
 
         // ---- Jersey ------------------------------------------------------------
         $add('jersey_number', 'jersey_number', [
@@ -310,7 +310,7 @@ class PlayerFilters
             'apply' => fn ($q, $v) => $q->whereJsonContains('players.preferred_batting_positions', $v),
         ]);
 
-        $add('is_wicket_keeper', 'wk', self::boolFilter($players, 'is_wicket_keeper', 'players.is_wicket_keeper'));
+        $add('is_wicket_keeper', 'wk', self::boolFilter($players, 'is_wicket_keeper', 'players.is_wicket_keeper', 'Wicket Keeper', 'Not a Wicket Keeper'));
 
         // ---- Leather ball experience -------------------------------------------
         foreach (['total_matches', 'total_runs', 'total_wickets'] as $stat) {
@@ -325,7 +325,7 @@ class PlayerFilters
         }
 
         // ---- Travel & transportation -------------------------------------------
-        $add('transportation', 'transportation', self::boolFilter($players, 'transportation_required', 'players.transportation_required'));
+        $add('transportation', 'transportation', self::boolFilter($players, 'transportation_required', 'players.transportation_required', 'Needs transport', 'No transport needed'));
 
         $add('travel_plan', 'travel_plan', [
             'options' => [
@@ -481,9 +481,20 @@ class PlayerFilters
 
     // -- option builders -----------------------------------------------------
 
-    /** A Yes/No filter over a boolean column, with counts. */
-    private static function boolFilter(Collection $players, string $attribute, string $column): array
-    {
+    /**
+     * A Yes/No filter over a boolean column, with counts.
+     *
+     * Dropdown options stay "Yes"/"No" because they sit under the filter's own
+     * label, but a chip standing on its own needs to say what it means — hence
+     * the separate chip labels.
+     */
+    private static function boolFilter(
+        Collection $players,
+        string $attribute,
+        string $column,
+        string $yesChip,
+        string $noChip
+    ): array {
         $yes = $players->where($attribute, true)->count();
         $no = $players->count() - $yes;
 
@@ -491,6 +502,10 @@ class PlayerFilters
             'options' => [
                 '1' => 'Yes (' . $yes . ')',
                 '0' => 'No (' . $no . ')',
+            ],
+            'chip_labels' => [
+                '1' => $yesChip,
+                '0' => $noChip,
             ],
             'apply' => fn ($q, $v) => $q->where($column, (bool) (int) $v),
         ];

@@ -4,13 +4,21 @@
 
 When asked to deploy, run:
 ```bash
-ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && sudo chown -R www-data:www-data storage bootstrap/cache && sudo chmod -R 775 storage bootstrap/cache && php artisan optimize:clear"
+ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && npm run build && sudo chown -R www-data:www-data storage bootstrap/cache public/build && sudo chmod -R 775 storage bootstrap/cache && php artisan optimize:clear"
 ```
 
 - **Host:** 13.232.249.159
 - **User:** ubuntu
 - **Key:** ~/Desktop/key/LightsailDefaultKey-ap-south-1 (1).pem
 - **Project Path on Server:** /var/www/laravel-app
+
+### Assets must be rebuilt on the server
+`public/build` is gitignored, so compiled CSS/JS never travels through git — the
+server builds its own. Tailwind v4 scans `resources/views` (`@source` in
+`resources/css/app.css`), which means **any Tailwind class used for the first time
+does not exist in production CSS until `npm run build` runs there**. Skipping it
+produces elements with no background or spacing — e.g. an "active" chip rendering
+as unreadable white-on-white. The server has node 20 + npm + `node_modules`.
 
 ## Tournament Types: Open vs Auction
 
