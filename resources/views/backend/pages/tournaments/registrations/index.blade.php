@@ -115,97 +115,108 @@
                 </nav>
             </div>
 
-            {{-- Summary Cloud Tags --}}
-            @if($type === 'player' && $registrations->total() > 0)
+            {{-- Quick filter tags — click to apply, click again to remove. Counts
+                 cover every player registered for this tournament, not just this page. --}}
+            @if($type === 'player' && !empty($filterDefinitions))
                 @php
-                    $regItems = $registrations->getCollection();
-                    $regTotal = $registrations->total();
-
-                    // Player type counts
-                    $regTypeCounts = $regItems->groupBy(fn($r) => $r->player?->playerType?->type ?? 'Unknown')->map->count()->sortDesc();
-                    // Wicket keeper
-                    $regWkCount = $regItems->filter(fn($r) => $r->player?->is_wicket_keeper)->count();
-                    // Batting profiles
-                    $regBatCounts = $regItems->groupBy(fn($r) => $r->player?->battingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
-                    // Bowling profiles
-                    $regBowlCounts = $regItems->groupBy(fn($r) => $r->player?->bowlingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
-                    // Transportation
-                    $regTransportCount = $regItems->filter(fn($r) => $r->player?->transportation_required)->count();
-                    // Playing team counts
-                    $regTeamCounts = $regItems->groupBy(fn($r) => $r->player?->actualTeam?->name)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
-                @endphp
-                @php
-                    $regTeamIdMap = $regItems->mapWithKeys(fn($r) => [$r->player?->actualTeam?->name ?? '' => $r->player?->actual_team_id])->filter();
+                    $quickKeys = [
+                        'player_type'    => 'blue',
+                        'wk'             => 'orange',
+                        'batting'        => 'indigo',
+                        'bowling'        => 'green',
+                        'visa_status'    => 'cyan',
+                        'transportation' => 'purple',
+                    ];
+                    $palette = [
+                        'blue'   => ['on' => 'bg-blue-600 text-white ring-2 ring-blue-400', 'off' => 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20 hover:bg-blue-100', 'badgeOn' => 'bg-blue-400 text-white', 'badgeOff' => 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100'],
+                        'orange' => ['on' => 'bg-orange-600 text-white ring-2 ring-orange-400', 'off' => 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20 hover:bg-orange-100', 'badgeOn' => 'bg-orange-400 text-white', 'badgeOff' => 'bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100'],
+                        'indigo' => ['on' => 'bg-indigo-600 text-white ring-2 ring-indigo-400', 'off' => 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20 hover:bg-indigo-100', 'badgeOn' => 'bg-indigo-400 text-white', 'badgeOff' => 'bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100'],
+                        'green'  => ['on' => 'bg-green-600 text-white ring-2 ring-green-400', 'off' => 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20 hover:bg-green-100', 'badgeOn' => 'bg-green-400 text-white', 'badgeOff' => 'bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100'],
+                        'cyan'   => ['on' => 'bg-cyan-600 text-white ring-2 ring-cyan-400', 'off' => 'bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-600/10 dark:bg-cyan-500/10 dark:text-cyan-300 dark:ring-cyan-400/20 hover:bg-cyan-100', 'badgeOn' => 'bg-cyan-400 text-white', 'badgeOff' => 'bg-cyan-200 dark:bg-cyan-700 text-cyan-800 dark:text-cyan-100'],
+                        'purple' => ['on' => 'bg-purple-600 text-white ring-2 ring-purple-400', 'off' => 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20 hover:bg-purple-100', 'badgeOn' => 'bg-purple-400 text-white', 'badgeOff' => 'bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100'],
+                    ];
+                    $quickTagParams = [];
+                    foreach (array_keys($quickKeys) as $qk) {
+                        if (isset($filterDefinitions[$qk])) { $quickTagParams[] = $qk; }
+                    }
+                    if (($filters['playingTeam'] ?? '') !== '') { $quickTagParams[] = 'playing_team'; }
                 @endphp
                 <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-4">
                     <div class="flex items-center gap-2 mb-3">
                         <iconify-icon icon="lucide:bar-chart-3" width="16" class="text-gray-400"></iconify-icon>
-                        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Filters ({{ $regTotal }} players)</h3>
-                        @if(request()->hasAny(['role', 'batting_profile', 'bowling_profile', 'playing_team']))
-                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except(['role', 'batting_profile', 'bowling_profile', 'playing_team', 'page']))) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear tag filters</a>
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                            Quick Filters ({{ $playerPool->count() }} registered players)
+                        </h3>
+                        @if(request()->hasAny($quickTagParams))
+                            <a href="{{ filter_url([], $quickTagParams) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear tag filters</a>
                         @endif
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        @foreach($regTypeCounts as $rType => $rCount)
-                            @php $isActive = request('role') === $rType; @endphp
-                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['role' => $rType])) }}"
-                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20 hover:bg-blue-100' }}">
-                                {{ $rType }} <span class="{{ $isActive ? 'bg-blue-400 text-white' : 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                            </a>
-                        @endforeach
-
-                        @if($regWkCount > 0)
-                            @php $isActive = request('role') === 'Wicket Keeper'; @endphp
-                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['role' => 'Wicket Keeper'])) }}"
-                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-orange-600 text-white ring-2 ring-orange-400' : 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20 hover:bg-orange-100' }}">
-                                Wicket Keeper <span class="{{ $isActive ? 'bg-orange-400 text-white' : 'bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $regWkCount }}</span>
-                            </a>
-                        @endif
-
-                        @foreach($regBatCounts as $rStyle => $rCount)
-                            @php $isActive = request('batting_profile') === $rStyle; @endphp
-                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['batting_profile' => $rStyle])) }}"
-                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20 hover:bg-indigo-100' }}">
-                                {{ $rStyle }} <span class="{{ $isActive ? 'bg-indigo-400 text-white' : 'bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                            </a>
-                        @endforeach
-
-                        @foreach($regBowlCounts as $rStyle => $rCount)
-                            @php $isActive = request('bowling_profile') === $rStyle; @endphp
-                            <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['bowling_profile' => $rStyle])) }}"
-                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-green-600 text-white ring-2 ring-green-400' : 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20 hover:bg-green-100' }}">
-                                {{ $rStyle }} <span class="{{ $isActive ? 'bg-green-400 text-white' : 'bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                            </a>
-                        @endforeach
-
-                        @if($regTransportCount > 0)
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20">
-                                Need Transport <span class="bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $regTransportCount }}</span>
-                            </span>
-                        @endif
-
-                        @foreach($regTeamCounts as $rTeam => $rCount)
-                            @php $teamId = $regTeamIdMap[$rTeam] ?? null; $isActive = $teamId && request('playing_team') == $teamId; @endphp
-                            @if($teamId)
-                                <a href="{{ route('admin.tournaments.registrations.index', array_merge([$tournament->id], request()->except('page'), ['playing_team' => $teamId])) }}"
-                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-gray-700 text-white ring-2 ring-gray-500' : 'bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-400/20 hover:bg-gray-200' }}">
-                                    {{ $rTeam }} <span class="{{ $isActive ? 'bg-gray-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
+                        @foreach($quickKeys as $qKey => $colour)
+                            @continue(!isset($filterDefinitions[$qKey]))
+                            @php $c = $palette[$colour]; @endphp
+                            @foreach($filterDefinitions[$qKey]['options'] ?? [] as $optValue => $optLabel)
+                                @php
+                                    // Option labels arrive as "Right Handed (42)" — split the
+                                    // count out so it can sit in its own badge.
+                                    preg_match('/^(.*?)\s*\((\d+)\)$/', $optLabel, $m);
+                                    $optText = $m[1] ?? $optLabel;
+                                    $optCount = $m[2] ?? null;
+                                    // Boolean filters read better as the filter name than "Yes".
+                                    if (($filterDefinitions[$qKey]['type'] ?? '') === 'select' && in_array($optValue, ['1', '0'], true)) {
+                                        $optText = $optValue === '1'
+                                            ? $filterDefinitions[$qKey]['label']
+                                            : 'No ' . $filterDefinitions[$qKey]['label'];
+                                    }
+                                    $isActive = filter_is_active($qKey, $optValue);
+                                @endphp
+                                @continue($optCount === '0' || $optValue === 'none')
+                                <a href="{{ toggle_filter_url($qKey, $optValue) }}"
+                                   title="{{ $isActive ? 'Click to remove this filter' : 'Click to filter' }}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? $c['on'] : $c['off'] }}">
+                                    {{ $optText }}
+                                    @if($optCount !== null)
+                                        <span class="{{ $isActive ? $c['badgeOn'] : $c['badgeOff'] }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $optCount }}</span>
+                                    @endif
+                                    @if($isActive)
+                                        <iconify-icon icon="lucide:x" width="11"></iconify-icon>
+                                    @endif
                                 </a>
-                            @else
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-400/20">
-                                    {{ $rTeam }} <span class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $rCount }}</span>
-                                </span>
-                            @endif
+                            @endforeach
+                        @endforeach
+
+                        {{-- Playing team tags --}}
+                        @foreach($playingTeamOptions as $pt)
+                            @php $isActive = filter_is_active('playing_team', $pt->id); @endphp
+                            <a href="{{ toggle_filter_url('playing_team', $pt->id) }}"
+                               title="{{ $isActive ? 'Click to remove this filter' : 'Click to filter' }}"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer {{ $isActive ? 'bg-gray-700 text-white ring-2 ring-gray-500' : 'bg-gray-50 text-gray-700 ring-1 ring-inset ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-300 dark:ring-gray-400/20 hover:bg-gray-200' }}">
+                                {{ $pt->name }}
+                                <span class="{{ $isActive ? 'bg-gray-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $playerPool->where('actual_team_id', $pt->id)->count() }}</span>
+                                @if($isActive)<iconify-icon icon="lucide:x" width="11"></iconify-icon>@endif
+                            </a>
                         @endforeach
                     </div>
                 </div>
             @endif
 
-            {{-- Search / filter / sort bar --}}
+            {{-- Search / sort bar --}}
+            @php
+                $ownedFilterParams = array_merge(
+                    \App\Support\PlayerFilters::parameterNames($filterDefinitions),
+                    ['playing_team', 'tournament_type', 'search']
+                );
+            @endphp
             <form method="GET" action="{{ route('admin.tournaments.registrations.index', $tournament) }}"
                   class="mb-4 flex flex-wrap items-end gap-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
                 <input type="hidden" name="status" value="{{ $filters['status'] }}">
                 <input type="hidden" name="type" value="{{ $filters['type'] }}">
+                {{-- Keep every active parameter filter when only the search/sort changes. --}}
+                @foreach(\App\Support\PlayerFilters::parameterNames($filterDefinitions) as $pName)
+                    @if(request($pName) !== null && request($pName) !== '')
+                        <input type="hidden" name="{{ $pName }}" value="{{ request($pName) }}">
+                    @endif
+                @endforeach
                 <div class="flex-1 min-w-[180px]">
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Search</label>
                     <input type="text" name="search" value="{{ $filters['search'] }}" placeholder="Name, team, or email…"
@@ -253,13 +264,21 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="submit" class="px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">Apply</button>
-                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $filters['type'], 'status' => $filters['status']]) }}"
+                    <a href="{{ filter_url([], $ownedFilterParams) }}"
                        class="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">Reset</a>
                 </div>
             </form>
 
-            {{-- Active filter indicator --}}
-            @if(($filters['playingTeam'] ?? '') !== '' || ($filters['tournamentType'] ?? '') !== '' || ($filters['search'] ?? '') !== '')
+            {{-- Every registration parameter as a filter, grouped like the registration form --}}
+            @if($type === 'player')
+                <x-filters.player-filters
+                    :definitions="$filterDefinitions"
+                    :keep="['type' => $filters['type'], 'status' => $filters['status'], 'search' => $filters['search'], 'sort' => $filters['sort'], 'direction' => $filters['direction'], 'playing_team' => $filters['playingTeam'], 'tournament_type' => $filters['tournamentType']]"
+                    :action="route('admin.tournaments.registrations.index', $tournament)" />
+            @endif
+
+            {{-- Result count --}}
+            @if(request()->hasAny($ownedFilterParams))
                 <div class="mb-3 flex items-center gap-2 text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg px-4 py-2">
                     <iconify-icon icon="lucide:filter" class="text-base"></iconify-icon>
                     <span>Showing <strong>{{ $registrations->total() }}</strong> filtered results</span>
@@ -268,10 +287,11 @@
                             {{ $filters['tournamentType'] === 'open' ? 'Open Tournament' : ($filters['tournamentType'] === 'auction' ? 'Auction Tournament' : 'Others') }}
                         </span>
                     @endif
-                    <a href="{{ route('admin.tournaments.registrations.index', ['tournament' => $tournament, 'type' => $filters['type'], 'status' => $filters['status']]) }}"
-                       class="ml-auto text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 underline">Clear filters</a>
+                    <a href="{{ filter_url([], $ownedFilterParams) }}"
+                       class="ml-auto text-xs text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 underline">Clear all filters</a>
                 </div>
             @endif
+
 
             {{-- Registrations Table --}}
             <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl">

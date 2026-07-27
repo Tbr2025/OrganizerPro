@@ -148,15 +148,29 @@
                                                     Global
                                                 </span>
                                             @else
+                                                {{-- Tournament tags filter the list. Clicking the active
+                                                     one again clears the filter. --}}
                                                 @forelse ($team->tournaments as $t)
-                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20">
+                                                    @php $isActive = filter_is_active('tournament_id', $t->id); @endphp
+                                                    <a href="{{ toggle_filter_url('tournament_id', $t->id) }}"
+                                                        title="{{ $isActive ? __('Click to clear this tournament filter') : __('Show only teams in :name', ['name' => $t->name]) }}"
+                                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition {{ $isActive ? 'bg-indigo-600 text-white ring-1 ring-indigo-400' : 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20' }}">
                                                         {{ Str::limit($t->name, 20) }}
-                                                    </span>
+                                                        @if ($isActive)
+                                                            <iconify-icon icon="lucide:x" width="11"></iconify-icon>
+                                                        @endif
+                                                    </a>
                                                 @empty
                                                     @if ($team->tournament)
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/10 dark:bg-gray-500/10 dark:text-gray-400 dark:ring-gray-500/20">
+                                                        @php $isActive = filter_is_active('tournament_id', $team->tournament->id); @endphp
+                                                        <a href="{{ toggle_filter_url('tournament_id', $team->tournament->id) }}"
+                                                            title="{{ $isActive ? __('Click to clear this tournament filter') : __('Show only teams in :name', ['name' => $team->tournament->name]) }}"
+                                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition {{ $isActive ? 'bg-indigo-600 text-white ring-1 ring-indigo-400' : 'bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/10 dark:bg-gray-500/10 dark:text-gray-400 dark:ring-gray-500/20 hover:bg-gray-100 dark:hover:bg-gray-500/20' }}">
                                                             {{ Str::limit($team->tournament->name, 20) }}
-                                                        </span>
+                                                            @if ($isActive)
+                                                                <iconify-icon icon="lucide:x" width="11"></iconify-icon>
+                                                            @endif
+                                                        </a>
                                                     @else
                                                         <span class="text-gray-400 dark:text-gray-500">-</span>
                                                     @endif

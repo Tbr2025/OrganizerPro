@@ -14,51 +14,28 @@
         <p class="text-sm text-gray-500 dark:text-gray-400">All approved players in {{ $team->tournament->name ?? 'the tournament' }}</p>
     </div>
 
-    {{-- Filters --}}
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-6">
+    {{-- Search + team (everything else lives in the full filter panel below) --}}
+    @php
+        $tmFilterParams = array_merge(
+            \App\Support\PlayerFilters::parameterNames($filterDefinitions),
+            ['search', 'team']
+        );
+    @endphp
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
         <form method="GET" action="{{ route('team-manager.players') }}" class="space-y-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {{-- Search --}}
+            {{-- Keep active parameter filters when only the search or team changes. --}}
+            @foreach(\App\Support\PlayerFilters::parameterNames($filterDefinitions) as $pName)
+                @if(request($pName) !== null && request($pName) !== '')
+                    <input type="hidden" name="{{ $pName }}" value="{{ request($pName) }}">
+                @endif
+            @endforeach
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Search') }}</label>
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="{{ __('Name or jersey name...') }}"
                         class="form-control text-sm">
                 </div>
 
-                {{-- Player Type --}}
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Role') }}</label>
-                    <select name="player_type" class="form-control text-sm">
-                        <option value="">{{ __('All Roles') }}</option>
-                        @foreach($playerTypes as $type)
-                            <option value="{{ $type->id }}" {{ request('player_type') == $type->id ? 'selected' : '' }}>{{ $type->type }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Batting --}}
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Batting') }}</label>
-                    <select name="batting" class="form-control text-sm">
-                        <option value="">{{ __('All') }}</option>
-                        @foreach($battingProfiles as $bp)
-                            <option value="{{ $bp->id }}" {{ request('batting') == $bp->id ? 'selected' : '' }}>{{ $bp->style }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Bowling --}}
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Bowling') }}</label>
-                    <select name="bowling" class="form-control text-sm">
-                        <option value="">{{ __('All') }}</option>
-                        @foreach($bowlingProfiles as $bw)
-                            <option value="{{ $bw->id }}" {{ request('bowling') == $bw->id ? 'selected' : '' }}>{{ $bw->style }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Team --}}
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Team') }}</label>
                     <select name="team" class="form-control text-sm">
@@ -68,94 +45,117 @@
                         @endforeach
                     </select>
                 </div>
-            </div>
 
-            <div class="flex items-center gap-2">
-                <button type="submit"
-                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
-                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                    {{ __('Filter') }}
-                </button>
-                @if(request()->hasAny(['search', 'player_type', 'batting', 'bowling', 'team']))
-                    <a href="{{ route('team-manager.players') }}"
-                        class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md">
-                        {{ __('Clear') }}
-                    </a>
-                @endif
-                <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">{{ $players->count() }} {{ __('players found') }}</span>
+                <div class="flex items-end gap-2">
+                    <button type="submit"
+                        class="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">
+                        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        {{ __('Search') }}
+                    </button>
+                    @if(request()->hasAny($tmFilterParams))
+                        <a href="{{ filter_url([], $tmFilterParams) }}"
+                            class="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md">
+                            {{ __('Reset all') }}
+                        </a>
+                    @endif
+                    <span class="text-xs text-gray-500 dark:text-gray-400 ml-auto">{{ $players->total() }} {{ __('found') }}</span>
+                </div>
             </div>
         </form>
     </div>
 
-    {{-- Summary Tag Cloud --}}
-    @if($players->total() > 0)
+    {{-- Quick filter tags — click to apply, click again to remove. Counts cover
+         every approved player in the tournament, not just the current page. --}}
+    @if(!empty($filterDefinitions))
         @php
-            $allItems = $players->getCollection();
-            $typeCounts = $allItems->groupBy(fn($p) => $p->playerType?->type ?? 'Unknown')->map->count()->sortDesc();
-            $typeIdMap = $allItems->mapWithKeys(fn($p) => [$p->playerType?->type ?? 'Unknown' => $p->player_type_id])->filter();
-            $wkCount = $allItems->where('is_wicket_keeper', true)->count();
-            $batCounts = $allItems->groupBy(fn($p) => $p->battingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
-            $batIdMap = $allItems->mapWithKeys(fn($p) => [$p->battingProfile?->style ?? '' => $p->batting_profile_id])->filter();
-            $bowlCounts = $allItems->groupBy(fn($p) => $p->bowlingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
-            $bowlIdMap = $allItems->mapWithKeys(fn($p) => [$p->bowlingProfile?->style ?? '' => $p->bowling_profile_id])->filter();
-            $teamCounts = $allItems->groupBy(fn($p) => $p->actualTeam?->name ?? $p->playing_team_name_ref ?? 'Unassigned')->map->count()->sortDesc();
-            $teamIdMap = $allItems->mapWithKeys(fn($p) => [$p->actualTeam?->name ?? 'Unassigned' => $p->actual_team_id])->filter();
+            $quickKeys = [
+                'player_type'    => 'blue',
+                'wk'             => 'orange',
+                'batting'        => 'indigo',
+                'bowling'        => 'green',
+                'visa_status'    => 'cyan',
+                'transportation' => 'purple',
+            ];
+            $palette = [
+                'blue'   => ['on' => 'bg-blue-600 text-white ring-2 ring-blue-400', 'off' => 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20 hover:bg-blue-100', 'badgeOn' => 'bg-blue-400 text-white', 'badgeOff' => 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100'],
+                'orange' => ['on' => 'bg-orange-600 text-white ring-2 ring-orange-400', 'off' => 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20 hover:bg-orange-100', 'badgeOn' => 'bg-orange-400 text-white', 'badgeOff' => 'bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100'],
+                'indigo' => ['on' => 'bg-indigo-600 text-white ring-2 ring-indigo-400', 'off' => 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20 hover:bg-indigo-100', 'badgeOn' => 'bg-indigo-400 text-white', 'badgeOff' => 'bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100'],
+                'green'  => ['on' => 'bg-green-600 text-white ring-2 ring-green-400', 'off' => 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20 hover:bg-green-100', 'badgeOn' => 'bg-green-400 text-white', 'badgeOff' => 'bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100'],
+                'cyan'   => ['on' => 'bg-cyan-600 text-white ring-2 ring-cyan-400', 'off' => 'bg-cyan-50 text-cyan-700 ring-1 ring-inset ring-cyan-600/10 dark:bg-cyan-500/10 dark:text-cyan-300 dark:ring-cyan-400/20 hover:bg-cyan-100', 'badgeOn' => 'bg-cyan-400 text-white', 'badgeOff' => 'bg-cyan-200 dark:bg-cyan-700 text-cyan-800 dark:text-cyan-100'],
+                'purple' => ['on' => 'bg-purple-600 text-white ring-2 ring-purple-400', 'off' => 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-300 dark:ring-purple-400/20 hover:bg-purple-100', 'badgeOn' => 'bg-purple-400 text-white', 'badgeOff' => 'bg-purple-200 dark:bg-purple-700 text-purple-800 dark:text-purple-100'],
+            ];
+            $quickTagParams = array_values(array_filter(array_keys($quickKeys), fn($k) => isset($filterDefinitions[$k])));
         @endphp
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-4">
             <div class="flex items-center gap-2 mb-3">
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Filters ({{ $players->total() }} players)</h3>
-                @if(request()->hasAny(['player_type', 'batting', 'bowling', 'wk', 'team']))
-                    <a href="{{ route('team-manager.players', request()->only('search')) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear filters</a>
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Quick Filters ({{ $playerPool->count() }} players)</h3>
+                @if(request()->hasAny($quickTagParams))
+                    <a href="{{ filter_url([], $quickTagParams) }}" class="text-xs text-blue-600 hover:underline ml-auto">Clear tag filters</a>
                 @endif
             </div>
             <div class="flex flex-wrap gap-2">
-                @foreach($typeCounts as $type => $count)
-                    @php $isActive = request('player_type') == ($typeIdMap[$type] ?? ''); @endphp
-                    <a href="{{ route('team-manager.players', array_merge(request()->except('page'), ['player_type' => $typeIdMap[$type] ?? ''])) }}"
-                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? 'bg-blue-600 text-white ring-2 ring-blue-400' : 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/10 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20 hover:bg-blue-100' }}">
-                        {{ $type }} <span class="{{ $isActive ? 'bg-blue-400 text-white' : 'bg-blue-200 dark:bg-blue-700 text-blue-800 dark:text-blue-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $count }}</span>
-                    </a>
-                @endforeach
-
-                @if($wkCount > 0)
-                    @php $isActive = request('wk'); @endphp
-                    <a href="{{ route('team-manager.players', array_merge(request()->except('page'), ['wk' => 1])) }}"
-                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? 'bg-orange-600 text-white ring-2 ring-orange-400' : 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/10 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20 hover:bg-orange-100' }}">
-                        Wicket Keeper <span class="{{ $isActive ? 'bg-orange-400 text-white' : 'bg-orange-200 dark:bg-orange-700 text-orange-800 dark:text-orange-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $wkCount }}</span>
-                    </a>
-                @endif
-
-                @foreach($batCounts as $style => $count)
-                    @php $isActive = request('batting') == ($batIdMap[$style] ?? ''); @endphp
-                    <a href="{{ route('team-manager.players', array_merge(request()->except('page'), ['batting' => $batIdMap[$style] ?? ''])) }}"
-                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20 hover:bg-indigo-100' }}">
-                        {{ $style }} <span class="{{ $isActive ? 'bg-indigo-400 text-white' : 'bg-indigo-200 dark:bg-indigo-700 text-indigo-800 dark:text-indigo-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $count }}</span>
-                    </a>
-                @endforeach
-
-                @foreach($bowlCounts as $style => $count)
-                    @php $isActive = request('bowling') == ($bowlIdMap[$style] ?? ''); @endphp
-                    <a href="{{ route('team-manager.players', array_merge(request()->except('page'), ['bowling' => $bowlIdMap[$style] ?? ''])) }}"
-                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? 'bg-green-600 text-white ring-2 ring-green-400' : 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/10 dark:bg-green-500/10 dark:text-green-300 dark:ring-green-400/20 hover:bg-green-100' }}">
-                        {{ $style }} <span class="{{ $isActive ? 'bg-green-400 text-white' : 'bg-green-200 dark:bg-green-700 text-green-800 dark:text-green-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $count }}</span>
-                    </a>
-                @endforeach
-
-                @foreach($teamCounts as $teamName => $count)
-                    @if($teamIdMap[$teamName] ?? null)
-                        @php $isActive = request('team') == $teamIdMap[$teamName]; @endphp
-                        <a href="{{ route('team-manager.players', array_merge(request()->except('page'), ['team' => $teamIdMap[$teamName]])) }}"
-                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? 'bg-gray-700 text-white ring-2 ring-gray-500' : 'bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-600 hover:bg-gray-200' }}">
-                            {{ $teamName }} <span class="{{ $isActive ? 'bg-gray-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $count }}</span>
+                @foreach($quickKeys as $qKey => $colour)
+                    @continue(!isset($filterDefinitions[$qKey]))
+                    @php $c = $palette[$colour]; @endphp
+                    @foreach($filterDefinitions[$qKey]['options'] ?? [] as $optValue => $optLabel)
+                        @php
+                            // Option labels arrive as "Right Handed (42)" — split the count
+                            // out so it can sit in its own badge.
+                            preg_match('/^(.*?)\s*\((\d+)\)$/', $optLabel, $m);
+                            $optText = $m[1] ?? $optLabel;
+                            $optCount = $m[2] ?? null;
+                            if (in_array($optValue, ['1', '0'], true)) {
+                                $optText = $optValue === '1'
+                                    ? $filterDefinitions[$qKey]['label']
+                                    : 'No ' . $filterDefinitions[$qKey]['label'];
+                            }
+                            $isActive = filter_is_active($qKey, $optValue);
+                        @endphp
+                        @continue($optCount === '0' || $optValue === 'none')
+                        <a href="{{ toggle_filter_url($qKey, $optValue) }}"
+                           title="{{ $isActive ? 'Click to remove this filter' : 'Click to filter' }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? $c['on'] : $c['off'] }}">
+                            {{ $optText }}
+                            @if($optCount !== null)
+                                <span class="{{ $isActive ? $c['badgeOn'] : $c['badgeOff'] }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $optCount }}</span>
+                            @endif
+                            @if($isActive)
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                            @endif
                         </a>
-                    @endif
+                    @endforeach
+                @endforeach
+
+                {{-- Team tags --}}
+                @foreach($teams as $t)
+                    @php
+                        $tCount = $playerPool->where('actual_team_id', $t->id)->count();
+                        $isActive = filter_is_active('team', $t->id);
+                    @endphp
+                    @continue($tCount === 0 && !$isActive)
+                    <a href="{{ toggle_filter_url('team', $t->id) }}"
+                       title="{{ $isActive ? 'Click to remove this filter' : 'Click to filter' }}"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition {{ $isActive ? 'bg-gray-700 text-white ring-2 ring-gray-500' : 'bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-600 hover:bg-gray-200' }}">
+                        {{ $t->name }}
+                        <span class="{{ $isActive ? 'bg-gray-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-100' }} px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none">{{ $tCount }}</span>
+                        @if($isActive)
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        @endif
+                    </a>
                 @endforeach
             </div>
         </div>
     @endif
+
+    {{-- Every registration parameter as a filter, grouped like the registration form --}}
+    <x-filters.player-filters
+        :definitions="$filterDefinitions"
+        :keep="['search' => request('search'), 'team' => request('team')]"
+        :action="route('team-manager.players')" />
+
 
     <div class="flex items-center justify-between mb-3">
         <p class="text-sm text-gray-500 dark:text-gray-400">

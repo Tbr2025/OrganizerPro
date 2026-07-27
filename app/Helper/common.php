@@ -54,6 +54,54 @@ function get_settings(int|bool|null $autoload = true): array
     return handle_ld_setting('getSettings', $autoload);
 }
 
+if (! function_exists('filter_url')) {
+    /**
+     * Current URL with query parameters merged in.
+     *
+     * A null or empty value REMOVES that parameter, which is what makes a filter
+     * clearable. Paging always resets, since page 3 of the old result set is
+     * meaningless once the filters change.
+     *
+     * @param  array<string, mixed>  $changes
+     */
+    function filter_url(array $changes, array $drop = []): string
+    {
+        $query = array_merge(request()->query(), $changes);
+
+        foreach (array_merge($drop, ['page']) as $key) {
+            unset($query[$key]);
+        }
+
+        $query = array_filter($query, fn ($value) => $value !== null && $value !== '' && $value !== []);
+
+        return request()->url() . ($query ? '?' . http_build_query($query) : '');
+    }
+}
+
+if (! function_exists('toggle_filter_url')) {
+    /**
+     * URL that applies a filter value, or clears it when it is already the active
+     * value — so clicking the same tag twice turns it off.
+     */
+    function toggle_filter_url(string $key, mixed $value): string
+    {
+        $current = request()->query($key);
+        $isActive = $current !== null && (string) $current === (string) $value;
+
+        return filter_url([$key => $isActive ? null : $value]);
+    }
+}
+
+if (! function_exists('filter_is_active')) {
+    /** Whether a filter currently holds this exact value. */
+    function filter_is_active(string $key, mixed $value): bool
+    {
+        $current = request()->query($key);
+
+        return $current !== null && $current !== '' && (string) $current === (string) $value;
+    }
+}
+
 if (! function_exists('format_millions')) {
     /**
      * Format a raw currency amount as a millions figure with an "M" suffix.

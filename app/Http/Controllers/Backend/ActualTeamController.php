@@ -482,55 +482,50 @@ class ActualTeamController extends Controller
         $authUser = auth()->user();
         $actualTeam->loadMissing('tournament');
 
-        $tournamentId = $actualTeam->tournament_id;
+        $actualTeam->loadMissing('tournaments');
+
+        // A team can be linked to a tournament through the legacy column or the
+        // pivot, so the eligible pool covers every tournament it plays in.
+        $teamTournamentIds = $actualTeam->tournaments->pluck('id')
+            ->push($actualTeam->tournament_id)
+            ->filter()
+            ->unique()
+            ->values();
 
         // Players APPROVED for THIS tournament (i.e. registered via the tournament's
         // registration link) — the basis for both tournament types. We never show
         // players who didn't register for this tournament.
-        $approvedPlayerIds = TournamentRegistration::where('tournament_id', $tournamentId)
+        $approvedPlayerIds = TournamentRegistration::whereIn('tournament_id', $teamTournamentIds)
             ->where('type', 'player')
             ->where('status', 'approved')
             ->pluck('player_id');
 
-        if ($actualTeam->tournament?->isAuction()) {
-            // AUCTION tournament: draw only from players RETAINED (kept into a team of
-            // THIS tournament) or APPROVED for THIS tournament. No staff/manager users.
-            $retainedPlayerIds = Player::where('player_mode', 'retained')
-                ->whereHas('actualTeam', fn ($q) => $q->where('tournament_id', $tournamentId))
+        $isAuctionTournament = $actualTeam->tournament?->isAuction()
+            || $actualTeam->tournaments->contains(fn ($t) => $t->isAuction());
+
+        if ($isAuctionTournament) {
+            // AUCTION tournament: also draw from players RETAINED into a team of this
+            // tournament, who may not have their own approved registration row.
+            $retainedPlayerIds = Player::withoutOrganizationScope()
+                ->where('player_mode', 'retained')
+                ->whereHas('actualTeam', fn ($q) => $q->whereIn('tournament_id', $teamTournamentIds))
                 ->pluck('id');
 
-            $eligiblePlayerUserIds = Player::whereIn('id', $approvedPlayerIds->merge($retainedPlayerIds)->unique()->all())
-                ->whereNotNull('user_id')
-                ->pluck('user_id');
-
-            $usersQuery = User::query()
-                ->where(function ($q) use ($eligiblePlayerUserIds) {
-                    $q->whereIn('id', $eligiblePlayerUserIds)
-                      ->orWhereDoesntHave('roles', fn ($r) => $r->whereIn('name', ['Superadmin', 'Admin']));
-                })
-                ->whereNotIn('id', $allExcludedUserIds);
-
-            if (! $authUser->hasRole('Superadmin')) {
-                $usersQuery->where('organization_id', $authUser->organization_id);
-            }
-        } else {
-            // OPEN tournament: only players who REGISTERED for THIS tournament (via its
-            // link) — never the whole org's player base or staff users.
-            $eligiblePlayerUserIds = Player::whereIn('id', $approvedPlayerIds->unique()->all())
-                ->whereNotNull('user_id')
-                ->pluck('user_id');
-
-            $usersQuery = User::query()
-                ->where(function ($q) use ($eligiblePlayerUserIds) {
-                    $q->whereIn('id', $eligiblePlayerUserIds)
-                      ->orWhereDoesntHave('roles', fn ($r) => $r->whereIn('name', ['Superadmin', 'Admin']));
-                })
-                ->whereNotIn('id', $allExcludedUserIds);
-
-            if (! $authUser->hasRole('Superadmin')) {
-                $usersQuery->where('organization_id', $authUser->organization_id);
-            }
+            $approvedPlayerIds = $approvedPlayerIds->merge($retainedPlayerIds);
         }
+
+        // Retained players can have a NULL organisation, so bypass the org scope
+        // here and rely on the tournament scoping above instead.
+        $eligiblePlayerUserIds = Player::withoutOrganizationScope()
+            ->whereIn('id', $approvedPlayerIds->unique()->filter()->all())
+            ->whereNotNull('user_id')
+            ->pluck('user_id');
+
+        // Strictly the eligible players — no fallback that would pull in every
+        // non-admin user in the organisation.
+        $usersQuery = User::query()
+            ->whereIn('id', $eligiblePlayerUserIds)
+            ->whereNotIn('id', $allExcludedUserIds);
 
         // Execute the query to get the final list of available users.
         $availableUsers = $usersQuery->with(['player.playerType', 'roles'])->get();

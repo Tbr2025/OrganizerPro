@@ -17,6 +17,7 @@ use App\Models\TournamentRegistration;
 use App\Models\User;
 use App\Services\Notification\TournamentNotificationService;
 use App\Services\Tournament\RegistrationService;
+use App\Support\PlayerFilters;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -100,24 +101,26 @@ class TournamentRegistrationController extends Controller
             }
         }
 
-        // Filter by player type (role)
-        if ($request->get('role') && $type === 'player') {
-            $role = $request->get('role');
-            if ($role === 'Wicket Keeper') {
-                $query->where('players.is_wicket_keeper', true);
-            } else {
-                $query->whereHas('player.playerType', fn($q) => $q->where('type', $role));
-            }
-        }
+        // Every registration-parameter filter (visa status, availability, sizes,
+        // profile, stats…) comes from the shared definition set, which is built
+        // from this tournament's own registration form.
+        $playerPool = collect();
+        $filterDefinitions = [];
 
-        // Filter by batting profile
-        if ($request->get('batting_profile') && $type === 'player') {
-            $query->whereHas('player.battingProfile', fn($q) => $q->where('style', $request->get('batting_profile')));
-        }
+        if ($type === 'player') {
+            // Option counts are built from everything matching the current tab,
+            // search and team — but NOT the parameter filters themselves, so each
+            // option still shows how many rows it would match.
+            $poolIds = (clone $query)->pluck('players.id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
 
-        // Filter by bowling profile
-        if ($request->get('bowling_profile') && $type === 'player') {
-            $query->whereHas('player.bowlingProfile', fn($q) => $q->where('style', $request->get('bowling_profile')));
+            $playerPool = PlayerFilters::pool($poolIds);
+            $filterDefinitions = PlayerFilters::definitions($tournament, $playerPool);
+
+            PlayerFilters::apply($query, $request, $filterDefinitions);
         }
 
         if ($tournamentType !== '' && $type === 'player') {
@@ -178,6 +181,8 @@ class TournamentRegistrationController extends Controller
                 ->whereHas('player', fn ($q) => $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode'))
                 ->count(),
             'filters' => compact('type', 'status', 'search', 'sort', 'direction', 'playingTeam', 'tournamentType'),
+            'filterDefinitions' => $filterDefinitions,
+            'playerPool' => $playerPool,
             'breadcrumbs' => [
                 'title' => __('Registrations'),
                 'items' => [

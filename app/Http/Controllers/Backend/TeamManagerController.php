@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
 use App\Models\Player;
+use App\Support\PlayerFilters;
 use App\Models\TournamentRegistration;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -831,30 +832,26 @@ class TeamManagerController extends Controller
             });
         }
 
-        // Filter by player type (role)
-        if ($playerTypeId = $request->get('player_type')) {
-            $query->where('player_type_id', $playerTypeId);
-        }
-
-        // Filter by batting profile
-        if ($battingId = $request->get('batting')) {
-            $query->where('batting_profile_id', $battingId);
-        }
-
-        // Filter by bowling profile
-        if ($bowlingId = $request->get('bowling')) {
-            $query->where('bowling_profile_id', $bowlingId);
-        }
-
-        // Filter by wicket keeper
-        if ($request->get('wk')) {
-            $query->where('is_wicket_keeper', true);
-        }
-
         // Filter by team
         if ($teamFilter = $request->get('team')) {
             $query->where('actual_team_id', $teamFilter);
         }
+
+        // Every registration-parameter filter (role, batting/bowling, visa status,
+        // availability, sizes, stats…) comes from the same shared definitions the
+        // admin registrations list uses. Employment details stay hidden from team
+        // managers, so those filters are excluded.
+        $tournamentModel = \App\Models\Tournament::find($tournamentId);
+
+        // Option counts come from everything matching the current search and team
+        // but NOT the parameter filters themselves, so each option still shows how
+        // many players it would match.
+        $poolIds = (clone $query)->pluck('players.id')->filter()->unique()->values()->all();
+
+        $playerPool = PlayerFilters::pool($poolIds);
+        $filterDefinitions = PlayerFilters::definitions($tournamentModel, $playerPool, includeSensitive: false);
+
+        PlayerFilters::apply($query, $request, $filterDefinitions);
 
         $players = $query->groupBy('players.id')->orderBy('name')->paginate(20)->appends($request->query());
 
@@ -874,7 +871,7 @@ class TeamManagerController extends Controller
         $breadcrumbs = ['title' => __('Players')];
 
         // Tournament settings for verification percentage calculation
-        $tournament = \App\Models\Tournament::find($tournamentId);
+        $tournament = $tournamentModel;
         $tournamentSettings = $tournament?->settings;
         $verifyLayout = \App\Helpers\PlayerFormConfig::getFormLayout($tournamentSettings, false);
         $verifyFieldConfig = \App\Helpers\PlayerFormConfig::getFieldConfig($tournamentSettings);
@@ -883,7 +880,8 @@ class TeamManagerController extends Controller
         return view('backend.pages.team-manager.players', compact(
             'team', 'players', 'wishlistedIds', 'breadcrumbs',
             'playerTypes', 'battingProfiles', 'bowlingProfiles', 'teams',
-            'verifyLayout', 'verifyFieldConfig', 'verifyCustomFields'
+            'verifyLayout', 'verifyFieldConfig', 'verifyCustomFields',
+            'filterDefinitions', 'playerPool'
         ));
     }
 
