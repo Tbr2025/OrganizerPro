@@ -54,6 +54,27 @@ function get_settings(int|bool|null $autoload = true): array
     return handle_ld_setting('getSettings', $autoload);
 }
 
+if (! function_exists('format_millions')) {
+    /**
+     * Format a raw currency amount as a millions figure with an "M" suffix.
+     *
+     * Budgets across the app are stored in whole units (20000000) but always shown
+     * in millions, so 20000000 => "20M", 5500000 => "5.5M", 0 => "0M".
+     * A null/empty value means "not applicable / not configured" and returns the
+     * placeholder instead of a misleading "0M".
+     */
+    function format_millions(int|float|string|null $value, string $placeholder = '—'): string
+    {
+        if ($value === null || $value === '') {
+            return $placeholder;
+        }
+
+        $millions = ((float) $value) / 1000000;
+
+        return rtrim(rtrim(number_format($millions, 2), '0'), '.') . 'M';
+    }
+}
+
 if (! function_exists('storeImageAndGetUrl')) {
     /**
      * Store uploaded image and return its public URL.

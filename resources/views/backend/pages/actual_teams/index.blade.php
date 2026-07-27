@@ -104,10 +104,14 @@
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             @forelse ($actualTeams as $team)
                                 @php
-                                    $budgetRaw = $teamBudgets[$team->id]['max_budget_raw'] ?? 0;
-                                    $spentRaw = $teamBudgets[$team->id]['spent_raw'] ?? 0;
-                                    $balance = $budgetRaw - $spentRaw;
-                                    $toM = fn($v) => $v ? rtrim(rtrim(number_format($v / 1000000, 2), '0'), '.') . 'M' : '0';
+                                    $isAuctionTeam = $teamBudgets[$team->id]['is_auction'] ?? false;
+                                    $budgetRaw = $teamBudgets[$team->id]['max_budget_raw'] ?? null;
+                                    $spentRaw = $teamBudgets[$team->id]['spent_raw'] ?? null;
+                                    // Balance is only meaningful once a budget is configured.
+                                    $balance = $budgetRaw === null ? null : $budgetRaw - $spentRaw;
+                                    $budgetHint = !$isAuctionTeam
+                                        ? 'Open tournament — no budget'
+                                        : ($budgetRaw === null ? 'Team budget not set for this auction yet' : '');
                                     $userCount = $teamBudgets[$team->id]['user_count'] ?? 0;
                                     $squadMax = $teamBudgets[$team->id]['squad_max'] ?? 18;
                                     $squadPercent = $squadMax > 0 ? min(100, round(($userCount / $squadMax) * 100)) : 0;
@@ -162,18 +166,20 @@
                                     </td>
 
                                     {{-- Budget / Total --}}
-                                    <td class="px-5 py-3.5 font-mono text-sm tabular-nums text-gray-700 dark:text-gray-300">
-                                        {{ $teamBudgets[$team->id]['max_budget'] ?? '0' }}
+                                    <td class="px-5 py-3.5 font-mono text-sm tabular-nums {{ $budgetRaw === null ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300' }}"
+                                        @if ($budgetHint) title="{{ $budgetHint }}" @endif>
+                                        {{ format_millions($budgetRaw) }}
                                     </td>
 
                                     {{-- Spent --}}
-                                    <td class="px-5 py-3.5 font-mono text-sm tabular-nums text-gray-700 dark:text-gray-300">
-                                        {{ $teamBudgets[$team->id]['spent'] ?? '0' }}
+                                    <td class="px-5 py-3.5 font-mono text-sm tabular-nums {{ $spentRaw === null ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300' }}">
+                                        {{ format_millions($spentRaw) }}
                                     </td>
 
                                     {{-- Balance --}}
-                                    <td class="px-5 py-3.5 font-mono text-sm tabular-nums font-medium {{ $balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400') }}">
-                                        {{ $toM($balance) }}
+                                    <td class="px-5 py-3.5 font-mono text-sm tabular-nums font-medium {{ $balance === null ? 'text-gray-400 dark:text-gray-500' : ($balance > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400')) }}"
+                                        @if ($budgetHint) title="{{ $budgetHint }}" @endif>
+                                        {{ format_millions($balance) }}
                                     </td>
 
                                     {{-- Squad --}}

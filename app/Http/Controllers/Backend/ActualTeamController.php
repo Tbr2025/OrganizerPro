@@ -88,74 +88,85 @@ class ActualTeamController extends Controller
         // Calculate total spent per team and auctioned players count
         $teamBudgets = [];
 
+        // A team may be linked to a tournament via the legacy `tournament_id` column OR
+        // via the `actual_team_tournament` pivot, so both have to be considered when
+        // resolving the auction/settings context.
+        $tournamentIds = $actualTeams->pluck('tournament_id')
+            ->merge($actualTeams->flatMap(fn ($team) => $team->tournaments->pluck('id')))
+            ->filter()
+            ->unique();
+
         // Pre-load auctions and tournament settings keyed by tournament_id for efficiency
-        $tournamentIds = $actualTeams->pluck('tournament_id')->filter()->unique();
         $auctions = Auction::whereIn('tournament_id', $tournamentIds)->get()->keyBy('tournament_id');
         $tournamentSettings = \App\Models\TournamentSetting::whereIn('tournament_id', $tournamentIds)->get()->keyBy('tournament_id');
 
         foreach ($actualTeams as $team) {
-            $auction = $team->tournament_id ? ($auctions[$team->tournament_id] ?? null) : null;
+            // Candidate tournaments for this team: primary first, then pivot links.
+            $teamTournaments = collect([$team->tournament])
+                ->filter()
+                ->merge($team->tournaments)
+                ->unique('id');
 
-            $settings = $team->tournament_id ? ($tournamentSettings[$team->tournament_id] ?? null) : null;
+            // Budgets only exist for auction tournaments (see CLAUDE.md: open tournaments
+            // have no budget, no auction and no retained players).
+            $auctionTournament = $teamTournaments->first(fn ($t) => $t->isAuction());
+
+            $settingsTournamentId = $auctionTournament?->id ?? $teamTournaments->first()?->id;
+            $settings = $settingsTournamentId ? ($tournamentSettings[$settingsTournamentId] ?? null) : null;
             $squadMax = $settings->max_players_per_team ?? 18;
 
-            // Helper to format value in millions
-            $toM = fn($v) => $v ? rtrim(rtrim(number_format($v / 1000000, 2), '0'), '.') . 'M' : '0';
+            if (! $auctionTournament) {
+                // OPEN tournament (or no tournament yet) — budget/spent/balance do not
+                // apply. `null` renders as "—" rather than a misleading 0.
+                $teamBudgets[$team->id] = [
+                    'is_auction' => false,
+                    'user_count' => $team->users->count(),
+                    'squad_max' => $squadMax,
+                    'spent_raw' => null,
+                    'max_budget_raw' => null,
+                ];
+
+                continue;
+            }
+
+            $auction = $auctions[$auctionTournament->id] ?? null;
+
+            // The budget lives on the auction record (set via the tournament's global
+            // budget form). Until it exists the budget is unknown — NOT zero, otherwise
+            // the balance shows as negative-spent.
+            $maxBudget = $auction && $auction->max_budget_per_team > 0
+                ? (float) $auction->max_budget_per_team
+                : null;
+
+            // Auction spend = winning price of players sold to this team. `auction_bids`
+            // is a log of every bid placed, so summing it over-counts badly; the rest of
+            // the auction module reads `auction_players.final_price` and so do we.
+            $soldQuery = AuctionPlayer::where('sold_to_team_id', $team->id)
+                ->where('status', 'sold');
 
             if ($auction) {
-                $maxBudget = $auction->max_budget_per_team ?? 0;
-
-                // Count only users in this team who were actually bought in the auction
-                $auctionedUserCount = DB::table('auction_bids')
-                    ->where('auction_id', $auction->id)
-                    ->where('team_id', $team->id)
-                    ->distinct('user_id')
-                    ->count('user_id');
-
-                // Count retained players
-                $retainedCount = \App\Models\Player::where('actual_team_id', $team->id)
-                    ->where('player_mode', 'retained')
-                    ->count();
-
-                // Total spent by the team (auction bids + retained values)
-                $auctionSpent = DB::table('auction_bids')
-                    ->where('auction_id', $auction->id)
-                    ->where('team_id', $team->id)
-                    ->sum('amount');
-
-                $retainedSpent = \App\Models\Player::where('actual_team_id', $team->id)
-                    ->where('player_mode', 'retained')
-                    ->sum('retained_value');
-
-                $totalSpent = $auctionSpent + $retainedSpent;
-
-                $teamBudgets[$team->id] = [
-                    'spent' => $toM($totalSpent),
-                    'max_budget' => $toM($maxBudget),
-                    'user_count' => $auctionedUserCount + $retainedCount,
-                    'squad_max' => $squadMax,
-                    'spent_raw' => $totalSpent,
-                    'max_budget_raw' => $maxBudget,
-                ];
-            } else {
-                // Count retained players even when no auction exists
-                $retainedCount = \App\Models\Player::where('actual_team_id', $team->id)
-                    ->where('player_mode', 'retained')
-                    ->count();
-
-                $retainedSpent = \App\Models\Player::where('actual_team_id', $team->id)
-                    ->where('player_mode', 'retained')
-                    ->sum('retained_value');
-
-                $teamBudgets[$team->id] = [
-                    'spent' => $toM($retainedSpent),
-                    'max_budget' => '0',
-                    'user_count' => $retainedCount,
-                    'squad_max' => $squadMax,
-                    'spent_raw' => $retainedSpent,
-                    'max_budget_raw' => 0,
-                ];
+                $soldQuery->where('auction_id', $auction->id);
             }
+
+            $soldCount = (clone $soldQuery)->count();
+            $auctionSpent = (float) (clone $soldQuery)->sum('final_price');
+
+            // Retained players count against the same budget.
+            $retainedQuery = Player::where('actual_team_id', $team->id)
+                ->where('player_mode', 'retained');
+
+            $retainedCount = (clone $retainedQuery)->count();
+            $retainedSpent = (float) (clone $retainedQuery)->sum('retained_value');
+
+            $totalSpent = $auctionSpent + $retainedSpent;
+
+            $teamBudgets[$team->id] = [
+                'is_auction' => true,
+                'user_count' => $soldCount + $retainedCount,
+                'squad_max' => $squadMax,
+                'spent_raw' => $totalSpent,
+                'max_budget_raw' => $maxBudget,
+            ];
         }
 
 
