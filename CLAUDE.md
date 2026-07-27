@@ -4,8 +4,12 @@
 
 When asked to deploy, run:
 ```bash
-ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && npm run build && sudo chown -R www-data:www-data storage bootstrap/cache public/build && sudo chmod -R 775 storage bootstrap/cache && php artisan optimize:clear"
+ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && sudo chown -R ubuntu:ubuntu public/build && npm run build && sudo chmod -R a+rX public/build && sudo chown -R www-data:www-data storage bootstrap/cache && sudo chmod -R 775 storage bootstrap/cache && php artisan optimize:clear"
 ```
+
+`public/build` must be owned by **ubuntu** (vite wipes and rewrites the directory as
+the ssh user, and fails with `EACCES: rmdir` if www-data owns it) and left
+world-readable so nginx can serve it. Never chown it to www-data.
 
 - **Host:** 13.232.249.159
 - **User:** ubuntu

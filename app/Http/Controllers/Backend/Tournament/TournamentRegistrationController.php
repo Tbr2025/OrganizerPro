@@ -111,7 +111,12 @@ class TournamentRegistrationController extends Controller
             // Option counts are built from everything matching the current tab,
             // search and team — but NOT the parameter filters themselves, so each
             // option still shows how many rows it would match.
-            $poolIds = (clone $query)->pluck('players.id')
+            //
+            // Pluck player_id, NOT players.id: the query already has an explicit
+            // select, and pluck() only overrides the select list when none is set
+            // (Query\Builder::onceWithColumns), so asking for `players.id` would
+            // silently hand back tournament_registrations.id instead.
+            $poolIds = (clone $query)->pluck('tournament_registrations.player_id')
                 ->filter()
                 ->unique()
                 ->values()
