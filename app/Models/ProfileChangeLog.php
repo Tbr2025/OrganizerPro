@@ -74,15 +74,14 @@ class ProfileChangeLog extends Model
     }
 
     /**
-     * Format raw changes array for human-readable display.
-     *
-     * Maps raw column names to labels, resolves foreign key IDs to names,
-     * formats boolean/special values, and skips empty values.
+     * Raw player column name => human-readable label.
      */
-    public static function formatChangesForDisplay(array $changes): array
+    public static function labels(): array
     {
-        $labels = [
+        return [
             'name' => 'Name',
+            'first_name' => 'First Name',
+            'last_name' => 'Last Name',
             'mobile_number_full' => 'Mobile Number',
             'jersey_name' => 'Jersey Name',
             'cricheroes_number_full' => 'CricHeroes Number',
@@ -108,9 +107,72 @@ class ProfileChangeLog extends Model
             'image_path' => 'Profile Photo',
             'email' => 'Email',
             'country' => 'Country',
+            'state' => 'State',
+            'date_of_birth' => 'Date of Birth',
             'visa_status' => 'Visa Status',
+            'visa_expiry' => 'Visa Expiry',
+            'employer_name' => 'Employer Name',
+            'employer_address' => 'Employer Address',
+            'employer_position' => 'Employer Position',
+            'batting_mode' => 'Batting Mode',
+            'preferred_batting_positions' => 'Preferred Batting Positions',
+            'available_saturday' => 'Available Saturday',
+            'available_sunday' => 'Available Sunday',
+            'played_ys_ipl_s1' => 'Played YS IPL S1',
         ];
+    }
 
+    /**
+     * Human-readable label for a raw player column name.
+     */
+    public static function fieldLabel(string $field): string
+    {
+        return self::labels()[$field] ?? ucwords(str_replace('_', ' ', $field));
+    }
+
+    /**
+     * Human-readable value for a single changed field.
+     *
+     * Resolves foreign key IDs to names and words booleans. Array-valued
+     * columns (e.g. the JSON-cast preferred_batting_positions) are joined —
+     * casting them to string is what previously blew up the callers.
+     *
+     * image_path is deliberately not handled here: callers word it differently.
+     */
+    public static function formatValue(string $field, mixed $value): string
+    {
+        if (is_null($value) || $value === '' || $value === []) {
+            return '—';
+        }
+
+        if (is_array($value)) {
+            $flat = array_filter($value, fn ($v) => ! is_array($v) && ! is_object($v));
+
+            return $flat === [] ? '—' : implode(', ', array_map(fn ($v) => (string) $v, $flat));
+        }
+
+        return match ($field) {
+            'is_wicket_keeper' => $value ? 'Yes' : 'No',
+            'transportation_required' => $value ? 'Yes' : 'No',
+            'no_travel_plan' => $value ? 'No travel' : 'Has travel plan',
+            'actual_team_id' => optional(ActualTeam::find($value))->name ?? (string) $value,
+            'batting_profile_id' => optional(BattingProfile::find($value))->name ?? (string) $value,
+            'bowling_profile_id' => optional(BowlingProfile::find($value))->name ?? (string) $value,
+            'player_type_id' => optional(PlayerType::find($value))->name ?? (string) $value,
+            'location_id' => optional(PlayerLocation::find($value))->name ?? (string) $value,
+            'kit_size_id' => optional(KitSize::find($value))->name ?? (string) $value,
+            default => is_bool($value) ? ($value ? 'Yes' : 'No') : (string) $value,
+        };
+    }
+
+    /**
+     * Format raw changes array for human-readable display.
+     *
+     * Maps raw column names to labels, resolves foreign key IDs to names,
+     * formats boolean/special values, and skips empty values.
+     */
+    public static function formatChangesForDisplay(array $changes): array
+    {
         $formatted = [];
 
         foreach ($changes as $field => $value) {
@@ -119,24 +181,9 @@ class ProfileChangeLog extends Model
                 continue;
             }
 
-            $label = $labels[$field] ?? ucwords(str_replace('_', ' ', $field));
-
-            // Format the display value
-            $displayValue = match ($field) {
-                'is_wicket_keeper' => $value ? 'Yes' : 'No',
-                'transportation_required' => $value ? 'Yes' : 'No',
-                'no_travel_plan' => $value ? 'No travel' : 'Has travel plan',
-                'image_path' => 'Updated',
-                'actual_team_id' => optional(ActualTeam::find($value))->name ?? (string) $value,
-                'batting_profile_id' => optional(BattingProfile::find($value))->name ?? (string) $value,
-                'bowling_profile_id' => optional(BowlingProfile::find($value))->name ?? (string) $value,
-                'player_type_id' => optional(PlayerType::find($value))->name ?? (string) $value,
-                'location_id' => optional(PlayerLocation::find($value))->name ?? (string) $value,
-                'kit_size_id' => optional(KitSize::find($value))->name ?? (string) $value,
-                default => is_array($value) ? json_encode($value) : (string) $value,
-            };
-
-            $formatted[$label] = $displayValue;
+            $formatted[self::fieldLabel($field)] = $field === 'image_path'
+                ? 'Updated'
+                : self::formatValue($field, $value);
         }
 
         return $formatted;

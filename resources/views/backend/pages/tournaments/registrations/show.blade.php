@@ -691,26 +691,15 @@
                     @php
                         $pc = (array) $registration->pending_changes;
                         $pcPlayer = $registration->player;
-                        $pcLabels = [
-                            'name' => 'Name', 'mobile_number_full' => 'Mobile Number', 'jersey_name' => 'Jersey Name',
-                            'cricheroes_number_full' => 'CricHeroes Number', 'cricheroes_profile_url' => 'CricHeroes Profile',
-                            'jersey_number' => 'Jersey Number', 'team_name_ref' => 'Registration Team', 'location_id' => 'Location',
-                            'total_matches' => 'Total Matches', 'total_runs' => 'Total Runs', 'total_wickets' => 'Total Wickets',
-                            'travel_date_from' => 'Travel From', 'travel_date_to' => 'Travel To', 'no_travel_plan' => 'No Travel Plan',
-                            'tshirt_size' => 'T-Shirt Size', 'pant_size' => 'Pant Size', 'batting_profile_id' => 'Batting Profile', 'bowling_profile_id' => 'Bowling Profile',
-                            'player_type_id' => 'Player Type', 'is_wicket_keeper' => 'Wicket Keeper', 'transportation_required' => 'Transportation', 'image_path' => 'Profile Photo',
-                        ];
+                        $pcLabel = fn ($field) => \App\Models\ProfileChangeLog::fieldLabel($field);
                         $pcFmt = function ($field, $val) {
                             if (is_null($val) || $val === '') return '—';
+                            // Franchise-specific wording for this page; everything else
+                            // (including array-valued columns) goes through the shared formatter.
                             return match ($field) {
-                                'is_wicket_keeper' => $val ? 'Yes' : 'No',
                                 'transportation_required' => $val ? 'Transportation Required (Subject to Franchise Preferences)' : 'Self Transportation (Preferred by Franchises)',
                                 'no_travel_plan' => $val ? 'No' : 'Yes',
-                                'batting_profile_id' => optional(\App\Models\BattingProfile::find($val))->name ?? $val,
-                                'bowling_profile_id' => optional(\App\Models\BowlingProfile::find($val))->name ?? $val,
-                                'player_type_id' => optional(\App\Models\PlayerType::find($val))->name ?? $val,
-                                'location_id' => optional(\App\Models\PlayerLocation::find($val))->name ?? $val,
-                                default => (string) $val,
+                                default => \App\Models\ProfileChangeLog::formatValue($field, $val),
                             };
                         };
                     @endphp
@@ -735,7 +724,7 @@
                                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                         @foreach($pc as $field => $val)
                                         <tr>
-                                            <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $pcLabels[$field] ?? $field }}</td>
+                                            <td class="py-2 pr-4 font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $pcLabel($field) }}</td>
                                             @if($field === 'image_path')
                                                 <td class="py-2 pr-4">
                                                     @if($pcPlayer?->image_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($pcPlayer->image_path))

@@ -188,7 +188,7 @@
                 </select>
                 @break
             @case('preferred_batting_position')
-                @php $selectedPositions = old('preferred_batting_positions', $player->preferred_batting_positions ?? []); @endphp
+                @php $selectedPositions = old('preferred_batting_positions', is_array($val) ? $val : ($player->preferred_batting_positions ?? [])); @endphp
                 <div class="grid grid-cols-4 gap-1 pt-1" x-data="{ selectedPositions: @js($selectedPositions) }">
                     @foreach($battingPositions as $pos)
                         <label class="flex items-center gap-1 px-2 py-1 rounded border cursor-pointer transition-colors text-xs"
