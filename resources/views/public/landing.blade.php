@@ -526,6 +526,12 @@
         document.addEventListener('DOMContentLoaded', function () {
             const els = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger-children');
             if (!els.length) return;
+            if (!('IntersectionObserver' in window)) {
+                els.forEach(function (el) { el.classList.add('revealed'); });
+                return;
+            }
+            // threshold 0, not a ratio: single-column mobile sections can be taller than
+            // the viewport, which makes any percentage threshold unreachable.
             const observer = new IntersectionObserver(function (entries) {
                 entries.forEach(function (entry) {
                     if (entry.isIntersecting) {
@@ -533,7 +539,7 @@
                         observer.unobserve(entry.target);
                     }
                 });
-            }, { threshold: 0.15 });
+            }, { threshold: 0, rootMargin: '0px 0px -60px 0px' });
             els.forEach(function (el) { observer.observe(el); });
 
             // Count-up

@@ -530,20 +530,29 @@
             // IntersectionObserver for reveal animations
             const revealEls = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger-children');
             if (revealEls.length) {
-                const revealObserver = new IntersectionObserver(function (entries) {
-                    entries.forEach(function (entry) {
-                        if (entry.isIntersecting) {
-                            entry.target.classList.add('revealed');
-                            revealObserver.unobserve(entry.target);
-                        }
-                    });
-                }, { threshold: 0.15 });
-                revealEls.forEach(function (el) { revealObserver.observe(el); });
+                // No ratio threshold: on mobile a single-column grid is taller than the
+                // viewport, so a percentage threshold can never be met and the content
+                // would stay stuck at opacity 0. Trigger once any part scrolls in.
+                if (!('IntersectionObserver' in window)) {
+                    revealEls.forEach(function (el) { el.classList.add('revealed'); });
+                } else {
+                    const revealObserver = new IntersectionObserver(function (entries) {
+                        entries.forEach(function (entry) {
+                            if (entry.isIntersecting) {
+                                entry.target.classList.add('revealed');
+                                revealObserver.unobserve(entry.target);
+                            }
+                        });
+                    }, { threshold: 0, rootMargin: '0px 0px -60px 0px' });
+                    revealEls.forEach(function (el) { revealObserver.observe(el); });
+                }
             }
 
             // Count-up animation
             const counters = document.querySelectorAll('.count-up');
-            if (counters.length) {
+            if (counters.length && !('IntersectionObserver' in window)) {
+                counters.forEach(function (el) { el.textContent = el.getAttribute('data-count') || el.textContent; });
+            } else if (counters.length) {
                 const counterObserver = new IntersectionObserver(function (entries) {
                     entries.forEach(function (entry) {
                         if (entry.isIntersecting) {
