@@ -70,7 +70,6 @@ class TeamPlayerController extends Controller
         return redirect()->back()->with('success', 'Player added to team successfully.');
     }
 
-
     /**
      * Display the specified resource.
      */

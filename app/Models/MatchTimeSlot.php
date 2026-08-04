@@ -92,12 +92,12 @@ class MatchTimeSlot extends Model
 
     public function isOccupied(): bool
     {
-        return !$this->isAvailable();
+        return ! $this->isAvailable();
     }
 
     public function assignMatch(Matches $match): bool
     {
-        if (!$this->isAvailable()) {
+        if (! $this->isAvailable()) {
             return false;
         }
 
@@ -118,7 +118,7 @@ class MatchTimeSlot extends Model
 
     public function releaseMatch(): bool
     {
-        if (!$this->match_id) {
+        if (! $this->match_id) {
             return false;
         }
 
@@ -168,7 +168,7 @@ class MatchTimeSlot extends Model
             return false;
         }
 
-        if (!$this->slot_date->isSameDay($other->slot_date)) {
+        if (! $this->slot_date->isSameDay($other->slot_date)) {
             return false;
         }
 

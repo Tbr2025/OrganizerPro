@@ -238,21 +238,27 @@
 
     <script>
         // Format bid in millions (M) or lakhs (L) depending on value
-       function formatMillions(amount) {
-            const n = Number(amount) || 0;
-            if (n >= 10000000) {
-                const val = n / 10000000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' Cr';
-            }
-            if (n >= 100000) {
-                const val = n / 100000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' L';
-            }
-            if (n >= 1000) {
-                const val = n / 1000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace(/\.?0+$/, '')) + 'K';
-            }
-            return n.toLocaleString();
+       const AMOUNT_UNIT = @json($auction->amountUnitConfig());
+
+        /* K / M / B with this auction's unit. Standalone page, so its own copy — same
+           ladder and the same server-provided unit as every other screen. */
+        function formatMillions(amount) {
+            if (amount === null || amount === undefined || amount === '') return '—';
+            const n = Number(amount);
+            if (!isFinite(n)) return '—';
+
+            const sign = n < 0 ? '-' : '';
+            const abs = Math.abs(n);
+            if (abs >= 1e15) return '∞';
+
+            let divisor = 1, suffix = '';
+            if (abs >= 1e9) { divisor = 1e9; suffix = 'B'; }
+            else if (abs >= 1e6) { divisor = 1e6; suffix = 'M'; }
+            else if (abs >= 1e3) { divisor = 1e3; suffix = 'K'; }
+
+            const figure = sign + (abs / divisor).toFixed(2).replace(/\.?0+$/, '') + suffix;
+
+            return AMOUNT_UNIT.prefix ? AMOUNT_UNIT.label + figure : figure + ' ' + AMOUNT_UNIT.label;
         }
 
         // Use it here

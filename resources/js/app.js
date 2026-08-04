@@ -9,8 +9,8 @@ import persist from "@alpinejs/persist";
 import focus from '@alpinejs/focus'
 
 
-import './auction.js'; 
-import './bidding.js'; 
+import './auction-money.js';
+import './auction-final-call.js';
 
 import flatpickr from "flatpickr";
 import Dropzone from "dropzone";

@@ -12,7 +12,8 @@ class TournamentPublicController extends Controller
 {
     public function __construct(
         private readonly PointTableService $pointTableService
-    ) {}
+    ) {
+    }
 
     /**
      * Show tournament landing page

@@ -161,7 +161,7 @@
                         <template x-if="player.status === 'sold'">
                             <div class="flex items-center gap-2">
                                 <template x-if="player.sold_to_team?.logo_path">
-                                    <img :src="`/storage/${player.sold_to_team.logo_path}`"
+                                    <img :src="player.sold_to_team.logo_path"
                                          class="w-8 h-8 rounded-full object-cover border-2 border-green-500"
                                          :alt="player.sold_to_team?.name">
                                 </template>
@@ -216,6 +216,9 @@
     </footer>
 
     <script>
+        // What amounts are called in this auction.
+        const AMOUNT_UNIT = @json($auction->amountUnitConfig());
+
         function auctionResults() {
             return {
                 players: @json($auction->auctionPlayers),
@@ -272,15 +275,11 @@
                     });
                 },
 
+                /** Shared K/M/B formatter with this auction's unit. */
                 formatCurrency(points) {
-                    points = Number(points) || 0;
-                    const isNegative = points < 0;
-                    const absPoints = Math.abs(points);
-                    let formattedValue;
-                    if (absPoints >= 1000000) formattedValue = (absPoints / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
-                    else if (absPoints >= 1000) formattedValue = (absPoints / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-                    else formattedValue = new Intl.NumberFormat('en-US').format(absPoints);
-                    return `${isNegative ? '-' : ''}${formattedValue}`;
+                    return window.auctionAmount
+                        ? window.auctionAmount(points, AMOUNT_UNIT)
+                        : String(Number(points) || 0);
                 }
             }
         }

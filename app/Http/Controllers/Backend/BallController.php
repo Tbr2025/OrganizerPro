@@ -49,9 +49,6 @@ class BallController extends Controller
         return view('backend.pages.balls.create', compact('match', 'battingPlayers', 'bowlingPlayers', 'overs', 'breadcrumbs'));
     }
 
-
-
-
     public function store(Request $request, Matches $match)
     {
         $data = $request->validate([
@@ -60,7 +57,7 @@ class BallController extends Controller
             'runs' => 'required|integer|min:0|max:6',
             'extra_type' => 'nullable|string|in:wide,no_ball,bye,leg_bye',
             'extra_runs' => 'nullable|integer|min:0|max:6',
-            'is_wicket' => 'nullable|boolean'
+            'is_wicket' => 'nullable|boolean',
         ]);
 
         $data['match_id'] = $match->id;
@@ -86,11 +83,11 @@ class BallController extends Controller
             'match_id' => 'required|exists:matches,id',
             // Validate that the provided ID exists as actual_team_users.id (primary key)
             'batsman_id' => 'required|exists:actual_team_users,id|numeric',
-            'bowler_id'  => 'required|exists:actual_team_users,id|numeric|different:batsman_id',
-            'runs'       => 'required|integer|min:0|max:6',
+            'bowler_id' => 'required|exists:actual_team_users,id|numeric|different:batsman_id',
+            'runs' => 'required|integer|min:0|max:6',
             'extra_type' => 'nullable|string|in:wide,no_ball,bye,leg_bye',
             'extra_runs' => 'nullable|integer|min:0|max:6',
-            'is_wicket'  => 'nullable|boolean',
+            'is_wicket' => 'nullable|boolean',
             'dismissal_type' => 'nullable',
             'fielder_id' => 'nullable|exists:actual_team_users,id|numeric',
         ]);
@@ -139,7 +136,7 @@ class BallController extends Controller
 
             if ($lastBall && $lastBall->over >= $matchOversLimit && $lastBall->ball_in_over >= 6) {
                 // Check if last ball was legal (not wide/no_ball)
-                if (!in_array($lastBall->extra_type, ['wide', 'no_ball'])) {
+                if (! in_array($lastBall->extra_type, ['wide', 'no_ball'])) {
                     return response()->json([
                         'success' => false,
                         'message' => "Innings complete! All {$matchOversLimit} overs have been bowled.",
@@ -156,10 +153,10 @@ class BallController extends Controller
             // Find the ActualTeamUser records using the validated ids (primary key).
             // This is crucial for team checks.
             $batsmanTeamUser = ActualTeamUser::find($validated['batsman_id']);
-            $bowlerTeamUser  = ActualTeamUser::find($validated['bowler_id']);
+            $bowlerTeamUser = ActualTeamUser::find($validated['bowler_id']);
             $currentStrikerUserId = $request->input('current_striker_user_id');
             $currentNonStrikerUserId = $request->input('current_non_striker_user_id');
-            if (!$batsmanTeamUser || !$bowlerTeamUser) {
+            if (! $batsmanTeamUser || ! $bowlerTeamUser) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed.',
@@ -271,12 +268,12 @@ class BallController extends Controller
             ->orderByDesc('ball_in_over')
             ->first();
 
-        if (!$lastBall) {
+        if (! $lastBall) {
             // First ball of the innings → start with Over 1, Ball 1
             return [1, 1];
         }
 
-        $over       = $lastBall->over;
+        $over = $lastBall->over;
         $ballInOver = $lastBall->ball_in_over;
 
         // For wides & no-balls → do NOT increase ball count
@@ -309,7 +306,6 @@ class BallController extends Controller
             'match' => $match, // ✅ now available in Blade
         ])->render();
     }
-
 
     public function destroy(Matches $match, Ball $ball)
     {
@@ -344,10 +340,10 @@ class BallController extends Controller
             ->orderByDesc('id')
             ->first();
 
-        if (!$lastBall) {
+        if (! $lastBall) {
             return response()->json([
                 'success' => false,
-                'message' => 'No balls recorded in this innings yet.'
+                'message' => 'No balls recorded in this innings yet.',
             ], 404);
         }
 
@@ -359,7 +355,7 @@ class BallController extends Controller
                 'ball_in_over' => $lastBall->ball_in_over,
                 'runs' => $lastBall->runs,
                 'is_wicket' => $lastBall->is_wicket,
-            ]
+            ],
         ]);
     }
 }

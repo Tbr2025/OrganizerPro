@@ -79,7 +79,7 @@ class AuctionTemplate extends Model
             ->first();
 
         // Fall back to default template
-        if (!$template) {
+        if (! $template) {
             $template = static::getDefault($type);
         }
 

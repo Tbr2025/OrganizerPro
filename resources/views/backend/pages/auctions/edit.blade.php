@@ -325,23 +325,38 @@
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label for="online_bid_limit_from" class="form-label text-xs">Online Bid Starts From</label>
-                                        <input type="number" name="online_bid_limit_from" id="online_bid_limit_from"
-                                               x-model.number="auctionData.online_bid_limit_from"
-                                               class="form-control" min="0" placeholder="e.g. 100000">
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="online_bid_limit_from"
+                                                   :value="toM(auctionData.online_bid_limit_from)"
+                                                   @input="auctionData.online_bid_limit_from = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="e.g. 0.1">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="online_bid_limit_from" :value="auctionData.online_bid_limit_from">
                                         <p class="text-xs text-gray-400 mt-1">Informational — online range start.</p>
                                     </div>
                                     <div>
                                         <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
-                                        <input type="number" name="closed_bid_starts_at" id="closed_bid_starts_at"
-                                               x-model.number="auctionData.closed_bid_starts_at"
-                                               class="form-control" min="0" placeholder="e.g. 500000">
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="closed_bid_starts_at"
+                                                   :value="toM(auctionData.closed_bid_starts_at)"
+                                                   @input="auctionData.closed_bid_starts_at = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="e.g. 0.5">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="closed_bid_starts_at" :value="auctionData.closed_bid_starts_at">
                                         <p class="text-xs text-gray-400 mt-1">When price reaches this, bidding switches to sealed mode.</p>
                                     </div>
                                     <div>
                                         <label for="online_bid_limit_to" class="form-label text-xs">Offline Bid Starts At</label>
-                                        <input type="number" name="online_bid_limit_to" id="online_bid_limit_to"
-                                               x-model.number="auctionData.online_bid_limit_to"
-                                               class="form-control" min="0" placeholder="e.g. 1000000">
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="online_bid_limit_to"
+                                                   :value="toM(auctionData.online_bid_limit_to)"
+                                                   @input="auctionData.online_bid_limit_to = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="e.g. 1">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="online_bid_limit_to" :value="auctionData.online_bid_limit_to">
                                         <p class="text-xs text-gray-400 mt-1">When price reaches this, admin handles bids manually.</p>
                                     </div>
                                 </div>
@@ -365,6 +380,73 @@
                                 <input type="number" name="bid_timer_reset_seconds" id="bid_timer_reset_seconds"
                                        x-model.number="auctionData.bid_timer_reset_seconds" class="form-control" min="5" max="300">
                                 <p class="text-xs text-gray-500 mt-1">Timer resets to this value when a new bid is placed.</p>
+                            </div>
+
+                            {{-- What happens at zero. The countdown is enforced by the
+                                 server, so this decides a real outcome. --}}
+                            <div>
+                                <label for="timer_expiry_action" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    When the Timer Runs Out
+                                </label>
+                                <select name="timer_expiry_action" id="timer_expiry_action"
+                                        x-model="auctionData.timer_expiry_action" class="form-control">
+                                    <option value="manual">Lock bidding — organizer presses SELL</option>
+                                    <option value="auto_sell">Sell automatically to the highest bidder</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    <span x-show="auctionData.timer_expiry_action === 'auto_sell'">
+                                        The player is awarded the moment time runs out (or marked unsold if there were no bids).
+                                    </span>
+                                    <span x-show="auctionData.timer_expiry_action !== 'auto_sell'">
+                                        Bidding closes at zero, but you stay in control of the hammer.
+                                    </span>
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="hidden" name="timer_enabled" value="0">
+                                    <input type="checkbox" name="timer_enabled" value="1"
+                                           x-model="auctionData.timer_enabled"
+                                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    Timer enabled
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Required while bidding is online. Can be switched off during an offline
+                                    (organizer-called) auction, and toggled live from the control panel.
+                                </p>
+                            </div>
+
+                            {{-- Closing calls: "going once, going twice, sold". --}}
+                            <div class="md:col-span-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="hidden" name="final_call_enabled" value="0">
+                                    <input type="checkbox" name="final_call_enabled" value="1"
+                                           x-model="auctionData.final_call_enabled"
+                                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                    Announce closing calls
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    In the closing seconds every screen escalates
+                                    <strong>First call → Second call → Final call</strong>, then the timer action above
+                                    resolves the player.
+                                </p>
+
+                                <div x-show="auctionData.final_call_enabled" x-transition class="mt-3 max-w-xs">
+                                    <label for="final_call_interval_seconds" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Gap Between Calls (seconds)
+                                    </label>
+                                    <input type="number" name="final_call_interval_seconds" id="final_call_interval_seconds"
+                                           x-model.number="auctionData.final_call_interval_seconds"
+                                           class="form-control" min="1" max="30">
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Three calls at this spacing, so
+                                        <span class="font-semibold" x-text="(auctionData.final_call_interval_seconds || 3) * 3"></span>s
+                                        covers the closing window — calls at
+                                        <span class="font-semibold" x-text="[(auctionData.final_call_interval_seconds || 3) * 3, (auctionData.final_call_interval_seconds || 3) * 2, (auctionData.final_call_interval_seconds || 3)].join('s, ') + 's'"></span>
+                                        remaining.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -392,11 +474,18 @@
                                         <p class="text-xs text-gray-500 dark:text-gray-400">Maximum budget per team</p>
                                     </div>
                                 </div>
-                                <input type="number" name="max_budget_per_team" id="max_budget_per_team"
-                                       x-model.number="auctionData.max_budget_per_team"
-                                       class="form-control text-2xl font-bold text-center mb-2" required>
+                                <div class="relative mb-2">
+                                    <input type="number" step="any" min="0" id="max_budget_per_team"
+                                           :value="toM(auctionData.max_budget_per_team)"
+                                           @input="auctionData.max_budget_per_team = fromM($event.target.value)"
+                                           class="form-control text-2xl font-bold text-center pr-10" placeholder="10" required>
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-gray-400 pointer-events-none">M</span>
+                                </div>
+                                <input type="hidden" name="max_budget_per_team" :value="auctionData.max_budget_per_team">
                                 <p class="text-center text-purple-600 dark:text-purple-400 font-semibold text-lg"
-                                   x-text="formatMoney(auctionData.max_budget_per_team) + ' Points'"></p>
+                                   x-text="formatMoney(auctionData.max_budget_per_team)"></p>
+                                <p class="text-center text-[11px] text-gray-500 dark:text-gray-400 font-mono"
+                                   x-text="rawLabel(auctionData.max_budget_per_team)"></p>
                             </div>
 
                             {{-- Default Base Price --}}
@@ -412,12 +501,165 @@
                                         <p class="text-xs text-gray-500 dark:text-gray-400">Default starting price</p>
                                     </div>
                                 </div>
-                                <input type="number" name="base_price" id="base_price"
-                                       x-model.number="auctionData.base_price"
-                                       class="form-control text-2xl font-bold text-center mb-2" required>
+                                <div class="relative mb-2">
+                                    <input type="number" step="any" min="0" id="base_price"
+                                           :value="toM(auctionData.base_price)"
+                                           @input="auctionData.base_price = fromM($event.target.value)"
+                                           class="form-control text-2xl font-bold text-center pr-10" placeholder="0.1" required>
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-lg font-bold text-gray-400 pointer-events-none">M</span>
+                                </div>
+                                <input type="hidden" name="base_price" :value="auctionData.base_price">
                                 <p class="text-center text-green-600 dark:text-green-400 font-semibold text-lg"
-                                   x-text="formatMoney(auctionData.base_price) + ' Points'"></p>
+                                   x-text="formatMoney(auctionData.base_price)"></p>
+                                <p class="text-center text-[11px] text-gray-500 dark:text-gray-400 font-mono"
+                                   x-text="rawLabel(auctionData.base_price)"></p>
                             </div>
+                        </div>
+
+                        {{-- Player email. Auction mail used to be sent inline on every sale,
+                             so the room waited on the mail server and a rehearsal emailed
+                             real players. --}}
+                        <div class="mt-6 p-5 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-200 dark:border-emerald-800/60">
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Player Emails &amp; Notifications</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                                Sold, unsold and welcome-to-team emails for this auction.
+                            </p>
+
+                            <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <input type="hidden" name="notifications_enabled" value="0">
+                                <input type="checkbox" name="notifications_enabled" value="1"
+                                       x-model="auctionData.notifications_enabled"
+                                       class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                Send player emails for this auction
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1 ml-6">Off means no player mail at all — nothing is queued.</p>
+
+                            <div x-show="auctionData.notifications_enabled" x-transition class="mt-4 ml-6 space-y-4">
+                                <div class="max-w-md">
+                                    <label for="email_dispatch" class="form-label text-xs">When to send</label>
+                                    <select name="email_dispatch" id="email_dispatch"
+                                            x-model="auctionData.email_dispatch" class="form-control">
+                                        <option value="deferred">After the auction ends — queued (recommended)</option>
+                                        <option value="immediate">Immediately, as each player is sold</option>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        <span x-show="auctionData.email_dispatch === 'deferred'">
+                                            Emails are held while the auction runs and all go out together when you press
+                                            End — including the welcome-to-team cards, which render a poster each.
+                                        </span>
+                                        <span x-show="auctionData.email_dispatch === 'immediate'">
+                                            Each sale sends straight away. Simpler, but the panel waits on the mail server
+                                            every time the hammer falls.
+                                        </span>
+                                    </p>
+                                </div>
+
+                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <input type="hidden" name="email_test_mode" value="0">
+                                    <input type="checkbox" name="email_test_mode" value="1"
+                                           x-model="auctionData.email_test_mode"
+                                           class="rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                                    Test mode — record emails but never send them
+                                </label>
+                                <p class="text-xs text-gray-500 ml-6">
+                                    Use for a rehearsal. You still get a list of everything a real run would have sent.
+                                </p>
+
+                                <p x-show="auctionData.email_test_mode"
+                                   class="text-xs px-3 py-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200">
+                                    Test mode is on — no player will receive anything from this auction.
+                                </p>
+                            </div>
+                        </div>
+
+                        {{-- What the money is called. Amounts always read on the K / M / B
+                             ladder; this only decides the label beside the figure. --}}
+                        <div class="mt-6 p-5 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-200 dark:border-blue-800/60">
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Amount Unit</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                                What amounts are called across the control panel, bidding page and the audience display.
+                            </p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="amount_unit" class="form-label text-xs">Unit</label>
+                                    <select name="amount_unit" id="amount_unit" x-model="auctionData.amount_unit" class="form-control">
+                                        @foreach(\App\Models\Auction::amountUnitOptions() as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div x-show="auctionData.amount_unit === 'custom'" x-transition>
+                                    <label for="amount_unit_label" class="form-label text-xs">Custom Label</label>
+                                    <input type="text" name="amount_unit_label" id="amount_unit_label" maxlength="30"
+                                           x-model="auctionData.amount_unit_label"
+                                           class="form-control" placeholder="e.g. Credits">
+                                </div>
+                            </div>
+
+                            {{-- Live sample, so the choice is unambiguous before saving. --}}
+                            <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                                Amounts will read as
+                                <span class="font-bold font-mono px-2 py-0.5 rounded bg-white dark:bg-gray-800"
+                                      x-text="unitSample(10000000)"></span>
+                                and
+                                <span class="font-bold font-mono px-2 py-0.5 rounded bg-white dark:bg-gray-800"
+                                      x-text="unitSample(500000)"></span>
+                            </p>
+                        </div>
+
+                        {{-- Squad reserve: a team must hold back enough purse to fill the
+                             places it still has to fill, so it cannot spend everything
+                             early and end up unable to field a legal side. --}}
+                        <div class="mt-6 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/60">
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Squad Reserve Rule</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                                Teams must keep back enough to buy the places they still have to fill. A bid is
+                                refused if it would leave them unable to complete a legal squad.
+                            </p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="min_squad_size" class="form-label text-xs">Minimum Squad Size</label>
+                                    <input type="number" name="min_squad_size" id="min_squad_size" min="1" max="50"
+                                           x-model.number="auctionData.min_squad_size"
+                                           class="form-control" placeholder="11">
+                                    <p class="text-xs text-gray-400 mt-1">Players each team must end up with.</p>
+                                </div>
+                                <div>
+                                    <label for="min_price_per_player" class="form-label text-xs">Reserve Per Remaining Place</label>
+                                    <div class="relative">
+                                        <input type="number" step="any" min="0" id="min_price_per_player"
+                                               :value="toM(auctionData.min_price_per_player)"
+                                               @input="auctionData.min_price_per_player = fromM($event.target.value)"
+                                               class="form-control pr-9" placeholder="e.g. 1">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                    </div>
+                                    <input type="hidden" name="min_price_per_player" :value="auctionData.min_price_per_player">
+                                    <p class="text-xs text-gray-400 mt-1">Leave blank to use the base price above.</p>
+                                </div>
+                            </div>
+
+                            {{-- Live check: the rule is only satisfiable when a full squad
+                                 fits inside the purse, and the server rejects it otherwise. --}}
+                            <template x-if="reserveTotal > 0">
+                                <p class="mt-3 text-xs px-3 py-2 rounded-lg"
+                                   :class="reserveExceedsBudget
+                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'">
+                                    A squad of <span class="font-semibold" x-text="auctionData.min_squad_size || 11"></span>
+                                    at <span class="font-semibold" x-text="formatMoney(reservePerPlace)"></span> each needs
+                                    <span class="font-semibold" x-text="formatMoney(reserveTotal)"></span>.
+                                    <template x-if="reserveExceedsBudget">
+                                        <span>That is more than the <span class="font-semibold" x-text="formatMoney(auctionData.max_budget_per_team)"></span>
+                                        team budget, so no player could ever be bought — raise the budget or lower these figures.</span>
+                                    </template>
+                                    <template x-if="!reserveExceedsBudget">
+                                        <span>Opening bid cap:
+                                        <span class="font-semibold" x-text="formatMoney(Math.max(0, (Number(auctionData.max_budget_per_team) || 0) - reserveTotal + reservePerPlace))"></span>.</span>
+                                    </template>
+                                </p>
+                            </template>
                         </div>
 
                         {{-- Quick Presets --}}
@@ -496,11 +738,12 @@
                                         <div>
                                             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">From Price</label>
                                             <div class="relative">
-                                                <input type="number" :name="`bid_rules[${index}][from]`"
-                                                       x-model.number="rule.from"
-                                                       class="form-control pr-16" required min="0">
-                                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400"
-                                                      x-text="formatMoney(rule.from)"></span>
+                                                <input type="number" step="any" min="0"
+                                                       :value="toM(rule.from)"
+                                                       @input="rule.from = fromM($event.target.value)"
+                                                       class="form-control pr-16" required>
+                                                <input type="hidden" :name="`bid_rules[${index}][from]`" :value="rule.from">
+                                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
                                             </div>
                                         </div>
 
@@ -508,11 +751,12 @@
                                         <div>
                                             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">To Price</label>
                                             <div class="relative">
-                                                <input type="number" :name="`bid_rules[${index}][to]`"
-                                                       x-model.number="rule.to"
-                                                       class="form-control pr-16" required min="0">
-                                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400"
-                                                      x-text="formatMoney(rule.to)"></span>
+                                                <input type="number" step="any" min="0"
+                                                       :value="toM(rule.to)"
+                                                       @input="rule.to = fromM($event.target.value)"
+                                                       class="form-control pr-16" required>
+                                                <input type="hidden" :name="`bid_rules[${index}][to]`" :value="rule.to">
+                                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
                                             </div>
                                         </div>
 
@@ -520,11 +764,12 @@
                                         <div>
                                             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Increment</label>
                                             <div class="relative">
-                                                <input type="number" :name="`bid_rules[${index}][increment]`"
-                                                       x-model.number="rule.increment"
-                                                       class="form-control pr-16" required min="0">
-                                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400"
-                                                      x-text="'+' + formatMoney(rule.increment)"></span>
+                                                <input type="number" step="any" min="0"
+                                                       :value="toM(rule.increment)"
+                                                       @input="rule.increment = fromM($event.target.value)"
+                                                       class="form-control pr-16" required>
+                                                <input type="hidden" :name="`bid_rules[${index}][increment]`" :value="rule.increment">
+                                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
                                             </div>
                                         </div>
                                     </div>
@@ -550,6 +795,48 @@
                             </svg>
                             Add Another Rule
                         </button>
+
+                        {{-- Quick-bid steps: optional jump amounts the organizer can apply
+                             instead of the standard increment for a single bid. --}}
+                        <div class="mt-10 pt-8 border-t border-gray-200 dark:border-gray-700">
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Quick-Bid Steps</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-4">
+                                Optional jump amounts shown as buttons on the control panel, for when the room
+                                moves faster than the standard increment. Leave empty to use only the ladder above.
+                            </p>
+
+                            <div class="space-y-3">
+                                <template x-for="(step, index) in quickSteps" :key="index">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-sm text-gray-500 w-6" x-text="'+' "></span>
+                                        <div class="relative flex-1">
+                                            <input type="number" min="0" step="any"
+                                                   :value="toM(quickSteps[index])"
+                                                   @input="quickSteps[index] = fromM($event.target.value)"
+                                                   class="form-control pr-9 w-full" placeholder="e.g. 0.5">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" :name="`quick_bid_steps[${index}]`" :value="quickSteps[index]">
+                                        <span class="text-sm text-gray-500 w-20" x-text="formatMoney(quickSteps[index])"></span>
+                                        <button type="button" @click="removeQuickStep(index)"
+                                                class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                                                title="Remove step">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <button type="button" @click="addQuickStep()"
+                                    class="mt-4 w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-all flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                                Add Quick-Bid Step
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -609,8 +896,13 @@
                                                     <p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="player.name"></p>
                                                     <span x-show="player.retained" class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">retained</span>
                                                 </div>
-                                                <input type="number" min="0" x-model.number="player.base_price" placeholder="Base"
-                                                       class="form-control form-control-sm w-24 text-center">
+                                                <span class="relative w-24 flex-shrink-0">
+                                                    <input type="number" step="any" min="0" placeholder="Base"
+                                                           :value="toM(player.base_price)"
+                                                           @input="player.base_price = fromM($event.target.value)"
+                                                           class="form-control form-control-sm w-full text-center pr-5">
+                                                    <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400 pointer-events-none">M</span>
+                                                </span>
                                                 <button type="button" @click="removeFromPool(player, idx)" class="text-red-500 px-1">✕</button>
                                             </div>
                                         </template>
@@ -629,7 +921,7 @@
                                 </div>
                                 <div>
                                     <h3 class="font-bold text-gray-900 dark:text-white">Available</h3>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400"><span x-text="filteredAvailable.length"></span> approved players</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400"><span x-text="filteredAvailable.length"></span> approved &amp; not retained</p>
                                 </div>
                             </div>
 
@@ -672,8 +964,14 @@
                                         </div>
                                     </div>
                                 </template>
-                                <div x-show="filteredAvailable.length === 0" class="text-center py-12">
-                                    <p class="text-gray-500 dark:text-gray-400" x-text="searchAvailable ? 'No players found.' : 'No approved players available.'"></p>
+                                <div x-show="filteredAvailable.length === 0" class="text-center py-12 px-4">
+                                    <p class="text-gray-500 dark:text-gray-400" x-text="searchAvailable ? 'No players match that search.' : 'No players available to add.'"></p>
+                                    {{-- Explain the filter rather than leaving a blank panel. --}}
+                                    <p x-show="!searchAvailable" class="text-xs text-gray-400 dark:text-gray-500 mt-2 max-w-xs mx-auto">
+                                        Only players with an approved registration for this tournament appear here.
+                                        Retained players are excluded — manage them on the
+                                        <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="text-indigo-500 underline">Pools</a> screen.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -878,6 +1176,8 @@ document.addEventListener('alpine:init', () => {
         step: 1,
         auctionData: { ...auctionData },
         rules: [],
+        // Optional quick-bid jump amounts (a flat list of numbers).
+        quickSteps: [],
         // Pool builder state (same as create)
         pools: [],
         available: [],
@@ -904,6 +1204,26 @@ document.addEventListener('alpine:init', () => {
             if (!this.auctionData.bid_type) this.auctionData.bid_type = 'open';
             if (!this.auctionData.bid_timer_seconds) this.auctionData.bid_timer_seconds = 30;
             if (!this.auctionData.bid_timer_reset_seconds) this.auctionData.bid_timer_reset_seconds = 15;
+            if (!this.auctionData.timer_expiry_action) this.auctionData.timer_expiry_action = 'manual';
+            if (!this.auctionData.amount_unit) this.auctionData.amount_unit = 'points';
+            if (!this.auctionData.email_dispatch) this.auctionData.email_dispatch = 'deferred';
+            this.auctionData.notifications_enabled = auctionData.notifications_enabled === undefined
+                ? true
+                : !!auctionData.notifications_enabled;
+            this.auctionData.email_test_mode = !!auctionData.email_test_mode;
+            if (!this.auctionData.final_call_interval_seconds) this.auctionData.final_call_interval_seconds = 3;
+            this.auctionData.final_call_enabled = auctionData.final_call_enabled === undefined
+                ? true
+                : !!auctionData.final_call_enabled;
+            // Checkbox binding needs a real boolean; the column defaults to true.
+            this.auctionData.timer_enabled = auctionData.timer_enabled === undefined
+                ? true
+                : !!auctionData.timer_enabled;
+
+            // Quick-bid steps repeater.
+            this.quickSteps = Array.isArray(auctionData.quick_bid_steps)
+                ? auctionData.quick_bid_steps.map(Number).filter(n => n > 0)
+                : [];
 
             // Initialize bid rules
             this.rules = auctionData.bid_rules && auctionData.bid_rules.length > 0
@@ -911,11 +1231,17 @@ document.addEventListener('alpine:init', () => {
                 : [{ from: 0, to: '', increment: '' }];
 
             // Seed pools from the auction's existing pools (lot order preserved).
+            // Carrying `id`, `base_price` and `category` through is what makes the save
+            // update each pool in place instead of recreating it and losing its
+            // pools-screen settings.
             this.pools = (existingPoolsData || []).map(p => ({
                 uid: this._uid++,
+                id: p.id ?? null,
                 name: p.name || ('Pool ' + this._uid),
                 capacity: p.capacity || null,
                 order_mode: p.order_mode || 'sequential',
+                base_price: p.base_price ?? null,
+                category: p.category ?? null,
                 players: (p.players || []).map(pl => ({ id: pl.id, name: pl.name, org: pl.org, base_price: pl.base_price, retained: !!pl.retained })),
             }));
 
@@ -923,7 +1249,7 @@ document.addEventListener('alpine:init', () => {
             const unpooled = (unpooledData || []).map(pl => ({ id: pl.id, name: pl.name, org: pl.org, base_price: pl.base_price, retained: !!pl.retained }));
             if (unpooled.length) {
                 if (this.pools.length === 0) {
-                    this.pools.push({ uid: this._uid++, name: 'Pool 1', capacity: null, order_mode: 'sequential', players: [] });
+                    this.pools.push({ uid: this._uid++, id: null, name: 'Pool 1', capacity: null, order_mode: 'sequential', base_price: null, category: null, players: [] });
                 }
                 this.pools[0].players.push(...unpooled);
             }
@@ -970,7 +1296,8 @@ document.addEventListener('alpine:init', () => {
         },
 
         addPool() {
-            this.pools.push({ uid: this._uid++, name: 'Pool ' + (this.pools.length + 1), capacity: null, order_mode: 'sequential', players: [] });
+            // id: null marks this as a brand-new pool for the server to create.
+            this.pools.push({ uid: this._uid++, id: null, name: 'Pool ' + (this.pools.length + 1), capacity: null, order_mode: 'sequential', base_price: null, category: null, players: [] });
             this.targetPool = String(this.pools.length - 1); // auto-target the just-created pool
         },
 
@@ -1028,20 +1355,26 @@ document.addEventListener('alpine:init', () => {
             const data = this.pools
                 .filter(p => p.players.length > 0)
                 .map(p => ({
+                    // The pool id is what lets the server update pools in place rather
+                    // than deleting and recreating them, which used to wipe each pool's
+                    // base price, category, status and usage counters on every save.
+                    id: p.id ?? null,
                     name: p.name || 'Pool',
                     capacity: p.capacity || null,
                     order_mode: p.order_mode || 'sequential',
+                    base_price: p.base_price ?? null,
+                    category: p.category ?? null,
                     players: p.players.map(pl => ({ id: pl.id, base_price: pl.base_price || this.defaultBasePrice })),
                 }));
             this.$refs.poolsInput.value = JSON.stringify(data);
         },
 
         // Format money
+        /** Shared K/M/B formatter with the chosen unit. */
         formatMoney(value) {
-            const num = Number(value) || 0;
-            if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-            if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
-            return num.toString();
+            return window.auctionAmount
+                ? window.auctionAmount(value, this.unitConfig)
+                : String(Number(value) || 0);
         },
 
         // Show toast notification
@@ -1054,6 +1387,82 @@ document.addEventListener('alpine:init', () => {
         addRule() {
             const lastTo = this.rules.length > 0 ? this.rules[this.rules.length - 1].to : 0;
             this.rules.push({ from: lastTo, to: '', increment: '' });
+        },
+
+        /* ── Money entry in millions ───────────────────────────────────────────────
+           Amounts are stored in whole units, but typing 100000000 is error-prone and
+           unreadable, so every money field is entered in millions and converted here.
+           The raw value stays in auctionData / rules and is what gets posted via a
+           hidden input; only the visible field is scaled.                           */
+
+        /** Raw stored units → the millions figure shown in the field. */
+        toM(raw) {
+            if (raw === '' || raw === null || raw === undefined) return '';
+            const n = Number(raw);
+            if (!isFinite(n)) return '';
+            // Trim float noise (1e-7 style residue) without losing real precision.
+            return Number((n / 1e6).toFixed(6));
+        },
+
+        /** Millions typed in the field → raw stored units. */
+        fromM(value) {
+            if (value === '' || value === null || value === undefined) return '';
+            const n = Number(value);
+            if (!isFinite(n)) return '';
+            // toFixed(2) first: 0.1 * 1e6 is 100000.00000000001 in floating point.
+            return Number((n * 1e6).toFixed(2));
+        },
+
+        /** The exact stored figure, echoed under the field so nothing is ambiguous. */
+        rawLabel(raw) {
+            if (raw === '' || raw === null || raw === undefined) return '—';
+            return Number(raw).toLocaleString('en-US');
+        },
+
+        /** The auction's unit, shaped for the shared money formatter. */
+        get unitConfig() {
+            const unit = this.auctionData.amount_unit || 'points';
+            if (unit === 'usd') return { label: '$', prefix: true };
+            if (unit === 'coins') return { label: 'Coins', prefix: false };
+            if (unit === 'custom') {
+                return { label: (this.auctionData.amount_unit_label || '').trim() || 'Points', prefix: false };
+            }
+            return { label: 'Points', prefix: false };
+        },
+
+        /** Live example of how amounts will read with the chosen unit. */
+        unitSample(value) {
+            return window.auctionAmount
+                ? window.auctionAmount(value, this.unitConfig)
+                : String(value);
+        },
+
+        /* ── Squad reserve preview ── */
+
+        /** Reserve held per unfilled place; blank falls back to the base price. */
+        get reservePerPlace() {
+            const explicit = Number(this.auctionData.min_price_per_player) || 0;
+            return explicit > 0 ? explicit : (Number(this.auctionData.base_price) || 0);
+        },
+
+        /** What a full squad costs at that floor. */
+        get reserveTotal() {
+            const squad = Number(this.auctionData.min_squad_size) || {{ \App\Models\Auction::DEFAULT_MIN_SQUAD_SIZE }};
+            return squad * this.reservePerPlace;
+        },
+
+        /** A squad that costs more than the purse makes the rule unsatisfiable. */
+        get reserveExceedsBudget() {
+            const budget = Number(this.auctionData.max_budget_per_team) || 0;
+            return budget > 0 && this.reserveTotal > budget;
+        },
+
+        addQuickStep() {
+            this.quickSteps.push('');
+        },
+
+        removeQuickStep(index) {
+            this.quickSteps.splice(index, 1);
         },
 
         // Remove bid rule

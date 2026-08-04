@@ -171,7 +171,7 @@ class TimeSlotController extends Controller
         }
 
         // Check if slot is available
-        if (!$slot->isAvailable()) {
+        if (! $slot->isAvailable()) {
             return response()->json([
                 'success' => false,
                 'message' => 'This slot is not available.',
@@ -181,7 +181,7 @@ class TimeSlotController extends Controller
         // Assign match
         $success = $slot->assignMatch($match);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to assign match to slot.',
@@ -202,7 +202,7 @@ class TimeSlotController extends Controller
     {
         abort_if($slot->tournament_id !== $tournament->id, 404);
 
-        if (!$slot->match) {
+        if (! $slot->match) {
             return response()->json([
                 'success' => false,
                 'message' => 'No match is assigned to this slot.',

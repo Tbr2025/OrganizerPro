@@ -195,7 +195,7 @@ class Matches extends Model
     // Helpers
     public function isUpcoming(): bool
     {
-        return $this->status === 'upcoming' && !$this->is_cancelled;
+        return $this->status === 'upcoming' && ! $this->is_cancelled;
     }
 
     public function isLive(): bool
@@ -344,7 +344,9 @@ class Matches extends Model
         $emails = [];
 
         foreach ([$this->teamA, $this->teamB] as $team) {
-            if (!$team) continue;
+            if (! $team) {
+                continue;
+            }
 
             foreach ($team->users as $user) {
                 if ($user->email) {

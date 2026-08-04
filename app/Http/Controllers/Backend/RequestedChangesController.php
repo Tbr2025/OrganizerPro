@@ -63,17 +63,29 @@ class RequestedChangesController extends Controller
             $rLayout = \App\Helpers\PlayerFormConfig::getFormLayout($settings, false);
             $rCustom = $r->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
             $rSkip = ['name', 'image', 'terms_and_conditions'];
-            $rTotal = 0; $rDone = 0;
-            if ($r->player?->image_path) { $rTotal++; if (in_array('image', $vFields, true)) $rDone++; }
+            $rTotal = 0;
+            $rDone = 0;
+            if ($r->player?->image_path) {
+                $rTotal++;
+                if (in_array('image', $vFields, true)) {
+                    $rDone++;
+                }
+            }
             foreach ($rLayout as $sec) {
                 foreach ($sec['fields'] as $fk) {
-                    if (in_array($fk, $rSkip)) continue;
+                    if (in_array($fk, $rSkip)) {
+                        continue;
+                    }
                     $rTotal++;
-                    if (in_array($fk, $vFields, true)) $rDone++;
+                    if (in_array($fk, $vFields, true)) {
+                        $rDone++;
+                    }
                 }
                 foreach (($rCustom->where('section', $sec['key']) ?? collect()) as $scf) {
                     $rTotal++;
-                    if (in_array('cf_' . $scf->id, $vFields, true)) $rDone++;
+                    if (in_array('cf_' . $scf->id, $vFields, true)) {
+                        $rDone++;
+                    }
                 }
             }
             if ($rTotal > 0 && $rDone === $rTotal) {
@@ -84,8 +96,13 @@ class RequestedChangesController extends Controller
         }
 
         return view('backend.pages.requested-changes.index', compact(
-            'registrations', 'tournaments', 'totalRequested',
-            'totalReviewed', 'totalApproved', 'totalFullyVerified', 'totalPartial'
+            'registrations',
+            'tournaments',
+            'totalRequested',
+            'totalReviewed',
+            'totalApproved',
+            'totalFullyVerified',
+            'totalPartial'
         ));
     }
 }

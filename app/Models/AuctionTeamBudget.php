@@ -11,7 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuctionTeamBudget extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use HasFactory;
+    use BelongsToOrganization;
 
     protected $fillable = [
         'auction_id',

@@ -23,7 +23,8 @@ class UsersController extends Controller
     public function __construct(
         private readonly UserService $userService,
         private readonly RolesService $rolesService
-    ) {}
+    ) {
+    }
 
     public function index(): Renderable
     {
@@ -40,7 +41,7 @@ class UsersController extends Controller
 
         // THE KEY LOGIC: If the user is NOT a Superadmin, add their organization_id to the filters.
         // This code correctly prepares the filter for the model to use.
-        if (!$user->hasRole('Superadmin')) {
+        if (! $user->hasRole('Superadmin')) {
             $filters['organization_id'] = $user->organization_id;
         }
 
@@ -70,7 +71,6 @@ class UsersController extends Controller
             ],
         ]);
     }
-
 
     public function store(StoreUserRequest $request): RedirectResponse
     {
@@ -190,10 +190,10 @@ class UsersController extends Controller
             $teamIds = $player->actualTeamAssignments->pluck('id')->push($player->actual_team_id)->filter()->unique();
             if ($teamIds->isNotEmpty()) {
                 $playerTournaments = \App\Models\Tournament::where(function ($q) use ($teamIds) {
-                    $q->whereHas('actualTeams', fn($q2) => $q2->whereIn('actual_teams.id', $teamIds))
-                      ->orWhereHas('groups.teams', fn($q2) => $q2->whereIn('actual_teams.id', $teamIds));
+                    $q->whereHas('actualTeams', fn ($q2) => $q2->whereIn('actual_teams.id', $teamIds))
+                      ->orWhereHas('groups.teams', fn ($q2) => $q2->whereIn('actual_teams.id', $teamIds));
                 })
-                ->with(['actualTeams' => fn($q) => $q->whereIn('actual_teams.id', $teamIds)])
+                ->with(['actualTeams' => fn ($q) => $q->whereIn('actual_teams.id', $teamIds)])
                 ->get();
             }
         }
@@ -292,7 +292,7 @@ class UsersController extends Controller
         // Prevent deleting current user.
         if (in_array(Auth::id(), $ids)) {
             // Remove current user from the deletion list.
-            $ids = array_filter($ids, fn($id) => $id != Auth::id());
+            $ids = array_filter($ids, fn ($id) => $id != Auth::id());
             session()->flash('error', __('You cannot delete your own account. Other selected users will be processed.'));
 
             // If no users left to delete after filtering out current user.

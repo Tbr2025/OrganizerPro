@@ -7,23 +7,23 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ImageTemplate extends Model
 {
-  use HasFactory;
+    use HasFactory;
 
-  protected $fillable = [
-    'name',
-    'layout_json',
-    'background_image',
-    'category_id', // correct column name for the foreign key
+    protected $fillable = [
+      'name',
+      'layout_json',
+      'background_image',
+      'category_id', // correct column name for the foreign key
 
-    'overlay_image_path', // must be here!
-  ];
+      'overlay_image_path', // must be here!
+    ];
 
-  protected $casts = [
-    'layout_json' => 'array',
-  ];
+    protected $casts = [
+      'layout_json' => 'array',
+    ];
 
-  public function category()
-  {
-    return $this->belongsTo(ImageTemplateCategories::class, 'category_id');
-  }
+    public function category()
+    {
+        return $this->belongsTo(ImageTemplateCategories::class, 'category_id');
+    }
 }

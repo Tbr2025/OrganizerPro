@@ -51,7 +51,7 @@
                                         <template x-for="b in bid.bids" :key="b.id">
                                             <div class="flex justify-between items-center text-xs bg-gray-50 dark:bg-gray-700/50 rounded px-2 py-1">
                                                 <span class="text-gray-600 dark:text-gray-300" x-text="b.team?.name ?? 'N/A'"></span>
-                                                <span class="font-bold text-green-600" x-text="formatPoints(b.amount / 1000000)"></span>
+                                                <span class="font-bold text-green-600" x-text="formatPoints(b.amount, bid.amount_unit)"></span>
                                             </div>
                                         </template>
                                     </div>
@@ -63,12 +63,15 @@
                             <td class="p-3" x-text="bid.sold_to_team?.name ?? 'N/A'"></td>
                             <td class="p-3 font-semibold">
                                 <template x-if="bid.canEdit">
-                                    <input type="number" class="form-control" x-model.number="bid.final_price_display"
-                                        step="0.1" min="0" @change="updateFinalPrice(bid)">
+                                    <div class="relative">
+                                        <input type="number" class="form-control pr-8" x-model.number="bid.final_price_display"
+                                            step="any" min="0" @change="updateFinalPrice(bid)">
+                                        <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
+                                    </div>
                                 </template>
 
                                 <template x-if="!bid.canEdit">
-                                    <span x-text="formatPoints(bid.final_price_display)"></span>
+                                    <span x-text="formatPoints(bid.final_price, bid.amount_unit)"></span>
                                 </template>
                             </td>
 
@@ -82,7 +85,7 @@
                                             <option value="">Select Team</option>
                                             <template x-if="bid.bids && bid.bids.length > 0">
                                                 <template x-for="b in bid.bids" :key="b.team_id || b.team?.id">
-                                                    <option :value="b.team_id || b.team?.id" x-text="(b.team?.name ?? 'Team') + ' (' + formatPoints(b.amount / 1000000) + ')'"></option>
+                                                    <option :value="b.team_id || b.team?.id" x-text="(b.team?.name ?? 'Team') + ' (' + formatPoints(b.amount, bid.amount_unit) + ')'"></option>
                                                 </template>
                                             </template>
                                         </select>
@@ -134,7 +137,7 @@
                             this.bids = data.closedBids.map(bid => {
                                 bid.canEdit = this.canEditRole &&
                                     (this.userTeamId ? bid.sold_to_team?.id === this.userTeamId : true);
-                                bid.final_price_display = (bid.final_price / 1000000).toFixed(1);
+                                bid.final_price_display = this.toM(bid.final_price);
                                 bid.sellToTeamId = bid.sellToTeamId || '';
                                 return bid;
                             });
@@ -145,7 +148,7 @@
                 },
 
                 updateFinalPrice(bid) {
-                    let newPrice = bid.final_price_display * 1000000;
+                    const newPrice = this.fromM(bid.final_price_display);
 
                     fetch(`/admin/auction/${bid.auction_id}/player/${bid.id}/final-price`, {
                             method: 'POST',
@@ -162,10 +165,10 @@
                         .then(data => {
                             if (data.success) {
                                 bid.final_price = data.final_price;
-                                bid.final_price_display = (data.final_price / 1000000).toFixed(1);
+                                bid.final_price_display = this.toM(data.final_price);
                             } else {
                                 alert(data.error || 'Insufficient balance');
-                                bid.final_price_display = (bid.final_price / 1000000).toFixed(1);
+                                bid.final_price_display = this.toM(bid.final_price);
                             }
                         });
                 },
@@ -175,7 +178,7 @@
                     const selectedBid = (bid.bids || []).find(b => (b.team_id || b.team?.id) == bid.sellToTeamId);
                     const amount = selectedBid ? selectedBid.amount : bid.final_price;
 
-                    if (!confirm(`Sell ${bid.player?.name} to the selected team for ${this.formatPoints(amount / 1000000)}?`)) return;
+                    if (!confirm(`Sell ${bid.player?.name} to the selected team for ${this.formatPoints(amount, bid.amount_unit)}?`)) return;
 
                     try {
                         const res = await fetch(`/admin/organizer/auction/${bid.auction_id}/api/sell-to-team`, {
@@ -203,12 +206,21 @@
                     }
                 },
 
-                formatPoints(points) {
-                    points = Number(points) || 0;
-                    if (points >= 1000000) return (points / 1000000).toFixed(1) + 'M';
-                    if (points >= 1000) return (points / 1000).toFixed(1) + 'K';
-                    return points + ' Points';
+                /**
+                 * Shared K/M/B formatter with the auction's unit.
+                 *
+                 * The old local version was also being handed values that had already
+                 * been divided by a million, so a 1,500,000 sale rendered as "1.5 Points".
+                 */
+                formatPoints(points, unit = null) {
+                    return window.auctionAmount
+                        ? window.auctionAmount(points, unit || { label: 'Points', prefix: false })
+                        : String(Number(points) || 0);
                 },
+
+                /** Money entry in millions, shared with every other screen. */
+                toM(raw) { return window.auctionToM ? window.auctionToM(raw) : raw; },
+                fromM(value) { return window.auctionFromM ? window.auctionFromM(value) : value; },
 
                 capitalize(str) {
                     return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';

@@ -17,8 +17,23 @@
             <p class="text-sm text-gray-500 dark:text-gray-400">Build pools and assign players. The auction runs pool-by-pool in the order below, players in drawn lot order.</p>
         </div>
         <div class="flex items-center gap-2">
+            {{-- Auto-assign sweeps every unassigned player at once, so the last run stays
+                 revertible until something in it is actioned. --}}
+            @isset($revertibleAutoAssign)
+                @if($revertibleAutoAssign)
+                    <form action="{{ route('admin.auctions.pools.auto-assign.revert', $auction) }}" method="POST"
+                          onsubmit="return confirm('Undo the last auto-assign?\n\n{{ $revertibleAutoAssign->description }}\n\nPlayers return to Unassigned. Anyone already on the block or sold is left as they are.')">
+                        @csrf
+                        <button type="submit"
+                                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                title="{{ $revertibleAutoAssign->description }}">
+                            &#8630; Undo auto-assign
+                        </button>
+                    </form>
+                @endif
+            @endisset
             <form action="{{ route('admin.auctions.pools.auto-assign', $auction) }}" method="POST"
-                  onsubmit="return confirm('Auto-group all unassigned players into pools by player type?')">
+                  onsubmit="return confirm('Auto-group all unassigned players into pools by player type?\n\nThis can be undone afterwards.')">
                 @csrf
                 <button type="submit" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
                     Auto-assign by type
@@ -53,10 +68,10 @@
                     @foreach($teamBudgets as $row)
                     <tr>
                         <td class="py-2 pr-4 text-gray-800 dark:text-gray-100">{{ $row['team']->name }}</td>
-                        <td class="py-2 px-3 text-right text-gray-500">{{ number_format($row['allocated']) }}</td>
-                        <td class="py-2 px-3 text-right text-amber-600">{{ number_format($row['retained']) }}</td>
-                        <td class="py-2 px-3 text-right text-gray-500">{{ number_format($row['sold']) }}</td>
-                        <td class="py-2 pl-3 text-right font-semibold {{ $row['remaining'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">{{ number_format($row['remaining']) }}</td>
+                        <td class="py-2 px-3 text-right text-gray-500">{{ $auction->formatAmount($row['allocated'], '0') }}</td>
+                        <td class="py-2 px-3 text-right text-amber-600">{{ $auction->formatAmount($row['retained'], '0') }}</td>
+                        <td class="py-2 px-3 text-right text-gray-500">{{ $auction->formatAmount($row['sold'], '0') }}</td>
+                        <td class="py-2 pl-3 text-right font-semibold {{ $row['remaining'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">{{ $auction->formatAmount($row['remaining'], '0') }}</td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -105,13 +120,51 @@
                 @php $players = $pool->players->sortBy(fn($p) => $p->lot_number ?? PHP_INT_MAX); @endphp
                 <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                     <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
                             <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-500/10 text-brand-600 text-xs font-bold">{{ $pool->sequence }}</span>
                             <h4 class="font-semibold text-gray-900 dark:text-white">{{ $pool->name }}</h4>
                             @if($pool->category)<span class="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">{{ $pool->category }}</span>@endif
-                            <span class="text-xs text-gray-400">{{ $players->count() }}{{ $pool->capacity ? '/'.$pool->capacity : '' }} players · {{ $modeLabels[$pool->order_mode] ?? $pool->order_mode }}@if($pool->base_price) · base {{ number_format((float)$pool->base_price) }}@endif</span>
+
+                            {{-- Lifecycle: which pool is live, which are done. --}}
+                            @if($pool->isActive())
+                                <span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 font-semibold">Running</span>
+                            @elseif($pool->isCompleted())
+                                <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 font-semibold">Completed</span>
+                            @endif
+                            @if($pool->isUnsoldPool())
+                                {{-- Holding pool: players nobody bid on, kept for final allotment. --}}
+                                <span class="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-300 font-semibold"
+                                      title="Players nobody bid on, held for final allotment after the auction">
+                                    {{-- Interpolated rather than an inline @if: Blade does not
+                                         compile a directive glued to a word character, so
+                                         "Unsold@if(...)" left the @if as literal text while its
+                                         @endif compiled, breaking the whole template. --}}
+                                    Unsold{{ $pool->parentPool ? ' from ' . $pool->parentPool->name : '' }}
+                                </span>
+                            @elseif(! $pool->isEnabled())
+                                <span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300 font-semibold">Disabled</span>
+                            @endif
+                            @if($pool->times_used > 0)
+                                <span class="text-[11px] text-gray-400" title="Number of times this pool has been run">
+                                    run {{ $pool->times_used }}&times;
+                                </span>
+                            @endif
+
+                            <span class="text-xs text-gray-400">{{ $players->count() }}{{ $pool->capacity ? '/'.$pool->capacity : '' }} players · {{ $modeLabels[$pool->order_mode] ?? $pool->order_mode }}@if($pool->base_price) · base {{ $auction->formatAmount($pool->base_price) }}@endif</span>
                         </div>
                         <div class="flex items-center gap-3">
+                            {{-- Take a pool out of play without deleting it or its history. --}}
+                            <form action="{{ route('admin.auction.organizer.api.pool.toggle-enabled', [$auction, $pool]) }}"
+                                  method="POST" class="inline">
+                                @csrf
+                                <input type="hidden" name="is_enabled" value="{{ $pool->isEnabled() ? 0 : 1 }}">
+                                <button type="submit"
+                                        @disabled($pool->isActive())
+                                        class="text-xs {{ $pool->isEnabled() ? 'text-amber-600' : 'text-emerald-600' }} hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                                        title="{{ $pool->isActive() ? 'Close this pool on the control panel before disabling it' : '' }}">
+                                    {{ $pool->isEnabled() ? 'Disable' : 'Enable' }}
+                                </button>
+                            </form>
                             <button type="button" class="text-xs text-indigo-600 hover:underline" onclick="document.getElementById('edit-pool-{{ $pool->id }}').classList.toggle('hidden')">Edit</button>
                             <form action="{{ route('admin.auctions.pools.destroy', [$auction, $pool]) }}" method="POST" class="inline"
                                   onsubmit="return confirm('Delete pool “{{ $pool->name }}”? Waiting players return to Unassigned.')">
@@ -149,7 +202,7 @@
                                     <span class="text-xs text-gray-400 w-5">{{ $ap->is_retained ? '★' : ($ap->lot_number ?? '–') }}</span>
                                     <span class="truncate text-gray-800 dark:text-gray-100">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
                                     @if($ap->is_retained)
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">Retained{{ $ap->team ? ' · '.$ap->team->name : '' }}@if($ap->retained_price) · {{ number_format((float)$ap->retained_price) }}@endif</span>
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">Retained{{ $ap->team ? ' · '.$ap->team->name : '' }}{{ $ap->retained_price ? ' · ' . $auction->formatAmount($ap->retained_price) : '' }}</span>
                                     @elseif($ap->player?->playerType)<span class="text-[10px] text-gray-400">{{ $ap->player->playerType->name }}</span>@endif
                                     @if($ap->status !== 'waiting')<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ $ap->status }}</span>@endif
                                 </span>

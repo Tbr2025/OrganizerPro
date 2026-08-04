@@ -32,7 +32,7 @@ class HomeController extends Controller
 
         // Team Manager / Team Owner (without higher roles) → team manager dashboard
         if ($user->hasAnyRole(['Team Manager', 'Team Owner'])
-            && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
             return redirect()->route('team-manager.dashboard');
         }
 

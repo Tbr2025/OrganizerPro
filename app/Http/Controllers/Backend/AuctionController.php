@@ -36,7 +36,7 @@ class AuctionController extends Controller
 
     public function clearTeamData(ActualTeam $team)
     {
-       
+
         // Example: remove all bids and reset players sold to this team
         DB::transaction(function () use ($team) {
             // Delete all bids for this team
@@ -52,7 +52,6 @@ class AuctionController extends Controller
 
         return redirect()->back()->with('success', 'Auction data cleared for team: ' . $team->name);
     }
-
 
     // Extract filtering logic
     private function getFilteredAuctions(Request $request)
@@ -82,8 +81,6 @@ class AuctionController extends Controller
         return $query;
     }
 
-
-
     public function create()
     {
         $organizations = Organization::all();
@@ -92,7 +89,6 @@ class AuctionController extends Controller
 
         return view('backend.pages.auctions.create', compact('organizations', 'tournaments', 'breadcrumbs'));
     }
-
 
     // public function store(Request $request)
     // {
@@ -115,10 +111,6 @@ class AuctionController extends Controller
     //         ->with('success', 'Auction created successfully.');
     // }
 
-
-
-
-
     public function store(Request $request)
     {
         // 1. Authorize the action
@@ -138,9 +130,9 @@ class AuctionController extends Controller
         ]);
 
         // 3. Set the organization ID for non-Superadmin users
-        if (!Auth::user()->hasRole('Superadmin')) {
+        if (! Auth::user()->hasRole('Superadmin')) {
             $validated['organization_id'] = Auth::user()->organization_id;
-            if (!$validated['organization_id']) {
+            if (! $validated['organization_id']) {
                 return back()->with('error', 'You are not assigned to an organization.');
             }
         }
@@ -188,7 +180,7 @@ class AuctionController extends Controller
             }
 
             // d. Bulk insert all the eligible players into the auction pool
-            if (!empty($auctionPlayersData)) {
+            if (! empty($auctionPlayersData)) {
                 AuctionPlayer::insert($auctionPlayersData);
             }
         });
@@ -210,7 +202,7 @@ class AuctionController extends Controller
         // This is a crucial performance optimization.
         $auction->load([
             'auctionPlayers.player.playerType',
-            'auctionPlayers.player.user.organization' // Load whatever details you need
+            'auctionPlayers.player.user.organization', // Load whatever details you need
         ]);
 
         return view('backend.pages.auctions.show', compact('auction', 'breadcrumbs'));
@@ -263,7 +255,6 @@ class AuctionController extends Controller
         ));
     }
 
-
     public function update(Request $request, Auction $auction)
     {
         // 1. Authorize the action
@@ -315,7 +306,7 @@ class AuctionController extends Controller
             $playersToUpdate = array_intersect($playerIdsInPool, $existingPlayerIds);
 
             // a) Remove players who were taken out of the pool
-            if (!empty($playersToRemove)) {
+            if (! empty($playersToRemove)) {
                 AuctionPlayer::where('auction_id', $auction->id)->whereIn('player_id', $playersToRemove)->delete();
             }
 
@@ -340,7 +331,7 @@ class AuctionController extends Controller
                         ->where('player_id', $playerId)
                         ->update([
                             'base_price' => $basePrices[$playerId],
-                            'current_price' => $basePrices[$playerId] // Also reset current price
+                            'current_price' => $basePrices[$playerId], // Also reset current price
                         ]);
                 }
             }

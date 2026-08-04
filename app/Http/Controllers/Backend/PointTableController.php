@@ -18,7 +18,8 @@ class PointTableController extends Controller
     public function __construct(
         private readonly PointTableService $pointTableService,
         private readonly PointTablePosterService $posterService
-    ) {}
+    ) {
+    }
 
     public function index(Tournament $tournament, Request $request): View
     {
@@ -116,7 +117,7 @@ class PointTableController extends Controller
             'tournament_logo' => $tournament->settings?->logo ?? '',
             'group_name' => $group->name,
             'last_updated' => now()->format('M d, Y H:i'),
-            'table_data' => $entries->map(fn($entry) => [
+            'table_data' => $entries->map(fn ($entry) => [
                 'position' => $entry->position,
                 'team_name' => $entry->team?->name ?? 'Unknown',
                 'team_logo' => $entry->team?->team_logo ?? '',
@@ -160,7 +161,7 @@ class PointTableController extends Controller
         $tournament->pointTableEntries()->update(['qualified' => false]);
 
         // Set qualified for selected teams
-        if (!empty($validated['qualified_team_ids'])) {
+        if (! empty($validated['qualified_team_ids'])) {
             $tournament->pointTableEntries()
                 ->whereIn('actual_team_id', $validated['qualified_team_ids'])
                 ->update(['qualified' => true]);

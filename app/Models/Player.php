@@ -14,7 +14,10 @@ use App\Traits\BelongsToOrganization;
 
 class Player extends Model implements MustVerifyEmail
 {
-    use HasFactory, MustVerifyEmailTrait, Notifiable, BelongsToOrganization;
+    use HasFactory;
+    use MustVerifyEmailTrait;
+    use Notifiable;
+    use BelongsToOrganization;
 
     // ... (your existing fillable, casts, hidden properties) ...
     protected $fillable = [
@@ -221,12 +224,10 @@ class Player extends Model implements MustVerifyEmail
         return $this->status === 'approved';
     }
 
-
     public function isRejected(): bool
     {
         return $this->status === 'rejected';
     }
-
 
     /**
      * Get the email verification URL for the player.
@@ -258,7 +259,6 @@ class Player extends Model implements MustVerifyEmail
         return $this->email;
     }
 
-
     public function getVerifiedFieldsAttribute()
     {
         $allFields = [
@@ -288,7 +288,7 @@ class Player extends Model implements MustVerifyEmail
             'approved_by',
             'user_id',
             'is_wicket_keeper',
-            'transportation_required'
+            'transportation_required',
         ];
 
         $verifiedStatuses = [];
@@ -323,7 +323,6 @@ class Player extends Model implements MustVerifyEmail
     {
         return $this->belongsTo(Organization::class);
     }
-
 
     public function match()
     {
@@ -373,7 +372,6 @@ class Player extends Model implements MustVerifyEmail
         return $this->belongsTo(PlayerLocation::class, 'location_id');
     }
 
-
     protected function displayTeamName(): Attribute
     {
         return Attribute::make(
@@ -403,7 +401,6 @@ class Player extends Model implements MustVerifyEmail
             }
         );
     }
-
 
     public function auctionPlayers()
     {

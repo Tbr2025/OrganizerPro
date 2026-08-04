@@ -75,7 +75,7 @@ class MatchPublicController extends Controller
             'matchAwards.tournamentAward',
         ]);
 
-        if (!$match->result) {
+        if (! $match->result) {
             abort(404, 'Match result not available yet.');
         }
 

@@ -8,7 +8,8 @@ use App\Traits\BelongsToOrganization;
 
 class AuctionPlayer extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use HasFactory;
+    use BelongsToOrganization;
     protected $fillable = ['auction_id', 'auction_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'is_retained', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price'];
     protected $casts = ['current_price' => 'decimal:2', 'final_price' => 'decimal:2', 'lot_number' => 'integer', 'is_retained' => 'boolean'];
     public function auction()
@@ -50,5 +51,15 @@ class AuctionPlayer extends Model
         return $this->hasMany(AuctionBid::class, 'auction_player_id', 'id');
     }
 
-    
+    /**
+     * Bids that still stand. The bid log is append-only so Undo can walk it, and
+     * retracted bids remain in the table flagged void — anything deciding a
+     * price, a winner or a spend total must use this, not bids().
+     */
+    public function liveBids()
+    {
+        return $this->hasMany(AuctionBid::class, 'auction_player_id', 'id')
+            ->where('is_void', false);
+    }
+
 }

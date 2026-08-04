@@ -6,7 +6,6 @@ use App\Helpers\PlayerFormConfig;
 use App\Helpers\TeamFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
-use App\Models\TournamentSetting;
 use App\Models\User;
 use App\Services\LogoProcessingService;
 use App\Services\Poster\TournamentFlyerService;
@@ -20,7 +19,8 @@ class TournamentSettingsController extends Controller
 {
     public function __construct(
         private readonly TournamentFlyerService $flyerService
-    ) {}
+    ) {
+    }
 
     public function edit(Tournament $tournament): View
     {
@@ -34,7 +34,12 @@ class TournamentSettingsController extends Controller
 
         // Only admins/superadmins may assign organizers to this tournament.
         $canAssignOrganizers = Auth::user()->hasAnyRole(['Superadmin', 'Admin']);
-        $eligibleOrganizers = $canAssignOrganizers
+        // User::role() throws RoleDoesNotExist rather than returning an empty set,
+        // which took the whole settings page down with a 500 on any install where
+        // the Organizer role hasn't been seeded.
+        $organizerRoleExists = \Spatie\Permission\Models\Role::where('name', 'Organizer')
+            ->where('guard_name', 'web')->exists();
+        $eligibleOrganizers = $canAssignOrganizers && $organizerRoleExists
             ? User::role('Organizer')
                 ->when($tournament->organization_id, fn ($q) => $q->where('organization_id', $tournament->organization_id))
                 ->orderBy('name')->get()

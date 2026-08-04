@@ -25,7 +25,7 @@ class Font extends Model
     ];
 
     protected $casts = [
-        'variants'  => 'array',
+        'variants' => 'array',
         'is_active' => 'boolean',
     ];
 
@@ -43,7 +43,7 @@ class Font extends Model
      */
     public function resolveVariantFile(int $weight, string $style = 'normal'): ?string
     {
-        $variants = collect($this->variants ?? [])->filter(fn ($v) => !empty($v['file']));
+        $variants = collect($this->variants ?? [])->filter(fn ($v) => ! empty($v['file']));
         if ($variants->isEmpty()) {
             return null;
         }

@@ -61,8 +61,6 @@ class AppreciationController extends Controller
         return response()->json(['status' => 'success']);
     }
 
-
-
     /**
      * Display the specified resource.
      */
@@ -95,36 +93,35 @@ class AppreciationController extends Controller
         //
     }
 
-
     public function saveAppreciations(Request $request, Matches $match)
-{
-    $types = ['Star of the Match', 'Best Batsman', 'Best Bowler', 'Best Fielder', 'Best Catch', 'Best Six', 'Emerging Player'];
+    {
+        $types = ['Star of the Match', 'Best Batsman', 'Best Bowler', 'Best Fielder', 'Best Catch', 'Best Six', 'Emerging Player'];
 
-    foreach ($types as $type) {
-        if ($request->has("appreciations.$type")) {
-            $playerId = $request->input("appreciations.$type");
-            if ($playerId) {
-                PlayerAppreciation::updateOrCreate(
-                    [
-                        'match_id' => $match->id,
-                        'appreciation_type' => $type,
-                    ],
-                    [
-                        'player_id' => $playerId,
-                        'tournament_id' => $match->tournament_id,
-                        'title_line1' => $request->input("title_line1.$type"),
-                        'title_line2' => $request->input("title_line2.$type"),
-                        'font_family' => $request->input("font_family.$type"),
-                        'angle' => $request->input("angle.$type", 0),
-                        'overlay_name' => $request->input("overlay_name.$type"),
-                        // image_path can be auto-generated later
-                    ]
-                );
+        foreach ($types as $type) {
+            if ($request->has("appreciations.$type")) {
+                $playerId = $request->input("appreciations.$type");
+                if ($playerId) {
+                    PlayerAppreciation::updateOrCreate(
+                        [
+                            'match_id' => $match->id,
+                            'appreciation_type' => $type,
+                        ],
+                        [
+                            'player_id' => $playerId,
+                            'tournament_id' => $match->tournament_id,
+                            'title_line1' => $request->input("title_line1.$type"),
+                            'title_line2' => $request->input("title_line2.$type"),
+                            'font_family' => $request->input("font_family.$type"),
+                            'angle' => $request->input("angle.$type", 0),
+                            'overlay_name' => $request->input("overlay_name.$type"),
+                            // image_path can be auto-generated later
+                        ]
+                    );
+                }
             }
         }
-    }
 
-    return back()->with('success', 'Appreciations saved.');
-}
+        return back()->with('success', 'Appreciations saved.');
+    }
 
 }

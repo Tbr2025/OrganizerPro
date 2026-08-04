@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Ball;
 use App\Models\Matches;
-use App\Models\MatchAward;
 use App\Models\MatchResult;
 use App\Models\Player;
 use App\Models\TournamentAward;
@@ -16,7 +15,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\View\View;
 
 class MatchResultController extends Controller
 {
@@ -24,7 +22,8 @@ class MatchResultController extends Controller
 
     public function __construct(
         private readonly PointTableService $pointTableService
-    ) {}
+    ) {
+    }
 
     public function edit(Matches $match): RedirectResponse
     {
@@ -227,13 +226,13 @@ class MatchResultController extends Controller
                 }
                 $scorecardData = is_array($scorecardData) ? $scorecardData : [];
 
-                if (!empty($data['scorecard'])) {
+                if (! empty($data['scorecard'])) {
                     $scorecardData = $data['scorecard'];
                 }
 
                 // Store heroes data alongside scorecard
-                if (!empty($data['heroes'])) {
-                    if (is_array($scorecardData) && !isset($scorecardData[0])) {
+                if (! empty($data['heroes'])) {
+                    if (is_array($scorecardData) && ! isset($scorecardData[0])) {
                         $scorecardData['cricheroes_heroes'] = $data['heroes'];
                     } else {
                         // scorecard is innings array format, wrap it
@@ -271,7 +270,7 @@ class MatchResultController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['match.edit']);
 
-        if (!$match->cricheroes_match_url) {
+        if (! $match->cricheroes_match_url) {
             return response()->json([
                 'success' => false,
                 'message' => 'No CricHeroes URL saved for this match.',
@@ -383,7 +382,7 @@ class MatchResultController extends Controller
         // mapping first (reliable even when local names differ from the PDF),
         // then by fuzzy-matching the local names as a fallback.
         $resolveTeamId = function (?string $name) use ($data, $mapping, $match, $teamAName, $teamBName) {
-            if (!$name) {
+            if (! $name) {
                 return null;
             }
             foreach ($data['teams'] as $i => $t) {
@@ -428,10 +427,10 @@ class MatchResultController extends Controller
             'margin' => $margin,
         ];
 
-        if (!empty($data['scorecard'])) {
+        if (! empty($data['scorecard'])) {
             $scorecardData = $data['scorecard'];
-            if (!empty($data['heroes'])) {
-                if (is_array($scorecardData) && !isset($scorecardData['innings'])) {
+            if (! empty($data['heroes'])) {
+                if (is_array($scorecardData) && ! isset($scorecardData['innings'])) {
                     $scorecardData = ['innings' => $scorecardData, 'cricheroes_heroes' => $data['heroes']];
                 } else {
                     $scorecardData['cricheroes_heroes'] = $data['heroes'];
@@ -468,7 +467,7 @@ class MatchResultController extends Controller
             return;
         }
         $tournament = $match->tournament;
-        if (!$tournament) {
+        if (! $tournament) {
             return;
         }
 
@@ -508,7 +507,7 @@ class MatchResultController extends Controller
                 continue;
             }
             $award = $awards->first(fn ($a) => in_array($a->slug, $cfg['slugs']));
-            if (!$award) {
+            if (! $award) {
                 continue;
             }
             $player = $players->first(fn ($p) => $p && ($this->fuzzyMatch($p->name, $hero['name'])
@@ -531,8 +530,12 @@ class MatchResultController extends Controller
         $bIdx = null;
 
         for ($i = 0; $i < count($teams); $i++) {
-            if ($this->fuzzyMatch($teams[$i]['name'], $teamAName)) $aIdx = $i;
-            if ($this->fuzzyMatch($teams[$i]['name'], $teamBName)) $bIdx = $i;
+            if ($this->fuzzyMatch($teams[$i]['name'], $teamAName)) {
+                $aIdx = $i;
+            }
+            if ($this->fuzzyMatch($teams[$i]['name'], $teamBName)) {
+                $bIdx = $i;
+            }
         }
 
         if ($aIdx === null && $bIdx === null) {
@@ -573,7 +576,7 @@ class MatchResultController extends Controller
                 break;
             }
         }
-        if (!$hasAnyAward && !$request->has('extra_awards')) {
+        if (! $hasAnyAward && ! $request->has('extra_awards')) {
             return;
         }
 
@@ -608,7 +611,7 @@ class MatchResultController extends Controller
 
         foreach ($awardMap as $field => $info) {
             $playerName = $request->input($field);
-            if (!$playerName) {
+            if (! $playerName) {
                 continue;
             }
 
@@ -618,7 +621,7 @@ class MatchResultController extends Controller
             $tournamentAward = $tournamentAwards->first(function ($a) use ($slugs) {
                 return in_array($a->slug, $slugs);
             });
-            if (!$tournamentAward) {
+            if (! $tournamentAward) {
                 continue;
             }
 
@@ -636,7 +639,7 @@ class MatchResultController extends Controller
                     || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $playerName));
             });
 
-            if (!$player) {
+            if (! $player) {
                 // Create new Player from CricHeroes data
                 $player = Player::create([
                     'name' => $playerName,
@@ -673,7 +676,7 @@ class MatchResultController extends Controller
 
         // Process extra/custom awards
         $extraAwards = $request->input('extra_awards', []);
-        if (!is_array($extraAwards)) {
+        if (! is_array($extraAwards)) {
             return;
         }
 
@@ -681,7 +684,7 @@ class MatchResultController extends Controller
         foreach ($extraAwards as $extra) {
             $awardName = trim($extra['name'] ?? '');
             $playerName = trim($extra['player'] ?? '');
-            if (!$awardName || !$playerName) {
+            if (! $awardName || ! $playerName) {
                 continue;
             }
 
@@ -689,7 +692,7 @@ class MatchResultController extends Controller
             $tournamentAward = $tournamentAwards->first(function ($a) use ($awardName) {
                 return $this->fuzzyMatch($a->name, $awardName);
             });
-            if (!$tournamentAward) {
+            if (! $tournamentAward) {
                 $maxOrder++;
                 $tournamentAward = TournamentAward::create([
                     'tournament_id' => $tournament->id,
@@ -716,7 +719,7 @@ class MatchResultController extends Controller
                     || ($p->jersey_name && $this->fuzzyMatch($p->jersey_name, $playerName));
             });
 
-            if (!$player) {
+            if (! $player) {
                 $player = Player::create([
                     'name' => $playerName,
                     'status' => 'approved',
@@ -766,20 +769,26 @@ class MatchResultController extends Controller
     private function findPlayerImageFromScorecard(Matches $match, string $playerName): ?string
     {
         $scorecard = $match->result?->scorecard_data;
-        if (!$scorecard) return null;
+        if (! $scorecard) {
+            return null;
+        }
 
         if (is_string($scorecard)) {
             $scorecard = json_decode($scorecard, true) ?? [];
         }
 
         $innings = $scorecard['innings'] ?? $scorecard;
-        if (!is_array($innings)) return null;
+        if (! is_array($innings)) {
+            return null;
+        }
 
         foreach ($innings as $inn) {
-            if (!is_array($inn)) continue;
+            if (! is_array($inn)) {
+                continue;
+            }
             foreach (['batting', 'bowling'] as $type) {
                 foreach ($inn[$type] ?? [] as $entry) {
-                    if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && !empty($entry['image_url'])) {
+                    if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && ! empty($entry['image_url'])) {
                         return $entry['image_url'];
                     }
                 }
@@ -794,17 +803,23 @@ class MatchResultController extends Controller
     private function resolveTeamFromScorecard(Matches $match, string $playerName): ?int
     {
         $scorecard = $match->result?->scorecard_data;
-        if (!$scorecard) return null;
+        if (! $scorecard) {
+            return null;
+        }
 
         if (is_string($scorecard)) {
             $scorecard = json_decode($scorecard, true) ?? [];
         }
 
         $innings = $scorecard['innings'] ?? $scorecard;
-        if (!is_array($innings)) return null;
+        if (! is_array($innings)) {
+            return null;
+        }
 
         foreach ($innings as $inn) {
-            if (!is_array($inn)) continue;
+            if (! is_array($inn)) {
+                continue;
+            }
             $teamName = $inn['team_name'] ?? '';
             foreach (['batting', 'bowling'] as $type) {
                 foreach ($inn[$type] ?? [] as $entry) {
@@ -828,7 +843,9 @@ class MatchResultController extends Controller
     private function buildRemarksFromScorecard(Matches $match, string $playerName, string $awardField): ?string
     {
         $scorecard = $match->result?->scorecard_data;
-        if (!$scorecard) return null;
+        if (! $scorecard) {
+            return null;
+        }
 
         if (is_string($scorecard)) {
             $scorecard = json_decode($scorecard, true) ?? [];
@@ -837,45 +854,69 @@ class MatchResultController extends Controller
         // Also check heroes data for pre-built stats
         $heroes = $scorecard['cricheroes_heroes'] ?? null;
 
-        if ($awardField === 'award_best_batter_name' && $heroes && !empty($heroes['best_batter'])) {
+        if ($awardField === 'award_best_batter_name' && $heroes && ! empty($heroes['best_batter'])) {
             $bat = $heroes['best_batter'];
             $parts = [];
-            if (!empty($bat['runs'])) $parts[] = $bat['runs'] . ' runs';
-            if (!empty($bat['balls'])) $parts[] = $bat['balls'] . ' balls';
-            if (!empty($bat['fours'])) $parts[] = $bat['fours'] . 'x4';
-            if (!empty($bat['sixes'])) $parts[] = $bat['sixes'] . 'x6';
-            return !empty($parts) ? implode(', ', $parts) : null;
+            if (! empty($bat['runs'])) {
+                $parts[] = $bat['runs'] . ' runs';
+            }
+            if (! empty($bat['balls'])) {
+                $parts[] = $bat['balls'] . ' balls';
+            }
+            if (! empty($bat['fours'])) {
+                $parts[] = $bat['fours'] . 'x4';
+            }
+            if (! empty($bat['sixes'])) {
+                $parts[] = $bat['sixes'] . 'x6';
+            }
+            return ! empty($parts) ? implode(', ', $parts) : null;
         }
 
-        if ($awardField === 'award_best_bowler_name' && $heroes && !empty($heroes['best_bowler'])) {
+        if ($awardField === 'award_best_bowler_name' && $heroes && ! empty($heroes['best_bowler'])) {
             $bowl = $heroes['best_bowler'];
             $parts = [];
-            if (!empty($bowl['wickets'])) $parts[] = $bowl['wickets'] . '/' . ($bowl['runs'] ?? 0);
-            if (!empty($bowl['overs'])) $parts[] = '(' . $bowl['overs'] . ' ov)';
-            return !empty($parts) ? implode(' ', $parts) : null;
+            if (! empty($bowl['wickets'])) {
+                $parts[] = $bowl['wickets'] . '/' . ($bowl['runs'] ?? 0);
+            }
+            if (! empty($bowl['overs'])) {
+                $parts[] = '(' . $bowl['overs'] . ' ov)';
+            }
+            return ! empty($parts) ? implode(' ', $parts) : null;
         }
 
         // Fallback: search scorecard batting/bowling for this player's stats
         $innings = $scorecard['innings'] ?? $scorecard;
-        if (!is_array($innings)) return null;
+        if (! is_array($innings)) {
+            return null;
+        }
 
         foreach ($innings as $inn) {
-            if (!is_array($inn)) continue;
+            if (! is_array($inn)) {
+                continue;
+            }
             // Check batting
             foreach ($inn['batting'] ?? [] as $entry) {
-                if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && !empty($entry['runs'])) {
+                if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && ! empty($entry['runs'])) {
                     $parts = [$entry['runs'] . ' runs'];
-                    if (!empty($entry['balls'])) $parts[] = $entry['balls'] . ' balls';
-                    if (!empty($entry['fours'])) $parts[] = $entry['fours'] . 'x4';
-                    if (!empty($entry['sixes'])) $parts[] = $entry['sixes'] . 'x6';
+                    if (! empty($entry['balls'])) {
+                        $parts[] = $entry['balls'] . ' balls';
+                    }
+                    if (! empty($entry['fours'])) {
+                        $parts[] = $entry['fours'] . 'x4';
+                    }
+                    if (! empty($entry['sixes'])) {
+                        $parts[] = $entry['sixes'] . 'x6';
+                    }
                     return implode(', ', $parts);
                 }
             }
             // Check bowling
             foreach ($inn['bowling'] ?? [] as $entry) {
-                if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && !empty($entry['wickets'])) {
+                if ($this->fuzzyMatch($entry['name'] ?? '', $playerName) && ! empty($entry['wickets'])) {
                     $parts = [$entry['wickets'] . '/' . ($entry['runs'] ?? 0)];
-                    if (!empty($entry['overs'])) $parts[] = '(' . $entry['overs'] . ' ov)';
+                    if (! empty($entry['overs'])) {
+                        $parts[] = '(' . $entry['overs'] . ' ov)';
+                    }
                     return implode(' ', $parts);
                 }
             }

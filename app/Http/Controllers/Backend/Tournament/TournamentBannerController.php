@@ -167,7 +167,7 @@ class TournamentBannerController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        $banner->update(['is_active' => !$banner->is_active]);
+        $banner->update(['is_active' => ! $banner->is_active]);
 
         return response()->json([
             'success' => true,

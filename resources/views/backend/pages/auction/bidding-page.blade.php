@@ -21,6 +21,14 @@
     @keyframes timerPulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
     .timer-critical { animation: timerPulse 0.5s ease-in-out infinite; }
 
+    /* Closing call — punches in as each call fires. */
+    @keyframes finalCallPulse {
+        0%   { transform: scale(0.9); opacity: 0; }
+        40%  { transform: scale(1.03); opacity: 1; }
+        100% { transform: scale(1); }
+    }
+    .final-call-pulse { animation: finalCallPulse 0.7s cubic-bezier(0.34,1.56,0.64,1) both; }
+
     @keyframes soldStamp {
         0% { transform: rotate(-12deg) scale(0); opacity:0; }
         60% { transform: rotate(-12deg) scale(1.2); opacity:1; }
@@ -69,8 +77,10 @@
             <div class="flex-shrink-0 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800/60 px-4 py-2.5 flex items-center justify-between">
                 {{-- Left: Team identity --}}
                 <div class="flex items-center gap-2.5 min-w-0">
-                    @if($userTeam->logo_path)
-                        <img src="/storage/{{ $userTeam->logo_path }}" alt="{{ $userTeam->name }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-gray-700 flex-shrink-0">
+                    {{-- team_logo_url, not logo_path: the latter is not a column on
+                         ActualTeam, so the manager's own team badge never appeared. --}}
+                    @if($userTeam->team_logo_url)
+                        <img src="{{ $userTeam->team_logo_url }}" alt="{{ $userTeam->name }}" class="w-8 h-8 rounded-full object-cover ring-2 ring-gray-700 flex-shrink-0">
                     @else
                         <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-[11px] ring-2 ring-gray-700 flex-shrink-0">
                             {{ substr($userTeam->name, 0, 2) }}
@@ -190,10 +200,23 @@
 
                     {{-- Current Bid Panel --}}
                     <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-4 mb-3 text-center">
+                        {{-- Closing call: the same escalation the organizer and the big
+                             screen show, so a bidder knows exactly how long is left. --}}
+                        <template x-if="finalCall && !timerExpired">
+                            <div class="mb-2 -mx-4 -mt-4 px-4 py-2 rounded-t-lg final-call-pulse"
+                                 :class="finalCall.is_final ? 'bg-red-600' : 'bg-amber-500'">
+                                <p class="text-sm font-black tracking-[0.2em] uppercase"
+                                   :class="finalCall.is_final ? 'text-white' : 'text-black'"
+                                   x-text="finalCall.label"></p>
+                            </div>
+                        </template>
+
                         {{-- Timer --}}
                         <div x-show="timerSeconds > 0 || timerExpired" class="mb-2">
-                            <span class="text-base font-bold font-mono"
-                                  :class="timerExpired ? 'text-red-500' : (timerSeconds <= 5 ? 'text-red-500 timer-critical' : 'text-white')"
+                            <span class="font-bold font-mono"
+                                  :class="timerExpired
+                                    ? 'text-red-500 text-base'
+                                    : (finalCall ? (finalCall.is_final ? 'text-red-400 text-3xl timer-critical' : 'text-amber-300 text-2xl') : (timerSeconds <= 5 ? 'text-red-500 text-base timer-critical' : 'text-white text-base'))"
                                   x-text="timerExpired ? 'TIME UP' : timerSeconds + 's'"></span>
                         </div>
 
@@ -251,8 +274,12 @@
                     {{-- CLOSED BID CONTROLS --}}
                     <div x-show="bidType === 'closed' && auctionMode !== 'offline'">
                         <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3 mb-2.5">
+                            {{-- Entered in millions, matching the M figures shown
+                                 everywhere else. This used to be a Lakhs field while the
+                                 rest of the screen read in millions, so typing "5" placed
+                                 a 500K bid instead of 5M. --}}
                             <label class="text-gray-400 text-[10px] uppercase tracking-wider mb-1.5 block text-center">
-                                Bid Amount (Lakhs) &middot; Min: <span x-text="(closedBidMinimum / 100000)"></span> L
+                                Bid Amount (M) &middot; Min: <span x-text="toM(closedBidMinimum)"></span> M
                             </label>
                             <div class="flex items-center gap-2">
                                 <button @click="customAmount = Math.max(closedBidMinimum, (Number(customAmount) || closedBidMinimum) - currentIncrement)"
@@ -260,13 +287,13 @@
                                 <div class="flex-1">
                                     <div class="flex items-center bg-gray-800/80 border border-gray-700/50 rounded-md focus-within:border-cyan-500/60">
                                         <input type="number"
-                                               :value="Number(customAmount) > 0 ? (customAmount / 100000) : ''"
-                                               @input="customAmount = Number($event.target.value) * 100000"
-                                               :min="closedBidMinimum / 100000"
+                                               :value="Number(customAmount) > 0 ? toM(customAmount) : ''"
+                                               @input="customAmount = fromM($event.target.value)"
+                                               :min="toM(closedBidMinimum)"
                                                class="w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold"
-                                               :placeholder="(closedBidMinimum / 100000)"
-                                               step="0.5">
-                                        <span class="pr-2.5 text-gray-500 font-semibold text-xs">L</span>
+                                               :placeholder="toM(closedBidMinimum)"
+                                               step="any">
+                                        <span class="pr-2.5 text-gray-500 font-semibold text-xs">M</span>
                                     </div>
                                 </div>
                                 <button @click="customAmount = (Number(customAmount) || closedBidMinimum) + currentIncrement"
@@ -452,6 +479,11 @@ function teamBiddingPanel() {
         BID_TIMER_DURATION: {{ $auction->bid_timer_seconds ?? 30 }},
         BID_TIMER_RESET_TO: {{ $auction->bid_timer_reset_seconds ?? 15 }},
         timerSeconds: 0, timerWidth: 100, timerInterval: null,
+        // What amounts are called, from the auction's settings.
+        amountUnit: @json($auction->amountUnitConfig()),
+        // Closing calls, thresholds supplied by the server.
+        finalCall: null,
+        finalCallStages: @json($auction->finalCallStages()),
         timerExpired: false, lastKnownPrice: 0, lastServerUpdatedAt: 0,
 
         init() {
@@ -529,7 +561,7 @@ function teamBiddingPanel() {
                         this.soldPlayerImage = this.player.image_url?.includes('ui-avatars') ? null : this.player.image_url;
                         this.soldPrice = soldEntry.final_price || soldEntry.current_price || this.player.current_price;
                         this.soldTeamName = soldEntry.sold_to_team?.name || 'Unknown Team';
-                        this.soldTeamLogo = soldEntry.sold_to_team?.logo_path ? '/storage/' + soldEntry.sold_to_team.logo_path : null;
+                        this.soldTeamLogo = soldEntry.sold_to_team?.logo_path || null; // already a full URL
                         this.state = "sold";
                     } else {
                         this.unsoldPlayerName = this.player.name;
@@ -713,19 +745,49 @@ function teamBiddingPanel() {
             }
         },
 
+        /**
+         * Seed the countdown from the server's authoritative clock.
+         *
+         * This used to infer elapsed time from `player_updated_at`, which changes on any
+         * write to the row — so an unrelated update silently restarted the countdown.
+         * The server now reports the remaining seconds directly, computed from
+         * `timer_started_at`, so this page counts down in step with the organizer panel
+         * and the big screen.
+         */
         syncTimerFromServer(data) {
-            const serverTime = data.server_time || 0;
-            const playerUpdatedAt = data.player_updated_at || 0;
-            const timerDuration = data.bid_timer_seconds || this.BID_TIMER_DURATION;
-            if (!serverTime || !playerUpdatedAt) return;
-            const isTimerReset = playerUpdatedAt !== this.lastServerUpdatedAt;
-            this.lastServerUpdatedAt = playerUpdatedAt;
-            const elapsed = serverTime - playerUpdatedAt;
-            const remaining = Math.max(0, timerDuration - elapsed);
+            if (data.amount_unit) this.amountUnit = data.amount_unit;
+            if (Array.isArray(data.final_call_stages)) {
+                this.finalCallStages = data.final_call_stages;
+            }
+
+            const enabled = data.timer_enabled !== false;
+            const remaining = data.timer_seconds_remaining;
+
+            if (!enabled || remaining === null || remaining === undefined) {
+                // No clock running (e.g. offline mode with the timer switched off).
+                this.stopTimer();
+                this.timerSeconds = 0;
+                this.timerWidth = 100;
+                this.timerExpired = false;
+                this.finalCall = null;
+                return;
+            }
+
+            const limit = data.bid_timer_seconds || this.BID_TIMER_DURATION;
+
             if (remaining <= 0) {
-                this.stopTimer(); this.timerSeconds = 0; this.timerWidth = 0; this.timerExpired = true;
-            } else if (isTimerReset || !this.timerInterval) {
-                this.startTimer(remaining, timerDuration);
+                this.stopTimer();
+                this.timerSeconds = 0;
+                this.timerWidth = 0;
+                this.timerExpired = true;
+                this.refreshFinalCall();
+                return;
+            }
+
+            // Re-seed whenever the server disagrees with the local tick by more than a
+            // second — covers a restarted clock and a backgrounded tab alike.
+            if (!this.timerInterval || Math.abs(remaining - this.timerSeconds) > 1) {
+                this.startTimer(remaining, limit);
             }
         },
 
@@ -735,15 +797,24 @@ function teamBiddingPanel() {
             const maxSeconds = maxDuration || remaining;
             this.timerWidth = Math.max(0, (this.timerSeconds / maxSeconds) * 100);
             this.timerExpired = false;
+            this.refreshFinalCall();
             this.timerInterval = setInterval(() => {
                 this.timerSeconds--;
                 this.timerWidth = Math.max(0, (this.timerSeconds / maxSeconds) * 100);
+                this.refreshFinalCall();
                 if (this.timerSeconds <= 0) { this.stopTimer(); this.timerExpired = true; }
             }, 1000);
         },
 
         stopTimer() {
             if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; }
+        },
+
+        /** Closing call for the ticking countdown, from the server's thresholds. */
+        refreshFinalCall() {
+            this.finalCall = window.auctionFinalCallFor
+                ? window.auctionFinalCallFor(this.timerSeconds, this.finalCallStages)
+                : null;
         },
 
         _flashBid() {
@@ -755,12 +826,15 @@ function teamBiddingPanel() {
             }, 10);
         },
 
+        /** Money entry in millions, shared with every other screen. */
+        toM(raw) { return window.auctionToM ? window.auctionToM(raw) : raw; },
+        fromM(value) { return window.auctionFromM ? window.auctionFromM(value) : value; },
+
+        /** Shared K/M/B formatter with this auction's unit. */
         formatCurrency(amt) {
-            const n = Number(amt) || 0;
-            if (n >= 10000000) { const v = n / 10000000; return (v % 1 === 0 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, "")) + " Cr"; }
-            if (n >= 100000) { const v = n / 100000; return (v % 1 === 0 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, "")) + " L"; }
-            if (n >= 1000) { const v = n / 1000; return (v % 1 === 0 ? v.toFixed(0) : v.toFixed(1).replace(/\.?0+$/, "")) + "K"; }
-            return n.toLocaleString();
+            return window.auctionAmount
+                ? window.auctionAmount(amt, this.amountUnit)
+                : String(Number(amt) || 0);
         }
     };
 }

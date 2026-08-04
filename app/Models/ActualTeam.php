@@ -151,12 +151,12 @@ class ActualTeam extends Model
     public function scopeApplyFilters(Builder $query, array $filters): Builder
     {
         // Apply Organization filter if provided
-        if (!empty($filters['organization_id'])) {
+        if (! empty($filters['organization_id'])) {
             $query->where('organization_id', $filters['organization_id']);
         }
 
         // Apply Tournament filter — check primary tournament_id, pivot table, OR global teams in same org
-        if (!empty($filters['tournament_id'])) {
+        if (! empty($filters['tournament_id'])) {
             $tournamentId = $filters['tournament_id'];
             $query->where(function ($q) use ($tournamentId) {
                 $q->where('tournament_id', $tournamentId)
@@ -175,7 +175,7 @@ class ActualTeam extends Model
         }
 
         // Apply name search if provided
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where('name', 'like', '%' . $filters['search'] . '%');
         }
 
@@ -224,7 +224,6 @@ class ActualTeam extends Model
         return $this->belongsTo(Player::class);
     }
 
-
     public function team()
     {
         return $this->belongsTo(Team::class);
@@ -255,7 +254,6 @@ class ActualTeam extends Model
             ->with('player'); // eager load Player details
     }
 
-
     public function users()
     {
         // This tells Eloquent:
@@ -277,7 +275,6 @@ class ActualTeam extends Model
     {
         return $this->hasMany(AuctionPlayer::class, 'sold_to_team_id');
     }
-
 
     public function members()
     {

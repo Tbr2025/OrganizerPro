@@ -121,6 +121,14 @@
             @endif
         }
 
+        /* ── Closing call ("going once, going twice") ── */
+        @keyframes finalCallPulse {
+            0%   { transform: scale(0.85); opacity: 0; }
+            35%  { transform: scale(1.06); opacity: 1; }
+            60%  { transform: scale(1); }
+            100% { transform: scale(1.02); }
+        }
+
         /* ── IPL SOLD dramatic effects ── */
         .card-container.sold-state {
             animation: sold-brightness 1.5s ease-out forwards;
@@ -164,41 +172,70 @@
         }
 
         /* HTML fallback sold stamp (when no sticker uploaded) */
-        .sold-stamp {
+        /* ── Wax-seal stamps ──
+           Round seals rather than the old bordered rectangle: a double ring, a rotated
+           word, and a rope-notch edge, struck onto the card at an angle. Green for SOLD,
+           red for UNSOLD, identical geometry so the two read as a matched pair. */
+        .auction-seal {
             width: 100%;
             height: 100%;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            font-size: 2.5em;
-            font-weight: 900;
-            color: #22c55e;
-            border: 5px solid #22c55e;
-            border-radius: 12px;
+            border-radius: 50%;
             text-transform: uppercase;
-            letter-spacing: 6px;
-            text-shadow: 0 0 20px rgba(34,197,94,0.6), 0 2px 4px rgba(0,0,0,0.5);
-            box-shadow: 0 0 30px rgba(34,197,94,0.3), inset 0 0 20px rgba(34,197,94,0.1);
-            background: rgba(0,0,0,0.6);
+            font-weight: 900;
+            transform: rotate(-14deg);
+            position: relative;
+            isolation: isolate;
+        }
+        /* Outer ring + inner hairline ring. */
+        .auction-seal::before,
+        .auction-seal::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .auction-seal::before { inset: 0; border: 6px solid currentColor; }
+        .auction-seal::after  { inset: 11px; border: 2px solid currentColor; opacity: 0.55; }
+
+        .auction-seal .seal-word {
+            font-size: 1.5em;
+            letter-spacing: 3px;
+            line-height: 1;
+            z-index: 1;
+        }
+        .auction-seal .seal-sub {
+            font-size: 0.45em;
+            letter-spacing: 4px;
+            opacity: 0.75;
+            margin-top: 4px;
+            z-index: 1;
         }
 
-        /* HTML fallback unsold stamp */
+        .sold-stamp {
+            color: #22c55e;
+            /* Radial fill so the seal reads as pressed wax rather than a flat box. */
+            background:
+                radial-gradient(circle at 35% 30%, rgba(34,197,94,0.30) 0%, rgba(34,197,94,0.10) 45%, rgba(2,10,6,0.88) 100%);
+            text-shadow: 0 0 18px rgba(34,197,94,0.75), 0 2px 4px rgba(0,0,0,0.6);
+            box-shadow:
+                0 0 40px rgba(34,197,94,0.45),
+                inset 0 0 26px rgba(34,197,94,0.20),
+                0 10px 30px rgba(0,0,0,0.55);
+        }
+
         .unsold-stamp {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.5em;
-            font-weight: 900;
             color: #ef4444;
-            border: 5px solid #ef4444;
-            border-radius: 12px;
-            text-transform: uppercase;
-            letter-spacing: 6px;
-            text-shadow: 0 0 20px rgba(239,68,68,0.6), 0 2px 4px rgba(0,0,0,0.5);
-            box-shadow: 0 0 30px rgba(239,68,68,0.3), inset 0 0 20px rgba(239,68,68,0.1);
-            background: rgba(0,0,0,0.6);
+            background:
+                radial-gradient(circle at 35% 30%, rgba(239,68,68,0.30) 0%, rgba(239,68,68,0.10) 45%, rgba(12,2,2,0.88) 100%);
+            text-shadow: 0 0 18px rgba(239,68,68,0.75), 0 2px 4px rgba(0,0,0,0.6);
+            box-shadow:
+                0 0 40px rgba(239,68,68,0.45),
+                inset 0 0 26px rgba(239,68,68,0.20),
+                0 10px 30px rgba(0,0,0,0.55);
         }
         #team-logo.sold-entrance {
             animation: team-logo-entrance 0.8s ease-out 0.2s forwards;
@@ -453,29 +490,51 @@
             position: absolute;
             {!! elementStyle($positions, 'stats_table', ['top'=>480,'left'=>550,'width'=>500,'height'=>150,'fontSize'=>20], $boxShadowMap, $textShadowMap) !!}
         }
+        /* ── Stats ──
+           Borderless by default: the boxed grid fought the artwork behind it. Each stat
+           is its own soft glass tile, separated by spacing rather than rules. A template
+           can still opt back into borders by setting tableBorderWidth. */
         #stats-table-wrap table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: {{ $st['cellSpacing'] ?? 10 }}px 0;
             font-size: {{ $st['fontSize'] ?? 20 }}px;
         }
         #stats-table-wrap thead tr {
-            background: {{ $st['headerBg'] ?? 'rgba(0,0,0,0.7)' }};
-            color: {{ $st['headerColor'] ?? '#ffffff' }};
+            background: transparent;
+            color: {{ $st['headerColor'] ?? 'rgba(255,255,255,0.65)' }};
         }
         #stats-table-wrap tbody tr {
-            background: {{ $st['rowBg'] ?? 'rgba(255,255,255,0.1)' }};
+            background: transparent;
             color: {{ $st['cellColor'] ?? '#ffffff' }};
         }
         #stats-table-wrap th,
         #stats-table-wrap td {
-            padding: {{ $st['cellPadding'] ?? 10 }}px;
-            border: {{ $st['tableBorderWidth'] ?? 1 }}px solid {{ $st['tableBorderColor'] ?? 'rgba(255,255,255,0.2)' }};
+            padding: {{ $st['cellPadding'] ?? 8 }}px;
+            @if(($st['tableBorderWidth'] ?? 0) > 0)
+            border: {{ $st['tableBorderWidth'] }}px solid {{ $st['tableBorderColor'] ?? 'rgba(255,255,255,0.2)' }};
+            @else
+            border: none;
+            @endif
             text-align: center;
         }
         #stats-table-wrap th {
-            font-weight: bold;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
+            font-size: 0.62em;
+            padding-bottom: 2px;
+            opacity: 0.8;
+        }
+        /* The figure carries the emphasis, on its own translucent tile. */
+        #stats-table-wrap td {
+            font-weight: 800;
+            font-size: 1.25em;
+            line-height: 1.1;
+            background: {{ $st['rowBg'] ?? 'rgba(255,255,255,0.07)' }};
+            border-radius: 12px;
+            backdrop-filter: blur(3px);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
         }
 
         #player-role {
@@ -730,6 +789,27 @@
         <div style="margin-top:0.75rem;font-size:1.1rem;color:#cbd5e1;">Please wait — the auction will resume shortly.</div>
     </div>
 
+    {{-- Closing call + countdown for the audience. Driven by the same
+         server-supplied thresholds as the organizer panel, so the big screen and the
+         panel escalate on the same second. --}}
+    <div id="final-call-layer" class="hidden"
+         style="position:fixed;left:0;right:0;top:6%;z-index:9998;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+        <div id="final-call-badge"
+             style="padding:1rem 3rem;border-radius:1.25rem;font-size:3.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;box-shadow:0 25px 60px rgba(0,0,0,0.55);">
+        </div>
+        <div id="final-call-seconds"
+             style="margin-top:0.75rem;font-size:6rem;font-weight:900;font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 6px 24px rgba(0,0,0,0.6);">
+        </div>
+    </div>
+
+    {{-- Plain countdown outside the closing window. --}}
+    <div id="bid-countdown" class="hidden"
+         style="position:fixed;top:24px;right:24px;z-index:9997;background:rgba(2,6,23,0.75);backdrop-filter:blur(6px);border-radius:9999px;padding:0.5rem 1.25rem;display:flex;align-items:center;gap:0.5rem;">
+        <span style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#94a3b8;font-weight:700;">Time</span>
+        <span id="bid-countdown-seconds"
+              style="font-size:1.75rem;font-weight:800;font-variant-numeric:tabular-nums;color:#fff;line-height:1;"></span>
+    </div>
+
     <div id="card-container" class="card-container hidden">
         @if($auction->auction_logo_url)
         <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo"
@@ -747,7 +827,10 @@
             @if($soldBadgeUrl)
                 <img src="{{ $soldBadgeUrl }}" alt="Sold Badge" style="width:100%;height:100%;object-fit:contain;">
             @else
-                <div class="sold-stamp">SOLD</div>
+                <div class="auction-seal sold-stamp">
+                    <span class="seal-word">Sold</span>
+                    <span class="seal-sub">Signed</span>
+                </div>
             @endif
         </div>
         @endif
@@ -758,7 +841,10 @@
             @if($unsoldBadgeUrl)
                 <img src="{{ $unsoldBadgeUrl }}" alt="Unsold Badge" class="w-full h-full object-contain">
             @else
-                <div class="unsold-stamp">UNSOLD</div>
+                <div class="auction-seal unsold-stamp">
+                    <span class="seal-word">Unsold</span>
+                    <span class="seal-sub">No bids</span>
+                </div>
             @endif
         </div>
         @endif
@@ -991,21 +1077,29 @@
             forceTLS: true
         });
 
+        /* Amounts read on the K / M / B ladder with this auction's unit — the Lakh /
+           Crore ladder this used to hardcode is wrong for an auction run in points,
+           coins or dollars. This page is a standalone document (CDN Tailwind, no Vite
+           bundle) so it carries its own copy, fed the same unit config from the server. */
+        const AMOUNT_UNIT = @json($auction->amountUnitConfig());
+
         function formatMillions(amount) {
-            const n = Number(amount) || 0;
-            if (n >= 10000000) {
-                const val = n / 10000000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' Cr';
-            }
-            if (n >= 100000) {
-                const val = n / 100000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' L';
-            }
-            if (n >= 1000) {
-                const val = n / 1000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace(/\.?0+$/, '')) + 'K';
-            }
-            return n.toLocaleString();
+            if (amount === null || amount === undefined || amount === '') return '—';
+            const n = Number(amount);
+            if (!isFinite(n)) return '—';
+
+            const sign = n < 0 ? '-' : '';
+            const abs = Math.abs(n);
+            if (abs >= 1e15) return '∞';
+
+            let divisor = 1, suffix = '';
+            if (abs >= 1e9) { divisor = 1e9; suffix = 'B'; }
+            else if (abs >= 1e6) { divisor = 1e6; suffix = 'M'; }
+            else if (abs >= 1e3) { divisor = 1e3; suffix = 'K'; }
+
+            const figure = sign + (abs / divisor).toFixed(2).replace(/\.?0+$/, '') + suffix;
+
+            return AMOUNT_UNIT.prefix ? AMOUNT_UNIT.label + figure : figure + ' ' + AMOUNT_UNIT.label;
         }
 
         function showWaiting() {
@@ -1112,9 +1206,9 @@
                 }
 
                 // Show team logo with entrance animation
-                if (p.sold_to_team && (p.sold_to_team.logo_path || p.sold_to_team.team_logo)) {
+                if (p.sold_to_team && p.sold_to_team.logo_path) {
                     if (teamLogo) {
-                        teamLogo.src = p.sold_to_team.logo_path || `/storage/${p.sold_to_team.team_logo}`;
+                        teamLogo.src = p.sold_to_team.logo_path; // full URL from the API
                         teamLogo.classList.remove('hidden');
                         teamLogo.classList.add('sold-entrance');
                     }
@@ -1175,6 +1269,99 @@
         }
 
         // Fetch list of waiting player names for the shuffle pool
+        /* ── Closing call + countdown ────────────────────────────────────────────
+           The server ships `timer_seconds_remaining` and the call thresholds on every
+           poll. Polls are 2s apart but the calls land on exact seconds, so the clock
+           ticks locally between polls and re-syncs on each one.
+
+           This is a deliberate second copy of the two-line threshold lookup: this page
+           is a standalone document (CDN Tailwind, no Vite bundle) and cannot import the
+           admin helper. The *rule* still lives only on the server — both copies just
+           read the thresholds it sends.                                              */
+        let timerRemaining = null;
+        let timerEnabled = false;
+        let finalCallStages = [];
+        let lastCallStage = 0;
+        let timerTick = null;
+
+        function finalCallFor(remaining, stages) {
+            if (remaining === null || remaining === undefined || !Array.isArray(stages) || !stages.length) {
+                return null;
+            }
+            return stages.find(s => remaining <= s.at) || null;
+        }
+
+        function renderClock() {
+            const layer = document.getElementById('final-call-layer');
+            const badge = document.getElementById('final-call-badge');
+            const secondsEl = document.getElementById('final-call-seconds');
+            const plain = document.getElementById('bid-countdown');
+            const plainSeconds = document.getElementById('bid-countdown-seconds');
+            if (!layer || !plain) return;
+
+            // No live clock: hide everything.
+            if (!timerEnabled || timerRemaining === null || timerRemaining === undefined) {
+                layer.classList.add('hidden');
+                plain.classList.add('hidden');
+                lastCallStage = 0;
+                return;
+            }
+
+            const seconds = Math.max(0, timerRemaining);
+            const call = finalCallFor(seconds, finalCallStages);
+
+            if (call) {
+                plain.classList.add('hidden');
+                layer.classList.remove('hidden');
+
+                badge.textContent = call.label;
+                badge.style.background = call.is_final ? '#dc2626' : '#f59e0b';
+                badge.style.color = call.is_final ? '#ffffff' : '#111827';
+                secondsEl.textContent = seconds;
+                secondsEl.style.color = call.is_final ? '#f87171' : '#fcd34d';
+
+                // Replay the punch-in animation only when a NEW call fires.
+                if (call.stage > lastCallStage) {
+                    badge.style.animation = 'none';
+                    void badge.offsetWidth; // force reflow so the animation restarts
+                    badge.style.animation = 'finalCallPulse 0.9s cubic-bezier(0.34,1.56,0.64,1) both';
+                    lastCallStage = call.stage;
+                }
+            } else {
+                layer.classList.add('hidden');
+                lastCallStage = 0;
+                plain.classList.remove('hidden');
+                plainSeconds.textContent = seconds;
+            }
+        }
+
+        function startClockTick() {
+            if (timerTick) return;
+            timerTick = setInterval(() => {
+                if (timerRemaining !== null && timerRemaining > 0) {
+                    timerRemaining--;
+                }
+                renderClock();
+            }, 1000);
+        }
+
+        /** Re-seed the local clock from a poll response. */
+        function syncClock(data) {
+            timerEnabled = !!data?.timer_enabled;
+            timerRemaining = data?.timer_seconds_remaining ?? null;
+            if (Array.isArray(data?.final_call_stages)) {
+                finalCallStages = data.final_call_stages;
+            }
+            renderClock();
+            startClockTick();
+        }
+
+        function hideClock() {
+            timerEnabled = false;
+            timerRemaining = null;
+            renderClock();
+        }
+
         let shuffleNamePool = [];
         function fetchShuffleNamePool() {
             fetch(`/auction/${auctionId}/active-player`)
@@ -1188,8 +1375,6 @@
         fetchShuffleNamePool();
 
         function fetchActivePlayer() {
-            if (isShuffling) return;
-
             console.log('[Live] fetchActivePlayer() called');
             fetch(`/auction/${auctionId}/active-player`)
                 .then(res => res.json())
@@ -1202,6 +1387,18 @@
                         pausedOverlay.classList.toggle('hidden', data?.auction_status !== 'paused');
                     }
 
+                    // ── Clock first, and unconditionally ──
+                    // The countdown and closing calls must keep running even while the
+                    // shuffle animation is playing, so they are updated before the
+                    // isShuffling guard below rather than after it.
+                    if (data?.auctionPlayer?.status === 'on_auction'
+                        && data?.auction_status !== 'paused'
+                        && data?.auction_status !== 'completed') {
+                        syncClock(data);
+                    } else {
+                        hideClock();
+                    }
+
                     if (data?.auction_status === 'completed') {
                         showCompleted();
                         return;
@@ -1210,6 +1407,10 @@
                     if (data?.waitingPlayers && data.waitingPlayers.length > 0) {
                         shuffleNamePool = data.waitingPlayers;
                     }
+
+                    // The player card is mid-animation; leave it alone until the reveal
+                    // finishes. (The clock above has already been updated.)
+                    if (isShuffling) return;
 
                     if (data?.auctionPlayer) {
                         const ap = data.auctionPlayer;

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\ImageTemplate;
 use App\Models\ImageTemplateCategories;
-use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
 use Illuminate\Http\Request;
@@ -13,14 +12,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-
-use Symfony\Component\Process\Process;
-use Symfony\Component\Process\Exception\ProcessFailedException;
-
 class ImageTemplateController extends Controller
 {
-
-
     public function remove(Request $request)
     {
         $request->validate([
@@ -35,10 +28,10 @@ class ImageTemplateController extends Controller
         $relativePath = 'storage/processed/' . $outputFilename;
 
         // Ensure directories exist
-        if (!file_exists(dirname($inputPath))) {
+        if (! file_exists(dirname($inputPath))) {
             mkdir(dirname($inputPath), 0775, true);
         }
-        if (!file_exists(dirname($outputPath))) {
+        if (! file_exists(dirname($outputPath))) {
             mkdir(dirname($outputPath), 0775, true);
         }
 
@@ -50,7 +43,7 @@ class ImageTemplateController extends Controller
         $pythonPath = file_exists($rembgEnv) ? $rembgEnv : 'python3';
         $scriptPath = resource_path('scripts/remove_bg.py');
         $cachePath = storage_path('app/rembg_cache');
-        if (!file_exists($cachePath)) {
+        if (! file_exists($cachePath)) {
             mkdir($cachePath, 0775, true);
         }
 
@@ -65,7 +58,7 @@ class ImageTemplateController extends Controller
 
             $output = shell_exec($command);
 
-            if (!file_exists($outputPath)) {
+            if (! file_exists($outputPath)) {
                 throw new \Exception("Output file not generated.");
             }
 
@@ -88,13 +81,13 @@ class ImageTemplateController extends Controller
             if ($request->ajax()) {
                 return response()->json([
                     'error' => 'Background removal failed',
-                    'details' => $e->getMessage()
+                    'details' => $e->getMessage(),
                 ], 500);
             }
 
             return back()->withErrors([
                 'error' => 'Background removal failed',
-                'details' => $e->getMessage()
+                'details' => $e->getMessage(),
             ]);
         }
     }
@@ -151,17 +144,9 @@ class ImageTemplateController extends Controller
 
         return response()->json([
             'success' => true,
-            'template' => $template
+            'template' => $template,
         ]);
     }
-
-
-
-
-
-
-
-
 
     public function show(ImageTemplate $template)
     {
@@ -185,8 +170,6 @@ class ImageTemplateController extends Controller
 
         return redirect()->route('admin.image-templates.index')->with('success', 'Template deleted successfully.');
     }
-
-
 
     public function update(Request $request, ImageTemplate $template)
     {

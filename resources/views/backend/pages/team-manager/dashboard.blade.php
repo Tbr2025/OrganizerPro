@@ -183,11 +183,25 @@
                             <div class="h-2 rounded-full transition-all {{ $percentage > 80 ? 'bg-red-500' : ($percentage > 50 ? 'bg-amber-500' : 'bg-indigo-500') }}" style="width: {{ min($percentage, 100) }}%"></div>
                         </div>
                         <div class="flex items-center justify-between mt-2">
-                            <span class="text-xs text-gray-400">{{ format_millions($budget['remaining']) }} remaining</span>
+                            <span class="text-xs text-gray-400">{{ $auction->formatAmount($budget['remaining']) }} left</span>
                             @if($auction->status === 'running')
                                 <a href="{{ route('team.auction.bidding.show', $auction) }}" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Join Bidding &rarr;</a>
                             @endif
                         </div>
+
+                        {{-- How the squad was built: retained up front vs won at auction. --}}
+                        @if(isset($budget['squad_required']))
+                            <div class="flex items-center gap-3 mt-2 text-[11px]">
+                                <span class="text-gray-400">
+                                    Squad <span class="font-semibold text-gray-600 dark:text-gray-300">{{ $budget['squad_size'] }}/{{ $budget['squad_required'] }}</span>
+                                </span>
+                                <span class="text-purple-600 dark:text-purple-400">{{ $budget['retained_count'] }} retained</span>
+                                <span class="text-emerald-600 dark:text-emerald-400">{{ $budget['won_count'] }} won</span>
+                                @if($budget['squad_remaining'] > 0)
+                                    <span class="text-amber-600 dark:text-amber-400">{{ $budget['squad_remaining'] }} to fill</span>
+                                @endif
+                            </div>
+                        @endif
                     </div>
                     @endforeach
                 </div>

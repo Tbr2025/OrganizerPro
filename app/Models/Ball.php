@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Ball extends Model
 {
-
     protected $primaryKey = 'id';  // not 'id'
     public $incrementing = false;        // or false if UUID
     protected $keyType = 'int';         // or 'string' if UUID

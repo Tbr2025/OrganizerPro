@@ -4,24 +4,97 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Auction;
+use App\Models\AuctionActionLog;
 use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
+use App\Models\AuctionPool;
 use App\Models\ActualTeam;
 use App\Models\Player;
 use App\Events\AuctionStatusUpdate;
 use App\Events\PlayerOnBid;
 use App\Events\PlayerSoldEvent;
-use App\Mail\PlayerSoldMail;
-use App\Mail\PlayerUnsoldMail;
 use App\Notifications\GeneralNotification;
+use App\Jobs\FlushAuctionEmails;
+use App\Models\AuctionPendingEmail;
+use App\Services\Auction\AuctionMailService;
+use App\Services\Auction\AuctionPoolService;
+use App\Services\Auction\AuctionSaleService;
+use App\Services\Auction\AuctionUndoService;
+use App\Services\Auction\BidIncrementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class AuctionOrganizerController extends Controller
 {
-    // Note: It's assumed you will protect these routes with middleware 
-    // to ensure only users with the 'Organizer' role can access them.
+    public function __construct(
+        private readonly AuctionPoolService $pools,
+        private readonly AuctionSaleService $sales,
+        private readonly AuctionUndoService $undo,
+        private readonly BidIncrementService $increments,
+        private readonly AuctionMailService $mail,
+    ) {
+    }
+
+    /**
+     * Every team in the auction with its purse, squad count and bidding eligibility.
+     *
+     * This replaced three byte-identical copies of a budget calculation that ignored
+     * per-team allocations and retained-player cost, plus a fourth fallback formula
+     * in the panel's JavaScript. All figures now come from AuctionPoolService, which
+     * is also what the sell-side checks use, so the panel can never show a team as
+     * able to afford something the server will refuse.
+     *
+     * @return \Illuminate\Support\Collection<int, ActualTeam>
+     */
+    private function teamsWithPurse(Auction $auction, ?AuctionPlayer $currentPlayer = null)
+    {
+        // What the next raise would cost — used to grey out teams priced out of the
+        // player currently on the block.
+        $nextBid = $currentPlayer
+            ? $this->increments->nextBidAmount($auction, (float) $currentPlayer->current_price)
+            : null;
+
+        return ActualTeam::forTournament($auction->tournament_id)
+            ->get()
+            ->map(function (ActualTeam $team) use ($auction, $nextBid) {
+                $state = $this->pools->teamPurseState($auction, $team->id, $nextBid);
+
+                // The column is `team_logo`; the panels were binding a non-existent
+                // `logo_path`, so no team logo ever rendered — every team fell back to
+                // its initials. Expose the resolved URL explicitly.
+                $team->logo_url = $team->team_logo_url;
+
+                $team->players_bought = $state['slots_filled'];
+                $team->total_spent = $state['spent'];
+                $team->remaining_budget = $this->cap($state['remaining']);
+                $team->max_bid_allowed = $this->cap($state['max_bid_allowed']);
+                $team->reserve_amount = $state['reserve'];
+                $team->slots_required = $state['slots_required'];
+                $team->slots_remaining = $state['slots_remaining'];
+                $team->excluded = $state['excluded'];
+                $team->exclusion_reason = $state['excluded']
+                    ? sprintf(
+                        'Can only bid up to %s — must retain %s for %d more squad slot%s.',
+                        format_points($state['max_bid_allowed']),
+                        format_points($state['reserve']),
+                        max(0, $state['slots_remaining'] - 1),
+                        max(0, $state['slots_remaining'] - 1) === 1 ? '' : 's'
+                    )
+                    : null;
+
+                return $team;
+            });
+    }
+
+    /**
+     * Open tournaments have no budget cap and report PHP_FLOAT_MAX, which does not
+     * survive JSON encoding. Clamp to a large finite number for the client.
+     */
+    private function cap(float $value): float
+    {
+        return $value >= 1.0e15 ? 1.0e15 : $value;
+    }
 
     /**
      * Display the Organizer's control panel view.
@@ -31,9 +104,9 @@ class AuctionOrganizerController extends Controller
         $auction->load('tournament');
 
         // Fetch available players (waiting status)
-        $availablePlayers = $auction->auctionPlayers()
-            ->where('auction_players.status', 'waiting')
-            ->where('auction_players.is_retained', false)
+        // Locked to the active pool when one is running, so the queue can never offer
+        // a player the server would refuse to put on the block.
+        $availablePlayers = $this->pools->waitingPlayersQuery($auction)
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -45,9 +118,10 @@ class AuctionOrganizerController extends Controller
                 'player.playerType',
                 'player.battingProfile',
                 'player.bowlingProfile',
-                'bids.team',
-                'bids.user',
-                'soldToTeam'
+                // Constrained to live bids: the log is append-only, so a retracted
+                // (undone) bid is still present and must not appear as a standing bid.
+                'bids' => fn ($q) => $q->where('is_void', false)->with(['team', 'user']),
+                'soldToTeam',
             ])
             ->first();
 
@@ -58,18 +132,7 @@ class AuctionOrganizerController extends Controller
             ->get();
 
         // Fetch teams with their budget calculations
-        $teams = ActualTeam::forTournament($auction->tournament_id)
-            ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
-                $query->where('auction_id', $auction->id)->where('status', 'sold');
-            }])
-            ->withSum(['auctionPlayers as total_spent' => function ($query) use ($auction) {
-                $query->where('auction_id', $auction->id)->where('status', 'sold');
-            }], 'final_price')
-            ->get()
-            ->map(function ($team) use ($auction) {
-                $team->remaining_budget = $auction->max_budget_per_team - ($team->total_spent ?? 0);
-                return $team;
-            });
+        $teams = $this->teamsWithPurse($auction, $currentPlayer);
 
         // Stats
         $stats = [
@@ -97,9 +160,9 @@ class AuctionOrganizerController extends Controller
     {
         $auction->load('tournament');
 
-        $availablePlayers = $auction->auctionPlayers()
-            ->where('auction_players.status', 'waiting')
-            ->where('auction_players.is_retained', false)
+        // Locked to the active pool when one is running, so the queue can never offer
+        // a player the server would refuse to put on the block.
+        $availablePlayers = $this->pools->waitingPlayersQuery($auction)
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -110,10 +173,11 @@ class AuctionOrganizerController extends Controller
                 'player.playerType',
                 'player.battingProfile',
                 'player.bowlingProfile',
-                'bids.team',
-                'bids.user',
+                // Constrained to live bids: the log is append-only, so a retracted
+                // (undone) bid is still present and must not appear as a standing bid.
+                'bids' => fn ($q) => $q->where('is_void', false)->with(['team', 'user']),
                 'soldToTeam',
-                'currentBidTeam'
+                'currentBidTeam',
             ])
             ->first();
 
@@ -127,18 +191,7 @@ class AuctionOrganizerController extends Controller
             ->with(['player'])
             ->get();
 
-        $teams = ActualTeam::forTournament($auction->tournament_id)
-            ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
-                $query->where('auction_id', $auction->id)->where('status', 'sold');
-            }])
-            ->withSum(['auctionPlayers as total_spent' => function ($query) use ($auction) {
-                $query->where('auction_id', $auction->id)->where('status', 'sold');
-            }], 'final_price')
-            ->get()
-            ->map(function ($team) use ($auction) {
-                $team->remaining_budget = $auction->max_budget_per_team - ($team->total_spent ?? 0);
-                return $team;
-            });
+        $teams = $this->teamsWithPurse($auction, $currentPlayer);
 
         $skippedPlayers = $auction->auctionPlayers()
             ->where('status', 'skipped')
@@ -184,9 +237,9 @@ class AuctionOrganizerController extends Controller
      */
     public function pollState(Auction $auction)
     {
-        $availablePlayers = $auction->auctionPlayers()
-            ->where('auction_players.status', 'waiting')
-            ->where('auction_players.is_retained', false)
+        // Locked to the active pool when one is running, so the queue can never offer
+        // a player the server would refuse to put on the block.
+        $availablePlayers = $this->pools->waitingPlayersQuery($auction)
             ->inLotOrder()
             ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
             ->get();
@@ -197,9 +250,10 @@ class AuctionOrganizerController extends Controller
                 'player.playerType',
                 'player.battingProfile',
                 'player.bowlingProfile',
-                'bids.team',
-                'bids.user',
-                'soldToTeam'
+                // Constrained to live bids: the log is append-only, so a retracted
+                // (undone) bid is still present and must not appear as a standing bid.
+                'bids' => fn ($q) => $q->where('is_void', false)->with(['team', 'user']),
+                'soldToTeam',
             ])
             ->first();
 
@@ -209,18 +263,7 @@ class AuctionOrganizerController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        $teams = ActualTeam::forTournament($auction->tournament_id)
-            ->withCount(['auctionPlayers as players_bought' => function ($query) use ($auction) {
-                $query->where('auction_id', $auction->id)->where('status', 'sold');
-            }])
-            ->withSum(['auctionPlayers as total_spent' => function ($query) use ($auction) {
-                $query->where('auction_id', $auction->id)->where('status', 'sold');
-            }], 'final_price')
-            ->get()
-            ->map(function ($team) use ($auction) {
-                $team->remaining_budget = $auction->max_budget_per_team - ($team->total_spent ?? 0);
-                return $team;
-            });
+        $teams = $this->teamsWithPurse($auction, $currentPlayer);
 
         $stats = [
             'total_players' => $auction->auctionPlayers()->count(),
@@ -231,6 +274,16 @@ class AuctionOrganizerController extends Controller
         ];
 
         $freshAuction = $auction->fresh();
+
+        // Increment ladder resolved server-side so no client recomputes it.
+        $bidState = $currentPlayer
+            ? $this->increments->state($freshAuction, (float) $currentPlayer->current_price)
+            : null;
+
+        $nextUndo = $this->undo->nextUndoable($freshAuction);
+        $poolProgress = $this->pools->poolProgress($freshAuction);
+        // The clock limit depends on whether the live player already has a bid.
+        $timerState = $freshAuction->timerStateFor($currentPlayer);
 
         return response()->json([
             'auction_status' => $freshAuction->status,
@@ -245,6 +298,33 @@ class AuctionOrganizerController extends Controller
             'online_bid_limit_to' => $freshAuction->online_bid_limit_to,
             'bid_type' => $freshAuction->bid_type,
             'closed_bid_starts_at' => $freshAuction->closed_bid_starts_at,
+            // Squad-reserve rule, so the panel can show why a team is locked out.
+            'min_squad_size' => $freshAuction->minSquadSize(),
+            'min_price_per_player' => $freshAuction->minPricePerPlayer(),
+            'bid_increment' => $bidState['increment'] ?? null,
+            'next_bid_amount' => $bidState['next_bid_amount'] ?? null,
+            'max_bid_reached' => $bidState['max_reached'] ?? false,
+            // Undo stack state for the panel's UNDO button.
+            'can_undo' => $nextUndo !== null,
+            'next_undo' => $nextUndo?->description,
+            // Pool lock: which pool is running and how far through it we are.
+            'active_pool' => $poolProgress['active_pool'],
+            'next_pool' => $poolProgress['next_pool'],
+            'pools' => $poolProgress['pools'],
+            // Timer, driven off the server clock.
+            'timer_enabled' => $timerState['applies'],
+            'timer_expiry_action' => $freshAuction->timer_expiry_action,
+            'bid_timer_seconds' => $timerState['limit'],
+            'timer_seconds_remaining' => $timerState['remaining'],
+            'timer_expired' => $timerState['expired'],
+            // Closing calls: the stage the clock has reached, plus the thresholds so
+            // the panel can escalate between polls without waiting for the next one.
+            'final_call' => $timerState['final_call'],
+            'final_call_stages' => $timerState['final_call_stages'],
+            'server_time' => now()->timestamp,
+            'quick_bid_steps' => $freshAuction->quickBidSteps(),
+            // What amounts are called, so a mid-auction change reaches every screen.
+            'amount_unit' => $freshAuction->amountUnitConfig(),
         ]);
     }
 
@@ -253,18 +333,31 @@ class AuctionOrganizerController extends Controller
      */
     public function startAuction(Auction $auction)
     {
+        // Guarded: without this a completed auction could be "started" again,
+        // silently reopening bidding on a finished event.
+        if (! in_array($auction->status, ['scheduled', 'paused'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => $auction->status === 'running'
+                    ? 'This auction is already running.'
+                    : 'A completed auction cannot be started. Use Restart to reset it.',
+            ], 422);
+        }
+
         $auction->update(['status' => 'running']);
         broadcast(new AuctionStatusUpdate($auction->id, 'running'));
 
-        // Notify all players in auction
-        $auctionPlayers = $auction->auctionPlayers()->with('player.user')->get();
-        foreach ($auctionPlayers as $ap) {
-            if ($ap->player?->user) {
-                $ap->player->user->notify(new GeneralNotification(
-                    "Auction '{$auction->name}' has started!",
-                    route('admin.auctions.show', $auction),
-                    'info'
-                ));
+        // In-app notices only, and only when this auction wants them.
+        if ($this->mail->notificationsEnabled($auction) && ! $this->mail->isTestMode($auction)) {
+            $auctionPlayers = $auction->auctionPlayers()->with('player.user')->get();
+            foreach ($auctionPlayers as $ap) {
+                if ($ap->player?->user) {
+                    $ap->player->user->notify(new GeneralNotification(
+                        "Auction '{$auction->name}' has started!",
+                        route('admin.auctions.show', $auction),
+                        'info'
+                    ));
+                }
             }
         }
 
@@ -279,19 +372,31 @@ class AuctionOrganizerController extends Controller
         $auction->update(['status' => 'completed']);
         broadcast(new AuctionStatusUpdate($auction->id, 'completed'));
 
-        // Notify all players in auction
-        $auctionPlayers = $auction->auctionPlayers()->with('player.user')->get();
-        foreach ($auctionPlayers as $ap) {
-            if ($ap->player?->user) {
-                $ap->player->user->notify(new GeneralNotification(
-                    "Auction '{$auction->name}' has ended.",
-                    route('admin.auctions.show', $auction),
-                    'info'
-                ));
+        // In-app notices only — cheap, and meaningless if deferred.
+        if ($this->mail->notificationsEnabled($auction) && ! $this->mail->isTestMode($auction)) {
+            $auctionPlayers = $auction->auctionPlayers()->with('player.user')->get();
+            foreach ($auctionPlayers as $ap) {
+                if ($ap->player?->user) {
+                    $ap->player->user->notify(new GeneralNotification(
+                        "Auction '{$auction->name}' has ended.",
+                        route('admin.auctions.show', $auction),
+                        'info'
+                    ));
+                }
             }
         }
 
-        return response()->json(['message' => 'Auction has been completed.']);
+        // The auction is over, so everything held back now goes out — queued, so this
+        // request returns immediately rather than waiting on a few hundred emails.
+        $outbox = AuctionPendingEmail::where('auction_id', $auction->id)->pending()->count();
+        if ($outbox > 0) {
+            FlushAuctionEmails::dispatch($auction);
+        }
+
+        return response()->json([
+            'message' => 'Auction has been completed.',
+            'queued_emails' => $outbox,
+        ]);
     }
 
     /**
@@ -299,7 +404,7 @@ class AuctionOrganizerController extends Controller
      */
     public function restartAuction(Auction $auction)
     {
-        if (!in_array($auction->status, ['completed', 'running', 'paused'])) {
+        if (! in_array($auction->status, ['completed', 'running', 'paused'])) {
             return response()->json(['message' => 'Auction cannot be restarted from this state.'], 422);
         }
 
@@ -309,8 +414,34 @@ class AuctionOrganizerController extends Controller
                 ->where('status', 'sold')
                 ->pluck('player_id');
 
-            Player::whereIn('id', $soldPlayerIds)
-                ->update(['player_mode' => 'normal']);
+            // A restart used to reset only the auction rows, leaving each sold
+            // player still attached to their team: players.actual_team_id, the
+            // tournament roster pivot and the team roster all kept pointing at the
+            // team from the abandoned run.
+            Player::whereIn('id', $soldPlayerIds)->update([
+                'player_mode' => 'normal',
+                'actual_team_id' => null,
+            ]);
+
+            if ($auction->tournament_id) {
+                DB::table('player_actual_team_tournament')
+                    ->whereIn('player_id', $soldPlayerIds)
+                    ->where('tournament_id', $auction->tournament_id)
+                    ->delete();
+            }
+
+            $soldUserIds = Player::whereIn('id', $soldPlayerIds)
+                ->whereNotNull('user_id')
+                ->pluck('user_id');
+
+            if ($soldUserIds->isNotEmpty()) {
+                $teamIds = ActualTeam::forTournament($auction->tournament_id)->pluck('id');
+                DB::table('actual_team_users')
+                    ->whereIn('user_id', $soldUserIds)
+                    ->whereIn('actual_team_id', $teamIds)
+                    ->where('role', 'Player')
+                    ->delete();
+            }
 
             // Reset all auction players back to waiting
             $auction->auctionPlayers()->update([
@@ -321,8 +452,11 @@ class AuctionOrganizerController extends Controller
                 'final_price' => null,
             ]);
 
-            // Clear all bids
+            // Clear all bids and the undo stack — the previous run no longer exists,
+            // so leaving reversible actions behind would let Undo "restore" state
+            // from an auction that has been wiped.
             AuctionBid::where('auction_id', $auction->id)->delete();
+            AuctionActionLog::where('auction_id', $auction->id)->delete();
 
             // Reset auction status
             $auction->update(['status' => 'running']);
@@ -367,12 +501,10 @@ class AuctionOrganizerController extends Controller
     //     return response()->json(['message' => 'Player is now live for bidding.']);
     // }
 
-
-
     public function putPlayerOnBid(Request $request, Auction $auction)
     {
         $validated = $request->validate([
-            'auction_player_id' => 'required|exists:auction_players,id'
+            'auction_player_id' => 'required|exists:auction_players,id',
         ]);
 
         $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
@@ -381,10 +513,10 @@ class AuctionOrganizerController extends Controller
             ->first();
 
         // If no player found (either doesn't exist or not waiting)
-        if (!$auctionPlayer) {
+        if (! $auctionPlayer) {
             return response()->json([
                 'success' => false,
-                'message' => 'Player not available to put on bid. Only players with status "waiting" can be selected.'
+                'message' => 'Player not available to put on bid. Only players with status "waiting" can be selected.',
             ], 400);
         }
 
@@ -393,7 +525,19 @@ class AuctionOrganizerController extends Controller
         if ($livePlayer) {
             return response()->json([
                 'success' => false,
-                'message' => 'Some player is already live in the auction! Please close that bid before starting with the next player!'
+                'message' => 'Some player is already live in the auction! Please close that bid before starting with the next player!',
+            ], 400);
+        }
+
+        // Pool lock: while a pool is running, only its players may be auctioned.
+        $activePool = $this->pools->activePool($auction);
+        if ($activePool && (int) $auctionPlayer->auction_pool_id !== (int) $activePool->id) {
+            return response()->json([
+                'success' => false,
+                'message' => sprintf(
+                    '%s is running. Finish or close it before auctioning a player from another pool.',
+                    $activePool->name
+                ),
             ], 400);
         }
 
@@ -418,23 +562,26 @@ class AuctionOrganizerController extends Controller
             ]);
         }
 
+        // Start the clock. Server-stamped so a slow or tampered browser cannot extend
+        // the round.
+        $auction->update(['timer_started_at' => now()]);
+
         // Eager-load relationships for broadcast
         $playerDataForBroadcast = $auctionPlayer->fresh([
             'player.playerType',
             'player.battingProfile',
             'player.bowlingProfile',
             'bids.team',
-            'bids.user'
+            'bids.user',
         ]);
 
         broadcast(new PlayerOnBid($playerDataForBroadcast));
 
         return response()->json([
             'success' => true,
-            'message' => 'Player is now live for bidding.'
+            'message' => 'Player is now live for bidding.',
         ]);
     }
-
 
     /**
      * Mark the current player as "Sold" to the highest bidder.
@@ -448,83 +595,60 @@ class AuctionOrganizerController extends Controller
             ->where('auction_id', $auction->id)
             ->firstOrFail();
 
-        // Find the winning bid (highest amount).
-        $winningBid = $auctionPlayer->bids()->orderByDesc('amount')->first();
+        // Find the winning bid (highest standing amount — retracted bids don't win).
+        $winningBid = $auctionPlayer->liveBids()->orderByDesc('amount')->first();
 
-        if ($winningBid) {
-            // Enforce the buying team's remaining budget (same rule as sellToTeam).
-            $available = app(\App\Services\Auction\AuctionPoolService::class)
-                ->remainingBudget($auction, (int) $winningBid->team_id);
-
-            if ((float) $winningBid->amount > $available) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot sell: winning bid (' . number_format((float) $winningBid->amount)
-                        . ') exceeds ' . ($winningBid->team->name ?? 'the team') . "'s remaining budget ("
-                        . number_format($available) . ').',
-                ], 400);
-            }
-
-            $auctionPlayer->update([
-                'status' => 'sold',
-                'sold_to_team_id' => $winningBid->team_id,
-                'final_price' => $winningBid->amount,
-                'current_price' => $winningBid->amount,
-                'current_bid_team_id' => $winningBid->team_id,
-            ]);
-
-            // Update the main player's mode and assign to team
-            $player = $auctionPlayer->player;
-            if ($player) {
-                $player->update([
-                    'player_mode' => 'retained',
-                    'actual_team_id' => $winningBid->team_id,
-                ]);
-
-                // Write to tournament-specific pivot table
-                DB::table('player_actual_team_tournament')->updateOrInsert(
-                    ['player_id' => $player->id, 'tournament_id' => $auction->tournament_id],
-                    ['actual_team_id' => $winningBid->team_id, 'updated_at' => now()]
-                );
-
-                // Add to team roster (actual_team_users pivot)
-                $team = $winningBid->team;
-                if ($team && $player->user_id) {
-                    $team->users()->syncWithoutDetaching([
-                        $player->user_id => ['role' => 'Player']
-                    ]);
-                }
-
-                // Assign Player Spatie role
-                $user = $player->user;
-                if ($user && !$user->hasAnyRole(['Superadmin', 'Admin'])) {
-                    $user->syncRoles(['Player']);
-                }
-            }
-
-            broadcast(new PlayerSoldEvent($auctionPlayer, $winningBid->team));
-
-            // Auto-send retained welcome card on sell
-            try {
-                $reg = \App\Models\TournamentRegistration::where('player_id', $auctionPlayer->player_id)
-                    ->where('tournament_id', $auction->tournament_id)
-                    ->first();
-                if ($reg) {
-                    app(\App\Services\Notification\TournamentNotificationService::class)
-                        ->sendRetainedWelcomeCard($reg);
-                }
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Failed to auto-send retained welcome card on auction sell: ' . $e->getMessage());
-            }
-
-            // Send notifications
-            $this->notifyPlayerSold($auctionPlayer->player_id, $winningBid->team, $auction, $winningBid->amount);
-        } else {
-            // If no bids, mark as unsold
-            $this->passPlayer($request, $auction);
+        if (! $winningBid) {
+            // No bids: the player goes unsold.
+            return $this->passPlayer($request, $auction);
         }
 
-        return response()->json(['message' => 'Player status updated to SOLD.']);
+        $team = $winningBid->team;
+        $amount = (float) $winningBid->amount;
+
+        // Squad-reserve rule: the winning team must still be able to fill the rest
+        // of its squad after this purchase.
+        if (! $this->pools->canAffordWithReserve($auction, (int) $winningBid->team_id, $amount)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot sell. ' . $this->pools->reserveBlockedMessage(
+                    $auction,
+                    (int) $winningBid->team_id,
+                    $amount,
+                    $team?->name
+                ),
+            ], 400);
+        }
+
+        if (! $team) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot sell: the winning bid has no team attached.',
+            ], 400);
+        }
+
+        // One shared sale path for open-bid SELL, sealed-bid award and allotment,
+        // so every route writes the same stores and can be undone the same way.
+        $snapshot = $this->sales->applySale($auctionPlayer, $team, $amount);
+
+        $this->undo->record(
+            $auction,
+            AuctionActionLog::ACTION_SELL,
+            $auctionPlayer,
+            $snapshot + [
+                'amount' => $amount,
+                'team_id' => $team->id,
+                'team_name' => $team->name,
+            ],
+            sprintf('Sold to %s for %s', $team->name, format_points($amount))
+        );
+
+        $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $amount);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Player sold to ' . $team->name . ' for ' . format_points($amount) . '.',
+        ]);
     }
 
     /**
@@ -534,7 +658,11 @@ class AuctionOrganizerController extends Controller
     {
         $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
 
-        $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)->firstOrFail();
+        // Scoped to this auction: without the auction_id filter this could mark a
+        // player in a completely different auction as unsold.
+        $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)
+            ->where('auction_id', $auction->id)
+            ->firstOrFail();
 
         // Prevent passing a player who has active bids
         if ($auctionPlayer->current_bid_team_id) {
@@ -544,29 +672,39 @@ class AuctionOrganizerController extends Controller
             ], 422);
         }
 
+        $this->undo->record(
+            $auction,
+            AuctionActionLog::ACTION_PASS,
+            $auctionPlayer,
+            [
+                'auction_player' => [
+                    'status' => $auctionPlayer->status,
+                    'current_price' => $auctionPlayer->current_price,
+                    'current_bid_team_id' => $auctionPlayer->current_bid_team_id,
+                    'final_price' => $auctionPlayer->final_price,
+                    // The pool they came from, so Undo puts them back in it rather than
+                    // leaving them stranded in the unsold holding pool.
+                    'auction_pool_id' => $auctionPlayer->auction_pool_id,
+                    'lot_number' => $auctionPlayer->lot_number,
+                ],
+            ],
+            'Passed (unsold)'
+        );
+
         $auctionPlayer->update(['status' => 'unsold']);
+
+        // Nobody bid, so the player is set aside in their pool's unsold holding pool
+        // for final allotment once the auction is done.
+        $this->pools->moveToUnsoldPool($auctionPlayer);
 
         // Still broadcast the "sold" event so the UI can update, but without a winning team
         broadcast(new PlayerSoldEvent($auctionPlayer, null));
 
-        // Send unsold notifications
-        $player = Player::with('user')->find($auctionPlayer->player_id);
-        if ($player?->user) {
-            $player->user->notify(new GeneralNotification(
-                "You were not selected in the auction: {$auction->name}.",
-                route('admin.auctions.show', $auction),
-                'warning'
-            ));
-
-            if ($player->user->email) {
-                Mail::to($player->user->email)->send(new PlayerUnsoldMail($player, $auction));
-            }
-        }
+        // Held in the outbox with the rest of the auction's mail.
+        $this->mail->raise($auction, AuctionPendingEmail::TYPE_UNSOLD, $auctionPlayer);
 
         return response()->json(['message' => 'Player has been passed.']);
     }
-
-
 
     public function togglePause(Auction $auction)
     {
@@ -576,7 +714,7 @@ class AuctionOrganizerController extends Controller
         $newStatus = ($auction->status === 'running') ? 'paused' : 'running';
 
         // 2. Security/Logic Check: Only allow toggling if the auction is currently running or paused.
-        if (!in_array($auction->status, ['running', 'paused'])) {
+        if (! in_array($auction->status, ['running', 'paused'])) {
             return response()->json(['message' => 'Auction cannot be paused or resumed at this time.'], 422); // Unprocessable Entity
         }
 
@@ -607,51 +745,53 @@ class AuctionOrganizerController extends Controller
             ->firstOrFail();
 
         $team = ActualTeam::findOrFail($validated['team_id']);
+        $amount = (float) $validated['amount'];
 
-        // Per-team budget (honours per-team allocation, falls back to the uniform cap).
-        $availableBalance = app(\App\Services\Auction\AuctionPoolService::class)
-            ->remainingBudget($auction, $team->id);
-
-        if ($validated['amount'] > $availableBalance) {
+        // Squad-reserve rule, same as the open-bid SELL path.
+        if (! $this->pools->canAffordWithReserve($auction, $team->id, $amount)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient team balance. Available: ' . number_format($availableBalance)
+                'message' => $this->pools->reserveBlockedMessage($auction, $team->id, $amount, $team->name),
             ], 400);
         }
 
-        DB::transaction(function () use ($auctionPlayer, $team, $validated, $auction) {
-            // Mark player as sold
-            $auctionPlayer->update([
-                'status' => 'sold',
-                'sold_to_team_id' => $team->id,
-                'final_price' => $validated['amount'],
-                'current_price' => $validated['amount'],
-                'current_bid_team_id' => $team->id,
-            ]);
+        // Audit bid for the sealed/offline award, so the amount appears in the bid
+        // history and in every spend total derived from it.
+        $auditBid = AuctionBid::create([
+            'auction_id' => $auction->id,
+            'auction_player_id' => $auctionPlayer->id,
+            'player_id' => $auctionPlayer->player_id,
+            'team_id' => $team->id,
+            'user_id' => auth()->id(),
+            'amount' => $amount,
+            'bid_source' => 'offline',
+        ]);
 
-            // Create an audit bid record for offline sale
-            AuctionBid::create([
-                'auction_id' => $auction->id,
-                'auction_player_id' => $auctionPlayer->id,
-                'player_id' => $auctionPlayer->player_id,
+        // Same sale path as sellPlayer(). This previously wrote only
+        // players.player_mode — no roster pivot, no actual_team_id, no welcome
+        // card — so every sealed-bid and offline sale was missing from the team's
+        // tournament roster.
+        $snapshot = $this->sales->applySale($auctionPlayer, $team, $amount);
+
+        $this->undo->record(
+            $auction,
+            AuctionActionLog::ACTION_SELL,
+            $auctionPlayer,
+            $snapshot + [
+                'amount' => $amount,
                 'team_id' => $team->id,
-                'user_id' => auth()->id(),
-                'amount' => $validated['amount'],
-                'bid_source' => 'offline',
-            ]);
-
-            // Update the main player's mode (consistent with existing sellPlayer)
-            Player::where('id', $auctionPlayer->player_id)->update(['player_mode' => 'retained']);
-        });
-
-        broadcast(new PlayerSoldEvent($auctionPlayer->fresh(), $team));
+                'team_name' => $team->name,
+                'audit_bid_id' => $auditBid->id,
+            ],
+            sprintf('Awarded to %s for %s', $team->name, format_points($amount))
+        );
 
         // Send notifications
-        $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $validated['amount']);
+        $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $amount);
 
         return response()->json([
             'success' => true,
-            'message' => 'Player sold to ' . $team->name . ' for ' . number_format($validated['amount']),
+            'message' => 'Player sold to ' . $team->name . ' for ' . format_points($amount),
         ]);
     }
 
@@ -739,23 +879,33 @@ class AuctionOrganizerController extends Controller
         $auctionPlayerId = $request->query('auction_player_id');
 
         $query = AuctionBid::where('auction_id', $auction->id)
+            ->live()
             ->with(['team', 'user']);
 
         if ($auctionPlayerId) {
             $query->where('auction_player_id', $auctionPlayerId);
         }
 
-        $bids = $query->orderByDesc('amount')->get()->map(function ($bid) {
-            return [
-                'id' => $bid->id,
-                'team_id' => $bid->team_id,
-                'team_name' => $bid->team->name ?? 'Unknown',
-                'team_logo' => $bid->team->logo_path ?? null,
-                'amount' => $bid->amount,
-                'user_name' => $bid->user->name ?? 'Unknown',
-                'created_at' => $bid->created_at->toISOString(),
-            ];
-        });
+        // The bid log is append-only, so a team can have several rows per player.
+        // A sealed-bid board must show each team's standing (latest) bid only —
+        // one line per team, ranked by amount.
+        $bids = $query->orderByDesc('id')->get()
+            ->unique(fn (AuctionBid $bid) => $bid->team_id . ':' . $bid->auction_player_id)
+            ->sortByDesc(fn (AuctionBid $bid) => (float) $bid->amount)
+            ->values()
+            ->map(function ($bid) {
+                return [
+                    'id' => $bid->id,
+                    'team_id' => $bid->team_id,
+                    'team_name' => $bid->team->name ?? 'Unknown',
+                    // `logo_path` does not exist on ActualTeam — the column is
+                    // `team_logo`, so this always resolved to null.
+                    'team_logo' => $bid->team?->team_logo_url,
+                    'amount' => $bid->amount,
+                    'user_name' => $bid->user->name ?? 'Unknown',
+                    'created_at' => $bid->created_at->toISOString(),
+                ];
+            });
 
         return response()->json(['bids' => $bids]);
     }
@@ -771,6 +921,21 @@ class AuctionOrganizerController extends Controller
             ->where('auction_id', $auction->id)
             ->firstOrFail();
 
+        $this->undo->record(
+            $auction,
+            AuctionActionLog::ACTION_SKIP,
+            $auctionPlayer,
+            [
+                'auction_player' => [
+                    'status' => $auctionPlayer->status,
+                    'current_price' => $auctionPlayer->current_price,
+                    'current_bid_team_id' => $auctionPlayer->current_bid_team_id,
+                    'final_price' => $auctionPlayer->final_price,
+                ],
+            ],
+            'Skipped'
+        );
+
         $auctionPlayer->update([
             'status' => 'skipped',
             'current_bid_team_id' => null,
@@ -783,6 +948,225 @@ class AuctionOrganizerController extends Controller
     }
 
     /**
+     * Reverse the most recent reversible action — the safety net for a wrong-team
+     * click during a live auction.
+     */
+    public function undoLastAction(Auction $auction)
+    {
+        $result = $this->undo->undoLast($auction);
+
+        if (! ($result['success'] ?? false)) {
+            return response()->json($result, 422);
+        }
+
+        $auctionPlayer = ! empty($result['auction_player_id'])
+            ? AuctionPlayer::where('auction_id', $auction->id)->find($result['auction_player_id'])
+            : null;
+
+        if ($auctionPlayer) {
+            // Push the restored state to the live displays.
+            broadcast(new PlayerSoldEvent($auctionPlayer->fresh(), $auctionPlayer->currentBidTeam));
+        }
+
+        return response()->json($result + [
+            'next_undo' => $this->undo->nextUndoable($auction)?->description,
+        ]);
+    }
+
+    /** Recent actions and what Undo would reverse next, for the panel. */
+    public function actionLog(Auction $auction)
+    {
+        return response()->json([
+            'actions' => $this->undo->recentActions($auction),
+            'next_undo' => $this->undo->nextUndoable($auction)?->description,
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pool-locked auctioning
+    |--------------------------------------------------------------------------
+    */
+
+    /** Start a pool. The auction then serves only this pool until it is closed. */
+    public function activatePool(Auction $auction, AuctionPool $pool)
+    {
+        $result = $this->pools->activatePool($auction, $pool);
+
+        return response()->json(
+            $result + ['progress' => $this->pools->poolProgress($auction)],
+            $result['success'] ? 200 : 422
+        );
+    }
+
+    /**
+     * Close the running pool. Returns the next enabled pool as a suggestion but does
+     * not start it — pacing between pools stays with the organizer.
+     */
+    public function completePool(Auction $auction, AuctionPool $pool)
+    {
+        $result = $this->pools->completePool($auction, $pool);
+
+        return response()->json(
+            $result + ['progress' => $this->pools->poolProgress($auction)],
+            $result['success'] ? 200 : 422
+        );
+    }
+
+    /**
+     * Take a pool in or out of play without deleting it.
+     *
+     * Reached both from the live panel (JSON) and from the pools admin screen (a plain
+     * form post), so the response is negotiated.
+     */
+    public function togglePoolEnabled(Request $request, Auction $auction, AuctionPool $pool)
+    {
+        if ($pool->auction_id !== $auction->id) {
+            return $this->poolToggleResponse($request, false, 'That pool belongs to a different auction.', $auction);
+        }
+
+        $enabled = $request->has('is_enabled')
+            ? $request->boolean('is_enabled')
+            : ! $pool->isEnabled();
+
+        // Disabling the running pool would leave the auction locked to a pool it is not
+        // allowed to serve, so it must be closed first.
+        if (! $enabled && $pool->isActive()) {
+            return $this->poolToggleResponse(
+                $request,
+                false,
+                sprintf('%s is currently running. Close it before disabling it.', $pool->name),
+                $auction
+            );
+        }
+
+        $pool->update(['is_enabled' => $enabled]);
+
+        return $this->poolToggleResponse(
+            $request,
+            true,
+            sprintf('%s %s.', $pool->name, $enabled ? 'enabled' : 'disabled'),
+            $auction
+        );
+    }
+
+    private function poolToggleResponse(Request $request, bool $success, string $message, Auction $auction)
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => $success,
+                'message' => $message,
+                'progress' => $this->pools->poolProgress($auction),
+            ], $success ? 200 : 422);
+        }
+
+        return back()->with($success ? 'success' : 'error', $message);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bid timer
+    |--------------------------------------------------------------------------
+    */
+
+    /** Turn the countdown on or off mid-auction (offline mode only). */
+    public function toggleTimer(Request $request, Auction $auction)
+    {
+        $enabled = $request->has('timer_enabled')
+            ? $request->boolean('timer_enabled')
+            : ! (bool) ($auction->timer_enabled ?? true);
+
+        // Online bidding relies on the clock to close a round when teams stall.
+        if (! $enabled && $auction->isOnlineMode()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The timer is required while bidding is online. Switch to offline mode to turn it off.',
+            ], 422);
+        }
+
+        $auction->update(['timer_enabled' => $enabled]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bid timer ' . ($enabled ? 'enabled' : 'disabled') . '.',
+            'timer_enabled' => $enabled,
+        ]);
+    }
+
+    /**
+     * Called by the panel when the countdown reaches zero.
+     *
+     * Idempotent and re-checked against the server clock, so several open panels
+     * firing at once cannot double-sell, and a browser cannot trigger it early.
+     */
+    public function timerExpired(Request $request, Auction $auction)
+    {
+        $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
+
+        $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)
+            ->where('auction_id', $auction->id)
+            ->first();
+
+        // Already resolved by another panel (or by hand) — nothing to do.
+        if (! $auctionPlayer || $auctionPlayer->status !== 'on_auction') {
+            return response()->json(['success' => true, 'message' => 'Already resolved.', 'handled' => false]);
+        }
+
+        $timerState = $auction->timerStateFor($auctionPlayer);
+
+        if (! $timerState['applies']) {
+            return response()->json(['success' => true, 'message' => 'Timer is off.', 'handled' => false]);
+        }
+
+        // Trust the server clock, not the caller.
+        if (! $timerState['expired']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Timer still running.',
+                'handled' => false,
+                'seconds_remaining' => $timerState['remaining'],
+            ]);
+        }
+
+        if (! $auction->timerAutoSells()) {
+            // Manual mode: bidding is closed by the elapsed clock (placeBid and addBid
+            // both check it), and the organizer presses SELL.
+            return response()->json([
+                'success' => true,
+                'message' => 'Time up — bidding is closed. Press SELL to award the player.',
+                'handled' => true,
+                'action' => 'locked',
+            ]);
+        }
+
+        // auto_sell: award to the highest standing bidder, or mark unsold.
+        $winningBid = $auctionPlayer->liveBids()->orderByDesc('amount')->first();
+
+        if (! $winningBid || ! $winningBid->team_id) {
+            $passRequest = new Request(['auction_player_id' => $auctionPlayer->id]);
+            $this->passPlayer($passRequest, $auction);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Time up with no bids — player is unsold.',
+                'handled' => true,
+                'action' => 'unsold',
+            ]);
+        }
+
+        $sellRequest = new Request(['auction_player_id' => $auctionPlayer->id]);
+        $response = $this->sellPlayer($sellRequest, $auction);
+        $payload = $response->getData(true);
+
+        return response()->json([
+            'success' => $payload['success'] ?? true,
+            'message' => $payload['message'] ?? 'Sold on the timer.',
+            'handled' => true,
+            'action' => ($payload['success'] ?? true) ? 'sold' : 'blocked',
+        ], $response->getStatusCode());
+    }
+
+    /**
      * Start a re-auction round — reset all unsold + skipped players back to waiting.
      */
     public function startReAuctionRound(Request $request, Auction $auction)
@@ -792,7 +1176,7 @@ class AuctionOrganizerController extends Controller
         if ($livePlayer) {
             return response()->json([
                 'success' => false,
-                'message' => 'Finish the current player before starting a new round.'
+                'message' => 'Finish the current player before starting a new round.',
             ], 400);
         }
 
@@ -803,11 +1187,21 @@ class AuctionOrganizerController extends Controller
         if ($affected === 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'No unsold or skipped players to re-auction.'
+                'message' => 'No unsold or skipped players to re-auction.',
             ], 400);
         }
 
-        DB::transaction(function () use ($auction) {
+        $repooled = 0;
+
+        DB::transaction(function () use ($auction, &$repooled) {
+            // Capture the ids BEFORE flipping their status. Re-querying for
+            // status='waiting' after the update also matched players who were
+            // already waiting, so their bid history was deleted too.
+            $resetPlayers = $auction->auctionPlayers()
+                ->whereIn('status', ['unsold', 'skipped'])
+                ->with('pool')
+                ->get();
+
             $auction->auctionPlayers()
                 ->whereIn('status', ['unsold', 'skipped'])
                 ->update([
@@ -818,20 +1212,43 @@ class AuctionOrganizerController extends Controller
                     'final_price' => null,
                 ]);
 
-            // Delete old bids for these players
-            $resetPlayerIds = $auction->auctionPlayers()
-                ->where('status', 'waiting')
-                ->pluck('id');
-
             AuctionBid::where('auction_id', $auction->id)
-                ->whereIn('auction_player_id', $resetPlayerIds)
+                ->whereIn('auction_player_id', $resetPlayers->pluck('id'))
                 ->delete();
+
+            // Players sitting in an unsold holding pool go back to the pool they came
+            // from, otherwise they would be waiting inside a pool the auction never
+            // serves. Pools touched this way get their lots redrawn.
+            $poolsToRedraw = [];
+            foreach ($resetPlayers as $player) {
+                $pool = $player->pool;
+                if (! $pool?->isUnsoldPool() || ! $pool->parent_pool_id) {
+                    continue;
+                }
+
+                $player->update(['auction_pool_id' => $pool->parent_pool_id, 'lot_number' => null]);
+                $poolsToRedraw[$pool->parent_pool_id] = true;
+                $repooled++;
+            }
+
+            foreach (array_keys($poolsToRedraw) as $poolId) {
+                if ($target = AuctionPool::find($poolId)) {
+                    $this->pools->generateLotNumbers($target);
+                    // A pool with players again is startable again.
+                    $target->update([
+                        'status' => AuctionPool::STATUS_PENDING,
+                        'completed_at' => null,
+                    ]);
+                }
+            }
         });
 
         return response()->json([
             'success' => true,
-            'message' => $affected . ' player(s) moved back to waiting for re-auction.',
+            'message' => $affected . ' player(s) moved back to waiting for re-auction.'
+                . ($repooled ? sprintf(' %d returned from unsold pools.', $repooled) : ''),
             'reset_count' => $affected,
+            'repooled_count' => $repooled,
         ]);
     }
 
@@ -848,6 +1265,12 @@ class AuctionOrganizerController extends Controller
             ->where('auction_id', $auction->id)
             ->firstOrFail();
 
+        // If the player had already been sold, unwind their team attachment before
+        // putting them back on the block.
+        if ($auctionPlayer->status === 'sold') {
+            $this->sales->clearTeamAttachment($auctionPlayer);
+        }
+
         DB::transaction(function () use ($auctionPlayer, $auction) {
             // Reset player price and bids
             $auctionPlayer->update([
@@ -863,6 +1286,12 @@ class AuctionOrganizerController extends Controller
                 ->where('auction_player_id', $auctionPlayer->id)
                 ->delete();
 
+            // Bids are gone, so any logged action referring to them can no longer be
+            // meaningfully reversed — drop them from the undo stack.
+            AuctionActionLog::where('auction_id', $auction->id)
+                ->where('auction_player_id', $auctionPlayer->id)
+                ->delete();
+
             // Reset player_mode in case it was retained
             Player::where('id', $auctionPlayer->player_id)
                 ->update(['player_mode' => 'normal']);
@@ -875,6 +1304,13 @@ class AuctionOrganizerController extends Controller
                     'mode_manually_overridden' => false,
                 ]);
             }
+
+            // Restart the clock, exactly as putting a player on the block does. Without
+            // this a re-bid inherited the previous player's elapsed timer — already
+            // expired, so bidding was closed (or the player auto-sold) the instant they
+            // went back up. When the timer is switched off there is simply no clock and
+            // the player is shown for open bidding.
+            $auction->update(['timer_started_at' => now()]);
         });
 
         $playerDataForBroadcast = $auctionPlayer->fresh([
@@ -882,7 +1318,7 @@ class AuctionOrganizerController extends Controller
             'player.battingProfile',
             'player.bowlingProfile',
             'bids.team',
-            'bids.user'
+            'bids.user',
         ]);
 
         broadcast(new PlayerOnBid($playerDataForBroadcast));
@@ -894,11 +1330,16 @@ class AuctionOrganizerController extends Controller
      */
     public function allPlayers(Auction $auction)
     {
+        // Ordered in PHP rather than with MySQL's FIELD(), which is not portable
+        // (the repo also ships an sqlite database).
+        $statusOrder = ['on_auction' => 0, 'waiting' => 1, 'skipped' => 2, 'sold' => 3, 'unsold' => 4];
+
         $players = $auction->auctionPlayers()
             ->with(['player.playerType', 'soldToTeam'])
-            ->orderByRaw("FIELD(status, 'on_auction', 'waiting', 'skipped', 'sold', 'unsold')")
             ->get()
-            ->map(fn($ap) => [
+            ->sortBy(fn ($ap) => $statusOrder[$ap->status] ?? 99)
+            ->values()
+            ->map(fn ($ap) => [
                 'id' => $ap->id,
                 'name' => $ap->player->name ?? 'Unknown',
                 'status' => $ap->status,
@@ -934,17 +1375,18 @@ class AuctionOrganizerController extends Controller
         if ($livePlayer) {
             return response()->json([
                 'success' => false,
-                'message' => 'Finish the current player first before re-auctioning another.'
+                'message' => 'Finish the current player first before re-auctioning another.',
             ], 400);
         }
 
-        DB::transaction(function () use ($auctionPlayer, $auction) {
-            // If was sold, revert player_mode
-            if ($auctionPlayer->status === 'sold') {
-                Player::where('id', $auctionPlayer->player_id)
-                    ->update(['player_mode' => 'normal']);
-            }
+        // A sold player must be fully detached from their team, not just have
+        // player_mode reset — otherwise they stay on the buyer's squad and roster
+        // while being auctioned again.
+        if ($auctionPlayer->status === 'sold') {
+            $this->sales->clearTeamAttachment($auctionPlayer);
+        }
 
+        DB::transaction(function () use ($auctionPlayer, $auction) {
             // Reset and put on auction
             $auctionPlayer->update([
                 'status' => 'on_auction',
@@ -954,8 +1396,12 @@ class AuctionOrganizerController extends Controller
                 'final_price' => null,
             ]);
 
-            // Delete old bids
+            // Delete old bids and the matching undo entries.
             AuctionBid::where('auction_id', $auction->id)
+                ->where('auction_player_id', $auctionPlayer->id)
+                ->delete();
+
+            AuctionActionLog::where('auction_id', $auction->id)
                 ->where('auction_player_id', $auctionPlayer->id)
                 ->delete();
 
@@ -967,6 +1413,13 @@ class AuctionOrganizerController extends Controller
                     'mode_manually_overridden' => false,
                 ]);
             }
+
+            // Restart the clock, exactly as putting a player on the block does. Without
+            // this a re-bid inherited the previous player's elapsed timer — already
+            // expired, so bidding was closed (or the player auto-sold) the instant they
+            // went back up. When the timer is switched off there is simply no clock and
+            // the player is shown for open bidding.
+            $auction->update(['timer_started_at' => now()]);
         });
 
         $playerDataForBroadcast = $auctionPlayer->fresh([
@@ -974,7 +1427,7 @@ class AuctionOrganizerController extends Controller
             'player.battingProfile',
             'player.bowlingProfile',
             'bids.team',
-            'bids.user'
+            'bids.user',
         ]);
 
         broadcast(new PlayerOnBid($playerDataForBroadcast));
@@ -1017,7 +1470,7 @@ class AuctionOrganizerController extends Controller
         ]);
 
         // If player is currently on auction and has no bids, also update current_price
-        if ($auctionPlayer->status === 'on_auction' && !$auctionPlayer->current_bid_team_id) {
+        if ($auctionPlayer->status === 'on_auction' && ! $auctionPlayer->current_bid_team_id) {
             $auctionPlayer->update([
                 'current_price' => $validated['base_price'],
             ]);
@@ -1033,30 +1486,25 @@ class AuctionOrganizerController extends Controller
     /**
      * Send sold notifications to player and team managers.
      */
+    /**
+     * Raise the "you've been sold" notification.
+     *
+     * Handed to AuctionMailService rather than sent here: this used to fire an SMTP send
+     * inline on every sale, so the room waited on the mail server, and a rehearsal run
+     * mailed real players.
+     */
     private function notifyPlayerSold(int $playerId, ActualTeam $team, Auction $auction, float $finalPrice): void
     {
-        $player = Player::with('user')->find($playerId);
+        $auctionPlayer = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('player_id', $playerId)
+            ->first();
 
-        // Notify the player
-        if ($player?->user) {
-            $player->user->notify(new GeneralNotification(
-                "You've been sold to {$team->name} for " . number_format($finalPrice) . " in {$auction->name}!",
-                route('admin.auctions.show', $auction),
-                'success'
-            ));
-
-            if ($player->user->email) {
-                Mail::to($player->user->email)->send(new PlayerSoldMail($player, $team, $auction, $finalPrice));
-            }
-        }
-
-        // Notify team managers
-        foreach ($team->users as $manager) {
-            $manager->notify(new GeneralNotification(
-                "{$player->name} has been added to {$team->name} for " . number_format($finalPrice) . "!",
-                route('admin.auctions.show', $auction),
-                'success'
-            ));
-        }
+        $this->mail->raise(
+            $auction,
+            AuctionPendingEmail::TYPE_SOLD,
+            $auctionPlayer,
+            $team,
+            ['amount' => $finalPrice]
+        );
     }
 }

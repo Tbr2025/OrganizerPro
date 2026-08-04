@@ -13,7 +13,7 @@ class Team extends Model
         'tournament_id',
         'logo',
         'admin_id',
-        'created_by'
+        'created_by',
     ];
 
     public function tournament(): BelongsTo

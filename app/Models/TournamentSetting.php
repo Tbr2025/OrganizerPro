@@ -168,7 +168,7 @@ class TournamentSetting extends Model
 
     public function isRegistrationOpen(): bool
     {
-        if (!$this->registration_deadline) {
+        if (! $this->registration_deadline) {
             return $this->player_registration_open || $this->team_registration_open;
         }
 
@@ -231,7 +231,7 @@ class TournamentSetting extends Model
 
     public function getWhatsAppShareLinkAttribute(): ?string
     {
-        if (!$this->whatsapp_contact) {
+        if (! $this->whatsapp_contact) {
             return null;
         }
         $phone = preg_replace('/[^0-9]/', '', $this->whatsapp_contact);

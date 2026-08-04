@@ -19,7 +19,7 @@ class SesWebhookController extends Controller
     {
         $payload = json_decode($request->getContent(), true);
 
-        if (!is_array($payload) || empty($payload['Type'])) {
+        if (! is_array($payload) || empty($payload['Type'])) {
             return response('Invalid payload', 400);
         }
 
@@ -35,7 +35,7 @@ class SesWebhookController extends Controller
      */
     protected function confirmSubscription(array $payload): Response
     {
-        if (!empty($payload['SubscribeURL'])) {
+        if (! empty($payload['SubscribeURL'])) {
             Http::get($payload['SubscribeURL']);
             Log::info('SES SNS subscription confirmed.', ['TopicArn' => $payload['TopicArn'] ?? null]);
         }
@@ -50,7 +50,7 @@ class SesWebhookController extends Controller
     {
         $message = json_decode($payload['Message'] ?? '{}', true);
 
-        if (!is_array($message)) {
+        if (! is_array($message)) {
             return response('OK');
         }
 
@@ -76,7 +76,7 @@ class SesWebhookController extends Controller
 
         foreach ($bounce['bouncedRecipients'] ?? [] as $recipient) {
             $email = strtolower($recipient['emailAddress'] ?? '');
-            if (!$email) {
+            if (! $email) {
                 continue;
             }
 
@@ -109,7 +109,7 @@ class SesWebhookController extends Controller
 
         foreach ($complaint['complainedRecipients'] ?? [] as $recipient) {
             $email = strtolower($recipient['emailAddress'] ?? '');
-            if (!$email) {
+            if (! $email) {
                 continue;
             }
 

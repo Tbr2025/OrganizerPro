@@ -4,12 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\ActualTeam;
-use App\Models\BattingProfile;
-use App\Models\BowlingProfile;
-use App\Models\PlayerType;
-use App\Models\PlayerLocation;
-use App\Models\KitSize;
 
 class ProfileChangeLog extends Model
 {

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Events\PlayerOnBidEvent;
-use App\Events\PlayerSoldEvent;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
 use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
+use App\Services\Auction\AuctionPoolService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -25,7 +25,6 @@ class ClosedBidController extends Controller
 
         return view('backend.pages.auctions.closed-bids', compact('auctions', 'teams', 'breadcrumbs'));
     }
-
 
     /**
      * Fetch closed bids for AJAX
@@ -53,7 +52,13 @@ class ClosedBidController extends Controller
             $query->where('sold_to_team_id', $request->team_id);
         }
 
-        $closedBids = $query->orderBy('updated_at', 'desc')->get();
+        $closedBids = $query->orderBy('updated_at', 'desc')->get()
+            ->each(function (AuctionPlayer $row) {
+                // This page spans several auctions, so each row carries its own unit —
+                // one auction can run in points and another in dollars.
+                $row->amount_unit = $row->auction?->amountUnitConfig()
+                    ?? ['label' => 'Points', 'prefix' => false];
+            });
 
         // Fetch all auctions and teams for dropdowns
         $auctions = Auction::orderBy('name')->get(['id', 'name']);
@@ -61,11 +66,10 @@ class ClosedBidController extends Controller
 
         return response()->json([
             'closedBids' => $closedBids,
-            'auctions'   => $auctions,
-            'teams'      => $teams,
+            'auctions' => $auctions,
+            'teams' => $teams,
         ]);
     }
-
 
     // public function updateFinalPrice(Request $request, $id)
     // {
@@ -93,8 +97,6 @@ class ClosedBidController extends Controller
     //         ->where('team_id', $bid->sold_to_team_id)
     //         ->sum('amount');
 
-
-
     //     // Step 3: Calculate available balance
     //     $availableBalance = $maxBudget - $spentBudget;
 
@@ -112,7 +114,6 @@ class ClosedBidController extends Controller
     //     return response()->json(['success' => true, 'final_price' => $bid->final_price]);
     // }
 
-
     public function updateFinalPrice(Request $request, Auction $auction, $playerId)
     {
         $request->validate([
@@ -123,43 +124,44 @@ class ClosedBidController extends Controller
             ->where('id', $playerId)
             ->firstOrFail();
 
-        $newPrice = $request->final_price;
+        $newPrice = (float) $request->final_price;
+        $teamId = (int) $bid->sold_to_team_id;
 
-        // Get auction max budget per team
-        $maxBudget = $auction->max_budget_per_team;
+        // Budget check via the one canonical implementation. This used to sum
+        // *every* row in auction_bids for the team, which is a log of all bids
+        // ever placed — so it massively over-counted spend and blocked legitimate
+        // corrections. AuctionPoolService honours per-team allocations and
+        // retained cost, and the squad reserve is applied on top.
+        if ($teamId) {
+            $pools = app(AuctionPoolService::class);
+            $team = ActualTeam::find($teamId);
 
-        // Sum all previous bids from this team in this auction (exclude current player)
-        $spentBudget = AuctionBid::where('auction_id', $auction->id)
-            ->where('team_id', $bid->sold_to_team_id)
-            ->where('auction_player_id', '!=', $bid->id)
-            ->sum('amount');
+            // The player being re-priced already counts toward spend, so credit
+            // their current price back before testing the new one.
+            $headroom = $pools->maxAllowedBid($auction, $teamId) + (float) $bid->final_price;
 
-        $availableBalance = $maxBudget - $spentBudget;
-
-        if ($newPrice > $availableBalance) {
-            return response()->json([
-                'error' => 'Insufficient team balance. Available: ' . number_format($availableBalance / 1000000, 1) . 'M'
-            ], 400);
+            if ($newPrice > $headroom) {
+                return response()->json([
+                    'error' => 'Insufficient team balance. ' . ($team?->name ?? 'This team')
+                        . ' can go up to ' . format_points($headroom) . ' on this player.',
+                ], 400);
+            }
         }
 
         $bid->final_price = $newPrice;
         $bid->current_price = $newPrice;
         $bid->save();
 
-
-        // Create bid record for history (optional)
-        AuctionBid::updateOrCreate(
-            [
-                'auction_id'        => $auction->id,
-                'auction_player_id' => $playerId,
-                'team_id'           =>  $bid->sold_to_team_id ?? null,
-                'user_id'           => auth()->id(),
-            ],
-            [
-                'player_id'         => $playerId,
-                'amount'            => $newPrice,
-            ]
-        );
+        // Record the correction as its own bid row (the log is append-only).
+        AuctionBid::create([
+            'auction_id' => $auction->id,
+            'auction_player_id' => $bid->id,
+            'team_id' => $teamId ?: null,
+            'user_id' => auth()->id(),
+            'player_id' => $bid->player_id,
+            'amount' => $newPrice,
+            'bid_source' => 'offline',
+        ]);
 
         $team = ActualTeam::find($bid->sold_to_team_id);
         broadcast(new PlayerOnBidEvent($bid, $team))->toOthers();

@@ -65,14 +65,93 @@
                         {{-- Secondary actions (outline) --}}
                         @php $ghost = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium'; @endphp
                         <a href="{{ route('admin.auctions.edit', $auction) }}" class="{{ $ghost }}">Edit config</a>
+                        {{-- Unsold players are held per pool for placement after the bidding. --}}
+                        @php
+                            $unsoldWaiting = $auction->auctionPlayers()->whereIn('status', ['unsold', 'skipped'])->count();
+                        @endphp
+                        <a href="{{ route('admin.auctions.allotment', $auction) }}"
+                           class="{{ $ghost }} {{ $unsoldWaiting > 0 ? '!border-rose-300 dark:!border-rose-700 !text-rose-700 dark:!text-rose-300' : '' }}">
+                            Final allotment
+                            @if($unsoldWaiting > 0)
+                                <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-300 text-[10px] font-bold">{{ $unsoldWaiting }}</span>
+                            @endif
+                        </a>
                         <a href="{{ route('admin.auctions.report', $auction) }}" class="{{ $ghost }}">Report</a>
                         <a href="{{ route('admin.auction.organizer.offline-panel', $auction) }}" target="_blank" class="{{ $ghost }}">Offline panel</a>
                         <a href="{{ route('public.auction.live', $auction) }}" target="_blank" class="{{ $ghost }}">LED wall</a>
+                        {{-- Transparent 1920x1080 overlay for a streaming mixer. --}}
+                        <a href="{{ route('public.auction.ticker', $auction) }}" target="_blank" class="{{ $ghost }}"
+                           title="Transparent 1920x1080 overlay — add as an OBS browser source">Stream ticker</a>
                         <a href="{{ route('team.auction.bidding.show', $auction) }}" class="{{ $ghost }}">Preview bidding</a>
                     @endif
                 </div>
             </div>
         </div>
+
+        {{-- Held player emails. Visible so nothing sits unsent without anyone knowing —
+             which is exactly what happens if the queue worker is not running. --}}
+        @if(isset($isAdmin) && $isAdmin)
+            @php
+                $outbox = \App\Models\AuctionPendingEmail::where('auction_id', $auction->id)
+                    ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+                $pendingEmails = (int) ($outbox['pending'] ?? 0);
+                $failedEmails = (int) ($outbox['failed'] ?? 0);
+                $skippedEmails = (int) ($outbox['skipped'] ?? 0);
+            @endphp
+
+            @if($pendingEmails > 0 || $failedEmails > 0 || $skippedEmails > 0 || $auction->email_test_mode)
+                <div class="mb-6 rounded-2xl border p-4
+                    {{ $auction->email_test_mode
+                        ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10'
+                        : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/10' }}">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                                @if($auction->email_test_mode)
+                                    Player emails are in test mode{{ $skippedEmails > 0 ? " — {$skippedEmails} recorded, none sent" : '' }}
+                                @elseif($pendingEmails > 0)
+                                    {{ $pendingEmails }} player email(s) waiting to send
+                                @else
+                                    {{ $failedEmails }} player email(s) failed
+                                @endif
+                            </p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                                @if($auction->email_test_mode)
+                                    Nothing is delivered while test mode is on. Turn it off in
+                                    <a href="{{ route('admin.auctions.edit', $auction) }}" class="underline">Edit config</a>.
+                                @elseif($auction->email_dispatch === 'deferred')
+                                    Held until the auction ends, then sent together.
+                                    @if($auction->emails_flushed_at)
+                                        Last release {{ $auction->emails_flushed_at->diffForHumans() }}.
+                                    @endif
+                                @else
+                                    Sent as each player is sold.
+                                @endif
+                                @if($failedEmails > 0)
+                                    <span class="text-red-600 dark:text-red-400">{{ $failedEmails }} failed.</span>
+                                @endif
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                        <a href="{{ route('admin.auctions.emails.index', $auction) }}"
+                           class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800">
+                            View outbox
+                        </a>
+                        @if($pendingEmails > 0 && ! $auction->email_test_mode)
+                            <form action="{{ route('admin.auctions.emails.flush', $auction) }}" method="POST"
+                                  onsubmit="return confirm('Send {{ $pendingEmails }} held email(s) now?')">
+                                @csrf
+                                <button type="submit"
+                                        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">
+                                    Send now
+                                </button>
+                            </form>
+                        @endif
+                        </div>
+                    </div>
+                </div>
+            @endif
+        @endif
 
         {{-- Statistics Bar --}}
         @if(isset($isAdmin) && $isAdmin)
@@ -376,17 +455,17 @@
 
                         {{-- Bid Details (Admin only) --}}
                         @if(isset($isAdmin) && $isAdmin)
-                        <template x-if="player.bids && player.bids.length > 0">
+                        <template x-if="player.live_bids && player.live_bids.length > 0">
                             <div class="mt-2" x-data="{ showBids: false }">
                                 <button @click="showBids = !showBids"
                                     class="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1">
                                     <svg class="w-3 h-3 transition-transform" :class="showBids ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                     </svg>
-                                    <span x-text="player.bids.length + ' bid(s)'"></span>
+                                    <span x-text="player.live_bids.length + ' bid(s)'"></span>
                                 </button>
                                 <div x-show="showBids" x-transition class="mt-2 space-y-1 max-h-32 overflow-y-auto" x-cloak>
-                                    <template x-for="bid in player.bids" :key="bid.id">
+                                    <template x-for="bid in player.live_bids" :key="bid.id">
                                         <div class="flex justify-between items-center text-xs bg-gray-50 dark:bg-gray-700/50 rounded px-2 py-1">
                                             <span class="text-gray-600 dark:text-gray-300 truncate" x-text="bid.team?.name || 'N/A'"></span>
                                             <span class="font-bold text-green-600 dark:text-green-400" x-text="formatCurrency(bid.amount)"></span>
@@ -401,34 +480,10 @@
                         @can('auctions.edit')
                             <template x-if="player.status !== 'sold'">
                                 <div class="mt-3 space-y-2">
-                                    {{-- Bid Controls --}}
-                                    <div class="flex items-center justify-between gap-1">
-                                        <button @click="decreaseBid(player)"
-                                            class="flex-1 px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition">
-                                            -
-                                        </button>
-                                        <span class="flex-1 text-center text-xs font-medium" x-text="formatCurrency(player.current_price)"></span>
-                                        <button @click="increaseBid(player)"
-                                            class="flex-1 px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition"
-                                            :disabled="player.current_price >= player.max_price">
-                                            +
-                                        </button>
-                                    </div>
-
-                                    {{-- Team Assignment --}}
-                                    <div class="flex gap-1">
-                                        <select x-model="player.selectedTeamId" class="form-control form-control-sm flex-1 text-xs">
-                                            <option value="">Select Team</option>
-                                            <template x-for="team in teams" :key="team.id">
-                                                <option :value="team.id" x-text="team.name"></option>
-                                            </template>
-                                        </select>
-                                        <button @click="assignToTeam(player)"
-                                            class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition"
-                                            :disabled="!player.selectedTeamId">
-                                            Sell
-                                        </button>
-                                    </div>
+                                    {{-- Bidding and selling live on the control panel, which
+                                         enforces the timer, the pool lock and the squad-reserve
+                                         rule. Duplicating them here gave a second route to sell a
+                                         player under different rules. --}}
 
                                     {{-- Status Change --}}
                                     <select x-model="player.status" @change="toggleStatus(player)"
@@ -476,6 +531,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script>
+        // What amounts are called in this auction.
+        const AMOUNT_UNIT = @json($auction->amountUnitConfig());
+
         function auctionPoolCenter(auctionId) {
             return {
                 auctionId,
@@ -646,88 +704,8 @@
                     return rule ? Number(rule.increment) || 0 : 0;
                 },
 
-                async increaseBid(player) {
-                    try {
-                        const res = await fetch(`/admin/auctions/add-bid`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                auctionId: this.auctionId,
-                                playerID: player.id,
-                                teamId: player.selectedTeamId
-                            })
-                        });
 
-                        const data = await res.json();
-                        if (data.success) {
-                            player.current_price = data.current_price;
-                        } else {
-                            alert(data.message || 'Failed to add bid.');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        alert('Network error while adding bid.');
-                    }
-                },
 
-                async decreaseBid(player) {
-                    try {
-                        const res = await fetch(`/admin/auctions/decrease-bid`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                auctionId: this.auctionId,
-                                playerID: player.id,
-                                teamId: player.selectedTeamId
-                            })
-                        });
-                        const data = await res.json();
-                        if (data.success) player.current_price = data.current_price;
-                        else alert(data.message || 'Failed to decrease bid.');
-                    } catch (e) {
-                        console.error(e);
-                        alert('Network error while decreasing bid.');
-                    }
-                },
-
-                async assignToTeam(player) {
-                    if (!player.selectedTeamId) {
-                        alert('Please select a team first.');
-                        return;
-                    }
-
-                    try {
-                        const res = await fetch(`/admin/auctions/assign-player`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                auction_player_id: player.id,
-                                team_id: player.selectedTeamId
-                            })
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            player.status = 'sold';
-                            player.sold_to_team = this.teams.find(t => t.id == player.selectedTeamId);
-                            player.final_price = player.current_price;
-                            this.sortPlayers();
-                        } else {
-                            alert(data.message || 'Failed to assign player.');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        alert('Network error while assigning player.');
-                    }
-                },
 
                 async toggleStatus(player) {
                     try {
@@ -749,15 +727,11 @@
                     }
                 },
 
+                /** Shared K/M/B formatter with this auction's unit. */
                 formatCurrency(points) {
-                    points = Number(points) || 0;
-                    const isNegative = points < 0;
-                    const absPoints = Math.abs(points);
-                    let formattedValue;
-                    if (absPoints >= 1000000) formattedValue = (absPoints / 1000000).toFixed(2).replace(/\.00$/, '') + 'M';
-                    else if (absPoints >= 1000) formattedValue = (absPoints / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-                    else formattedValue = new Intl.NumberFormat('en-US').format(absPoints);
-                    return `${isNegative ? '-' : ''}${formattedValue}`;
+                    return window.auctionAmount
+                        ? window.auctionAmount(points, AMOUNT_UNIT)
+                        : String(Number(points) || 0);
                 }
             }
         }

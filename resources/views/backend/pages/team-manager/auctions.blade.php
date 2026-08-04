@@ -51,32 +51,83 @@
                             @endif
                         </div>
 
-                        {{-- Budget Info --}}
+                        @php $b = $auction->budget_info; @endphp
+
+                        {{-- Purse --}}
                         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                             <div class="flex justify-between items-center mb-2">
-                                <span class="text-sm text-gray-600 dark:text-gray-300">Budget</span>
-                                <span class="text-sm font-medium text-gray-900 dark:text-white">
-                                    {{ number_format($auction->budget_info['remaining']) }} remaining
+                                <span class="text-sm text-gray-600 dark:text-gray-300">Purse</span>
+                                <span class="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {{ $auction->formatAmount($b['remaining']) }} left
                                 </span>
                             </div>
                             @php
-                                $percentage = $auction->budget_info['max'] > 0
-                                    ? ($auction->budget_info['spent'] / $auction->budget_info['max']) * 100
-                                    : 0;
+                                $percentage = $b['max'] > 0 ? ($b['spent'] / $b['max']) * 100 : 0;
                             @endphp
                             <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
                                 <div class="bg-blue-600 h-2.5 rounded-full" style="width: {{ min($percentage, 100) }}%"></div>
                             </div>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                {{ number_format($auction->budget_info['spent']) }} / {{ number_format($auction->budget_info['max']) }} spent
+                                {{ format_points($b['spent'], '0') }} of {{ format_points($b['max'], '0') }} spent
                             </p>
+
+                            {{-- Where the money went: retained up front vs won at auction. --}}
+                            <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Retained</p>
+                                    <p class="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                                        {{ format_points($b['retained_spent'], '0') }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">At auction</p>
+                                    <p class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                        {{ format_points($b['auction_spent'], '0') }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {{-- The squad reserve caps what can be bid right now. --}}
+                            @if($b['reserve'] > 0)
+                                <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-3">
+                                    {{ $auction->formatAmount($b['reserve']) }} held back for
+                                    {{ max(0, $b['squad_remaining'] - 1) }} more squad place(s) —
+                                    max bid {{ $auction->formatAmount($b['max_bid_allowed']) }}.
+                                </p>
+                            @endif
+                        </div>
+
+                        {{-- Squad, split by how each player was acquired. --}}
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-3">
+                                <span class="text-sm text-gray-600 dark:text-gray-300">Squad</span>
+                                <span class="text-lg font-bold text-gray-900 dark:text-white">
+                                    {{ $b['squad_size'] }}<span class="text-sm text-gray-400">/{{ $b['squad_required'] }}</span>
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div>
+                                    <p class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ $b['retained_count'] }}</p>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Retained</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{{ $b['won_count'] }}</p>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Won</p>
+                                </div>
+                                <div>
+                                    <p class="text-lg font-bold {{ $b['squad_remaining'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400' }}">
+                                        {{ $b['squad_remaining'] }}
+                                    </p>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">To fill</p>
+                                </div>
+                            </div>
                         </div>
 
                         {{-- Players Won --}}
                         <div class="flex items-center justify-between">
                             <span class="text-sm text-gray-500 dark:text-gray-400">Players Won</span>
                             <span class="text-lg font-bold text-gray-900 dark:text-white">
-                                {{ $auction->auctionPlayers->count() }}
+                                {{ $b['won_count'] }}
                             </span>
                         </div>
                     </div>

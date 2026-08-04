@@ -27,7 +27,8 @@ class RegistrationController extends Controller
 {
     public function __construct(
         private readonly RegistrationService $registrationService
-    ) {}
+    ) {
+    }
 
     /**
      * Show player registration form
@@ -37,7 +38,7 @@ class RegistrationController extends Controller
         $settings = $tournament->settings;
 
         // Check if registration is open
-        if (!$this->registrationService->isPlayerRegistrationOpen($tournament)) {
+        if (! $this->registrationService->isPlayerRegistrationOpen($tournament)) {
             // Show tournament-level status if that's what's blocking, otherwise per-type status
             $tsStatus = $settings->tournament_status ?? 'open';
             $displayStatus = $tsStatus !== 'open' ? $tsStatus : ($settings->player_registration_status ?? 'closed');
@@ -61,8 +62,8 @@ class RegistrationController extends Controller
         // Prefill values (used when team managers redirect here to register themselves)
         $prefill = [
             'first_name' => $request->query('prefill_first_name'),
-            'last_name'  => $request->query('prefill_last_name'),
-            'email'      => $request->query('prefill_email'),
+            'last_name' => $request->query('prefill_last_name'),
+            'email' => $request->query('prefill_email'),
         ];
 
         return view('public.registration.player', [
@@ -73,7 +74,7 @@ class RegistrationController extends Controller
             'bowlingProfiles' => BowlingProfile::all(),
             'playerTypes' => PlayerType::whereIn('type', ['Batsman', 'Bowler', 'All-Rounder'])->get(),
             'kitSizes' => KitSize::all(),
-            'locations' => PlayerLocation::where(function($query) use ($tournament) {
+            'locations' => PlayerLocation::where(function ($query) use ($tournament) {
                 $query->whereNull('organization_id')
                       ->orWhere('organization_id', $tournament->organization_id);
             })->get(),
@@ -92,19 +93,19 @@ class RegistrationController extends Controller
     public function storePlayer(Request $request, Tournament $tournament): RedirectResponse
     {
         // Check if registration is open
-        if (!$this->registrationService->isPlayerRegistrationOpen($tournament)) {
+        if (! $this->registrationService->isPlayerRegistrationOpen($tournament)) {
             return redirect()->back()->with('error', __('Player registration is closed.'));
         }
 
         // Verify Turnstile CAPTCHA (skip if keys not configured).
-        if (config('turnstile.secret_key') && !app()->environment('local')) {
+        if (config('turnstile.secret_key') && ! app()->environment('local')) {
             $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
                 'secret' => config('turnstile.secret_key'),
                 'response' => $request->input('cf-turnstile-response', ''),
                 'remoteip' => $request->ip(),
             ]);
 
-            if (!$turnstileResponse->json('success')) {
+            if (! $turnstileResponse->json('success')) {
                 return redirect()->back()->withInput()->with('error', __('CAPTCHA verification failed. Please try again.'));
             }
         }
@@ -132,11 +133,11 @@ class RegistrationController extends Controller
 
         // Merge country-code + national number into the full number fields.
         $mobileCode = str_replace('+', '', $request->input('mobile_country_code', ''));
-        $mobileNat  = $request->input('mobile_national_number', '');
+        $mobileNat = $request->input('mobile_national_number', '');
         $request->merge(['mobile_number_full' => $mobileCode . $mobileNat]);
 
         $cricCode = str_replace('+', '', $request->input('cricheroes_country_code', ''));
-        $cricNat  = $request->input('cricheroes_national_number', '');
+        $cricNat = $request->input('cricheroes_national_number', '');
         if ($cricCode || $cricNat) {
             $request->merge(['cricheroes_number_full' => $cricCode . $cricNat]);
         }
@@ -149,9 +150,9 @@ class RegistrationController extends Controller
         // Map travel plan dropdown → existing columns.
         $hasTravelPlan = $request->input('has_travel_plan') === 'yes';
         $request->merge([
-            'no_travel_plan' => !$hasTravelPlan,
+            'no_travel_plan' => ! $hasTravelPlan,
         ]);
-        if (!$hasTravelPlan) {
+        if (! $hasTravelPlan) {
             $request->merge(['travel_date_from' => null, 'travel_date_to' => null]);
         }
 
@@ -189,7 +190,7 @@ class RegistrationController extends Controller
         }
 
         // When the tournament has T&C content, a typed signature is required.
-        if (!empty($tournament->settings?->terms_and_conditions_content)) {
+        if (! empty($tournament->settings?->terms_and_conditions_content)) {
             $rules['consent_name'] = 'required|string|max:150';
         }
 
@@ -232,10 +233,10 @@ class RegistrationController extends Controller
         $validated['custom_field_values'] = $customValues;
 
         // Resolve "Other" size selections to the custom value
-        if (($validated['tshirt_size'] ?? null) === 'Other' && !empty($validated['tshirt_size_custom'])) {
+        if (($validated['tshirt_size'] ?? null) === 'Other' && ! empty($validated['tshirt_size_custom'])) {
             $validated['tshirt_size'] = $validated['tshirt_size_custom'];
         }
-        if (($validated['pant_size'] ?? null) === 'Other' && !empty($validated['pant_size_custom'])) {
+        if (($validated['pant_size'] ?? null) === 'Other' && ! empty($validated['pant_size_custom'])) {
             $validated['pant_size'] = $validated['pant_size_custom'];
         }
         unset($validated['tshirt_size_custom'], $validated['pant_size_custom']);
@@ -289,7 +290,7 @@ class RegistrationController extends Controller
         $settings = $tournament->settings;
 
         // Check if registration is open
-        if (!$this->registrationService->isTeamRegistrationOpen($tournament)) {
+        if (! $this->registrationService->isTeamRegistrationOpen($tournament)) {
             $tsStatus = $settings->tournament_status ?? 'open';
             $displayStatus = $tsStatus !== 'open' ? $tsStatus : ($settings->team_registration_status ?? 'closed');
             return view('public.registration.closed', [
@@ -314,19 +315,19 @@ class RegistrationController extends Controller
     public function storeTeam(Request $request, Tournament $tournament): RedirectResponse
     {
         // Check if registration is open
-        if (!$this->registrationService->isTeamRegistrationOpen($tournament)) {
+        if (! $this->registrationService->isTeamRegistrationOpen($tournament)) {
             return redirect()->back()->with('error', __('Team registration is closed.'));
         }
 
         // Verify Turnstile CAPTCHA (skip if keys not configured).
-        if (config('turnstile.secret_key') && !app()->environment('local')) {
+        if (config('turnstile.secret_key') && ! app()->environment('local')) {
             $turnstileResponse = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
                 'secret' => config('turnstile.secret_key'),
                 'response' => $request->input('cf-turnstile-response', ''),
                 'remoteip' => $request->ip(),
             ]);
 
-            if (!$turnstileResponse->json('success')) {
+            if (! $turnstileResponse->json('success')) {
                 return redirect()->back()->withInput()->with('error', __('CAPTCHA verification failed. Please try again.'));
             }
         }
@@ -334,7 +335,7 @@ class RegistrationController extends Controller
         $teamFieldConfig = TeamFormConfig::getFieldConfig($tournament->settings);
         $rules = TeamFormConfig::buildValidationRules($teamFieldConfig);
         // Typed signature required when the team T&C content is configured.
-        if (!empty($tournament->settings?->team_terms_and_conditions_content)) {
+        if (! empty($tournament->settings?->team_terms_and_conditions_content)) {
             $rules['consent_name'] = 'required|string|max:150';
         }
 
@@ -371,7 +372,11 @@ class RegistrationController extends Controller
                 $filename = 'team_logos/' . Str::random(40) . '.png';
                 Storage::disk('public')->put($filename, $imageData);
                 $validated['team_logo'] = new \Illuminate\Http\UploadedFile(
-                    Storage::disk('public')->path($filename), basename($filename), 'image/png', null, true
+                    Storage::disk('public')->path($filename),
+                    basename($filename),
+                    'image/png',
+                    null,
+                    true
                 );
                 // Override: store path directly since file is already saved
                 $validated['team_logo_path'] = $filename;

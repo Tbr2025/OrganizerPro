@@ -41,7 +41,7 @@ class OrganizationController extends Controller
             'auction_modes.*' => 'in:open,closed,offline',
         ]);
 
-        if (!auth()->user()->hasRole('Superadmin')) {
+        if (! auth()->user()->hasRole('Superadmin')) {
             unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes']);
         }
 
@@ -76,7 +76,7 @@ class OrganizationController extends Controller
             'auction_modes.*' => 'in:open,closed,offline',
         ]);
 
-        if (!auth()->user()->hasRole('Superadmin')) {
+        if (! auth()->user()->hasRole('Superadmin')) {
             unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes']);
         }
 
@@ -85,7 +85,7 @@ class OrganizationController extends Controller
         }
 
         // Handle "unlimited" toggle — if max_tournaments not in request, set to null
-        if (auth()->user()->hasRole('Superadmin') && !$request->has('max_tournaments')) {
+        if (auth()->user()->hasRole('Superadmin') && ! $request->has('max_tournaments')) {
             $validated['max_tournaments'] = null;
         }
 

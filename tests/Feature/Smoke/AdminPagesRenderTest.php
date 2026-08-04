@@ -35,7 +35,9 @@ class AdminPagesRenderTest extends TestCase
         $player = Player::create(['name' => 'P', 'email' => 'p@x.test', 'status' => 'approved', 'organization_id' => $org->id]);
 
         $role = Role::create(['name' => 'Superadmin']);
-        foreach (['player.create', 'player.edit', 'tournament.edit', 'auction.view'] as $perm) {
+        // `auction.edit` is required for the organizer control panel — running an
+        // auction is an edit operation, not a view one.
+        foreach (['player.create', 'player.edit', 'tournament.edit', 'auction.view', 'auction.edit'] as $perm) {
             Permission::create(['name' => $perm, 'group_name' => 'smoke']);
             $role->givePermissionTo($perm);
         }
@@ -58,7 +60,9 @@ class AdminPagesRenderTest extends TestCase
         ];
 
         foreach ($urls as $url) {
-            $this->get($url)->assertOk();
+            // Name the URL in the failure — otherwise a broken page in a list of
+            // eleven just reports "expected 200, got 500".
+            $this->get($url)->assertOk("Expected {$url} to render.");
         }
     }
 }

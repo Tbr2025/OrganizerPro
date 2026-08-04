@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class EmailLog extends Model
 {
-    const STATUS_PENDING = 'pending';
-    const STATUS_SENT = 'sent';
-    const STATUS_FAILED = 'failed';
-    const STATUS_BOUNCED = 'bounced';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_SENT = 'sent';
+    public const STATUS_FAILED = 'failed';
+    public const STATUS_BOUNCED = 'bounced';
 
     protected $fillable = [
         'to',
@@ -50,7 +50,7 @@ class EmailLog extends Model
     public function isRetryable(): bool
     {
         return in_array($this->status, [self::STATUS_FAILED, self::STATUS_BOUNCED])
-            && !empty($this->body_html)
+            && ! empty($this->body_html)
             && $this->retry_count < 3;
     }
 

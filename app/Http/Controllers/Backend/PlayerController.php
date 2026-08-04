@@ -5,13 +5,11 @@ namespace App\Http\Controllers\Backend;
 use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Mail\PlayerVerificationStatusMail;
-use App\Mail\PlayerWelcomeMail;
 use App\Models\ActualTeam;
 use App\Models\BattingProfile;
 use App\Models\BowlingProfile;
 use App\Models\ImageTemplate;
 use App\Models\KitSize;
-use App\Models\Matches;
 use App\Models\Player;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
@@ -34,11 +32,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
-use Symfony\Component\Process\Exception\ProcessFailedException;
-use Symfony\Component\Process\Process;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
-use Illuminate\Support\Facades\Validator;
 use Intervention\Image\ImageManager;
 use App\Models\ActionLog;
 use App\Traits\HasActionLogTrait;
@@ -122,19 +117,19 @@ class PlayerController extends Controller
 
         // 1. Read all potential filters from the request
         $filters = [
-            'search'           => request('search'),
-            'actual_team_id'   => request('actual_team_id'),
-            'role'             => request('role'),
-            'batting_profile'  => request('batting_profile'),
-            'bowling_profile'  => request('bowling_profile'),
-            'status'           => request('status', 'approved'),
-            'updated_sort'     => request('updated_sort'),
-            'player_mode'     => request('player_mode'),
-            'tournament'       => request('tournament'),
-            'sort'             => request('sort'),
-            'need_transport'   => request('need_transport'),
-            'source'           => request('source'),
-            'verification'     => request('verification'),
+            'search' => request('search'),
+            'actual_team_id' => request('actual_team_id'),
+            'role' => request('role'),
+            'batting_profile' => request('batting_profile'),
+            'bowling_profile' => request('bowling_profile'),
+            'status' => request('status', 'approved'),
+            'updated_sort' => request('updated_sort'),
+            'player_mode' => request('player_mode'),
+            'tournament' => request('tournament'),
+            'sort' => request('sort'),
+            'need_transport' => request('need_transport'),
+            'source' => request('source'),
+            'verification' => request('verification'),
         ];
 
         // 2. Start the base query with all necessary relationships for performance
@@ -151,22 +146,22 @@ class PlayerController extends Controller
             'bowlingProfile',
             'creator', // who added the player (null = self-registered)
             'registeredTournaments', // tournament tags in the listing
-            'registrations' => fn($q) => $q->with('tournament:id,name,slug')->latest(),
+            'registrations' => fn ($q) => $q->with('tournament:id,name,slug')->latest(),
         ]);
 
         // Filter out orphaned player records (no associated user)
         $query->whereNotNull('user_id');
 
         // Only show users who have the 'player' role (they may also have other roles)
-        $query->whereHas('user.roles', fn($q) => $q->where('name', 'Player'));
+        $query->whereHas('user.roles', fn ($q) => $q->where('name', 'Player'));
 
         // 3. Apply role-based data scoping
         if ($user->hasRole('Superadmin')) {
             // Superadmins see all players. No initial scope is applied.
-        } elseif ($user->hasRole('Team Manager') && !$user->hasRole('Admin')) {
+        } elseif ($user->hasRole('Team Manager') && ! $user->hasRole('Admin')) {
             // Team Managers only see players from their own team(s)
             $teamIds = $user->actualTeams->pluck('id')->toArray();
-            if (!empty($teamIds)) {
+            if (! empty($teamIds)) {
                 $query->whereIn('actual_team_id', $teamIds);
             } else {
                 $query->whereRaw('1 = 0');
@@ -184,7 +179,7 @@ class PlayerController extends Controller
         // 4. Apply all user-selected filters to the query
         $players = $query
             ->when($filters['search'], function ($q) use ($filters) {
-                $q->where(fn($q) => $q->where('name', 'like', "%{$filters['search']}%")->orWhere('email', 'like', "%{$filters['search']}%"));
+                $q->where(fn ($q) => $q->where('name', 'like', "%{$filters['search']}%")->orWhere('email', 'like', "%{$filters['search']}%"));
             })
             ->when($filters['actual_team_id'], function ($q) use ($filters) {
                 $q->where('actual_team_id', $filters['actual_team_id']);
@@ -195,11 +190,11 @@ class PlayerController extends Controller
                 } elseif ($filters['role'] === 'Unknown') {
                     $q->whereDoesntHave('playerType');
                 } else {
-                    $q->whereHas('playerType', fn($typeQuery) => $typeQuery->where('type', $filters['role']));
+                    $q->whereHas('playerType', fn ($typeQuery) => $typeQuery->where('type', $filters['role']));
                 }
             })
             ->when($filters['batting_profile'], function ($q) use ($filters) {
-                $q->whereHas('battingProfile', fn($profileQuery) => $profileQuery->where('style', $filters['batting_profile']));
+                $q->whereHas('battingProfile', fn ($profileQuery) => $profileQuery->where('style', $filters['batting_profile']));
             })->when($filters['player_mode'] ?? null, function ($q, $filters) {
                 if ($filters === 'retained') {
                     // This is correct. It filters a simple column on the main table.
@@ -212,7 +207,7 @@ class PlayerController extends Controller
                 }
             })
             ->when($filters['bowling_profile'], function ($q) use ($filters) {
-                $q->whereHas('bowlingProfile', fn($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
+                $q->whereHas('bowlingProfile', fn ($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
             })
             ->when($filters['need_transport'] ?? null, function ($q) {
                 $q->where('transportation_required', true);
@@ -225,10 +220,15 @@ class PlayerController extends Controller
                 }
             })
             ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
-                if ($filters['status'] === 'approved') $q->where('status', 'approved');
-                elseif ($filters['status'] === 'pending') $q->where(fn($q) => $q->where('status', 'pending')->orWhereNull('status'));
-                elseif ($filters['status'] === 'queued') $q->where('status', 'queued');
-                elseif ($filters['status'] === 'rejected') $q->where('status', 'rejected');
+                if ($filters['status'] === 'approved') {
+                    $q->where('status', 'approved');
+                } elseif ($filters['status'] === 'pending') {
+                    $q->where(fn ($q) => $q->where('status', 'pending')->orWhereNull('status'));
+                } elseif ($filters['status'] === 'queued') {
+                    $q->where('status', 'queued');
+                } elseif ($filters['status'] === 'rejected') {
+                    $q->where('status', 'rejected');
+                }
             })
             // Filter by the tournament the player is assigned to (via actual team).
             ->when($filters['tournament'], function ($q) use ($filters) {
@@ -238,11 +238,16 @@ class PlayerController extends Controller
             // Sort: explicit "sort" dropdown wins; else legacy updated_sort; else newest-updated.
             ->when(true, function ($q) use ($filters) {
                 switch ($filters['sort']) {
-                    case 'name_asc':   $q->orderBy('name'); break;
-                    case 'name_desc':  $q->orderByDesc('name'); break;
-                    case 'newest':     $q->orderByDesc('created_at'); break;
-                    case 'oldest':     $q->orderBy('created_at'); break;
-                    case 'recently_updated': $q->orderByDesc('updated_at'); break;
+                    case 'name_asc':   $q->orderBy('name');
+                        break;
+                    case 'name_desc':  $q->orderByDesc('name');
+                        break;
+                    case 'newest':     $q->orderByDesc('created_at');
+                        break;
+                    case 'oldest':     $q->orderBy('created_at');
+                        break;
+                    case 'recently_updated': $q->orderByDesc('updated_at');
+                        break;
                     default:
                         if (in_array($filters['updated_sort'], ['asc', 'desc'], true)) {
                             $q->orderBy('updated_at', $filters['updated_sort']);
@@ -263,26 +268,38 @@ class PlayerController extends Controller
                 $vLayout = PlayerFormConfig::getFormLayout($regSettings, false);
                 $vCustom = $reg?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
                 $skip = ['name', 'image', 'terms_and_conditions'];
-                $vTotal = 0; $vDone = 0;
-                if ($player->image_path) { $vTotal++; if (in_array('image', $regVerified, true)) $vDone++; }
+                $vTotal = 0;
+                $vDone = 0;
+                if ($player->image_path) {
+                    $vTotal++;
+                    if (in_array('image', $regVerified, true)) {
+                        $vDone++;
+                    }
+                }
                 foreach ($vLayout as $sec) {
                     foreach ($sec['fields'] as $fk) {
-                        if (in_array($fk, $skip, true)) continue;
+                        if (in_array($fk, $skip, true)) {
+                            continue;
+                        }
                         $vTotal++;
-                        if (in_array($fk, $regVerified, true)) $vDone++;
+                        if (in_array($fk, $regVerified, true)) {
+                            $vDone++;
+                        }
                     }
                     foreach (($vCustom->where('section', $sec['key']) ?? collect()) as $scf) {
                         $vTotal++;
-                        if (in_array('cf_' . $scf->id, $regVerified, true)) $vDone++;
+                        if (in_array('cf_' . $scf->id, $regVerified, true)) {
+                            $vDone++;
+                        }
                     }
                 }
                 $pct = $vTotal > 0 ? (int) round(($vDone / $vTotal) * 100) : 0;
 
                 return match ($filters['verification']) {
-                    'full'    => $pct === 100,
+                    'full' => $pct === 100,
                     'partial' => $pct > 0 && $pct < 100,
-                    'none'    => $pct === 0,
-                    default   => true,
+                    'none' => $pct === 0,
+                    default => true,
                 };
             });
 
@@ -315,13 +332,13 @@ class PlayerController extends Controller
 
         // Only show dropdown values present among players (scoped by tournament if selected)
         $baseQuery = Player::whereNotNull('user_id')
-            ->whereHas('user.roles', fn($q) => $q->where('name', 'Player'))
+            ->whereHas('user.roles', fn ($q) => $q->where('name', 'Player'))
             ->when($selectedTournamentId, function ($q) use ($selectedTournamentId) {
                 $tournamentTeamIds = ActualTeam::forTournament($selectedTournamentId)->pluck('id');
                 $q->whereIn('actual_team_id', $tournamentTeamIds);
             })
-            ->when(!$selectedTournamentId && !$user->hasRole('Superadmin') && $user->organization_id, function ($q) use ($user) {
-                $orgTeamIds = ActualTeam::whereHas('tournament', fn($tq) => $tq->where('organization_id', $user->organization_id))->pluck('id');
+            ->when(! $selectedTournamentId && ! $user->hasRole('Superadmin') && $user->organization_id, function ($q) use ($user) {
+                $orgTeamIds = ActualTeam::whereHas('tournament', fn ($tq) => $tq->where('organization_id', $user->organization_id))->pluck('id');
                 $q->whereIn('actual_team_id', $orgTeamIds);
             });
 
@@ -331,19 +348,19 @@ class PlayerController extends Controller
 
         // Actual teams for retain modal (with tournament info, only active/registration tournaments)
         $actualTeams = $user->hasRole('Superadmin')
-            ? ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->orderBy('name')->get(['id', 'name', 'tournament_id'])
-            : ActualTeam::with(['tournaments' => fn($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
+            ? ActualTeam::with(['tournaments' => fn ($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->orderBy('name')->get(['id', 'name', 'tournament_id'])
+            : ActualTeam::with(['tournaments' => fn ($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
 
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
-            'players'         => $players,
-            'filterTeams'     => $filterTeams,
-            'actualTeams'     => $actualTeams,
-            'roles'           => $roles,
+            'players' => $players,
+            'filterTeams' => $filterTeams,
+            'actualTeams' => $actualTeams,
+            'roles' => $roles,
             'battingProfiles' => $battingProfiles,
             'bowlingProfiles' => $bowlingProfiles,
-            'tournaments'     => $tournaments,
-            'breadcrumbs'     => ['title' => __('Players')],
+            'tournaments' => $tournaments,
+            'breadcrumbs' => ['title' => __('Players')],
         ]);
     }
 
@@ -387,7 +404,6 @@ class PlayerController extends Controller
         ]);
     }
 
-
     public function export(Request $request)
     {
         // 1. Authorize the action
@@ -408,17 +424,17 @@ class PlayerController extends Controller
             'battingProfile',
             'bowlingProfile',
             'kitSize',
-            'user.organization' // Also get user and organization info
+            'user.organization', // Also get user and organization info
         ])->whereIn('id', $playerIds)->get();
 
         // 4. Set up the CSV file response
         $fileName = 'full_players_export_' . date('Y-m-d_H-i-s') . '.csv';
         $headers = [
-            "Content-type"        => "text/csv",
+            "Content-type" => "text/csv",
             "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0",
         ];
 
         // 5. Create the callback to stream the detailed CSV data
@@ -464,7 +480,7 @@ class PlayerController extends Controller
                     $player->email,
                     $player->mobile_number_full,
                     $player->cricheroes_number_full ?? 'N/A',
-                    !is_null($player->welcome_email_sent_at) ? 'Verified' : 'Pending',
+                    ! is_null($player->welcome_email_sent_at) ? 'Verified' : 'Pending',
                     $player->player_status ?? 'Normal',
                     $player->team?->name ?? 'N/A',
                     $player->team_name_ref ?? '',
@@ -507,7 +523,7 @@ class PlayerController extends Controller
         }
 
         // Helper: check if a field is visible AND required
-        $req = fn($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
+        $req = fn ($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
 
         // Sanitize and combine phone numbers (null if national number is empty)
         $mobileFull = $request->filled('mobile_national_number')
@@ -596,8 +612,8 @@ class PlayerController extends Controller
 
         // Image path comes pre-processed from AJAX upload (string path)
         // Validate the path exists in storage if provided
-        if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
-            if (!Storage::disk('public')->exists($validated['image_path'])) {
+        if (! empty($validated['image_path']) && is_string($validated['image_path'])) {
+            if (! Storage::disk('public')->exists($validated['image_path'])) {
                 unset($validated['image_path']);
             }
         }
@@ -611,7 +627,6 @@ class PlayerController extends Controller
         $validated['available_weekends'] = $request->boolean('available_saturday') || $request->boolean('available_sunday');
         $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
         $validated['created_by'] = Auth::id();
-
 
         // Create or reuse existing user
         $existingUser = User::where('email', $validated['email'])->first();
@@ -650,7 +665,7 @@ class PlayerController extends Controller
         $player = Player::create($validated);
 
         // Assign player role if needed
-        if (!$user->hasRole('player')) {
+        if (! $user->hasRole('player')) {
             $playerRole = Role::firstOrCreate(['name' => 'player']);
             $user->assignRole($playerRole);
         }
@@ -660,12 +675,8 @@ class PlayerController extends Controller
             $user->notify(new CustomVerifyEmail($password));
         }
 
-
-
         return redirect()->route('admin.players.index')->with('success', __('Player created successfully.'));
     }
-
-
 
     public function show(Player $player): View
     {
@@ -689,7 +700,7 @@ class PlayerController extends Controller
 
         // Change logs
         $changeLogs = \App\Models\ProfileChangeLog::where('player_id', $player->id)
-            ->when($selectedRegistration, fn($q) => $q->where(fn($q2) =>
+            ->when($selectedRegistration, fn ($q) => $q->where(fn ($q2) =>
                 $q2->where('tournament_registration_id', $selectedRegistration->id)
                    ->orWhere('tournament_id', $selectedRegistration->tournament_id)))
             ->with('changedBy')
@@ -842,17 +853,12 @@ class PlayerController extends Controller
         ]);
     }
 
-
-
-
-
-
     public static function generateWelcomePlayerImageGD(Player $player, ImageTemplate $template)
     {
         $layout = json_decode($template->layout_json, true);
         $bgPath = storage_path('app/public/image_templates/' . $template->background_image);
 
-        if (!file_exists($bgPath)) {
+        if (! file_exists($bgPath)) {
             throw new \Exception("Background image not found: $bgPath");
         }
 
@@ -872,7 +878,7 @@ class PlayerController extends Controller
                 case 'playerImage':
                     $playerImgPath = storage_path('app/public/' . Str::after($player->image_path, 'storage/'));
 
-                    if (!file_exists($playerImgPath)) {
+                    if (! file_exists($playerImgPath)) {
                         throw new \Exception("Player image not found at: $playerImgPath");
                     }
 
@@ -881,7 +887,7 @@ class PlayerController extends Controller
                     }
 
                     $playerImg = @imagecreatefrompng($playerImgPath);
-                    if (!$playerImg) {
+                    if (! $playerImg) {
                         throw new \Exception("imagecreatefrompng() failed. File may be corrupted or not a valid PNG.");
                     }
 
@@ -902,7 +908,9 @@ class PlayerController extends Controller
                     $scaledWidth = (int) $scaledWidth;
                     $scaledHeight = (int) $scaledHeight;
 
-                    if ($scaledWidth <= 0 || $scaledHeight <= 0) continue 2;
+                    if ($scaledWidth <= 0 || $scaledHeight <= 0) {
+                        continue 2;
+                    }
 
                     $resized = imagecreatetruecolor($scaledWidth, $scaledHeight);
                     imagealphablending($resized, false);
@@ -929,10 +937,14 @@ class PlayerController extends Controller
                     break;
 
                 case 'staticOverlay':
-                    if (!$template->overlay_image_path) continue 2;
+                    if (! $template->overlay_image_path) {
+                        continue 2;
+                    }
 
                     $overlayPath = storage_path('app/public/image_templates/' . $template->overlay_image_path);
-                    if (!file_exists($overlayPath)) continue 2;
+                    if (! file_exists($overlayPath)) {
+                        continue 2;
+                    }
 
                     $overlayImg = imagecreatefrompng($overlayPath);
                     imagealphablending($overlayImg, true);
@@ -974,7 +986,7 @@ class PlayerController extends Controller
                     $b = hexdec(substr($colorHex, 4, 2));
 
                     $fontPath = public_path('fonts/Montserrat-Medium.ttf');
-                    if (!file_exists($fontPath)) {
+                    if (! file_exists($fontPath)) {
                         throw new \Exception("Font not found at $fontPath");
                     }
 
@@ -1020,10 +1032,6 @@ class PlayerController extends Controller
         return 'storage/' . Str::after($outputPath, 'public/');
     }
 
-
-
-
-
     public function editor(Player $player)
     {
         $breadcrumbs = ['title' => __('Player Image Editor')];
@@ -1042,13 +1050,13 @@ class PlayerController extends Controller
 
         $layout = json_decode($request->layout_data, true);
 
-        if (!$layout || !isset($layout['objects'])) {
+        if (! $layout || ! isset($layout['objects'])) {
             return response()->json(['error' => 'Invalid layout JSON'], 422);
         }
 
         // Load base background image
         $backgroundPath = storage_path('app/public/backgrounds/welcome-template.png');
-        if (!file_exists($backgroundPath)) {
+        if (! file_exists($backgroundPath)) {
             return response()->json(['error' => 'Background template missing'], 500);
         }
 
@@ -1077,7 +1085,7 @@ class PlayerController extends Controller
             // Render text
             if (in_array($object['type'], ['text', 'textbox']) && isset($object['text'])) {
                 $canvas->text($object['text'], (int)($object['left'] ?? 0), (int)($object['top'] ?? 0), function ($font) use ($object) {
-                    if (!empty($object['fontFamily'])) {
+                    if (! empty($object['fontFamily'])) {
                         $fontPath = public_path('fonts/' . $object['fontFamily'] . '.ttf');
                         if (file_exists($fontPath)) {
                             $font->file($fontPath);
@@ -1104,11 +1112,9 @@ class PlayerController extends Controller
         return response()->json([
             'success' => true,
             'image_url' => Storage::url($filename),
-            'message' => 'Image generated and saved successfully.'
+            'message' => 'Image generated and saved successfully.',
         ]);
     }
-
-
 
     public function update(Request $request, Player $player): RedirectResponse
     {
@@ -1125,7 +1131,7 @@ class PlayerController extends Controller
             : PlayerFormConfig::defaultFormFields();
 
         // Helper: check if a field is visible AND required per config
-        $req = fn($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
+        $req = fn ($key) => ($fieldConfig[$key]['visible'] ?? true) && ($fieldConfig[$key]['required'] ?? false);
 
         // Compose the internal full name from first + last.
         $request->merge(['name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', ''))]);
@@ -1181,9 +1187,8 @@ class PlayerController extends Controller
             'preferred_batting_positions.*' => "in:Opener,3,4,5,6,7,8,I'm Flexible",
         ]);
 
-
         // Image path comes pre-processed from AJAX upload (string path)
-        if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
+        if (! empty($validated['image_path']) && is_string($validated['image_path'])) {
             if (Storage::disk('public')->exists($validated['image_path'])) {
                 // Delete old image if different
                 if ($player->image_path && $player->image_path !== $validated['image_path']
@@ -1204,12 +1209,11 @@ class PlayerController extends Controller
             $player->image_path = null;
         }
 
-
         // Resolve "Other" size selections to the custom value
-        if (($validated['tshirt_size'] ?? null) === 'Other' && !empty($validated['tshirt_size_custom'])) {
+        if (($validated['tshirt_size'] ?? null) === 'Other' && ! empty($validated['tshirt_size_custom'])) {
             $validated['tshirt_size'] = $validated['tshirt_size_custom'];
         }
-        if (($validated['pant_size'] ?? null) === 'Other' && !empty($validated['pant_size_custom'])) {
+        if (($validated['pant_size'] ?? null) === 'Other' && ! empty($validated['pant_size_custom'])) {
             $validated['pant_size'] = $validated['pant_size_custom'];
         }
         unset($validated['tshirt_size_custom'], $validated['pant_size_custom']);
@@ -1289,12 +1293,12 @@ class PlayerController extends Controller
         // Track changed fields before saving
         $changedFields = $player->getDirty();
         // Exclude verified_* flags from the change log display
-        $fieldChanges = array_filter($changedFields, fn($k) => !str_starts_with($k, 'verified_'), ARRAY_FILTER_USE_KEY);
+        $fieldChanges = array_filter($changedFields, fn ($k) => ! str_starts_with($k, 'verified_'), ARRAY_FILTER_USE_KEY);
 
         $player->save();
 
         // Log the update with changed fields
-        if (!empty($fieldChanges)) {
+        if (! empty($fieldChanges)) {
             $this->logAction("Player Updated: {$player->name}", $player, [
                 'player_id' => $player->id,
                 'changed_fields' => array_keys($fieldChanges),
@@ -1310,9 +1314,7 @@ class PlayerController extends Controller
             );
         }
 
-
         if ($request->isapproved == '1') {
-
 
             // Already approved?
             if ($player->isApproved()) {
@@ -1326,7 +1328,7 @@ class PlayerController extends Controller
 
             // Ensure the player has a linked user
             $user = $player->user;
-            if (!$user) {
+            if (! $user) {
                 $username = Str::slug(Str::before($validated['email'], '@'), '_');
                 if (User::where('username', $username)->exists()) {
                     $username .= '_' . Str::random(5);
@@ -1348,14 +1350,14 @@ class PlayerController extends Controller
                 $user->notify(new CustomVerifyEmail($password));
 
                 // Optionally assign "player" role
-                if (!$user->hasRole('player')) {
+                if (! $user->hasRole('player')) {
                     $playerRole = Role::firstOrCreate(['name' => 'player']);
                     $user->assignRole($playerRole);
                 }
             }
 
             // Assign 'player' role if not already assigned
-            if (!$user->hasRole('player')) {
+            if (! $user->hasRole('player')) {
                 $playerRole = Role::firstOrCreate(['name' => 'player']);
                 $user->assignRole($playerRole);
             }
@@ -1371,7 +1373,7 @@ class PlayerController extends Controller
         // ✅ Optional Intimate after update
         if ($request->boolean('intimate')) {
 
-            if (!$player->email) {
+            if (! $player->email) {
                 return back()->with('error', 'Player does not have a valid email address.');
             }
 
@@ -1408,7 +1410,6 @@ class PlayerController extends Controller
                 new PlayerVerificationStatusMail($player, $verifiedFields, $unverifiedFields)
             );
 
-
             return redirect()->back()->with('success', 'Player updated and intimated.');
 
             // return redirect()->route('admin.players.index')->with('success', 'Player updated and intimated.');
@@ -1416,7 +1417,7 @@ class PlayerController extends Controller
 
         // ✅ Optional: Generate welcome image only if all fields verified
         if ($request->boolean('allverified')) {
-            if (!$player->allFieldsVerified()) {
+            if (! $player->allFieldsVerified()) {
                 return redirect()->back()->with('error', 'Cannot generate appreciation image. All fields must be verified.');
             }
 
@@ -1447,23 +1448,8 @@ class PlayerController extends Controller
             return redirect()->back()->with('success', 'Player - Welcome card created and intimated.');
         }
 
-
-
-
         return redirect()->back()->with('success', 'Player updated successfully.');
     }
-
-
-
-
-
-
-
-
-
-
-
-
 
     public function destroy(Player $player): RedirectResponse
     {
@@ -1478,7 +1464,6 @@ class PlayerController extends Controller
 
         return redirect()->route('admin.players.index')->with('success', __('Player deleted.'));
     }
-
 
     public function importCsv(Request $request)
     {
@@ -1503,7 +1488,7 @@ class PlayerController extends Controller
             'batting_profile',
             'bowling_profile',
             'wicket_keeper',
-            'transportation_required'
+            'transportation_required',
         ];
 
         if ($header !== $expectedHeaders) {
@@ -1533,15 +1518,15 @@ class PlayerController extends Controller
             $data['created_by'] = Auth::id();
 
             // Resolve relationships for kit_size, batting_profile, bowling_profile, player_type
-            $kitSize = !empty($data['kit_size']) ? KitSize::where('name', $data['kit_size'])->first() : null;
+            $kitSize = ! empty($data['kit_size']) ? KitSize::where('name', $data['kit_size'])->first() : null;
             $data['kit_size_id'] = $kitSize?->id;
             unset($data['kit_size']);
 
-            $battingProfile = !empty($data['batting_profile']) ? BattingProfile::where('name', $data['batting_profile'])->first() : null;
+            $battingProfile = ! empty($data['batting_profile']) ? BattingProfile::where('name', $data['batting_profile'])->first() : null;
             $data['batting_profile_id'] = $battingProfile?->id;
             unset($data['batting_profile']);
 
-            $bowlingProfile = !empty($data['bowling_profile']) ? BowlingProfile::where('name', $data['bowling_profile'])->first() : null;
+            $bowlingProfile = ! empty($data['bowling_profile']) ? BowlingProfile::where('name', $data['bowling_profile'])->first() : null;
             $data['bowling_profile_id'] = $bowlingProfile?->id;
             unset($data['bowling_profile']);
 
@@ -1552,16 +1537,14 @@ class PlayerController extends Controller
             // $data['player_type_id'] = $playerType?->id;
             // unset($data['player_type']);
 
-
             // Validate or nullify team_id
-            $team = !empty($data['team_id']) ? Team::find($data['team_id']) : null;
+            $team = ! empty($data['team_id']) ? Team::find($data['team_id']) : null;
             $data['team_id'] = $team?->id;
 
             // Check for duplicate player by email or mobile_national_number for robustness
             $exists = Player::where('email', $data['email'])
                 ->orWhere('mobile_national_number', $data['mobile_national_number'])
                 ->exists();
-
 
             if ($exists) {
                 $skipped[] = [
@@ -1591,7 +1574,7 @@ class PlayerController extends Controller
 
         // Prepare error summary for skipped
         $message = "$imported players imported successfully.";
-        if (!empty($skipped)) {
+        if (! empty($skipped)) {
             $message .= ' Some rows were skipped due to duplicates or errors:<br><ul>';
             foreach ($skipped as $entry) {
                 $reason = $entry['reason'] ?? 'Unknown reason';
@@ -1603,7 +1586,6 @@ class PlayerController extends Controller
 
         return redirect()->route('admin.players.index')->with('success', $message);
     }
-
 
     public function downloadSampleCsv()
     {

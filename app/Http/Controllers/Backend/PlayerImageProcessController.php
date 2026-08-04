@@ -25,7 +25,7 @@ class PlayerImageProcessController extends Controller
         $dataUrl = $request->input('image');
 
         // Parse base64 data URL
-        if (!preg_match('/^data:image\/(png|jpe?g);base64,/', $dataUrl, $matches)) {
+        if (! preg_match('/^data:image\/(png|jpe?g);base64,/', $dataUrl, $matches)) {
             return response()->json(['success' => false, 'message' => 'Invalid image data.'], 422);
         }
 
@@ -51,7 +51,7 @@ class PlayerImageProcessController extends Controller
 
         // Check if image already has transparency — skip bg removal if so
         $skipBgRemoval = $request->boolean('skip_bg_removal', false);
-        $needsBgRemoval = !$skipBgRemoval && !$this->hasTransparency($outputPath);
+        $needsBgRemoval = ! $skipBgRemoval && ! $this->hasTransparency($outputPath);
 
         if ($needsBgRemoval) {
             // Dispatch to queue instead of running synchronously
@@ -73,7 +73,7 @@ class PlayerImageProcessController extends Controller
     {
         $path = $request->input('path');
 
-        if (!$path || !Storage::disk('public')->exists($path)) {
+        if (! $path || ! Storage::disk('public')->exists($path)) {
             return response()->json(['done' => false, 'url' => null]);
         }
 
@@ -91,12 +91,12 @@ class PlayerImageProcessController extends Controller
     private function hasTransparency(string $filePath): bool
     {
         $info = @getimagesize($filePath);
-        if (!$info || $info[2] !== IMAGETYPE_PNG) {
+        if (! $info || $info[2] !== IMAGETYPE_PNG) {
             return false;
         }
 
         $image = @imagecreatefrompng($filePath);
-        if (!$image) {
+        if (! $image) {
             return false;
         }
 
@@ -136,9 +136,11 @@ class PlayerImageProcessController extends Controller
     private function enforceAspectRatio(string $path, int $ratioW, int $ratioH): void
     {
         $sourceImage = @imagecreatefrompng($path);
-        if (!$sourceImage) {
+        if (! $sourceImage) {
             $sourceImage = @imagecreatefromjpeg($path);
-            if (!$sourceImage) return;
+            if (! $sourceImage) {
+                return;
+            }
         }
 
         $origWidth = imagesx($sourceImage);
@@ -182,10 +184,12 @@ class PlayerImageProcessController extends Controller
     private function resizeImage(string $path, int $maxWidth, int $maxHeight): void
     {
         $sourceImage = imagecreatefrompng($path);
-        if (!$sourceImage) {
+        if (! $sourceImage) {
             // Try loading as JPEG
             $sourceImage = imagecreatefromjpeg($path);
-            if (!$sourceImage) return;
+            if (! $sourceImage) {
+                return;
+            }
         }
 
         $origWidth = imagesx($sourceImage);

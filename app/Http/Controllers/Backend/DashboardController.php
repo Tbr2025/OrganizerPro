@@ -31,7 +31,7 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->hasRole('Team Manager') && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+        if ($user->hasRole('Team Manager') && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
             return redirect()->route('team-manager.dashboard');
         }
 
@@ -65,7 +65,7 @@ class DashboardController extends Controller
         $teamCount = $isSuperadmin ? ActualTeam::count() : ActualTeam::where('organization_id', $orgId)->count();
         $playerCount = $isSuperadmin
             ? Player::count()
-            : Player::whereHas('actualTeam', fn($q) => $q->where('organization_id', $orgId))->count();
+            : Player::whereHas('actualTeam', fn ($q) => $q->where('organization_id', $orgId))->count();
 
         // Recent registrations
         $registrationQuery = $isSuperadmin
@@ -115,7 +115,7 @@ class DashboardController extends Controller
                 // Superadmin multi-tenant data
                 'is_superadmin' => $isSuperadmin,
                 'organizations' => $isSuperadmin ? Organization::withCount(['tournaments', 'actualTeams'])->get() : collect(),
-                'org_name' => !$isSuperadmin && $orgId ? Organization::find($orgId)?->name : null,
+                'org_name' => ! $isSuperadmin && $orgId ? Organization::find($orgId)?->name : null,
 
                 // Original stats
                 'total_users' => number_format($isSuperadmin ? User::count() : User::where('organization_id', $orgId)->count()),

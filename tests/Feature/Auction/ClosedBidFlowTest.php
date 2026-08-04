@@ -11,10 +11,12 @@ use App\Models\Player;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Concerns\CreatesAuctionScenario;
 use Tests\TestCase;
 
 class ClosedBidFlowTest extends TestCase
 {
+    use CreatesAuctionScenario;
     use RefreshDatabase;
 
     private Organization $org;
@@ -24,12 +26,15 @@ class ClosedBidFlowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->org = Organization::create(['name' => 'Org']);
-        $this->auction = Auction::create([
-            'name' => 'Closed Auction', 'status' => 'scheduled',
-            'max_budget_per_team' => 1000, 'organization_id' => $this->org->id, 'bid_type' => 'closed',
+        $this->org = $this->makeOrganization();
+        $this->auction = $this->makeAuction($this->org, [
+            'name' => 'Closed Auction',
+            'status' => 'scheduled',
+            'max_budget_per_team' => 1000,
+            'bid_type' => 'closed',
         ]);
-        $this->user = User::factory()->create(['organization_id' => $this->org->id]);
+        // Awarding a sealed bid requires `auction.edit`.
+        $this->user = $this->makeAuctionOperator($this->org);
     }
 
     private function team(string $name): ActualTeam

@@ -10,7 +10,6 @@ use App\Models\Tournament;
 use App\Models\User;
 use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class TeamController extends Controller
 {

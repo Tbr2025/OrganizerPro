@@ -148,7 +148,7 @@
         </div>
 
         {{-- Per-player collapsible sections --}}
-        @foreach($auction->auctionPlayers->sortBy(fn($ap) => $ap->bids->min('created_at') ?? now()) as $ap)
+        @foreach($auction->auctionPlayers->sortBy(fn($ap) => $ap->liveBids->min('created_at') ?? now()) as $ap)
             @php
                 $bids = $playerBidData[$ap->id] ?? [];
                 $isSold = $ap->status === 'sold';
@@ -420,14 +420,10 @@
 
             formatCurrency(points) {
                 points = Number(points) || 0;
-                const isNegative = points < 0;
-                const absPoints = Math.abs(points);
-                let formattedValue;
-                if (absPoints >= 10000000) formattedValue = (absPoints / 10000000).toFixed(2).replace(/\.00$/, '') + ' Cr';
-                else if (absPoints >= 100000) formattedValue = (absPoints / 100000).toFixed(2).replace(/\.00$/, '') + ' L';
-                else if (absPoints >= 1000) formattedValue = (absPoints / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-                else formattedValue = new Intl.NumberFormat('en-IN').format(absPoints);
-                return `${isNegative ? '-' : ''}${formattedValue}`;
+                // Shared K/M/B formatter with this auction's unit.
+                return window.auctionAmount
+                    ? window.auctionAmount(points, {!! json_encode($auction->amountUnitConfig()) !!})
+                    : String(Number(points) || 0);
             }
         }
     }

@@ -34,7 +34,8 @@ class TournamentRegistrationController extends Controller
 {
     public function __construct(
         private readonly RegistrationService $registrationService
-    ) {}
+    ) {
+    }
 
     public function index(Tournament $tournament, Request $request): View
     {
@@ -130,8 +131,8 @@ class TournamentRegistrationController extends Controller
 
         if ($tournamentType !== '' && $type === 'player') {
             $filteredTeamIds = ActualTeam::where(function ($q) use ($tournamentType) {
-                $q->whereHas('tournament', fn($sub) => $sub->where('type', $tournamentType))
-                  ->orWhereHas('tournaments', fn($sub) => $sub->where('tournaments.type', $tournamentType));
+                $q->whereHas('tournament', fn ($sub) => $sub->where('type', $tournamentType))
+                  ->orWhereHas('tournaments', fn ($sub) => $sub->where('tournaments.type', $tournamentType));
             })->pluck('id');
             if ($tournamentType === 'others') {
                 $query->whereNull('players.actual_team_id')
@@ -249,13 +250,13 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        if (!$registration->isPending() && !$registration->isQueued()) {
+        if (! $registration->isPending() && ! $registration->isQueued()) {
             $msg = __('This registration has already been processed.');
             return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
 
         // Check verification status for player registrations
-        if ($registration->isPlayerRegistration() && !$request->input('confirm_unverified')) {
+        if ($registration->isPlayerRegistration() && ! $request->input('confirm_unverified')) {
             $status = $this->getVerificationStatus($registration);
             if ($status['verified_pct'] < 100) {
                 if ($request->expectsJson()) {
@@ -295,7 +296,7 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        if (!$registration->isPending() && !$registration->isQueued()) {
+        if (! $registration->isPending() && ! $registration->isQueued()) {
             $msg = __('This registration has already been processed.');
             return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
@@ -318,7 +319,7 @@ class TournamentRegistrationController extends Controller
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
-        if (!$registration->isPending()) {
+        if (! $registration->isPending()) {
             $msg = __('Only pending registrations can be queued.');
             return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
@@ -342,7 +343,7 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.edit']);
 
-        if (!$registration->isPending() && !$registration->isQueued()) {
+        if (! $registration->isPending() && ! $registration->isQueued()) {
             $msg = __('Only pending or queued registrations can be cancelled.');
             return $request->expectsJson() ? response()->json(['error' => $msg], 422) : redirect()->back()->with('error', $msg);
         }
@@ -468,7 +469,7 @@ class TournamentRegistrationController extends Controller
             if ($user) {
                 $tempPassword = Str::random(10);
                 $user->update(['password' => Hash::make($tempPassword)]);
-                if (!$user->hasRole('Player')) {
+                if (! $user->hasRole('Player')) {
                     $user->assignRole('Player');
                 }
             }
@@ -647,7 +648,7 @@ class TournamentRegistrationController extends Controller
         $user->update(['password' => Hash::make($tempPassword)]);
 
         // Ensure the user has the Player role so they can log in properly
-        if (!$user->hasRole('Player')) {
+        if (! $user->hasRole('Player')) {
             $user->assignRole('Player');
         }
 
@@ -680,14 +681,18 @@ class TournamentRegistrationController extends Controller
 
             $role = $user->pivot->role ?? 'Player';
             if (in_array($role, ['Owner', 'Manager'], true)) {
-                if (!$user->hasRole('Team Manager')) {
+                if (! $user->hasRole('Team Manager')) {
                     $user->assignRole('Team Manager');
                 }
                 Mail::to($user->email)->send(new TeamManagerCredentialsMail(
-                    $user, $tempPassword, $tournament, $team, $role === 'Owner' ? 'Team Owner' : 'Team Manager'
+                    $user,
+                    $tempPassword,
+                    $tournament,
+                    $team,
+                    $role === 'Owner' ? 'Team Owner' : 'Team Manager'
                 ));
             } else {
-                if (!$user->hasRole('Player')) {
+                if (! $user->hasRole('Player')) {
                     $user->assignRole('Player');
                 }
                 Mail::to($user->email)->send(new PlayerCredentialsMail($user, $tempPassword, $tournament));
@@ -754,7 +759,7 @@ class TournamentRegistrationController extends Controller
 
         // Notify the player via email
         $email = $player->email;
-        if ($email && !empty($changeSummary)) {
+        if ($email && ! empty($changeSummary)) {
             try {
                 Mail::to($email)->send(new ProfileChangesApprovedMail($tournament, $registration, $changeSummary));
             } catch (\Throwable $e) {
@@ -811,7 +816,7 @@ class TournamentRegistrationController extends Controller
 
         // Notify the player via email
         $email = $player?->email;
-        if ($email && !empty($changeSummary)) {
+        if ($email && ! empty($changeSummary)) {
             try {
                 Mail::to($email)->send(new ProfileChangesRejectedMail($tournament, $registration, $changeSummary));
             } catch (\Throwable $e) {
@@ -871,13 +876,13 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.view']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
-        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+        abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
         $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
         $settings = $tournament->settings;
 
         $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_WELCOME_CARD);
-        if (!$template) {
+        if (! $template) {
             return back()->with('error', __('No welcome card template found. Please create one first.'));
         }
 
@@ -918,13 +923,13 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.view']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
-        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+        abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
         $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
         $settings = $tournament->settings;
 
         $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_WELCOME_CARD);
-        if (!$template) {
+        if (! $template) {
             return response()->json(['error' => 'No welcome card template found.'], 404);
         }
 
@@ -961,13 +966,13 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.view']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
-        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+        abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
         $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
         $settings = $tournament->settings;
 
         $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_RETAINED_WELCOME_CARD);
-        if (!$template) {
+        if (! $template) {
             return back()->with('error', __('No retained welcome card template found. Please create one first.'));
         }
 
@@ -1008,13 +1013,13 @@ class TournamentRegistrationController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['tournament.view']);
         abort_if($registration->tournament_id !== $tournament->id, 404);
-        abort_if(!$registration->isPlayerRegistration() || !$registration->player, 404);
+        abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
         $player = $registration->player->load(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam']);
         $settings = $tournament->settings;
 
         $template = $tournament->getTemplate(\App\Models\TournamentTemplate::TYPE_RETAINED_WELCOME_CARD);
-        if (!$template) {
+        if (! $template) {
             return response()->json(['error' => 'No retained welcome card template found.'], 404);
         }
 
@@ -1072,7 +1077,9 @@ class TournamentRegistrationController extends Controller
 
         foreach ($layout as $sec) {
             foreach ($sec['fields'] as $fk) {
-                if (in_array($fk, $skip, true)) continue;
+                if (in_array($fk, $skip, true)) {
+                    continue;
+                }
                 $totalCount++;
                 $allFieldKeys[] = $fk;
                 if (in_array($fk, $verifiedFields, true)) {

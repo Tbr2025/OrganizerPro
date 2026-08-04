@@ -102,24 +102,56 @@ if (! function_exists('filter_is_active')) {
     }
 }
 
-if (! function_exists('format_millions')) {
+if (! function_exists('format_points')) {
     /**
-     * Format a raw currency amount as a millions figure with an "M" suffix.
+     * Format a raw amount on the K / M / B ladder — the single money format for
+     * the whole app.
      *
-     * Budgets across the app are stored in whole units (20000000) but always shown
-     * in millions, so 20000000 => "20M", 5500000 => "5.5M", 0 => "0M".
+     * Amounts are stored in whole units and always displayed abbreviated, never
+     * with long runs of zeros: 50000 => "50K", 1500000 => "1.5M",
+     * 20000000 => "20M", 2500000000 => "2.5B".
+     *
      * A null/empty value means "not applicable / not configured" and returns the
-     * placeholder instead of a misleading "0M".
+     * placeholder rather than a misleading "0".
      */
-    function format_millions(int|float|string|null $value, string $placeholder = '—'): string
+    function format_points(int|float|string|null $value, string $placeholder = '—'): string
     {
         if ($value === null || $value === '') {
             return $placeholder;
         }
 
-        $millions = ((float) $value) / 1000000;
+        $amount = (float) $value;
+        $sign = $amount < 0 ? '-' : '';
+        $abs = abs($amount);
 
-        return rtrim(rtrim(number_format($millions, 2), '0'), '.') . 'M';
+        // PHP_FLOAT_MAX is the "no budget cap" sentinel for open tournaments.
+        if ($abs >= 1.0e15) {
+            return '∞';
+        }
+
+        [$divisor, $suffix] = match (true) {
+            $abs >= 1.0e9 => [1.0e9, 'B'],
+            $abs >= 1.0e6 => [1.0e6, 'M'],
+            $abs >= 1.0e3 => [1.0e3, 'K'],
+            default => [1.0, ''],
+        };
+
+        $scaled = $abs / $divisor;
+        // Two decimals at most, and no trailing zeros: 1.50M => "1.5M", 20.00M => "20M".
+        $formatted = rtrim(rtrim(number_format($scaled, 2, '.', ''), '0'), '.');
+
+        return $sign . $formatted . $suffix;
+    }
+}
+
+if (! function_exists('format_millions')) {
+    /**
+     * @deprecated Use format_points(), which uses the same K/M/B ladder as the
+     * rest of the app. Kept as an alias so existing call sites keep working.
+     */
+    function format_millions(int|float|string|null $value, string $placeholder = '—'): string
+    {
+        return format_points($value, $placeholder);
     }
 }
 

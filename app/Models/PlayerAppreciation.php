@@ -34,4 +34,3 @@ class PlayerAppreciation extends Model
         return $this->belongsTo(Tournament::class);
     }
 }
-

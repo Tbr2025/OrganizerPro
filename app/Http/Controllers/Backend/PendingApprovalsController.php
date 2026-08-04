@@ -39,7 +39,9 @@ class PendingApprovalsController extends Controller
         $totalPending = TournamentRegistration::whereNotNull('pending_changes')->count();
 
         return view('backend.pages.pending-approvals.index', compact(
-            'registrations', 'tournaments', 'totalPending'
+            'registrations',
+            'tournaments',
+            'totalPending'
         ));
     }
 }

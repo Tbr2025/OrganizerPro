@@ -19,8 +19,6 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
 
 class PlayerProfileController extends Controller
 {
@@ -56,7 +54,6 @@ class PlayerProfileController extends Controller
     //     ]);
     // }
 
-
     public function edit()
     {
         $user = Auth::user();
@@ -64,12 +61,12 @@ class PlayerProfileController extends Controller
         // Get the related player model
         $player = $user->player;
 
-        if (!$player) {
+        if (! $player) {
             abort(404, 'Player profile not found.');
         }
 
         // Allow Player, Team Manager, and Team Owner roles (managers register as players too)
-        if (!$user->hasAnyRole(['Player', 'Team Manager', 'Team Owner'])) {
+        if (! $user->hasAnyRole(['Player', 'Team Manager', 'Team Owner'])) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -153,7 +150,6 @@ class PlayerProfileController extends Controller
             'verifiedFields' => $verifiedFields,
         ]);
     }
-
 
     public function update(Request $request)
     {
@@ -239,7 +235,7 @@ class PlayerProfileController extends Controller
 
         // Image: the AJAX upload already stored the file; only treat it as a change
         // when a valid path was submitted (or an explicit clear).
-        if (!empty($validated['image_path']) && is_string($validated['image_path'])) {
+        if (! empty($validated['image_path']) && is_string($validated['image_path'])) {
             if (! Storage::disk('public')->exists($validated['image_path'])) {
                 unset($validated['image_path']);
             }

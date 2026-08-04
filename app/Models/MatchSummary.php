@@ -85,7 +85,7 @@ class MatchSummary extends Model
 
     public function hasHighlights(): bool
     {
-        return !empty($this->highlights);
+        return ! empty($this->highlights);
     }
 
     public function getHighlightsCountAttribute(): int

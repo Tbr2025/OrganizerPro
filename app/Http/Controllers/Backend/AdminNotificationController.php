@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Auth;
 
 class AdminNotificationController extends Controller
 {
-
     public function index(Request $request)
     {
         $notifications = auth()->user()
@@ -40,7 +39,7 @@ class AdminNotificationController extends Controller
 
         return response()->json([
             'count' => $notifications->count(),
-            'notifications' => $notifications
+            'notifications' => $notifications,
         ]);
     }
     public function markAsRead($id)

@@ -8,11 +8,11 @@ use App\Http\Controllers\Backend\ActualTeamController;
 use App\Http\Controllers\Backend\AdminNotificationController;
 use App\Http\Controllers\Backend\AppreciationController;
 use App\Http\Controllers\Backend\AuctionAdminController;
+use App\Http\Controllers\Backend\AuctionAllotmentController;
 use App\Http\Controllers\Backend\AuctionPoolController;
 use App\Http\Controllers\Backend\AuctionBiddingController;
 use App\Http\Controllers\Backend\AuctionTemplateController;
 use App\Http\Controllers\Backend\AuctionController;
-use App\Http\Controllers\Backend\AuctionLiveController;
 use App\Http\Controllers\Backend\AuctionOrganizerController;
 use App\Http\Controllers\Backend\Auth\ScreenshotGeneratorLoginController;
 use App\Http\Controllers\Backend\BackupController;
@@ -95,13 +95,7 @@ Route::get('/pricing', [\App\Http\Controllers\Public\PricingController::class, '
  * Admin routes.
  */
 
-
-
-
-
 Route::get('admin/players/sample-csv', [PlayerController::class, 'downloadSampleCsv'])->name('players.sample');
-
-
 
 Route::get('/player-dashboard', [BackendPlayerDashboardController::class, 'index'])
     ->name('player-dashboard')
@@ -145,10 +139,24 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/auctions/{auction}/pools/assign', [AuctionPoolController::class, 'assign'])->name('auctions.pools.assign');
     Route::post('/auctions/{auction}/pools/unassign', [AuctionPoolController::class, 'unassign'])->name('auctions.pools.unassign');
     Route::post('/auctions/{auction}/pools/auto-assign', [AuctionPoolController::class, 'autoAssign'])->name('auctions.pools.auto-assign');
+    // Undo the last auto-assign run — it sweeps every unassigned player at once, so a
+    // mistaken run needs one way back rather than manual unpicking.
+    Route::post('/auctions/{auction}/pools/auto-assign/revert', [AuctionPoolController::class, 'revertAutoAssign'])->name('auctions.pools.auto-assign.revert');
     Route::post('/auctions/{auction}/pools', [AuctionPoolController::class, 'store'])->name('auctions.pools.store');
     Route::put('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'update'])->name('auctions.pools.update');
     Route::delete('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'destroy'])->name('auctions.pools.destroy');
     Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
+    // Release held player emails by hand — the safety net when no queue worker is running.
+    Route::post('/auctions/{auction}/emails/flush', [AuctionAdminController::class, 'flushEmails'])->name('auctions.emails.flush');
+    // Read back what was sent, held, or suppressed — test mode is only useful if visible.
+    Route::get('/auctions/{auction}/emails', [AuctionAdminController::class, 'emailOutbox'])->name('auctions.emails.index');
+    Route::post('/auctions/{auction}/emails/retry', [AuctionAdminController::class, 'retryEmails'])->name('auctions.emails.retry');
+
+    // Final allotment: place unsold players with teams that are short of a squad.
+    Route::get('/auctions/{auction}/allotment', [AuctionAllotmentController::class, 'index'])->name('auctions.allotment');
+    Route::post('/auctions/{auction}/allotment/allot', [AuctionAllotmentController::class, 'allot'])->name('auctions.allotment.allot');
+    Route::get('/auctions/{auction}/allotment/preview', [AuctionAllotmentController::class, 'preview'])->name('auctions.allotment.preview');
+    Route::post('/auctions/{auction}/allotment/auto', [AuctionAllotmentController::class, 'autoDistribute'])->name('auctions.allotment.auto');
     Route::delete('/auctions/{auction}/branding-image', [AuctionAdminController::class, 'removeBrandingImage'])->name('auctions.branding.remove');
 
     Route::post('/auctions/{auction}/players/{player}', [AuctionAdminController::class, 'addPlayerToPool'])->name('auctions.players.add');
@@ -167,7 +175,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     // Route::post('/auctions-closed-bids/{id}/update-final-price', [ClosedBidController::class, 'updateFinalPrice']);
 
-
     Route::delete('/auctions/{auction}/clear-pool', [AuctionAdminController::class, 'clearPool'])->name('auctions.clear-pool');
     Route::delete('/auctions/remove-player/{auctionPlayer}', [AuctionAdminController::class, 'removePlayer'])->name('auctions.remove-player');
     Route::post('/auctions/assign-player', [AuctionAdminController::class, 'assignPlayer'])->name('auctions.assign-player');
@@ -175,11 +182,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('/auctions/{auction}/latest-players', [AuctionAdminController::class, 'fetchPlayers'])
         ->name('admin.auctions.latest-players');
 
-
     // routes/web.php
     Route::post('/auction/{auction}/player/{player}/toggle-status', [AuctionAdminController::class, 'toggleStatus'])
         ->name('auction.player.toggle-status');
-
 
     Route::post('/auctions/add-bid', [AuctionAdminController::class, 'addBid'])
         ->name('auctions.players.addBid');
@@ -194,7 +199,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('auction-templates/{auctionTemplate}/set-default', [AuctionTemplateController::class, 'setDefault'])->name('auction-templates.set-default');
 });
 
-
 // =====================================================================
 // LIVE AUCTION ROUTES (Kept separate from the main admin group)
 // =====================================================================
@@ -202,7 +206,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 // --- Organizer Control Panel Routes ---
 // URL Prefix: /admin/organizer/auction/{auction}
 // Name Prefix: admin.auction.organizer.
-Route::middleware(['auth'])
+// Running an auction is `auction.edit`, not `auction.view` — a Team Manager holds
+// only `auction.view` and must never reach the control panel. `organizer.access`
+// additionally scopes a pure Organizer to their own tournaments, so one org cannot
+// start, sell in, or end another org's auction.
+Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
     ->prefix('admin/organizer/auction/{auction}')
     ->name('admin.auction.organizer.')
     ->group(function () {
@@ -210,7 +218,6 @@ Route::middleware(['auth'])
         // **FIX**: Added route to SHOW the panel page
         Route::get('/panel', [AuctionOrganizerController::class, 'showPanel'])->name('panel');
         Route::get('/offline-panel', [AuctionOrganizerController::class, 'showOfflinePanel'])->name('offline-panel');
-
 
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/poll-state', [AuctionOrganizerController::class, 'pollState'])->name('poll-state');
@@ -233,6 +240,18 @@ Route::middleware(['auth'])
             Route::post('/start-reauction-round', [AuctionOrganizerController::class, 'startReAuctionRound'])->name('start-reauction-round');
             Route::post('/update-base-price', [AuctionOrganizerController::class, 'updateBasePrice'])->name('player.update-base-price');
             Route::post('/update-auction-base-price', [AuctionOrganizerController::class, 'updateAuctionBasePrice'])->name('auction.update-base-price');
+            // Undo: reverse the last bid / sale / pass / skip.
+            Route::post('/undo', [AuctionOrganizerController::class, 'undoLastAction'])->name('undo');
+            Route::get('/action-log', [AuctionOrganizerController::class, 'actionLog'])->name('action-log');
+
+            // Pool-locked auctioning: run one pool at a time.
+            Route::post('/pools/{pool}/activate', [AuctionOrganizerController::class, 'activatePool'])->name('pool.activate');
+            Route::post('/pools/{pool}/complete', [AuctionOrganizerController::class, 'completePool'])->name('pool.complete');
+            Route::post('/pools/{pool}/toggle-enabled', [AuctionOrganizerController::class, 'togglePoolEnabled'])->name('pool.toggle-enabled');
+
+            // Bid timer.
+            Route::post('/toggle-timer', [AuctionOrganizerController::class, 'toggleTimer'])->name('toggle-timer');
+            Route::post('/timer-expired', [AuctionOrganizerController::class, 'timerExpired'])->name('timer-expired');
         });
 
         // API routes for the panel to call
@@ -242,7 +261,6 @@ Route::middleware(['auth'])
         // Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('api.player.sell');
         // Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('api.player.pass');
     });
-
 
 // --- Team Manager Bidding Routes ---
 // URL Prefix: /team/auction/{auction}
@@ -257,8 +275,9 @@ Route::middleware(['auth'])
 
         // API route for placing a bid
         Route::post('/api/place-bid', [AuctionBiddingController::class, 'placeBid'])->name('api.place-bid');
+        // Authenticated purse poll — the public active-player feed carries no team data.
+        Route::get('/api/purse', [AuctionBiddingController::class, 'pursePoll'])->name('api.purse');
     });
-
 
 // --- Team Manager Dashboard Routes ---
 // URL Prefix: /admin/team-manager
@@ -296,7 +315,6 @@ Route::middleware(['auth'])
         Route::post('/assign-captain', [TeamManagerController::class, 'assignCaptain'])->name('assign-captain');
     });
 
-
 // --- Public Tournaments List ---
 Route::get('/tournaments', [TournamentsListController::class, 'index'])
     ->name('public.tournaments.index');
@@ -308,6 +326,11 @@ Route::get('/auction/{auction}/sold', [PublicAuctionController::class, 'showPubl
     ->name('public.auction.sold');
 Route::get('/auction/{auction}/results', [PublicAuctionController::class, 'showResults'])
     ->name('public.auction.results');
+// Transparent 1920x1080 overlay for a streaming mixer (OBS browser source).
+Route::get('/auction/{auction}/ticker', [PublicAuctionController::class, 'liveTicker'])
+    ->name('public.auction.ticker');
+Route::get('/auction/{auction}/ticker-feed', [PublicAuctionController::class, 'tickerFeed'])
+    ->name('public.auction.ticker-feed');
 // API endpoint for AJAX polling
 Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
@@ -337,8 +360,6 @@ Route::get('/join/{invite_code}/success', [PublicTeamJoinController::class, 'suc
 
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager', 'organizer.access']], function () {
 
-
-
     Route::get('/backups', [BackupController::class, 'index'])->name('backups.index');
     Route::post('/backups/create', [BackupController::class, 'create'])->name('backups.create');
     Route::get('/backups/download', [BackupController::class, 'download'])->name('backups.download');
@@ -358,7 +379,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('/download-log', function () {
         $path = storage_path('logs/laravel.log');
 
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             abort(404, "Log file not found!");
         }
 
@@ -386,8 +407,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         $command = "mysqldump --user={$dbUser} --password=\"{$dbPass}\" --host={$dbHost} --port={$dbPort} --single-transaction {$dbName} > {$filePath}";
 
         // Execute the command
-        $returnVar = NULL;
-        $output = NULL;
+        $returnVar = null;
+        $output = null;
         exec($command, $output, $returnVar);
 
         if ($returnVar !== 0) {
@@ -452,9 +473,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     //     Route::put('/{auction}', [AuctionController::class, 'update'])->name('update');
     //     Route::delete('/{auction}', [AuctionController::class, 'destroy'])->name('destroy');
 
-    //     // Live bidding
-    // Route::get('/{auction}/live', [AuctionLiveController::class, 'index'])->name('live');
-    // Route::post('/{auction}/bid', [AuctionLiveController::class, 'placeBid'])->name('bid');
+    //     // Live bidding — see admin/organizer/auction/{auction}/panel instead.
     // });
 
     // // Auction Settings
@@ -476,7 +495,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/notifications/read/{id}', [AdminNotificationController::class, 'markAsRead'])
         ->name('notifications.read');
     Route::post('notifications/unread/{id}', [AdminNotificationController::class, 'markAsUnread']);
-
 
     Route::post('/notifications/read-all', [AdminNotificationController::class, 'markAllAsRead'])->name('notifications.read.all');
 
@@ -512,9 +530,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('pending-approvals', [\App\Http\Controllers\Backend\PendingApprovalsController::class, 'index'])->name('pending-approvals.index');
     Route::get('requested-changes', [\App\Http\Controllers\Backend\RequestedChangesController::class, 'index'])->name('requested-changes.index');
 
-
-
-
     // Live Ticker Index (must be before resource route)
     Route::get('/matches/live-ticker', [MatchesController::class, 'liveTickerIndex'])->name('matches.live-ticker-index');
 
@@ -534,15 +549,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/{match}/balls', [BallController::class, 'store'])->name('balls.store');
     Route::delete('/matches/{match}/balls/{ball}', [BallController::class, 'destroy'])->name('balls.destroy');
 
-
-
-
     // Option A: Add /admin prefix to match your JS
     Route::post('/matches/{match}/balls/ajax-store', [BallController::class, 'ajaxStore'])
         ->name('balls.ajaxStore');
     Route::get('/matches/{match}/balls/summary', [BallController::class, 'summary'])->name('balls.summary');
     Route::get('/matches/{match}/balls/last', [BallController::class, 'lastBall'])->name('balls.last');
-
 
     Route::get('/matches/{match}/scorecard', [ScorecardController::class, 'show'])->name('matches.scorecard');
 
@@ -561,11 +572,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Route to reject a player
     Route::post('/players/{player}/reject', [PlayerVerificationController::class, 'reject'])->name('players.reject');
 
-
-
-
     Route::prefix('admin/templates')->name('admin.templates.')->group(function () {});
-
 
     Route::resource('image-templates', ImageTemplateController::class)->except(['create', 'edit', 'destroy']);
     Route::get('/image-templates/create', [ImageTemplateController::class, 'create'])->name('image-templates.create');
@@ -574,22 +581,17 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('/image-templates/generate/{player}', [ImageTemplateController::class, 'generateImage'])->name('image-templates.generate-player');
     Route::delete('/image-templates/{image_template}', [ImageTemplateController::class, 'destroy'])->name('image-templates.destroy');
 
-
     Route::get('/background/remove', function () {
         return view('background.remove'); // blade file
     })->name('background.form');
 
-
-
     Route::post('/image-templates/remove', [ImageTemplateController::class, 'removeTemplate'])
         ->name('image-templates.remove');
-
 
     Route::get('image-templates/remove-bg', [ImageTemplateController::class, 'removebg'])->name('image-templates.remove-bg');
     // Optional route to generate output image from a saved template
     Route::post('image-templates/{image_template}/generate', [ImageTemplateController::class, 'generate'])
         ->name('image-templates.generate-template');
-
 
     Route::resource('roles', RolesController::class);
     Route::delete('roles/delete/bulk-delete', [RolesController::class, 'bulkDelete'])->name('roles.bulk-delete');
@@ -682,8 +684,6 @@ Route::group(['prefix' => 'profile', 'as' => 'profile.', 'middleware' => ['auth'
 Route::get('/locale/{lang}', [LocaleController::class, 'switch'])->name('locale.switch');
 Route::get('/screenshot-login/{email}', [ScreenshotGeneratorLoginController::class, 'login'])->middleware('web')->name('screenshot.login');
 
-
-
 Route::get('/player/register', [PublicPlayerController::class, 'showForm'])->name('player.register.form');
 Route::post('/player/register', [PublicPlayerController::class, 'store'])->name('player.register.store');
 Route::post('/background/remove', [ImageTemplateController::class, 'remove'])->name('background.remove');
@@ -714,8 +714,6 @@ Route::post('/email/verification-notification', function (Request $request) {
     return back()->with('message', 'Verification link sent!');
 })->middleware(['auth', 'throttle:6,1'])->name('verification.send');
 
-
-
 Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, $hash) {
     $user = User::findOrFail($id);
 
@@ -729,7 +727,6 @@ Route::get('/email/public-verify/{id}/{hash}', function (Request $request, $id, 
 
     return view('public.player-verified-success'); // ✅ create this Blade file
 })->middleware('signed')->name('public.verification.verify');
-
 
 Route::get('/test-mail', function () {
     \Illuminate\Support\Facades\Mail::raw('Test email from Sportzley via Mailgun! Time: ' . now(), function ($message) {

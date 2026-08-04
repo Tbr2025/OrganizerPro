@@ -180,15 +180,15 @@ class AuctionTemplateController extends Controller
         $oldPositions = $auctionTemplate->element_positions ?? [];
         $newPositions = $validated['element_positions'];
         foreach ($oldPositions as $key => $val) {
-            if (str_starts_with($key, 'custom_image_') && !empty($val['imagePath'])) {
-                if (!isset($newPositions[$key]) || ($newPositions[$key]['imagePath'] ?? '') !== $val['imagePath']) {
+            if (str_starts_with($key, 'custom_image_') && ! empty($val['imagePath'])) {
+                if (! isset($newPositions[$key]) || ($newPositions[$key]['imagePath'] ?? '') !== $val['imagePath']) {
                     Storage::disk('public')->delete($val['imagePath']);
                 }
             }
         }
 
         // If setting as default, unset other defaults of same type
-        if ($request->boolean('is_default') && !$auctionTemplate->is_default) {
+        if ($request->boolean('is_default') && ! $auctionTemplate->is_default) {
             AuctionTemplate::where('type', $validated['type'])
                 ->where('is_default', true)
                 ->where('id', '!=', $auctionTemplate->id)
@@ -221,7 +221,7 @@ class AuctionTemplateController extends Controller
         // Delete custom image files
         $positions = $auctionTemplate->element_positions ?? [];
         foreach ($positions as $key => $val) {
-            if (str_starts_with($key, 'custom_image_') && !empty($val['imagePath'])) {
+            if (str_starts_with($key, 'custom_image_') && ! empty($val['imagePath'])) {
                 Storage::disk('public')->delete($val['imagePath']);
             }
         }
@@ -323,7 +323,9 @@ class AuctionTemplateController extends Controller
                 $positions[$element] = array_filter($positions[$element], function ($v, $k) {
                     // Always keep styling keys even if default
                     $stylingKeys = ['color', 'bgColor', 'opacity', 'bgOpacity', 'borderRadius', 'borderRadiusTL', 'borderRadiusTR', 'borderRadiusBL', 'borderRadiusBR', 'boxShadow', 'textShadow', 'zIndex', 'visible', 'fontWeight', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'margin', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'rotation', 'borderStyle', 'borderColor', 'borderWidth', 'headerBg', 'headerColor', 'rowBg', 'cellColor', 'cellPadding', 'tableBorderColor', 'tableBorderWidth', 'tableColumns'];
-                    if (in_array($k, $stylingKeys)) return true;
+                    if (in_array($k, $stylingKeys)) {
+                        return true;
+                    }
                     return $v !== null && $v !== '';
                 }, ARRAY_FILTER_USE_BOTH);
             }
@@ -407,7 +409,9 @@ class AuctionTemplateController extends Controller
 
                 $data = array_filter($data, function ($v, $k) {
                     $keepKeys = ['color', 'bgColor', 'opacity', 'bgOpacity', 'borderRadius', 'borderRadiusTL', 'borderRadiusTR', 'borderRadiusBL', 'borderRadiusBR', 'boxShadow', 'textShadow', 'zIndex', 'visible', 'fontWeight', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'content', 'shapeType', 'imagePath', 'borderColor', 'borderWidth', 'margin', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'rotation', 'borderStyle'];
-                    if (in_array($k, $keepKeys)) return true;
+                    if (in_array($k, $keepKeys)) {
+                        return true;
+                    }
                     return $v !== null && $v !== '';
                 }, ARRAY_FILTER_USE_BOTH);
 

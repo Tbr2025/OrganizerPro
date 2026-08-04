@@ -14,7 +14,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View; // ✅ Correct import
 
-
 class MatchesController extends Controller
 {
     public function index(Request $request): View
@@ -23,8 +22,8 @@ class MatchesController extends Controller
         $query = Matches::with(['tournament', 'teamA', 'teamB', 'winner', 'ground']);
 
         // Role-based access
-        if (!$user->hasRole('Superadmin')) {
-            if (!$user->hasRole('Admin') && !$user->hasRole('Organizer')) {
+        if (! $user->hasRole('Superadmin')) {
+            if (! $user->hasRole('Admin') && ! $user->hasRole('Organizer')) {
                 $selectedTeamId = session('selected_team_id');
                 $selectedTeam = $selectedTeamId
                     ? $user->actualTeams->firstWhere('id', $selectedTeamId)
@@ -70,9 +69,9 @@ class MatchesController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->whereHas('teamA', fn($q) => $q->where('name', 'like', "%{$search}%"))
-                  ->orWhereHas('teamB', fn($q) => $q->where('name', 'like', "%{$search}%"))
-                  ->orWhereHas('tournament', fn($q) => $q->where('name', 'like', "%{$search}%"))
+                $q->whereHas('teamA', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                  ->orWhereHas('teamB', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                  ->orWhereHas('tournament', fn ($q) => $q->where('name', 'like', "%{$search}%"))
                   ->orWhere('venue', 'like', "%{$search}%");
             });
         }
@@ -164,7 +163,7 @@ class MatchesController extends Controller
             'start_time',
             'end_time',
             'overs',
-            'venue'
+            'venue',
         ]));
         return redirect()->route('admin.matches.index')->with('success', 'Match created successfully.');
     }
@@ -178,7 +177,7 @@ class MatchesController extends Controller
             'winner',
             'tossWinner',
             'matchAwards.player.actualTeam',
-            'matchAwards.tournamentAward'
+            'matchAwards.tournamentAward',
         ]);
 
         // Get current innings from session or default to 1
@@ -195,8 +194,8 @@ class MatchesController extends Controller
             ->get();
 
         // Separate balls by innings (based on batsman team)
-        $innings1Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamAPlayerIds));
-        $innings2Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamBPlayerIds));
+        $innings1Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamAPlayerIds));
+        $innings2Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamBPlayerIds));
 
         // Calculate innings stats
         $innings1Stats = $this->calculateInningsStats($innings1Balls);
@@ -209,7 +208,7 @@ class MatchesController extends Controller
                                 ($innings1Balls->isNotEmpty() && $innings2Balls->isNotEmpty());
 
         // Auto-switch to 2nd innings if 1st is complete and session not set
-        if ($firstInningsComplete && !session()->has('match_innings_' . $match->id)) {
+        if ($firstInningsComplete && ! session()->has('match_innings_' . $match->id)) {
             $currentInnings = 2;
             session(['match_innings_' . $match->id => 2]);
         }
@@ -239,18 +238,28 @@ class MatchesController extends Controller
             $wickets = $ballsInOver->where('is_wicket', 1)->count();
 
             $ballSummary = $ballsInOver->map(function ($ball) {
-                if ($ball->is_wicket) return 'W';
-                if ($ball->extra_type === 'wide') return ($ball->runs + $ball->extra_runs) . 'wd';
-                if ($ball->extra_type === 'no_ball') return ($ball->runs + $ball->extra_runs) . 'nb';
-                if ($ball->extra_type === 'bye') return ($ball->extra_runs) . 'b';
-                if ($ball->extra_type === 'leg_bye') return ($ball->extra_runs) . 'lb';
+                if ($ball->is_wicket) {
+                    return 'W';
+                }
+                if ($ball->extra_type === 'wide') {
+                    return ($ball->runs + $ball->extra_runs) . 'wd';
+                }
+                if ($ball->extra_type === 'no_ball') {
+                    return ($ball->runs + $ball->extra_runs) . 'nb';
+                }
+                if ($ball->extra_type === 'bye') {
+                    return ($ball->extra_runs) . 'b';
+                }
+                if ($ball->extra_type === 'leg_bye') {
+                    return ($ball->extra_runs) . 'lb';
+                }
                 return (string) $ball->runs;
             })->values();
 
             $summary[] = [
-                'over'    => $overNum,
-                'balls'   => $ballSummary,
-                'runs'    => $overRuns,
+                'over' => $overNum,
+                'balls' => $ballSummary,
+                'runs' => $overRuns,
                 'wickets' => $wickets,
             ];
         }
@@ -278,7 +287,7 @@ class MatchesController extends Controller
                 ->diff($outBatsmenIds)->values();
 
             $lastBallRuns = $lastBall->runs + ($lastBall->extra_runs ?? 0);
-            $isEndOfOver = $lastBall->ball_in_over >= 6 && !in_array($lastBall->extra_type, ['wide', 'no_ball']);
+            $isEndOfOver = $lastBall->ball_in_over >= 6 && ! in_array($lastBall->extra_type, ['wide', 'no_ball']);
 
             if ($lastBall->is_wicket) {
                 $needsNewBatsman = true;
@@ -286,7 +295,7 @@ class MatchesController extends Controller
                 $currentNonStriker = $activeBatsmen->first();
             } else {
                 $shouldSwap = ($lastBallRuns % 2 === 1) xor $isEndOfOver;
-                $otherBatsman = $activeBatsmen->filter(fn($id) => $id !== $lastBatsman)->first();
+                $otherBatsman = $activeBatsmen->filter(fn ($id) => $id !== $lastBatsman)->first();
 
                 if ($shouldSwap) {
                     $currentNonStriker = $lastBatsman;
@@ -341,7 +350,7 @@ class MatchesController extends Controller
         $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
         $totalWickets = $balls->where('is_wicket', 1)->count();
 
-        $legalBalls = $balls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+        $legalBalls = $balls->filter(fn ($b) => ! in_array($b->extra_type, ['wide', 'no_ball']))->count();
         $completedOvers = floor($legalBalls / 6);
         $ballsInOver = $legalBalls % 6;
 
@@ -387,8 +396,8 @@ class MatchesController extends Controller
             ->get();
 
         // Separate balls by innings
-        $innings1Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamAPlayerIds));
-        $innings2Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamBPlayerIds));
+        $innings1Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamAPlayerIds));
+        $innings2Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamBPlayerIds));
 
         // Calculate both innings stats for header display
         $innings1Stats = $this->calculateInningsStats($innings1Balls);
@@ -410,11 +419,21 @@ class MatchesController extends Controller
             $wickets = $ballsInOver->where('is_wicket', 1)->count();
 
             $ballSummary = $ballsInOver->map(function ($ball) {
-                if ($ball->is_wicket) return 'W';
-                if ($ball->extra_type === 'wide') return ($ball->runs + $ball->extra_runs) . 'wd';
-                if ($ball->extra_type === 'no_ball') return ($ball->runs + $ball->extra_runs) . 'nb';
-                if ($ball->extra_type === 'bye') return ($ball->extra_runs) . 'b';
-                if ($ball->extra_type === 'leg_bye') return ($ball->extra_runs) . 'lb';
+                if ($ball->is_wicket) {
+                    return 'W';
+                }
+                if ($ball->extra_type === 'wide') {
+                    return ($ball->runs + $ball->extra_runs) . 'wd';
+                }
+                if ($ball->extra_type === 'no_ball') {
+                    return ($ball->runs + $ball->extra_runs) . 'nb';
+                }
+                if ($ball->extra_type === 'bye') {
+                    return ($ball->extra_runs) . 'b';
+                }
+                if ($ball->extra_type === 'leg_bye') {
+                    return ($ball->extra_runs) . 'lb';
+                }
                 return (string) $ball->runs;
             })->values();
 
@@ -446,7 +465,7 @@ class MatchesController extends Controller
             $activeBatsmen = $balls->pluck('batsman_id')->unique()
                 ->diff($outBatsmenIds)->values();
             $lastBallRuns = $lastBall->runs + ($lastBall->extra_runs ?? 0);
-            $isEndOfOver = $lastBall->ball_in_over >= 6 && !in_array($lastBall->extra_type, ['wide', 'no_ball']);
+            $isEndOfOver = $lastBall->ball_in_over >= 6 && ! in_array($lastBall->extra_type, ['wide', 'no_ball']);
 
             if ($lastBall->is_wicket) {
                 $needsNewBatsman = true;
@@ -454,7 +473,7 @@ class MatchesController extends Controller
                 $currentNonStriker = $activeBatsmen->first();
             } else {
                 $shouldSwap = ($lastBallRuns % 2 === 1) xor $isEndOfOver;
-                $otherBatsman = $activeBatsmen->filter(fn($id) => $id !== $lastBatsman)->first();
+                $otherBatsman = $activeBatsmen->filter(fn ($id) => $id !== $lastBatsman)->first();
 
                 if ($shouldSwap) {
                     $currentNonStriker = $lastBatsman;
@@ -489,7 +508,7 @@ class MatchesController extends Controller
         foreach ($batsmanIds as $batsmanId) {
             $playerBalls = $balls->where('batsman_id', $batsmanId);
             $runs = $playerBalls->sum('runs');
-            $ballsFaced = $playerBalls->filter(fn($b) => !in_array($b->extra_type, ['wide']))->count();
+            $ballsFaced = $playerBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide']))->count();
             $fours = $playerBalls->where('runs', 4)->count();
             $sixes = $playerBalls->where('runs', 6)->count();
             $strikeRate = $ballsFaced > 0 ? round(($runs / $ballsFaced) * 100, 2) : 0;
@@ -518,7 +537,7 @@ class MatchesController extends Controller
             $bowlerBalls = $balls->where('bowler_id', $bowlerId);
             $runsConceded = $bowlerBalls->sum('runs') + $bowlerBalls->sum('extra_runs');
             $wickets = $bowlerBalls->where('is_wicket', 1)->count();
-            $legalBalls = $bowlerBalls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+            $legalBalls = $bowlerBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide', 'no_ball']))->count();
             $oversDecimal = floor($legalBalls / 6) + (($legalBalls % 6) / 10);
             $overs = floor($legalBalls / 6) . '.' . ($legalBalls % 6);
             $economy = $oversDecimal > 0 ? round($runsConceded / $oversDecimal, 2) : 0;
@@ -527,7 +546,7 @@ class MatchesController extends Controller
             $maidens = 0;
             $bowlerOvers = $bowlerBalls->groupBy('over');
             foreach ($bowlerOvers as $overBalls) {
-                $legalInOver = $overBalls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+                $legalInOver = $overBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide', 'no_ball']))->count();
                 $runsInOver = $overBalls->sum('runs') + $overBalls->sum('extra_runs');
                 if ($legalInOver >= 6 && $runsInOver === 0) {
                     $maidens++;
@@ -558,13 +577,13 @@ class MatchesController extends Controller
         $partnership = ['runs' => 0, 'balls' => 0];
         if ($currentStriker || $currentNonStriker) {
             // Get last wicket index
-            $lastWicketIndex = $balls->search(fn($b) => $b->is_wicket);
+            $lastWicketIndex = $balls->search(fn ($b) => $b->is_wicket);
             $partnershipBalls = $lastWicketIndex !== false
                 ? $balls->slice($lastWicketIndex + 1)
                 : $balls;
 
             $partnership['runs'] = $partnershipBalls->sum('runs');
-            $partnership['balls'] = $partnershipBalls->filter(fn($b) => !in_array($b->extra_type, ['wide']))->count();
+            $partnership['balls'] = $partnershipBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide']))->count();
         }
 
         // Last wicket info
@@ -738,10 +757,10 @@ class MatchesController extends Controller
         ]);
 
         // Verify the team is part of this match
-        if (!in_array($validated['toss_winner_team_id'], [$match->team_a_id, $match->team_b_id])) {
+        if (! in_array($validated['toss_winner_team_id'], [$match->team_a_id, $match->team_b_id])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid team selected'
+                'message' => 'Invalid team selected',
             ], 422);
         }
 
@@ -760,7 +779,7 @@ class MatchesController extends Controller
                 'toss_winner' => $match->tossWinner?->name,
                 'toss_decision' => $match->toss_decision,
                 'status' => 'live',
-            ]
+            ],
         ]);
     }
 
@@ -861,7 +880,7 @@ class MatchesController extends Controller
         // Fallback to legacy poster services if no templates found
         if (empty($posters)) {
             // Try enhanced match poster (Kerala League style)
-            if (!$match->poster_image || !\Storage::disk('public')->exists($match->poster_image)) {
+            if (! $match->poster_image || ! \Storage::disk('public')->exists($match->poster_image)) {
                 try {
                     $posterService = new \App\Services\Poster\EnhancedMatchPosterService();
                     $posterService->generate($match);
@@ -890,10 +909,10 @@ class MatchesController extends Controller
             // Try legacy summary poster
             if ($match->status === 'completed') {
                 $summary = $match->summary;
-                if (!$summary) {
+                if (! $summary) {
                     $summary = $match->summary()->create(['highlights' => [], 'commentary' => null]);
                 }
-                if (!$summary->summary_poster || !\Storage::disk('public')->exists($summary->summary_poster)) {
+                if (! $summary->summary_poster || ! \Storage::disk('public')->exists($summary->summary_poster)) {
                     try {
                         $summaryPosterService = new \App\Services\Poster\MatchSummaryPosterService();
                         $posterPath = $summaryPosterService->generate($match);
@@ -935,7 +954,7 @@ class MatchesController extends Controller
         $zipPath = storage_path('app/temp/' . $zipFileName);
 
         // Ensure temp directory exists
-        if (!is_dir(storage_path('app/temp'))) {
+        if (! is_dir(storage_path('app/temp'))) {
             mkdir(storage_path('app/temp'), 0755, true);
         }
 
@@ -969,7 +988,7 @@ class MatchesController extends Controller
         $innings = (int) $request->query('innings', 1);
         $tournament = $match->tournament;
 
-        if (!$tournament) {
+        if (! $tournament) {
             return response()->json(['message' => 'Match has no tournament assigned'], 400);
         }
 
@@ -1003,11 +1022,11 @@ class MatchesController extends Controller
         // Get template from database
         $template = $tournament->templates()->find($templateId);
 
-        if (!$template) {
+        if (! $template) {
             return response()->json(['message' => 'Template not found'], 404);
         }
 
-        if (!$template->background_image) {
+        if (! $template->background_image) {
             return response()->json(['message' => 'Template has no background image'], 400);
         }
 
@@ -1137,7 +1156,7 @@ class MatchesController extends Controller
      */
     protected function getTeamCaptain($team): array
     {
-        if (!$team) {
+        if (! $team) {
             return ['name' => '', 'image' => null];
         }
 

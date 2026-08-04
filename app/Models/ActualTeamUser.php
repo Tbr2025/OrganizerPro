@@ -14,7 +14,7 @@ class ActualTeamUser extends Model
         'user_id',
         'role',
     ];
-public function player()
+    public function player()
     {
         return $this->belongsTo(Player::class, 'user_id', 'user_id');
         // local user_id -> players.user_id
@@ -34,5 +34,4 @@ public function player()
         return $this->hasMany(Ball::class, 'bowler_id');
     }
 
-    
 }

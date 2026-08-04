@@ -4,12 +4,19 @@
 
 When asked to deploy, run:
 ```bash
-ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && sudo chown -R ubuntu:ubuntu public/build && npm run build && sudo chmod -R a+rX public/build && sudo chown -R www-data:www-data storage bootstrap/cache && sudo chmod -R 775 storage bootstrap/cache && php artisan optimize:clear"
+ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && sudo chown -R ubuntu:ubuntu public/build && npm run build && sudo chmod -R a+rX public/build && sudo chown -R www-data:www-data storage bootstrap/cache && sudo chmod -R 775 storage bootstrap/cache && php artisan optimize:clear && sudo systemctl restart laravel-queue"
 ```
 
 `public/build` must be owned by **ubuntu** (vite wipes and rewrites the directory as
 the ssh user, and fails with `EACCES: rmdir` if www-data owns it) and left
 world-readable so nginx can serve it. Never chown it to www-data.
+
+### The queue worker must be restarted on every deploy
+`laravel-queue.service` runs `queue:work`, a long-lived PHP process that **holds the
+code it booted with**. Without the restart it keeps running the old classes: a newly
+added job silently fails to resolve, and edits to an existing job have no effect.
+Check it with `sudo systemctl status laravel-queue` and
+`php artisan queue:failed`.
 
 - **Host:** 13.232.249.159
 - **User:** ubuntu

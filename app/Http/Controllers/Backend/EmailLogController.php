@@ -139,7 +139,7 @@ class EmailLogController extends Controller
     {
         $this->checkAuthorization(Auth::user(), ['emaillog.view']);
 
-        if (!$emailLog->isRetryable()) {
+        if (! $emailLog->isRetryable()) {
             return response()->json(['success' => false, 'message' => 'This email cannot be retried.'], 422);
         }
 
@@ -181,7 +181,7 @@ class EmailLogController extends Controller
         $skipped = 0;
 
         foreach (EmailLog::whereIn('id', $ids)->get() as $log) {
-            if (!$log->isRetryable()) {
+            if (! $log->isRetryable()) {
                 $skipped++;
                 continue;
             }

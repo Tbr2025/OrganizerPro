@@ -18,8 +18,8 @@ class BackupController extends Controller
         $backupFiles = Storage::disk('local')->files('backups');
 
         $backups = collect($backupFiles)
-            ->filter(fn($file) => str_ends_with($file, '.sql'))
-            ->sortByDesc(fn($file) => Storage::disk('local')->lastModified($file))
+            ->filter(fn ($file) => str_ends_with($file, '.sql'))
+            ->sortByDesc(fn ($file) => Storage::disk('local')->lastModified($file))
             ->map(function ($file) {
                 return [
                     'name' => basename($file),
@@ -70,13 +70,13 @@ class BackupController extends Controller
     {
         $fileName = $request->get('file');
 
-        if (!$fileName || !preg_match('/^backup-(pre-restore-)?[\d-]+\.sql$/', $fileName)) {
+        if (! $fileName || ! preg_match('/^backup-(pre-restore-)?[\d-]+\.sql$/', $fileName)) {
             return redirect()->back()->with('error', __('Invalid backup file.'));
         }
 
         $path = storage_path('app/backups/' . $fileName);
 
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             return redirect()->back()->with('error', __('Backup file not found.'));
         }
 
@@ -90,13 +90,13 @@ class BackupController extends Controller
     {
         $fileName = $request->input('file');
 
-        if (!$fileName || !preg_match('/^backup-(pre-restore-)?[\d-]+\.sql$/', $fileName)) {
+        if (! $fileName || ! preg_match('/^backup-(pre-restore-)?[\d-]+\.sql$/', $fileName)) {
             return redirect()->back()->with('error', __('Invalid backup file.'));
         }
 
         $filePath = storage_path('app/backups/' . $fileName);
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             return redirect()->back()->with('error', __('Backup file not found.'));
         }
 
@@ -133,7 +133,7 @@ class BackupController extends Controller
 
         exec($command, $output, $returnVar);
 
-        if ($returnVar !== 0 || !file_exists($filePath)) {
+        if ($returnVar !== 0 || ! file_exists($filePath)) {
             Log::error('Database export failed', ['output' => $output, 'code' => $returnVar]);
             @unlink($filePath);
             return redirect()->back()->with('error', __('Export failed. Check server logs for details.'));
@@ -143,7 +143,7 @@ class BackupController extends Controller
         if ($compress) {
             exec(sprintf('gzip -f %s', escapeshellarg($filePath)), $gzOutput, $gzReturn);
 
-            if ($gzReturn !== 0 || !file_exists($filePath . '.gz')) {
+            if ($gzReturn !== 0 || ! file_exists($filePath . '.gz')) {
                 Log::error('Database export compression failed', ['output' => $gzOutput, 'code' => $gzReturn]);
                 @unlink($filePath);
                 @unlink($filePath . '.gz');
@@ -174,14 +174,14 @@ class BackupController extends Controller
         $isGzipped = str_ends_with($originalName, '.gz');
         $isSql = str_ends_with($originalName, '.sql') || str_ends_with($originalName, '.sql.gz');
 
-        if (!$isSql && !$isGzipped) {
+        if (! $isSql && ! $isGzipped) {
             return redirect()->back()->with('error', __('Invalid file. Only .sql or .sql.gz files can be imported.'));
         }
 
         $this->ensureBackupDir();
 
         $importDir = storage_path('app/backups/imports');
-        if (!is_dir($importDir)) {
+        if (! is_dir($importDir)) {
             mkdir($importDir, 0755, true);
         }
 
@@ -216,13 +216,13 @@ class BackupController extends Controller
     {
         $fileName = $request->input('file');
 
-        if (!$fileName || !preg_match('/^backup-(pre-restore-)?[\d-]+\.sql$/', $fileName)) {
+        if (! $fileName || ! preg_match('/^backup-(pre-restore-)?[\d-]+\.sql$/', $fileName)) {
             return redirect()->back()->with('error', __('Invalid backup file.'));
         }
 
         $path = 'backups/' . $fileName;
 
-        if (!Storage::disk('local')->exists($path)) {
+        if (! Storage::disk('local')->exists($path)) {
             return redirect()->back()->with('error', __('Backup file not found.'));
         }
 
@@ -333,7 +333,7 @@ class BackupController extends Controller
     private function ensureBackupDir(): void
     {
         $dirPath = storage_path('app/backups');
-        if (!is_dir($dirPath)) {
+        if (! is_dir($dirPath)) {
             mkdir($dirPath, 0755, true);
         }
     }

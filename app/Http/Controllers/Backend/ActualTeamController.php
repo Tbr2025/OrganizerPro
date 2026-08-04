@@ -16,7 +16,6 @@ use App\Models\TournamentRegistration;
 use App\Models\User;
 use App\Jobs\RemoveImageBackground;
 use App\Models\PlayerType;
-use App\Services\ImageBackgroundRemovalService;
 use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -169,9 +168,8 @@ class ActualTeamController extends Controller
             ];
         }
 
-
         // Reorder: Team Manager's teams first
-        if (!empty($teamManagerTeamIds)) {
+        if (! empty($teamManagerTeamIds)) {
             $sortedTeams = $actualTeams->getCollection()->sortByDesc(function ($team) use ($teamManagerTeamIds) {
                 return in_array($team->id, $teamManagerTeamIds) ? 1 : 0;
             });
@@ -186,7 +184,6 @@ class ActualTeamController extends Controller
             );
         }
 
-
         return view('backend.pages.actual_teams.index', compact(
             'actualTeams',
             'organizations',
@@ -196,15 +193,13 @@ class ActualTeamController extends Controller
         ));
     }
 
-
-
     public function create()
     {
         // 1. Get the currently authenticated user
         $user = Auth::user();
 
         // Safety check: if no user is logged in, deny access.
-        if (!$user) {
+        if (! $user) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -217,7 +212,7 @@ class ActualTeamController extends Controller
             // For any OTHER user (Admin, Organizer, etc.), scope the data by their organization_id.
 
             // Safety check: ensure the non-admin user is actually assigned to an organization.
-            if (!$user->organization_id) {
+            if (! $user->organization_id) {
                 // If not, they can't create a team. Redirect back with an informative error.
                 return redirect()->back()->with('error', 'You are not assigned to an organization and cannot create a team.');
             }
@@ -239,20 +234,20 @@ class ActualTeamController extends Controller
         $teamScope = $request->input('team_scope', 'tournament');
 
         $rules = [
-            'organization_id'  => 'required|exists:organizations,id',
-            'name'             => 'required|string|max:255|unique:actual_teams,name',
-            'team_logo'        => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'short_name'       => 'nullable|string|max:50',
-            'location'         => 'nullable|string|max:100',
-            'primary_color'    => 'nullable|string|max:7',
-            'secondary_color'  => 'nullable|string|max:7',
-            'sponsor_logo'     => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'captain_image'    => 'nullable|string|max:500',
-            'team_scope'       => 'required|in:tournament,global',
+            'organization_id' => 'required|exists:organizations,id',
+            'name' => 'required|string|max:255|unique:actual_teams,name',
+            'team_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'short_name' => 'nullable|string|max:50',
+            'location' => 'nullable|string|max:100',
+            'primary_color' => 'nullable|string|max:7',
+            'secondary_color' => 'nullable|string|max:7',
+            'sponsor_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'captain_image' => 'nullable|string|max:500',
+            'team_scope' => 'required|in:tournament,global',
         ];
 
         if ($teamScope === 'tournament') {
-            $rules['tournament_ids']   = 'required|array|min:1';
+            $rules['tournament_ids'] = 'required|array|min:1';
             $rules['tournament_ids.*'] = 'exists:tournaments,id';
         }
 
@@ -314,7 +309,9 @@ class ActualTeamController extends Controller
         $approvedPlayers = collect();
         if ($actualTeam->tournament_id) {
             $playerTypeIds = [1, 2, 3, 4, 5, 6]; // Batsman, Bowler, All-Rounder, Captain, Vice-Captain, Substitute
-            $approvedPlayers = Player::whereHas('registrations', fn($q) =>
+            $approvedPlayers = Player::whereHas(
+                'registrations',
+                fn ($q) =>
                 $q->where('tournament_id', $actualTeam->tournament_id)
                   ->where('status', 'approved')
                   ->where('type', 'player')
@@ -350,7 +347,6 @@ class ActualTeamController extends Controller
     //     $actualTeam->load('users');
     //     $currentMembers = $actualTeam->users;
     //     $currentTeamUserIds = $currentMembers->pluck('id')->toArray();
-
 
     //     $currentPlayerMembers = $currentMembers->filter(function ($member) {
     //         // Check if the user has the 'Player' role in the current team context
@@ -391,7 +387,6 @@ class ActualTeamController extends Controller
     //         });
     //     });
 
-
     //     // Apply role-based scoping (Superadmin vs. regular user)
     //     if (auth()->user()->hasRole('Superadmin')) {
     //         // Superadmin sees all eligible users not on a team.
@@ -422,12 +417,11 @@ class ActualTeamController extends Controller
     //     ));
     // }
 
-
     public function edit(ActualTeam $actualTeam)
     {
         // Authorization check
         if (
-            !auth()->user()->hasRole('Superadmin') &&
+            ! auth()->user()->hasRole('Superadmin') &&
             $actualTeam->organization_id !== auth()->user()->organization_id
         ) {
             abort(403, 'You are not authorized to edit this team.');
@@ -453,9 +447,8 @@ class ActualTeamController extends Controller
             'Viewer',
             'Editor',
             'Admin',
-            'SuperAdmin'
+            'SuperAdmin',
         ])->get();
-
 
         // --- Get CURRENT Members with their PIVOT data ---
         // This fetches all users linked to the actualTeam via the pivot table,
@@ -473,7 +466,6 @@ class ActualTeamController extends Controller
             // We should also check for the existence of the pivot data
             return $member->pivot && $member->pivot->role !== 'Player';
         });
-
 
         // --- Logic to get AVAILABLE Users ---
 
@@ -553,7 +545,7 @@ class ActualTeamController extends Controller
                 ->with('player.user')
                 ->get()
                 ->map(fn ($reg) => $reg->player->user)
-                ->filter(fn ($user) => !in_array($user->id, $currentMemberIds))
+                ->filter(fn ($user) => ! in_array($user->id, $currentMemberIds))
                 ->unique('id')
                 ->values();
         }
@@ -561,7 +553,7 @@ class ActualTeamController extends Controller
         // Get current tournament IDs from pivot (for multi-select)
         $selectedTournamentIds = $actualTeam->tournaments()->pluck('tournaments.id')->toArray();
         // Ensure primary tournament_id is included
-        if ($actualTeam->tournament_id && !in_array($actualTeam->tournament_id, $selectedTournamentIds)) {
+        if ($actualTeam->tournament_id && ! in_array($actualTeam->tournament_id, $selectedTournamentIds)) {
             $selectedTournamentIds[] = $actualTeam->tournament_id;
         }
 
@@ -583,7 +575,7 @@ class ActualTeamController extends Controller
         $allTeamsForTournaments = [];
         foreach ($effectiveTournaments as $t) {
             $allTeamsForTournaments[$t->id] = ActualTeam::where(function ($q) use ($t) {
-                $q->whereHas('tournaments', fn($sub) => $sub->where('tournaments.id', $t->id))
+                $q->whereHas('tournaments', fn ($sub) => $sub->where('tournaments.id', $t->id))
                   ->orWhere('tournament_id', $t->id)
                   ->orWhere(function ($sub) use ($t) {
                       $sub->where('is_global', true)->where('organization_id', $t->organization_id);
@@ -594,29 +586,29 @@ class ActualTeamController extends Controller
         // Build squad players JSON for the roster "From Squad" picker
         // Includes current squad members + available users who have player records
         $squadPlayersFromMembers = $currentPlayerMembers
-            ->filter(fn($m) => $m->player)
-            ->map(fn($m) => [
+            ->filter(fn ($m) => $m->player)
+            ->map(fn ($m) => [
                 'id' => $m->player->id,
                 'user_id' => $m->id,
                 'name' => $m->name,
                 'email' => $m->email,
                 'phone' => $m->player->mobile_number_full ?? '',
                 'image' => $m->player->image_path ? asset('storage/' . $m->player->image_path) : null,
-                'roles' => $m->roles->pluck('name')->reject(fn($r) => in_array($r, ['Superadmin', 'Admin']))->values()->toArray(),
+                'roles' => $m->roles->pluck('name')->reject(fn ($r) => in_array($r, ['Superadmin', 'Admin']))->values()->toArray(),
                 'player_type' => $m->player->playerType?->type,
                 'status' => $m->player->status,
             ]);
 
         $squadPlayersFromAvailable = $availableUsers
-            ->filter(fn($u) => $u->player)
-            ->map(fn($u) => [
+            ->filter(fn ($u) => $u->player)
+            ->map(fn ($u) => [
                 'id' => $u->player->id,
                 'user_id' => $u->id,
                 'name' => $u->name,
                 'email' => $u->email,
                 'phone' => $u->player->mobile_number_full ?? '',
                 'image' => $u->player->image_path ? asset('storage/' . $u->player->image_path) : null,
-                'roles' => $u->roles->pluck('name')->reject(fn($r) => in_array($r, ['Superadmin', 'Admin']))->values()->toArray(),
+                'roles' => $u->roles->pluck('name')->reject(fn ($r) => in_array($r, ['Superadmin', 'Admin']))->values()->toArray(),
                 'player_type' => $u->player->playerType?->type,
                 'status' => $u->player->status,
             ]);
@@ -675,7 +667,7 @@ class ActualTeamController extends Controller
         ];
 
         if ($teamScope === 'tournament') {
-            $rules['tournament_ids']   = 'required|array|min:1';
+            $rules['tournament_ids'] = 'required|array|min:1';
             $rules['tournament_ids.*'] = 'exists:tournaments,id';
         }
 
@@ -764,19 +756,17 @@ class ActualTeamController extends Controller
         return redirect()->back()->with('success', 'Team details, roster, and player statuses updated successfully.');
     }
 
-
     public function destroy(ActualTeam $actualTeam)
     {
         $actualTeam->delete();
         return redirect()->route('admin.actual-teams.index')->with('success', 'Actual Team deleted successfully.');
     }
 
-
     public function addMember(Request $request, ActualTeam $actualTeam)
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'roles'   => 'required|array|min:1',
+            'roles' => 'required|array|min:1',
             'roles.*' => 'string',
             // Allow "retained" or "normal" string, or boolean
             'retained' => 'nullable|string|in:retained,normal,true,false,1,0',
@@ -810,7 +800,7 @@ class ActualTeamController extends Controller
                     ->where('player_mode', 'retained')
                     ->exists();
 
-                if (!$alreadyRetained && $retainedCount >= 4) {
+                if (! $alreadyRetained && $retainedCount >= 4) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Maximum 4 retained players are allowed per team.',
@@ -846,7 +836,7 @@ class ActualTeamController extends Controller
             DB::table('actual_team_users')->updateOrInsert(
                 [
                     'actual_team_id' => $actualTeam->id,
-                    'user_id'        => $userId,
+                    'user_id' => $userId,
                 ],
                 ['role' => $pivotRole, 'created_at' => now(), 'updated_at' => now()]
             );
@@ -868,7 +858,7 @@ class ActualTeamController extends Controller
 
                     $player->player_mode = $isRetained ? 'retained' : 'normal';
                     // Only set home team if player doesn't already have one
-                    if (!$player->actual_team_id) {
+                    if (! $player->actual_team_id) {
                         $player->actual_team_id = $actualTeam->id;
                     }
                     $player->save();
@@ -878,13 +868,13 @@ class ActualTeamController extends Controller
                     foreach ($effectiveTournaments as $tournament) {
                         DB::table('player_actual_team_tournament')->updateOrInsert(
                             [
-                                'player_id'     => $player->id,
+                                'player_id' => $player->id,
                                 'tournament_id' => $tournament->id,
                             ],
                             [
                                 'actual_team_id' => $actualTeam->id,
-                                'updated_at'     => now(),
-                                'created_at'     => now(),
+                                'updated_at' => now(),
+                                'created_at' => now(),
                             ]
                         );
                     }
@@ -911,12 +901,12 @@ class ActualTeamController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Member added successfully.',
-                'user'    => [
-                    'id'       => $userId,
-                    'name'     => $userData->name,
-                    'email'    => $userData->email,
-                    'roles'    => $userData->roles->pluck('name')->toArray(),
-                    'avatar'   => $avatarUrl,
+                'user' => [
+                    'id' => $userId,
+                    'name' => $userData->name,
+                    'email' => $userData->email,
+                    'roles' => $userData->roles->pluck('name')->toArray(),
+                    'avatar' => $avatarUrl,
                     'retained' => $isRetained ? 'retained' : 'normal',
                 ],
             ]);
@@ -930,9 +920,6 @@ class ActualTeamController extends Controller
             ], 500);
         }
     }
-
-
-
 
     /**
      * Removes a member from the actual team.
@@ -954,7 +941,7 @@ class ActualTeamController extends Controller
                 ->where('user_id', $userId)
                 ->exists();
 
-            if (!$isMember) {
+            if (! $isMember) {
                 return response()->json([
                     'success' => false,
                     'message' => 'User is not a member of this team.',
@@ -962,7 +949,7 @@ class ActualTeamController extends Controller
             }
 
             // Fetch user roles before detaching
-            $userRoles = $user->roles->pluck('name')->map(fn($r) => strtolower($r))->toArray();
+            $userRoles = $user->roles->pluck('name')->map(fn ($r) => strtolower($r))->toArray();
             $isPlayer = in_array('player', $userRoles);
 
             // 2. Detach from pivot
@@ -971,7 +958,7 @@ class ActualTeamController extends Controller
             // 3. If user is player, reset player data
             if ($isPlayer && $user->player) {
                 $user->player->update([
-                    'player_mode'    => 'unassigned', // or default
+                    'player_mode' => 'unassigned', // or default
                     'actual_team_id' => null,
                 ]);
             }
@@ -1108,7 +1095,7 @@ class ActualTeamController extends Controller
             ->where('user_id', $user->id)
             ->exists();
 
-        if (!$isMember) {
+        if (! $isMember) {
             return response()->json([
                 'success' => false,
                 'message' => 'User is not a member of this team.',
@@ -1139,7 +1126,7 @@ class ActualTeamController extends Controller
             ->where('user_id', $user->id)
             ->exists();
 
-        if (!$isMember) {
+        if (! $isMember) {
             return response()->json([
                 'success' => false,
                 'message' => 'User is not a member of this team.',
@@ -1197,7 +1184,7 @@ class ActualTeamController extends Controller
             });
 
         // Scope by organization for non-Superadmin users
-        if (!$authUser->hasRole('Superadmin')) {
+        if (! $authUser->hasRole('Superadmin')) {
             $query->where('organization_id', $actualTeam->organization_id);
         } else {
             // For Superadmin, show users from same org or with no org
@@ -1303,29 +1290,29 @@ class ActualTeamController extends Controller
         // If adding an existing player from squad, use relaxed validation
         if ($request->filled('existing_player_id')) {
             $request->validate([
-                'existing_player_id'            => 'required|exists:players,id',
-                'tournament_assignments'        => 'nullable|array',
+                'existing_player_id' => 'required|exists:players,id',
+                'tournament_assignments' => 'nullable|array',
                 'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
-                'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
+                'tournament_assignments.*.team_id' => 'required|exists:actual_teams,id',
                 'tournament_assignments.*.role' => 'nullable|string|max:50',
-                'retained_value'                => 'nullable|numeric|min:0',
+                'retained_value' => 'nullable|numeric|min:0',
             ]);
         } else {
             $request->validate([
-                'name'                          => 'required|string|max:255',
-                'email'                         => 'required|email|max:255',
-                'phone'                         => 'required|string|max:20',
-                'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:6144',
-                'processed_image_path'          => 'nullable|string|max:500',
-                'tournament_assignments'        => 'nullable|array',
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'phone' => 'required|string|max:20',
+                'player_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:6144',
+                'processed_image_path' => 'nullable|string|max:500',
+                'tournament_assignments' => 'nullable|array',
                 'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
-                'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
+                'tournament_assignments.*.team_id' => 'required|exists:actual_teams,id',
                 'tournament_assignments.*.role' => 'nullable|string|max:50',
-                'retained_value'                => 'nullable|numeric|min:0',
-                'player_type_id'                => 'nullable|exists:player_types,id',
-                'is_wicket_keeper'              => 'nullable|boolean',
-                'country_code'                  => 'nullable|string|max:10',
-                'national_number'               => 'nullable|string|max:20',
+                'retained_value' => 'nullable|numeric|min:0',
+                'player_type_id' => 'nullable|exists:player_types,id',
+                'is_wicket_keeper' => 'nullable|boolean',
+                'country_code' => 'nullable|string|max:10',
+                'national_number' => 'nullable|string|max:20',
             ]);
         }
 
@@ -1347,17 +1334,17 @@ class ActualTeamController extends Controller
                 // Backfill missing fields from the linked user
                 $user = $player->user;
                 if ($user) {
-                    if (!$player->email && $user->email) {
+                    if (! $player->email && $user->email) {
                         $player->email = $user->email;
                     }
-                    if (!$player->first_name && $player->name) {
+                    if (! $player->first_name && $player->name) {
                         $nameParts = explode(' ', $player->name, 2);
                         $player->first_name = $nameParts[0];
-                        if (!$player->last_name && isset($nameParts[1])) {
+                        if (! $player->last_name && isset($nameParts[1])) {
                             $player->last_name = $nameParts[1];
                         }
                     }
-                    if (!$player->actual_team_id) {
+                    if (! $player->actual_team_id) {
                         $player->actual_team_id = $actualTeam->id;
                     }
                     $player->save();
@@ -1369,37 +1356,37 @@ class ActualTeamController extends Controller
                 }
 
                 // Also look up by email to avoid duplicate email errors
-                if (!$player && $request->filled('email')) {
+                if (! $player && $request->filled('email')) {
                     $player = Player::where('email', strtolower($request->email))->first();
                 }
 
                 // If no existing player, create new Player + User
-                if (!$player) {
+                if (! $player) {
                     // Check if a user with this email already exists
                     $existingUser = User::where('email', $request->email)->first();
                     $user = $existingUser ?? User::create([
-                        'name'              => $request->name,
-                        'email'             => strtolower($request->email),
-                        'username'          => Str::slug($request->name) . '_' . Str::random(4),
-                        'password'          => Hash::make(Str::random(16)),
-                        'organization_id'   => $actualTeam->organization_id,
+                        'name' => $request->name,
+                        'email' => strtolower($request->email),
+                        'username' => Str::slug($request->name) . '_' . Str::random(4),
+                        'password' => Hash::make(Str::random(16)),
+                        'organization_id' => $actualTeam->organization_id,
                         'email_verified_at' => now(),
                     ]);
 
                     $nameParts = explode(' ', $request->name, 2);
                     $player = Player::create([
-                        'name'                   => $request->name,
-                        'first_name'             => $nameParts[0],
-                        'last_name'              => $nameParts[1] ?? null,
-                        'email'                  => strtolower($request->email),
-                        'mobile_number_full'     => preg_replace('/\D+/', '', $request->phone),
-                        'mobile_country_code'    => $countryCode,
+                        'name' => $request->name,
+                        'first_name' => $nameParts[0],
+                        'last_name' => $nameParts[1] ?? null,
+                        'email' => strtolower($request->email),
+                        'mobile_number_full' => preg_replace('/\D+/', '', $request->phone),
+                        'mobile_country_code' => $countryCode,
                         'mobile_national_number' => $request->input('national_number', ''),
-                        'player_type_id'         => $request->input('player_type_id'),
-                        'is_wicket_keeper'       => $request->boolean('is_wicket_keeper'),
-                        'user_id'                => $user->id,
-                        'actual_team_id'         => $actualTeam->id,
-                        'status'                 => 'pending',
+                        'player_type_id' => $request->input('player_type_id'),
+                        'is_wicket_keeper' => $request->boolean('is_wicket_keeper'),
+                        'user_id' => $user->id,
+                        'actual_team_id' => $actualTeam->id,
+                        'status' => 'pending',
                     ]);
                 } else {
                     // Update phone if different
@@ -1407,22 +1394,22 @@ class ActualTeamController extends Controller
                         $player->mobile_number_full = preg_replace('/\D+/', '', $request->phone);
                     }
                     // Fill missing fields on existing player
-                    if (!$player->email) {
+                    if (! $player->email) {
                         $player->email = $request->email
                             ? strtolower($request->email)
                             : ($player->user->email ?? null);
                     }
-                    if (!$player->first_name && $player->name) {
+                    if (! $player->first_name && $player->name) {
                         $nameParts = explode(' ', $player->name, 2);
                         $player->first_name = $nameParts[0];
-                        if (!$player->last_name && isset($nameParts[1])) {
+                        if (! $player->last_name && isset($nameParts[1])) {
                             $player->last_name = $nameParts[1];
                         }
                     }
-                    if (!$player->mobile_country_code && $countryCode) {
+                    if (! $player->mobile_country_code && $countryCode) {
                         $player->mobile_country_code = $countryCode;
                     }
-                    if (!$player->mobile_national_number && $request->input('national_number')) {
+                    if (! $player->mobile_national_number && $request->input('national_number')) {
                         $player->mobile_national_number = $request->input('national_number');
                     }
                     if ($request->input('player_type_id')) {
@@ -1432,7 +1419,7 @@ class ActualTeamController extends Controller
                         $player->is_wicket_keeper = true;
                     }
                     // Only set home team if player doesn't already have one
-                    if (!$player->actual_team_id) {
+                    if (! $player->actual_team_id) {
                         $player->actual_team_id = $actualTeam->id;
                     }
                     $player->save();
@@ -1460,11 +1447,11 @@ class ActualTeamController extends Controller
                 TournamentRegistration::updateOrCreate(
                     [
                         'tournament_id' => $tid,
-                        'player_id'     => $player->id,
-                        'type'          => 'player',
+                        'player_id' => $player->id,
+                        'type' => 'player',
                     ],
                     [
-                        'status'          => 'approved',
+                        'status' => 'approved',
                         'organization_id' => $actualTeam->organization_id,
                     ]
                 );
@@ -1472,7 +1459,7 @@ class ActualTeamController extends Controller
 
             // Handle retained status if role is 'retained'
             $hasRetainedRole = collect($request->input('tournament_assignments', []))
-                ->contains(fn($a) => ($a['role'] ?? '') === 'retained');
+                ->contains(fn ($a) => ($a['role'] ?? '') === 'retained');
             if ($hasRetainedRole) {
                 if ($player->status !== 'approved') {
                     DB::rollBack();
@@ -1483,7 +1470,7 @@ class ActualTeamController extends Controller
                 }
                 $player->player_mode = 'retained';
                 $player->retained_value = $request->input('retained_value', 0);
-                if (!$player->actual_team_id) {
+                if (! $player->actual_team_id) {
                     $player->actual_team_id = $actualTeam->id;
                 }
                 $player->save();
@@ -1509,22 +1496,22 @@ class ActualTeamController extends Controller
             foreach ($assignments as $assignment) {
                 DB::table('player_actual_team_tournament')->updateOrInsert(
                     [
-                        'player_id'     => $player->id,
+                        'player_id' => $player->id,
                         'tournament_id' => $assignment['tournament_id'],
                     ],
                     [
                         'actual_team_id' => $assignment['team_id'],
-                        'role'           => $assignment['role'] ?? null,
-                        'updated_at'     => now(),
-                        'created_at'     => now(),
+                        'role' => $assignment['role'] ?? null,
+                        'updated_at' => now(),
+                        'created_at' => now(),
                     ]
                 );
             }
 
             // Assign Player Spatie role
             $playerUser = $player->user;
-            if ($playerUser && !$playerUser->hasAnyRole(['Superadmin', 'Admin'])) {
-                if (!$playerUser->hasRole('Player')) {
+            if ($playerUser && ! $playerUser->hasAnyRole(['Superadmin', 'Admin'])) {
+                if (! $playerUser->hasRole('Player')) {
                     $playerUser->assignRole('Player');
                 }
             }
@@ -1553,9 +1540,9 @@ class ActualTeamController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Player added successfully.',
-                'player'  => [
-                    'id'    => $player->id,
-                    'name'  => $player->name,
+                'player' => [
+                    'id' => $player->id,
+                    'name' => $player->name,
                     'email' => $player->user->email ?? '',
                     'phone' => $player->mobile_number_full,
                     'image' => $player->image_path ? asset('storage/' . $player->image_path) : null,
@@ -1578,11 +1565,11 @@ class ActualTeamController extends Controller
     public function updatePlayer(Request $request, ActualTeam $actualTeam, Player $player)
     {
         $request->validate([
-            'phone'                         => 'nullable|string|max:20',
-            'player_image'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'tournament_assignments'        => 'nullable|array',
+            'phone' => 'nullable|string|max:20',
+            'player_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'tournament_assignments' => 'nullable|array',
             'tournament_assignments.*.tournament_id' => 'required|exists:tournaments,id',
-            'tournament_assignments.*.team_id'       => 'required|exists:actual_teams,id',
+            'tournament_assignments.*.team_id' => 'required|exists:actual_teams,id',
         ]);
 
         try {
@@ -1603,7 +1590,7 @@ class ActualTeamController extends Controller
 
             // Update tournament-team assignments
             $assignments = $request->input('tournament_assignments', []);
-            if (!empty($assignments)) {
+            if (! empty($assignments)) {
                 // Remove existing assignments for this player on this team
                 DB::table('player_actual_team_tournament')
                     ->where('player_id', $player->id)
@@ -1613,14 +1600,14 @@ class ActualTeamController extends Controller
                 foreach ($assignments as $assignment) {
                     DB::table('player_actual_team_tournament')->updateOrInsert(
                         [
-                            'player_id'     => $player->id,
+                            'player_id' => $player->id,
                             'tournament_id' => $assignment['tournament_id'],
                         ],
                         [
                             'actual_team_id' => $assignment['team_id'],
-                            'role'           => $assignment['role'] ?? null,
-                            'updated_at'     => now(),
-                            'created_at'     => now(),
+                            'role' => $assignment['role'] ?? null,
+                            'updated_at' => now(),
+                            'created_at' => now(),
                         ]
                     );
                 }
@@ -1688,8 +1675,8 @@ class ActualTeamController extends Controller
             DB::commit();
 
             return response()->json([
-                'success'   => true,
-                'message'   => 'Player removed from team successfully.',
+                'success' => true,
+                'message' => 'Player removed from team successfully.',
                 'player_id' => $player->id,
             ]);
         } catch (\Throwable $e) {
@@ -1712,7 +1699,7 @@ class ActualTeamController extends Controller
         $newStatus = $request->input('status');
         $tournamentId = $request->input('tournament_id');
 
-        if (!in_array($newStatus, ['approved', 'pending', 'rejected'])) {
+        if (! in_array($newStatus, ['approved', 'pending', 'rejected'])) {
             return response()->json(['success' => false, 'message' => 'Invalid status.'], 422);
         }
 

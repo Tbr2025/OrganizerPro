@@ -53,8 +53,12 @@ class ProfileTrackingController extends Controller
         $tournaments = Tournament::orderBy('name')->get(['id', 'name']);
 
         return view('backend.pages.profile-tracking.index', compact(
-            'logs', 'tournaments',
-            'submittedCount', 'approvedCount', 'rejectedCount', 'totalCount'
+            'logs',
+            'tournaments',
+            'submittedCount',
+            'approvedCount',
+            'rejectedCount',
+            'totalCount'
         ));
     }
 }

@@ -10,7 +10,8 @@ use App\Traits\BelongsToOrganization;
 
 class TournamentRegistration extends Model
 {
-    use HasFactory, BelongsToOrganization;
+    use HasFactory;
+    use BelongsToOrganization;
 
     protected $fillable = [
         'tournament_id',
@@ -208,12 +209,12 @@ class TournamentRegistration extends Model
 
     public function needsWelcomeCard(): bool
     {
-        return $this->isApproved() && !$this->welcome_card_sent;
+        return $this->isApproved() && ! $this->welcome_card_sent;
     }
 
     public function needsFlyer(): bool
     {
-        return !$this->flyer_sent;
+        return ! $this->flyer_sent;
     }
 
     /**

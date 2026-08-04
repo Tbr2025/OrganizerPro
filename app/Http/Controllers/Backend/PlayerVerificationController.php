@@ -63,7 +63,7 @@ class PlayerVerificationController extends Controller
         // For now, let's assume this is for an authenticated player.
         $player = $request->user('player'); // Or however you retrieve the player
 
-        if (!$player) {
+        if (! $player) {
             return back()->with('error', 'Unable to find player to resend verification.');
         }
 
@@ -87,7 +87,7 @@ class PlayerVerificationController extends Controller
         $actualBasePath = public_path('storage/');
         $absolutePath = $actualBasePath . $player->image_path;
 
-        if (!file_exists($absolutePath)) {
+        if (! file_exists($absolutePath)) {
             throw new \Exception('Player image not found: ' . $absolutePath);
         }
 
@@ -156,13 +156,8 @@ class PlayerVerificationController extends Controller
         imagedestroy($layer1);
     }
 
-
-
-
-
     public function approve(Request $request, Player $player)
     {
-
 
         if ($player->welcome_email_sent_at) {
             return back()->with('info', 'Welcome image has already been sent.');
@@ -170,13 +165,13 @@ class PlayerVerificationController extends Controller
 
         $template = ImageTemplate::where('category_id', 1)->first();
 
-        if (!$template) {
+        if (! $template) {
             return back()->with('error', 'There is no welcome template associated! Please create and try again!');
         }
-        if (!$player->allFieldsVerified()) {
+        if (! $player->allFieldsVerified()) {
             return back()->with('error', 'Cannot approve now. All fields must be verified. Please check the player details');
         }
-        if (!$player->image_path) {
+        if (! $player->image_path) {
             return back()->with('error', 'There is no profile pic found for the player, please check');
         }
         $imagePath = PlayerController::generateWelcomePlayerImageGD($player, $template);
@@ -190,7 +185,7 @@ class PlayerVerificationController extends Controller
         // Mark email as sent
         $player->update(['welcome_email_sent_at' => now()]);
 
-        if (!$this->checkAuthorization(Auth::user(), ['player.edit'])) {
+        if (! $this->checkAuthorization(Auth::user(), ['player.edit'])) {
 
             abort(403, 'Unauthorized action.');
         }
@@ -205,12 +200,12 @@ class PlayerVerificationController extends Controller
 
         // Ensure the player has a linked user
         $user = $player->user;
-        if (!$user) {
+        if (! $user) {
             return back()->with('error', 'This player does not have a linked user account.');
         }
 
         // Assign 'player' role if not already assigned
-        if (!$user->hasRole('player')) {
+        if (! $user->hasRole('player')) {
             $playerRole = Role::firstOrCreate(['name' => 'player']);
             $user->assignRole($playerRole);
         }
@@ -224,13 +219,12 @@ class PlayerVerificationController extends Controller
         return back()->with('success', 'Player approved and role assigned.');
     }
 
-
     /**
      * Reject a player.
      */
     public function reject(Request $request, Player $player)
     {
-        if (!$this->checkAuthorization(Auth::user(), ['player.edit'])) {
+        if (! $this->checkAuthorization(Auth::user(), ['player.edit'])) {
 
             abort(403, 'Unauthorized action.');
         }

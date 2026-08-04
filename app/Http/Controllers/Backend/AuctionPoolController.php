@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
+use App\Models\AuctionActionLog;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
 use App\Models\Player;
@@ -22,6 +23,10 @@ use Illuminate\View\View;
  */
 class AuctionPoolController extends Controller
 {
+    /** Kept out of AuctionActionLog::REVERSIBLE — this is a configuration action,
+     *  not a live-auction one, so the panel's UNDO must not pick it up. */
+    private const ACTION_AUTO_ASSIGN = 'auto_assign';
+
     private const ORDER_MODES = ['sequential', 'random', 'odd_even', 'manual'];
 
     public function __construct(private readonly AuctionPoolService $poolService)
@@ -33,7 +38,14 @@ class AuctionPoolController extends Controller
     {
         $this->authorize('auction.view');
 
-        $auction->load(['tournament', 'pools' => fn ($q) => $q->orderBy('sequence'), 'pools.players.player.playerType', 'pools.players.team:id,name']);
+        $auction->load([
+            'tournament',
+            'pools' => fn ($q) => $q->orderBy('sequence'),
+            'pools.players.player.playerType',
+            'pools.players.team:id,name',
+            // Unsold holding pools name the pool they collect for.
+            'pools.parentPool:id,name',
+        ]);
         $isAuctionType = $auction->tournament?->isAuction() ?? true;
 
         // Players already sitting in a pool for this auction.
@@ -50,6 +62,13 @@ class AuctionPoolController extends Controller
             ->with(['playerType', 'actualTeam:id,name'])
             ->orderBy('name')
             ->get(['id', 'name', 'player_type_id', 'organization_id', 'player_mode', 'actual_team_id']);
+
+        // Is there an auto-assign run that can still be reverted?
+        $revertibleAutoAssign = AuctionActionLog::where('auction_id', $auction->id)
+            ->where('action', self::ACTION_AUTO_ASSIGN)
+            ->pending()
+            ->orderByDesc('id')
+            ->first();
 
         // Per-team budget summary — auction tournaments only.
         $teamBudgets = collect();
@@ -71,6 +90,7 @@ class AuctionPoolController extends Controller
             'orderModes' => self::ORDER_MODES,
             'isAuctionType' => $isAuctionType,
             'teamBudgets' => $teamBudgets,
+            'revertibleAutoAssign' => $revertibleAutoAssign,
             'breadcrumbs' => [
                 'title' => __('Manage Pools'),
                 'items' => [
@@ -166,7 +186,8 @@ class AuctionPoolController extends Controller
         }
 
         DB::transaction(function () use ($auction, $pool, $eligible, $isAuctionType, $retainedPrices) {
-            $base = $pool->base_price ?? $auction->base_price;
+            // player → pool → auction, resolved in one place.
+            $base = $this->poolService->resolveBasePrice($auction, $pool);
 
             foreach ($eligible as $player) {
                 $existing = AuctionPlayer::where('auction_id', $auction->id)
@@ -177,15 +198,23 @@ class AuctionPoolController extends Controller
                     continue;
                 }
 
+                // A player moved into a pool takes that pool's base price. Keeping the
+                // old price meant moving someone from a 10K pool into a 500K marquee
+                // pool left them priced at 10K.
+                $movedPool = $existing && (int) $existing->auction_pool_id !== (int) $pool->id;
+                $price = ($existing && ! $movedPool && $existing->base_price !== null)
+                    ? $existing->base_price
+                    : $base;
+
                 // Retained players are pre-kept: assigned to their team up front, not
                 // drawn for bidding, and their retention price counts against budget.
                 $isRetained = $player->player_mode === 'retained';
                 $attrs = [
                     'auction_pool_id' => $pool->id,
                     'organization_id' => $auction->organization_id,
-                    'base_price' => $existing->base_price ?? $base,
-                    'current_price' => $existing->current_price ?? $base,
-                    'starting_price' => $existing->starting_price ?? $base,
+                    'base_price' => $price,
+                    'current_price' => $price,
+                    'starting_price' => $price,
                     'status' => 'waiting',
                     'is_retained' => $isRetained,
                 ];
@@ -194,7 +223,9 @@ class AuctionPoolController extends Controller
                     $attrs['team_id'] = $player->actual_team_id;
                     $attrs['lot_number'] = null; // retained players don't draw a lot
                     if ($isAuctionType) {
-                        $attrs['retained_price'] = (int) round((float) ($retainedPrices[$player->id] ?? 0));
+                        // decimal(15,2) since the column was widened — no longer rounded
+                        // to a whole number.
+                        $attrs['retained_price'] = (float) ($retainedPrices[$player->id] ?? 0);
                     }
                 }
 
@@ -264,13 +295,20 @@ class AuctionPoolController extends Controller
 
         $groups = $players->groupBy(fn ($p) => $p->playerType->name ?? __('Uncategorized'));
 
-        DB::transaction(function () use ($auction, $groups) {
+        // Everything this run touches, so it can be reverted in one action. Auto-assign
+        // sweeps every unassigned player into pools at once — without a record of what it
+        // did, a mistaken run had to be unpicked by hand.
+        $created = ['pools' => [], 'players' => []];
+
+        DB::transaction(function () use ($auction, $groups, &$created) {
             $seq = (int) AuctionPool::where('auction_id', $auction->id)->max('sequence');
             foreach ($groups as $category => $groupPlayers) {
                 // Reuse an existing pool with this category name, else create one.
                 $pool = AuctionPool::where('auction_id', $auction->id)
-                    ->where('name', $category)->first()
-                    ?? AuctionPool::create([
+                    ->where('name', $category)->first();
+
+                if (! $pool) {
+                    $pool = AuctionPool::create([
                         'auction_id' => $auction->id,
                         'organization_id' => $auction->organization_id,
                         'name' => (string) $category,
@@ -279,9 +317,25 @@ class AuctionPoolController extends Controller
                         'order_mode' => 'sequential',
                         'sequence' => ++$seq,
                     ]);
+                    // Only pools this run created are removed on revert.
+                    $created['pools'][] = $pool->id;
+                }
 
-                $base = $pool->base_price ?? $auction->base_price;
+                $base = $this->poolService->resolveBasePrice($auction, $pool);
                 foreach ($groupPlayers as $player) {
+                    $existing = AuctionPlayer::where('auction_id', $auction->id)
+                        ->where('player_id', $player->id)
+                        ->first();
+
+                    $created['players'][] = [
+                        'player_id' => $player->id,
+                        // A row this run created is deleted on revert; a row it moved is
+                        // put back where it was.
+                        'was_new' => $existing === null,
+                        'previous_pool_id' => $existing?->auction_pool_id,
+                        'previous_lot_number' => $existing?->lot_number,
+                    ];
+
                     AuctionPlayer::updateOrCreate(
                         ['auction_id' => $auction->id, 'player_id' => $player->id],
                         [
@@ -291,6 +345,11 @@ class AuctionPoolController extends Controller
                             'current_price' => $base,
                             'starting_price' => $base,
                             'status' => 'waiting',
+                            // Auto-grouping never set this, so a retained player swept up
+                            // here became biddable and their retention cost stopped
+                            // counting against the team's budget.
+                            'is_retained' => $player->player_mode === 'retained',
+                            'team_id' => $player->player_mode === 'retained' ? $player->actual_team_id : null,
                         ]
                     );
                 }
@@ -298,7 +357,107 @@ class AuctionPoolController extends Controller
             }
         });
 
-        return back()->with('success', __('Players auto-grouped into pools by type.'));
+        // Record the run so it can be reverted from the pools screen.
+        AuctionActionLog::create([
+            'auction_id' => $auction->id,
+            'action' => self::ACTION_AUTO_ASSIGN,
+            'payload' => $created,
+            'description' => sprintf(
+                'Auto-assigned %d player(s) into %d new pool(s)',
+                count($created['players']),
+                count($created['pools'])
+            ),
+            'user_id' => auth()->id(),
+        ]);
+
+        return back()->with('success', trans_choice(
+            ':count player auto-grouped into pools by type.|:count players auto-grouped into pools by type.',
+            count($created['players']),
+            ['count' => count($created['players'])]
+        ));
+    }
+
+    /**
+     * Undo the most recent auto-assign run.
+     *
+     * Rows the run created are deleted, rows it moved go back to the pool and lot they
+     * came from, and pools it created are removed once empty. Any player who has since
+     * been actioned (on the block, sold, unsold) is deliberately left alone — reverting
+     * those would rewrite auction history rather than a configuration mistake.
+     */
+    public function revertAutoAssign(Auction $auction): RedirectResponse
+    {
+        $this->authorize('auction.edit');
+
+        $log = AuctionActionLog::where('auction_id', $auction->id)
+            ->where('action', self::ACTION_AUTO_ASSIGN)
+            ->pending()
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $log) {
+            return back()->with('error', __('There is no auto-assign run left to revert.'));
+        }
+
+        $payload = $log->payload ?? [];
+        $reverted = 0;
+        $skipped = 0;
+
+        DB::transaction(function () use ($auction, $payload, $log, &$reverted, &$skipped) {
+            $poolsToRedraw = [];
+
+            foreach ($payload['players'] ?? [] as $entry) {
+                $row = AuctionPlayer::where('auction_id', $auction->id)
+                    ->where('player_id', $entry['player_id'] ?? 0)
+                    ->first();
+
+                if (! $row) {
+                    continue;
+                }
+
+                // Already in play or resolved — leave it be.
+                if ($row->status !== 'waiting') {
+                    $skipped++;
+                    continue;
+                }
+
+                if (! empty($entry['was_new'])) {
+                    $row->delete();
+                } else {
+                    $row->update([
+                        'auction_pool_id' => $entry['previous_pool_id'] ?? null,
+                        'lot_number' => $entry['previous_lot_number'] ?? null,
+                    ]);
+                    if (! empty($entry['previous_pool_id'])) {
+                        $poolsToRedraw[$entry['previous_pool_id']] = true;
+                    }
+                }
+
+                $reverted++;
+            }
+
+            // Pools this run created are only removed if nothing landed in them since.
+            foreach ($payload['pools'] ?? [] as $poolId) {
+                $pool = AuctionPool::where('auction_id', $auction->id)->find($poolId);
+                if ($pool && $pool->players()->count() === 0) {
+                    $pool->delete();
+                }
+            }
+
+            foreach (array_keys($poolsToRedraw) as $poolId) {
+                if ($target = AuctionPool::find($poolId)) {
+                    $this->poolService->generateLotNumbers($target);
+                }
+            }
+
+            $log->update(['undone_at' => now(), 'undone_by' => auth()->id()]);
+        });
+
+        return back()->with('success', sprintf(
+            '%d player(s) returned to unassigned.%s',
+            $reverted,
+            $skipped > 0 ? sprintf(' %d left in place — already in play or sold.', $skipped) : ''
+        ));
     }
 
     private function validatePool(Request $request): array

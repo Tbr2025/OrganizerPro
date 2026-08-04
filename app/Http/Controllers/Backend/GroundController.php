@@ -20,7 +20,7 @@ class GroundController extends Controller
 
         $query = Ground::with('organization')->latest();
 
-        if (!$user->hasRole('Superadmin')) {
+        if (! $user->hasRole('Superadmin')) {
             $query->where('organization_id', $user->organization_id);
         }
 
@@ -165,7 +165,7 @@ class GroundController extends Controller
     private function authorizeOrganization(Ground $ground): void
     {
         $user = Auth::user();
-        if (!$user->hasRole('Superadmin') && $ground->organization_id !== $user->organization_id) {
+        if (! $user->hasRole('Superadmin') && $ground->organization_id !== $user->organization_id) {
             abort(403);
         }
     }

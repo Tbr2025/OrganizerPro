@@ -1,0 +1,260 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Auction;
+
+use App\Mail\PlayerSoldMail;
+use App\Mail\PlayerUnsoldMail;
+use App\Models\ActualTeam;
+use App\Models\Auction;
+use App\Models\AuctionPendingEmail;
+use App\Models\AuctionPlayer;
+use App\Models\Player;
+use App\Models\TournamentRegistration;
+use App\Notifications\GeneralNotification;
+use App\Services\Notification\TournamentNotificationService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+
+/**
+ * The one place that decides whether an auction email is sent now, held until the
+ * auction finishes, or suppressed.
+ *
+ * Auction mail used to go out with `Mail::to()->send()` inline on the sell path, so every
+ * sale blocked the room on SMTP and any rehearsal emailed real players. Three per-auction
+ * settings govern it now:
+ *
+ *   notifications_enabled — master switch; off means nothing is raised at all
+ *   email_test_mode       — messages are recorded as skipped and never sent
+ *   email_dispatch        — `immediate`, or `deferred` until the auction completes
+ */
+class AuctionMailService
+{
+    public function __construct(
+        private readonly TournamentNotificationService $notifications,
+    ) {
+    }
+
+    /** Is any player mail wanted for this auction at all? */
+    public function notificationsEnabled(Auction $auction): bool
+    {
+        return (bool) ($auction->notifications_enabled ?? true);
+    }
+
+    /** Test run: record what would have gone out, send nothing. */
+    public function isTestMode(Auction $auction): bool
+    {
+        return (bool) ($auction->email_test_mode ?? false);
+    }
+
+    /** Held until the auction completes, rather than sent as it happens. */
+    public function isDeferred(Auction $auction): bool
+    {
+        return ($auction->email_dispatch ?? 'deferred') === 'deferred';
+    }
+
+    /**
+     * Raise an auction email.
+     *
+     * Returns the outbox row when one was recorded, or null when notifications are off
+     * entirely (nothing is worth recording in that case).
+     */
+    public function raise(
+        Auction $auction,
+        string $type,
+        ?AuctionPlayer $auctionPlayer,
+        ?ActualTeam $team = null,
+        array $payload = []
+    ): ?AuctionPendingEmail {
+        if (! $this->notificationsEnabled($auction)) {
+            return null;
+        }
+
+        $row = AuctionPendingEmail::create([
+            'auction_id' => $auction->id,
+            'auction_player_id' => $auctionPlayer?->id,
+            'player_id' => $auctionPlayer?->player_id,
+            'actual_team_id' => $team?->id,
+            'type' => $type,
+            'payload' => $payload,
+            'status' => AuctionPendingEmail::STATUS_PENDING,
+        ]);
+
+        // Test mode: keep the record so the organizer can see what a real run would have
+        // sent, but never actually send it.
+        if ($this->isTestMode($auction)) {
+            $row->update([
+                'status' => AuctionPendingEmail::STATUS_SKIPPED,
+                'error' => 'Test mode — not sent.',
+            ]);
+
+            return $row;
+        }
+
+        // Deferred is the point of the outbox: leave it pending for the flush.
+        if ($this->isDeferred($auction)) {
+            return $row;
+        }
+
+        $this->send($row);
+
+        return $row->fresh();
+    }
+
+    /**
+     * Send pending mail for this auction, up to `$limit` messages.
+     *
+     * Called when the auction completes, and on demand from the auction page.
+     *
+     * Chunked deliberately. The live worker runs `queue:work --timeout=300`, and a few
+     * hundred welcome cards — each rendering a poster — would not finish inside that. Each
+     * row is marked sent the moment it goes out, so a job killed mid-batch never re-sends
+     * anything: the next pass simply picks up what is still pending.
+     *
+     * @return array{sent: int, failed: int, skipped: int, remaining: int}
+     */
+    public function flush(Auction $auction, int $limit = 50): array
+    {
+        $result = ['sent' => 0, 'failed' => 0, 'skipped' => 0, 'remaining' => 0];
+
+        $pending = AuctionPendingEmail::where('auction_id', $auction->id)
+            ->pending()
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        foreach ($pending as $row) {
+            if ($this->isTestMode($auction) || ! $this->notificationsEnabled($auction)) {
+                $row->update([
+                    'status' => AuctionPendingEmail::STATUS_SKIPPED,
+                    'error' => $this->isTestMode($auction)
+                        ? 'Test mode — not sent.'
+                        : 'Notifications disabled for this auction.',
+                ]);
+                $result['skipped']++;
+                continue;
+            }
+
+            $this->send($row);
+            $result[$row->fresh()->status === AuctionPendingEmail::STATUS_SENT ? 'sent' : 'failed']++;
+        }
+
+        $result['remaining'] = AuctionPendingEmail::where('auction_id', $auction->id)->pending()->count();
+
+        $auction->update(['emails_flushed_at' => now()]);
+
+        return $result;
+    }
+
+    /** How much is still waiting, by status. */
+    public function outboxCounts(Auction $auction): array
+    {
+        return AuctionPendingEmail::where('auction_id', $auction->id)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status')
+            ->all();
+    }
+
+    /**
+     * Deliver one outbox row.
+     *
+     * A single failure is recorded against its own row and never aborts the rest of the
+     * flush — one bad address must not strand every other player's email.
+     */
+    private function send(AuctionPendingEmail $row): void
+    {
+        try {
+            match ($row->type) {
+                AuctionPendingEmail::TYPE_WELCOME_CARD => $this->sendWelcomeCard($row),
+                AuctionPendingEmail::TYPE_SOLD => $this->sendSold($row),
+                AuctionPendingEmail::TYPE_UNSOLD => $this->sendUnsold($row),
+                default => throw new \RuntimeException("Unknown auction email type [{$row->type}]."),
+            };
+
+            $row->update([
+                'status' => AuctionPendingEmail::STATUS_SENT,
+                'sent_at' => now(),
+                'error' => null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("Auction email [{$row->type}] failed for row {$row->id}: " . $e->getMessage());
+            $row->update([
+                'status' => AuctionPendingEmail::STATUS_FAILED,
+                'error' => mb_substr($e->getMessage(), 0, 250),
+            ]);
+        }
+    }
+
+    /**
+     * The "welcome to the team" card.
+     *
+     * Deferring this is what keeps the auction fast: the card is a rendered poster, so
+     * generating it mid-auction cost real time on every single sale.
+     */
+    private function sendWelcomeCard(AuctionPendingEmail $row): void
+    {
+        $auction = $row->auction;
+        $registration = TournamentRegistration::where('player_id', $row->player_id)
+            ->where('tournament_id', $auction?->tournament_id)
+            ->first();
+
+        if (! $registration) {
+            throw new \RuntimeException('No tournament registration found for this player.');
+        }
+
+        $this->notifications->sendRetainedWelcomeCard($registration);
+    }
+
+    private function sendSold(AuctionPendingEmail $row): void
+    {
+        $player = Player::with('user')->find($row->player_id);
+        $team = $row->team;
+        $auction = $row->auction;
+        $price = $row->payload['amount'] ?? null;
+
+        if (! $player?->user) {
+            throw new \RuntimeException('Player has no user account to notify.');
+        }
+
+        $player->user->notify(new GeneralNotification(
+            sprintf("You've been sold to %s!", $team->name ?? 'a team'),
+            route('admin.auctions.show', $auction),
+            'success'
+        ));
+
+        if ($player->user->email) {
+            Mail::to($player->user->email)->send(new PlayerSoldMail($player, $team, $auction, $price));
+        }
+
+        // The buying team's managers hear about it too.
+        foreach ($team?->users ?? [] as $manager) {
+            $manager->notify(new GeneralNotification(
+                sprintf('%s has been added to %s.', $player->name, $team->name),
+                route('admin.auctions.show', $auction),
+                'info'
+            ));
+        }
+    }
+
+    private function sendUnsold(AuctionPendingEmail $row): void
+    {
+        $player = Player::with('user')->find($row->player_id);
+        $auction = $row->auction;
+
+        if (! $player?->user) {
+            throw new \RuntimeException('Player has no user account to notify.');
+        }
+
+        $player->user->notify(new GeneralNotification(
+            sprintf('You were not selected in the auction: %s.', $auction->name),
+            route('admin.auctions.show', $auction),
+            'warning'
+        ));
+
+        if ($player->user->email) {
+            Mail::to($player->user->email)->send(new PlayerUnsoldMail($player, $auction));
+        }
+    }
+}

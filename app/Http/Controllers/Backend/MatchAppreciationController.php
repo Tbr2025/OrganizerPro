@@ -11,15 +11,13 @@ use Illuminate\Support\Facades\Storage;
 
 class MatchAppreciationController extends Controller
 {
-
-
     public function index(Request $request)
     {
         $query = MatchAppreciation::with(['match', 'player']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
-                $q->whereHas('player', fn($p) => $p->where('name', 'like', "%{$search}%"))
+                $q->whereHas('player', fn ($p) => $p->where('name', 'like', "%{$search}%"))
                     ->orWhere('title', 'like', "%{$search}%");
             });
         }

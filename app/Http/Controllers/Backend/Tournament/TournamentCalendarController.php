@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Backend\Tournament;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\Ground;
-use App\Models\MatchTimeSlot;
 use App\Services\Tournament\CalendarFixtureService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;

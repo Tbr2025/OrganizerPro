@@ -229,23 +229,38 @@
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label for="online_bid_limit_from" class="form-label text-xs">Online Bid Starts From</label>
-                                        <input type="number" name="online_bid_limit_from" id="online_bid_limit_from"
-                                               x-model.number="online_bid_limit_from" value="{{ old('online_bid_limit_from') }}"
-                                               class="form-control" min="0" placeholder="e.g. 100000">
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="online_bid_limit_from"
+                                                   :value="toM(online_bid_limit_from)"
+                                                   @input="online_bid_limit_from = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="e.g. 0.1">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="online_bid_limit_from" :value="online_bid_limit_from">
                                         <p class="text-xs text-gray-400 mt-1">Informational — online range start.</p>
                                     </div>
                                     <div>
                                         <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
-                                        <input type="number" name="closed_bid_starts_at" id="closed_bid_starts_at"
-                                               x-model.number="closed_bid_starts_at" value="{{ old('closed_bid_starts_at') }}"
-                                               class="form-control" min="0" placeholder="e.g. 500000">
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="closed_bid_starts_at"
+                                                   :value="toM(closed_bid_starts_at)"
+                                                   @input="closed_bid_starts_at = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="e.g. 0.5">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="closed_bid_starts_at" :value="closed_bid_starts_at">
                                         <p class="text-xs text-gray-400 mt-1">When price reaches this, bidding switches to sealed mode.</p>
                                     </div>
                                     <div>
                                         <label for="online_bid_limit_to" class="form-label text-xs">Offline Bid Starts At</label>
-                                        <input type="number" name="online_bid_limit_to" id="online_bid_limit_to"
-                                               x-model.number="online_bid_limit_to" value="{{ old('online_bid_limit_to') }}"
-                                               class="form-control" min="0" placeholder="e.g. 1000000">
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="online_bid_limit_to"
+                                                   :value="toM(online_bid_limit_to)"
+                                                   @input="online_bid_limit_to = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="e.g. 1">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="online_bid_limit_to" :value="online_bid_limit_to">
                                         <p class="text-xs text-gray-400 mt-1">When price reaches this, admin handles bids manually.</p>
                                     </div>
                                 </div>
@@ -276,14 +291,52 @@
                             <div>
                                 <label for="max_budget_per_team" class="form-label">Max Budget Per Team <span
                                         class="text-red-500">*</span></label>
-                                <input type="number" name="max_budget_per_team" id="max_budget_per_team"
-                                    value="{{ old('max_budget_per_team', 10000000) }}" class="form-control" required>
+                                <div class="relative">
+                                    <input type="number" step="any" min="0" id="max_budget_per_team"
+                                           :value="toM(maxBudgetPerTeam)"
+                                           @input="maxBudgetPerTeam = fromM($event.target.value)"
+                                           class="form-control pr-9" placeholder="10" required>
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                </div>
+                                <input type="hidden" name="max_budget_per_team" :value="maxBudgetPerTeam">
+                                <p class="text-xs text-gray-500 mt-1 font-mono" x-text="rawLabel(maxBudgetPerTeam)"></p>
                             </div>
                             <div>
                                 <label for="base_price" class="form-label">Default Player Base Price <span
                                         class="text-red-500">*</span></label>
-                                <input type="number" name="base_price" id="base_price"
-                                    x-model.number="defaultBasePrice" class="form-control" required>
+                                <div class="relative">
+                                    <input type="number" step="any" min="0" id="base_price"
+                                           :value="toM(defaultBasePrice)"
+                                           @input="defaultBasePrice = fromM($event.target.value)"
+                                           class="form-control pr-9" placeholder="0.1" required>
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                </div>
+                                <input type="hidden" name="base_price" :value="defaultBasePrice">
+                                <p class="text-xs text-gray-500 mt-1 font-mono" x-text="rawLabel(defaultBasePrice)"></p>
+                            </div>
+
+                            {{-- What the money is called on every screen. --}}
+                            <div class="md:col-span-2 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/60">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="amount_unit" class="form-label text-xs">Amount Unit</label>
+                                        <select name="amount_unit" id="amount_unit" x-model="amountUnit" class="form-control">
+                                            @foreach(\App\Models\Auction::amountUnitOptions() as $value => $label)
+                                                <option value="{{ $value }}">{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div x-show="amountUnit === 'custom'" x-transition>
+                                        <label for="amount_unit_label" class="form-label text-xs">Custom Label</label>
+                                        <input type="text" name="amount_unit_label" id="amount_unit_label" maxlength="30"
+                                               x-model="amountUnitLabel" class="form-control" placeholder="e.g. Credits">
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                                    Amounts will read as
+                                    <span class="font-bold font-mono" x-text="unitSample(10000000)"></span>
+                                    and <span class="font-bold font-mono" x-text="unitSample(500000)"></span>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -300,14 +353,32 @@
                                 <template x-for="(rule, index) in rules" :key="index">
                                     <div class="flex items-center gap-2 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-md">
                                         <span class="text-gray-500">If price is between</span>
-                                        <input type="number" :name="`bid_rules[${index}][from]`" x-model="rule.from"
-                                            placeholder="From" class="form-control w-1/4">
+                                        <span class="relative w-1/4">
+                                            <input type="number" step="any" min="0"
+                                                   :value="toM(rule.from)"
+                                                   @input="rule.from = fromM($event.target.value)"
+                                                   placeholder="From" class="form-control pr-7 w-full">
+                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </span>
+                                        <input type="hidden" :name="`bid_rules[${index}][from]`" :value="rule.from">
                                         <span class="text-gray-500">and</span>
-                                        <input type="number" :name="`bid_rules[${index}][to]`" x-model="rule.to"
-                                            placeholder="To" class="form-control w-1/4">
+                                        <span class="relative w-1/4">
+                                            <input type="number" step="any" min="0"
+                                                   :value="toM(rule.to)"
+                                                   @input="rule.to = fromM($event.target.value)"
+                                                   placeholder="To" class="form-control pr-7 w-full">
+                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </span>
+                                        <input type="hidden" :name="`bid_rules[${index}][to]`" :value="rule.to">
                                         <span class="text-gray-500">, increment by</span>
-                                        <input type="number" :name="`bid_rules[${index}][increment]`"
-                                            x-model="rule.increment" placeholder="Increment" class="form-control w-1/4">
+                                        <span class="relative w-1/4">
+                                            <input type="number" step="any" min="0"
+                                                   :value="toM(rule.increment)"
+                                                   @input="rule.increment = fromM($event.target.value)"
+                                                   placeholder="Increment" class="form-control pr-7 w-full">
+                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </span>
+                                        <input type="hidden" :name="`bid_rules[${index}][increment]`" :value="rule.increment">
                                         <button type="button" @click="rules.splice(index, 1)"
                                             class="btn btn-danger btn-sm">&times;</button>
                                     </div>
@@ -327,7 +398,11 @@
                             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
                                     <h2 class="text-xl font-bold text-gray-900 dark:text-white">Player Pool Management</h2>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Add or remove players from the auction pool and set their base prices.</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                        Add or remove players from the auction pool and set their base prices.
+                                        Only players with an approved registration for the selected tournament are listed;
+                                        retained players are excluded.
+                                    </p>
                                 </div>
                                 <div class="flex gap-2">
                                     <button type="button" @click="addAllPlayers()"
@@ -340,6 +415,14 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+
+                        {{-- The eligible list depends on the tournament, which is chosen in
+                             step 1 — say so rather than showing a puzzling full list. --}}
+                        <div x-show="!selectedTournament"
+                             class="mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-800 dark:text-amber-200">
+                            Pick a tournament in <button type="button" @click="step = 1" class="underline font-semibold">step 1</button>
+                            to narrow this list to players approved for it.
                         </div>
 
                         <div class="flex justify-end mb-4">
@@ -384,8 +467,13 @@
                                                 <div class="bg-white dark:bg-gray-800 rounded-lg p-2 border border-gray-200 dark:border-gray-700 flex items-center gap-2" :data-player-id="player.id">
                                                     <span class="pool-player-handle cursor-move text-gray-400 select-none" x-show="pool.order_mode==='manual'">⠿</span>
                                                     <div class="flex-1 min-w-0"><p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="player.name"></p></div>
-                                                    <input type="number" min="0" x-model.number="player.base_price" placeholder="Base"
-                                                           class="form-control form-control-sm w-24 text-center">
+                                                    <span class="relative w-24 flex-shrink-0">
+                                                        <input type="number" step="any" min="0" placeholder="Base"
+                                                               :value="toM(player.base_price)"
+                                                               @input="player.base_price = fromM($event.target.value)"
+                                                               class="form-control form-control-sm w-full text-center pr-5">
+                                                        <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400 pointer-events-none">M</span>
+                                                    </span>
                                                     <button type="button" @click="removeFromPool(player, idx)" class="text-red-500 px-1">✕</button>
                                                 </div>
                                             </template>
@@ -510,13 +598,65 @@ function auctionCreateForm() {
         targetPool: '', // '' = no pool chosen (user must pick before adding)
         searchAvailable: '',
         selectedOrg: null,
-        defaultBasePrice: {{ old('base_price', 10000) }},
+        selectedTournament: null,
+        amountUnit: '{{ old('amount_unit', 'points') }}',
+        amountUnitLabel: '{{ old('amount_unit_label') }}',
+        defaultBasePrice: {{ old('base_price', 100000) }},
+        maxBudgetPerTeam: {{ old('max_budget_per_team', 10000000) }},
         _uid: 1,
+
+        /* ── Money entry in millions ───────────────────────────────────────────────
+           Amounts are stored in whole units, but typing 100000000 is error-prone and
+           unreadable, so every money field is entered in millions and converted here.
+           The raw value is what gets posted, via a hidden input.                     */
+
+        /** The chosen unit, shaped for the shared money formatter. */
+        get unitConfig() {
+            if (this.amountUnit === 'usd') return { label: '$', prefix: true };
+            if (this.amountUnit === 'coins') return { label: 'Coins', prefix: false };
+            if (this.amountUnit === 'custom') {
+                return { label: (this.amountUnitLabel || '').trim() || 'Points', prefix: false };
+            }
+            return { label: 'Points', prefix: false };
+        },
+
+        /** Live example of how amounts will read. */
+        unitSample(value) {
+            return window.auctionAmount ? window.auctionAmount(value, this.unitConfig) : String(value);
+        },
+
+        /** Raw stored units → the millions figure shown in the field. */
+        toM(raw) {
+            if (raw === '' || raw === null || raw === undefined) return '';
+            const n = Number(raw);
+            if (!isFinite(n)) return '';
+            return Number((n / 1e6).toFixed(6));
+        },
+
+        /** Millions typed in the field → raw stored units. */
+        fromM(value) {
+            if (value === '' || value === null || value === undefined) return '';
+            const n = Number(value);
+            if (!isFinite(n)) return '';
+            // toFixed(2) first: 0.1 * 1e6 is 100000.00000000001 in floating point.
+            return Number((n * 1e6).toFixed(2));
+        },
+
+        /** The exact stored figure, echoed under the field so nothing is ambiguous. */
+        rawLabel(raw) {
+            if (raw === '' || raw === null || raw === undefined) return '—';
+            return Number(raw).toLocaleString('en-US');
+        },
 
         init() {
             const allPlayers = @json($availablePlayers);
-            this.available = allPlayers.map(p => ({ id: p.id, name: p.name, org: p.organization_id }))
-                .sort((a, b) => a.name.localeCompare(b.name));
+            this.available = allPlayers.map(p => ({
+                id: p.id,
+                name: p.name,
+                org: p.organization_id,
+                // Tournaments this player has an approved registration for.
+                tournamentIds: p.tournament_ids || [],
+            })).sort((a, b) => a.name.localeCompare(b.name));
 
             // Track the selected organization so we never show another org's players.
             const orgSelect = document.getElementById('organization_id');
@@ -528,8 +668,38 @@ function auctionCreateForm() {
                 orgSelect.addEventListener('change', syncOrg);
                 syncOrg();
             }
+
+            // Only players approved for the chosen tournament may be pooled, so narrow
+            // the list as soon as one is picked and pull out anyone already placed who
+            // does not qualify.
+            const tournamentSelect = document.getElementById('tournament_id');
+            const syncTournament = () => {
+                this.selectedTournament = tournamentSelect && tournamentSelect.value
+                    ? Number(tournamentSelect.value)
+                    : null;
+                this.dropIneligiblePlayers();
+            };
+            if (tournamentSelect) {
+                tournamentSelect.addEventListener('change', syncTournament);
+                syncTournament();
+            }
+
             this.addPool();
             this.targetPool = ''; // no pool pre-selected on load
+        },
+
+        /** Is this player approved for the tournament currently selected? */
+        isEligible(player) {
+            if (!this.selectedTournament) return true; // nothing chosen yet — show all
+            return (player.tournamentIds || []).includes(this.selectedTournament);
+        },
+
+        /** Remove already-pooled players who aren't approved for the chosen tournament. */
+        dropIneligiblePlayers() {
+            if (!this.selectedTournament) return;
+            this.pools.forEach(pool => {
+                pool.players = pool.players.filter(p => this.isEligible(p));
+            });
         },
 
         /** Pull any already-pooled players that don't belong to the selected org back out. */
@@ -551,6 +721,8 @@ function auctionCreateForm() {
         get filteredAvailable() {
             let list = this.available;
             if (this.selectedOrg) list = list.filter(p => !p.org || p.org === this.selectedOrg);
+            // Approved for the chosen tournament only.
+            list = list.filter(p => this.isEligible(p));
             if (this.searchAvailable) list = list.filter(p => p.name.toLowerCase().includes(this.searchAvailable.toLowerCase()));
             return list;
         },
@@ -623,11 +795,11 @@ function auctionCreateForm() {
             this.$refs.poolsInput.value = JSON.stringify(data);
         },
 
+        /** Shared K/M/B formatter with the chosen unit. */
         formatMoney(value) {
-            const num = Number(value) || 0;
-            if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-            if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
-            return num.toString();
+            return window.auctionAmount
+                ? window.auctionAmount(value, this.unitConfig)
+                : String(Number(value) || 0);
         }
     };
 }

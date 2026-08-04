@@ -22,7 +22,8 @@ class TournamentFixtureController extends Controller
     public function __construct(
         private readonly FixtureGeneratorService $fixtureService,
         private readonly MatchPosterService $posterService
-    ) {}
+    ) {
+    }
 
     public function index(Tournament $tournament, Request $request): View
     {
@@ -114,7 +115,7 @@ class TournamentFixtureController extends Controller
         $stage = $request->input('stage', 'semi_final');
 
         // Validate stage
-        if (!in_array($stage, ['quarter_final', 'semi_final', 'final', 'third_place'])) {
+        if (! in_array($stage, ['quarter_final', 'semi_final', 'final', 'third_place'])) {
             return redirect()->back()->with('error', __('Invalid stage.'));
         }
 
@@ -183,7 +184,7 @@ class TournamentFixtureController extends Controller
 
         // Pre-flight checks with helpful messages
         $issues = $this->checkPosterRequirements($tournament, $match);
-        if (!empty($issues)) {
+        if (! empty($issues)) {
             return redirect()->back()->with('error', 'Poster generation issue: ' . implode(' | ', $issues));
         }
 
@@ -192,7 +193,7 @@ class TournamentFixtureController extends Controller
             $template = $tournament->getTemplate(TournamentTemplate::TYPE_MATCH_POSTER);
 
             if ($template) {
-                if (!$template->background_image || !Storage::disk('public')->exists($template->background_image)) {
+                if (! $template->background_image || ! Storage::disk('public')->exists($template->background_image)) {
                     return redirect()->back()->with('error', 'Template "' . $template->name . '" has no background image. Please edit the template and upload a background image first.');
                 }
                 $enhancedService = new \App\Services\Poster\EnhancedMatchPosterService();
@@ -229,27 +230,27 @@ class TournamentFixtureController extends Controller
         $issues = [];
 
         // Check if teams are assigned
-        if (!$match->team_a_id || !$match->team_b_id) {
+        if (! $match->team_a_id || ! $match->team_b_id) {
             $issues[] = 'Both teams must be assigned to generate a poster (Team A or Team B is TBD).';
         }
 
         // Check if GD extension is available
-        if (!extension_loaded('gd')) {
+        if (! extension_loaded('gd')) {
             $issues[] = 'PHP GD extension is not installed on the server.';
         }
 
         // Check if font files exist
         $fontPath = public_path('fonts/Oswald-Bold.ttf');
-        if (!file_exists($fontPath)) {
+        if (! file_exists($fontPath)) {
             $fontPath = public_path('fonts/Montserrat-Medium.ttf');
-            if (!file_exists($fontPath)) {
+            if (! file_exists($fontPath)) {
                 $issues[] = 'No font files found in public/fonts/. Upload Oswald-Bold.ttf or Montserrat-Medium.ttf.';
             }
         }
 
         // Check storage directory is writable
         $storageDir = storage_path('app/public');
-        if (!is_writable($storageDir)) {
+        if (! is_writable($storageDir)) {
             $issues[] = 'Storage directory is not writable. Run: chmod -R 775 storage/';
         }
 
@@ -282,7 +283,7 @@ class TournamentFixtureController extends Controller
         $query = $tournament->matches()->where('is_cancelled', false);
 
         // If not forcing regeneration, only generate missing posters
-        if (!$request->boolean('regenerate')) {
+        if (! $request->boolean('regenerate')) {
             $query->whereNull('poster_image');
         }
 

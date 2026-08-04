@@ -68,7 +68,7 @@ class Organization extends Model
 
     public function isAuctionModeAllowed(string $mode): bool
     {
-        if (!$this->auction_enabled) {
+        if (! $this->auction_enabled) {
             return false;
         }
 

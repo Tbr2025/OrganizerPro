@@ -91,14 +91,14 @@ class MatchResult extends Model
             return 'No Result';
         }
 
-        if (!$this->winner_team_id) {
+        if (! $this->winner_team_id) {
             return 'Result pending';
         }
 
         $winnerName = $this->winner->name;
         $margin = $this->margin;
 
-        if (!$margin && in_array($this->result_type, ['runs', 'wickets', 'dls'])) {
+        if (! $margin && in_array($this->result_type, ['runs', 'wickets', 'dls'])) {
             return "{$winnerName} won";
         }
 
@@ -138,7 +138,7 @@ class MatchResult extends Model
      */
     public static function deriveTeamABattingFirst(?int $tossWonBy, ?string $tossDecision, int $teamAId): ?bool
     {
-        if (!$tossWonBy || !$tossDecision) {
+        if (! $tossWonBy || ! $tossDecision) {
             return null;
         }
 

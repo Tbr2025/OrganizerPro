@@ -37,6 +37,15 @@
     @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     .timer-critical { animation: timerPulse 0.5s ease-in-out infinite; }
 
+    /* Closing call — each new call punches in, then breathes. */
+    @keyframes finalCallPulse {
+        0%   { transform: scale(0.85); opacity: 0; }
+        35%  { transform: scale(1.06); opacity: 1; }
+        60%  { transform: scale(1); }
+        100% { transform: scale(1.02); }
+    }
+    .final-call-pulse { animation: finalCallPulse 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
     /* Slide panel */
     .side-panel-enter { transform: translateX(100%); }
     .side-panel-active { transform: translateX(0); transition: transform 0.25s ease-out; }
@@ -95,10 +104,18 @@
              'id' => $t->id,
              'name' => $t->name,
              'short_name' => $t->short_name ?? substr($t->name, 0, 3),
-             'logo_path' => $t->logo_path,
+             'logo_url' => $t->team_logo_url,
              'players_bought' => $t->players_bought ?? 0,
              'total_spent' => $t->total_spent ?? 0,
              'remaining_budget' => $t->remaining_budget ?? $auction->max_budget_per_team,
+             // Squad-reserve figures. This list whitelists keys explicitly, so any
+             // new field must be added here as well as in pollState.
+             'max_bid_allowed' => $t->max_bid_allowed ?? null,
+             'reserve_amount' => $t->reserve_amount ?? 0,
+             'slots_required' => $t->slots_required ?? null,
+             'slots_remaining' => $t->slots_remaining ?? null,
+             'excluded' => (bool) ($t->excluded ?? false),
+             'exclusion_reason' => $t->exclusion_reason ?? null,
          ])) }},
          {{ $auction->max_budget_per_team }},
          {{ json_encode($currentPlayer ? [
@@ -147,25 +164,62 @@
                 </select>
             </div>
             <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-300 mb-2">Sale Amount (in Lakhs)</label>
+                {{-- Entered in millions, matching the M figures shown everywhere else.
+                     This was a Lakhs field while the rest of the panel read in millions,
+                     so a "5" here sold the player for 500K rather than 5M. --}}
+                <label class="block text-sm font-medium text-gray-300 mb-2">Sale Amount (M)</label>
                 <div class="flex items-center bg-gray-900 border border-gray-600 rounded-xl focus-within:border-blue-500">
                     <input type="number"
-                           :value="sellModalData.amount ? (sellModalData.amount / 100000) : ''"
-                           @input="sellModalData.amount = Number($event.target.value) * 100000"
+                           :value="sellModalData.amount ? toM(sellModalData.amount) : ''"
+                           @input="sellModalData.amount = fromM($event.target.value)"
                            class="w-full px-4 py-3 bg-transparent text-white focus:outline-none text-right"
-                           placeholder="0" step="0.5" min="0">
-                    <span class="pr-4 text-gray-400 font-medium">L</span>
+                           placeholder="0" step="any" min="0">
+                    <span class="pr-4 text-gray-400 font-medium">M</span>
                 </div>
             </div>
-            <div x-show="sellModalData.team_id && sellModalData.amount" class="bg-gray-900/50 rounded-xl p-4 mb-6 text-center">
-                <p class="text-gray-300">Sell to <span class="font-bold text-green-400" x-text="teams.find(t => t.id == sellModalData.team_id)?.name"></span></p>
-                <p class="text-gray-300">for <span class="font-bold text-yellow-400 text-2xl" x-text="formatCurrency(sellModalData.amount)"></span></p>
+            {{-- Confirmation summary: who, how much, and what it leaves the team with.
+                 Showing the post-sale purse and squad count is what makes this a real
+                 check rather than a rubber-stamp. --}}
+            <div x-show="sellModalData.team_id && sellModalData.amount" class="bg-gray-900/50 rounded-xl p-4 mb-6">
+                <div class="flex items-center justify-center gap-3 mb-3">
+                    <template x-if="saleTeam?.logo_url">
+                        <img :src="saleTeam.logo_url" class="w-10 h-10 rounded-full object-cover border-2 border-green-500/50">
+                    </template>
+                    <div class="text-center">
+                        <p class="text-gray-300">Sell to <span class="font-bold text-green-400" x-text="saleTeam?.name"></span></p>
+                        <p class="text-gray-300">for <span class="font-bold text-yellow-400 text-2xl" x-text="formatCurrency(sellModalData.amount)"></span></p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-3 border-t border-gray-700 text-sm">
+                    <div>
+                        <p class="text-gray-500 text-xs uppercase tracking-wide">Purse after sale</p>
+                        <p class="font-mono font-bold"
+                           :class="salePurseAfter < 0 ? 'text-red-400' : 'text-white'"
+                           x-text="formatCurrency(salePurseAfter)"></p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-xs uppercase tracking-wide">Squad after sale</p>
+                        <p class="font-mono font-bold text-white">
+                            <span x-text="(saleTeam?.players_bought || 0) + 1"></span>
+                            <span class="text-gray-500" x-text="saleTeam?.slots_required ? ('/' + saleTeam.slots_required) : ''"></span>
+                        </p>
+                    </div>
+                </div>
+
+                {{-- Server-side rule: the team must retain enough to fill its remaining slots. --}}
+                <p x-show="saleBreachesReserve"
+                   class="mt-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                    This exceeds <span x-text="saleTeam?.name"></span>'s maximum allowed bid of
+                    <span class="font-bold" x-text="formatCurrency(saleTeam?.max_bid_allowed)"></span>
+                    under the squad-reserve rule and will be rejected.
+                </p>
             </div>
             <div class="flex gap-4">
                 <button @click="showSellModal = false"
                         class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition">Cancel</button>
                 <button @click="executeSellToTeam()"
-                        :disabled="!sellModalData.team_id || !sellModalData.amount"
+                        :disabled="!sellModalData.team_id || !sellModalData.amount || saleBreachesReserve"
                         class="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-xl font-bold transition">Confirm Sale</button>
             </div>
         </div>
@@ -178,6 +232,27 @@
 
         {{-- ── MAIN STAGE ── --}}
         <div class="flex-1 relative dot-bg flex items-center justify-center overflow-hidden">
+
+            {{-- ══ CLOSING CALL ══
+                 "Going once, going twice": escalates in the closing seconds so the room
+                 knows the hammer is coming. Shown on every screen off the same
+                 server-supplied thresholds. --}}
+            <template x-if="finalCall && displayState === 'bidding'">
+                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center pointer-events-none">
+                    <div class="px-10 py-4 rounded-2xl shadow-2xl final-call-pulse"
+                         :class="finalCall.is_final
+                            ? 'bg-red-600 text-white ring-4 ring-red-400/60'
+                            : 'bg-amber-500 text-black ring-4 ring-amber-300/50'">
+                        <p class="text-5xl font-black tracking-widest uppercase" x-text="finalCall.label"></p>
+                    </div>
+                    <p class="mt-3 text-7xl font-black font-mono tabular-nums"
+                       :class="finalCall.is_final ? 'text-red-400' : 'text-amber-300'"
+                       x-text="Math.max(0, biddingTimerSeconds)"></p>
+                    <p x-show="finalCall.is_final" class="mt-1 text-sm font-bold uppercase tracking-widest text-red-300"
+                       x-text="timerExpiryAction === 'auto_sell' ? 'Selling automatically at zero' : 'Bidding closes at zero'"></p>
+                </div>
+            </template>
+
 
             {{-- Logos (top-left) --}}
             @if($auction->auction_logo_url || ($auction->tournament && $auction->tournament->logo_url))
@@ -384,10 +459,10 @@
                         <template x-if="teams.find(t => t.name === winningTeamName)">
                             <div>
                                 <div class="w-28 h-28 mx-auto mb-4 rounded-full overflow-hidden border-4 border-emerald-500 shadow-lg shadow-emerald-500/20 bg-gray-800 team-pulse">
-                                    <template x-if="teams.find(t => t.name === winningTeamName)?.logo_path">
-                                        <img :src="'/storage/' + teams.find(t => t.name === winningTeamName).logo_path" class="w-full h-full object-cover">
+                                    <template x-if="teams.find(t => t.name === winningTeamName)?.logo_url">
+                                        <img :src="teams.find(t => t.name === winningTeamName).logo_url" class="w-full h-full object-cover">
                                     </template>
-                                    <template x-if="!teams.find(t => t.name === winningTeamName)?.logo_path">
+                                    <template x-if="!teams.find(t => t.name === winningTeamName)?.logo_url">
                                         <div class="w-full h-full flex items-center justify-center text-3xl font-black text-emerald-400" x-text="winningTeamName?.substring(0,2).toUpperCase()"></div>
                                     </template>
                                 </div>
@@ -470,10 +545,10 @@
                             <template x-for="tid in offlineParticipants" :key="tid">
                                 <div class="flex items-center gap-2 bg-orange-500/20 border border-orange-500/40 rounded-full px-3 py-1.5 cursor-pointer hover:bg-orange-500/30 transition-all"
                                      @click="toggleOfflineParticipant(tid)">
-                                    <template x-if="getTeamById(tid)?.logo_path">
-                                        <img :src="`/storage/${getTeamById(tid).logo_path}`" class="w-6 h-6 rounded-full object-cover">
+                                    <template x-if="getTeamById(tid)?.logo_url">
+                                        <img :src="getTeamById(tid).logo_url" class="w-6 h-6 rounded-full object-cover">
                                     </template>
-                                    <template x-if="!getTeamById(tid)?.logo_path">
+                                    <template x-if="!getTeamById(tid)?.logo_url">
                                         <div class="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-white text-xs font-bold" x-text="getTeamById(tid)?.short_name || '?'"></div>
                                     </template>
                                     <span class="text-sm text-white font-medium" x-text="getTeamById(tid)?.name"></span>
@@ -492,10 +567,10 @@
                                         <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                     </div>
                                 </div>
-                                <template x-if="team.logo_path">
-                                    <img :src="`/storage/${team.logo_path}`" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
+                                <template x-if="team.logo_url">
+                                    <img :src="team.logo_url" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
                                 </template>
-                                <template x-if="!team.logo_path">
+                                <template x-if="!team.logo_url">
                                     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0" x-text="team.short_name"></div>
                                 </template>
                                 <div class="min-w-0 flex-1">
@@ -523,10 +598,10 @@
                         <div class="divide-y divide-gray-700">
                             <template x-for="tid in offlineParticipants" :key="tid">
                                 <div class="flex items-center gap-4 p-4">
-                                    <template x-if="getTeamById(tid)?.logo_path">
-                                        <img :src="`/storage/${getTeamById(tid).logo_path}`" class="w-10 h-10 rounded-full object-cover">
+                                    <template x-if="getTeamById(tid)?.logo_url">
+                                        <img :src="getTeamById(tid).logo_url" class="w-10 h-10 rounded-full object-cover">
                                     </template>
-                                    <template x-if="!getTeamById(tid)?.logo_path">
+                                    <template x-if="!getTeamById(tid)?.logo_url">
                                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm" x-text="getTeamById(tid)?.short_name || '?'"></div>
                                     </template>
                                     <div class="flex-1 min-w-0">
@@ -536,8 +611,8 @@
                                     <div class="w-44">
                                         <div class="flex items-center bg-gray-700 border border-gray-600 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
                                             <input type="number"
-                                                   :value="offlineTeamBids[tid] / 100000"
-                                                   @input="offlineTeamBids[tid] = Number($event.target.value) * 100000"
+                                                   :value="toM(offlineTeamBids[tid])"
+                                                   @input="offlineTeamBids[tid] = fromM($event.target.value)"
                                                    class="w-full bg-transparent px-3 py-2 text-white text-sm text-right outline-none"
                                                    placeholder="0" min="0" step="0.5">
                                             <span class="pr-3 text-xs text-gray-400 whitespace-nowrap">L</span>
@@ -563,10 +638,10 @@
                 <div x-show="offlinePhase === 'results'" x-transition>
                     <div x-show="offlineHighestBidder" class="bg-gray-800 border-2 border-green-500 rounded-xl p-6 mb-4 text-center offline-winner-glow">
                         <p class="text-green-400 text-sm font-semibold mb-3 uppercase tracking-wider">Winner</p>
-                        <template x-if="getTeamById(offlineHighestBidder)?.logo_path">
-                            <img :src="`/storage/${getTeamById(offlineHighestBidder).logo_path}`" class="w-20 h-20 mx-auto rounded-full object-cover mb-3 border-4 border-green-500/50">
+                        <template x-if="getTeamById(offlineHighestBidder)?.logo_url">
+                            <img :src="getTeamById(offlineHighestBidder).logo_url" class="w-20 h-20 mx-auto rounded-full object-cover mb-3 border-4 border-green-500/50">
                         </template>
-                        <template x-if="!getTeamById(offlineHighestBidder)?.logo_path">
+                        <template x-if="!getTeamById(offlineHighestBidder)?.logo_url">
                             <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-2xl mb-3" x-text="getTeamById(offlineHighestBidder)?.short_name || '?'"></div>
                         </template>
                         <h3 class="text-2xl font-bold text-white mb-1" x-text="getTeamById(offlineHighestBidder)?.name"></h3>
@@ -587,10 +662,10 @@
                                     <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
                                          :class="idx === 0 ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'"
                                          x-text="'#' + (idx + 1)"></div>
-                                    <template x-if="getTeamById(Number(entry[0]))?.logo_path">
-                                        <img :src="`/storage/${getTeamById(Number(entry[0])).logo_path}`" class="w-10 h-10 rounded-full object-cover">
+                                    <template x-if="getTeamById(Number(entry[0]))?.logo_url">
+                                        <img :src="getTeamById(Number(entry[0])).logo_url" class="w-10 h-10 rounded-full object-cover">
                                     </template>
-                                    <template x-if="!getTeamById(Number(entry[0]))?.logo_path">
+                                    <template x-if="!getTeamById(Number(entry[0]))?.logo_url">
                                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm" x-text="getTeamById(Number(entry[0]))?.short_name || '?'"></div>
                                     </template>
                                     <div class="flex-1 min-w-0">
@@ -636,8 +711,8 @@
                     <h2 class="text-4xl font-bold" x-text="lastSoldPlayer?.player?.name"></h2>
                     <div class="text-5xl font-black text-emerald-400" x-text="formatCurrency(lastSoldPlayer?.final_price)"></div>
                     <div class="flex items-center justify-center gap-3">
-                        <template x-if="lastSoldPlayer?.winning_team?.logo_path">
-                            <img :src="'/storage/' + lastSoldPlayer.winning_team.logo_path" class="w-12 h-12 rounded-full object-cover border-2 border-gray-600">
+                        <template x-if="lastSoldPlayer?.winning_team?.logo_url">
+                            <img :src="lastSoldPlayer.winning_team.logo_url" class="w-12 h-12 rounded-full object-cover border-2 border-gray-600">
                         </template>
                         <span class="text-2xl text-gray-300" x-text="lastSoldPlayer?.winning_team?.name"></span>
                     </div>
@@ -671,10 +746,163 @@
         {{-- ══════════════════════════════════════════════ --}}
         <div class="flex-shrink-0">
             {{-- Timer progress bar --}}
-            <div x-show="displayState === 'bidding' && openBidMode !== 'offline'" class="h-1 bg-gray-800">
+            <div x-show="displayState === 'bidding' && openBidMode !== 'offline' && timerEnabled" class="h-1 bg-gray-800">
                 <div class="h-full transition-all duration-1000 ease-linear"
                      :class="biddingTimerSeconds <= 5 ? 'bg-red-500' : 'bg-blue-500'"
                      :style="`width: ${timerWidth}%`"></div>
+            </div>
+
+            {{-- ══ POOL CONTROL STRIP ══
+                 The auction is locked to one pool at a time, so which pool is running
+                 and how far through it we are belongs on screen at all times. --}}
+            <div class="bg-gray-950 border-t border-gray-800 px-4 py-2 flex items-center gap-3 overflow-x-auto">
+                <span class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold flex-shrink-0">Pool</span>
+
+                {{-- No pool running yet. --}}
+                <template x-if="!activePool">
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-xs text-amber-400">No pool running —</span>
+                        <template x-for="p in pools.filter(p => p.is_enabled && p.waiting > 0)" :key="p.id">
+                            <button @click="activatePool(p.id)"
+                                    class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition whitespace-nowrap">
+                                Start <span x-text="p.name"></span>
+                                <span class="opacity-70" x-text="'(' + p.waiting + ')'"></span>
+                            </button>
+                        </template>
+                        <span x-show="pools.filter(p => p.is_enabled && p.waiting > 0).length === 0"
+                              class="text-xs text-gray-500">no enabled pool has players left</span>
+                    </div>
+                </template>
+
+                {{-- A pool is running. --}}
+                <template x-if="activePool">
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <span class="px-2 py-0.5 bg-indigo-600/20 border border-indigo-500/40 rounded text-xs font-bold text-indigo-300"
+                              x-text="activePool.name"></span>
+                        <span x-show="activePool.category" class="text-[10px] text-gray-500" x-text="activePool.category"></span>
+
+                        {{-- Lot progress. --}}
+                        <div class="flex items-center gap-2">
+                            <div class="w-28 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-indigo-500 transition-all"
+                                     :style="`width: ${activePool.total ? (activePool.done / activePool.total * 100) : 0}%`"></div>
+                            </div>
+                            <span class="text-xs font-mono text-gray-400">
+                                <span x-text="activePool.done"></span>/<span x-text="activePool.total"></span>
+                            </span>
+                        </div>
+
+                        <span x-show="activePool.times_used > 1" class="text-[10px] text-gray-500"
+                              x-text="'run #' + activePool.times_used"></span>
+
+                        {{-- Exhausted: offer the next pool without auto-advancing. --}}
+                        <template x-if="activePool.exhausted">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-emerald-400 font-semibold">Pool complete</span>
+                                <button @click="completeActivePool()"
+                                        class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded transition whitespace-nowrap">
+                                    Close <span x-text="activePool.name"></span>
+                                </button>
+                                <template x-if="nextPool">
+                                    <button @click="activatePool(nextPool.id)"
+                                            class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition whitespace-nowrap">
+                                        Start <span x-text="nextPool.name"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+
+                        <button x-show="!activePool.exhausted && displayState !== 'bidding'"
+                                @click="completeActivePool()"
+                                class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-semibold rounded transition whitespace-nowrap"
+                                title="Close this pool early — players left in it stay unsold">
+                            Close early
+                        </button>
+                    </div>
+                </template>
+
+                <div class="flex-1"></div>
+
+                {{-- Timer toggle. Offline only: online bidding needs the clock. --}}
+                <button @click="toggleTimer()"
+                        :disabled="openBidMode !== 'offline'"
+                        class="px-2 py-1 rounded text-[10px] font-semibold transition whitespace-nowrap flex-shrink-0"
+                        :class="timerEnabled
+                            ? 'bg-blue-600/20 border border-blue-500/40 text-blue-300'
+                            : 'bg-gray-800 border border-gray-700 text-gray-500'"
+                        :title="openBidMode !== 'offline'
+                            ? 'The timer is required while bidding is online'
+                            : (timerEnabled ? 'Turn the bid timer off' : 'Turn the bid timer on')">
+                    TIMER <span x-text="timerEnabled ? 'ON' : 'OFF'"></span>
+                </button>
+                <span x-show="timerEnabled" class="text-[10px] text-gray-500 flex-shrink-0"
+                      x-text="timerExpiryAction === 'auto_sell' ? 'auto-sell at 0' : 'manual at 0'"></span>
+            </div>
+
+            {{-- ══ TEAM BID BUBBLES ══
+                 Its own band above the toolbar rather than squeezed between the phase
+                 buttons and UNDO, where the logos were clipped to unreadable slivers.
+
+                 Each team is a single circular bubble — the button IS the circle, with no
+                 card or panel around it. Purse rides as a pill on the bubble's lower edge
+                 and squad count as a badge on its upper edge, so the figures are readable
+                 without adding a box. Two rows filled column-wise with equal-width
+                 columns, so any number of teams stays evenly spaced and centred. --}}
+            <div class="bg-gray-900/60 border-t border-gray-800 px-4 py-3">
+                <div class="grid grid-rows-2 grid-flow-col auto-cols-fr gap-x-3 gap-y-4 justify-items-center">
+                    <template x-for="(team, idx) in teams" :key="team.id">
+                        <button @click="bidForTeam(team.id)"
+                                :disabled="isTeamBidDisabled(team)"
+                                {{-- aspect-square + rounded-full: the control is a true
+                                     circle, never squashed by its grid column. --}}
+                                class="relative group rounded-full border-2 overflow-visible bg-gray-800 flex items-center justify-center transition-all duration-200 flex-shrink-0"
+                                :class="[
+                                    winningTeamName === team.name
+                                        ? 'w-[62px] h-[62px] border-emerald-400 team-pulse scale-105'
+                                        : 'w-[52px] h-[52px] border-gray-600 hover:border-gray-300 hover:scale-105',
+                                    team.excluded ? 'border-amber-600/70' : '',
+                                    isTeamBidDisabled(team) ? 'opacity-45 cursor-not-allowed hover:scale-100' : ''
+                                ]"
+                                :title="teamTooltip(team)">
+
+                            {{-- Logo fills the bubble. --}}
+                            <span class="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center"
+                                  :class="team.excluded ? 'grayscale' : ''">
+                                <template x-if="team.logo_url">
+                                    <img :src="team.logo_url" :alt="team.name" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!team.logo_url">
+                                    <span class="text-[11px] font-bold text-gray-300 leading-none"
+                                          x-text="(team.short_name || team.name).substring(0, 3).toUpperCase()"></span>
+                                </template>
+
+                                {{-- Priced out of this player under the squad-reserve rule. --}}
+                                <template x-if="team.excluded">
+                                    <span class="absolute inset-0 flex items-center justify-center bg-black/65 text-amber-400 text-sm">&#128274;</span>
+                                </template>
+                            </span>
+
+                            {{-- Squad count, riding the top edge. --}}
+                            <span x-show="team.slots_required"
+                                  class="absolute -top-1.5 -right-1 z-10 px-1.5 rounded-full text-[9px] font-mono font-bold leading-[14px] border border-gray-900"
+                                  :class="(team.slots_remaining || 0) > 0 ? 'bg-gray-700 text-gray-200' : 'bg-emerald-600 text-white'"
+                                  x-text="(team.players_bought || 0) + '/' + team.slots_required"></span>
+
+                            {{-- Purse, riding the bottom edge. --}}
+                            <span class="absolute -bottom-2 left-1/2 -translate-x-1/2 z-10 px-1.5 rounded-full text-[10px] font-mono font-bold leading-[15px] whitespace-nowrap border border-gray-900"
+                                  :class="team.excluded ? 'bg-amber-500 text-black' : 'bg-emerald-600 text-white'"
+                                  x-text="formatCurrency(team.remaining_budget)"></span>
+
+                            {{-- Keyboard shortcut hint (1-9, 0). --}}
+                            <span class="absolute -top-1.5 -left-1 z-10 w-[15px] h-[15px] bg-gray-700 border border-gray-900 rounded-full text-[9px] font-mono flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                  x-text="idx < 9 ? String(idx + 1) : (idx === 9 ? '0' : '')"></span>
+                        </button>
+                    </template>
+                </div>
+
+                <p x-show="!teams.length" class="text-center text-xs text-gray-500 py-2">
+                    No teams in this tournament yet.
+                </p>
             </div>
 
             <div class="h-14 bg-gray-900 border-t border-gray-800 flex items-center px-4 gap-2">
@@ -712,31 +940,38 @@
                             :class="openBidMode === 'offline' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'">Offline</button>
                 </div>
 
+                <div class="flex-1"></div>
+
+                {{-- Quick-bid jumps: applied to whichever team is currently leading,
+                     for when the room moves faster than the standard increment. --}}
+                <template x-if="quickBidSteps.length && displayState === 'bidding' && openBidMode !== 'offline'">
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <div class="w-px h-8 bg-gray-700"></div>
+                        <template x-for="(step, i) in quickBidSteps" :key="i">
+                            <button @click="toggleQuickStep(i)"
+                                    class="px-2 py-1 text-[11px] font-bold rounded transition whitespace-nowrap border"
+                                    :class="armedStepIndex === i
+                                        ? 'bg-purple-500 border-purple-300 text-white ring-2 ring-purple-400'
+                                        : 'bg-purple-600/25 border-purple-500/50 text-purple-200 hover:bg-purple-600/50'"
+                                    :title="armedStepIndex === i
+                                        ? 'Armed — click a team to jump by ' + formatCurrency(step)
+                                        : 'Arm a jump of ' + formatCurrency(step)">
+                                +<span x-text="formatCurrency(step)"></span>
+                            </button>
+                        </template>
+                    </div>
+                </template>
+
                 <div class="w-px h-8 bg-gray-700"></div>
 
-                {{-- 4. Team Buttons --}}
-                <div class="flex-1 flex items-center justify-center gap-1.5 overflow-x-auto px-1 min-w-0">
-                    <template x-for="(team, idx) in teams" :key="team.id">
-                        <button @click="bidForTeam(team.id)"
-                                :disabled="!currentPlayer || displayState !== 'bidding' || openBidMode === 'offline' || (currentPlayer?.current_bid_team_id == team.id)"
-                                :class="{
-                                    'ring-2 ring-emerald-400 border-emerald-400 team-pulse': winningTeamName === team.name,
-                                    'border-gray-600 hover:border-gray-400': winningTeamName !== team.name,
-                                    'opacity-40 cursor-not-allowed': !currentPlayer || displayState !== 'bidding' || openBidMode === 'offline' || (currentPlayer?.current_bid_team_id == team.id)
-                                }"
-                                class="relative w-10 h-10 rounded-full border-2 flex-shrink-0 flex items-center justify-center overflow-hidden transition-all group bg-gray-800"
-                                :title="team.name + ' (' + formatCurrency(team.remaining_budget) + ' left)'">
-                            <template x-if="team.logo_path">
-                                <img :src="'/storage/' + team.logo_path" class="w-full h-full object-cover rounded-full">
-                            </template>
-                            <template x-if="!team.logo_path">
-                                <span class="text-[10px] font-bold" x-text="team.name.substring(0, 2).toUpperCase()"></span>
-                            </template>
-                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-gray-700 rounded-full text-[10px] font-mono flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                  x-text="idx < 9 ? String(idx + 1) : (idx === 9 ? '0' : '')"></span>
-                        </button>
-                    </template>
-                </div>
+                {{-- Undo: recovery for a wrong-team click. --}}
+                <button @click="undoLast()"
+                        :disabled="!canUndo || isUndoing"
+                        class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap flex items-center gap-1"
+                        :class="(canUndo && !isUndoing) ? 'bg-orange-600 hover:bg-orange-500' : 'bg-gray-700 cursor-not-allowed opacity-50'"
+                        :title="canUndo ? ('Undo (U): ' + (nextUndoLabel || 'last action')) : 'Nothing to undo'">
+                    <span>&#8630;</span> UNDO
+                </button>
 
                 <div class="w-px h-8 bg-gray-700"></div>
 
@@ -810,8 +1045,12 @@
                 {{-- ═══ QUEUE PANEL ═══ --}}
                 <div x-show="sidePanel === 'queue'" class="p-4">
                     <p class="text-sm text-gray-400 mb-3"><span x-text="availablePlayers.length"></span> players waiting</p>
+                    {{-- Search, because the whole queue is now listed (it used to be
+                         capped at 30, which made most players unreachable by click). --}}
+                    <input type="search" x-model="queueSearchQuery" placeholder="Filter by name…"
+                           class="w-full mb-3 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
                     <div class="space-y-2">
-                        <template x-for="(player, index) in availablePlayers.slice(0, 30)" :key="player.id">
+                        <template x-for="(player, index) in filteredQueue" :key="player.id">
                             <div class="bg-gray-800 rounded-lg p-3 cursor-pointer hover:bg-gray-750 transition-colors"
                                  @click="selectAndPutOnBid(player)">
                                 <div class="flex items-center gap-3">
@@ -856,10 +1095,10 @@
                     <template x-for="team in teams" :key="team.id">
                         <div class="bg-gray-800 rounded-xl p-4">
                             <div class="flex items-center gap-3 mb-3">
-                                <template x-if="team.logo_path">
-                                    <img :src="`/storage/${team.logo_path}`" class="w-10 h-10 rounded-full object-cover border border-gray-600">
+                                <template x-if="team.logo_url">
+                                    <img :src="team.logo_url" class="w-10 h-10 rounded-full object-cover border border-gray-600">
                                 </template>
-                                <template x-if="!team.logo_path">
+                                <template x-if="!team.logo_url">
                                     <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold"
                                          x-text="team.short_name"></div>
                                 </template>
@@ -898,7 +1137,7 @@
                             <div class="bg-gray-800 rounded-xl p-4">
                                 <div class="flex items-center gap-3 mb-3">
                                     <template x-if="bid.team_logo">
-                                        <img :src="`/storage/${bid.team_logo}`" class="w-10 h-10 rounded-full object-cover">
+                                        <img :src="bid.team_logo" class="w-10 h-10 rounded-full object-cover">
                                     </template>
                                     <template x-if="!bid.team_logo">
                                         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm"
@@ -1038,6 +1277,50 @@ function auctionOrganizerPanel() {
         playerSearchQuery: '',
         allPlayers: [],
 
+        // Jump-to-player by id. These were bound in the toolbar but never declared
+        // here, so the "#" box and its Enter handler threw on every keystroke.
+        playerNumberInput: '',
+
+        // Queue filter — the full waiting list is rendered, so it needs a search.
+        queueSearchQuery: '',
+
+        // Undo stack
+        canUndo: false,
+        nextUndoLabel: null,
+        isUndoing: false,
+
+        // Increment ladder, resolved server-side.
+        nextBidAmount: null,
+        bidIncrement: null,
+        maxBidReached: false,
+        quickBidSteps: [],
+        // Armed jump amount: the next team click uses this instead of the increment.
+        armedStepIndex: null,
+
+        // Pool lock: the auction runs one pool at a time.
+        activePool: null,
+        nextPool: null,
+        pools: [],
+
+        // Timer, driven off the server clock rather than a local countdown.
+        timerEnabled: {{ $auction->timerApplies() ? 'true' : 'false' }},
+        timerExpiryAction: '{{ $auction->timer_expiry_action ?? 'manual' }}',
+        timerExpired: false,
+        _timerFiring: false,
+        // Which player we've already announced time-up for, so it fires once.
+        _timerFiredForPlayer: null,
+
+        // What amounts are called, from the auction's settings.
+        amountUnit: @json($auction->amountUnitConfig()),
+
+        // Closing calls ("going once, going twice"). Thresholds come from the server.
+        finalCall: null,
+        finalCallStages: @json($auction->finalCallStages()),
+
+        // Squad-reserve rule, mirrored from the server so exclusions can be explained.
+        minSquadSize: {{ (int) $auction->minSquadSize() }},
+        minPricePerPlayer: {{ (float) $auction->minPricePerPlayer() }},
+
         // Side panel
         sidePanel: null,
         isFullscreen: false,
@@ -1090,6 +1373,9 @@ function auctionOrganizerPanel() {
             this.biddingTimerInterval = setInterval(() => {
                 this.biddingTimerSeconds--;
                 this.timerWidth = Math.max(0, (this.biddingTimerSeconds / maxSeconds) * 100);
+                // Escalate the closing call locally — polls are 2s apart, and the calls
+                // land on exact seconds.
+                this.refreshFinalCall();
                 if (this.biddingTimerSeconds <= 0) {
                     this.stopBiddingTimer();
                 }
@@ -1098,6 +1384,8 @@ function auctionOrganizerPanel() {
 
         resetBiddingTimer() {
             const resetTo = this.BID_TIMER_RESET_TO || this.BID_TIMER_DURATION;
+            // A new bid restarts the clock, which clears any call already showing.
+            this.finalCall = null;
             this.startBiddingTimer(resetTo);
         },
 
@@ -1105,6 +1393,28 @@ function auctionOrganizerPanel() {
             if (this.biddingTimerInterval) {
                 clearInterval(this.biddingTimerInterval);
                 this.biddingTimerInterval = null;
+            }
+        },
+
+        /**
+         * Re-derive the closing call from the ticking countdown, using the thresholds
+         * the server supplied. Announces each new stage once.
+         */
+        refreshFinalCall() {
+            if (!this.timerEnabled || this.displayState !== 'bidding') {
+                this.finalCall = null;
+                return;
+            }
+
+            const call = window.auctionFinalCallFor
+                ? window.auctionFinalCallFor(this.biddingTimerSeconds, this.finalCallStages)
+                : null;
+
+            const previousStage = this.finalCall?.stage ?? 0;
+            this.finalCall = call;
+
+            if (call && call.stage > previousStage) {
+                this.statusText = `${call.label}${call.is_final ? ' — going to the hammer!' : ''}`;
             }
         },
 
@@ -1158,16 +1468,51 @@ function auctionOrganizerPanel() {
                     total_wickets: ap.player?.total_wickets || null,
                 }));
 
-                this.teams = (data.teams || []).map(t => {
-                    t.remaining_budget = t.remaining_budget ?? (this.maxBudget - (t.total_spent || 0));
-                    return t;
-                });
+                // Purse figures come from the server (AuctionPoolService) — no local
+                // fallback formula, which used to be able to disagree with what the
+                // server would actually accept at SELL.
+                this.teams = data.teams || [];
+
+                this.canUndo = !!data.can_undo;
+                this.nextUndoLabel = data.next_undo || null;
+                this.activePool = data.active_pool || null;
+                this.nextPool = data.next_pool || null;
+                this.pools = data.pools || [];
+                this.quickBidSteps = data.quick_bid_steps || [];
+                this.timerEnabled = !!data.timer_enabled;
+                this.timerExpiryAction = data.timer_expiry_action || 'manual';
+
+                // The server owns the clock; the local countdown only renders it.
+                if (data.timer_seconds_remaining !== null && data.timer_seconds_remaining !== undefined) {
+                    this.biddingTimerSeconds = data.timer_seconds_remaining;
+                    const limit = data.bid_timer_seconds || 30;
+                    this.timerWidth = limit > 0 ? (data.timer_seconds_remaining / limit) * 100 : 0;
+                }
+                this.timerExpired = !!data.timer_expired;
+
+                // Re-sync the closing call against the server's clock, so a drifting or
+                // backgrounded tab still shows the right stage.
+                if (data.amount_unit) this.amountUnit = data.amount_unit;
+                if (data.final_call_stages) this.finalCallStages = data.final_call_stages;
+                this.refreshFinalCall();
+
+                // Time up: hand it to the server, which decides auto-sell vs lock.
+                if (this.timerExpired && this.timerEnabled && data.current_player) {
+                    this.handleTimerExpiry(data.current_player.id);
+                }
+                if (data.min_squad_size) this.minSquadSize = data.min_squad_size;
+                if (data.min_price_per_player !== undefined) this.minPricePerPlayer = Number(data.min_price_per_player);
+                this.nextBidAmount = data.next_bid_amount ?? null;
+                this.bidIncrement = data.bid_increment ?? null;
+                this.maxBidReached = !!data.max_bid_reached;
 
                 const newPlayer = data.current_player;
                 const prevId = this._lastCurrentPlayerId;
 
                 if (newPlayer) {
                     if (newPlayer.id !== prevId) {
+                        // New player on the block — allow a fresh time-up announcement.
+                        this._timerFiredForPlayer = null;
                         this.currentPlayer = newPlayer;
                         this.currentBid = newPlayer.current_price || newPlayer.base_price;
                         this._lastKnownBid = this.currentBid;
@@ -1313,9 +1658,27 @@ function auctionOrganizerPanel() {
         },
 
         // Bid for team (from toolbar buttons)
-        async bidForTeam(teamId) {
+        /**
+         * Raise for a team. `stepIndex` picks a configured quick-bid jump instead of
+         * the standard increment — an index, never an amount, so the server stays the
+         * only thing that decides how much a jump is worth.
+         */
+        async bidForTeam(teamId, stepIndex = null) {
             if (!this.currentPlayer || this.displayState !== 'bidding' || this.openBidMode === 'offline') return;
             if (this.currentPlayer?.current_bid_team_id == teamId) return;
+
+            const team = this.teams.find(t => t.id == teamId);
+            if (team?.excluded) {
+                this.statusText = `${team.name}: ${team.exclusion_reason || 'cannot bid on this player.'}`;
+                return;
+            }
+
+            // An armed jump applies to this one bid, then disarms.
+            if (stepIndex === null && this.armedStepIndex !== null) {
+                stepIndex = this.armedStepIndex;
+            }
+            this.armedStepIndex = null;
+
             try {
                 const response = await fetch('/admin/auctions/add-bid', {
                     method: 'POST',
@@ -1327,7 +1690,8 @@ function auctionOrganizerPanel() {
                     body: JSON.stringify({
                         auctionId: this.auctionId,
                         playerID: this.currentPlayer.id,
-                        teamId: teamId
+                        teamId: teamId,
+                        stepIndex: stepIndex,
                     })
                 });
                 const data = await response.json();
@@ -1442,10 +1806,12 @@ function auctionOrganizerPanel() {
                 return;
             }
 
-            const randomIdx = Math.floor(Math.random() * this.availablePlayers.length);
-            const chosenPlayer = this.availablePlayers[randomIdx];
+            // Next player in drawn lot order — the server returns availablePlayers
+            // sorted by pool sequence then lot number, scoped to the active pool.
+            // This used to pick at random, discarding the draw entirely.
+            const chosenPlayer = this.availablePlayers[0];
 
-            // Run shuffle animation
+            // The animation is theatre; the player is already decided.
             await this._runShuffleAnimation(chosenPlayer);
 
             this.selectedPlayerId = chosenPlayer.id;
@@ -1506,6 +1872,9 @@ function auctionOrganizerPanel() {
 
             let shuffleCount = 0;
             const maxShuffles = 25;
+            // Decide up front (lot order), then spin names purely for effect and land
+            // on the real pick.
+            const chosenPlayer = this.availablePlayers[0];
 
             const shuffleInterval = setInterval(() => {
                 const randomIndex = Math.floor(Math.random() * this.availablePlayers.length);
@@ -1514,8 +1883,9 @@ function auctionOrganizerPanel() {
 
                 if (shuffleCount >= maxShuffles) {
                     clearInterval(shuffleInterval);
-                    this.selectedPlayerId = this.availablePlayers[randomIndex].id;
-                    this.statusText = `Selected: ${this.availablePlayers[randomIndex].name}`;
+                    this.tumblerText = chosenPlayer.name;
+                    this.selectedPlayerId = chosenPlayer.id;
+                    this.statusText = `Selected: ${chosenPlayer.name}`;
                     this.isTumbling = false;
                     setTimeout(() => this.putPlayerOnBid(), 1000);
                 }
@@ -1534,6 +1904,76 @@ function auctionOrganizerPanel() {
             setTimeout(() => this.putPlayerOnBid(), 500);
         },
 
+        /**
+         * A team cannot be bid for when there's no live player, when it already leads,
+         * in offline mode, or when the squad-reserve rule prices it out of this player.
+         */
+        isTeamBidDisabled(team) {
+            return !this.currentPlayer
+                || this.displayState !== 'bidding'
+                || this.openBidMode === 'offline'
+                || this.currentPlayer?.current_bid_team_id == team.id
+                || !!team.excluded;
+        },
+
+        teamTooltip(team) {
+            if (team.excluded && team.exclusion_reason) {
+                return `${team.name} — ${team.exclusion_reason}`;
+            }
+
+            const parts = [`${this.formatCurrency(team.remaining_budget)} left`];
+            if (team.max_bid_allowed !== null && team.max_bid_allowed !== undefined
+                && team.max_bid_allowed < team.remaining_budget) {
+                parts.push(`max bid ${this.formatCurrency(team.max_bid_allowed)}`);
+            }
+            if (team.slots_required) {
+                parts.push(`${team.players_bought || 0}/${team.slots_required} squad`);
+            }
+
+            return `${team.name} (${parts.join(' · ')})`;
+        },
+
+        /** Jump straight to a waiting player by their id (the "#" toolbar box). */
+        loadPlayerByNumber() {
+            const id = parseInt(this.playerNumberInput, 10);
+            if (!id) return;
+
+            const player = this.availablePlayers.find(p => p.id === id);
+            if (!player) {
+                alert(`No waiting player with id ${id} in this queue.`);
+                return;
+            }
+
+            this.playerNumberInput = '';
+            this.selectAndPutOnBid(player);
+        },
+
+        /**
+         * Reverse the last bid / sale / pass / skip. This is the recovery path for
+         * clicking the wrong team mid-auction.
+         */
+        async undoLast() {
+            if (this.isUndoing) return;
+
+            const label = this.nextUndoLabel ? `\n\nWill undo: ${this.nextUndoLabel}` : '';
+            if (!confirm(`Undo the last action?${label}`)) return;
+
+            this.isUndoing = true;
+            try {
+                const result = await this.sendCommand('undo');
+                if (result?.success) {
+                    this.statusText = result.message;
+                    if (window.showToast) {
+                        window.showToast('success', 'Undone', result.message);
+                    }
+                    // Pull fresh state rather than guessing what changed.
+                    await this.pollAuctionState();
+                }
+            } finally {
+                this.isUndoing = false;
+            }
+        },
+
         // Side panel
         showSidePanelFn(name) {
             if (this.sidePanel === name) {
@@ -1547,14 +1987,15 @@ function auctionOrganizerPanel() {
         // API Calls
         async sendCommand(endpoint, body = {}) {
             try {
+                const readOnly = ['sealed-bids', 'all-players', 'action-log'].includes(endpoint);
                 const response = await fetch(`/admin/organizer/auction/${this.auctionId}/api/${endpoint}`, {
-                    method: (endpoint === 'sealed-bids' || endpoint === 'all-players') ? 'GET' : 'POST',
+                    method: readOnly ? 'GET' : 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: (endpoint === 'sealed-bids' || endpoint === 'all-players') ? undefined : JSON.stringify(body)
+                    body: readOnly ? undefined : JSON.stringify(body)
                 });
                 const data = await response.json();
                 if (!response.ok) {
@@ -1614,13 +2055,50 @@ function auctionOrganizerPanel() {
             if (result) await this.pollAuctionState();
         },
 
+        /**
+         * SELL.
+         *
+         * In open bidding the winner is already known — the leading bidder — so the
+         * hammer falls straight away; asking the organizer to pick a team from a dropdown
+         * was both redundant and a chance to award the wrong one. With no bids at all the
+         * player goes unsold. The team picker is only for sealed bids and offline mode,
+         * where the organizer genuinely decides.
+         */
         async sellPlayer() {
             if (!this.currentPlayer) return;
+
             const highestBid = this.currentPlayer.bids?.length
                 ? this.currentPlayer.bids.reduce((a, b) => (a.amount > b.amount ? a : b), this.currentPlayer.bids[0])
                 : null;
+
+            const leadingTeamId = this.currentPlayer.current_bid_team_id || highestBid?.team_id || null;
+            const isOpenLive = this.bidType === 'open' && this.openBidMode !== 'offline';
+
+            // Nobody bid — this is a PASS, not a sale.
+            if (!leadingTeamId) {
+                const name = this.currentPlayer.player?.name || 'this player';
+                if (!confirm(`No bids for ${name}.\n\nMark them UNSOLD and set them aside for final allotment?`)) return;
+                await this.passPlayer();
+                return;
+            }
+
+            // Open bidding: award the leading bidder directly.
+            if (isOpenLive) {
+                const team = this.getTeamById(leadingTeamId);
+                const amount = highestBid?.amount || this.currentPlayer.current_price;
+                if (!confirm(`Sell ${this.currentPlayer.player?.name} to ${team?.name || 'the leading team'} for ${this.formatCurrency(amount)}?`)) return;
+
+                const result = await this.sendCommand('sell-player', { auction_player_id: this.currentPlayer.id });
+                if (result?.success !== false) {
+                    this._fireConfetti();
+                    await this.pollAuctionState();
+                }
+                return;
+            }
+
+            // Sealed bids / offline: the organizer picks the winner.
             this.sellModalData = {
-                team_id: highestBid?.team_id || '',
+                team_id: leadingTeamId || '',
                 amount: highestBid?.amount || this.currentPlayer.current_price || this.currentPlayer.base_price,
             };
             this.showSellModal = true;
@@ -1692,6 +2170,10 @@ function auctionOrganizerPanel() {
             if (key === 'P' && this.currentPlayer && this.displayState === 'bidding' && !this.currentPlayer?.current_bid_team_id) {
                 e.preventDefault(); this.passPlayer(); return;
             }
+            // Undo the last action. Ctrl/Cmd+Z works too, for muscle memory.
+            if (key === 'U' || ((e.ctrlKey || e.metaKey) && key === 'Z')) {
+                e.preventDefault(); this.undoLast(); return;
+            }
 
             // Number keys 1-9, 0 — bid for team
             if (this.currentPlayer && this.displayState === 'bidding' && this.openBidMode !== 'offline') {
@@ -1700,10 +2182,132 @@ function auctionOrganizerPanel() {
                 else if (e.key === '0') teamIdx = 9;
 
                 if (teamIdx >= 0 && teamIdx < this.teams.length) {
+                    const team = this.teams[teamIdx];
                     e.preventDefault();
-                    this.bidForTeam(this.teams[teamIdx].id);
+                    // Respect the same exclusion the buttons do, so a keyboard
+                    // shortcut can't bypass the reserve rule.
+                    if (this.isTeamBidDisabled(team)) {
+                        this.statusText = team.exclusion_reason
+                            ? `${team.name}: ${team.exclusion_reason}`
+                            : `${team.name} cannot bid right now.`;
+                        return;
+                    }
+                    this.bidForTeam(team.id);
                 }
             }
+        },
+
+        /**
+         * Arm (or disarm) a quick-bid jump. A jump is placed *by a team*, exactly like a
+         * normal raise — so the organizer arms the amount, then clicks the team logo,
+         * and that one bid uses the jump instead of the standard increment.
+         */
+        toggleQuickStep(stepIndex) {
+            this.armedStepIndex = this.armedStepIndex === stepIndex ? null : stepIndex;
+            this.statusText = this.armedStepIndex === null
+                ? 'Standard increment.'
+                : `Next bid jumps by ${this.formatCurrency(this.quickBidSteps[stepIndex])} — click a team.`;
+        },
+
+        /** Money entry in millions, shared with every other screen. */
+        toM(raw) { return window.auctionToM ? window.auctionToM(raw) : raw; },
+        fromM(value) { return window.auctionFromM ? window.auctionFromM(value) : value; },
+
+        /* ── Pool control ── */
+
+        async activatePool(poolId) {
+            const result = await this.sendCommand(`pools/${poolId}/activate`);
+            if (result?.success) {
+                this.statusText = result.message;
+                if (window.showToast) window.showToast('success', 'Pool started', result.message);
+                await this.pollAuctionState();
+            }
+        },
+
+        async completeActivePool() {
+            if (!this.activePool) return;
+
+            // Closing early leaves players in the pool unsold, so say so.
+            if (!this.activePool.exhausted) {
+                const left = this.activePool.waiting;
+                if (!confirm(`Close ${this.activePool.name} now?\n\n${left} player(s) still in it will be left unsold.`)) return;
+            }
+
+            const result = await this.sendCommand(`pools/${this.activePool.id}/complete`);
+            if (result?.success) {
+                this.statusText = result.message;
+                if (window.showToast) window.showToast('success', 'Pool closed', result.message);
+                await this.pollAuctionState();
+            }
+        },
+
+        /* ── Timer ── */
+
+        async toggleTimer() {
+            const result = await this.sendCommand('toggle-timer', { timer_enabled: !this.timerEnabled });
+            if (result?.success) {
+                this.timerEnabled = result.timer_enabled;
+                this.statusText = result.message;
+            }
+        },
+
+        /**
+         * Report expiry to the server, which re-checks its own clock before acting.
+         *
+         * Latched per player rather than on a cooldown: in manual mode the clock stays
+         * expired until the organizer presses SELL, so a timed cooldown re-announced
+         * "time up" every few seconds for as long as the player sat there.
+         */
+        async handleTimerExpiry(auctionPlayerId) {
+            if (this._timerFiring || this._timerFiredForPlayer === auctionPlayerId) return;
+
+            this._timerFiring = true;
+            this._timerFiredForPlayer = auctionPlayerId;
+
+            try {
+                const result = await this.sendCommand('timer-expired', { auction_player_id: auctionPlayerId });
+                if (result?.handled) {
+                    this.statusText = result.message;
+                    if (window.showToast) {
+                        window.showToast(result.action === 'sold' ? 'success' : 'warning', 'Time up', result.message);
+                    }
+                    if (result.action === 'sold') this._fireConfetti();
+                    await this.pollAuctionState();
+                } else {
+                    // Server said the clock is still running (or already resolved) — let a
+                    // later tick try again rather than latching on a false alarm.
+                    this._timerFiredForPlayer = null;
+                }
+            } finally {
+                this._timerFiring = false;
+            }
+        },
+
+        /* ── Sell-confirmation summary ── */
+
+        get saleTeam() {
+            return this.teams.find(t => t.id == this.sellModalData.team_id) || null;
+        },
+
+        get salePurseAfter() {
+            if (!this.saleTeam) return 0;
+            return Number(this.saleTeam.remaining_budget || 0) - Number(this.sellModalData.amount || 0);
+        },
+
+        /** Mirrors the server's squad-reserve check so the operator sees it before clicking. */
+        get saleBreachesReserve() {
+            const team = this.saleTeam;
+            if (!team || team.max_bid_allowed === null || team.max_bid_allowed === undefined) return false;
+
+            return Number(this.sellModalData.amount || 0) > Number(team.max_bid_allowed);
+        },
+
+        /** Waiting players matching the queue filter. */
+        get filteredQueue() {
+            const q = (this.queueSearchQuery || '').trim().toLowerCase();
+            if (!q) return this.availablePlayers;
+
+            return this.availablePlayers.filter(p => (p.name || '').toLowerCase().includes(q));
         },
 
         // Helpers
@@ -1717,20 +2321,11 @@ function auctionOrganizerPanel() {
         },
 
         formatCurrency(amount) {
-            const num = Number(amount) || 0;
-            if (num >= 10000000) {
-                const val = num / 10000000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' Cr';
-            }
-            if (num >= 100000) {
-                const val = num / 100000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(2).replace(/\.?0+$/, '')) + ' L';
-            }
-            if (num >= 1000) {
-                const val = num / 1000;
-                return (val % 1 === 0 ? val.toFixed(0) : val.toFixed(1).replace(/\.?0+$/, '')) + 'K';
-            }
-            return num.toLocaleString();
+            // Shared K/M/B formatter with this auction's unit — no local Lakh/Crore
+            // ladder, which was wrong for an auction run in points, coins or dollars.
+            return window.auctionAmount
+                ? window.auctionAmount(amount, this.amountUnit)
+                : String(Number(amount) || 0);
         },
 
         getPlayerType(player) {

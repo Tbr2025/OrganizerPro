@@ -216,7 +216,7 @@ class TournamentController extends Controller
         $user = Auth::user();
 
         // Safety check: if no user is logged in, deny access.
-        if (!$user) {
+        if (! $user) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -231,7 +231,7 @@ class TournamentController extends Controller
             // For any other user, scope the data by their organization_id.
 
             // Safety check: ensure the non-admin user is actually assigned to an organization.
-            if (!$user->organization_id) {
+            if (! $user->organization_id) {
                 // If not, they can't create a tournament. Redirect back with an informative error.
                 return redirect()->back()->with('error', 'You are not assigned to an organization and cannot create a tournament.');
             }
@@ -259,7 +259,7 @@ class TournamentController extends Controller
 
         // 5. Check tournament limit for the user's organization
         $organizationLimits = null;
-        if (!$user->hasRole('Superadmin') && $user->organization_id) {
+        if (! $user->hasRole('Superadmin') && $user->organization_id) {
             $org = Organization::find($user->organization_id);
             if ($org) {
                 $organizationLimits = [
@@ -289,20 +289,20 @@ class TournamentController extends Controller
 
         $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
-            'zone_id'        => 'nullable|exists:zones,id',
-            'name'           => 'required|string|max:255',
-            'slug'           => 'nullable|string|max:255|alpha_dash|unique:tournaments,slug',
-            'logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'logo_cropped'   => 'nullable|string',
-            'start_date'     => 'required|date|after_or_equal:today',
-            'end_date'       => 'required|date|after_or_equal:start_date',
-            'location'       => 'nullable|string|max:255',
-            'status'         => 'nullable|in:draft,registration,active,completed',
-            'type'           => 'nullable|in:open,auction',
+            'zone_id' => 'nullable|exists:zones,id',
+            'name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|alpha_dash|unique:tournaments,slug',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'logo_cropped' => 'nullable|string',
+            'start_date' => 'required|date|after_or_equal:today',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'location' => 'nullable|string|max:255',
+            'status' => 'nullable|in:draft,registration,active,completed',
+            'type' => 'nullable|in:open,auction',
         ]);
 
         // Check tournament limit (bypass for Superadmin)
-        if (!auth()->user()->hasRole('Superadmin')) {
+        if (! auth()->user()->hasRole('Superadmin')) {
             $organization = Organization::find($validated['organization_id']);
             if ($organization && $organization->hasReachedTournamentLimit()) {
                 return redirect()->back()->withInput()
@@ -362,12 +362,12 @@ class TournamentController extends Controller
         $settings = $tournament->settings;
 
         return view('backend.pages.tournaments.edit', [
-            'tournament'    => $tournament,
+            'tournament' => $tournament,
             'organizations' => $organizations,
-            'zones'         => $zones,
-            'auction'       => $auction,
-            'settings'      => $settings,
-            'breadcrumbs'   => [
+            'zones' => $zones,
+            'auction' => $auction,
+            'settings' => $settings,
+            'breadcrumbs' => [
                 ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
                 ['label' => 'Edit Tournament'],
             ],
@@ -380,16 +380,16 @@ class TournamentController extends Controller
 
         $validated = $request->validate([
             'organization_id' => 'required|exists:organizations,id',
-            'zone_id'        => 'nullable|exists:zones,id',
-            'name'           => 'required|string|max:255',
-            'slug'           => 'nullable|string|max:255|alpha_dash|unique:tournaments,slug,' . $tournament->id,
-            'logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'logo_cropped'   => 'nullable|string',
-            'start_date'     => 'required|date',
-            'end_date'       => 'required|date|after_or_equal:start_date',
-            'location'       => 'nullable|string|max:255',
-            'status'         => 'nullable|in:draft,registration,active,completed',
-            'type'           => 'nullable|in:open,auction',
+            'zone_id' => 'nullable|exists:zones,id',
+            'name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|alpha_dash|unique:tournaments,slug,' . $tournament->id,
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'logo_cropped' => 'nullable|string',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'location' => 'nullable|string|max:255',
+            'status' => 'nullable|in:draft,registration,active,completed',
+            'type' => 'nullable|in:open,auction',
             'max_budget_per_team' => 'nullable|numeric|min:0',
             'max_players_per_team' => 'nullable|integer|min:1|max:50',
             'min_players_per_team' => 'nullable|integer|min:1|max:50',
@@ -435,9 +435,9 @@ class TournamentController extends Controller
             $settingsData = array_filter([
                 'max_players_per_team' => $request->input('max_players_per_team'),
                 'min_players_per_team' => $request->input('min_players_per_team'),
-            ], fn($v) => $v !== null);
+            ], fn ($v) => $v !== null);
 
-            if (!empty($settingsData)) {
+            if (! empty($settingsData)) {
                 \App\Models\TournamentSetting::updateOrCreate(
                     ['tournament_id' => $tournament->id],
                     $settingsData
@@ -449,7 +449,6 @@ class TournamentController extends Controller
             ->route('admin.tournaments.index')
             ->with('success', 'Tournament updated successfully.');
     }
-
 
     public function globalBudgetUpdate(Request $request, Tournament $tournament)
     {

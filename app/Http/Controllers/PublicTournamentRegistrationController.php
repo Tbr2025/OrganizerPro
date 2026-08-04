@@ -9,7 +9,6 @@ use App\Mail\NewRegistrationAdminMail;
 use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 
 class PublicTournamentRegistrationController extends Controller
 {
@@ -21,7 +20,7 @@ class PublicTournamentRegistrationController extends Controller
         // Check if registration is open
         $settings = $tournament->settings;
 
-        if (!$settings || (!$settings->player_registration_open && !$settings->team_registration_open)) {
+        if (! $settings || (! $settings->player_registration_open && ! $settings->team_registration_open)) {
             return view('public.tournament.registration-closed', compact('tournament'));
         }
 

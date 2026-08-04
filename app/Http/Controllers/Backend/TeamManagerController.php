@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use App\Mail\NewPlayerAddedMail;
 use App\Mail\PlayerApprovedMail;
 use App\Models\BattingProfile;
@@ -23,7 +22,6 @@ use App\Models\BowlingProfile;
 use App\Models\KitSize;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
-use App\Models\TournamentRegistration as TournamentRegistrationModel;
 use App\Models\TournamentTemplate;
 use App\Models\Wishlist;
 use App\Services\Poster\TemplateRenderService;
@@ -32,6 +30,52 @@ use App\Notifications\GeneralNotification;
 
 class TeamManagerController extends Controller
 {
+    /**
+     * A team's standing in one auction: purse, squad, and how the squad was built.
+     *
+     * Everything comes from AuctionPoolService — the same implementation the bid and
+     * sell checks use — so a manager can never be shown a purse the auction would
+     * disagree with. It also splits the squad into retained vs won at auction, which the
+     * dashboard previously could not show at all.
+     *
+     * @return array<string, mixed>
+     */
+    private function teamAuctionSummary(Auction $auction, int $teamId): array
+    {
+        $pools = app(\App\Services\Auction\AuctionPoolService::class);
+        $state = $pools->teamPurseState($auction, $teamId);
+
+        $retainedCount = $auction->auctionPlayers()
+            ->where('is_retained', true)
+            ->where('team_id', $teamId)
+            ->count();
+
+        $wonCount = $auction->auctionPlayers()
+            ->where('status', 'sold')
+            ->where('sold_to_team_id', $teamId)
+            ->count();
+
+        $cap = fn (float $v) => $v >= 1.0e15 ? 1.0e15 : $v;
+
+        return [
+            'max' => $cap($state['allocated']),
+            'spent' => $state['spent'],
+            'remaining' => $cap($state['remaining']),
+            // Squad composition.
+            'retained_count' => $retainedCount,
+            'won_count' => $wonCount,
+            'squad_size' => $state['slots_filled'],
+            'squad_required' => $state['slots_required'],
+            'squad_remaining' => $state['slots_remaining'],
+            // What the reserve rule currently holds back, and the resulting bid ceiling.
+            'reserve' => $state['reserve'],
+            'max_bid_allowed' => $cap($state['max_bid_allowed']),
+            // Money split the same way as the squad.
+            'retained_spent' => $pools->retainedSpent($auction, $teamId),
+            'auction_spent' => $pools->soldSpent($auction, $teamId),
+        ];
+    }
+
     /**
      * Resolve the selected team from session, falling back to the first team.
      */
@@ -116,23 +160,11 @@ class TeamManagerController extends Controller
         // Calculate budget info for active auctions
         $auctionBudgets = [];
         foreach ($upcomingAuctions as $auction) {
-            $soldSpent = $team->auctionPlayers()
-                ->where('auction_id', $auction->id)
-                ->where('status', 'sold')
-                ->sum('final_price');
-
-            $retainedSpent = Player::where('actual_team_id', $team->id)
-                ->where('player_mode', 'retained')
-                ->whereNotNull('retained_value')
-                ->sum('retained_value');
-
-            $spent = $soldSpent + $retainedSpent;
-
-            $auctionBudgets[$auction->id] = [
-                'max' => $auction->max_budget_per_team ?? 0,
-                'spent' => $spent,
-                'remaining' => ($auction->max_budget_per_team ?? 0) - $spent,
-            ];
+            // One canonical implementation, the same one the sell-side checks use. This
+            // block previously summed players.retained_value instead of
+            // auction_players.retained_price and ignored per-team budget allocations, so
+            // a manager's figures could disagree with what the auction would accept.
+            $auctionBudgets[$auction->id] = $this->teamAuctionSummary($auction, $team->id);
         }
 
         // Team members from pivot table (for captain/owner management)
@@ -213,7 +245,17 @@ class TeamManagerController extends Controller
         $breadcrumbs = ['title' => __('Create Player')];
 
         return view('backend.pages.team-manager.create-player', compact(
-            'teams', 'team', 'effectiveTournaments', 'locations', 'kitSizes', 'battingProfiles', 'bowlingProfiles', 'playerTypes', 'defaultCountry', 'fieldConfig', 'breadcrumbs'
+            'teams',
+            'team',
+            'effectiveTournaments',
+            'locations',
+            'kitSizes',
+            'battingProfiles',
+            'bowlingProfiles',
+            'playerTypes',
+            'defaultCountry',
+            'fieldConfig',
+            'breadcrumbs'
         ));
     }
 
@@ -284,7 +326,7 @@ class TeamManagerController extends Controller
         ];
 
         // Handle image — pre-processed path from AJAX upload
-        if (!empty($validated['image_path']) && is_string($validated['image_path'])
+        if (! empty($validated['image_path']) && is_string($validated['image_path'])
             && Storage::disk('public')->exists($validated['image_path'])) {
             $data['image_path'] = $validated['image_path'];
         }
@@ -293,7 +335,7 @@ class TeamManagerController extends Controller
 
         // Create player_actual_team_tournament pivot entries for selected tournaments
         $tournamentIds = $request->input('tournament_ids', []);
-        if (!empty($tournamentIds)) {
+        if (! empty($tournamentIds)) {
             foreach ($tournamentIds as $tournamentId) {
                 DB::table('player_actual_team_tournament')->insert([
                     'player_id' => $player->id,
@@ -342,7 +384,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -377,7 +419,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -420,7 +462,7 @@ class TeamManagerController extends Controller
             ->with(['tournament.organization', 'players', 'users'])
             ->first();
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -436,7 +478,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $user->actualTeams()->with('tournament')->first();
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -454,23 +496,7 @@ class TeamManagerController extends Controller
 
         // Add budget info to each auction
         foreach ($auctions as $auction) {
-            $soldSpent = $team->auctionPlayers()
-                ->where('auction_id', $auction->id)
-                ->where('status', 'sold')
-                ->sum('final_price');
-
-            $retainedSpent = Player::where('actual_team_id', $team->id)
-                ->where('player_mode', 'retained')
-                ->whereNotNull('retained_value')
-                ->sum('retained_value');
-
-            $spent = $soldSpent + $retainedSpent;
-
-            $auction->budget_info = [
-                'max' => $auction->max_budget_per_team ?? 0,
-                'spent' => $spent,
-                'remaining' => ($auction->max_budget_per_team ?? 0) - $spent,
-            ];
+            $auction->budget_info = $this->teamAuctionSummary($auction, $team->id);
         }
 
         $breadcrumbs = ['title' => __('My Auctions')];
@@ -486,7 +512,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -503,7 +529,7 @@ class TeamManagerController extends Controller
         ]);
 
         // Check if password matches the team manager's password
-        if (!Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'Invalid password. Player verification failed.');
         }
@@ -582,7 +608,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -606,7 +632,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -616,7 +642,7 @@ class TeamManagerController extends Controller
                 ->with('error', 'This player is not on your team.');
         }
 
-        if (!$player->email) {
+        if (! $player->email) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'Player does not have an email address.');
         }
@@ -698,7 +724,7 @@ class TeamManagerController extends Controller
                 ->with('error', 'You are not assigned to any team.');
         }
 
-        $tournaments = $teams->flatMap(fn($t) => $t->effectiveTournaments)->unique('id')->values();
+        $tournaments = $teams->flatMap(fn ($t) => $t->effectiveTournaments)->unique('id')->values();
 
         $breadcrumbs = ['title' => __('Register as Player')];
 
@@ -716,7 +742,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -728,7 +754,7 @@ class TeamManagerController extends Controller
         $isManager = $currentRole === 'Manager';
         $isCaptain = $currentRole && strtolower($currentRole) === 'captain';
 
-        if (!$isOwner && !$isManager && !$isCaptain) {
+        if (! $isOwner && ! $isManager && ! $isCaptain) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'Only the owner, manager, or captain can assign captaincy.');
         }
@@ -739,14 +765,14 @@ class TeamManagerController extends Controller
 
         // Verify the new captain is a member of this team
         $newCaptain = $team->users()->where('user_id', $validated['new_captain_user_id'])->first();
-        if (!$newCaptain) {
+        if (! $newCaptain) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'Selected user is not a member of this team.');
         }
 
         // Ensure new captain has Team Manager role for dashboard access
         $newCaptainUser = User::find($validated['new_captain_user_id']);
-        if ($newCaptainUser && !$newCaptainUser->hasRole('Team Manager')) {
+        if ($newCaptainUser && ! $newCaptainUser->hasRole('Team Manager')) {
             $newCaptainUser->assignRole('Team Manager');
         }
 
@@ -757,7 +783,7 @@ class TeamManagerController extends Controller
         }
 
         // If current user is captain (not owner/manager) transferring, demote self
-        if ($isCaptain && !$isOwner && !$isManager && $user->id !== $validated['new_captain_user_id']) {
+        if ($isCaptain && ! $isOwner && ! $isManager && $user->id !== $validated['new_captain_user_id']) {
             $team->users()->updateExistingPivot($user->id, ['role' => 'Player']);
         }
 
@@ -802,7 +828,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -813,15 +839,15 @@ class TeamManagerController extends Controller
         // Use withoutOrganizationScope() so players with NULL org_id are included
         // Exclude all retained players (they're already locked to their teams)
         $query = Player::withoutOrganizationScope()->whereHas('registrations', function ($q) use ($tournamentId) {
-                $q->where('tournament_id', $tournamentId)
-                  ->where('status', 'approved');
-            })
+            $q->where('tournament_id', $tournamentId)
+              ->where('status', 'approved');
+        })
             ->where(function ($q) {
                 $q->where('player_mode', '!=', 'retained')
                   ->orWhereNull('player_mode');
             })
             ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'location', 'kitSize',
-                'registrations' => fn($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved')->limit(1),
+                'registrations' => fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved')->limit(1),
             ]);
 
         // Search by name or jersey name
@@ -862,7 +888,7 @@ class TeamManagerController extends Controller
             ->toArray();
 
         // Filter options — only show values present among approved players
-        $baseIds = Player::whereHas('registrations', fn($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'));
+        $baseIds = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'));
         $playerTypes = PlayerType::whereIn('id', (clone $baseIds)->whereNotNull('player_type_id')->pluck('player_type_id')->unique())->orderBy('type')->get();
         $battingProfiles = BattingProfile::whereIn('id', (clone $baseIds)->whereNotNull('batting_profile_id')->pluck('batting_profile_id')->unique())->orderBy('style')->get();
         $bowlingProfiles = BowlingProfile::whereIn('id', (clone $baseIds)->whereNotNull('bowling_profile_id')->pluck('bowling_profile_id')->unique())->orderBy('style')->get();
@@ -878,10 +904,19 @@ class TeamManagerController extends Controller
         $verifyCustomFields = $tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
 
         return view('backend.pages.team-manager.players', compact(
-            'team', 'players', 'wishlistedIds', 'breadcrumbs',
-            'playerTypes', 'battingProfiles', 'bowlingProfiles', 'teams',
-            'verifyLayout', 'verifyFieldConfig', 'verifyCustomFields',
-            'filterDefinitions', 'playerPool'
+            'team',
+            'players',
+            'wishlistedIds',
+            'breadcrumbs',
+            'playerTypes',
+            'battingProfiles',
+            'bowlingProfiles',
+            'teams',
+            'verifyLayout',
+            'verifyFieldConfig',
+            'verifyCustomFields',
+            'filterDefinitions',
+            'playerPool'
         ));
     }
 
@@ -893,7 +928,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -906,7 +941,7 @@ class TeamManagerController extends Controller
             ->where('status', 'approved')
             ->exists();
 
-        if (!$belongsToTournament) {
+        if (! $belongsToTournament) {
             return redirect()->route('team-manager.players')
                 ->with('error', 'Player not found in your tournament.');
         }
@@ -981,7 +1016,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -1019,7 +1054,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -1052,7 +1087,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }
@@ -1089,7 +1124,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return response()->json(['error' => 'No team assigned'], 403);
         }
 
@@ -1125,7 +1160,7 @@ class TeamManagerController extends Controller
         $user = Auth::user();
         $team = $this->selectedTeam($user);
 
-        if (!$team) {
+        if (! $team) {
             return redirect()->route('team-manager.dashboard')
                 ->with('error', 'You are not assigned to any team.');
         }

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\BattingProfile;
 use App\Models\BowlingProfile;
 use App\Models\KitSize;
-use App\Models\Location;
 use App\Models\Player;
 use App\Models\PlayerLocation;
 use App\Models\PlayerType;
@@ -80,14 +79,14 @@ class PublicPlayerController extends Controller
                 'nullable',
                 'numeric',
                 'digits_between:7,15',
-                Rule::unique('players', 'cricheroes_number_full')->whereNotNull('cricheroes_number_full')
+                Rule::unique('players', 'cricheroes_number_full')->whereNotNull('cricheroes_number_full'),
             ],
 
             'image' => [
                 'required',
                 'image',
                 'mimes:jpeg,jpg,png',
-                'max:6144'
+                'max:6144',
             ],
 
             'wicket_keeper' => 'nullable|boolean',
@@ -122,7 +121,6 @@ class PublicPlayerController extends Controller
 
         ]);
 
-
         // Log::info('--- Background Removal Process Starting ---');
         $finalImagePath = null;
 
@@ -149,7 +147,7 @@ class PublicPlayerController extends Controller
         Log::info('Executing shell command: ' . $command);
         $shellOutput = shell_exec($command);
 
-        if (!File::exists($outputPath)) {
+        if (! File::exists($outputPath)) {
             Log::error("Background removal FAILED. Shell Output: " . $shellOutput);
             File::delete($inputPath); // Clean up the temp file
             // Return user to form with an error
@@ -198,11 +196,9 @@ class PublicPlayerController extends Controller
             return back()->withInput()->withErrors(['image' => 'Image resizing failed.']);
         }
 
-
         Log::info("Background removal successful. Output: " . $shellOutput);
         $finalImagePath = 'player_images/' . $outputFilename;
         File::delete($inputPath); // Clean up the temp original file
-
 
         // --- 4. Create Database Records (Only after image is processed) ---
         $username = Str::slug(Str::before($validated['email'], '@'), '_');
@@ -218,8 +214,6 @@ class PublicPlayerController extends Controller
             'password' => Hash::make($password),
             'email_verified_at' => null,
         ]);
-
-
 
         // Build player data
         $registrationTeam = Team::with('tournament')->find($validated['team_id']);
@@ -253,8 +247,8 @@ class PublicPlayerController extends Controller
             'bowling_profile_id',
             'cricheroes_country_code',
             'cricheroes_national_number',
-            'cricheroes_number_full'
-        ])->mapWithKeys(fn($field) => [$field => $validated[$field] ?? null])->toArray()));
+            'cricheroes_number_full',
+        ])->mapWithKeys(fn ($field) => [$field => $validated[$field] ?? null])->toArray()));
 
         // // Remove image background via Python script
         // $outputFilename = 'processed-' . Str::random(8) . '.png';

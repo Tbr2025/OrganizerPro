@@ -14,7 +14,9 @@ use Illuminate\View\View;
 
 class FontController extends Controller
 {
-    public function __construct(private readonly FontService $fontService) {}
+    public function __construct(private readonly FontService $fontService)
+    {
+    }
 
     public function index(): View
     {
@@ -26,10 +28,10 @@ class FontController extends Controller
     public function storeGoogle(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'family'          => 'required|string|max:100',
-            'weights'         => 'required|array|min:1',
-            'weights.*'       => 'integer|in:100,200,300,400,500,600,700,800,900',
-            'include_italic'  => 'nullable|boolean',
+            'family' => 'required|string|max:100',
+            'weights' => 'required|array|min:1',
+            'weights.*' => 'integer|in:100,200,300,400,500,600,700,800,900',
+            'include_italic' => 'nullable|boolean',
         ]);
 
         try {
@@ -43,7 +45,7 @@ class FontController extends Controller
         }
 
         return back()->with('success', __("Google Font ':name' installed (:count variant(s)).", [
-            'name'  => $font->name,
+            'name' => $font->name,
             'count' => count($font->variants ?? []),
         ]));
     }
@@ -53,13 +55,13 @@ class FontController extends Controller
         $validated = $request->validate([
             'family' => 'required|string|max:100',
             'weight' => 'required|integer|in:100,200,300,400,500,600,700,800,900',
-            'style'  => 'required|in:normal,italic',
+            'style' => 'required|in:normal,italic',
             'font_file' => 'required|file|mimetypes:font/ttf,font/otf,application/font-sfnt,application/octet-stream,application/x-font-ttf,application/x-font-otf|max:6144',
         ]);
 
         // Extra guard: only allow .ttf/.otf by extension (mimetypes vary by OS).
         $ext = strtolower($request->file('font_file')->getClientOriginalExtension());
-        if (!in_array($ext, ['ttf', 'otf'])) {
+        if (! in_array($ext, ['ttf', 'otf'])) {
             return back()->with('error', __('Only .ttf or .otf font files are allowed.'))->withInput();
         }
 
@@ -81,7 +83,7 @@ class FontController extends Controller
     {
         // Remove the stored font files (only the ones we manage under fonts/).
         foreach ($font->variants ?? [] as $v) {
-            if (!empty($v['file'])) {
+            if (! empty($v['file'])) {
                 $path = $this->fontService->fontsPath($v['file']);
                 if (File::exists($path)) {
                     File::delete($path);

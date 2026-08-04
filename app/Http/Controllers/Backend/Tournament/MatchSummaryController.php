@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Backend\Tournament;
 use App\Http\Controllers\Controller;
 use App\Models\Ball;
 use App\Models\Matches;
-use App\Models\MatchSummary;
 use App\Models\MatchResult;
 use App\Models\MatchAward;
 use App\Models\Player;
@@ -48,7 +47,7 @@ class MatchSummaryController extends Controller
         $match->load(['teamA.players', 'teamB.players', 'result', 'matchAwards.player', 'matchAwards.tournamentAward']);
 
         // Auto-create result from ball data if both innings are complete
-        if (!$match->result) {
+        if (! $match->result) {
             $this->autoCreateResultFromBalls($match);
             $match->refresh();
         }
@@ -85,7 +84,7 @@ class MatchSummaryController extends Controller
         // from live ball data when no result has been recorded yet).
         $result = $match->result ?? new MatchResult();
         $ballStats = $this->calculateBallStats($match);
-        if (!$match->result && $ballStats['hasBallData']) {
+        if (! $match->result && $ballStats['hasBallData']) {
             if ($ballStats['bothInningsComplete']) {
                 $result->team_a_score = $ballStats['teamA']['runs'];
                 $result->team_a_wickets = $ballStats['teamA']['wickets'];
@@ -106,7 +105,7 @@ class MatchSummaryController extends Controller
                 } else {
                     $result->result_type = 'tie';
                 }
-            } elseif ($ballStats['firstInningsComplete'] && !$ballStats['secondInningsStarted']) {
+            } elseif ($ballStats['firstInningsComplete'] && ! $ballStats['secondInningsStarted']) {
                 $result->team_a_score = $ballStats['teamA']['runs'];
                 $result->team_a_wickets = $ballStats['teamA']['wickets'];
                 $result->team_a_overs = $ballStats['teamA']['overs'];
@@ -145,8 +144,8 @@ class MatchSummaryController extends Controller
         }
 
         // Separate balls by innings
-        $innings1Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamAPlayerIds));
-        $innings2Balls = $allBalls->filter(fn($b) => in_array($b->batsman_id, $teamBPlayerIds));
+        $innings1Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamAPlayerIds));
+        $innings2Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamBPlayerIds));
 
         // Need both innings to have been played
         if ($innings1Balls->isEmpty() || $innings2Balls->isEmpty()) {
@@ -220,7 +219,7 @@ class MatchSummaryController extends Controller
         $totalExtras = $balls->sum('extra_runs');
 
         // Calculate overs (legal deliveries only)
-        $legalBalls = $balls->filter(fn($b) => !in_array($b->extra_type, ['wide', 'no_ball']))->count();
+        $legalBalls = $balls->filter(fn ($b) => ! in_array($b->extra_type, ['wide', 'no_ball']))->count();
         $completedOvers = floor($legalBalls / 6);
         $ballsInOver = $legalBalls % 6;
         $overs = $completedOvers + ($ballsInOver / 10);
@@ -321,7 +320,7 @@ class MatchSummaryController extends Controller
         }
 
         // If custom player name provided and no player_id, create a Player record
-        if (!empty($validated['custom_player_name']) && empty($validated['player_id'])) {
+        if (! empty($validated['custom_player_name']) && empty($validated['player_id'])) {
             $tournament = $match->tournament;
             $customName = $validated['custom_player_name'];
 
@@ -370,7 +369,7 @@ class MatchSummaryController extends Controller
 
             // Keep custom_player_name as fallback display
             $validated['custom_player_image'] = $imagePath;
-        } else if (!empty($validated['player_id'])) {
+        } elseif (! empty($validated['player_id'])) {
             // Clear custom fields if player_id is set
             $validated['custom_player_name'] = null;
             $validated['custom_player_image'] = null;
@@ -431,14 +430,14 @@ class MatchSummaryController extends Controller
         try {
             $templateId = $request->input('template_id');
 
-            if (!$templateId) {
+            if (! $templateId) {
                 return redirect()->back()->with('error', 'Please select a template.');
             }
 
             $tournament = $match->tournament;
             $tournamentTemplate = $tournament->templates()->find($templateId);
 
-            if (!$tournamentTemplate || !$tournamentTemplate->background_image) {
+            if (! $tournamentTemplate || ! $tournamentTemplate->background_image) {
                 return redirect()->back()->with('error', 'Template not found or has no background image.');
             }
 
@@ -484,7 +483,7 @@ class MatchSummaryController extends Controller
     {
         $summary = $match->summary;
 
-        if (!$summary || !$summary->summary_poster) {
+        if (! $summary || ! $summary->summary_poster) {
             return redirect()
                 ->back()
                 ->with('error', 'Please generate the summary poster first.');
@@ -510,13 +509,13 @@ class MatchSummaryController extends Controller
     {
         $summary = $match->summary;
 
-        if (!$summary || !$summary->summary_poster) {
+        if (! $summary || ! $summary->summary_poster) {
             abort(404, 'Poster not found.');
         }
 
         $path = storage_path('app/public/' . $summary->summary_poster);
 
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             abort(404, 'Poster file not found.');
         }
 
@@ -687,7 +686,7 @@ class MatchSummaryController extends Controller
     {
         $heroesData = $this->getHeroesData($match);
 
-        if (!$heroesData) {
+        if (! $heroesData) {
             return response()->json([
                 'success' => false,
                 'message' => 'No CricHeroes heroes data found. Fetch from CricHeroes first.',
@@ -751,7 +750,7 @@ class MatchSummaryController extends Controller
                 return in_array($a->slug, $slugs);
             });
 
-            if (!$tournamentAward) {
+            if (! $tournamentAward) {
                 $skipped[] = "$heroKey ($heroName): no matching tournament award for slugs [" . implode(', ', $slugs) . "]";
                 continue;
             }
@@ -795,7 +794,7 @@ class MatchSummaryController extends Controller
 
                 // Download player image from CricHeroes
                 $heroImageUrl = $heroesData[$heroKey]['image_url'] ?? null;
-                if (!$heroImageUrl) {
+                if (! $heroImageUrl) {
                     $heroImageUrl = $this->findPlayerImageFromScorecard($match, $heroName);
                 }
                 if ($heroImageUrl) {
@@ -838,7 +837,7 @@ class MatchSummaryController extends Controller
         }
 
         if (empty($assigned)) {
-            $reason = !empty($skipped) ? ' Reasons: ' . implode('; ', $skipped) : '';
+            $reason = ! empty($skipped) ? ' Reasons: ' . implode('; ', $skipped) : '';
             return response()->json([
                 'success' => true,
                 'message' => 'No new awards to assign.' . $reason,
@@ -863,7 +862,7 @@ class MatchSummaryController extends Controller
         ]);
 
         $player = $award->player;
-        if (!$player) {
+        if (! $player) {
             return response()->json(['success' => false, 'message' => 'No player linked to this award.'], 422);
         }
 
@@ -887,7 +886,7 @@ class MatchSummaryController extends Controller
      */
     private function getHeroesData(Matches $match): ?array
     {
-        if (!$match->result || !$match->result->scorecard_data) {
+        if (! $match->result || ! $match->result->scorecard_data) {
             return null;
         }
 
@@ -905,7 +904,9 @@ class MatchSummaryController extends Controller
     {
         $a = strtolower(trim($a));
         $b = strtolower(trim($b));
-        if (!$a || !$b) return false;
+        if (! $a || ! $b) {
+            return false;
+        }
         return $a === $b || str_contains($a, $b) || str_contains($b, $a);
     }
 
@@ -915,20 +916,26 @@ class MatchSummaryController extends Controller
     private function findPlayerImageFromScorecard(Matches $match, string $playerName): ?string
     {
         $scorecard = $match->result?->scorecard_data;
-        if (!$scorecard) return null;
+        if (! $scorecard) {
+            return null;
+        }
 
         if (is_string($scorecard)) {
             $scorecard = json_decode($scorecard, true) ?? [];
         }
 
         $innings = $scorecard['innings'] ?? $scorecard;
-        if (!is_array($innings)) return null;
+        if (! is_array($innings)) {
+            return null;
+        }
 
         foreach ($innings as $inn) {
-            if (!is_array($inn)) continue;
+            if (! is_array($inn)) {
+                continue;
+            }
             foreach (['batting', 'bowling'] as $type) {
                 foreach ($inn[$type] ?? [] as $entry) {
-                    if ($this->fuzzyNameMatch($entry['name'] ?? '', $playerName) && !empty($entry['image_url'])) {
+                    if ($this->fuzzyNameMatch($entry['name'] ?? '', $playerName) && ! empty($entry['image_url'])) {
                         return $entry['image_url'];
                     }
                 }
@@ -942,17 +949,25 @@ class MatchSummaryController extends Controller
      */
     private function buildAwardRemarks(string $heroKey, array $data): ?string
     {
-        if ($heroKey === 'best_batter' && !empty($data['runs'])) {
+        if ($heroKey === 'best_batter' && ! empty($data['runs'])) {
             $parts = [$data['runs'] . ' runs'];
-            if (!empty($data['balls'])) $parts[] = $data['balls'] . ' balls';
-            if (!empty($data['fours'])) $parts[] = $data['fours'] . 'x4';
-            if (!empty($data['sixes'])) $parts[] = $data['sixes'] . 'x6';
+            if (! empty($data['balls'])) {
+                $parts[] = $data['balls'] . ' balls';
+            }
+            if (! empty($data['fours'])) {
+                $parts[] = $data['fours'] . 'x4';
+            }
+            if (! empty($data['sixes'])) {
+                $parts[] = $data['sixes'] . 'x6';
+            }
             return implode(', ', $parts);
         }
 
-        if ($heroKey === 'best_bowler' && !empty($data['wickets'])) {
+        if ($heroKey === 'best_bowler' && ! empty($data['wickets'])) {
             $parts = [$data['wickets'] . '/' . ($data['runs'] ?? 0)];
-            if (!empty($data['overs'])) $parts[] = '(' . $data['overs'] . ' ov)';
+            if (! empty($data['overs'])) {
+                $parts[] = '(' . $data['overs'] . ' ov)';
+            }
             return implode(' ', $parts);
         }
 
@@ -1026,27 +1041,39 @@ class MatchSummaryController extends Controller
             $playerName = $award->display_name;
             $playerImage = $award->display_image;
             if (in_array($awardSlug, ['man-of-the-match', 'player-of-the-match'])) {
-                if ($playerName && $playerName !== 'Unknown') $data['man_of_the_match_name'] = $playerName;
-                if ($playerImage) $data['man_of_the_match_image'] = $playerImage;
+                if ($playerName && $playerName !== 'Unknown') {
+                    $data['man_of_the_match_name'] = $playerName;
+                }
+                if ($playerImage) {
+                    $data['man_of_the_match_image'] = $playerImage;
+                }
             } elseif ($awardSlug === 'best-batsman') {
-                if ($playerName && $playerName !== 'Unknown') $data['best_batsman_name'] = $playerName;
-                if ($playerImage) $data['best_batsman_image'] = $playerImage;
+                if ($playerName && $playerName !== 'Unknown') {
+                    $data['best_batsman_name'] = $playerName;
+                }
+                if ($playerImage) {
+                    $data['best_batsman_image'] = $playerImage;
+                }
             } elseif ($awardSlug === 'best-bowler') {
-                if ($playerName && $playerName !== 'Unknown') $data['best_bowler_name'] = $playerName;
-                if ($playerImage) $data['best_bowler_image'] = $playerImage;
+                if ($playerName && $playerName !== 'Unknown') {
+                    $data['best_bowler_name'] = $playerName;
+                }
+                if ($playerImage) {
+                    $data['best_bowler_image'] = $playerImage;
+                }
             }
         }
 
         // Priority 2: CricHeroes Heroes data (fills gaps not covered by assigned awards)
         $heroesData = $this->getHeroesData($match);
         if ($heroesData) {
-            if (empty($data['man_of_the_match_name']) && !empty($heroesData['player_of_the_match']['name'])) {
+            if (empty($data['man_of_the_match_name']) && ! empty($heroesData['player_of_the_match']['name'])) {
                 $data['man_of_the_match_name'] = $heroesData['player_of_the_match']['name'];
             }
-            if (empty($data['best_batsman_name']) && !empty($heroesData['best_batter']['name'])) {
+            if (empty($data['best_batsman_name']) && ! empty($heroesData['best_batter']['name'])) {
                 $data['best_batsman_name'] = $heroesData['best_batter']['name'];
             }
-            if (empty($data['best_bowler_name']) && !empty($heroesData['best_bowler']['name'])) {
+            if (empty($data['best_bowler_name']) && ! empty($heroesData['best_bowler']['name'])) {
                 $data['best_bowler_name'] = $heroesData['best_bowler']['name'];
             }
         }
@@ -1084,16 +1111,20 @@ class MatchSummaryController extends Controller
                 $fuzzyMatch = function (string $a, string $b): bool {
                     $a = strtolower(trim($a));
                     $b = strtolower(trim($b));
-                    if (!$a || !$b) return false;
+                    if (! $a || ! $b) {
+                        return false;
+                    }
                     return $a === $b || str_contains($a, $b) || str_contains($b, $a);
                 };
 
                 // Helper to populate stats for a given prefix + player name
                 $populateStats = function (string $prefix, string $playerName) use (&$data, $allBatting, $allBowling, $fuzzyMatch) {
-                    if (!$playerName) return;
+                    if (! $playerName) {
+                        return;
+                    }
 
                     // Find batting stats
-                    $bat = $allBatting->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
+                    $bat = $allBatting->first(fn ($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
                     if ($bat) {
                         $runs = $bat['runs'] ?? 0;
                         $balls = $bat['balls'] ?? 0;
@@ -1107,7 +1138,7 @@ class MatchSummaryController extends Controller
                     }
 
                     // Find bowling stats
-                    $bowl = $allBowling->first(fn($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
+                    $bowl = $allBowling->first(fn ($b) => $fuzzyMatch($b['name'] ?? '', $playerName));
                     if ($bowl) {
                         $overs = $bowl['overs'] ?? '0';
                         $maidens = $bowl['maidens'] ?? 0;
@@ -1138,26 +1169,26 @@ class MatchSummaryController extends Controller
             $innings = $scorecard['innings'] ?? $scorecard;
 
             if (is_array($innings) && count($innings) >= 2) {
-                if (!empty($innings[0]['batting'])) {
-                    $data['batting_table_a'] = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                if (! empty($innings[0]['batting'])) {
+                    $data['batting_table_a'] = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn ($b) => [
                         'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                         'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                     ])->values()->toArray();
                 }
-                if (!empty($innings[0]['bowling'])) {
-                    $data['bowling_table_b'] = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                if (! empty($innings[0]['bowling'])) {
+                    $data['bowling_table_b'] = collect($innings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn ($b) => [
                         'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                         'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                     ])->values()->toArray();
                 }
-                if (!empty($innings[1]['batting'])) {
-                    $data['batting_table_b'] = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                if (! empty($innings[1]['batting'])) {
+                    $data['batting_table_b'] = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn ($b) => [
                         'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                         'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                     ])->values()->toArray();
                 }
-                if (!empty($innings[1]['bowling'])) {
-                    $data['bowling_table_a'] = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                if (! empty($innings[1]['bowling'])) {
+                    $data['bowling_table_a'] = collect($innings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn ($b) => [
                         'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                         'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                     ])->values()->toArray();

@@ -25,7 +25,7 @@ class TournamentTemplateController extends Controller
         // Template management (CRUD) is Superadmin only
         // AJAX requests to index/edit are allowed for Admin (used by generate poster page)
         $this->middleware(function ($request, $next) {
-            if (!auth()->user()->hasRole('Superadmin')) {
+            if (! auth()->user()->hasRole('Superadmin')) {
                 // Allow AJAX template list queries (used by generate poster page to load templates)
                 if (($request->ajax() || $request->has('ajax')) && $request->isMethod('GET')) {
                     return $next($request);
@@ -52,10 +52,10 @@ class TournamentTemplateController extends Controller
         if ($request->ajax() || $request->has('ajax')) {
             $type = $request->get('type');
             $templates = $tournament->templates()
-                ->when($type, fn($q) => $q->where('type', $type))
+                ->when($type, fn ($q) => $q->where('type', $type))
                 ->orderByDesc('is_default')
                 ->get()
-                ->map(fn($t) => [
+                ->map(fn ($t) => [
                     'id' => $t->id,
                     'name' => $t->name,
                     'type' => $t->type,
@@ -181,7 +181,7 @@ class TournamentTemplateController extends Controller
                 ->keyBy('user_id');
             foreach ($memberPlayers as $mp) {
                 $entry = $memberTeamMap->get($mp->user_id);
-                if ($entry && !isset($tournamentTeamMap[$mp->id])) {
+                if ($entry && ! isset($tournamentTeamMap[$mp->id])) {
                     $tournamentTeamMap[$mp->id] = $entry->actual_team_id;
                 }
             }
@@ -353,14 +353,26 @@ class TournamentTemplateController extends Controller
                         $playerImage = $award->player?->image_path;
 
                         if (in_array($awardSlug, ['man-of-the-match', 'player-of-the-match'])) {
-                            if ($playerName) $matchData['man_of_the_match_name'] = $playerName;
-                            if ($playerImage) $matchData['man_of_the_match_image'] = $playerImage;
+                            if ($playerName) {
+                                $matchData['man_of_the_match_name'] = $playerName;
+                            }
+                            if ($playerImage) {
+                                $matchData['man_of_the_match_image'] = $playerImage;
+                            }
                         } elseif ($awardSlug === 'best-batsman') {
-                            if ($playerName) $matchData['best_batsman_name'] = $playerName;
-                            if ($playerImage) $matchData['best_batsman_image'] = $playerImage;
+                            if ($playerName) {
+                                $matchData['best_batsman_name'] = $playerName;
+                            }
+                            if ($playerImage) {
+                                $matchData['best_batsman_image'] = $playerImage;
+                            }
                         } elseif ($awardSlug === 'best-bowler') {
-                            if ($playerName) $matchData['best_bowler_name'] = $playerName;
-                            if ($playerImage) $matchData['best_bowler_image'] = $playerImage;
+                            if ($playerName) {
+                                $matchData['best_bowler_name'] = $playerName;
+                            }
+                            if ($playerImage) {
+                                $matchData['best_bowler_image'] = $playerImage;
+                            }
                         }
                     }
 
@@ -380,26 +392,26 @@ class TournamentTemplateController extends Controller
                         $scorecardInnings = $scorecard['innings'] ?? $scorecard;
 
                         if (is_array($scorecardInnings) && count($scorecardInnings) >= 2) {
-                            if (!empty($scorecardInnings[0]['batting'])) {
-                                $data['batting_table_a'] = collect($scorecardInnings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                            if (! empty($scorecardInnings[0]['batting'])) {
+                                $data['batting_table_a'] = collect($scorecardInnings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn ($b) => [
                                     'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                                     'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                                 ])->values()->toArray();
                             }
-                            if (!empty($scorecardInnings[0]['bowling'])) {
-                                $data['bowling_table_b'] = collect($scorecardInnings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                            if (! empty($scorecardInnings[0]['bowling'])) {
+                                $data['bowling_table_b'] = collect($scorecardInnings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn ($b) => [
                                     'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                                     'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                                 ])->values()->toArray();
                             }
-                            if (!empty($scorecardInnings[1]['batting'])) {
-                                $data['batting_table_b'] = collect($scorecardInnings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
+                            if (! empty($scorecardInnings[1]['batting'])) {
+                                $data['batting_table_b'] = collect($scorecardInnings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn ($b) => [
                                     'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
                                     'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
                                 ])->values()->toArray();
                             }
-                            if (!empty($scorecardInnings[1]['bowling'])) {
-                                $data['bowling_table_a'] = collect($scorecardInnings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn($b) => [
+                            if (! empty($scorecardInnings[1]['bowling'])) {
+                                $data['bowling_table_a'] = collect($scorecardInnings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn ($b) => [
                                     'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
                                     'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
                                 ])->values()->toArray();
@@ -464,7 +476,7 @@ class TournamentTemplateController extends Controller
                     ->limit($fixtureCount)
                     ->get();
 
-                $data['fixture_area'] = $upcomingMatches->map(fn($m) => [
+                $data['fixture_area'] = $upcomingMatches->map(fn ($m) => [
                     'team_a' => $m->teamA?->name ?? 'TBD',
                     'team_b' => $m->teamB?->name ?? 'TBD',
                     'team_a_short' => $m->teamA?->short_name ?? $m->teamA?->name ?? 'TBD',
@@ -502,7 +514,7 @@ class TournamentTemplateController extends Controller
                 $group = $tournament->groups()->find($request->input('group_id'));
                 if ($group) {
                     $entries = $group->pointTableEntries()->with('team')->ranked()->get();
-                    $data['table_data'] = $entries->map(fn($entry) => [
+                    $data['table_data'] = $entries->map(fn ($entry) => [
                         'position' => $entry->position,
                         'team_name' => $entry->team?->name ?? 'Unknown',
                         'team_logo' => $entry->team?->team_logo ?? '',
@@ -528,7 +540,7 @@ class TournamentTemplateController extends Controller
             }
 
             // Filter empty values (but keep array data like table_data, fixture_area)
-            $data = array_filter($data, fn($v) => is_array($v) ? !empty($v) : ($v !== null && $v !== ''));
+            $data = array_filter($data, fn ($v) => is_array($v) ? ! empty($v) : ($v !== null && $v !== ''));
 
             // Skip blank placeholders when generating from actual data (not editor preview)
             $hasMatchData = $request->input('match_id') || $request->input('player_id') || $request->input('group_id')
@@ -538,37 +550,39 @@ class TournamentTemplateController extends Controller
             // Save poster to storage and database (only when explicitly requested)
             $shouldSave = $request->boolean('save_poster', false);
             $savedPoster = null;
-            if ($shouldSave) try {
-                $appPrefix = config('settings.app_name') ?: config('app.name');
-                $filename = $appPrefix . '-' . $template->type . '-' . now()->format('YmdHis') . '-' . uniqid() . '.png';
-                $savePath = 'generated_posters/' . $tournament->id . '/' . $filename;
-                $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64Image));
-                Storage::disk('public')->put($savePath, $imageData);
+            if ($shouldSave) {
+                try {
+                    $appPrefix = config('settings.app_name') ?: config('app.name');
+                    $filename = $appPrefix . '-' . $template->type . '-' . now()->format('YmdHis') . '-' . uniqid() . '.png';
+                    $savePath = 'generated_posters/' . $tournament->id . '/' . $filename;
+                    $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64Image));
+                    Storage::disk('public')->put($savePath, $imageData);
 
-                // Build a descriptive label
-                $label = match($template->type) {
-                    TournamentTemplate::TYPE_MATCH_POSTER, TournamentTemplate::TYPE_MATCH_SUMMARY =>
-                        ($data['team_a_name'] ?? '') . ' vs ' . ($data['team_b_name'] ?? ''),
-                    TournamentTemplate::TYPE_AWARD_POSTER =>
-                        ($data['player_name'] ?? 'Player') . ' - ' . ($data['award_name'] ?? 'Award'),
-                    TournamentTemplate::TYPE_WELCOME_CARD =>
-                        ($data['player_name'] ?? 'Player') . ' - Welcome',
-                    TournamentTemplate::TYPE_POINT_TABLE =>
-                        ($data['group_name'] ?? 'Points Table'),
-                    TournamentTemplate::TYPE_FIXTURES_POSTER => 'Fixtures',
-                    default => ucwords(str_replace('_', ' ', $template->type)),
-                };
+                    // Build a descriptive label
+                    $label = match($template->type) {
+                        TournamentTemplate::TYPE_MATCH_POSTER, TournamentTemplate::TYPE_MATCH_SUMMARY =>
+                            ($data['team_a_name'] ?? '') . ' vs ' . ($data['team_b_name'] ?? ''),
+                        TournamentTemplate::TYPE_AWARD_POSTER =>
+                            ($data['player_name'] ?? 'Player') . ' - ' . ($data['award_name'] ?? 'Award'),
+                        TournamentTemplate::TYPE_WELCOME_CARD =>
+                            ($data['player_name'] ?? 'Player') . ' - Welcome',
+                        TournamentTemplate::TYPE_POINT_TABLE =>
+                            ($data['group_name'] ?? 'Points Table'),
+                        TournamentTemplate::TYPE_FIXTURES_POSTER => 'Fixtures',
+                        default => ucwords(str_replace('_', ' ', $template->type)),
+                    };
 
-                $savedPoster = GeneratedPoster::create([
-                    'tournament_id' => $tournament->id,
-                    'user_id' => auth()->id(),
-                    'type' => $template->type,
-                    'image_path' => $savePath,
-                    'label' => $label,
-                    'template_id' => $template->id,
-                ]);
-            } catch (\Exception $e) {
-                // Non-critical: poster still works via base64
+                    $savedPoster = GeneratedPoster::create([
+                        'tournament_id' => $tournament->id,
+                        'user_id' => auth()->id(),
+                        'type' => $template->type,
+                        'image_path' => $savePath,
+                        'label' => $label,
+                        'template_id' => $template->id,
+                    ]);
+                } catch (\Exception $e) {
+                    // Non-critical: poster still works via base64
+                }
             }
 
             // Clean up temp uploaded files
@@ -621,7 +635,7 @@ class TournamentTemplateController extends Controller
         $awards = $match->matchAwards()
             ->with(['player.actualTeam', 'tournamentAward'])
             ->get()
-            ->map(fn($award) => [
+            ->map(fn ($award) => [
                 'id' => $award->id,
                 'award_name' => $award->tournamentAward->name ?? 'Award',
                 'player_id' => $award->player_id,
@@ -638,7 +652,7 @@ class TournamentTemplateController extends Controller
         $teamAPlayers = Player::where('actual_team_id', $match->team_a_id)
             ->where('status', 'approved')
             ->get()
-            ->map(fn($p) => [
+            ->map(fn ($p) => [
                 'id' => $p->id,
                 'name' => $p->jersey_name ?: $p->name ?: 'Player #' . $p->id,
                 'image' => $p->image_path ?? null,
@@ -650,7 +664,7 @@ class TournamentTemplateController extends Controller
         $teamBPlayers = Player::where('actual_team_id', $match->team_b_id)
             ->where('status', 'approved')
             ->get()
-            ->map(fn($p) => [
+            ->map(fn ($p) => [
                 'id' => $p->id,
                 'name' => $p->jersey_name ?: $p->name ?: 'Player #' . $p->id,
                 'image' => $p->image_path ?? null,
@@ -980,7 +994,7 @@ class TournamentTemplateController extends Controller
         }
 
         // Generate rendered preview if template has layout
-        if ($template->background_image && !empty($template->layout_json)) {
+        if ($template->background_image && ! empty($template->layout_json)) {
             try {
                 $previewUrl = $renderService->renderToBase64($template, $sampleData);
             } catch (\Exception $e) {
@@ -1206,7 +1220,7 @@ class TournamentTemplateController extends Controller
                     'player_name', 'jersey_name', 'jersey_number', 'team_name',
                     'team_a_name', 'team_b_name', 'team_a_score', 'team_b_score',
                     'match_date', 'match_time', 'venue', 'match_stage', 'result_summary',
-                    'winner_name', 'man_of_the_match_name'
+                    'winner_name', 'man_of_the_match_name',
                 ]);
             }
             $sampleData = $renderService->getSampleData($template->type, array_filter($customData));
@@ -1262,7 +1276,7 @@ class TournamentTemplateController extends Controller
         $path = $request->input('path');
 
         // Security check: ensure the path belongs to this tournament
-        if (!str_contains($path, 'tournament_templates/' . $tournament->id)) {
+        if (! str_contains($path, 'tournament_templates/' . $tournament->id)) {
             return response()->json(['success' => false, 'error' => 'Invalid path'], 403);
         }
 

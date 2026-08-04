@@ -18,7 +18,8 @@ class TournamentGroupController extends Controller
 {
     public function __construct(
         private readonly PointTableService $pointTableService
-    ) {}
+    ) {
+    }
 
     public function index(Tournament $tournament): View
     {
@@ -35,7 +36,7 @@ class TournamentGroupController extends Controller
 
         // Teams not yet assigned to any group (available for group assignment)
         $availableTeams = $allTeams->filter(function ($team) use ($tournament) {
-            return !$team->groups()->where('tournament_id', $tournament->id)->exists();
+            return ! $team->groups()->where('tournament_id', $tournament->id)->exists();
         });
 
         $canEdit = Auth::user()->can('tournament.edit');

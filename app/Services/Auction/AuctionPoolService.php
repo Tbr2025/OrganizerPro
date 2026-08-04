@@ -9,6 +9,7 @@ use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
 use App\Models\AuctionTeamBudget;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pool ordering ("lots") and per-team budget maths for the auction.
@@ -67,21 +68,470 @@ class AuctionPoolService
     }
 
     /**
-     * The next player to auction, respecting pool sequence then lot order,
-     * limited to players still waiting.
+     * The next player to auction, in drawn lot order.
+     *
+     * When a pool is active the queue is locked to that pool — the organizer runs one
+     * pool to exhaustion before moving on. With no active pool this falls back to
+     * every pool in sequence order, which is the pre-pool-lock behaviour.
      */
     public function nextPlayer(Auction $auction): ?AuctionPlayer
     {
+        $activePool = $this->activePool($auction);
+
         return AuctionPlayer::query()
             ->where('auction_players.auction_id', $auction->id)
             ->where('auction_players.status', 'waiting')
             ->where('auction_players.is_retained', false)
             ->whereNotNull('auction_players.auction_pool_id')
             ->join('auction_pools', 'auction_pools.id', '=', 'auction_players.auction_pool_id')
+            ->when(
+                $activePool,
+                fn ($q) => $q->where('auction_players.auction_pool_id', $activePool->id),
+                fn ($q) => $q->where('auction_pools.is_enabled', true)
+                    ->where('auction_pools.is_unsold_pool', false)
+            )
             ->orderBy('auction_pools.sequence')
             ->orderByRaw('auction_players.lot_number IS NULL, auction_players.lot_number')
             ->select('auction_players.*')
             ->first();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pool-locked auctioning
+    |--------------------------------------------------------------------------
+    | The organizer picks one pool and the auction serves only that pool until it
+    | is exhausted, rather than drifting across pools.
+    */
+
+    /** The pool currently being auctioned, if any. */
+    public function activePool(Auction $auction): ?AuctionPool
+    {
+        return AuctionPool::where('auction_id', $auction->id)
+            ->where('status', AuctionPool::STATUS_ACTIVE)
+            ->first();
+    }
+
+    /**
+     * Players still to be auctioned, locked to the active pool when there is one.
+     *
+     * This is what the organizer panel's queue is built from, so the panel can never
+     * offer a player the server would refuse to put on the block.
+     */
+    public function waitingPlayersQuery(Auction $auction)
+    {
+        $activePool = $this->activePool($auction);
+
+        return AuctionPlayer::query()
+            ->where('auction_players.auction_id', $auction->id)
+            ->where('auction_players.status', 'waiting')
+            ->where('auction_players.is_retained', false)
+            ->when($activePool, fn ($q) => $q->where('auction_players.auction_pool_id', $activePool->id));
+    }
+
+    /**
+     * Activate a pool, locking the auction to it.
+     *
+     * @return array{success: bool, message: string, pool?: AuctionPool}
+     */
+    public function activatePool(Auction $auction, AuctionPool $pool): array
+    {
+        if ($pool->auction_id !== $auction->id) {
+            return ['success' => false, 'message' => 'That pool belongs to a different auction.'];
+        }
+
+        if (! $pool->isEnabled()) {
+            return ['success' => false, 'message' => sprintf('%s is disabled. Enable it before starting it.', $pool->name)];
+        }
+
+        // Finish the live player before switching pools, otherwise a player from the
+        // outgoing pool would be stranded mid-bid.
+        $live = AuctionPlayer::where('auction_id', $auction->id)->where('status', 'on_auction')->exists();
+        if ($live) {
+            return ['success' => false, 'message' => 'Finish the player currently on the block before changing pools.'];
+        }
+
+        if ($pool->waitingPlayers()->count() === 0) {
+            return ['success' => false, 'message' => sprintf('%s has no players left to auction.', $pool->name)];
+        }
+
+        DB::transaction(function () use ($auction, $pool) {
+            // Any other active pool steps aside; only one pool runs at a time. A pool
+            // with players still waiting goes back to pending, not completed.
+            AuctionPool::where('auction_id', $auction->id)
+                ->where('status', AuctionPool::STATUS_ACTIVE)
+                ->where('id', '!=', $pool->id)
+                ->get()
+                ->each(function (AuctionPool $other) {
+                    $other->update([
+                        'status' => $other->isExhausted()
+                            ? AuctionPool::STATUS_COMPLETED
+                            : AuctionPool::STATUS_PENDING,
+                        'completed_at' => $other->isExhausted() ? now() : null,
+                    ]);
+                });
+
+            $pool->update([
+                'status' => AuctionPool::STATUS_ACTIVE,
+                'activated_at' => now(),
+                'completed_at' => null,
+                // Counts every run of this pool, including a re-auction round.
+                'times_used' => (int) $pool->times_used + 1,
+            ]);
+        });
+
+        return [
+            'success' => true,
+            'message' => sprintf('%s is now live (run #%d).', $pool->name, (int) $pool->fresh()->times_used),
+            'pool' => $pool->fresh(),
+        ];
+    }
+
+    /**
+     * Mark a pool finished and suggest the next enabled one. Deliberately does not
+     * auto-advance — the organizer decides when the next pool starts.
+     *
+     * @return array{success: bool, message: string, next_pool?: array{id: int, name: string}|null}
+     */
+    public function completePool(Auction $auction, AuctionPool $pool): array
+    {
+        if ($pool->auction_id !== $auction->id) {
+            return ['success' => false, 'message' => 'That pool belongs to a different auction.'];
+        }
+
+        $remaining = $pool->waitingPlayers()->count();
+
+        $pool->update([
+            'status' => AuctionPool::STATUS_COMPLETED,
+            'completed_at' => now(),
+        ]);
+
+        $next = $this->nextEnabledPool($auction);
+
+        return [
+            'success' => true,
+            'message' => $remaining > 0
+                ? sprintf('%s closed with %d player(s) still unsold in it.', $pool->name, $remaining)
+                : sprintf('%s complete.', $pool->name),
+            'next_pool' => $next ? ['id' => $next->id, 'name' => $next->name] : null,
+        ];
+    }
+
+    /**
+     * The next enabled pool with players left, by sequence. Used as a suggestion when
+     * the active pool runs dry.
+     */
+    public function nextEnabledPool(Auction $auction): ?AuctionPool
+    {
+        return AuctionPool::where('auction_id', $auction->id)
+            ->enabled()
+            ->biddable()
+            ->where('status', '!=', AuctionPool::STATUS_ACTIVE)
+            ->whereHas('players', fn ($q) => $q->where('status', 'waiting')->where('is_retained', false))
+            ->orderBy('sequence')
+            ->first();
+    }
+
+    /**
+     * Pool progress for the panels: which pool is live, how far through it we are, and
+     * what is queued next.
+     *
+     * @return array<string, mixed>
+     */
+    public function poolProgress(Auction $auction): array
+    {
+        $pools = AuctionPool::where('auction_id', $auction->id)
+            ->biddable()
+            ->withCount([
+                'players as waiting_count' => fn ($q) => $q->where('status', 'waiting')->where('is_retained', false),
+                'players as sold_count' => fn ($q) => $q->where('status', 'sold'),
+                'players as total_count',
+            ])
+            ->orderBy('sequence')
+            ->get();
+
+        $active = $pools->firstWhere('status', AuctionPool::STATUS_ACTIVE);
+        $next = $this->nextEnabledPool($auction);
+
+        return [
+            'active_pool' => $active ? [
+                'id' => $active->id,
+                'name' => $active->name,
+                'category' => $active->category,
+                'base_price' => $active->base_price,
+                'sequence' => $active->sequence,
+                'times_used' => (int) $active->times_used,
+                'total' => (int) $active->total_count,
+                'waiting' => (int) $active->waiting_count,
+                'sold' => (int) $active->sold_count,
+                'done' => (int) $active->total_count - (int) $active->waiting_count,
+                'exhausted' => (int) $active->waiting_count === 0,
+            ] : null,
+            'next_pool' => $next ? ['id' => $next->id, 'name' => $next->name] : null,
+            'pools' => $pools->map(fn (AuctionPool $p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'category' => $p->category,
+                'sequence' => $p->sequence,
+                'status' => $p->status,
+                'is_enabled' => $p->isEnabled(),
+                'times_used' => (int) $p->times_used,
+                'total' => (int) $p->total_count,
+                'waiting' => (int) $p->waiting_count,
+                'sold' => (int) $p->sold_count,
+            ])->values()->all(),
+        ];
+    }
+
+    /**
+     * The companion pool that collects players a given pool failed to sell, created on
+     * first use.
+     *
+     * Unsold players are held per source pool rather than in one undifferentiated pile,
+     * so final allotment after the auction can be run pool by pool.
+     */
+    public function unsoldPoolFor(AuctionPool $pool): AuctionPool
+    {
+        // An unsold pool collects for itself — a re-auctioned player who goes unsold
+        // again stays where they are rather than nesting another level.
+        if ($pool->isUnsoldPool()) {
+            return $pool;
+        }
+
+        $existing = AuctionPool::where('auction_id', $pool->auction_id)
+            ->where('parent_pool_id', $pool->id)
+            ->where('is_unsold_pool', true)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return AuctionPool::create([
+            'auction_id' => $pool->auction_id,
+            'organization_id' => $pool->organization_id,
+            'name' => $pool->name . ' — Unsold',
+            'category' => $pool->category,
+            'base_price' => $pool->base_price,
+            'order_mode' => AuctionPool::MODE_SEQUENTIAL,
+            // Sits after every biddable pool so it never gets picked up as "next".
+            'sequence' => (int) AuctionPool::where('auction_id', $pool->auction_id)->max('sequence') + 1,
+            'is_unsold_pool' => true,
+            'parent_pool_id' => $pool->id,
+            // Holding pool: never started as a bidding round.
+            'is_enabled' => false,
+            'status' => AuctionPool::STATUS_PENDING,
+        ]);
+    }
+
+    /**
+     * Move a player who attracted no bids into their pool's unsold holding pool.
+     *
+     * Returns the pool they came from so the action can be undone.
+     */
+    public function moveToUnsoldPool(AuctionPlayer $auctionPlayer): ?AuctionPool
+    {
+        $sourcePool = $auctionPlayer->pool;
+
+        if (! $sourcePool || $sourcePool->isUnsoldPool()) {
+            return $sourcePool;
+        }
+
+        $unsoldPool = $this->unsoldPoolFor($sourcePool);
+
+        $auctionPlayer->update([
+            'auction_pool_id' => $unsoldPool->id,
+            // The draw is over for this player; a re-auction round redraws.
+            'lot_number' => null,
+        ]);
+
+        return $sourcePool;
+    }
+
+    /**
+     * Unsold holding pools with players waiting to be allotted, for the
+     * post-auction allotment screen.
+     *
+     * @return \Illuminate\Support\Collection<int, AuctionPool>
+     */
+    public function unsoldPools(Auction $auction)
+    {
+        return AuctionPool::where('auction_id', $auction->id)
+            ->where('is_unsold_pool', true)
+            ->withCount(['players as unsold_count' => fn ($q) => $q->whereIn('status', ['unsold', 'skipped'])])
+            ->with('parentPool:id,name')
+            ->orderBy('sequence')
+            ->get();
+    }
+
+    /**
+     * Players waiting to be allotted, grouped by the pool they went unsold from.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    public function allotmentGroups(Auction $auction)
+    {
+        return $this->unsoldPools($auction)
+            ->map(function (AuctionPool $pool) {
+                $players = $pool->players()
+                    ->whereIn('status', ['unsold', 'skipped'])
+                    ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
+                    ->orderBy('id')
+                    ->get();
+
+                return [
+                    'pool' => $pool,
+                    'source_pool_name' => $pool->parentPool?->name ?? $pool->name,
+                    'players' => $players,
+                ];
+            })
+            ->filter(fn (array $group) => $group['players']->isNotEmpty())
+            ->values();
+    }
+
+    /**
+     * Every team with the figures allotment needs: how short of a legal squad they are,
+     * and what they can still spend.
+     *
+     * Ordered by need — the shortest squad first — so the screen reads as a worklist.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    public function allotmentTeams(Auction $auction)
+    {
+        return \App\Models\ActualTeam::forTournament($auction->tournament_id)
+            ->orderBy('name')
+            ->get()
+            ->map(function ($team) use ($auction) {
+                $state = $this->teamPurseState($auction, $team->id);
+
+                return [
+                    'team' => $team,
+                    'slots_filled' => $state['slots_filled'],
+                    'slots_required' => $state['slots_required'],
+                    'slots_short' => $state['slots_remaining'],
+                    'remaining' => $state['remaining'],
+                    'spent' => $state['spent'],
+                    'needs_players' => $state['slots_remaining'] > 0,
+                ];
+            })
+            ->sortByDesc('slots_short')
+            ->values();
+    }
+
+    /**
+     * Can this team take this player at this price?
+     *
+     * Allotment checks the *total* purse, deliberately not the squad reserve: the
+     * reserve exists precisely to guarantee the remaining slots stay affordable, so
+     * applying it here would refuse the very purchases it was reserved for.
+     *
+     * @return array{allowed: bool, reason: string|null, remaining: float}
+     */
+    public function canAllot(Auction $auction, int $actualTeamId, float $price): array
+    {
+        $remaining = $this->remainingBudget($auction, $actualTeamId);
+
+        if (! $this->budgetApplies($auction)) {
+            return ['allowed' => true, 'reason' => null, 'remaining' => $remaining];
+        }
+
+        if ($price > $remaining) {
+            return [
+                'allowed' => false,
+                'reason' => sprintf(
+                    'Only %s left in the purse, and this player costs %s.',
+                    format_points($remaining),
+                    format_points($price)
+                ),
+                'remaining' => $remaining,
+            ];
+        }
+
+        return ['allowed' => true, 'reason' => null, 'remaining' => $remaining];
+    }
+
+    /**
+     * Propose an allotment of the given players across the teams that are short of a
+     * legal squad — always the neediest affordable team next, so squads level up
+     * rather than one team absorbing everything.
+     *
+     * Returns proposals only; nothing is written.
+     *
+     * @param  \Illuminate\Support\Collection<int, AuctionPlayer>  $players
+     * @return array{proposals: list<array{auction_player_id: int, player_name: string, team_id: int, team_name: string, price: float}>, unassigned: list<array{auction_player_id: int, player_name: string, reason: string}>}
+     */
+    public function proposeAllotment(Auction $auction, $players): array
+    {
+        // Working copy of each team's need and purse, updated as we assign.
+        $teams = $this->allotmentTeams($auction)
+            ->map(fn (array $row) => [
+                'id' => $row['team']->id,
+                'name' => $row['team']->name,
+                'short' => $row['slots_short'],
+                'remaining' => $row['remaining'],
+            ])
+            ->all();
+
+        $proposals = [];
+        $unassigned = [];
+
+        foreach ($players as $auctionPlayer) {
+            $price = (float) $auctionPlayer->base_price;
+            $name = $auctionPlayer->player->name ?? ('Player #' . $auctionPlayer->player_id);
+
+            // Neediest team that can still afford this player.
+            $bestKey = null;
+            foreach ($teams as $key => $team) {
+                if ($team['short'] < 1 || $team['remaining'] < $price) {
+                    continue;
+                }
+                if ($bestKey === null
+                    || $team['short'] > $teams[$bestKey]['short']
+                    || ($team['short'] === $teams[$bestKey]['short'] && $team['remaining'] > $teams[$bestKey]['remaining'])) {
+                    $bestKey = $key;
+                }
+            }
+
+            if ($bestKey === null) {
+                $unassigned[] = [
+                    'auction_player_id' => $auctionPlayer->id,
+                    'player_name' => $name,
+                    'reason' => 'No team still needs a player and can afford ' . format_points($price) . '.',
+                ];
+                continue;
+            }
+
+            $proposals[] = [
+                'auction_player_id' => $auctionPlayer->id,
+                'player_name' => $name,
+                'team_id' => $teams[$bestKey]['id'],
+                'team_name' => $teams[$bestKey]['name'],
+                'price' => $price,
+            ];
+
+            $teams[$bestKey]['short']--;
+            $teams[$bestKey]['remaining'] -= $price;
+        }
+
+        return ['proposals' => $proposals, 'unassigned' => $unassigned];
+    }
+
+    /**
+     * Base price for a player in a pool: explicit per-player value, else the pool's
+     * price, else the auction's.
+     */
+    public function resolveBasePrice(Auction $auction, ?AuctionPool $pool, mixed $playerPrice = null): float
+    {
+        if (is_numeric($playerPrice)) {
+            return (float) $playerPrice;
+        }
+
+        if ($pool && is_numeric($pool->base_price) && (float) $pool->base_price > 0) {
+            return (float) $pool->base_price;
+        }
+
+        return (float) ($auction->base_price ?? 0);
     }
 
     /**
@@ -143,5 +593,159 @@ class AuctionPoolService
     public function canAfford(Auction $auction, int $actualTeamId, float $amount): bool
     {
         return $amount <= $this->remainingBudget($auction, $actualTeamId);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Squad slots & the reserve rule
+    |--------------------------------------------------------------------------
+    | A team must always retain enough purse to buy the squad slots it still has
+    | to fill, so it cannot spend everything early and end up unable to field a
+    | legal side:
+    |
+    |   reserve = max(0, slotsRemaining - 1) * minPricePerPlayer
+    |   maxBid  = remainingBudget - reserve
+    |
+    | The "- 1" is the slot the current bid would itself fill.
+    */
+
+    /**
+     * Squad slots a team has already filled in this auction.
+     *
+     * Deliberately mirrors soldSpent() + retainedSpent() exactly — the same rows
+     * that cost money count as slots, so money and slots can never disagree.
+     * (The roster pivots are not used here: sellToTeam historically skipped
+     * them, so they undercount.)
+     */
+    public function slotsFilled(Auction $auction, int $actualTeamId): int
+    {
+        $sold = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('status', 'sold')
+            ->where('sold_to_team_id', $actualTeamId)
+            ->count();
+
+        $retained = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('is_retained', true)
+            ->where('team_id', $actualTeamId)
+            ->count();
+
+        return $sold + $retained;
+    }
+
+    /** Slots a team still has to fill to reach the minimum legal squad. */
+    public function slotsRemaining(Auction $auction, int $actualTeamId): int
+    {
+        return max(0, $auction->minSquadSize() - $this->slotsFilled($auction, $actualTeamId));
+    }
+
+    /**
+     * Purse a team must hold back for the slots it still has to fill after the
+     * one it is bidding on right now.
+     */
+    public function reserveFor(Auction $auction, int $actualTeamId): float
+    {
+        if (! $this->budgetApplies($auction)) {
+            return 0.0;
+        }
+
+        $slotsAfterThisBid = max(0, $this->slotsRemaining($auction, $actualTeamId) - 1);
+
+        return $slotsAfterThisBid * $auction->minPricePerPlayer();
+    }
+
+    /**
+     * The most a team may bid right now without breaching its squad reserve.
+     * Never negative — a team that has already over-committed is simply capped
+     * at zero rather than reported as owing money.
+     */
+    public function maxAllowedBid(Auction $auction, int $actualTeamId): float
+    {
+        if (! $this->budgetApplies($auction)) {
+            return PHP_FLOAT_MAX; // open tournaments: no budget mechanics
+        }
+
+        return max(
+            0.0,
+            $this->remainingBudget($auction, $actualTeamId) - $this->reserveFor($auction, $actualTeamId)
+        );
+    }
+
+    /** Budget check including the squad reserve. Use this at every bid/sell. */
+    public function canAffordWithReserve(Auction $auction, int $actualTeamId, float $amount): bool
+    {
+        return $amount <= $this->maxAllowedBid($auction, $actualTeamId);
+    }
+
+    /**
+     * A team is excluded from the player currently on the block when it cannot
+     * meet the next bid under the reserve rule. Recomputed per player and per
+     * price step, so a team priced out of a 5M player can still bid on a 1M one.
+     */
+    public function isExcluded(Auction $auction, int $actualTeamId, float $nextBidAmount): bool
+    {
+        if (! $this->budgetApplies($auction)) {
+            return false;
+        }
+
+        return $nextBidAmount > $this->maxAllowedBid($auction, $actualTeamId);
+    }
+
+    /**
+     * Everything the panels and the bidding page need to render a team's purse
+     * state, computed once from a single set of formulas.
+     *
+     * @return array{allocated: float, spent: float, remaining: float, reserve: float, max_bid_allowed: float, slots_filled: int, slots_required: int, slots_remaining: int, excluded: bool}
+     */
+    public function teamPurseState(Auction $auction, int $actualTeamId, ?float $nextBidAmount = null): array
+    {
+        $applies = $this->budgetApplies($auction);
+        $slotsFilled = $this->slotsFilled($auction, $actualTeamId);
+        $remaining = $applies ? $this->remainingBudget($auction, $actualTeamId) : PHP_FLOAT_MAX;
+        $reserve = $this->reserveFor($auction, $actualTeamId);
+        $maxBid = $this->maxAllowedBid($auction, $actualTeamId);
+
+        return [
+            'allocated' => $applies ? $this->allocatedBudget($auction, $actualTeamId) : 0.0,
+            'spent' => $this->spent($auction, $actualTeamId),
+            'remaining' => $remaining,
+            'reserve' => $reserve,
+            'max_bid_allowed' => $maxBid,
+            'slots_filled' => $slotsFilled,
+            'slots_required' => $auction->minSquadSize(),
+            'slots_remaining' => $this->slotsRemaining($auction, $actualTeamId),
+            'excluded' => $nextBidAmount !== null && $this->isExcluded($auction, $actualTeamId, $nextBidAmount),
+        ];
+    }
+
+    /**
+     * Human-readable reason a bid was blocked, for the API error and the
+     * exclusion tooltip.
+     */
+    public function reserveBlockedMessage(Auction $auction, int $actualTeamId, float $amount, ?string $teamName = null): string
+    {
+        $reserve = $this->reserveFor($auction, $actualTeamId);
+        $slotsAfter = max(0, $this->slotsRemaining($auction, $actualTeamId) - 1);
+        $maxBid = $this->maxAllowedBid($auction, $actualTeamId);
+        $who = $teamName ?: 'This team';
+
+        if ($reserve > 0 && $amount > $maxBid) {
+            return sprintf(
+                '%s must retain %s for %d remaining squad slot%s. Max bid allowed: %s (tried %s).',
+                $who,
+                format_points($reserve),
+                $slotsAfter,
+                $slotsAfter === 1 ? '' : 's',
+                format_points($maxBid),
+                format_points($amount)
+            );
+        }
+
+        return sprintf(
+            '%s has %s remaining. Max bid allowed: %s (tried %s).',
+            $who,
+            format_points($this->remainingBudget($auction, $actualTeamId)),
+            format_points($maxBid),
+            format_points($amount)
+        );
     }
 }
