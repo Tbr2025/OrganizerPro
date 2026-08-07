@@ -167,11 +167,35 @@ class PlayerController extends Controller
                 $query->whereRaw('1 = 0');
             }
         } elseif ($user->organization_id) {
-            // Admins/Organizers see players from their organization's tournaments
+            /*
+             * Everyone who belongs to this organization — by ownership, by registration, or
+             * by team.
+             *
+             * This was `whereIn('actual_team_id', $orgTeamIds)` alone, and a player with no
+             * team has `actual_team_id = NULL`, which `IN (...)` never matches. So the list
+             * showed only players already assigned to a squad and silently hid everyone who
+             * had merely registered — which, before an auction has run, is nearly all of
+             * them. They looked like they had never registered at all.
+             *
+             * Registration is checked as well as ownership because a retained player can
+             * have a NULL `organization_id` (they may never have registered themselves), and
+             * `players.organization_id` is checked as well as registration because a player
+             * created directly by an organizer has no registration row yet.
+             */
             $orgTeamIds = \App\Models\ActualTeam::whereHas('tournament', function ($q) use ($user) {
                 $q->where('organization_id', $user->organization_id);
             })->pluck('id')->toArray();
-            $query->whereIn('actual_team_id', $orgTeamIds);
+
+            $query->where(function ($q) use ($user, $orgTeamIds) {
+                $q->where('organization_id', $user->organization_id)
+                    ->orWhereHas('registrations.tournament', function ($t) use ($user) {
+                        $t->where('organization_id', $user->organization_id);
+                    });
+
+                if (! empty($orgTeamIds)) {
+                    $q->orWhereIn('actual_team_id', $orgTeamIds);
+                }
+            });
         } else {
             $query->whereRaw('1 = 0');
         }
