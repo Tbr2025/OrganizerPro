@@ -191,4 +191,130 @@ class AuctionTickerTest extends TestCase
             ->assertJsonMissingPath('bid_rules')
             ->assertJsonMissingPath('closed_bid_starts_at');
     }
+
+    #[Test]
+    public function the_feed_does_not_leak_per_team_reserve_internals(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'max_budget_per_team' => 10_000_000,
+        ]);
+        $this->makeTeam($org, 'Strikers', $tournament);
+
+        // teamPurseState() carries max_bid_allowed and reserve. Those are effectively the
+        // bid ceiling, so the public map hand-picks its keys and must never be
+        // "simplified" into a spread of the whole state array.
+        $this->getJson(route('public.auction.ticker-feed', $auction))
+            ->assertOk()
+            ->assertJsonMissingPath('teams.0.max_bid_allowed')
+            ->assertJsonMissingPath('teams.0.reserve')
+            ->assertJsonMissingPath('teams.0.allocated');
+    }
+
+    #[Test]
+    public function the_feed_carries_the_career_stats_strip(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+        $player = $this->makePlayer($org, [
+            'total_matches' => 12,
+            'total_runs' => null,
+            'total_wickets' => 0,
+        ]);
+        $this->makeAuctionPlayer($auction, ['status' => 'on_auction', 'player_id' => $player->id]);
+
+        // 0 is a figure somebody entered and must render; null was never filled in and
+        // its cell is dropped. Collapsing the two would put a fake 0 on a live stream.
+        $this->getJson(route('public.auction.ticker-feed', $auction))
+            ->assertOk()
+            ->assertJsonPath('current_player.stats.matches', 12)
+            ->assertJsonPath('current_player.stats.runs', null)
+            ->assertJsonPath('current_player.stats.wickets', 0);
+    }
+
+    #[Test]
+    public function a_player_with_no_declared_figures_has_no_stats_block(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+        $player = $this->makePlayer($org);
+        $this->makeAuctionPlayer($auction, ['status' => 'on_auction', 'player_id' => $player->id]);
+
+        // The strip hides itself rather than rendering three empty cells.
+        $this->getJson(route('public.auction.ticker-feed', $auction))
+            ->assertOk()
+            ->assertJsonPath('current_player.stats', null);
+    }
+
+    #[Test]
+    public function the_feed_reports_the_squad_bounds(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'min_squad_size' => 18,
+            'max_squad_size' => 25,
+        ]);
+
+        $this->getJson(route('public.auction.ticker-feed', $auction))
+            ->assertOk()
+            ->assertJsonPath('squad.min', 18)
+            ->assertJsonPath('squad.max', 25);
+
+        // Unconfigured stays null so the footer omits it instead of inventing a ceiling.
+        $noMax = $this->makeAuction($org, ['tournament_id' => $tournament->id, 'min_squad_size' => 11]);
+
+        $this->getJson(route('public.auction.ticker-feed', $noMax))
+            ->assertOk()
+            ->assertJsonPath('squad.min', 11)
+            ->assertJsonPath('squad.max', null);
+    }
+
+    #[Test]
+    public function the_broadcast_picker_lists_auctions_and_both_screens(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id, 'name' => 'Season Two Auction']);
+
+        $this->actingAs($this->makeAuctionOperator($org))
+            ->get(route('admin.auctions.broadcast'))
+            ->assertOk()
+            ->assertSee('Season Two Auction')
+            ->assertSee(route('public.auction.ticker', $auction), false)
+            ->assertSee(route('public.auction.live', $auction), false);
+    }
+
+    #[Test]
+    public function the_broadcast_picker_needs_permission(): void
+    {
+        $org = $this->makeOrganization();
+
+        $this->actingAs($this->makePlainUser($org))
+            ->get(route('admin.auctions.broadcast'))
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function the_redesigned_ticker_renders_its_blocks(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+
+        $this->get(route('public.auction.ticker', $auction))
+            ->assertOk()
+            ->assertSee('Base Price')
+            ->assertSee('Current Bid')
+            ->assertSee('teams-panel', false)
+            ->assertSee('lt-name-plate', false)
+            // The superseded purse pills are gone, not merely hidden.
+            ->assertDontSee('class="purse', false);
+    }
 }

@@ -59,7 +59,7 @@ class AdminMenuService
                     }
 
                     // Handle superadmin_only flag
-                    if (!empty($child['superadmin_only']) && !$user->hasRole('Superadmin')) {
+                    if (! empty($child['superadmin_only']) && ! $user->hasRole('Superadmin')) {
                         return null;
                     }
 
@@ -106,7 +106,7 @@ class AdminMenuService
         // Player-only users get a simplified menu
         $isPlayerOnly = $user
             && $user->hasRole('Player')
-            && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer', 'Team Manager', 'Team Owner']);
+            && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer', 'Team Manager', 'Team Owner']);
 
         if ($isPlayerOnly) {
             $this->addMenuItem([
@@ -161,7 +161,7 @@ class AdminMenuService
             return $this->applyFiltersToMenuItems();
         }
 
-        $isTeamManager = $user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && !$user->hasRole('Superadmin') && !$user->hasRole('Admin');
+        $isTeamManager = $user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && ! $user->hasRole('Superadmin') && ! $user->hasRole('Admin');
 
         // For Team Managers, show simplified menu
         if ($isTeamManager) {
@@ -354,10 +354,6 @@ class AdminMenuService
             ],
         ]);
 
-
-
-
-
         $this->addMenuItem([
             'label' => __('Players'),
             'icon' => 'feather:user',
@@ -392,9 +388,6 @@ class AdminMenuService
             'priority' => 21,
             'permissions' => ['tournament.edit'],
         ]);
-
-
-
 
         $this->addMenuItem([
             'label' => __('Matches'),
@@ -524,9 +517,9 @@ class AdminMenuService
         ]);
         $auctionLocked = false;
         $user = auth()->user();
-        if ($user && !$user->hasRole('Superadmin') && $user->organization_id) {
+        if ($user && ! $user->hasRole('Superadmin') && $user->organization_id) {
             $org = \App\Models\Organization::find($user->organization_id);
-            $auctionLocked = $org && !$org->isAuctionEnabled();
+            $auctionLocked = $org && ! $org->isAuctionEnabled();
         }
 
         $this->addMenuItem([
@@ -563,6 +556,13 @@ class AdminMenuService
                     'route' => route('admin.auction-templates.index'),
                     'active' => Route::is('admin.auction-templates.*'),
                     'priority' => 40,
+                    'permissions' => 'auction.view',
+                ],
+                [
+                    'label' => __('Broadcast Screens'),
+                    'route' => route('admin.auctions.broadcast'),
+                    'active' => Route::is('admin.auctions.broadcast'),
+                    'priority' => 50,
                     'permissions' => 'auction.view',
                 ],
             ],
@@ -751,7 +751,6 @@ class AdminMenuService
             ],
         ], __('More'));
 
-
         $this->addMenuItem([
             'label' => __('Logout'),
             'icon' => 'lucide:log-out',
@@ -900,7 +899,7 @@ class AdminMenuService
     {
         // Team managers have a small menu — always expand all submenus
         $user = auth()->user();
-        if ($user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && !$user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+        if ($user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
             return true;
         }
 

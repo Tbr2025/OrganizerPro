@@ -47,6 +47,19 @@ class Auction extends Model
         'waiting_background_image',
         'primary_color',
         'secondary_color',
+        'max_squad_size',
+        'auction_template_id',
+        'ticker_template_id',
+        'default_retained_value',
+        'expected_retained_per_team',
+        'closed_bid_step',
+        'closed_bid_max_pct_of_budget',
+        'closed_bid_max_rebid_rounds',
+        'closed_bid_timer_seconds',
+        'closed_bid_requires_acceptance',
+        'closed_bid_tie_breaker',
+        'restarted_at',
+        'bid_type_manually_overridden',
     ];
     protected $casts = [
         'start_at' => 'datetime',
@@ -57,9 +70,19 @@ class Auction extends Model
         'online_bid_limit_from' => 'decimal:2',
         'online_bid_limit_to' => 'decimal:2',
         'mode_manually_overridden' => 'boolean',
+        'bid_type_manually_overridden' => 'boolean',
         'closed_bid_starts_at' => 'decimal:2',
         'min_squad_size' => 'integer',
+        'max_squad_size' => 'integer',
         'min_price_per_player' => 'decimal:2',
+        'default_retained_value' => 'decimal:2',
+        'expected_retained_per_team' => 'integer',
+        'closed_bid_step' => 'decimal:2',
+        'closed_bid_max_pct_of_budget' => 'decimal:2',
+        'closed_bid_max_rebid_rounds' => 'integer',
+        'closed_bid_timer_seconds' => 'integer',
+        'closed_bid_requires_acceptance' => 'boolean',
+        'restarted_at' => 'datetime',
         'quick_bid_steps' => 'array',
         'timer_enabled' => 'boolean',
         'timer_started_at' => 'datetime',
@@ -151,6 +174,24 @@ class Auction extends Model
 
     /** Default squad size used when the auction has no explicit rule. */
     public const DEFAULT_MIN_SQUAD_SIZE = 11;
+
+    /** What a retained player costs their team when nothing more specific is known. */
+    public const DEFAULT_RETAINED_VALUE = 5000000;
+
+    /** How many players a team is expected to retain. Advisory only — never enforced. */
+    public const DEFAULT_EXPECTED_RETAINED_PER_TEAM = 4;
+
+    /** Sealed amounts must land on this grid. 0.1M — no 0.05M, no arbitrary figure. */
+    public const DEFAULT_CLOSED_BID_STEP = 100000;
+
+    /** Most of its TOTAL budget a team may commit to a single player. */
+    public const DEFAULT_CLOSED_BID_MAX_PCT = 70.0;
+
+    /** Tie-break rounds before the lot: rounds 1, 2, 3 then draw. */
+    public const CLOSED_BID_MAX_REBIDS = 2;
+
+    public const TIE_BREAKER_LOT = 'lot';
+    public const TIE_BREAKER_MANUAL = 'manual';
 
     /** What happens when the bid timer reaches zero. */
     public const TIMER_AUTO_SELL = 'auto_sell';
@@ -370,6 +411,169 @@ class Auction extends Model
     }
 
     /**
+     * Squad ceiling, for display only.
+     *
+     * Returns null rather than falling back to minSquadSize(), so an unconfigured
+     * auction can render "MAX: —" instead of a number nobody chose. Deliberately not
+     * consulted by the reserve rule or the bid guards — see the migration.
+     */
+    public function maxSquadSize(): ?int
+    {
+        return $this->max_squad_size !== null ? (int) $this->max_squad_size : null;
+    }
+
+    /**
+     * What a retained player costs when no price was entered for them.
+     *
+     * `!== null`, not `?:` — an explicit 0 means retentions are free here, and must
+     * survive. That distinction is the whole reason the column is nullable.
+     */
+    public function defaultRetainedValue(): float
+    {
+        return $this->default_retained_value !== null
+            ? (float) $this->default_retained_value
+            : (float) self::DEFAULT_RETAINED_VALUE;
+    }
+
+    /**
+     * How many retentions each team is expected to have.
+     *
+     * Used to pre-fill and to flag teams that differ. 0 means "none expected", which
+     * suppresses the warning entirely.
+     */
+    public function expectedRetainedPerTeam(): int
+    {
+        return $this->expected_retained_per_team !== null
+            ? (int) $this->expected_retained_per_team
+            : self::DEFAULT_EXPECTED_RETAINED_PER_TEAM;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sealed (closed) bidding
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * The grid sealed amounts must land on.
+     *
+     * `!== null` rather than `?:`, like the retention default above — except that here a
+     * step of 0 is meaningless rather than expressive, so validation refuses it
+     * (`min:0.01`) and this accessor never has to defend against one. Do not "fix" this
+     * to `?:` on the assumption that 0 means unset.
+     */
+    public function closedBidStep(): float
+    {
+        return $this->closed_bid_step !== null
+            ? (float) $this->closed_bid_step
+            : (float) self::DEFAULT_CLOSED_BID_STEP;
+    }
+
+    /**
+     * Ceiling on what one player may cost a team, as a percentage of its TOTAL allocated
+     * budget — not its remaining purse, and not its post-retention purse. Fixed for the
+     * auction, so the figure a team is shown never moves under it.
+     */
+    public function closedBidMaxPct(): float
+    {
+        return $this->closed_bid_max_pct_of_budget !== null
+            ? (float) $this->closed_bid_max_pct_of_budget
+            : self::DEFAULT_CLOSED_BID_MAX_PCT;
+    }
+
+    /** 0 is meaningful: it sends a tie straight to the lot with no re-bid. */
+    public function closedBidMaxRebidRounds(): int
+    {
+        return $this->closed_bid_max_rebid_rounds !== null
+            ? (int) $this->closed_bid_max_rebid_rounds
+            : self::CLOSED_BID_MAX_REBIDS;
+    }
+
+    /** Rounds in the ladder, including the first: 1 + re-bids. */
+    public function closedBidTotalRounds(): int
+    {
+        return 1 + $this->closedBidMaxRebidRounds();
+    }
+
+    /** Falls back to the open-bid clock when the sealed round has none of its own. */
+    public function closedBidTimerSeconds(): int
+    {
+        return $this->closed_bid_timer_seconds !== null
+            ? (int) $this->closed_bid_timer_seconds
+            : (int) ($this->bid_timer_seconds ?: 30);
+    }
+
+    /** Must a team explicitly accept the purse conditions before it may bid? */
+    public function closedBidRequiresAcceptance(): bool
+    {
+        return $this->closed_bid_requires_acceptance !== null
+            ? (bool) $this->closed_bid_requires_acceptance
+            : true;
+    }
+
+    /** How long the big screen announces a restart before carrying on. */
+    public const RESTART_NOTICE_SECONDS = 10;
+
+    /**
+     * Is the auction inside its post-restart announcement window?
+     *
+     * Answered by the server so every screen watching agrees. If each client timed its
+     * own ten seconds from whenever it happened to poll, a projector and an OBS source
+     * would come back at different moments.
+     */
+    public function isRestarting(): bool
+    {
+        return $this->restarted_at !== null
+            && now()->getTimestamp() - $this->restarted_at->getTimestamp() < self::RESTART_NOTICE_SECONDS;
+    }
+
+    /** Seconds left on that announcement, or null when it is not showing. */
+    public function restartNoticeRemaining(): ?int
+    {
+        if (! $this->isRestarting()) {
+            return null;
+        }
+
+        return max(0, self::RESTART_NOTICE_SECONDS - (now()->getTimestamp() - $this->restarted_at->getTimestamp()));
+    }
+
+    public function closedBidTieBreaker(): string
+    {
+        return $this->closed_bid_tie_breaker ?: self::TIE_BREAKER_LOT;
+    }
+
+    /**
+     * Clock state for a sealed round.
+     *
+     * The round owns its own clock rather than using `timerStateFor()`, which picks the
+     * short `bid_timer_reset_seconds` limit whenever `current_bid_team_id` is set — and
+     * during a sealed round that is the frozen open-bid leader, so the round would
+     * silently get the wrong limit.
+     *
+     * Integer timestamps, not diffInSeconds(): see timerSecondsRemaining().
+     *
+     * @return array{applies: bool, limit: int, remaining: int|null, expired: bool}
+     */
+    public function closedBidRoundTimerState(AuctionClosedBidRound $round): array
+    {
+        $limit = (int) ($round->timer_seconds ?: $this->closedBidTimerSeconds());
+
+        if ($round->timer_started_at === null) {
+            return ['applies' => true, 'limit' => $limit, 'remaining' => null, 'expired' => false];
+        }
+
+        $elapsed = max(0, now()->getTimestamp() - $round->timer_started_at->getTimestamp());
+        $remaining = max(0, $limit - $elapsed);
+
+        return [
+            'applies' => true,
+            'limit' => $limit,
+            'remaining' => $remaining,
+            'expired' => $remaining <= 0,
+        ];
+    }
+
+    /**
      * Check if this auction has online/offline mode configured.
      */
     public function hasOnlineOfflineMode(): bool
@@ -399,6 +603,52 @@ class Auction extends Model
     /**
      * Determine the expected bid phase and mode based on the current price.
      */
+    /**
+     * Apply the automatic phase rule for a price that has just been reached.
+     *
+     * This rule used to be copy-pasted inline in two controllers while
+     * `getExpectedBidPhase()` — the canonical version — had no callers at all. Both
+     * copies are now this method, which is also the single place a sealed round gets
+     * created.
+     *
+     * Deliberately one-way: a falling price never re-opens a closed phase, and a manual
+     * override switches the automatic rule off entirely (both halves of it), which is
+     * what the previous inline copies did.
+     *
+     * @return array{bid_type_changed: bool, open_bid_mode_changed: bool}
+     */
+    public function applyAutoPhase(float $price): array
+    {
+        $expected = $this->getExpectedBidPhase($price);
+        $changes = [];
+
+        // The two axes are judged separately. Sharing one override flag meant that
+        // choosing to run the room offline also silenced the sealed-bid threshold — so an
+        // offline auction sailed straight past it.
+        if (! $this->bid_type_manually_overridden
+            && $this->hasAutoPhaseTransition()
+            && $this->bid_type === 'open'
+            && $expected['bid_type'] === 'closed') {
+            $changes['bid_type'] = 'closed';
+        }
+
+        if (! $this->mode_manually_overridden
+            && $this->hasOnlineOfflineMode()
+            && $this->open_bid_mode === 'online'
+            && $expected['open_bid_mode'] === 'offline') {
+            $changes['open_bid_mode'] = 'offline';
+        }
+
+        if ($changes !== []) {
+            $this->update($changes);
+        }
+
+        return [
+            'bid_type_changed' => isset($changes['bid_type']),
+            'open_bid_mode_changed' => isset($changes['open_bid_mode']),
+        ];
+    }
+
     public function getExpectedBidPhase(float $price): array
     {
         $bidType = 'open';

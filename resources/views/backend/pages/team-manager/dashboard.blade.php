@@ -166,7 +166,13 @@
                 <div class="divide-y divide-gray-100 dark:divide-gray-700">
                     @foreach($upcomingAuctions as $auction)
                     @php
-                        $budget = $auctionBudgets[$auction->id] ?? ['max' => 0, 'spent' => 0, 'remaining' => 0];
+                        // Defaults for every key the block below reads, so an auction with
+                        // no summary cannot throw on a missing one.
+                        $budget = ($auctionBudgets[$auction->id] ?? []) + [
+                            'max' => 0, 'spent' => 0, 'remaining' => 0, 'auction_purse' => 0,
+                            'retained_spent' => 0, 'auction_spent' => 0, 'retained_count' => 0,
+                            'retained_expected' => 0, 'squad_max' => null,
+                        ];
                         $percentage = $budget['max'] > 0 ? ($budget['spent'] / $budget['max']) * 100 : 0;
                     @endphp
                     <div class="px-6 py-4">
@@ -177,13 +183,23 @@
                                     <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span></span>
                                 @endif
                             </div>
-                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ format_millions($budget['spent']) }} / {{ format_millions($budget['max']) }}</span>
+                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $auction->formatAmount($budget['spent']) }} / {{ $auction->formatAmount($budget['max']) }}</span>
                         </div>
                         <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                             <div class="h-2 rounded-full transition-all {{ $percentage > 80 ? 'bg-red-500' : ($percentage > 50 ? 'bg-amber-500' : 'bg-indigo-500') }}" style="width: {{ min($percentage, 100) }}%"></div>
                         </div>
                         <div class="flex items-center justify-between mt-2">
-                            <span class="text-xs text-gray-400">{{ $auction->formatAmount($budget['remaining']) }} left</span>
+                            <span class="text-xs text-gray-400">
+                                {{ $auction->formatAmount($budget['remaining']) }} left
+                                @if($budget['retained_spent'] > 0)
+                                    {{-- The total is what was configured; the purse is what is
+                                         left to bid with once retentions are paid for. --}}
+                                    <span class="text-purple-500 dark:text-purple-400">
+                                        · {{ $auction->formatAmount($budget['auction_purse']) }} auction purse
+                                        (after {{ $auction->formatAmount($budget['retained_spent']) }} retained)
+                                    </span>
+                                @endif
+                            </span>
                             @if($auction->status === 'running')
                                 <a href="{{ route('team.auction.bidding.show', $auction) }}" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Join Bidding &rarr;</a>
                             @endif
@@ -193,9 +209,11 @@
                         @if(isset($budget['squad_required']))
                             <div class="flex items-center gap-3 mt-2 text-[11px]">
                                 <span class="text-gray-400">
-                                    Squad <span class="font-semibold text-gray-600 dark:text-gray-300">{{ $budget['squad_size'] }}/{{ $budget['squad_required'] }}</span>
+                                    Squad <span class="font-semibold text-gray-600 dark:text-gray-300">{{ $budget['squad_size'] }}/{{ $budget['squad_required'] }}</span>@if($budget['squad_max'])<span class="text-gray-400"> (max {{ $budget['squad_max'] }})</span>@endif
                                 </span>
-                                <span class="text-purple-600 dark:text-purple-400">{{ $budget['retained_count'] }} retained</span>
+                                <span class="{{ $budget['retained_expected'] > 0 && $budget['retained_count'] !== $budget['retained_expected'] ? 'text-amber-600 dark:text-amber-400' : 'text-purple-600 dark:text-purple-400' }}">
+                                    {{ $budget['retained_count'] }}@if($budget['retained_expected'] > 0)/{{ $budget['retained_expected'] }}@endif retained
+                                </span>
                                 <span class="text-emerald-600 dark:text-emerald-400">{{ $budget['won_count'] }} won</span>
                                 @if($budget['squad_remaining'] > 0)
                                     <span class="text-amber-600 dark:text-amber-400">{{ $budget['squad_remaining'] }} to fill</span>

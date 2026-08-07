@@ -191,6 +191,152 @@
                 </div>
             </template>
 
+            {{-- ══ SEALED ROUND BOARD ══
+                 In offline mode the teams are in the room, not on their own screens — so
+                 nobody can type a sealed amount and the round could only ever end in
+                 "no entries". The organizer enters each team's amount here, exactly as they
+                 already enter open bids for them.
+
+                 Amounts are never shown before the reveal, even to the organizer: this
+                 panel is usually on a projector. --}}
+            <template x-if="sealed.active">
+                <div class="absolute inset-0 z-20 bg-gray-950/95 backdrop-blur-sm overflow-y-auto px-8 py-6">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                        <div>
+                            <div class="text-[11px] font-black uppercase tracking-[0.25em] text-purple-300">Sealed Round</div>
+                            <h2 class="text-2xl font-extrabold text-white"
+                                x-text="currentPlayer?.player?.name || 'Sealed bidding'"></h2>
+                            <p class="text-sm text-gray-400">
+                                Round <span x-text="sealed.round_number"></span> of <span x-text="sealed.total_rounds"></span>
+                                &middot; minimum <span class="font-bold text-white" x-text="formatCurrency(sealed.floor)"></span>
+                                &middot; steps of <span x-text="formatCurrency(sealed.step)"></span>
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div x-show="sealed.timer?.remaining !== null && sealed.timer?.remaining !== undefined"
+                                 class="px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 text-center">
+                                <div class="text-[10px] uppercase tracking-wider text-gray-500">Time</div>
+                                <div class="text-xl font-black text-white" x-text="sealed.timer?.remaining ?? '—'"></div>
+                            </div>
+                            <button x-show="sealed.state === 'pending'" @click="sealedCommand('open-entry')"
+                                    class="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold">Open Entry</button>
+                            <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedCommand('start')"
+                                    class="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold">Start Round</button>
+                            <button x-show="sealed.state === 'collecting'" @click="sealedCommand('lock')"
+                                    class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Lock &amp; Reveal</button>
+                            <button x-show="sealed.state === 'revealed' && sealed.winner_team_id" @click="sealedCommand('award')"
+                                    class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Award</button>
+                            <button x-show="sealed.state === 'tie'" @click="sealedCommand('start-rebid')"
+                                    class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Start Re-bid</button>
+                            <button x-show="sealed.state === 'awaiting_lot'" @click="sealedCommand('lot')"
+                                    class="px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-black">Draw Lot</button>
+                        </div>
+                    </div>
+
+                    {{-- Nobody entered. Both answers are defensible, so the organizer picks. --}}
+                    <div x-show="sealed.state === 'no_entries'"
+                         class="mb-5 p-4 rounded-xl bg-amber-900/30 border border-amber-700">
+                        <p class="text-sm text-amber-200 font-semibold">No team entered this round.</p>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                            <button x-show="sealed.leader?.team_name"
+                                    @click="sealedCommand('no-entries-decision', { choice: 'award_leader' })"
+                                    class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
+                                Award to <span x-text="sealed.leader?.team_name"></span> at the threshold
+                            </button>
+                            <button @click="sealedCommand('no-entries-decision', { choice: 'unsold' })"
+                                    class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold">Mark unsold</button>
+                        </div>
+                    </div>
+
+                    <div x-show="sealed.state === 'tie'" class="mb-5 p-4 rounded-xl bg-amber-900/30 border border-amber-700">
+                        <p class="text-sm text-amber-200 font-semibold">
+                            Tie at <span x-text="formatCurrency(sealed.tie_amount)"></span> —
+                            the tied teams must bid again above it.
+                        </p>
+                    </div>
+
+                    {{-- The board. One row per team. --}}
+                    <div class="space-y-2">
+                        <template x-for="row in (sealed.entries || [])" :key="row.entry_id">
+                            <div class="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border transition-colors"
+                                 :class="row.withdrawn
+                                    ? 'border-gray-800 bg-gray-900/60 opacity-50'
+                                    : (row.is_tied ? 'border-amber-500 bg-amber-900/20 ring-2 ring-amber-400/40'
+                                                   : 'border-gray-700 bg-gray-900')">
+                                <template x-if="row.team_logo">
+                                    <img :src="row.team_logo" class="w-10 h-10 rounded-full object-cover border border-gray-700">
+                                </template>
+                                <template x-if="!row.team_logo">
+                                    <div class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-400"
+                                         x-text="(row.team_name || '??').substring(0,2).toUpperCase()"></div>
+                                </template>
+
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-bold text-white truncate" x-text="row.team_name"></div>
+                                    <div class="text-[11px] text-gray-500">
+                                        Max on this player
+                                        <span class="font-semibold text-amber-400" x-text="formatCurrency(row.binding_ceiling)"></span>
+                                        <span x-show="row.adjusted_count > 0" class="text-gray-600">
+                                            &middot; <span x-text="row.adjusted_count"></span> admin edit(s)
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {{-- Status, never an amount, until the reveal. --}}
+                                <div class="text-center min-w-[7rem]">
+                                    <template x-if="!sealed.revealed">
+                                        <span class="px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider"
+                                              :class="row.withdrawn ? 'bg-gray-800 text-gray-500'
+                                                    : (row.submitted ? 'bg-emerald-600/20 text-emerald-300'
+                                                                     : 'bg-gray-800 text-gray-400')"
+                                              x-text="row.withdrawn ? 'Withdrawn' : (row.submitted ? 'Submitted' : 'Not in')"></span>
+                                    </template>
+                                    <template x-if="sealed.revealed">
+                                        <div>
+                                            <div class="text-lg font-black"
+                                                 :class="row.is_tied ? 'text-amber-300' : 'text-white'"
+                                                 x-text="row.amount !== null && row.amount !== undefined ? formatCurrency(row.amount) : '—'"></div>
+                                            <div x-show="row.withdrawn" class="text-[10px] uppercase text-gray-500">Withdrawn</div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                {{-- Amount entry. Hidden once revealed: editing a revealed
+                                     board is rewriting history, and the tool for that is a
+                                     recorded manual resolution. --}}
+                                <div x-show="!sealed.revealed && !row.withdrawn && sealed.state === 'collecting'"
+                                     class="flex items-center gap-1">
+                                    <button @click="sealedEntry(row.entry_id, 'adjust', { direction: 'down' })"
+                                            class="w-8 h-8 rounded bg-gray-800 hover:bg-gray-700 text-white font-bold">&minus;</button>
+                                    <input type="number" step="any" min="0"
+                                           :placeholder="toM(sealed.floor)"
+                                           x-model="sealedCustom[row.entry_id]"
+                                           @keydown.enter.prevent="sealedSubmitCustom(row.entry_id)"
+                                           class="w-24 px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-white text-sm text-center"
+                                           title="Amount in millions">
+                                    <button @click="sealedEntry(row.entry_id, 'adjust', { direction: 'up' })"
+                                            class="w-8 h-8 rounded bg-gray-800 hover:bg-gray-700 text-white font-bold">+</button>
+                                    <button @click="sealedSubmitCustom(row.entry_id)"
+                                            class="px-2.5 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold">Set</button>
+                                </div>
+
+                                <div class="flex items-center gap-1">
+                                    <button x-show="!row.withdrawn && !sealed.revealed"
+                                            @click="sealedEntry(row.entry_id, 'withdraw')"
+                                            class="px-2 py-1 rounded text-[11px] font-semibold text-red-400 hover:bg-red-900/30">Withdraw</button>
+                                    <button x-show="row.withdrawn"
+                                            @click="sealedEntry(row.entry_id, 'reinstate')"
+                                            class="px-2 py-1 rounded text-[11px] font-semibold text-emerald-400 hover:bg-emerald-900/30">Restore</button>
+                                </div>
+                            </div>
+                        </template>
+                        <p x-show="!(sealed.entries || []).length" class="text-sm text-gray-500 py-6 text-center">
+                            Press <strong>Open Entry</strong> to bring the teams into this round.
+                        </p>
+                    </div>
+                </div>
+            </template>
+
             {{-- ── ACTIVE PLAYER (stays visible behind overlays) ── --}}
             <template x-if="currentPlayer">
                 <div class="flex items-stretch px-12 w-full h-full">
@@ -620,6 +766,39 @@
 
             <div class="w-px h-8 bg-gray-700"></div>
 
+            {{-- Sealed round. Offline bidding reaches the closed-bid threshold exactly as
+                 online bidding does, and this panel previously had no way to run the
+                 round — the price simply froze with no explanation. --}}
+            <template x-if="sealed.active">
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/15 border border-purple-500/40">
+                    <div class="text-left leading-tight">
+                        <div class="text-[10px] font-black uppercase tracking-[0.2em] text-purple-300">Sealed Round</div>
+                        <div class="text-[11px] text-gray-300">
+                            Round <span x-text="sealed.round_number"></span>/<span x-text="sealed.total_rounds"></span>
+                            &middot; floor <span x-text="formatCurrency(sealed.floor)"></span>
+                            &middot; <span x-text="sealed.counts?.submitted ?? 0"></span> in
+                        </div>
+                    </div>
+
+                    <button x-show="sealed.state === 'pending'" @click="sealedCommand('open-entry')"
+                            class="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold">Open Entry</button>
+                    <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedCommand('start')"
+                            class="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold">Start</button>
+                    <button x-show="sealed.state === 'collecting'" @click="sealedCommand('lock')"
+                            class="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold">Lock &amp; Reveal</button>
+                    <button x-show="sealed.state === 'revealed' && sealed.winner_team_id" @click="sealedCommand('award')"
+                            class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold">Award</button>
+                    <button x-show="sealed.state === 'tie'" @click="sealedCommand('start-rebid')"
+                            class="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold">Re-bid</button>
+                    <button x-show="sealed.state === 'awaiting_lot'" @click="sealedCommand('lot')"
+                            class="px-2.5 py-1 rounded bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[11px] font-black">Draw Lot</button>
+
+                    <a :href="`/admin/organizer/auction/{{ $auction->id }}/panel`"
+                       class="px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200 text-[11px] font-bold"
+                       title="The full board, with per-team controls">Full board</a>
+                </div>
+            </template>
+
             {{-- Teams live in their own strip below, so the toolbar just spaces out. --}}
             <div class="flex-1"></div>
 
@@ -714,16 +893,26 @@
                                     <div class="text-sm text-gray-400">
                                         <span x-text="team.players_bought || 0"></span> players &bull;
                                         <span x-text="formatCurrency(team.total_spent || 0)"></span> spent
+                                        <span x-show="team.retained_expected > 0"
+                                              :class="team.retained_count !== team.retained_expected ? 'text-amber-400' : 'text-gray-500'"
+                                              :title="`${team.retained_count} retained; ${team.retained_expected} expected.`">
+                                            &bull; <span x-text="team.retained_count"></span>/<span x-text="team.retained_expected"></span> kept
+                                        </span>
                                     </div>
                                 </div>
                             </div>
-                            {{-- Budget progress bar --}}
+                            {{-- Budget progress bar, against THIS team's allocation rather
+                                 than the auction-wide cap it used to divide by. --}}
                             <div class="w-full bg-gray-700 rounded-full h-2">
                                 <div class="bg-emerald-500 h-2 rounded-full transition-all"
-                                     :style="'width:' + Math.max(0, Math.min(100, ((team.total_spent || 0) / maxBudget * 100))) + '%'"></div>
+                                     :style="'width:' + Math.max(0, Math.min(100, ((team.total_spent || 0) / (team.allocated || 1) * 100))) + '%'"></div>
                             </div>
                             <div class="text-xs text-gray-500 mt-1">
                                 <span x-text="formatCurrency(team.remaining_budget)"></span> remaining
+                                of <span x-text="formatCurrency(team.allocated)"></span>
+                                <span x-show="team.retained_spent > 0" class="text-amber-500/80">
+                                    (<span x-text="formatCurrency(team.retained_spent)"></span> retained)
+                                </span>
                             </div>
                         </div>
                     </template>
@@ -903,6 +1092,58 @@
         </div>
     </template>
 
+    {{-- ── Toasts and confirmations ──
+         Same reason as the organizer panel: a native alert()/confirm() forces the browser
+         out of fullscreen to display itself, so on a hall projector every confirmation
+         dropped the screen back to a window. See that file for the full note. --}}
+    <div class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
+        <template x-for="t in toasts" :key="t.id">
+            <div class="pointer-events-auto flex items-start gap-3 max-w-md px-4 py-3 rounded-xl shadow-2xl bg-gray-900 border border-white/10 border-l-4"
+                 :class="{
+                     'border-l-red-500': t.type === 'error',
+                     'border-l-emerald-500': t.type === 'success',
+                     'border-l-blue-500': t.type !== 'error' && t.type !== 'success',
+                 }"
+                 x-transition.opacity>
+                <div>
+                    <p x-show="t.title" x-text="t.title"
+                       class="text-xs font-bold uppercase tracking-wide text-gray-400"></p>
+                    <p class="text-sm text-white whitespace-pre-line" x-text="t.message"></p>
+                </div>
+                <button type="button" @click="toasts = toasts.filter(x => x.id !== t.id)"
+                        class="text-gray-400 hover:text-white transition text-xs font-bold">✕</button>
+            </div>
+        </template>
+    </div>
+
+    {{-- click.self, not click.outside: the click that OPENS this dialog is still bubbling
+         to document when Alpine registers an outside-click listener, so click.outside can
+         dismiss the dialog with the very click that asked for it. A backdrop that only
+         answers to clicks landing on itself has no such ordering to get wrong.
+         Escape/Enter are handled in handleKeydown(), which also swallows the shortcuts. --}}
+    <div x-show="confirmBox.open" x-cloak
+         class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4"
+         @click.self="_settleConfirm(false)"
+         x-transition.opacity>
+        <div class="w-full max-w-md rounded-2xl bg-gray-900 border border-white/10 shadow-2xl p-6">
+            <p class="text-sm font-bold uppercase tracking-wide"
+               :class="confirmBox.danger ? 'text-red-400' : 'text-gray-400'"
+               x-text="confirmBox.title"></p>
+            <p class="mt-3 text-white text-sm whitespace-pre-line" x-text="confirmBox.message"></p>
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <button type="button" @click="_settleConfirm(false)"
+                        class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition">
+                    Cancel
+                </button>
+                <button type="button" @click="_settleConfirm(true)"
+                        class="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition"
+                        :class="confirmBox.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 @endsection
 
@@ -913,9 +1154,34 @@
     <script>
     function offlineAuctionPanel() {
         return {
+            /* ── In-page toast and confirm ──
+               Replaces alert()/confirm(), which drop the browser out of fullscreen. */
+            toasts: [],
+            _toastSeq: 0,
+            confirmBox: { open: false, title: '', message: '', danger: false, _resolve: null },
+
+            toast(message, type = 'info', title = null) {
+                const id = ++this._toastSeq;
+                this.toasts.push({ id, message, type, title });
+                setTimeout(() => {
+                    this.toasts = this.toasts.filter(t => t.id !== id);
+                }, type === 'error' ? 6000 : 3600);
+            },
+
+            askConfirm(message, { title = 'Confirm', danger = false } = {}) {
+                return new Promise((resolve) => {
+                    this.confirmBox = { open: true, title, message, danger, _resolve: resolve };
+                });
+            },
+
+            _settleConfirm(answer) {
+                const resolve = this.confirmBox._resolve;
+                this.confirmBox = { open: false, title: '', message: '', danger: false, _resolve: null };
+                if (resolve) resolve(answer);
+            },
+
             // Config
             auctionId: {{ $auction->id }},
-            maxBudget: {{ $auction->max_budget_per_team ?? 0 }},
             auctionBasePrice: {{ $auction->base_price ?? 0 }},
             bidRules: @json($bidRules ?? []),
             apiBase: '/admin/organizer/auction/{{ $auction->id }}',
@@ -947,6 +1213,11 @@
             availablePlayers: @json($availablePlayersCompact),
 
             currentPlayer: @json($currentPlayer),
+
+            // Sealed round. This panel had no sealed support at all, so an offline
+            // auction that crossed its threshold left the organizer with a frozen price
+            // and no way to run the round.
+            sealed: { active: false },
             currentBidAmount: {{ $currentPlayer?->current_price ?? 0 }},
             currentBidTeamId: {{ $currentPlayer?->current_bid_team_id ?? 'null' }},
             basePrice: {{ $currentPlayer?->base_price ?? 0 }},
@@ -1121,7 +1392,7 @@
                         this.editingBasePrice = false;
                         this.shortcutsEnabled = true;
                     } else {
-                        alert(data.message || 'Failed to update base price');
+                        this.toast(data.message || 'Failed to update base price', 'error');
                     }
                 } catch (e) {
                     console.error('Update base price error:', e);
@@ -1145,7 +1416,7 @@
                         this.currentBidTeamId = teamId;
                         this._flashBid();
                     } else {
-                        alert(data.message || 'Bid failed');
+                        this.toast(data.message || 'Bid failed', 'error');
                     }
                 } catch (e) {
                     console.error('Bid error:', e);
@@ -1158,7 +1429,7 @@
             async loadNextPlayer() {
                 this.dismissOverlays();
                 if (this.currentPlayer) {
-                    if (!confirm('Pass current player and load next?')) return;
+                    if (! await this.askConfirm('Pass current player and load next?', { title: 'Pass player' })) return;
                     await this._passPlayerRequest();
                     this.currentPlayer = null;
                     this.currentBidAmount = 0;
@@ -1169,11 +1440,11 @@
                 if (this.availablePlayers.length === 0) {
                     const reAuctionCount = (this.stats.unsold_count || 0) + (this.stats.skipped_count || 0);
                     if (reAuctionCount > 0) {
-                        if (confirm('No more waiting players. Start re-auction round with ' + reAuctionCount + ' unsold/skipped player(s)?')) {
+                        if (await this.askConfirm('No more waiting players. Start a re-auction round with ' + reAuctionCount + ' unsold/skipped player(s)?', { title: 'Re-auction round' })) {
                             await this.startReAuctionRound();
                         }
                     } else {
-                        alert('No more players waiting.');
+                        this.toast('No more players waiting.', 'info');
                     }
                     return;
                 }
@@ -1246,7 +1517,7 @@
             // ─── LOAD PLAYER BY ID (from player list) ───
             async loadPlayerById(auctionPlayerId) {
                 if (this.currentPlayer) {
-                    if (!confirm('Pass current player and load this one?')) return;
+                    if (! await this.askConfirm('Pass current player and load this one?', { title: 'Pass player' })) return;
                     await this._passPlayerRequest();
                     this.currentPlayer = null;
                     this.currentBidAmount = 0;
@@ -1263,7 +1534,7 @@
                 const id = parseInt(this.playerNumberInput);
                 if (!id) return;
                 if (this.currentPlayer) {
-                    if (!confirm('Pass current player and load #' + id + '?')) return;
+                    if (! await this.askConfirm('Pass current player and load #' + id + '?', { title: 'Pass player' })) return;
                     await this._passPlayerRequest();
                     this.currentPlayer = null;
                     this.currentBidAmount = 0;
@@ -1298,7 +1569,7 @@
                         this.editingAuctionBase = false;
                         this.shortcutsEnabled = true;
                     } else {
-                        alert(data.message || 'Failed to update base price');
+                        this.toast(data.message || 'Failed to update base price', 'error');
                     }
                 } catch (e) {
                     console.error('Update auction base price error:', e);
@@ -1315,7 +1586,7 @@
                     });
                     const data = await res.json();
                     if (!data.success && res.status !== 200) {
-                        alert(data.message || 'Failed to load player');
+                        this.toast(data.message || 'Failed to load player', 'error');
                     }
                     // Poll will pick up the new state
                     await this.pollAuctionState();
@@ -1334,8 +1605,9 @@
                 // rather than getting a rejection after confirming.
                 if (team && team.max_bid_allowed !== null && team.max_bid_allowed !== undefined
                     && Number(this.currentBidAmount) > Number(team.max_bid_allowed)) {
-                    alert(`${teamName} cannot go above ${this.formatCurrency(team.max_bid_allowed)} on this player.`
-                        + `\n\n${team.exclusion_reason || 'Squad-reserve rule: purse must cover the remaining squad slots.'}`);
+                    this.toast(`${teamName} cannot go above ${this.formatCurrency(team.max_bid_allowed)} on this player.`
+                        + `\n\n${team.exclusion_reason || 'Squad-reserve rule: purse must cover the remaining squad slots.'}`,
+                        'error', 'Over the limit');
                     return;
                 }
 
@@ -1348,7 +1620,7 @@
                     + `\n\nPurse after sale: ${this.formatCurrency(purseAfter)}`
                     + `\nSquad after sale: ${squadLabel}`;
 
-                if (!confirm(summary)) return;
+                if (! await this.askConfirm(summary, { title: 'Confirm sale' })) return;
 
                 try {
                     const res = await fetch(this.apiBase + '/api/sell-to-team', {
@@ -1374,7 +1646,7 @@
                         this._fireConfetti();
                         await this.pollAuctionState();
                     } else {
-                        alert(data.message || 'Sell failed');
+                        this.toast(data.message || 'Sell failed', 'error');
                     }
                 } catch (e) {
                     console.error('Sell error:', e);
@@ -1384,7 +1656,7 @@
             // ─── PASS PLAYER ───
             async passCurrentPlayer() {
                 if (!this.currentPlayer || this.currentBidTeamId) return;
-                if (!confirm('Mark as UNSOLD?')) return;
+                if (! await this.askConfirm('Mark this player UNSOLD?', { title: 'Unsold', danger: true })) return;
 
                 this.unsoldPlayerName = this.currentPlayer.player?.name || 'Unknown';
                 this.unsoldPlayerImage = this.currentPlayer.player?.image_path || null;
@@ -1431,7 +1703,7 @@
             // ─── START RE-AUCTION ROUND ───
             async startReAuctionRound() {
                 const count = (this.stats.unsold_count || 0) + (this.stats.skipped_count || 0);
-                if (!confirm('Move ' + count + ' unsold/skipped player(s) back to waiting for re-auction?')) return;
+                if (! await this.askConfirm('Move ' + count + ' unsold/skipped player(s) back to waiting for re-auction?', { title: 'Re-auction round' })) return;
                 try {
                     const res = await fetch(this.apiBase + '/api/start-reauction-round', {
                         method: 'POST',
@@ -1442,7 +1714,7 @@
                         this.dismissOverlays();
                         await this.pollAuctionState();
                     } else {
-                        alert(data.message || 'Failed to start re-auction round');
+                        this.toast(data.message || 'Failed to start re-auction round', 'error');
                     }
                 } catch (e) {
                     console.error('Re-auction round error:', e);
@@ -1463,7 +1735,7 @@
                         this.dismissOverlays();
                         await this.pollAuctionState();
                     } else {
-                        alert(data.message || 'Re-auction failed');
+                        this.toast(data.message || 'Re-auction failed', 'error');
                     }
                 } catch (e) {
                     console.error('Re-auction error:', e);
@@ -1495,25 +1767,25 @@
                 if (result?.success) {
                     await this.pollAuctionState();
                 } else if (result?.message) {
-                    alert(result.message);
+                    this.toast(result.message, 'error');
                 }
             },
 
             async completeActivePool() {
                 if (!this.activePool) return;
-                if (!this.activePool.exhausted
-                    && !confirm(`Close ${this.activePool.name} now?\n\n${this.activePool.waiting} player(s) still in it will be left unsold.`)) {
+                if (! this.activePool.exhausted
+                    && ! await this.askConfirm(`Close ${this.activePool.name} now?\n\n${this.activePool.waiting} player(s) still in it will be left unsold.`, { title: 'Close pool', danger: true })) {
                     return;
                 }
                 const result = await this._post(`pools/${this.activePool.id}/complete`);
                 if (result?.success) await this.pollAuctionState();
-                else if (result?.message) alert(result.message);
+                else if (result?.message) this.toast(result.message, 'error');
             },
 
             async toggleTimer() {
                 const result = await this._post('toggle-timer', { timer_enabled: !this.timerEnabled });
                 if (result?.success) this.timerEnabled = result.timer_enabled;
-                else if (result?.message) alert(result.message);
+                else if (result?.message) this.toast(result.message, 'error');
             },
 
             /**
@@ -1563,6 +1835,84 @@
                 }
             },
 
+            /* ── Sealed round ──
+               The offline panel drives the round from here rather than sending the
+               organizer to the other panel mid-auction. */
+
+            async fetchSealedState() {
+                if (!this.currentPlayer) {
+                    if (this.sealed.active) this.sealed = { active: false };
+                    return;
+                }
+                try {
+                    const res = await fetch(
+                        `${this.apiBase}/api/closed-bid/state?auction_player_id=${this.currentPlayer.id}`,
+                        { headers: { Accept: 'application/json' } }
+                    );
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    this.sealed = data.closed_bid || { active: false };
+                } catch (e) { /* a dropped poll is not worth surfacing */ }
+            },
+
+            async sealedCommand(path, body = {}) {
+                try {
+                    const res = await fetch(`${this.apiBase}/api/closed-bid/${path}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            Accept: 'application/json',
+                        },
+                        body: JSON.stringify({ auction_player_id: this.currentPlayer?.id, ...body }),
+                    });
+                    const data = await res.json();
+                    if (data.closed_bid) this.sealed = data.closed_bid;
+                    if (data.message) {
+                        this.toast(data.message, data.handled ? 'success' : 'info', 'Sealed round');
+                    }
+                    return data;
+                } catch (e) {
+                    this.toast('That did not go through.', 'error', 'Sealed round');
+                    return null;
+                }
+            },
+
+            /* ── Entering a team's sealed amount ──
+               Offline means the teams are in the room rather than on their own screens, so
+               the organizer submits for them. The server records ROLE_ADMIN on every one of
+               these, and the acceptance gate only applies to a team's own submission — so
+               an offline round does not stall waiting for teams to click Accept. */
+            sealedCustom: {},
+
+            async sealedEntry(entryId, action, body = {}) {
+                const data = await this.sealedCommand(`entries/${entryId}/${action}`, body);
+                // The board comes back from the same response, so no extra poll is needed.
+                if (data?.closed_bid) this.sealed = data.closed_bid;
+                return data;
+            },
+
+            async sealedSubmitCustom(entryId) {
+                const typed = this.sealedCustom[entryId];
+                if (typed === '' || typed === null || typed === undefined) {
+                    this.toast('Enter an amount first.', 'error', 'Sealed round');
+                    return;
+                }
+
+                // The box is in millions like every other money field on this screen; the
+                // server wants base units.
+                const amount = this.fromM(typed);
+                const data = await this.sealedEntry(entryId, 'adjust', { amount });
+
+                // Only clear the box on success, so a rejected amount stays visible to fix
+                // rather than vanishing under an error toast.
+                if (data?.handled) this.sealedCustom[entryId] = '';
+            },
+
+            /** Money entry in millions, shared with every other screen. */
+            toM(raw) { return window.auctionToM ? window.auctionToM(raw) : raw; },
+            fromM(value) { return window.auctionFromM ? window.auctionFromM(value) : value; },
+
             async pollAuctionState() {
                 try {
                     const res = await fetch(this.apiBase + '/api/poll-state');
@@ -1571,6 +1921,8 @@
                     this.auctionStatus = data.auction_status;
                     this.teams = data.teams;
                     this.stats = data.stats;
+
+                    this.fetchSealedState();
 
                     // Pool lock + timer, both owned by the server.
                     this.activePool = data.active_pool || null;
@@ -1697,6 +2049,15 @@
 
             // ─── KEYBOARD SHORTCUTS ───
             handleKeydown(e) {
+                /* A confirmation is modal and must swallow the shortcuts — see the same
+                   guard on the organizer panel. Enter confirms, Escape cancels. */
+                if (this.confirmBox.open) {
+                    e.preventDefault();
+                    if (e.key === 'Enter') this._settleConfirm(true);
+                    if (e.key === 'Escape') this._settleConfirm(false);
+                    return;
+                }
+
                 if (!this.shortcutsEnabled) return;
                 // Ignore when typing in inputs
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;

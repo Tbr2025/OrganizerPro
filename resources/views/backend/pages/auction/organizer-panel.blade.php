@@ -107,7 +107,9 @@
              'logo_url' => $t->team_logo_url,
              'players_bought' => $t->players_bought ?? 0,
              'total_spent' => $t->total_spent ?? 0,
-             'remaining_budget' => $t->remaining_budget ?? $auction->max_budget_per_team,
+             // Fall back to this team's own allocation, never the auction-wide cap —
+             // that fallback was itself blind to per-team budgets.
+             'remaining_budget' => $t->remaining_budget ?? $t->allocated ?? 0,
              // Squad-reserve figures. This list whitelists keys explicitly, so any
              // new field must be added here as well as in pollState.
              'max_bid_allowed' => $t->max_bid_allowed ?? null,
@@ -116,8 +118,14 @@
              'slots_remaining' => $t->slots_remaining ?? null,
              'excluded' => (bool) ($t->excluded ?? false),
              'exclusion_reason' => $t->exclusion_reason ?? null,
+             // "Show both": the configured total, and the purse left after retentions.
+             'allocated' => $t->allocated ?? 0,
+             'auction_purse' => $t->auction_purse ?? 0,
+             'retained_spent' => $t->retained_spent ?? 0,
+             'auction_spent' => $t->auction_spent ?? 0,
+             'retained_count' => $t->retained_count ?? 0,
+             'retained_expected' => $t->retained_expected ?? 0,
          ])) }},
-         {{ $auction->max_budget_per_team }},
          {{ json_encode($currentPlayer ? [
              'id' => $currentPlayer->id,
              'player' => [
@@ -302,6 +310,200 @@
             </div>
 
             {{-- ── SHUFFLE ANIMATION OVERLAY ── --}}
+            {{-- ═══ SEALED ROUND CONSOLE ═══
+                 Sits over the stage while a sealed round is running, because this is what
+                 the organizer is actually driving. Amounts are absent from the payload
+                 until the round is revealed — this screen is routinely on a projector. --}}
+            <template x-if="sealed.active">
+                <div class="absolute inset-0 bg-gray-950/95 backdrop-blur-sm z-30 overflow-y-auto p-6">
+                    <div class="max-w-5xl mx-auto">
+
+                        {{-- Header: phase, round, clock --}}
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <div class="text-purple-400 text-xs font-bold uppercase tracking-[0.2em]">Sealed Round</div>
+                                <div class="text-white text-2xl font-black" x-text="currentPlayer?.player?.name || 'Player'"></div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-gray-500 text-[11px] uppercase tracking-wider">
+                                    Round <span x-text="sealed.round_number"></span> of <span x-text="sealed.total_rounds"></span>
+                                </div>
+                                <div class="text-white text-sm font-bold">
+                                    Floor <span x-text="formatCurrency(sealed.floor)"></span>
+                                    <span class="text-gray-600">&middot; steps of <span x-text="formatCurrency(sealed.step)"></span></span>
+                                </div>
+                                <div x-show="sealed.timer?.remaining !== null && sealed.state === 'collecting'"
+                                     class="text-2xl font-black tabular-nums"
+                                     :class="(sealed.timer?.remaining ?? 99) <= 5 ? 'text-red-400' : 'text-cyan-400'"
+                                     x-text="sealed.timer?.remaining"></div>
+                            </div>
+                        </div>
+
+                        {{-- Tie banner --}}
+                        <template x-if="sealed.tie_amount && ['tie','awaiting_lot'].includes(sealed.state)">
+                            <div class="mb-4 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-center font-bold">
+                                TIE — <span x-text="(sealed.tied_team_ids || []).length"></span> teams at
+                                <span x-text="formatCurrency(sealed.tie_amount)"></span>.
+                                <span x-show="sealed.state === 'tie'">Round <span x-text="sealed.round_number + 1"></span> of <span x-text="sealed.total_rounds"></span> available.</span>
+                                <span x-show="sealed.state === 'awaiting_lot'">The re-bid rounds are used up.</span>
+                            </div>
+                        </template>
+
+                        {{-- Nobody entered --}}
+                        <template x-if="sealed.state === 'no_entries'">
+                            <div class="mb-4 px-4 py-4 rounded-xl bg-gray-900 border border-gray-700 text-center">
+                                <p class="text-gray-300 text-sm mb-3">No team entered the sealed round.</p>
+                                <div class="flex gap-2 justify-center">
+                                    <button @click="sealedNoEntries('award_leader')" x-show="sealed.leader"
+                                            class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold">
+                                        Award <span x-text="sealed.leader?.team_name"></span> at <span x-text="formatCurrency(sealed.floor)"></span>
+                                    </button>
+                                    <button @click="sealedNoEntries('unsold')"
+                                            class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold">
+                                        Send to unsold
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- The board --}}
+                        <div class="rounded-xl border border-gray-800 overflow-hidden mb-4">
+                            <div class="grid grid-cols-12 bg-gray-900 px-4 py-2 text-[10px] uppercase tracking-wider text-gray-500 font-bold">
+                                <div class="col-span-4">Team</div>
+                                <div class="col-span-3">Ceilings</div>
+                                <div class="col-span-2 text-center">Status</div>
+                                <div class="col-span-3 text-right">Controls</div>
+                            </div>
+
+                            <template x-for="entry in (sealed.entries || [])" :key="entry.entry_id">
+                                <div class="grid grid-cols-12 items-center px-4 py-2.5 border-t border-gray-800/60 text-sm"
+                                     :class="[
+                                         entry.withdrawn ? 'opacity-50' : '',
+                                         entry.is_tied ? 'ring-4 ring-amber-300/50 bg-amber-500/5' : 'bg-gray-950/40'
+                                     ]">
+                                    <div class="col-span-4 flex items-center gap-2 min-w-0">
+                                        <template x-if="entry.team_logo">
+                                            <img :src="entry.team_logo" class="w-7 h-7 rounded-full object-cover shrink-0" alt="">
+                                        </template>
+                                        <template x-if="!entry.team_logo">
+                                            <span class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-black shrink-0"
+                                                  x-text="(entry.team_name || '?').substring(0,2).toUpperCase()"></span>
+                                        </template>
+                                        <span class="text-white font-semibold truncate" x-text="entry.team_name"></span>
+                                        {{-- Rank appears only once the board is revealed. --}}
+                                        <template x-if="sealed.revealed && entry.amount">
+                                            <span class="ml-auto text-emerald-400 font-black tabular-nums" x-text="formatCurrency(entry.amount)"></span>
+                                        </template>
+                                    </div>
+
+                                    <div class="col-span-3 text-[10px] leading-tight">
+                                        <div :class="entry.per_player_cap <= entry.reserve_max ? 'text-amber-400 font-bold' : 'text-gray-500'">
+                                            cap <span x-text="formatCurrency(entry.per_player_cap)"></span>
+                                        </div>
+                                        <div :class="entry.reserve_max < entry.per_player_cap ? 'text-amber-400 font-bold' : 'text-gray-500'">
+                                            reserve <span x-text="formatCurrency(entry.reserve_max)"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-span-2 text-center">
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
+                                              :class="{
+                                                  'bg-amber-500/20 text-amber-300': entry.withdrawn,
+                                                  'bg-emerald-500/20 text-emerald-300': !entry.withdrawn && entry.submitted,
+                                                  'bg-blue-500/20 text-blue-300': !entry.withdrawn && !entry.submitted && entry.state === 'accepted',
+                                                  'bg-gray-700/50 text-gray-400': !entry.withdrawn && !entry.submitted && entry.state !== 'accepted'
+                                              }"
+                                              x-text="entry.withdrawn ? 'Withdrawn'
+                                                    : (entry.submitted ? 'Submitted' : (entry.state === 'accepted' ? 'Accepted'
+                                                    : (entry.required ? 'Must re-bid' : 'Awaiting')))"></span>
+                                        <div x-show="entry.adjusted_count > 0" class="text-[9px] text-gray-600 mt-0.5">
+                                            adjusted &times;<span x-text="entry.adjusted_count"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-span-3 flex items-center justify-end gap-1">
+                                        <template x-if="sealed.state === 'collecting' && !entry.withdrawn">
+                                            <div class="flex items-center gap-1">
+                                                <button @click="sealedAdjust(entry, 'down')"
+                                                        class="w-6 h-6 rounded bg-red-500/15 border border-red-500/25 text-red-400 text-xs font-bold">&minus;</button>
+                                                <input type="number" step="any"
+                                                       x-model="sealedAdjustAmount[entry.entry_id]"
+                                                       @keydown.enter.prevent="sealedAdjustCustom(entry)"
+                                                       class="w-16 px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-white text-[11px] text-center"
+                                                       placeholder="M">
+                                                <button @click="sealedAdjust(entry, 'up')"
+                                                        class="w-6 h-6 rounded bg-green-500/15 border border-green-500/25 text-green-400 text-xs font-bold">+</button>
+                                            </div>
+                                        </template>
+                                        <button x-show="!entry.withdrawn && !sealed.revealed"
+                                                @click="sealedEntryCommand(entry.entry_id, 'withdraw')"
+                                                class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 text-[10px] hover:text-red-400">Withdraw</button>
+                                        <button x-show="entry.withdrawn && !sealed.revealed"
+                                                @click="sealedEntryCommand(entry.entry_id, 'reinstate')"
+                                                class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 text-[10px] hover:text-emerald-400">Restore</button>
+                                        <button x-show="sealed.state === 'awaiting_lot' && (sealed.tied_team_ids || []).includes(entry.team_id)"
+                                                @click="sealedResolveManual(entry.team_id)"
+                                                class="px-2 py-0.5 rounded bg-amber-600/30 border border-amber-500/40 text-amber-200 text-[10px]">Pick</button>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div x-show="!(sealed.entries || []).length" class="px-4 py-6 text-center text-gray-500 text-sm">
+                                No teams invited yet.
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="text-[11px] text-gray-500">
+                                <span x-text="sealed.counts?.accepted ?? 0"></span> accepted &middot;
+                                <span x-text="sealed.counts?.submitted ?? 0"></span> submitted &middot;
+                                <span x-text="sealed.counts?.withdrawn ?? 0"></span> withdrawn
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button x-show="sealed.state === 'pending'" @click="sealedOpenEntry()"
+                                        class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">Open Entry</button>
+                                <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedStart()"
+                                        class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold">Start Closed Bid</button>
+                                <button x-show="sealed.state === 'collecting'" @click="sealedLock()"
+                                        class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Lock &amp; Reveal</button>
+                                <button x-show="sealed.state === 'revealed' && sealed.winner_team_id" @click="sealedAward()"
+                                        class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold">
+                                    Award <span x-text="formatCurrency(sealed.winning_amount)"></span>
+                                </button>
+                                <button x-show="sealed.state === 'tie'" @click="sealedStartRebid()"
+                                        class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Start Re-bid</button>
+                                <button x-show="sealed.state === 'awaiting_lot'" @click="sealedDrawLot()"
+                                        class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-black">DRAW LOT</button>
+                            </div>
+                        </div>
+
+                        {{-- A manual override has to be explained; the reason is recorded. --}}
+                        <div x-show="sealed.state === 'awaiting_lot'" class="mt-3">
+                            <input type="text" x-model="sealedManualReason"
+                                   class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs"
+                                   placeholder="Reason, if you pick a winner by hand instead of drawing…">
+                        </div>
+
+                        {{-- Summary: how the player was won, not just who won. --}}
+                        <template x-if="sealed.state === 'awarded'">
+                            <div class="mt-4 px-4 py-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center">
+                                <div class="text-emerald-400 text-[10px] uppercase tracking-[0.2em] font-bold mb-1"
+                                     x-text="sealed.resolution === 'lot' ? 'Sealed — Lot Draw'
+                                           : (sealed.resolution === 'manual' ? 'Sealed — Organizer Decision'
+                                           : (sealed.resolution === 'leader_at_threshold' ? 'Open-bid leader at threshold'
+                                           : 'Sealed — Round ' + sealed.round_number))"></div>
+                                <div class="text-white text-xl font-black" x-text="formatCurrency(sealed.winning_amount)"></div>
+                                <div class="text-gray-400 text-xs mt-1">
+                                    Won by <span class="text-white font-semibold"
+                                        x-text="(sealed.entries || []).find(e => e.team_id === sealed.winner_team_id)?.team_name || 'the winning team'"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
             <template x-if="showShuffleOverlay">
                 <div class="absolute inset-0 bg-gray-950/95 backdrop-blur-sm flex items-center justify-center z-40">
                     <div class="text-center">
@@ -351,6 +553,23 @@
                 </div>
                 <h2 class="text-3xl font-bold text-gray-500 mb-2">Ready to Auction</h2>
                 <p class="text-gray-600">Press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd> for next player or enter ID below</p>
+            </div>
+
+            {{-- ── RESTARTING ──
+                 Announced for the same server-measured window as the public wall, so the
+                 organizer and the hall see the same thing at the same moment. Before this
+                 existed the panel fell through to the UNSOLD stamp, which read as though
+                 the player who was up had been passed on. --}}
+            <div x-show="displayState === 'restarting'" x-transition class="text-center">
+                <div class="w-32 h-32 mx-auto mb-6 rounded-full border-4 border-amber-500/40 border-t-amber-400 flex items-center justify-center animate-spin"></div>
+                <h2 class="text-4xl font-black text-amber-400 mb-2 tracking-wide">RESTARTING AUCTION</h2>
+                <p class="text-gray-400">All players and bids have been reset.</p>
+                <p class="text-gray-500 text-sm mt-3"
+                   x-show="restartSeconds > 0"
+                   x-text="`Next player in ${restartSeconds}s…`"></p>
+                <p class="text-gray-500 text-sm mt-3" x-show="restartSeconds <= 0">
+                    Press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd> for the first player
+                </p>
             </div>
 
             {{-- ── TUMBLING STATE (legacy compat) ── --}}
@@ -515,9 +734,12 @@
                                 </template>
                             </div>
                         </div>
-                        <div class="bg-orange-500/80 px-2 py-1 rounded-full flex-shrink-0">
-                            <span class="text-xs font-bold text-white">OFFLINE</span>
-                        </div>
+                        {{-- No OFFLINE badge here.
+                             The header carries the phase badge already, unconditionally and
+                             for every phase. A second hard-coded one in this bar sat directly
+                             under it and read as two overlapping OFFLINE pills — and unlike
+                             the header's, it could never say anything else, so it would still
+                             claim OFFLINE if the mode changed underneath it. --}}
                     </div>
                 </div>
 
@@ -575,7 +797,7 @@
                                 </template>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm font-semibold text-white truncate" x-text="team.name"></p>
-                                    <p class="text-xs" :class="team.remaining_budget < maxBudget * 0.2 ? 'text-red-400' : 'text-gray-400'" x-text="formatCurrency(team.remaining_budget) + ' left'"></p>
+                                    <p class="text-xs" :class="team.remaining_budget < team.auction_purse * 0.2 ? 'text-red-400' : 'text-gray-400'" x-text="formatCurrency(team.remaining_budget) + ' left'"></p>
                                 </div>
                             </div>
                         </template>
@@ -1108,18 +1330,48 @@
                                 </div>
                             </div>
                             <div class="space-y-1">
+                                {{-- The configured total for THIS team, then what is actually
+                                     left to bid with once its retentions are paid for. --}}
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-gray-500">Total budget</span>
+                                    <span class="text-gray-300" x-text="formatCurrency(team.allocated)"></span>
+                                </div>
+                                <div class="flex justify-between text-xs" x-show="team.retained_spent > 0">
+                                    <span class="text-gray-500">
+                                        Retained
+                                        <span x-show="team.retained_count > 0" class="text-gray-600">(<span x-text="team.retained_count"></span>)</span>
+                                    </span>
+                                    <span class="text-amber-400">− <span x-text="formatCurrency(team.retained_spent)"></span></span>
+                                </div>
+                                <div class="flex justify-between text-xs" x-show="team.retained_spent > 0">
+                                    <span class="text-gray-500">Auction purse</span>
+                                    <span class="text-gray-300" x-text="formatCurrency(team.auction_purse)"></span>
+                                </div>
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-400">Remaining</span>
-                                    <span class="font-bold" :class="team.remaining_budget < maxBudget * 0.2 ? 'text-red-400' : 'text-green-400'"
+                                    {{-- Threshold against the post-retention purse: a team that
+                                         retained most of its budget is committed, not broke. --}}
+                                    <span class="font-bold" :class="team.remaining_budget < team.auction_purse * 0.2 ? 'text-red-400' : 'text-green-400'"
                                           x-text="formatCurrency(team.remaining_budget)"></span>
                                 </div>
                                 <div class="w-full bg-gray-600 rounded-full h-2">
                                     <div class="h-2 rounded-full transition-all"
-                                         :class="team.remaining_budget < maxBudget * 0.2 ? 'bg-red-500' : 'bg-green-500'"
-                                         :style="`width: ${(team.remaining_budget / maxBudget) * 100}%`"></div>
+                                         :class="team.remaining_budget < team.auction_purse * 0.2 ? 'bg-red-500' : 'bg-green-500'"
+                                         :style="`width: ${Math.max(0, Math.min(100, (team.remaining_budget / (team.allocated || 1)) * 100))}%`"></div>
                                 </div>
                                 <div class="flex justify-between text-xs text-gray-500">
-                                    <span>Spent: <span x-text="formatCurrency(team.total_spent)"></span></span>
+                                    <span>
+                                        Spent: <span x-text="formatCurrency(team.total_spent)"></span>
+                                        <span x-show="team.retained_spent > 0" class="text-gray-600">
+                                            (<span x-text="formatCurrency(team.retained_spent)"></span> retained
+                                            + <span x-text="formatCurrency(team.auction_spent)"></span> auction)
+                                        </span>
+                                    </span>
+                                    <span x-show="team.retained_expected > 0"
+                                          :class="team.retained_count !== team.retained_expected ? 'text-amber-400' : 'text-gray-500'"
+                                          :title="`${team.retained_count} retained; ${team.retained_expected} expected.`">
+                                        <span x-text="team.retained_count"></span>/<span x-text="team.retained_expected"></span> kept
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -1212,6 +1464,63 @@
         </div>
     </template>
 
+    {{-- ── Toasts and confirmations ──
+         Deliberately plain DOM rather than alert()/confirm(). A native dialog forces the
+         browser out of fullscreen to show itself, so on the projector every confirmation
+         — restart most of all — dropped the hall's screen back to a windowed browser
+         mid-auction. Nothing here leaves the document, so fullscreen is untouched.
+
+         Every class below is already used elsewhere in resources/views, so the server's
+         Tailwind build has them; z-[9999]/z-[99999] clear this file's z-50 ceiling. --}}
+    <div class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
+        <template x-for="t in toasts" :key="t.id">
+            <div class="pointer-events-auto flex items-start gap-3 max-w-md px-4 py-3 rounded-xl shadow-2xl bg-gray-900 border border-white/10 border-l-4"
+                 :class="{
+                     'border-l-red-500': t.type === 'error',
+                     'border-l-emerald-500': t.type === 'success',
+                     'border-l-blue-500': t.type !== 'error' && t.type !== 'success',
+                 }"
+                 x-transition.opacity>
+                <div>
+                    <p x-show="t.title" x-text="t.title"
+                       class="text-xs font-bold uppercase tracking-wide text-gray-400"></p>
+                    <p class="text-sm text-white" x-text="t.message"></p>
+                </div>
+                <button type="button" @click="toasts = toasts.filter(x => x.id !== t.id)"
+                        class="text-gray-400 hover:text-white transition text-xs font-bold">✕</button>
+            </div>
+        </template>
+    </div>
+
+    {{-- click.self, not click.outside: the click that OPENS this dialog is still bubbling
+         to document when Alpine registers an outside-click listener, so click.outside can
+         dismiss the dialog with the very click that asked for it. A backdrop that only
+         answers to clicks landing on itself has no such ordering to get wrong.
+         Escape/Enter are handled in handleKeydown(), which also swallows the shortcuts. --}}
+    <div x-show="confirmBox.open" x-cloak
+         class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4"
+         @click.self="_settleConfirm(false)"
+         x-transition.opacity>
+        <div class="w-full max-w-md rounded-2xl bg-gray-900 border border-white/10 shadow-2xl p-6">
+            <p class="text-sm font-bold uppercase tracking-wide"
+               :class="confirmBox.danger ? 'text-red-400' : 'text-gray-400'"
+               x-text="confirmBox.title"></p>
+            {{-- pre-line: some confirmations are a short summary block, not one sentence. --}}
+            <p class="mt-3 text-white text-sm whitespace-pre-line" x-text="confirmBox.message"></p>
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <button type="button" @click="_settleConfirm(false)"
+                        class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition">
+                    Cancel
+                </button>
+                <button type="button" @click="_settleConfirm(true)"
+                        class="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition"
+                        :class="confirmBox.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -1226,7 +1535,6 @@ function auctionOrganizerPanel() {
         auctionStatus: 'scheduled',
         availablePlayers: [],
         teams: [],
-        maxBudget: 0,
 
         // Display states: 'waiting', 'tumbling', 'bidding', 'sold', 'unsold'
         displayState: 'waiting',
@@ -1263,6 +1571,42 @@ function auctionOrganizerPanel() {
         offlineHighestAmount: 0,
 
         // Shuffle animation
+        /* ── In-page toast and confirm ──
+           Native alert()/confirm() are unusable on this screen: the browser drops
+           fullscreen to show them, so every confirmation kicked a projector out of
+           fullscreen mid-auction. These are ordinary DOM, so fullscreen survives. */
+        toasts: [],
+        _toastSeq: 0,
+
+        confirmBox: { open: false, title: '', message: '', danger: false, _resolve: null },
+
+        toast(message, type = 'info', title = null) {
+            const id = ++this._toastSeq;
+            this.toasts.push({ id, message, type, title });
+            setTimeout(() => {
+                this.toasts = this.toasts.filter(t => t.id !== id);
+            }, type === 'error' ? 6000 : 3600);
+        },
+
+        /** Awaitable replacement for confirm(). Resolves true on confirm, false on cancel. */
+        askConfirm(message, { title = 'Confirm', danger = false } = {}) {
+            return new Promise((resolve) => {
+                this.confirmBox = { open: true, title, message, danger, _resolve: resolve };
+            });
+        },
+
+        _settleConfirm(answer) {
+            const resolve = this.confirmBox._resolve;
+            this.confirmBox = { open: false, title: '', message: '', danger: false, _resolve: null };
+            if (resolve) resolve(answer);
+        },
+
+        // Sealed round, as the organizer may see it. Amounts are absent from this
+        // payload until the round is revealed — the panel is often on a projector.
+        sealed: { active: false },
+        sealedAdjustAmount: {},
+        sealedManualReason: '',
+
         showShuffleOverlay: false,
         shufflePhase: 'spinning',
         shuffleDisplayName: '',
@@ -1331,12 +1675,11 @@ function auctionOrganizerPanel() {
         timerWidth: 100,
         _lastKnownBid: 0,
 
-        init(auctionId, status, players, teams, maxBudget, currentPlayer) {
+        init(auctionId, status, players, teams, currentPlayer) {
             this.auctionId = auctionId;
             this.auctionStatus = status;
             this.availablePlayers = players;
             this.teams = teams;
-            this.maxBudget = maxBudget;
 
             if (currentPlayer) {
                 this.currentPlayer = currentPlayer;
@@ -1420,6 +1763,8 @@ function auctionOrganizerPanel() {
 
         // ---- Polling-based live updates ----
         _lastCurrentPlayerId: null,
+        // Seconds left in the restart announcement, from the server's window.
+        restartSeconds: 0,
         _pollInterval: null,
 
         startStatePolling() {
@@ -1506,6 +1851,14 @@ function auctionOrganizerPanel() {
                 this.bidIncrement = data.bid_increment ?? null;
                 this.maxBidReached = !!data.max_bid_reached;
 
+                /* Restart notice, measured by the server so this panel and the wall count
+                   the same seconds. Once the window closes the panel drops back to its
+                   ordinary empty state rather than sitting on the announcement. */
+                this.restartSeconds = Number(data.restart_seconds || 0);
+                if (this.displayState === 'restarting' && !data.restarting) {
+                    this.displayState = 'waiting';
+                }
+
                 const newPlayer = data.current_player;
                 const prevId = this._lastCurrentPlayerId;
 
@@ -1542,6 +1895,7 @@ function auctionOrganizerPanel() {
                     }
 
                     this.fetchSealedBids();
+                    this.fetchSealedState();
                 } else if (prevId && !newPlayer) {
                     this.stopBiddingTimer();
                     this.biddingTimerSeconds = 0;
@@ -1557,6 +1911,13 @@ function auctionOrganizerPanel() {
                             winning_team: justSold.sold_to_team
                         };
                         this.displayState = justSold.sold_to_team ? 'sold' : 'unsold';
+                    } else if (data.restarting) {
+                        /* A restart empties the block and wipes the sale, so the player who
+                           was up is neither on_auction nor in sold_players. Reading that as
+                           UNSOLD stamped a red UNSOLD over a player nobody had passed on —
+                           and over an auction that had just been reset to zero. */
+                        this.displayState = 'restarting';
+                        this.lastSoldPlayer = null;
                     } else {
                         this.displayState = 'unsold';
                     }
@@ -1574,6 +1935,116 @@ function auctionOrganizerPanel() {
             }
         },
 
+        /* ── Sealed round ──────────────────────────────────────────────────────
+           Every control here reports a no-op as success: two panels both pressing
+           Lock is ordinary operation, not something to raise a red toast about. */
+
+        async fetchSealedState() {
+            if (this.bidType !== 'closed' || !this.currentPlayer) {
+                if (this.sealed.active) this.sealed = { active: false };
+                return;
+            }
+            try {
+                const res = await fetch(
+                    `/admin/organizer/auction/${this.auctionId}/api/closed-bid/state?auction_player_id=${this.currentPlayer.id}`,
+                    { headers: { Accept: 'application/json' } }
+                );
+                if (!res.ok) return;
+                const data = await res.json();
+                this.sealed = data.closed_bid || { active: false };
+            } catch (e) { /* a dropped poll is not worth surfacing */ }
+        },
+
+        async sealedCommand(path, body = {}) {
+            try {
+                const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/closed-bid/${path}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({ auction_player_id: this.currentPlayer?.id, ...body }),
+                });
+                const data = await res.json();
+                if (data.closed_bid) this.sealed = data.closed_bid;
+                // A refusal is reported, but a no-op is not an error: two panels both
+                // pressing Lock is ordinary operation, not a mistake to shout about.
+                if (data.message) {
+                    this.statusText = data.message;
+                    this.toast(data.message, data.handled ? 'success' : 'info', 'Sealed round');
+                }
+                return data;
+            } catch (e) {
+                this.toast('That did not go through.', 'error', 'Sealed round');
+                return null;
+            }
+        },
+
+        sealedOpenEntry() { return this.sealedCommand('open-entry'); },
+        sealedStart() { return this.sealedCommand('start'); },
+        sealedLock() { return this.sealedCommand('lock'); },
+        sealedStartRebid() { return this.sealedCommand('start-rebid'); },
+
+        async sealedAward() {
+            const data = await this.sealedCommand('award');
+            if (data?.handled) this._fireConfetti();
+        },
+
+        sealedNoEntries(choice) { return this.sealedCommand('no-entries-decision', { choice }); },
+
+        sealedEntryCommand(entryId, action, body = {}) {
+            return this.sealedCommand(`entries/${entryId}/${action}`, body);
+        },
+
+        sealedAdjust(entry, direction) {
+            return this.sealedEntryCommand(entry.entry_id, 'adjust', { direction });
+        },
+
+        sealedAdjustCustom(entry) {
+            const typed = this.sealedAdjustAmount[entry.entry_id];
+            if (typed === undefined || typed === '') return;
+            // Entered in millions like every other money field on this screen.
+            return this.sealedEntryCommand(entry.entry_id, 'adjust', { amount: this.fromM(typed) })
+                .then(() => { this.sealedAdjustAmount[entry.entry_id] = ''; });
+        },
+
+        /**
+         * Draw the lot.
+         *
+         * The winner comes from the server BEFORE the animation starts. Spinning first
+         * and then revealing a locally-chosen name would be a fabricated draw, which is
+         * worse than showing no animation at all — so a failed request shows the error
+         * and does not animate.
+         */
+        async sealedDrawLot() {
+            const tied = (this.sealed.entries || []).filter(e => (this.sealed.tied_team_ids || []).includes(e.team_id));
+
+            const data = await this.sealedCommand('lot');
+            if (!data?.handled) return;
+
+            const winnerId = data.closed_bid?.winner_team_id;
+            const entrants = tied.map(e => ({ id: e.team_id, name: e.team_name, image_path: null }));
+            const winner = entrants.find(e => e.id === winnerId) || entrants[0];
+
+            if (winner) {
+                await this._runShuffleAnimation(winner, entrants);
+            }
+            this._fireConfetti();
+        },
+
+        async sealedResolveManual(teamId) {
+            if (!this.sealedManualReason.trim()) {
+                this.toast('An unexplained override cannot be defended later.', 'error', 'Reason required');
+                return;
+            }
+            const data = await this.sealedCommand('resolve-manual', { team_id: teamId, reason: this.sealedManualReason });
+            if (data?.handled) {
+                this.sealedManualReason = '';
+                this._fireConfetti();
+            }
+        },
+
         async fetchSealedBids() {
             if (!this.currentPlayer) return;
             try {
@@ -1585,13 +2056,6 @@ function auctionOrganizerPanel() {
             } catch (e) { console.error('Error fetching sealed bids:', e); }
         },
 
-        async closeBidding() {
-            if (!this.currentPlayer) return;
-            const result = await this.sendCommand('close-bidding', { auction_player_id: this.currentPlayer.id });
-            if (result && result.success) {
-                this.biddingClosed = true;
-            }
-        },
 
         confirmSellToTeam(bid) {
             this.sellModalData = bid;
@@ -1622,7 +2086,7 @@ function auctionOrganizerPanel() {
             } else if (phase === 'offline') {
                 confirmMsg = 'Switch to OFFLINE mode? You will handle bids manually.';
             }
-            if (!confirm(confirmMsg)) return;
+            if (! await this.askConfirm(confirmMsg)) return;
 
             if (phase === 'offline') {
                 const result = await this.sendCommand('switch-mode', { mode: 'offline' });
@@ -1649,7 +2113,7 @@ function auctionOrganizerPanel() {
             const confirmMsg = newMode === 'offline'
                 ? 'Switch to OFFLINE mode? Teams will no longer be able to bid through the platform.'
                 : 'Switch back to ONLINE mode? Teams will be able to bid through the platform again.';
-            if (!confirm(confirmMsg)) return;
+            if (! await this.askConfirm(confirmMsg)) return;
             const result = await this.sendCommand('switch-mode', { mode: newMode });
             if (result && result.success) {
                 this.openBidMode = result.open_bid_mode;
@@ -1702,7 +2166,7 @@ function auctionOrganizerPanel() {
                     this.currentPlayer.current_bid_team_id = teamId;
                     this.resetBiddingTimer();
                 } else {
-                    alert(data.message || 'Bid failed');
+                    this.toast(data.message || 'Bid failed', 'error');
                 }
             } catch (e) {
                 console.error('Bid error:', e);
@@ -1754,7 +2218,7 @@ function auctionOrganizerPanel() {
             if (!this.currentPlayer) return;
             const team = this.getTeamById(teamId);
             const teamName = team ? team.name : 'selected team';
-            if (!confirm(`Sell ${this.currentPlayer?.player?.name} to ${teamName} for ${this.formatCurrency(amount)}?`)) return;
+            if (! await this.askConfirm(`Sell ${this.currentPlayer?.player?.name} to ${teamName} for ${this.formatCurrency(amount)}?`, { title: 'Confirm sale' })) return;
             const result = await this.sendCommand('sell-to-team', {
                 auction_player_id: this.currentPlayer.id,
                 team_id: teamId,
@@ -1790,7 +2254,7 @@ function auctionOrganizerPanel() {
         // ── SHUFFLE / NEXT PLAYER ──
         async loadNextPlayer() {
             if (this.displayState === 'bidding') {
-                if (!confirm('Pass current player and load next?')) return;
+                if (! await this.askConfirm('Pass current player and load next?', { title: 'Pass player' })) return;
                 await this.sendCommand('pass-player', { auction_player_id: this.currentPlayer.id });
                 this.currentPlayer = null;
                 this.currentBid = 0;
@@ -1802,7 +2266,7 @@ function auctionOrganizerPanel() {
 
             await this.pollAuctionState();
             if (this.availablePlayers.length === 0) {
-                alert('No more players waiting.');
+                this.toast('No more players waiting.', 'info');
                 return;
             }
 
@@ -1818,14 +2282,21 @@ function auctionOrganizerPanel() {
             await this.putPlayerOnBid();
         },
 
-        _runShuffleAnimation(chosenPlayer) {
+        /**
+         * Spin, then land on a result the caller already holds.
+         *
+         * `pool` lets a lot draw cycle the tied TEAMS instead of the player queue.
+         * Entrants are normalised to {id, name, image_path} at the call site so the
+         * overlay markup does not have to know which it is showing.
+         */
+        _runShuffleAnimation(chosenPlayer, pool = null) {
             return new Promise((resolve) => {
                 this.shufflePhase = 'spinning';
                 this.showShuffleOverlay = true;
                 this.shuffleSelectedPlayer = null;
                 this.shuffleDisplayName = '';
 
-                const players = this.availablePlayers;
+                const players = pool || this.availablePlayers;
                 if (players.length <= 1) {
                     this.shuffleSelectedPlayer = chosenPlayer;
                     this.shufflePhase = 'reveal';
@@ -1837,7 +2308,7 @@ function auctionOrganizerPanel() {
                 }
 
                 let tick = 0;
-                const totalTicks = 30;
+                const totalTicks = players.length === 2 ? 40 : 30;
 
                 this._shuffleInterval = setInterval(() => {
                     tick++;
@@ -1894,7 +2365,7 @@ function auctionOrganizerPanel() {
 
         selectAndPutOnBid(player) {
             if (this.displayState === 'bidding') {
-                alert('Please finish the current player first!');
+                this.toast('Finish the current player first.', 'error');
                 return;
             }
             this.selectedPlayerId = player.id;
@@ -1940,7 +2411,7 @@ function auctionOrganizerPanel() {
 
             const player = this.availablePlayers.find(p => p.id === id);
             if (!player) {
-                alert(`No waiting player with id ${id} in this queue.`);
+                this.toast(`No waiting player with id ${id} in this queue.`, 'error');
                 return;
             }
 
@@ -1956,16 +2427,14 @@ function auctionOrganizerPanel() {
             if (this.isUndoing) return;
 
             const label = this.nextUndoLabel ? `\n\nWill undo: ${this.nextUndoLabel}` : '';
-            if (!confirm(`Undo the last action?${label}`)) return;
+            if (! await this.askConfirm(`Undo the last action?${label}`, { title: 'Undo', danger: true })) return;
 
             this.isUndoing = true;
             try {
                 const result = await this.sendCommand('undo');
                 if (result?.success) {
                     this.statusText = result.message;
-                    if (window.showToast) {
-                        window.showToast('success', 'Undone', result.message);
-                    }
+                    this.toast(result.message, 'success', 'Undone');
                     // Pull fresh state rather than guessing what changed.
                     await this.pollAuctionState();
                 }
@@ -2003,7 +2472,7 @@ function auctionOrganizerPanel() {
                 }
                 return data;
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                this.toast(error.message, 'error', 'Something went wrong');
                 return null;
             }
         },
@@ -2018,7 +2487,7 @@ function auctionOrganizerPanel() {
         },
 
         async endAuction() {
-            if (!confirm('Are you sure you want to end the auction?')) return;
+            if (! await this.askConfirm('End the auction now?', { title: 'End auction', danger: true })) return;
             const result = await this.sendCommand('end');
             if (result) {
                 this.auctionStatus = 'completed';
@@ -2030,14 +2499,28 @@ function auctionOrganizerPanel() {
             const msg = isRunning
                 ? 'WARNING: This will reset ALL players and bids! The auction is still in progress. Are you sure you want to restart from scratch?'
                 : 'Are you sure you want to restart this auction? All players and bids will be reset.';
-            if (!confirm(msg)) return;
+            if (! await this.askConfirm(msg, { title: 'Restart auction', danger: true })) return;
             const result = await this.sendCommand('restart');
             if (result && result.success) {
                 this.auctionStatus = 'running';
-                this.displayState = 'waiting';
+                this.displayState = 'restarting';
                 this.currentPlayer = null;
                 this.stopBiddingTimer();
-                this.statusText = 'Auction restarted! All players reset.';
+
+                /* Clear the "who was on the block" pointer too. Leaving it set made the
+                   very next poll see a player that had vanished without a sale and stamp
+                   UNSOLD across a freshly reset auction. */
+                this._lastCurrentPlayerId = null;
+                this._lastKnownBid = 0;
+                this.lastSoldPlayer = null;
+                this.currentBid = 0;
+                this.winningTeamName = 'No Bids';
+                this.sealedBids = [];
+                // Shape, not null — the markup reads sealed.active unguarded.
+                this.sealed = { active: false };
+
+                this.statusText = 'Auction restarted — all players reset.';
+                this.toast('All players and bids were reset.', 'success', 'Auction restarted');
                 await this.pollAuctionState();
             }
         },
@@ -2077,7 +2560,7 @@ function auctionOrganizerPanel() {
             // Nobody bid — this is a PASS, not a sale.
             if (!leadingTeamId) {
                 const name = this.currentPlayer.player?.name || 'this player';
-                if (!confirm(`No bids for ${name}.\n\nMark them UNSOLD and set them aside for final allotment?`)) return;
+                if (! await this.askConfirm(`No bids for ${name}. Mark them unsold and set them aside for final allotment?`, { title: 'No bids', danger: true })) return;
                 await this.passPlayer();
                 return;
             }
@@ -2086,7 +2569,7 @@ function auctionOrganizerPanel() {
             if (isOpenLive) {
                 const team = this.getTeamById(leadingTeamId);
                 const amount = highestBid?.amount || this.currentPlayer.current_price;
-                if (!confirm(`Sell ${this.currentPlayer.player?.name} to ${team?.name || 'the leading team'} for ${this.formatCurrency(amount)}?`)) return;
+                if (! await this.askConfirm(`Sell ${this.currentPlayer.player?.name} to ${team?.name || 'the leading team'} for ${this.formatCurrency(amount)}?`, { title: 'Confirm sale' })) return;
 
                 const result = await this.sendCommand('sell-player', { auction_player_id: this.currentPlayer.id });
                 if (result?.success !== false) {
@@ -2132,7 +2615,7 @@ function auctionOrganizerPanel() {
 
         async rebidCurrentPlayer() {
             if (!this.currentPlayer) return;
-            if (!confirm('Reset this player\'s bids and start fresh? All current bids will be cleared.')) return;
+            if (! await this.askConfirm('Reset this player\'s bids and start fresh? All current bids will be cleared.', { title: 'Re-bid', danger: true })) return;
             const result = await this.sendCommand('re-bid-player', { auction_player_id: this.currentPlayer.id });
             if (result && result.success) {
                 this.statusText = 'Player re-bid started!';
@@ -2142,7 +2625,7 @@ function auctionOrganizerPanel() {
         },
 
         async reAuctionPlayer(player) {
-            if (!confirm(`Re-auction ${player.name}? This will put them back on bid with base price.`)) return;
+            if (! await this.askConfirm(`Re-auction ${player.name}? They go back on the block at base price.`, { title: 'Re-auction' })) return;
             const result = await this.sendCommand('re-auction-player', { auction_player_id: player.id });
             if (result && result.success) {
                 this.statusText = `${player.name} is back on auction!`;
@@ -2152,6 +2635,16 @@ function auctionOrganizerPanel() {
 
         // ── KEYBOARD SHORTCUTS ──
         handleKeydown(e) {
+            /* A confirmation is modal, so it must swallow the shortcuts. Native confirm()
+               froze the whole page for free; this one does not, and S / N / F would
+               otherwise sell, skip or unfullscreen behind an open dialog. */
+            if (this.confirmBox.open) {
+                e.preventDefault();
+                if (e.key === 'Enter') this._settleConfirm(true);
+                if (e.key === 'Escape') this._settleConfirm(false);
+                return;
+            }
+
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
             const key = e.key.toUpperCase();
@@ -2219,7 +2712,7 @@ function auctionOrganizerPanel() {
             const result = await this.sendCommand(`pools/${poolId}/activate`);
             if (result?.success) {
                 this.statusText = result.message;
-                if (window.showToast) window.showToast('success', 'Pool started', result.message);
+                this.toast(result.message, 'success', 'Pool started');
                 await this.pollAuctionState();
             }
         },
@@ -2230,13 +2723,13 @@ function auctionOrganizerPanel() {
             // Closing early leaves players in the pool unsold, so say so.
             if (!this.activePool.exhausted) {
                 const left = this.activePool.waiting;
-                if (!confirm(`Close ${this.activePool.name} now?\n\n${left} player(s) still in it will be left unsold.`)) return;
+                if (! await this.askConfirm(`Close ${this.activePool.name} now? ${left} player(s) still in it will be left unsold.`, { title: 'Close pool', danger: true })) return;
             }
 
             const result = await this.sendCommand(`pools/${this.activePool.id}/complete`);
             if (result?.success) {
                 this.statusText = result.message;
-                if (window.showToast) window.showToast('success', 'Pool closed', result.message);
+                this.toast(result.message, 'success', 'Pool closed');
                 await this.pollAuctionState();
             }
         },
@@ -2268,9 +2761,7 @@ function auctionOrganizerPanel() {
                 const result = await this.sendCommand('timer-expired', { auction_player_id: auctionPlayerId });
                 if (result?.handled) {
                     this.statusText = result.message;
-                    if (window.showToast) {
-                        window.showToast(result.action === 'sold' ? 'success' : 'warning', 'Time up', result.message);
-                    }
+                    this.toast(result.message, result.action === 'sold' ? 'success' : 'info', 'Time up');
                     if (result.action === 'sold') this._fireConfetti();
                     await this.pollAuctionState();
                 } else {

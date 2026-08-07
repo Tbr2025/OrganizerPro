@@ -112,7 +112,7 @@
                     <div class="text-right">
                         <div class="text-[9px] text-gray-500 uppercase tracking-wider leading-none">Budget</div>
                         <div class="text-sm font-bold leading-tight"
-                             :class="teamBudget < {{ $auction->max_budget_per_team ?? 10000000 }} * 0.2 ? 'text-red-400' : 'text-emerald-400'"
+                             :class="teamBudget < teamPurse * 0.2 ? 'text-red-400' : 'text-emerald-400'"
                              x-text="formatCurrency(teamBudget)"></div>
                     </div>
                     <button @click="toggleFullscreen()" class="w-7 h-7 rounded-md bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition" title="Fullscreen (F)">
@@ -260,8 +260,8 @@
                                 <span x-show="isMyTeamHighest">YOU ARE HIGHEST BIDDER</span>
                                 <span x-show="!isMyTeamHighest && canRaiseHand">RAISE HAND</span>
                                 <span x-show="!isMyTeamHighest && !canRaiseHand && timerExpired">TIME EXPIRED</span>
-                                <span x-show="!isMyTeamHighest && !canRaiseHand && !timerExpired && nextBidAmount > teamBudget">BUDGET EXCEEDED</span>
-                                <span x-show="!isMyTeamHighest && !canRaiseHand && !timerExpired && nextBidAmount <= teamBudget && nextBidAmount <= 0">WAITING...</span>
+                                <span x-show="!isMyTeamHighest && !canRaiseHand && !timerExpired && nextBidAmount > maxBidAllowed">BUDGET EXCEEDED</span>
+                                <span x-show="!isMyTeamHighest && !canRaiseHand && !timerExpired && nextBidAmount <= maxBidAllowed && nextBidAmount <= 0">WAITING...</span>
                             </span>
                             <span x-show="isSubmitting">Placing Bid...</span>
                         </button>
@@ -271,47 +271,168 @@
                         </p>
                     </div>
 
-                    {{-- CLOSED BID CONTROLS --}}
-                    <div x-show="bidType === 'closed' && auctionMode !== 'offline'">
-                        <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3 mb-2.5">
-                            {{-- Entered in millions, matching the M figures shown
-                                 everywhere else. This used to be a Lakhs field while the
-                                 rest of the screen read in millions, so typing "5" placed
-                                 a 500K bid instead of 5M. --}}
-                            <label class="text-gray-400 text-[10px] uppercase tracking-wider mb-1.5 block text-center">
-                                Bid Amount (M) &middot; Min: <span x-text="toM(closedBidMinimum)"></span> M
-                            </label>
-                            <div class="flex items-center gap-2">
-                                <button @click="customAmount = Math.max(closedBidMinimum, (Number(customAmount) || closedBidMinimum) - currentIncrement)"
-                                        class="w-9 h-9 rounded-md bg-red-500/15 border border-red-500/25 text-red-400 text-base font-bold flex items-center justify-center hover:bg-red-500/25 transition shrink-0">&minus;</button>
-                                <div class="flex-1">
-                                    <div class="flex items-center bg-gray-800/80 border border-gray-700/50 rounded-md focus-within:border-cyan-500/60">
-                                        <input type="number"
-                                               :value="Number(customAmount) > 0 ? toM(customAmount) : ''"
-                                               @input="customAmount = fromM($event.target.value)"
-                                               :min="toM(closedBidMinimum)"
-                                               class="w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold"
-                                               :placeholder="toM(closedBidMinimum)"
-                                               step="any">
-                                        <span class="pr-2.5 text-gray-500 font-semibold text-xs">M</span>
+                    {{-- SEALED (CLOSED) ROUND --}}
+                    <div x-show="bidType === 'closed' && auctionMode !== 'offline'" class="space-y-2.5">
+
+                        {{-- Waiting for the organizer to open the round --}}
+                        <template x-if="!sealed.active || sealed.state === 'pending'">
+                            <div class="bg-purple-500/10 border border-purple-500/25 rounded-lg p-3.5 text-center">
+                                <div class="text-purple-300 text-xs font-bold uppercase tracking-wider mb-1">Sealed Round</div>
+                                <p class="text-gray-400 text-[11px]">
+                                    Open bidding has closed for this player. Waiting for the organizer.
+                                </p>
+                            </div>
+                        </template>
+
+                        {{-- The conditions, and the decision to enter --}}
+                        <template x-if="sealed.active && sealed.state === 'entry_open' && sealedEntryState !== 'accepted'">
+                            <div class="bg-gray-900/60 border border-purple-500/25 rounded-lg p-3.5">
+                                <div class="text-purple-300 text-xs font-bold uppercase tracking-wider mb-2.5 text-center">Enter Sealed Round</div>
+
+                                <div class="space-y-1.5 text-[11px]">
+                                    <div class="flex justify-between"><span class="text-gray-400">Purse remaining</span>
+                                        <span class="text-white font-semibold" x-text="formatCurrency(sealed.ceilings?.remaining_budget)"></span></div>
+                                    <div class="flex justify-between"><span class="text-gray-400">Places still to fill</span>
+                                        <span class="text-white font-semibold" x-text="sealed.ceilings?.slots_remaining ?? '—'"></span></div>
+                                    <div class="flex justify-between"><span class="text-gray-400">Held back for them</span>
+                                        <span class="text-amber-400 font-semibold" x-text="formatCurrency(sealed.ceilings?.reserve_amount)"></span></div>
+                                </div>
+
+                                {{-- Both ceilings, with the binding one marked. A team at the
+                                     per-player wall needs to know it is the rule, not that
+                                     it is broke. --}}
+                                <div class="mt-2.5 pt-2.5 border-t border-gray-800/60 space-y-1.5 text-[11px]">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">
+                                            Per-player cap
+                                            <span class="text-gray-600" x-text="'(' + (sealed.ceilings?.per_player_cap_pct ?? 70) + '% of ' + formatCurrency(sealed.ceilings?.allocated) + ')'"></span>
+                                        </span>
+                                        <span :class="sealedCapBinds ? 'text-amber-300 font-bold' : 'text-gray-300'"
+                                              x-text="formatCurrency(sealed.ceilings?.per_player_cap)"></span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400">Squad-reserve maximum</span>
+                                        <span :class="!sealedCapBinds ? 'text-amber-300 font-bold' : 'text-gray-300'"
+                                              x-text="formatCurrency(sealed.ceilings?.reserve_max)"></span>
+                                    </div>
+                                    <div class="flex justify-between items-center pt-1">
+                                        <span class="text-white font-bold text-xs">Your maximum bid</span>
+                                        <span class="text-emerald-400 font-bold text-sm" x-text="formatCurrency(sealedCeiling)"></span>
                                     </div>
                                 </div>
-                                <button @click="customAmount = (Number(customAmount) || closedBidMinimum) + currentIncrement"
-                                        class="w-9 h-9 rounded-md bg-green-500/15 border border-green-500/25 text-green-400 text-base font-bold flex items-center justify-center hover:bg-green-500/25 transition shrink-0">+</button>
-                            </div>
-                        </div>
 
-                        <button @click="placeCustomBid()"
-                                :disabled="!canBidCustom"
-                                class="w-full py-3 rounded-lg font-bold text-sm transition-all"
-                                :class="canBidCustom
-                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/20'
-                                    : 'bg-gray-800/60 border border-gray-700/40 text-gray-500 cursor-not-allowed'">
-                            <span x-text="isSubmitting ? 'Submitting...' : (myBidAmount > 0 ? 'UPDATE BID' : 'PLACE BID')"></span>
-                        </button>
-                        <p x-show="canBidCustom" class="text-center text-gray-600 text-[10px] mt-2">
-                            Press <kbd class="px-1 py-px bg-gray-800 rounded text-gray-400 font-mono text-[9px]">Enter</kbd> to submit
-                        </p>
+                                <div class="flex gap-2 mt-3">
+                                    <button @click="sealedAccept()" :disabled="isSubmitting"
+                                            class="flex-1 py-2.5 rounded-lg font-bold text-xs bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white transition">
+                                        I ACCEPT
+                                    </button>
+                                    <button @click="sealedDecline()" :disabled="isSubmitting"
+                                            class="px-4 py-2.5 rounded-lg font-bold text-xs bg-gray-800/60 border border-gray-700/40 text-gray-400 hover:text-gray-200 transition">
+                                        WITHDRAW
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- Withdrawn --}}
+                        <template x-if="sealed.active && sealedEntryState === 'withdrawn'">
+                            <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3.5 text-center">
+                                <p class="text-gray-400 text-[11px] mb-2.5">Your team has withdrawn from this player.</p>
+                                <button @click="sealedReinstate()" x-show="sealed.state === 'collecting'"
+                                        class="w-full py-2.5 rounded-lg font-bold text-xs bg-gray-800 border border-gray-700 text-gray-200 hover:bg-gray-700 transition">
+                                    RE-ENTER
+                                </button>
+                            </div>
+                        </template>
+
+                        {{-- Bidding --}}
+                        <template x-if="sealedCanBid">
+                            <div>
+                                <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3 mb-2.5">
+                                    {{-- A tie-break round tells the team the amount to beat and
+                                         how many shared it. Never which teams, never a losing
+                                         amount. --}}
+                                    <template x-if="sealed.round_number > 1">
+                                        <p class="text-amber-300 text-[11px] text-center mb-2">
+                                            <span x-text="sealed.tied_count"></span> teams bid
+                                            <span class="font-bold" x-text="formatCurrency(sealed.tie_amount)"></span>.
+                                            Enter above that.
+                                        </p>
+                                    </template>
+
+                                    <label class="text-gray-400 text-[10px] uppercase tracking-wider mb-1.5 block text-center">
+                                        Bid Amount (M) &middot;
+                                        steps of <span x-text="toM(sealed.step)"></span> &middot;
+                                        min <span x-text="toM(sealed.floor)"></span> &middot;
+                                        max <span :class="sealedCeiling < sealed.floor ? 'text-amber-400 font-bold' : ''"
+                                                  x-text="toM(sealedCeiling)"></span>
+                                    </label>
+
+                                    <div class="flex items-center gap-2">
+                                        <button @click="sealedStepDown()" :disabled="sealedRaw <= sealed.floor"
+                                                class="w-9 h-9 rounded-md bg-red-500/15 border border-red-500/25 text-red-400 text-base font-bold flex items-center justify-center hover:bg-red-500/25 transition shrink-0 disabled:opacity-40">&minus;</button>
+                                        <div class="flex-1">
+                                            {{-- x-model, NOT a :value bound to a converted number.
+                                                 The old binding recomputed the displayed value on
+                                                 every keystroke, so typing "9" then "." erased the
+                                                 decimal point and 9.1 could not be entered at all. --}}
+                                            <div class="flex items-center bg-gray-800/80 border rounded-md"
+                                                 :class="sealedStepViolation ? 'border-red-500/40' : 'border-gray-700/50 focus-within:border-cyan-500/60'">
+                                                <input type="number"
+                                                       x-model="sealedInputM"
+                                                       @keydown.enter.prevent="sealedCanSubmit && sealedSubmit()"
+                                                       :step="toM(sealed.step)"
+                                                       :min="toM(sealed.floor)"
+                                                       :max="toM(sealedCeiling)"
+                                                       inputmode="decimal"
+                                                       class="w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold"
+                                                       :placeholder="toM(sealed.floor)">
+                                                <span class="pr-2.5 text-gray-500 font-semibold text-xs">M</span>
+                                            </div>
+                                        </div>
+                                        <button @click="sealedStepUp()" :disabled="sealedRaw >= sealedCeiling"
+                                                class="w-9 h-9 rounded-md bg-green-500/15 border border-green-500/25 text-green-400 text-base font-bold flex items-center justify-center hover:bg-green-500/25 transition shrink-0 disabled:opacity-40">+</button>
+                                    </div>
+
+                                    {{-- Both neighbours named: "invalid amount" is no use to
+                                         somebody under a clock. --}}
+                                    <p x-show="sealedStepViolation" class="text-red-400 text-[11px] mt-2 text-center">
+                                        Bids must be in steps of <span x-text="toM(sealed.step)"></span>M.
+                                        <span x-text="toM(sealedRaw)"></span>M is not allowed — try
+                                        <span class="font-bold" x-text="toM(sealedNearestBelow)"></span>M or
+                                        <span class="font-bold" x-text="toM(sealedNearestAbove)"></span>M.
+                                    </p>
+
+                                    <p x-show="sealedCeiling < sealed.floor" class="text-amber-400 text-[11px] mt-2 text-center">
+                                        Your cap is below this round's minimum — you cannot bid on this player.
+                                    </p>
+                                </div>
+
+                                <button @click="sealedSubmit()" :disabled="!sealedCanSubmit"
+                                        class="w-full py-3 rounded-lg font-bold text-sm transition-all"
+                                        :class="sealedCanSubmit
+                                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/20'
+                                            : 'bg-gray-800/60 border border-gray-700/40 text-gray-500 cursor-not-allowed'">
+                                    <span x-text="isSubmitting ? 'Submitting…' : (sealed.my_entry?.amount ? 'CHANGE SEALED BID' : 'PLACE SEALED BID')"></span>
+                                </button>
+
+                                <div class="flex items-center justify-between mt-2 text-[10px]">
+                                    <span class="text-gray-500">
+                                        Round <span x-text="sealed.round_number"></span> of <span x-text="sealed.total_rounds"></span>
+                                    </span>
+                                    <button @click="sealedWithdraw()" class="text-gray-500 hover:text-red-400 transition">Withdraw</button>
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- Submitted, waiting for the round to close --}}
+                        <template x-if="sealed.active && sealed.my_entry?.amount && sealed.state !== 'collecting'">
+                            <div class="bg-gray-900/60 border border-emerald-500/25 rounded-lg p-3.5 text-center">
+                                <div class="text-gray-400 text-[10px] uppercase tracking-wider mb-1">Your sealed bid</div>
+                                <div class="text-emerald-400 text-xl font-bold" x-text="formatCurrency(sealed.my_entry.amount)"></div>
+                                <p class="text-gray-500 text-[10px] mt-1.5">Bidding is closed. Waiting for the result.</p>
+                            </div>
+                        </template>
                     </div>
 
                     {{-- OFFLINE MODE --}}
@@ -396,12 +517,12 @@
                 <div class="bg-gradient-to-br from-emerald-900/30 to-gray-900/50 border border-emerald-800/30 rounded-lg p-3 text-center">
                     <div class="text-[9px] text-gray-400 uppercase tracking-[0.12em] mb-0.5">Remaining Budget</div>
                     <div class="text-xl font-black leading-tight"
-                         :class="teamBudget < {{ $auction->max_budget_per_team ?? 10000000 }} * 0.2 ? 'text-red-400' : 'text-emerald-400'"
+                         :class="teamBudget < teamPurse * 0.2 ? 'text-red-400' : 'text-emerald-400'"
                          x-text="formatCurrency(teamBudget)"></div>
                     <div class="w-full bg-gray-700/40 rounded-full h-1 mt-2">
                         <div class="h-1 rounded-full transition-all duration-500"
-                             :class="teamBudget < {{ $auction->max_budget_per_team ?? 10000000 }} * 0.2 ? 'bg-red-500' : 'bg-emerald-500'"
-                             :style="`width: ${(teamBudget / {{ $auction->max_budget_per_team ?? 10000000 }}) * 100}%`"></div>
+                             :class="teamBudget < teamPurse * 0.2 ? 'bg-red-500' : 'bg-emerald-500'"
+                             :style="`width: ${Math.max(0, Math.min(100, (teamBudget / (teamAllocated || 1)) * 100))}%`"></div>
                     </div>
                 </div>
             </div>
@@ -460,11 +581,22 @@ function teamBiddingPanel() {
         auctionStatus: "{{ $auction->status }}",
         bidType: "{{ $auction->bid_type ?? 'open' }}",
         teamBudget: {{ $remainingBudget ?? 0 }},
+        // The configured total for this team, and what is left after its retentions.
+        teamAllocated: {{ $maxBudget ?? 0 }},
+        teamPurse: {{ $purse['auction_purse'] ?? ($maxBudget ?? 0) }},
+        maxBidAllowed: {{ $maxBidAllowed ?? 0 }},
+
+        /* ── Sealed round ──
+           `sealed` is the server's view of the round for THIS team. It never contains a
+           rival's amount, so there is nothing here to hide client-side. */
+        sealed: { active: false },
+        // The literal text typed into the amount box. Held as a string and never written
+        // back while focused — see the input's comment.
+        sealedInputM: '',
         bidError: "",
         bidSuccess: "",
         isSubmitting: false,
         lastPlayerId: null,
-        customAmount: "",
         myBidAmount: {{ isset($myBid) && $myBid ? $myBid->amount : 0 }},
         auctionMode: "{{ $auction->open_bid_mode ?? 'online' }}",
         bidRules: @json($auction->bid_rules ?? []),
@@ -514,10 +646,194 @@ function teamBiddingPanel() {
 
         startPolling() {
             this.fetchCurrentPlayer();
+            this.fetchPurse();
+            this.fetchSealed();
             setInterval(() => {
                 this.fetchCurrentPlayer();
                 this.fetchSoldPlayers();
+                this.fetchPurse();
+                this.fetchSealed();
             }, 2000);
+        },
+
+        /**
+         * Apply a purse payload from the server.
+         *
+         * The purse used to be seeded once at page load and never refreshed, so a team
+         * watched a stale figure for the whole auction — and the endpoint that returns
+         * it had no caller at all.
+         */
+        /* ── Sealed round: derived state ── */
+
+        get sealedEntryState() {
+            if (!this.sealed.active || !this.sealed.my_entry) return 'none';
+            return this.sealed.my_entry.withdrawn ? 'withdrawn' : this.sealed.my_entry.state;
+        },
+
+        /** The lower of the per-player cap and the squad-reserve maximum. */
+        get sealedCeiling() {
+            return Number(this.sealed.ceilings?.binding ?? 0);
+        },
+
+        /** Which rule is actually holding this team back — worth saying out loud. */
+        get sealedCapBinds() {
+            const cap = Number(this.sealed.ceilings?.per_player_cap ?? Infinity);
+            const reserve = Number(this.sealed.ceilings?.reserve_max ?? Infinity);
+            return cap <= reserve;
+        },
+
+        /** Typed millions → raw units. One-way, so it never fights the input. */
+        get sealedRaw() {
+            return this.fromM(this.sealedInputM) || 0;
+        },
+
+        /**
+         * Integer cents, because the money grain is two decimal places and a float
+         * modulo would refuse legal amounts — 0.3 % 0.1 is not 0 in binary.
+         */
+        get sealedStepViolation() {
+            const step = Math.round(Number(this.sealed.step || 0) * 100);
+            if (!(step > 0)) return false;
+            const cents = Math.round(this.sealedRaw * 100);
+            return cents > 0 && cents % step !== 0;
+        },
+
+        get sealedNearestBelow() {
+            const step = Number(this.sealed.step || 0);
+            return step > 0 ? Math.floor(this.sealedRaw / step) * step : this.sealedRaw;
+        },
+
+        get sealedNearestAbove() {
+            return this.sealedNearestBelow + Number(this.sealed.step || 0);
+        },
+
+        /** Is the team in a position to type an amount at all? */
+        get sealedCanBid() {
+            if (!this.sealed.active || this.sealed.state !== 'collecting') return false;
+            if (this.sealedEntryState === 'withdrawn' || this.sealedEntryState === 'declined') return false;
+            if (this.sealed.requires_acceptance) {
+                return ['accepted', 'submitted', 'must_rebid', 'may_opt_in'].includes(this.sealedEntryState);
+            }
+            return true;
+        },
+
+        get sealedCanSubmit() {
+            return this.sealedCanBid
+                && !this.isSubmitting
+                && !this.sealedStepViolation
+                && this.sealedRaw >= Number(this.sealed.floor || 0)
+                && this.sealedRaw <= this.sealedCeiling;
+        },
+
+        /* ── Sealed round: actions ── */
+
+        /** Write a canonical figure back into the box. Only buttons call this. */
+        setSealed(raw) {
+            this.sealedInputM = String(this.toM(raw));
+        },
+
+        sealedStepUp() {
+            const step = Number(this.sealed.step || 0);
+            if (!(step > 0)) return;
+            // Snap onto the grid as it steps, so pressing + also rescues an amount that
+            // was typed off it.
+            const next = this.sealedRaw > 0
+                ? (Math.floor(this.sealedRaw / step) + 1) * step
+                : Number(this.sealed.floor || 0);
+            this.setSealed(Math.min(next, this.sealedCeiling));
+        },
+
+        sealedStepDown() {
+            const step = Number(this.sealed.step || 0);
+            if (!(step > 0)) return;
+            const next = (Math.ceil(this.sealedRaw / step) - 1) * step;
+            this.setSealed(Math.max(next, Number(this.sealed.floor || 0)));
+        },
+
+        applySealed(d) {
+            if (!d) return;
+            const previousRound = this.sealed.round_id;
+            this.sealed = d;
+
+            // A new round means a new floor; clear a stale typed amount rather than
+            // leaving a figure that is now below the minimum.
+            if (previousRound && d.round_id && previousRound !== d.round_id) {
+                this.sealedInputM = '';
+            }
+        },
+
+        async sealedPost(path, body = {}) {
+            this.isSubmitting = true;
+            this.bidError = '';
+            this.bidSuccess = '';
+            try {
+                const res = await fetch(`/admin/team/auction/${this.auctionId}/api/closed-bid/${path}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'That is not possible right now.');
+                this.applySealed(data.sealed);
+                this.applyPurse(data);
+                if (data.message) this.bidSuccess = data.message;
+            } catch (e) {
+                this.bidError = e.message;
+            } finally {
+                this.isSubmitting = false;
+            }
+        },
+
+        sealedAccept() { return this.sealedPost('accept'); },
+        sealedDecline() { return this.sealedPost('decline'); },
+        sealedWithdraw() { return this.sealedPost('withdraw'); },
+        sealedReinstate() { return this.sealedPost('reinstate'); },
+
+        async sealedSubmit() {
+            if (!this.sealedCanSubmit) return;
+            await this.sealedPost('submit', { amount: this.sealedRaw });
+        },
+
+        applyPurse(d) {
+            if (!d) return;
+            if (d.remaining_budget !== undefined) this.teamBudget = Number(d.remaining_budget);
+            if (d.allocated !== undefined) this.teamAllocated = Number(d.allocated);
+            if (d.auction_purse !== undefined) this.teamPurse = Number(d.auction_purse);
+            if (d.max_bid_allowed !== undefined) this.maxBidAllowed = Number(d.max_bid_allowed);
+        },
+
+        async fetchPurse() {
+            try {
+                const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/purse", {
+                    headers: { "Accept": "application/json" },
+                });
+                if (!res.ok) return;
+                this.applyPurse(await res.json());
+            } catch (e) { /* a dropped poll is not worth surfacing */ }
+        },
+
+        /**
+         * Sealed state comes from an AUTHENTICATED endpoint, not the public feed the
+         * rest of this page polls — the public feed deliberately carries no amounts at
+         * all, not even this team's own.
+         */
+        async fetchSealed() {
+            if (this.bidType !== 'closed') {
+                if (this.sealed.active) this.sealed = { active: false };
+                return;
+            }
+            try {
+                const res = await fetch(`/admin/team/auction/${this.auctionId}/api/closed-bid/state`, {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                this.applySealed(data.sealed);
+            } catch (e) { /* a dropped poll is not worth surfacing */ }
         },
 
         async fetchCurrentPlayer() {
@@ -543,7 +859,7 @@ function teamBiddingPanel() {
                         this.lastPlayerId = data.auctionPlayer.id;
                         this.setPlayerOnBid(data.auctionPlayer);
                         this.myBidAmount = 0;
-                        this.customAmount = "";
+                        this.sealedInputM = "";
                         this.bidSuccess = "";
                         this.bidError = "";
                     }
@@ -614,7 +930,7 @@ function teamBiddingPanel() {
         resetPlayer() {
             this.player = { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", total_matches: null, total_runs: null, total_wickets: null };
             this.myBidAmount = 0;
-            this.customAmount = "";
+            this.sealedInputM = "";
             this.bidSuccess = "";
         },
 
@@ -644,39 +960,12 @@ function teamBiddingPanel() {
             if (this.timerExpired) return false;
             if (this.isMyTeamHighest) return false;
             if (this.nextBidAmount <= 0) return false;
-            if (this.nextBidAmount > this.teamBudget) return false;
+            if (this.nextBidAmount > this.maxBidAllowed) return false;
             return true;
         },
 
-        get closedBidMinimum() {
-            return this.nextBidAmount > 0 ? this.nextBidAmount : this.player.base_price;
-        },
 
-        get currentIncrement() {
-            const current = this.player.current_price || this.player.base_price || 0;
-            const rules = this.bidRules || [];
-            for (const r of rules) {
-                const from = Number(r.from) || 0;
-                const to = Number(r.to) || Infinity;
-                const inc = Number(r.increment) || 0;
-                if (current >= from && current <= to) return inc;
-            }
-            for (const r of rules) {
-                const from = Number(r.from) || 0;
-                const inc = Number(r.increment) || 0;
-                if (current < from) return inc;
-            }
-            return 10000;
-        },
 
-        get canBidCustom() {
-            if (this.auctionMode === "offline") return false;
-            if (this.state !== "bidding" || this.isSubmitting) return false;
-            if (this.timerExpired) return false;
-            const amt = Number(this.customAmount) || 0;
-            if (amt <= 0 || amt > this.teamBudget || amt < this.closedBidMinimum) return false;
-            return true;
-        },
 
         get isMyTeamHighest() {
             return this.player.current_bid_team && this.player.current_bid_team.id === this.userTeam.id;
@@ -703,28 +992,8 @@ function teamBiddingPanel() {
                 this.player.current_price = data.new_price || this.nextBidAmount;
                 this.player.current_bid_team = { id: this.userTeam.id, name: this.userTeam.name };
                 this.bidSuccess = "Bid placed! " + this.formatCurrency(this.myBidAmount);
+                this.applyPurse(data);
                 this._flashBid();
-            } catch (e) { this.bidError = e.message; }
-            finally { this.isSubmitting = false; }
-        },
-
-        async placeCustomBid() {
-            if (!this.canBidCustom || !this.player.id) return;
-            const amt = Number(this.customAmount);
-            this.isSubmitting = true;
-            this.bidError = "";
-            this.bidSuccess = "";
-            try {
-                const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/place-bid", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content, "Accept": "application/json" },
-                    body: JSON.stringify({ auction_player_id: this.player.id, amount: amt })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Failed to place bid");
-                this.myBidAmount = amt;
-                this.bidSuccess = "Bid placed successfully!";
-                this.customAmount = "";
             } catch (e) { this.bidError = e.message; }
             finally { this.isSubmitting = false; }
         },

@@ -7,10 +7,75 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuctionTemplate extends Model
 {
+    /** How a template was authored. Orthogonal to `type`, which is which screen. */
+    public const RENDER_POSITIONED = 'positioned';
+    public const RENDER_HTML = 'html';
+
+    /** Which screen a template describes. */
+    public const TYPE_LIVE_DISPLAY = 'live_display';
+    public const TYPE_SOLD_DISPLAY = 'sold_display';
+    public const TYPE_PLAYER_CARD = 'player_card';
+
+    /**
+     * The broadcast lower-third strip.
+     *
+     * Always authored as HTML: the positioned editor places elements on a 1601x910 card and
+     * has nothing to say about a 90px strip, so offering it here would be a dead end.
+     */
+    public const TYPE_TICKER = 'ticker';
+
+    /**
+     * Types the LED wall can render.
+     *
+     * `player_card` and `live_display` describe the *same* canvas: the positioned editor
+     * edits one fixed element set (getElementKeys() — player image, name, role, styles,
+     * current bid, sold badge, team logo, highest bidder, stats table), whatever type is
+     * selected. So the type was effectively a label, and choosing "Player Card" produced a
+     * template the wall silently refused to resolve — the auction fell back to its old
+     * background with no indication why.
+     *
+     * @return list<string>
+     */
+    public static function wallTypes(): array
+    {
+        return [self::TYPE_LIVE_DISPLAY, self::TYPE_PLAYER_CARD];
+    }
+
+    /**
+     * The types a lookup for $type should accept.
+     *
+     * Only the wall broadens; sold_display and ticker stay exact, because those genuinely
+     * describe different screens.
+     *
+     * @return list<string>
+     */
+    public static function acceptableTypes(string $type): array
+    {
+        return $type === self::TYPE_LIVE_DISPLAY ? self::wallTypes() : [$type];
+    }
+
+    /** @return array<string, string> value => label, for the type picker. */
+    public static function types(): array
+    {
+        return [
+            self::TYPE_LIVE_DISPLAY => 'LED Wall (live display)',
+            self::TYPE_TICKER => 'Broadcast Ticker (HTML only)',
+            self::TYPE_SOLD_DISPLAY => 'Sold Display',
+            self::TYPE_PLAYER_CARD => 'Player Card',
+        ];
+    }
+
     protected $fillable = [
         'auction_id',
+        'organization_id',
         'name',
         'type',
+        'render_mode',
+        'html_body',
+        'html_css',
+        'html_body_previous',
+        'html_refresh_ms',
+        'html_transparent_bg',
         'background_image',
         'sold_badge_image',
         'unsold_badge_image',
@@ -49,21 +114,53 @@ class AuctionTemplate extends Model
         'team_logo_pos' => 'array',
         'is_default' => 'boolean',
         'is_active' => 'boolean',
+        'html_transparent_bg' => 'boolean',
+        'html_refresh_ms' => 'integer',
     ];
+
+    /** @return array<string, string> */
+    public static function renderModes(): array
+    {
+        return [
+            self::RENDER_POSITIONED => 'Positioned elements (drag & drop)',
+            self::RENDER_HTML => 'Raw HTML + CSS',
+        ];
+    }
+
+    public function isHtmlMode(): bool
+    {
+        return $this->render_mode === self::RENDER_HTML;
+    }
+
+    /** How often the HTML screen re-reads the feed, clamped to something sane. */
+    public function htmlRefreshMs(): int
+    {
+        return max(500, min(60000, (int) ($this->html_refresh_ms ?: 2000)));
+    }
 
     public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);
     }
 
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
     /**
      * Get the default template for a specific type
+     *
+     * Ordered, not just `first()`: two rows can satisfy this and an unordered query
+     * picks an arbitrary one, so the same auction could render a different screen
+     * after an unrelated insert.
      */
     public static function getDefault(string $type = 'live_display'): ?self
     {
-        return static::where('type', $type)
+        return static::whereIn('type', static::acceptableTypes($type))
             ->where('is_default', true)
             ->where('is_active', true)
+            ->orderByDesc('id')
             ->first();
     }
 
@@ -72,10 +169,14 @@ class AuctionTemplate extends Model
      */
     public static function forAuction(int $auctionId, string $type = 'live_display'): ?self
     {
-        // First try auction-specific template
+        // First try auction-specific template. Prefer one flagged default, then the
+        // most recent — anything is better than the arbitrary row an unordered
+        // query returns when an auction has more than one active template.
         $template = static::where('auction_id', $auctionId)
-            ->where('type', $type)
+            ->whereIn('type', static::acceptableTypes($type))
             ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderByDesc('id')
             ->first();
 
         // Fall back to default template
@@ -84,6 +185,97 @@ class AuctionTemplate extends Model
         }
 
         return $template;
+    }
+
+    /**
+     * The template an auction should render with.
+     *
+     * Explicit pick first, then a template bound to this auction, then the global
+     * default. `forAuction()` stays as the older, id-only entry point.
+     */
+    public static function resolveFor(Auction $auction, string $type = 'live_display'): ?self
+    {
+        if ($chosenId = static::chosenIdFor($auction, $type)) {
+            $chosen = static::where('id', $chosenId)
+                ->whereIn('type', static::acceptableTypes($type))
+                ->where('is_active', true)
+                ->first();
+
+            if ($chosen) {
+                return $chosen;
+            }
+        }
+
+        return static::forAuction($auction->id, $type);
+    }
+
+    /**
+     * The column holding this auction's explicit pick for a given screen.
+     *
+     * The wall and the ticker are two screens running side by side in the same room, so each
+     * gets its own column. Reading `auction_template_id` for every type — as this used to —
+     * meant a ticker lookup tested the WALL's chosen template against `type = 'ticker'`,
+     * always missed, and silently fell through to the default. The explicit choice was
+     * therefore impossible to honour for anything but the wall.
+     *
+     * Types with no column of their own fall straight through to the per-auction/default
+     * chain, which is the pre-existing behaviour for sold_display and player_card.
+     */
+    public static function chosenIdFor(Auction $auction, string $type): ?int
+    {
+        $column = match ($type) {
+            self::TYPE_LIVE_DISPLAY => 'auction_template_id',
+            self::TYPE_TICKER => 'ticker_template_id',
+            default => null,
+        };
+
+        if ($column === null) {
+            return null;
+        }
+
+        return $auction->{$column} ? (int) $auction->{$column} : null;
+    }
+
+    /**
+     * Templates this user may see: their own organization's, plus the global ones.
+     *
+     * Not a global scope. `OrganizationScope` filters on strict equality, which would
+     * hide every global (NULL) template and break the fallback the LED wall depends on.
+     */
+    public function scopeVisibleTo($query, $user)
+    {
+        if (! $user || (method_exists($user, 'hasRole') && $user->hasRole('Superadmin'))) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($user) {
+            $q->whereNull('organization_id');
+
+            if (! empty($user->organization_id)) {
+                $q->orWhere('organization_id', $user->organization_id);
+            }
+        });
+    }
+
+    /** May this user modify this template? Global templates are Superadmin-only. */
+    public function isEditableBy($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasRole') && $user->hasRole('Superadmin')) {
+            return true;
+        }
+
+        // A global template is shared by every organization, so editing one is a
+        // Superadmin act — an organizer changing it would change everyone's screen.
+        if ($this->organization_id === null) {
+            return false;
+        }
+
+        return ! empty($user->organization_id)
+            && (int) $this->organization_id === (int) $user->organization_id;
     }
 
     /**
@@ -176,8 +368,12 @@ class AuctionTemplate extends Model
             'bid_label' => ['bottom' => 243, 'left' => 186, 'fontSize' => 32],
             'sold_badge' => ['bottom' => 27, 'left' => 112, 'width' => 150, 'height' => 150],
             'team_logo' => ['bottom' => 56, 'left' => 316, 'width' => 170, 'height' => 100],
+            // The leading team's name sat at 470 while the stats table began at 480, so
+            // the two always overlapped on a default layout — the team name printed
+            // straight through the table header. The name keeps its band and the table
+            // starts below it.
             'highest_bidder' => ['top' => 470, 'left' => 570, 'fontSize' => 28],
-            'stats_table' => ['top' => 480, 'left' => 550, 'width' => 500, 'height' => 150, 'fontSize' => 20,
+            'stats_table' => ['top' => 545, 'left' => 550, 'width' => 500, 'height' => 150, 'fontSize' => 20,
                 'headerBg' => 'rgba(0,0,0,0.7)', 'headerColor' => '#ffffff',
                 'rowBg' => 'rgba(255,255,255,0.1)', 'cellColor' => '#ffffff', 'cellPadding' => 10,
                 'tableBorderColor' => 'rgba(255,255,255,0.2)', 'tableBorderWidth' => 1,

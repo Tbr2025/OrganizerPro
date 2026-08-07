@@ -19,6 +19,7 @@ use App\Http\Controllers\Backend\BackupController;
 use App\Http\Controllers\Backend\EmailPreviewController;
 use App\Http\Controllers\Backend\BallController;
 use App\Http\Controllers\Backend\ClosedBidController;
+use App\Http\Controllers\Backend\ClosedBidRoundController;
 use App\Http\Controllers\Backend\DashboardController;
 use App\Http\Controllers\Backend\ImageTemplateController;
 use App\Http\Controllers\Backend\LocaleController;
@@ -138,14 +139,20 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('/auctions/{auction}/pools', [AuctionPoolController::class, 'index'])->name('auctions.pools.index');
     Route::post('/auctions/{auction}/pools/assign', [AuctionPoolController::class, 'assign'])->name('auctions.pools.assign');
     Route::post('/auctions/{auction}/pools/unassign', [AuctionPoolController::class, 'unassign'])->name('auctions.pools.unassign');
+    Route::post('/auctions/{auction}/pools/bulk-unassign', [AuctionPoolController::class, 'bulkUnassign'])->name('auctions.pools.bulk-unassign');
     Route::post('/auctions/{auction}/pools/auto-assign', [AuctionPoolController::class, 'autoAssign'])->name('auctions.pools.auto-assign');
     // Undo the last auto-assign run — it sweeps every unassigned player at once, so a
     // mistaken run needs one way back rather than manual unpicking.
     Route::post('/auctions/{auction}/pools/auto-assign/revert', [AuctionPoolController::class, 'revertAutoAssign'])->name('auctions.pools.auto-assign.revert');
     Route::post('/auctions/{auction}/pools', [AuctionPoolController::class, 'store'])->name('auctions.pools.store');
     Route::put('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'update'])->name('auctions.pools.update');
+    // Declared before the {pool} route: with DELETE /pools/{pool} first, a request to
+    // /pools/bulk would bind "bulk" as a pool id and 404 instead of reaching this.
+    Route::delete('/auctions/{auction}/pools/bulk', [AuctionPoolController::class, 'bulkDestroy'])->name('auctions.pools.bulk-destroy');
     Route::delete('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'destroy'])->name('auctions.pools.destroy');
     Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
+    // Broadcast screens picker — the ticker and LED wall had no home in the menu.
+    Route::get('/auctions-broadcast', [AuctionAdminController::class, 'liveTickerIndex'])->name('auctions.broadcast');
     // Release held player emails by hand — the safety net when no queue worker is running.
     Route::post('/auctions/{auction}/emails/flush', [AuctionAdminController::class, 'flushEmails'])->name('auctions.emails.flush');
     // Read back what was sent, held, or suppressed — test mode is only useful if visible.
@@ -166,11 +173,16 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     Route::post('/auction/{auction}/player/{player}/final-price', [ClosedBidController::class, 'updateFinalPrice'])
         ->name('auction.player.final-price');
-    // Closed bids
+    // Closed bids. These routes carried no permission gate at all, and `organizer.access`
+    // only constrains users holding the Organizer role — and only on route-bound models,
+    // of which these have none. Spatie reads `|` as OR: a bare auction.closed-bids check
+    // would lock out roles that legitimately hold only auction.view.
     Route::get('/auctions-closed-bids', [ClosedBidController::class, 'index'])
+        ->middleware('permission:auction.closed-bids|auction.view')
         ->name('auctions.closed-bids');
 
     Route::get('/auctions-closed-bids/fetch', [ClosedBidController::class, 'fetchClosedBids'])
+        ->middleware('permission:auction.closed-bids|auction.view')
         ->name('auctions.closed-bids.fetch');
 
     // Route::post('/auctions-closed-bids/{id}/update-final-price', [ClosedBidController::class, 'updateFinalPrice']);
@@ -193,10 +205,26 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     Route::post('/auctions/close-bid', [AuctionAdminController::class, 'closeBid']);
 
-    // Auction Templates (LED wall display configuration)
-    Route::resource('auction-templates', AuctionTemplateController::class);
-    Route::get('auction-templates/{auctionTemplate}/preview', [AuctionTemplateController::class, 'preview'])->name('auction-templates.preview');
-    Route::post('auction-templates/{auctionTemplate}/set-default', [AuctionTemplateController::class, 'setDefault'])->name('auction-templates.set-default');
+    // Auction Templates (LED wall display configuration).
+    // These carried no permission gate at all, and `organizer.access` waves through
+    // anyone who is not a pure Organizer — so any logged-in account could edit and
+    // delete every organization's templates.
+    // `create` is registered before `{auctionTemplate}`, or the wildcard swallows it
+    // and route-model binding 404s on the literal string "create".
+    Route::middleware('permission:auction.edit')->group(function () {
+        Route::get('auction-templates/create', [AuctionTemplateController::class, 'create'])->name('auction-templates.create');
+        Route::post('auction-templates', [AuctionTemplateController::class, 'store'])->name('auction-templates.store');
+        Route::get('auction-templates/{auctionTemplate}/edit', [AuctionTemplateController::class, 'edit'])->name('auction-templates.edit');
+        Route::match(['put', 'patch'], 'auction-templates/{auctionTemplate}', [AuctionTemplateController::class, 'update'])->name('auction-templates.update');
+        Route::delete('auction-templates/{auctionTemplate}', [AuctionTemplateController::class, 'destroy'])->name('auction-templates.destroy');
+        Route::post('auction-templates/{auctionTemplate}/set-default', [AuctionTemplateController::class, 'setDefault'])->name('auction-templates.set-default');
+    });
+
+    Route::middleware('permission:auction.view')->group(function () {
+        Route::get('auction-templates', [AuctionTemplateController::class, 'index'])->name('auction-templates.index');
+        Route::get('auction-templates/{auctionTemplate}/preview', [AuctionTemplateController::class, 'preview'])
+            ->name('auction-templates.preview');
+    });
 });
 
 // =====================================================================
@@ -231,6 +259,27 @@ Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
             Route::post('/sell-to-team', [AuctionOrganizerController::class, 'sellToTeam'])->name('player.sell-to-team');
             Route::post('/close-bidding', [AuctionOrganizerController::class, 'closeBidding'])->name('player.close-bidding');
             Route::get('/sealed-bids', [AuctionOrganizerController::class, 'fetchSealedBids'])->name('sealed-bids');
+
+            // Sealed (closed) rounds. The group already carries auth + auction.edit +
+            // organizer.access, and {auction} is model-bound so a pure Organizer is
+            // confined to their own tournaments.
+            Route::prefix('closed-bid')->name('closed-bid.')->group(function () {
+                Route::get('/state', [ClosedBidRoundController::class, 'state'])->name('state');
+                Route::post('/open-entry', [ClosedBidRoundController::class, 'openEntry'])->name('open-entry');
+                Route::post('/start', [ClosedBidRoundController::class, 'start'])->name('start');
+                Route::post('/lock', [ClosedBidRoundController::class, 'lock'])->name('lock');
+                Route::post('/award', [ClosedBidRoundController::class, 'award'])->name('award');
+                Route::post('/start-rebid', [ClosedBidRoundController::class, 'startRebid'])->name('start-rebid');
+                Route::post('/lot', [ClosedBidRoundController::class, 'drawLot'])->name('lot');
+                Route::post('/resolve-manual', [ClosedBidRoundController::class, 'resolveManual'])->name('resolve-manual');
+                Route::post('/no-entries-decision', [ClosedBidRoundController::class, 'noEntriesDecision'])->name('no-entries-decision');
+
+                // {entry} is NOT covered by EnsureOrganizerCanAccess, so each of these
+                // verifies the entry belongs to this auction before doing anything.
+                Route::post('/entries/{entry}/adjust', [ClosedBidRoundController::class, 'adjustEntry'])->name('entries.adjust');
+                Route::post('/entries/{entry}/withdraw', [ClosedBidRoundController::class, 'withdrawEntry'])->name('entries.withdraw');
+                Route::post('/entries/{entry}/reinstate', [ClosedBidRoundController::class, 'reinstateEntry'])->name('entries.reinstate');
+            });
             Route::post('/switch-mode', [AuctionOrganizerController::class, 'switchMode'])->name('switch-mode');
             Route::post('/switch-bid-type', [AuctionOrganizerController::class, 'switchBidType'])->name('switch-bid-type');
             Route::get('/all-players', [AuctionOrganizerController::class, 'allPlayers'])->name('all-players');
@@ -277,6 +326,17 @@ Route::middleware(['auth'])
         Route::post('/api/place-bid', [AuctionBiddingController::class, 'placeBid'])->name('api.place-bid');
         // Authenticated purse poll — the public active-player feed carries no team data.
         Route::get('/api/purse', [AuctionBiddingController::class, 'pursePoll'])->name('api.purse');
+
+        // Sealed rounds. These routes carry only `auth`, like place-bid beside them, so
+        // AuctionBiddingController does the role/team/preview work in the method bodies.
+        Route::prefix('api/closed-bid')->name('api.closed-bid.')->group(function () {
+            Route::get('/state', [AuctionBiddingController::class, 'closedBidState'])->name('state');
+            Route::post('/accept', [AuctionBiddingController::class, 'acceptClosedBid'])->name('accept');
+            Route::post('/decline', [AuctionBiddingController::class, 'declineClosedBid'])->name('decline');
+            Route::post('/submit', [AuctionBiddingController::class, 'submitClosedBid'])->name('submit');
+            Route::post('/withdraw', [AuctionBiddingController::class, 'withdrawClosedBid'])->name('withdraw');
+            Route::post('/reinstate', [AuctionBiddingController::class, 'reinstateClosedBid'])->name('reinstate');
+        });
     });
 
 // --- Team Manager Dashboard Routes ---
@@ -320,6 +380,10 @@ Route::get('/tournaments', [TournamentsListController::class, 'index'])
     ->name('public.tournaments.index');
 
 // --- Public Display Route ---
+// The CSP for admin-authored markup is applied by the controller on the HTML-template
+// branch only. It must NOT sit on the route: the ordinary LED wall rendered here is our
+// own Blade and loads Tailwind, confetti, Pusher and Echo from CDNs, which the policy
+// blocks.
 Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPublicDisplay'])
     ->name('public.auction.live');
 Route::get('/auction/{auction}/sold', [PublicAuctionController::class, 'showPublicDisplaySold'])

@@ -23,11 +23,37 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template Type *</label>
-                    <select name="type" class="form-control">
-                        <option value="live_display" {{ old('type', $template->type ?? '') == 'live_display' ? 'selected' : '' }}>Live Display (LED Wall)</option>
-                        <option value="sold_display" {{ old('type', $template->type ?? '') == 'sold_display' ? 'selected' : '' }}>Sold Display</option>
-                        <option value="player_card" {{ old('type', $template->type ?? '') == 'player_card' ? 'selected' : '' }}>Player Card</option>
+                    @php $currentType = old('type', $template->type ?? \App\Models\AuctionTemplate::TYPE_LIVE_DISPLAY); @endphp
+                    <select name="type" id="template-type" class="form-control"
+                            onchange="onTemplateTypeChange(this.value)">
+                        @foreach(\App\Models\AuctionTemplate::types() as $value => $label)
+                            <option value="{{ $value }}" {{ $currentType === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
                     </select>
+                    {{-- The ticker is a lower-third strip; the positioned editor places
+                         elements on a 1601x910 card and has nothing to say about it. --}}
+                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1"
+                       id="ticker-type-note" style="display:none;">
+                        A ticker template must be built as HTML — the drag editor describes a
+                        player card, not a broadcast strip.
+                    </p>
+                </div>
+
+                {{-- Render mode is a separate axis from type: type says which screen,
+                     this says how it was authored. --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">How to build it *</label>
+                    @php $currentMode = old('render_mode', $template->render_mode ?? \App\Models\AuctionTemplate::RENDER_POSITIONED); @endphp
+                    <div class="space-y-2">
+                        @foreach(\App\Models\AuctionTemplate::renderModes() as $value => $label)
+                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                <input type="radio" name="render_mode" value="{{ $value }}"
+                                       onchange="toggleRenderMode(this.value)"
+                                       {{ $currentMode === $value ? 'checked' : '' }}>
+                                {{ $label }}
+                            </label>
+                        @endforeach
+                    </div>
                 </div>
 
                 <div>
@@ -54,13 +80,22 @@
                 </div>
 
                 <div class="flex items-center gap-4">
+                    {{-- Each checkbox needs a hidden 0 in front of it.
+                         An unchecked box sends nothing at all, so the key was absent from the
+                         request, the `boolean` rule was skipped, and update() never wrote the
+                         column — unticking Default or Active reported success and changed
+                         nothing. The hidden field always sends a value; a ticked box simply
+                         overrides it, because PHP keeps the last of two same-named fields.
+                         (`html_transparent_bg` already does this correctly.) --}}
                     <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="hidden" name="is_default" value="0">
                         <input type="checkbox" name="is_default" value="1"
                                {{ old('is_default', $template->is_default ?? false) ? 'checked' : '' }}
                                class="form-checkbox rounded text-blue-600">
                         <span class="text-sm text-gray-700 dark:text-gray-300">Default</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="hidden" name="is_active" value="0">
                         <input type="checkbox" name="is_active" value="1"
                                {{ old('is_active', $template->is_active ?? true) ? 'checked' : '' }}
                                class="form-checkbox rounded text-green-600">
@@ -472,8 +507,15 @@
         </div>
     </div>
 
+    {{-- Right: the HTML author, shown instead of the drag canvas in HTML mode. The
+         2,200-line drag editor is left completely untouched, just hidden — trying to
+         make one editor serve both modes would cost far more than it saves. --}}
+    <div class="xl:col-span-3" id="html-mode-pane">
+        @include('backend.pages.auction-templates._form_html')
+    </div>
+
     {{-- Right: Visual Canvas Editor --}}
-    <div class="xl:col-span-3">
+    <div class="xl:col-span-3" id="positioned-mode-pane">
         <div class="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between mb-4">
                 <div>
@@ -737,6 +779,34 @@
                     @endforeach
                 </div>
             </div>
+
+            {{-- ── Layers ──
+                 Stacking order as a list you reorder, rather than a z-index number to guess
+                 at. The numbers still exist underneath (and are what the LED wall reads), but
+                 nobody has to think about them: the top row is what the audience sees on top.
+
+                 Every class here is reused from elsewhere in this form, so the server's
+                 Tailwind build already has them. --}}
+            <div class="mt-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800">
+                <div class="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800 dark:text-white">Layers</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Topmost first. Drag, or use the arrows, to change what covers what.</p>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="layersBringToFront()"
+                                class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                                title="Bring the selected element to the front">To front</button>
+                        <button type="button" onclick="layersSendToBack()"
+                                class="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300"
+                                title="Send the selected element to the back">To back</button>
+                    </div>
+                </div>
+                <ul id="layers-list" class="divide-y divide-gray-100 dark:divide-gray-700 max-h-72 overflow-y-auto"></ul>
+                <p class="px-4 py-2 text-xs text-gray-400 border-t border-gray-100 dark:border-gray-700">
+                    Click a row to select that element on the canvas.
+                </p>
+            </div>
         </div>
     </div>
 </div>
@@ -932,6 +1002,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyVisualStyling(el) {
         const visible = el.dataset.visible !== '0';
         el.classList.toggle('el-hidden', !visible);
+
+        // Keep the preview's stacking identical to the wall's. Previously the canvas stacked
+        // by document order while the wall stacked by z-index, so what the designer arranged
+        // was not what the hall saw.
+        if (el.dataset.zIndex) el.style.zIndex = el.dataset.zIndex;
 
         // Background color with bgOpacity
         const bgColor = el.dataset.bgColor || '';
@@ -1140,6 +1215,169 @@ document.addEventListener('DOMContentLoaded', () => {
         activeEl = null;
     }
 
+    /* ══ Layers ═════════════════════════════════════════════════════════════
+       Stacking order as a reorderable list. z-index is still what gets stored and what the
+       LED wall reads (live.blade.php emits it), but nobody has to reason in numbers: the
+       list is ordered topmost-first and reordering rewrites the numbers as a clean sequence.
+
+       Rewriting rather than nudging matters — hand-entered z-indexes collide (three elements
+       all on 10, so their order came down to document order), and after one "move up" the
+       numbers would still collide. A full renumber makes every position unambiguous. */
+    const LAYER_STEP = 10;
+
+    function layerElements() {
+        return Array.from(document.querySelectorAll('#canvas-container .drag-el'));
+    }
+
+    /** Topmost first. Ties fall back to document order so the list is never arbitrary. */
+    function layersOrdered() {
+        const els = layerElements();
+
+        return els
+            .map((el, i) => ({ el, z: parseInt(el.dataset.zIndex || 10, 10) || 0, i }))
+            .sort((a, b) => (b.z - a.z) || (b.i - a.i))
+            .map(r => r.el);
+    }
+
+    function layerLabel(el) {
+        const key = el.dataset.key || '';
+        // The canvas label is the friendly name the designer already sees on the element.
+        const tag = el.querySelector('.drag-label');
+        const text = tag ? tag.textContent.replace(/\s*x\s*$/, '').trim() : '';
+
+        return text || key.replace(/_/g, ' ');
+    }
+
+    /** Write a fresh, gap-free stack from an ordered (topmost-first) list. */
+    function layersRenumber(orderedTopFirst) {
+        const n = orderedTopFirst.length;
+
+        orderedTopFirst.forEach((el, idx) => {
+            const z = (n - idx) * LAYER_STEP;
+            el.dataset.zIndex = String(z);
+            el.style.zIndex = String(z);
+            syncToHidden(el);
+        });
+
+        // Keep the properties panel honest if it is showing one of these.
+        const zField = document.getElementById('prop-zindex');
+        if (zField && activeEl) zField.value = activeEl.dataset.zIndex || 10;
+
+        renderLayers();
+    }
+
+    function layersMove(el, delta) {
+        const order = layersOrdered();
+        const from = order.indexOf(el);
+        if (from < 0) return;
+
+        const to = from + delta;
+        if (to < 0 || to >= order.length) return;
+
+        order.splice(to, 0, order.splice(from, 1)[0]);
+        layersRenumber(order);
+    }
+
+    function layersBringToFront() {
+        if (!activeEl) return;
+        const order = layersOrdered().filter(e => e !== activeEl);
+        layersRenumber([activeEl, ...order]);
+    }
+
+    function layersSendToBack() {
+        if (!activeEl) return;
+        const order = layersOrdered().filter(e => e !== activeEl);
+        layersRenumber([...order, activeEl]);
+    }
+
+    function layersToggleVisible(el) {
+        const nowVisible = el.dataset.visible === '0';
+        el.dataset.visible = nowVisible ? '1' : '0';
+        applyVisualStyling(el);
+        syncToHidden(el);
+
+        if (activeEl === el) {
+            const box = document.getElementById('prop-visible');
+            if (box) box.checked = nowVisible;
+        }
+
+        renderLayers();
+    }
+
+    let layerDragKey = null;
+
+    function renderLayers() {
+        const list = document.getElementById('layers-list');
+        if (!list) return;
+
+        const order = layersOrdered();
+        list.innerHTML = '';
+
+        order.forEach((el, idx) => {
+            const key = el.dataset.key;
+            const hidden = el.dataset.visible === '0';
+            const isActive = activeEl === el;
+
+            const li = document.createElement('li');
+            li.draggable = true;
+            li.dataset.layerKey = key;
+            li.className = 'flex items-center gap-2 px-3 py-2 text-xs cursor-move '
+                + (isActive ? 'bg-blue-50 dark:bg-blue-900/20' : '');
+
+            li.innerHTML = `
+                <span class="text-gray-400 select-none">&#10286;</span>
+                <button type="button" data-act="vis" title="Show / hide"
+                        class="w-5 text-center ${hidden ? 'text-gray-400' : 'text-green-600'}">
+                    ${hidden ? '&#9788;' : '&#9673;'}
+                </button>
+                <span class="flex-1 truncate ${hidden ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-200'}"></span>
+                <span class="text-gray-400 tabular-nums">${el.dataset.zIndex || 10}</span>
+                <button type="button" data-act="up" title="Move up"
+                        class="px-1 text-gray-500 hover:text-gray-800 dark:hover:text-white ${idx === 0 ? 'opacity-30' : ''}">&#9650;</button>
+                <button type="button" data-act="down" title="Move down"
+                        class="px-1 text-gray-500 hover:text-gray-800 dark:hover:text-white ${idx === order.length - 1 ? 'opacity-30' : ''}">&#9660;</button>
+            `;
+
+            // textContent, not innerHTML: a custom text element's content is author input.
+            li.querySelector('span.flex-1').textContent = layerLabel(el);
+
+            li.addEventListener('click', (e) => {
+                const act = e.target.closest('button')?.dataset.act;
+                if (act === 'up') { layersMove(el, -1); return; }
+                if (act === 'down') { layersMove(el, 1); return; }
+                if (act === 'vis') { layersToggleVisible(el); return; }
+                selectElement(el);
+                renderLayers();
+            });
+
+            li.addEventListener('dragstart', () => { layerDragKey = key; });
+            li.addEventListener('dragover', (e) => e.preventDefault());
+            li.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (!layerDragKey || layerDragKey === key) return;
+
+                const cur = layersOrdered();
+                const moved = cur.find(x => x.dataset.key === layerDragKey);
+                if (!moved) return;
+
+                const rest = cur.filter(x => x !== moved);
+                const at = rest.indexOf(el);
+                rest.splice(at < 0 ? rest.length : at, 0, moved);
+                layerDragKey = null;
+                layersRenumber(rest);
+            });
+
+            list.appendChild(li);
+        });
+    }
+
+    // Reflect the stored order on the canvas at load: without this the preview stacked by
+    // document order while the wall stacked by z-index, so the editor lied about the result.
+    document.addEventListener('DOMContentLoaded', () => {
+        layerElements().forEach(el => { el.style.zIndex = el.dataset.zIndex || 10; });
+        renderLayers();
+    });
+
     function selectElement(el) {
         document.querySelectorAll('.drag-el').forEach(e => e.classList.remove('active'));
         el.classList.add('active');
@@ -1148,6 +1386,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const panel = document.getElementById('element-props');
         panel.classList.remove('hidden');
         panel.style.display = '';
+        // Highlight the matching row when the selection came from the canvas.
+        if (typeof renderLayers === 'function') renderLayers();
     }
 
     // ── Floating panel drag ──
@@ -1455,8 +1695,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prop-zindex').addEventListener('input', (e) => {
         if (!activeEl) return;
         activeEl.dataset.zIndex = e.target.value;
+        // The canvas has to stack the same way the wall will, or the editor lies.
+        activeEl.style.zIndex = e.target.value;
         applyVisualStyling(activeEl);
         syncToHidden(activeEl);
+        if (typeof renderLayers === 'function') renderLayers();
     });
 
     document.getElementById('prop-box-shadow').addEventListener('change', (e) => {
@@ -2100,6 +2343,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll(`#custom-hidden-inputs input[name^="pos_${key}_"]`).forEach(i => i.remove());
         if (activeEl === el) deselectAll();
         updateCustomList();
+        // The layer list is built from the canvas, so a removed element has to drop out of it.
+        if (typeof renderLayers === 'function') renderLayers();
     };
 
     // ── Update custom elements list in sidebar ──
@@ -2238,4 +2483,60 @@ document.addEventListener('DOMContentLoaded', () => {
         deselectAll();
     };
 });
+</script>
+
+<script>
+    /* Plain JS, no Alpine: this form is not an Alpine component. */
+    function toggleRenderMode(mode) {
+        const html = document.getElementById('html-mode-pane');
+        const positioned = document.getElementById('positioned-mode-pane');
+        if (!html || !positioned) return;
+        const isHtml = mode === 'html';
+        html.style.display = isHtml ? '' : 'none';
+        positioned.style.display = isHtml ? 'none' : '';
+    }
+
+    /**
+     * Picking "ticker" forces HTML authoring.
+     *
+     * The server enforces it too (`required_if:type,ticker` on html_body), but being told
+     * after a failed save that the whole positioned pane you just filled in was never going
+     * to work is a poor way to find out.
+     */
+    function onTemplateTypeChange(type) {
+        const note = document.getElementById('ticker-type-note');
+        const isTicker = type === 'ticker';
+
+        if (note) note.style.display = isTicker ? '' : 'none';
+
+        const htmlRadio = document.querySelector('input[name="render_mode"][value="html"]');
+        const positionedRadio = document.querySelector('input[name="render_mode"][value="positioned"]');
+
+        if (isTicker && htmlRadio) {
+            htmlRadio.checked = true;
+            toggleRenderMode('html');
+        }
+        // Disabled rather than hidden, so it is visible WHY the choice is not offered.
+        if (positionedRadio) {
+            positionedRadio.disabled = isTicker;
+            positionedRadio.closest('label')?.classList.toggle('opacity-40', isTicker);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const typeEl = document.getElementById('template-type');
+        if (typeEl) onTemplateTypeChange(typeEl.value);
+
+        const checked = document.querySelector('input[name="render_mode"]:checked');
+        toggleRenderMode(checked ? checked.value : 'positioned');
+    });
+
+    function insertToken(token) {
+        const box = document.getElementById('html_body');
+        if (!box) return;
+        const at = box.selectionStart ?? box.value.length;
+        box.value = box.value.slice(0, at) + '{' + token + '}' + box.value.slice(box.selectionEnd ?? at);
+        box.focus();
+        box.selectionStart = box.selectionEnd = at + token.length + 2;
+    }
 </script>

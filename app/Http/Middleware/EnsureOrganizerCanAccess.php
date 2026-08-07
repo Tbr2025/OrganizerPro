@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\ActualTeam;
 use App\Models\Auction;
+use App\Models\AuctionTemplate;
 use App\Models\Matches;
 use App\Models\Team;
 use App\Models\Tournament;
@@ -47,6 +48,15 @@ class EnsureOrganizerCanAccess
                 abort_unless(Matches::forUser($user)->whereKey($param->getKey())->exists(), 403);
             } elseif ($param instanceof TournamentRegistration) {
                 abort_unless($this->tournamentAllowed($user, $param->tournament_id), 403);
+            } elseif ($param instanceof AuctionTemplate) {
+                // A template bound to an auction is scoped by that auction's tournament.
+                // A global template (auction_id null) is shared by every organization,
+                // so a pure Organizer must not reach it at all.
+                abort_unless(
+                    $param->auction_id !== null
+                        && $this->tournamentAllowed($user, Auction::withoutGlobalScopes()->whereKey($param->auction_id)->value('tournament_id')),
+                    403
+                );
             } elseif ($param instanceof Auction) {
                 abort_unless($this->tournamentAllowed($user, $param->tournament_id), 403);
             }

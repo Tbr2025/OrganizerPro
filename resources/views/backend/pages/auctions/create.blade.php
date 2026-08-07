@@ -80,6 +80,16 @@
                                 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': step !== 4
                             }"
                             class="px-3 py-2 font-medium text-sm rounded-md border-b-2">4. Player Pool</a>
+                        {{-- Create was missing this step entirely, even though store() has
+                             always validated and saved every field on it — so branding and
+                             the screen templates silently took their defaults on a new
+                             auction and could only be set by going back in to Edit. --}}
+                        <a href="#" @click.prevent="step = 5"
+                            :class="{
+                                'border-blue-500 text-blue-600 dark:text-blue-400': step === 5,
+                                'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': step !== 5
+                            }"
+                            class="px-3 py-2 font-medium text-sm rounded-md border-b-2">5. Branding</a>
                     </nav>
                 </div>
 
@@ -225,7 +235,18 @@
                             {{-- Phase Transition Thresholds (only for Open Bid) --}}
                             <div class="md:col-span-2" x-show="bid_type === 'open'" x-transition x-cloak>
                                 <label class="form-label">Auto Phase Transitions</label>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Configure automatic bidding phase changes as the price increases. Phases progress: Open (raise hand) → Closed (sealed bids) → Offline (admin manual).</p>
+                                {{-- TWO independent settings, not three stages of one. See the
+                                     matching note on edit.blade.php: offline is not a phase that
+                                     comes after sealed bidding, and the sealed round runs in both
+                                     modes. --}}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Two separate rules, both driven by the price.</p>
+                                <ul class="text-xs text-gray-500 dark:text-gray-400 mb-3 space-y-1 pl-4 list-disc">
+                                    <li><strong>Who enters the bids</strong> — teams from their own screens (online), or the organizer on their behalf in the room (offline).</li>
+                                    <li><strong>How bidding works</strong> — open, where every bid is visible as it happens, or closed, where each team submits one private amount and the highest wins.</li>
+                                </ul>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                    The sealed round runs in <strong>both</strong> modes. Online, the teams type their own amount; offline, the organizer enters each team's amount for them on the control panel. Either way the highest submitted amount takes the player.
+                                </p>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label for="online_bid_limit_from" class="form-label text-xs">Online Bid Starts From</label>
@@ -237,7 +258,7 @@
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
                                         </div>
                                         <input type="hidden" name="online_bid_limit_from" :value="online_bid_limit_from">
-                                        <p class="text-xs text-gray-400 mt-1">Informational — online range start.</p>
+                                        <p class="text-xs text-gray-400 mt-1">Informational only — it changes nothing on its own.</p>
                                     </div>
                                     <div>
                                         <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
@@ -249,10 +270,10 @@
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
                                         </div>
                                         <input type="hidden" name="closed_bid_starts_at" :value="closed_bid_starts_at">
-                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, bidding switches to sealed mode.</p>
+                                        <p class="text-xs text-gray-400 mt-1">Once a bid reaches this, open bidding stops and the sealed round begins — in online <em>and</em> offline mode.</p>
                                     </div>
                                     <div>
-                                        <label for="online_bid_limit_to" class="form-label text-xs">Offline Bid Starts At</label>
+                                        <label for="online_bid_limit_to" class="form-label text-xs">Organizer Enters Bids From</label>
                                         <div class="relative">
                                             <input type="number" step="any" min="0" id="online_bid_limit_to"
                                                    :value="toM(online_bid_limit_to)"
@@ -261,10 +282,88 @@
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
                                         </div>
                                         <input type="hidden" name="online_bid_limit_to" :value="online_bid_limit_to">
-                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, admin handles bids manually.</p>
+                                        <p class="text-xs text-gray-400 mt-1">Above this price the organizer enters bids for the teams instead of the teams bidding themselves. It does not skip or replace the sealed round.</p>
                                     </div>
                                 </div>
-                                <p class="text-xs text-gray-500 mt-2">Leave fields empty to skip that phase transition.</p>
+                                <p class="text-xs text-gray-500 mt-2">Leave a field empty to switch that rule off. The organizer can also override either one by hand during the auction, and an override they make is not undone by the next player.</p>
+                            </div>
+
+                            {{-- Sealed round rules. This wizard has no auctionData object,
+                                 so each field is a flat property seeded from old(). --}}
+                            <div class="mt-6 p-5 bg-indigo-50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-200 dark:border-indigo-800/60">
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Sealed Round</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                                    Once the price reaches the closed-bid threshold, teams submit a private amount.
+                                    The highest wins; a tie goes to a re-bid and then to a drawn lot.
+                                </p>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="closed_bid_step" class="form-label text-xs">Bid Step</label>
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="closed_bid_step"
+                                                   :value="toM(closed_bid_step)"
+                                                   @input="closed_bid_step = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="0.1">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="closed_bid_step" :value="closed_bid_step">
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            Sealed amounts must be exact multiples of this. Anything else is refused, not rounded.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_max_pct_of_budget" class="form-label text-xs">Max Spend Per Player</label>
+                                        <div class="relative">
+                                            <input type="number" step="1" min="1" max="100" id="closed_bid_max_pct_of_budget"
+                                                   x-model.number="closed_bid_max_pct_of_budget"
+                                                   class="form-control pr-9" placeholder="70">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">%</span>
+                                        </div>
+                                        <input type="hidden" name="closed_bid_max_pct_of_budget" :value="closed_bid_max_pct_of_budget">
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            Share of a team's <strong>total</strong> budget one player may cost.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_max_rebid_rounds" class="form-label text-xs">Re-bid Rounds On A Tie</label>
+                                        <input type="number" name="closed_bid_max_rebid_rounds" id="closed_bid_max_rebid_rounds" min="0" max="5"
+                                               x-model.number="closed_bid_max_rebid_rounds"
+                                               class="form-control" placeholder="2">
+                                        <p class="text-xs text-gray-400 mt-1">Then a lot is drawn. 0 goes straight to the lot.</p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_timer_seconds" class="form-label text-xs">Sealed Round Timer</label>
+                                        <div class="relative">
+                                            <input type="number" name="closed_bid_timer_seconds" id="closed_bid_timer_seconds" min="5" max="600"
+                                                   x-model.number="closed_bid_timer_seconds"
+                                                   class="form-control pr-9" :placeholder="bid_timer_seconds || 30">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">s</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mt-1">Blank uses the ordinary bid timer.</p>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 space-y-3">
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input type="hidden" name="closed_bid_requires_acceptance" value="0">
+                                        <input type="checkbox" name="closed_bid_requires_acceptance" value="1"
+                                               x-model="closed_bid_requires_acceptance"
+                                               class="mt-0.5 rounded border-gray-300 text-indigo-600">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                                            Teams must accept the purse conditions before bidding
+                                        </span>
+                                    </label>
+
+                                    <div>
+                                        <label for="closed_bid_tie_breaker" class="form-label text-xs">After The Last Re-bid</label>
+                                        <select name="closed_bid_tie_breaker" id="closed_bid_tie_breaker"
+                                                x-model="closed_bid_tie_breaker" class="form-control">
+                                            <option value="lot">Draw a lot</option>
+                                            <option value="manual">Organizer decides</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
 
                             {{-- Timer Settings --}}
@@ -542,6 +641,61 @@
                         {{-- Serialized pools (written on submit) --}}
                         <input type="hidden" name="pools" x-ref="poolsInput">
                     </div>
+
+                    {{-- Step 5: Branding — mirrors Edit's step 5. Every field here is already
+                         validated and stored by store(); Create simply never offered them. --}}
+                    <div x-show="step === 5" x-transition.opacity x-cloak>
+                        <div class="max-w-4xl mx-auto">
+                            <div class="mb-6">
+                                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Branding &amp; Appearance</h2>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">How the live auction screens look. All optional — anything left blank uses the platform default, and it can be changed later under Edit.</p>
+                            </div>
+
+                            @include('backend.pages.auctions.partials.screen-templates', [
+                                'auctionId' => null,
+                                'selectedDisplay' => old('auction_template_id'),
+                                'selectedTicker' => old('ticker_template_id'),
+                                'displayTemplates' => $displayTemplates ?? collect(),
+                                'tickerTemplates' => $tickerTemplates ?? collect(),
+                            ])
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Card Background Image</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Replaces the default player-card background on the live wall. Recommended 1601x910px.</p>
+                                    <input type="file" name="background_image" accept="image/*" class="form-control">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Auction Logo</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Shown on the waiting screen and the ticker.</p>
+                                    <input type="file" name="auction_logo" accept="image/*" class="form-control">
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Waiting Screen Background</label>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Behind the "waiting for next player" screen.</p>
+                                    <input type="file" name="waiting_background_image" accept="image/*" class="form-control">
+                                </div>
+
+                                <div>
+                                    <label for="primary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Primary Colour</label>
+                                    <input type="color" name="primary_color" id="primary_color"
+                                           value="{{ old('primary_color', '#00d4ff') }}"
+                                           class="h-11 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-1 cursor-pointer">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Accent on the wall — headings, the countdown ring, glows.</p>
+                                </div>
+
+                                <div>
+                                    <label for="secondary_color" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Secondary Colour</label>
+                                    <input type="color" name="secondary_color" id="secondary_color"
+                                           value="{{ old('secondary_color', '#ff6b00') }}"
+                                           class="h-11 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-1 cursor-pointer">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for the current bid and the sold stamp.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Form Footer with Navigation and Submit --}}
@@ -554,10 +708,10 @@
                         <button type="button" x-show="step > 1" @click="step--" class="btn btn-secondary"
                             x-cloak>Previous</button>
 
-                        <button type="button" x-show="step < 4" @click="step++" class="btn btn-primary"
+                        <button type="button" x-show="step < 5" @click="step++" class="btn btn-primary"
                             x-cloak>Next</button>
 
-                        <div x-show="step === 4" x-cloak>
+                        <div x-show="step === 5" x-cloak>
                             <button type="submit" class="btn btn-success">
                                 Create Auction
                             </button>
@@ -587,6 +741,14 @@ function auctionCreateForm() {
         online_bid_limit_from: {{ old('online_bid_limit_from', 'null') }},
         online_bid_limit_to: {{ old('online_bid_limit_to', 'null') }},
         closed_bid_starts_at: {{ old('closed_bid_starts_at', 'null') }},
+        // Sealed round. Blank posts null and the server's accessors supply the defaults,
+        // so these must not be pre-filled with numbers here.
+        closed_bid_step: {{ old('closed_bid_step', 'null') }},
+        closed_bid_max_pct_of_budget: {{ old('closed_bid_max_pct_of_budget', 'null') }},
+        closed_bid_max_rebid_rounds: {{ old('closed_bid_max_rebid_rounds', 'null') }},
+        closed_bid_timer_seconds: {{ old('closed_bid_timer_seconds', 'null') }},
+        closed_bid_requires_acceptance: {{ old('closed_bid_requires_acceptance', 1) ? 'true' : 'false' }},
+        closed_bid_tie_breaker: '{{ old('closed_bid_tie_breaker', 'lot') }}',
         rules: [
             { from: 100000, to: 200000, increment: 10000 },
             { from: 220000, to: 300000, increment: 20000 },

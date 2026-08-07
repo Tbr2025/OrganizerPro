@@ -25,6 +25,9 @@
         :root {
             --primary: {{ $auction->primary_color ?? '#00bcd4' }};
             --secondary: {{ $auction->secondary_color ?? '#22c55e' }};
+            --panel:  rgba(4, 22, 34, 0.94);
+            --panel2: rgba(2, 14, 22, 0.96);
+            --edge:   rgba(34, 211, 238, 0.35);
         }
 
         .glass {
@@ -47,70 +50,119 @@
         }
         @keyframes pulseLive { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
 
-        /* ── Lower third: the player on the block ── */
-        #lower-third {
-            position: fixed; bottom: 150px; left: 60px; right: 60px;
-            display: flex; align-items: stretch; gap: 0;
-            border-radius: 18px; overflow: hidden;
+        /* ── Lower third ─────────────────────────────────────────────────────────
+           Photo, slab and stats strip live inside one positioned shell so they move
+           as a single unit and their left indents stay in step.                     */
+        #lt-wrap {
+            position: fixed; left: 64px; bottom: 132px; width: 1150px;
             animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         @keyframes slideUp {
             from { transform: translateY(28px); opacity: 0; }
             to   { transform: translateY(0); opacity: 1; }
         }
+
+        /* The circle overlaps the slab's top edge. */
         #lt-photo {
-            width: 118px; flex-shrink: 0;
-            background: rgba(255,255,255,0.06);
-            display: flex; align-items: center; justify-content: center;
+            position: absolute; left: 24px; bottom: 100%; margin-bottom: -56px;
+            width: 196px; height: 196px; border-radius: 50%; overflow: hidden;
+            border: 3px solid var(--primary); background: var(--panel2); z-index: 3;
         }
-        #lt-photo img { width: 100%; height: 100%; object-fit: cover; }
-        #lt-name-block { padding: 18px 30px; flex: 1; min-width: 0; }
-        #lt-name { font-size: 46px; font-weight: 900; line-height: 1; letter-spacing: -0.5px; }
-        #lt-role { font-size: 17px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; opacity: 0.62; margin-top: 8px; }
+        /* Player cutouts are 3:4 portraits; a centred square crop eats the head. */
+        #lt-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
 
-        #lt-bid-block {
-            padding: 18px 36px; flex-shrink: 0;
-            display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
-            border-left: 1px solid rgba(255,255,255,0.10);
-            min-width: 300px;
+        #lt-slab {
+            position: relative; z-index: 2; height: 112px;
+            display: flex; align-items: stretch;
+            padding-left: 244px;               /* 24 + 196 circle + 24 gap */
+            background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+            border: 1px solid var(--edge); border-top: 2px solid var(--primary);
         }
-        #lt-bid-label { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; opacity: 0.55; }
-        #lt-bid { font-size: 52px; font-weight: 900; line-height: 1; color: var(--secondary); margin-top: 4px; }
-        #lt-team { font-size: 18px; font-weight: 700; margin-top: 6px; opacity: 0.9; }
+        #lt-slab.no-photo, #lt-stats.no-photo { padding-left: 0; }
+        #lt-slab.no-stats { border-bottom: 1px solid var(--edge); }
 
-        /* Clock, riding the lower third's right edge. */
+        .lt-cell { padding: 0 26px; display: flex; flex-direction: column; justify-content: center; }
+        .lt-label { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; opacity: 0.55; }
+        .lt-figure { font-size: 38px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+
+        #lt-base { flex: 0 0 264px; }
+        #lt-bid  { flex: 0 0 300px; align-items: flex-end; text-align: right; border-left: 1px solid rgba(255,255,255,0.10); }
+        #lt-bid-val { color: var(--secondary); font-size: 44px; }
+        #lt-bid-team { font-size: 15px; font-weight: 700; opacity: 0.85; margin-top: 4px; }
+
+        /* Nameplate. clip-path cannot clip a border, so the edge and the fill are two
+           stacked clipped layers rather than one bordered element. */
+        #lt-name-plate { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; justify-content: center; }
+        #lt-shield-edge, #lt-shield-fill {
+            position: absolute; inset: 0;
+            clip-path: polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%);
+        }
+        #lt-shield-edge { background: var(--primary); }
+        #lt-shield-fill { inset: 2px; background: linear-gradient(180deg, #0d3b52, #072330); }
+        #lt-name-text { position: relative; z-index: 1; text-align: center; padding: 0 18px; }
+        #lt-name-1, #lt-name-2 { font-weight: 900; line-height: 1.02; letter-spacing: 1px; text-transform: uppercase; }
+        #lt-name-1 { font-size: 34px; }
+        #lt-name-2 { font-size: 42px; }
+        #lt-name-text.long #lt-name-1 { font-size: 27px; }
+        #lt-name-text.long #lt-name-2 { font-size: 33px; }
+
+        /* Career strip, flush beneath the slab. */
+        #lt-stats {
+            position: relative; z-index: 2; height: 40px;
+            display: flex; align-items: center; padding-left: 244px;
+            background: var(--panel2);
+            border: 1px solid rgba(34,211,238,0.22); border-top: none;
+        }
+        #lt-stats .st-head { padding: 0 22px; font-size: 12px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: var(--primary); }
+        #lt-stats .st { padding: 0 22px; border-left: 1px solid rgba(255,255,255,0.12); display: flex; align-items: baseline; gap: 9px; }
+        #lt-stats .st b { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; opacity: 0.5; }
+        #lt-stats .st span { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+        /* Clock pill, above the slab's right edge, so the slab keeps three cells. */
         #lt-clock {
-            padding: 0 30px; flex-shrink: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            border-left: 1px solid rgba(255,255,255,0.10);
-            min-width: 150px;
+            position: absolute; right: 0; bottom: 100%; margin-bottom: 14px; z-index: 3;
+            display: flex; align-items: center; gap: 12px;
+            padding: 8px 18px; border-radius: 999px;
+            background: var(--panel); border: 1px solid var(--edge);
         }
-        #lt-seconds { font-size: 60px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
-        #lt-call {
-            margin-top: 6px; font-size: 15px; font-weight: 900;
-            letter-spacing: 2px; text-transform: uppercase;
-            padding: 3px 12px; border-radius: 999px;
-        }
+        #lt-seconds { font-size: 36px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+        #lt-call { font-size: 15px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; padding: 3px 12px; border-radius: 999px; }
 
-        /* ── Team purses, above the lower third ── */
-        #purses {
-            position: fixed; bottom: 268px; left: 60px; right: 60px;
-            display: flex; gap: 10px; justify-content: flex-start; flex-wrap: wrap;
+        /* ── Teams table, bottom right ── */
+        #teams-panel {
+            position: fixed; right: 64px; bottom: 132px; width: 520px;
+            border: 1px solid var(--edge); overflow: hidden;
+            font-variant-numeric: tabular-nums;
+            /* Slides in from the right when something changes and back out when its window
+               closes, rather than sitting on the broadcast permanently. */
+            transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s ease;
+            will-change: transform, opacity;
         }
-        .purse {
-            display: flex; align-items: center; gap: 9px;
-            padding: 8px 15px 8px 8px; border-radius: 999px;
-        }
-        .purse img, .purse .initials {
-            width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
-            background: rgba(255,255,255,0.10);
+        #teams-panel.tp-out { transform: translateX(calc(100% + 80px)); opacity: 0; pointer-events: none; }
+        #teams-panel.tp-in  { transform: translateX(0); opacity: 1; }
+        #teams-panel .row { display: grid; grid-template-columns: 1fr 152px 92px; }
+        #teams-panel .hd { background: var(--primary); color: #02121c; font-size: 12px; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; }
+        #teams-panel .hd > div, #teams-panel .tr > div { padding: 9px 14px; }
+        #teams-panel .tr { background: var(--panel); border-top: 1px solid rgba(34,211,238,0.16); font-size: 17px; font-weight: 700; align-items: center; }
+        #teams-panel .tr:nth-child(even) { background: var(--panel2); }
+        #teams-panel .tr .amt { color: var(--secondary); font-weight: 900; text-align: right; }
+        #teams-panel .tr .cnt { text-align: center; }
+        #teams-panel .team { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        #teams-panel .team .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #teams-panel .team img, #teams-panel .team .initials {
+            width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+            background: rgba(255,255,255,0.12);
             display: flex; align-items: center; justify-content: center;
-            font-size: 12px; font-weight: 900; flex-shrink: 0;
+            font-size: 10px; font-weight: 900;
         }
-        .purse .meta { line-height: 1.15; }
-        .purse .nm { font-size: 13px; font-weight: 700; }
-        .purse .amt { font-size: 14px; font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
-        .purse .sq { font-size: 11px; opacity: 0.55; font-variant-numeric: tabular-nums; }
+        #teams-panel .sq {
+            display: flex; gap: 26px;
+            background: rgba(34,211,238,0.13); border-top: 1px solid var(--edge);
+            padding: 9px 14px; font-size: 13px; font-weight: 900;
+            letter-spacing: 2px; text-transform: uppercase;
+        }
+        #teams-panel.dense .tr > div, #teams-panel.dense .hd > div { padding: 5px 14px; }
+        #teams-panel.dense .tr { font-size: 15px; }
 
         /* ── Scrolling recent sales, along the very bottom ── */
         #sales-strip {
@@ -143,9 +195,11 @@
         .sale .price { font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
 
         #idle {
-            position: fixed; bottom: 150px; left: 60px;
-            padding: 22px 40px; border-radius: 18px;
+            position: fixed; bottom: 132px; left: 64px;
+            padding: 22px 40px;
             font-size: 30px; font-weight: 900; letter-spacing: 1px;
+            background: var(--panel);
+            border: 1px solid var(--edge); border-top: 2px solid var(--primary);
         }
     </style>
 </head>
@@ -165,25 +219,39 @@
         </div>
     </div>
 
-    {{-- Team purses --}}
-    <div id="purses"></div>
+    {{-- Teams: purse remaining and squad count --}}
+    <div id="teams-panel" class="hidden"></div>
 
     {{-- The player on the block --}}
-    <div id="lower-third" class="glass hidden">
+    <div id="lt-wrap" class="hidden">
         <div id="lt-photo"><img id="lt-img" src="" alt=""></div>
-        <div id="lt-name-block">
-            <div id="lt-name"></div>
-            <div id="lt-role"></div>
-        </div>
-        <div id="lt-bid-block">
-            <div id="lt-bid-label">Current Bid</div>
-            <div id="lt-bid"></div>
-            <div id="lt-team"></div>
-        </div>
+
         <div id="lt-clock" class="hidden">
             <div id="lt-seconds"></div>
             <div id="lt-call" class="hidden"></div>
         </div>
+
+        <div id="lt-slab">
+            <div class="lt-cell" id="lt-base">
+                <div class="lt-label">Base Price</div>
+                <div class="lt-figure" id="lt-base-val"></div>
+            </div>
+            <div id="lt-name-plate">
+                <div id="lt-shield-edge"></div>
+                <div id="lt-shield-fill"></div>
+                <div id="lt-name-text">
+                    <div id="lt-name-1"></div>
+                    <div id="lt-name-2"></div>
+                </div>
+            </div>
+            <div class="lt-cell" id="lt-bid">
+                <div class="lt-label" id="lt-bid-label">Current Bid</div>
+                <div class="lt-figure" id="lt-bid-val"></div>
+                <div id="lt-bid-team"></div>
+            </div>
+        </div>
+
+        <div id="lt-stats" class="hidden"></div>
     </div>
 
     {{-- Between players --}}
@@ -236,6 +304,8 @@
 
     /* ── Clock, ticking locally between polls so calls land on exact seconds ── */
     let clockRemaining = null, clockEnabled = false, callStages = [], clockTick = null;
+    // Whether anyone has bid on the player currently on the block. Drives the unsold notice.
+    let tickerNoBids = false;
 
     function renderClock() {
         const wrap = document.getElementById('lt-clock');
@@ -247,14 +317,27 @@
             return;
         }
 
-        wrap.classList.remove('hidden');
         const s = Math.max(0, clockRemaining);
+
+        // Finished. A frozen "0 · FINAL CALL" on a broadcast keeps calling a player whose
+        // clock ran out, so the whole cell goes rather than sitting there stale.
+        if (s <= 0) {
+            wrap.classList.add('hidden');
+            call.classList.add('hidden');
+            return;
+        }
+
+        wrap.classList.remove('hidden');
         secs.textContent = s;
 
         const c = finalCallFor(s, callStages);
         if (c) {
             call.classList.remove('hidden');
-            call.textContent = c.label;
+            /* With nobody bidding, the closing call has a foregone conclusion — say it,
+               rather than showing the stream a countdown whose outcome only the room knows.
+               Matches the wall, which greys the card at the same moment from the same
+               server-computed state. */
+            call.textContent = tickerNoBids ? `${c.label} · GOING UNSOLD` : c.label;
             call.style.background = c.is_final ? '#dc2626' : '#f59e0b';
             call.style.color = c.is_final ? '#fff' : '#111827';
             secs.style.color = c.is_final ? '#f87171' : '#fcd34d';
@@ -311,43 +394,197 @@
         }
     }
 
-    function renderPurses(teams) {
-        document.getElementById('purses').innerHTML = teams.map(t => `
-            <div class="purse glass">
-                ${t.logo ? `<img src="${t.logo}" alt="">` : `<span class="initials">${initials(t.short_name || t.name)}</span>`}
-                <div class="meta">
-                    <div class="nm">${t.short_name || t.name}</div>
-                    <div class="amt">${t.remaining === null ? '—' : amount(t.remaining)}</div>
-                    <div class="sq">${t.players}/${t.squad_required} squad</div>
-                </div>
-            </div>`).join('');
+    /* Teams are sorted and capped here, not in the feed: the feed's name ordering is
+       relied on elsewhere, and the broadcast wants the biggest purse on top. */
+    const VISIBLE_TEAMS = 10;
+    let teamWindow = 0;
+
+    function sortTeams(teams) {
+        return [...teams].sort((a, b) => {
+            const au = a.remaining === null, bu = b.remaining === null;
+            if (au !== bu) return au ? -1 : 1;                       // uncapped first
+            if (!au && a.remaining !== b.remaining) return b.remaining - a.remaining;
+            if (a.players !== b.players) return a.players - b.players;
+            // A total order matters: without it two identical teams swap places on
+            // alternate polls and the table visibly flickers every two seconds.
+            return String(a.short_name || a.name).localeCompare(String(b.short_name || b.name));
+        });
     }
 
-    function renderCurrent(p) {
-        const lt = document.getElementById('lower-third');
+    /* ── When the teams table is on screen ──
+       It used to sit there for the whole auction. On a broadcast that is dead weight: the
+       numbers only matter at the moment they change. It now slides in when a purse or a
+       squad count actually moves, holds for 20s, and slides away again. */
+    const TEAMS_VISIBLE_MS = 20000;
+    let teamsSignature = null;
+    let teamsHideTimer = null;
+
+    /** Only the figures worth interrupting the broadcast for. Order included, since the
+        table is sorted by purse and a reorder is itself the news. */
+    function teamsFingerprint(teams) {
+        return (teams || []).map(t => `${t.id}:${t.remaining}:${t.players}`).join('|');
+    }
+
+    function showTeamsPanel() {
+        const panel = document.getElementById('teams-panel');
+        panel.classList.remove('hidden');
+        // Next frame, so the browser has a starting transform to animate FROM.
+        requestAnimationFrame(() => {
+            panel.classList.remove('tp-out');
+            panel.classList.add('tp-in');
+        });
+
+        if (teamsHideTimer) clearTimeout(teamsHideTimer);
+        teamsHideTimer = setTimeout(hideTeamsPanel, TEAMS_VISIBLE_MS);
+    }
+
+    function hideTeamsPanel() {
+        const panel = document.getElementById('teams-panel');
+        panel.classList.remove('tp-in');
+        panel.classList.add('tp-out');
+        if (teamsHideTimer) { clearTimeout(teamsHideTimer); teamsHideTimer = null; }
+    }
+
+    function renderTeams(teams, squad) {
+        const panel = document.getElementById('teams-panel');
+
+        if (!teams || !teams.length) { panel.classList.add('hidden'); return; }
+
+        const signature = teamsFingerprint(teams);
+        const changed = teamsSignature !== null && signature !== teamsSignature;
+        const first = teamsSignature === null;
+        teamsSignature = signature;
+
+        // Painted every poll so the markup is ready, but only *revealed* on a change. The
+        // first poll paints it hidden: nothing has happened yet worth announcing.
+        if (first) {
+            panel.classList.add('tp-out');
+            panel.classList.remove('hidden');
+        } else if (changed) {
+            showTeamsPanel();
+        }
+
+        const sorted = sortTeams(teams);
+        const dense = sorted.length > 8;
+        panel.classList.toggle('dense', dense);
+
+        let shown = sorted, caption = 'Teams';
+        if (sorted.length > VISIBLE_TEAMS) {
+            const pages = Math.ceil(sorted.length / VISIBLE_TEAMS);
+            teamWindow = teamWindow % pages;                          // re-clamp: teams can be added mid-auction
+            const from = teamWindow * VISIBLE_TEAMS;
+            shown = sorted.slice(from, from + VISIBLE_TEAMS);
+            caption = `Teams ${from + 1}-${Math.min(from + VISIBLE_TEAMS, sorted.length)} of ${sorted.length}`;
+        }
+
+        const rows = shown.map(t => `
+            <div class="row tr">
+                <div class="team">
+                    ${t.logo ? `<img src="${t.logo}" alt="">` : `<span class="initials">${initials(t.short_name || t.name)}</span>`}
+                    <span class="nm">${t.short_name || t.name}</span>
+                </div>
+                <div class="amt">${t.remaining === null ? '—' : amount(t.remaining)}</div>
+                <div class="cnt">${t.players}</div>
+            </div>`).join('');
+
+        // `max` is omitted rather than shown as a dash when nothing is configured.
+        const squadRow = squad
+            ? `<div class="sq"><span>Squad Size</span><span>Min: ${squad.min}</span>${squad.max ? `<span>Max: ${squad.max}</span>` : ''}</div>`
+            : '';
+
+        panel.innerHTML = `
+            <div class="row hd"><div>${caption}</div><div style="text-align:right">Purse Rem</div><div style="text-align:center">Players</div></div>
+            ${rows}${squadRow}`;
+    }
+
+    /* Rotates on its own timer. Tying it to the 2s poll makes the table jump on a
+       cadence the eye reads as a glitch. */
+    setInterval(() => { teamWindow++; }, 8000);
+
+    function renderStats(stats) {
+        const strip = document.getElementById('lt-stats');
+        const slab = document.getElementById('lt-slab');
+
+        const cells = [];
+        if (stats) {
+            // 0 is a declared figure and renders; null means never entered and is dropped.
+            if (stats.matches !== null && stats.matches !== undefined) cells.push(['Mts', stats.matches]);
+            if (stats.runs !== null && stats.runs !== undefined) cells.push(['Runs', stats.runs]);
+            if (stats.wickets !== null && stats.wickets !== undefined) cells.push(['Wkts', stats.wickets]);
+        }
+
+        if (!cells.length) {
+            strip.classList.add('hidden');
+            slab.classList.add('no-stats');       // close the slab off with its own border
+            return;
+        }
+
+        strip.classList.remove('hidden');
+        slab.classList.remove('no-stats');
+        strip.innerHTML = `<div class="st-head">Career</div>` +
+            cells.map(([k, v]) => `<div class="st"><b>${k}</b><span>${v}</span></div>`).join('');
+    }
+
+    function renderCurrent(p, sealed = null) {
+        const wrap = document.getElementById('lt-wrap');
         const idle = document.getElementById('idle');
 
         if (!p) {
-            lt.classList.add('hidden');
+            wrap.classList.add('hidden');
             idle.classList.remove('hidden');
             return;
         }
 
         idle.classList.add('hidden');
-        lt.classList.remove('hidden');
+        wrap.classList.remove('hidden');
 
-        document.getElementById('lt-name').textContent = p.name;
-        document.getElementById('lt-role').textContent = p.role || '';
+        // Split on the LAST space: "Venkatesh Iyer" → "VENKATESH" / "IYER".
+        const parts = String(p.name || '').trim().split(/\s+/);
+        const last = parts.length > 1 ? parts.pop() : '';
+        const first = parts.join(' ');
+        const nameText = document.getElementById('lt-name-text');
+        document.getElementById('lt-name-1').textContent = first;
+        document.getElementById('lt-name-2').textContent = last || first;
+        nameText.classList.toggle('long', Math.max(first.length, (last || first).length) >= 13);
 
         const img = document.getElementById('lt-img');
         const photo = document.getElementById('lt-photo');
-        if (p.image) { img.src = p.image; photo.style.display = 'flex'; }
-        else { photo.style.display = 'none'; }
+        const slab = document.getElementById('lt-slab');
+        const strip = document.getElementById('lt-stats');
+        if (p.image) {
+            img.src = p.image;
+            photo.style.display = 'block';
+            // Both must lose the indent together, or the strip's cell boundaries stop
+            // lining up with the slab's.
+            slab.classList.remove('no-photo');
+            strip.classList.remove('no-photo');
+        } else {
+            photo.style.display = 'none';
+            slab.classList.add('no-photo');
+            strip.classList.add('no-photo');
+        }
+
+        document.getElementById('lt-base-val').textContent = amount(p.base_price);
 
         const hasBid = !!p.leading_team;
-        document.getElementById('lt-bid-label').textContent = hasBid ? 'Current Bid' : 'Base Price';
-        document.getElementById('lt-bid').textContent = amount(hasBid ? p.current_price : p.base_price);
-        document.getElementById('lt-team').textContent = p.leading_team || '';
+        // Not "Base Price" when there are no bids — the left cell already says that.
+        // A sealed round replaces the bid cell entirely. No amount can be shown, because
+        // there is no public amount to show — the price is frozen at the round's floor and
+        // the sealed figures never leave the server.
+        if (sealed) {
+            const lot = sealed.state === 'awaiting_lot';
+            document.getElementById('lt-bid-label').textContent = lot ? 'Tie — Drawing' : 'Sealed Round';
+            document.getElementById('lt-bid-val').textContent = lot ? amount(p.current_price) : '—';
+            document.getElementById('lt-bid-team').textContent = sealed.total_rounds > 1
+                ? `Round ${sealed.round_number} of ${sealed.total_rounds}`
+                : '';
+        } else {
+            document.getElementById('lt-bid-label').textContent = hasBid ? 'Current Bid' : 'No Bids';
+            document.getElementById('lt-bid-val').textContent = hasBid ? amount(p.current_price) : '—';
+            document.getElementById('lt-bid-team').textContent = hasBid ? (p.leading_team_short || p.leading_team) : '';
+        }
+
+        renderStats(p.stats);
     }
 
     function poll() {
@@ -358,9 +595,13 @@
 
                 if (d.amount_unit) AMOUNT_UNIT = d.amount_unit;
 
-                renderCurrent(d.current_player);
-                renderPurses(d.teams || []);
+                renderCurrent(d.current_player, d.closed_bid || null);
+                renderTeams(d.teams || [], d.squad || null);
                 renderSales(d.recent_sales || []);
+
+                // The ticker feed exposes the leading team's NAME (never an amount during a
+                // sealed round), which is all that is needed to know whether anyone has bid.
+                tickerNoBids = !!d.current_player && ! d.current_player.leading_team;
 
                 // Clock only runs while someone is actually on the block.
                 if (d.current_player && d.auction_status !== 'paused') {

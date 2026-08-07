@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Auction;
 
+use App\Models\ActualTeam;
 use App\Models\Auction;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
 use App\Models\AuctionTeamBudget;
+use App\Models\Player;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -518,9 +520,149 @@ class AuctionPoolService
     }
 
     /**
+     * Make sure every retained player of this auction's tournament has an auction row.
+     *
+     * Retention is set on the team (Teams -> edit -> squad), which writes
+     * `players.player_mode` and `players.retained_value`. But every budget and squad-slot
+     * figure in the auction module counts `auction_players` rows where `is_retained` is
+     * true — so a retained player with no row costs their team nothing and fills no slot.
+     *
+     * That row used to be created as a side effect of filing the player into a pool on the
+     * Pools screen. It no longer is: a retained player is never bid on, so putting them in
+     * a bidding queue was always a fiction, and it meant retention silently depended on an
+     * unrelated screen having been visited. This reconciles the two directly.
+     *
+     * Deliberately pool-less and lot-less. Nothing in the auction draws from a retained
+     * row — `generateLotNumbers()` and every waiting-player query already filter
+     * `is_retained = false` — so giving it a pool would only make it look biddable.
+     *
+     * Idempotent: safe to call on every pool-screen load. An existing price is never
+     * overwritten by a default (see resolveRetainedPrice()), so an organizer who set a
+     * figure by hand keeps it.
+     */
+    /**
+     * The teams actually taking part in this auction.
+     *
+     * One definition, used by the ticker, the panel and the sealed round — otherwise the
+     * broadcast strip lists teams the sealed round never invites, and the two disagree in
+     * front of an audience about who is even in the room.
+     *
+     * Per-auction budget rows are the explicit statement of participation, so when any exist
+     * they are authoritative. When none do — the common case, where the organizer never
+     * allocated per-team budgets — every team in the tournament is taking part, which is the
+     * behaviour every existing auction already relies on.
+     *
+     * @return \Illuminate\Support\Collection<int, ActualTeam>
+     */
+    public function participatingTeams(Auction $auction)
+    {
+        $allTeams = ActualTeam::forTournament($auction->tournament_id)->orderBy('name')->get();
+
+        $allocated = AuctionTeamBudget::where('auction_id', $auction->id)
+            ->pluck('actual_team_id')
+            ->all();
+
+        if ($allocated === []) {
+            return $allTeams;
+        }
+
+        return $allTeams->whereIn('id', $allocated)->values();
+    }
+
+    public function syncRetainedPlayers(Auction $auction): int
+    {
+        if (! $auction->tournament_id) {
+            return 0;
+        }
+
+        // Retained players can have a NULL organisation (they may never have registered
+        // themselves), so scope by their team's tournament rather than by org.
+        $retained = Player::withoutOrganizationScope()
+            ->where('player_mode', 'retained')
+            ->whereHas('actualTeam', fn ($q) => $q->where('tournament_id', $auction->tournament_id))
+            ->get(['id', 'actual_team_id', 'retained_value']);
+
+        if ($retained->isEmpty()) {
+            return 0;
+        }
+
+        $existing = AuctionPlayer::where('auction_id', $auction->id)
+            ->whereIn('player_id', $retained->pluck('id'))
+            ->get()
+            ->keyBy('player_id');
+
+        $touched = 0;
+
+        foreach ($retained as $player) {
+            $row = $existing->get($player->id);
+
+            // Someone already bought or is bidding on this player — a stale `retained`
+            // flag must not rewrite a live result. Leave it for a human to sort out.
+            if ($row && $row->status !== 'waiting') {
+                continue;
+            }
+
+            $price = $this->resolveRetainedPrice($auction, $player, null, $row);
+
+            AuctionPlayer::updateOrCreate(
+                ['auction_id' => $auction->id, 'player_id' => $player->id],
+                [
+                    'organization_id' => $auction->organization_id,
+                    'is_retained' => true,
+                    'team_id' => $player->actual_team_id,
+                    'retained_price' => $price,
+                    'auction_pool_id' => null,
+                    'lot_number' => null,
+                    'status' => 'waiting',
+                    'base_price' => 0,
+                    'current_price' => 0,
+                    'starting_price' => 0,
+                ]
+            );
+
+            $touched++;
+        }
+
+        return $touched;
+    }
+
+    /**
      * Base price for a player in a pool: explicit per-player value, else the pool's
      * price, else the auction's.
      */
+    /**
+     * What a retained player costs their team in this auction.
+     *
+     * A blank retention price used to be written straight through as 0, inside an
+     * updateOrCreate — so re-assigning an already-priced retained player with the
+     * field left empty silently wiped their price and the team got them for nothing.
+     * Blank now means "fall back"; only an explicit 0 makes a retention free.
+     */
+    public function resolveRetainedPrice(
+        Auction $auction,
+        ?Player $player = null,
+        mixed $submitted = null,
+        ?AuctionPlayer $existing = null
+    ): float {
+        // An explicit figure wins, including a deliberate 0.
+        if (is_numeric($submitted)) {
+            return (float) $submitted;
+        }
+
+        // Never overwrite a price somebody already set with a default.
+        if ($existing && is_numeric($existing->retained_price) && (float) $existing->retained_price > 0) {
+            return (float) $existing->retained_price;
+        }
+
+        // The player's own retention value — required at the point they were retained,
+        // so it is the closest thing on record to the organizer's actual intent.
+        if ($player && is_numeric($player->retained_value) && (float) $player->retained_value > 0) {
+            return (float) $player->retained_value;
+        }
+
+        return $auction->defaultRetainedValue();
+    }
+
     public function resolveBasePrice(Auction $auction, ?AuctionPool $pool, mixed $playerPrice = null): float
     {
         if (is_numeric($playerPrice)) {
@@ -543,7 +685,14 @@ class AuctionPoolService
         return $auction->tournament?->isAuction() ?? true;
     }
 
-    /** Per-team allocation, falling back to the auction-wide uniform cap. */
+    /**
+     * Per-team allocation, falling back to the auction-wide uniform cap.
+     *
+     * A row wins even when its budget is 0 — *row existence* decides, not the value.
+     * That is deliberate: AuctionAdminController::update() deletes the row for a blank
+     * input rather than writing 0, so a zero row can only ever be a deliberate "this
+     * team has no money". Do not "fix" this to `?:`.
+     */
     public function allocatedBudget(Auction $auction, int $actualTeamId): float
     {
         $row = AuctionTeamBudget::where('auction_id', $auction->id)
@@ -573,6 +722,23 @@ class AuctionPoolService
             ->where('is_retained', true)
             ->where('team_id', $actualTeamId)
             ->sum('retained_price');
+    }
+
+    /**
+     * The purse a team actually brings to the auction floor: its whole allocation
+     * less what its retentions already cost.
+     *
+     * This is the honest denominator for a spend bar and the right threshold for
+     * "nearly broke" — a team that retained most of its budget is fully committed by
+     * design, not in trouble.
+     */
+    public function auctionPurse(Auction $auction, int $actualTeamId): float
+    {
+        if (! $this->budgetApplies($auction)) {
+            return PHP_FLOAT_MAX;
+        }
+
+        return $this->allocatedBudget($auction, $actualTeamId) - $this->retainedSpent($auction, $actualTeamId);
     }
 
     /** Total committed by a team: sold purchases + retained-player costs. */
@@ -619,17 +785,25 @@ class AuctionPoolService
      */
     public function slotsFilled(Auction $auction, int $actualTeamId): int
     {
-        $sold = AuctionPlayer::where('auction_id', $auction->id)
+        return $this->soldCount($auction, $actualTeamId) + $this->retainedCount($auction, $actualTeamId);
+    }
+
+    /** Players a team bought in the live auction. Mirrors soldSpent() row for row. */
+    public function soldCount(Auction $auction, int $actualTeamId): int
+    {
+        return (int) AuctionPlayer::where('auction_id', $auction->id)
             ->where('status', 'sold')
             ->where('sold_to_team_id', $actualTeamId)
             ->count();
+    }
 
-        $retained = AuctionPlayer::where('auction_id', $auction->id)
+    /** Players a team retained. Mirrors retainedSpent() row for row. */
+    public function retainedCount(Auction $auction, int $actualTeamId): int
+    {
+        return (int) AuctionPlayer::where('auction_id', $auction->id)
             ->where('is_retained', true)
             ->where('team_id', $actualTeamId)
             ->count();
-
-        return $sold + $retained;
     }
 
     /** Slots a team still has to fill to reach the minimum legal squad. */
@@ -648,9 +822,19 @@ class AuctionPoolService
             return 0.0;
         }
 
-        $slotsAfterThisBid = max(0, $this->slotsRemaining($auction, $actualTeamId) - 1);
+        return $this->reserveFrom($auction, $this->slotsRemaining($auction, $actualTeamId));
+    }
 
-        return $slotsAfterThisBid * $auction->minPricePerPlayer();
+    /**
+     * The reserve formula itself, taking a slot count rather than looking one up.
+     *
+     * Exists so teamPurseState() can build the whole picture from four queries
+     * instead of re-deriving each figure through its own lookups, without a second
+     * copy of the rule drifting from this one.
+     */
+    private function reserveFrom(Auction $auction, int $slotsRemaining): float
+    {
+        return max(0, $slotsRemaining - 1) * $auction->minPricePerPlayer();
     }
 
     /**
@@ -676,6 +860,92 @@ class AuctionPoolService
         return $amount <= $this->maxAllowedBid($auction, $actualTeamId);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Per-player spend cap (sealed rounds)
+    |--------------------------------------------------------------------------
+    | A team may commit at most a configured share of its budget to any ONE player,
+    | so a single sealed round cannot swallow most of a purse. This is a separate
+    | ceiling from the squad reserve and both bind at once.
+    */
+
+    /**
+     * The cap formula, taking a figure rather than looking one up.
+     *
+     * Exists for the same reason as reserveFrom(): teamPurseState() already holds the
+     * allocation, and calling perPlayerCap() from inside it would re-run
+     * allocatedBudget() and add a query to a method that runs once per team on a
+     * two-second poll.
+     */
+    private function perPlayerCapFrom(Auction $auction, float $allocated): float
+    {
+        return $allocated * $auction->closedBidMaxPct() / 100;
+    }
+
+    /**
+     * Most a team may commit to a single player.
+     *
+     * A share of the team's TOTAL allocation — deliberately not its remaining purse and
+     * not its post-retention purse, so the figure is fixed for the auction and never
+     * moves under a team mid-round.
+     */
+    public function perPlayerCap(Auction $auction, int $actualTeamId): float
+    {
+        if (! $this->budgetApplies($auction)) {
+            return PHP_FLOAT_MAX;
+        }
+
+        return $this->perPlayerCapFrom($auction, $this->allocatedBudget($auction, $actualTeamId));
+    }
+
+    /**
+     * The effective sealed ceiling: the lower of the per-player cap and the squad
+     * reserve's maximum. "Both caps bind" is this one line.
+     */
+    public function perPlayerCeiling(Auction $auction, int $actualTeamId): float
+    {
+        if (! $this->budgetApplies($auction)) {
+            return PHP_FLOAT_MAX;
+        }
+
+        return min(
+            $this->perPlayerCap($auction, $actualTeamId),
+            $this->maxAllowedBid($auction, $actualTeamId)
+        );
+    }
+
+    public function canAffordSealed(Auction $auction, int $actualTeamId, float $amount): bool
+    {
+        return $amount <= $this->perPlayerCeiling($auction, $actualTeamId);
+    }
+
+    /**
+     * Why a sealed amount was refused, naming WHICH ceiling bound.
+     *
+     * Without that a team is told "you may bid up to 7M" and cannot tell whether it
+     * should sell a player, wait for the reserve to free up, or accept that the rule
+     * simply forbids spending more on one player.
+     */
+    public function sealedBlockedMessage(Auction $auction, int $actualTeamId, float $amount, ?string $teamName = null): string
+    {
+        $name = $teamName ?: 'This team';
+        $cap = $this->perPlayerCap($auction, $actualTeamId);
+        $reserveMax = $this->maxAllowedBid($auction, $actualTeamId);
+
+        if ($cap <= $reserveMax) {
+            return sprintf(
+                '%s may not spend more than %s on one player (%s%% of a %s budget). Requested %s.',
+                $name,
+                format_points($cap),
+                rtrim(rtrim(number_format($auction->closedBidMaxPct(), 2, '.', ''), '0'), '.'),
+                format_points($this->allocatedBudget($auction, $actualTeamId)),
+                format_points($amount)
+            );
+        }
+
+        return $this->reserveBlockedMessage($auction, $actualTeamId, $amount, $teamName);
+    }
+
     /**
      * A team is excluded from the player currently on the block when it cannot
      * meet the next bid under the reserve rule. Recomputed per player and per
@@ -694,26 +964,62 @@ class AuctionPoolService
      * Everything the panels and the bidding page need to render a team's purse
      * state, computed once from a single set of formulas.
      *
-     * @return array{allocated: float, spent: float, remaining: float, reserve: float, max_bid_allowed: float, slots_filled: int, slots_required: int, slots_remaining: int, excluded: bool}
+     * Built from five leaf reads and then derived arithmetically, rather than calling
+     * remainingBudget()/reserveFor()/maxAllowedBid()/slotsFilled() and letting each
+     * re-query underneath. That took this from ~22 queries per team to 5 — which
+     * matters because pollState() calls it once per team on a two-second poll.
+     *
+     * The derivations reuse the same helpers the standalone methods use
+     * (reserveFrom), so there is no second copy of a rule to drift.
+     *
+     * @return array{allocated: float, spent: float, remaining: float, reserve: float, max_bid_allowed: float, slots_filled: int, slots_required: int, slots_remaining: int, excluded: bool, auction_purse: float, retained_spent: float, auction_spent: float, retained_count: int, retained_expected: int, slots_max: int|null, per_player_cap_pct: float|null, per_player_cap: float, sealed_max_bid: float}
      */
     public function teamPurseState(Auction $auction, int $actualTeamId, ?float $nextBidAmount = null): array
     {
         $applies = $this->budgetApplies($auction);
-        $slotsFilled = $this->slotsFilled($auction, $actualTeamId);
-        $remaining = $applies ? $this->remainingBudget($auction, $actualTeamId) : PHP_FLOAT_MAX;
-        $reserve = $this->reserveFor($auction, $actualTeamId);
-        $maxBid = $this->maxAllowedBid($auction, $actualTeamId);
+
+        $allocated = $applies ? $this->allocatedBudget($auction, $actualTeamId) : 0.0;
+        $soldSpent = $this->soldSpent($auction, $actualTeamId);
+        $retainedSpent = $this->retainedSpent($auction, $actualTeamId);
+        $soldCount = $this->soldCount($auction, $actualTeamId);
+        $retainedCount = $this->retainedCount($auction, $actualTeamId);
+
+        $spent = $soldSpent + $retainedSpent;
+        $slotsFilled = $soldCount + $retainedCount;
+        $slotsRemaining = max(0, $auction->minSquadSize() - $slotsFilled);
+
+        $remaining = $applies ? $allocated - $spent : PHP_FLOAT_MAX;
+        $reserve = $applies ? $this->reserveFrom($auction, $slotsRemaining) : 0.0;
+        $maxBid = $applies ? max(0.0, $remaining - $reserve) : PHP_FLOAT_MAX;
 
         return [
-            'allocated' => $applies ? $this->allocatedBudget($auction, $actualTeamId) : 0.0,
-            'spent' => $this->spent($auction, $actualTeamId),
+            'allocated' => $allocated,
+            'spent' => $spent,
             'remaining' => $remaining,
             'reserve' => $reserve,
             'max_bid_allowed' => $maxBid,
             'slots_filled' => $slotsFilled,
             'slots_required' => $auction->minSquadSize(),
-            'slots_remaining' => $this->slotsRemaining($auction, $actualTeamId),
-            'excluded' => $nextBidAmount !== null && $this->isExcluded($auction, $actualTeamId, $nextBidAmount),
+            'slots_remaining' => $slotsRemaining,
+            'excluded' => $applies && $nextBidAmount !== null && $nextBidAmount > $maxBid,
+
+            // The "show both" split: the whole allocation, and the purse left for
+            // bidding once retentions are paid for.
+            'auction_purse' => $applies ? $allocated - $retainedSpent : PHP_FLOAT_MAX,
+            'retained_spent' => $retainedSpent,
+            'auction_spent' => $soldSpent,
+            'retained_count' => $retainedCount,
+            'retained_expected' => $auction->expectedRetainedPerTeam(),
+            'slots_max' => $auction->maxSquadSize(),
+
+            // Sealed ceilings. Derived from $allocated and $maxBid already in hand —
+            // calling perPlayerCap() here would re-run allocatedBudget() and cost a
+            // sixth query on a method that runs once per team every two seconds.
+            'per_player_cap_pct' => $applies ? $auction->closedBidMaxPct() : null,
+            'per_player_cap' => $applies ? $this->perPlayerCapFrom($auction, $allocated) : PHP_FLOAT_MAX,
+            'sealed_max_bid' => $applies
+                ? min($this->perPlayerCapFrom($auction, $allocated), $maxBid)
+                : PHP_FLOAT_MAX,
         ];
     }
 

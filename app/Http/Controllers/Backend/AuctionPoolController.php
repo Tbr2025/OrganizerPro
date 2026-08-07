@@ -10,6 +10,7 @@ use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
 use App\Models\Player;
 use App\Services\Auction\AuctionPoolService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,16 @@ class AuctionPoolController extends Controller
     {
         $this->authorize('auction.view');
 
+        /*
+         * Retention is set on the team, not here, so bring the auction's retained rows in
+         * line before this screen reports team budgets — that table counts
+         * `auction_players.is_retained`, and a retained player with no row would show as
+         * costing their team nothing.
+         *
+         * Idempotent and never overwrites a price a human set.
+         */
+        $this->poolService->syncRetainedPlayers($auction);
+
         $auction->load([
             'tournament',
             'pools' => fn ($q) => $q->orderBy('sequence'),
@@ -59,9 +70,25 @@ class AuctionPoolController extends Controller
         $available = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'))
             ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
             ->whereNotIn('id', $pooledPlayerIds)
+            /*
+             * Retained players are deliberately absent from this screen.
+             *
+             * A pool is a bidding queue — it decides who goes on the block and in what
+             * order. A retained player is never bid on: they are already on their team's
+             * roster and their retention price is simply deducted from that team's budget.
+             * Listing them here asked the organizer to file them into a queue they will
+             * never join, and put a second, competing retention-price box on a screen that
+             * has nothing to do with retention.
+             *
+             * Retention lives on the team: Teams -> edit -> squad, which writes
+             * `players.retained_value`. That is already the figure the auction reads
+             * (see AuctionPoolService::resolveRetainedPrice()), so there is one number and
+             * one place to change it.
+             */
+            ->where(fn ($q) => $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode'))
             ->with(['playerType', 'actualTeam:id,name'])
             ->orderBy('name')
-            ->get(['id', 'name', 'player_type_id', 'organization_id', 'player_mode', 'actual_team_id']);
+            ->get(['id', 'name', 'player_type_id', 'organization_id', 'player_mode', 'actual_team_id', 'retained_value']);
 
         // Is there an auto-assign run that can still be reverted?
         $revertibleAutoAssign = AuctionActionLog::where('auction_id', $auction->id)
@@ -74,13 +101,26 @@ class AuctionPoolController extends Controller
         $teamBudgets = collect();
         if ($isAuctionType && $auction->tournament_id) {
             $teamBudgets = ActualTeam::forTournament($auction->tournament_id)->orderBy('name')->get()
-                ->map(fn ($t) => [
-                    'team' => $t,
-                    'allocated' => $this->poolService->allocatedBudget($auction, $t->id),
-                    'retained' => $this->poolService->retainedSpent($auction, $t->id),
-                    'sold' => $this->poolService->soldSpent($auction, $t->id),
-                    'remaining' => $this->poolService->remainingBudget($auction, $t->id),
-                ]);
+                ->map(function ($t) use ($auction) {
+                    $state = $this->poolService->teamPurseState($auction, $t->id);
+
+                    return [
+                        'team' => $t,
+                        'allocated' => $state['allocated'],
+                        'retained' => $state['retained_spent'],
+                        'sold' => $state['auction_spent'],
+                        'remaining' => $state['remaining'],
+                        'retained_count' => $state['retained_count'],
+                        'retained_expected' => $state['retained_expected'],
+                        // Retained players nobody priced. They currently cost their team
+                        // nothing, which is the bug that made this column necessary.
+                        'retained_unpriced' => AuctionPlayer::where('auction_id', $auction->id)
+                            ->where('is_retained', true)
+                            ->where('team_id', $t->id)
+                            ->where(fn ($q) => $q->whereNull('retained_price')->orWhere('retained_price', 0))
+                            ->count(),
+                    ];
+                });
         }
 
         return view('backend.pages.auctions.pools.index', [
@@ -142,10 +182,21 @@ class AuctionPoolController extends Controller
     }
 
     /** Delete a pool. Its waiting players return to the unassigned bucket (row removed). */
-    public function destroy(Auction $auction, AuctionPool $pool): RedirectResponse
+    public function destroy(Request $request, Auction $auction, AuctionPool $pool): RedirectResponse|JsonResponse
     {
         $this->authorize('auction.edit');
         abort_unless($pool->auction_id === $auction->id, 404);
+
+        // A running pool is the one the control panel is drawing from. Deleting it mid-room
+        // strands the auction with no queue, and there is a supported way to stop a pool
+        // (Close early on the panel) that keeps its history.
+        if ($pool->isActive()) {
+            $message = __('“:name” is running. Close it on the control panel before deleting it.', ['name' => $pool->name]);
+
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 422)
+                : back()->with('error', $message);
+        }
 
         DB::transaction(function () use ($pool) {
             // Only clear players that haven't been actioned yet; sold/on-auction keep their row.
@@ -153,7 +204,74 @@ class AuctionPoolController extends Controller
             $pool->delete(); // FK nullOnDelete detaches any surviving (actioned) rows
         });
 
-        return back()->with('success', __('Pool deleted.'));
+        $message = __('Pool deleted.');
+
+        return $request->expectsJson()
+            ? response()->json(['success' => true, 'message' => $message, 'deleted' => [$pool->id]])
+            : back()->with('success', $message);
+    }
+
+    /**
+     * Delete several pools in one go.
+     *
+     * Separate from destroy() rather than a loop over it in the client: a caller deleting
+     * eight pools over eight requests can be interrupted half way, leaving the organizer
+     * with a partial result and no way to tell which half went. One transaction either
+     * removes all of them or none.
+     *
+     * A running pool in the selection is refused rather than skipped. Silently dropping it
+     * would report "5 pools deleted" while the one the organizer most needs to know about
+     * survived, and on this screen that difference decides whether the auction still works.
+     */
+    public function bulkDestroy(Request $request, Auction $auction): RedirectResponse|JsonResponse
+    {
+        $this->authorize('auction.edit');
+
+        $data = $request->validate([
+            'pool_ids' => 'required|array|min:1',
+            'pool_ids.*' => 'integer',
+        ]);
+
+        // Scoped to this auction, so an id from another auction is simply not found rather
+        // than deleted — route binding covers {pool}, and this endpoint has no {pool}.
+        $pools = AuctionPool::where('auction_id', $auction->id)
+            ->whereIn('id', $data['pool_ids'])
+            ->get();
+
+        if ($pools->isEmpty()) {
+            $message = __('No matching pools to delete.');
+
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 422)
+                : back()->with('error', $message);
+        }
+
+        $running = $pools->filter(fn (AuctionPool $p) => $p->isActive());
+
+        if ($running->isNotEmpty()) {
+            $message = __('“:name” is running. Close it on the control panel first — nothing was deleted.', [
+                'name' => $running->first()->name,
+            ]);
+
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $message], 422)
+                : back()->with('error', $message);
+        }
+
+        $ids = $pools->pluck('id')->all();
+
+        DB::transaction(function () use ($pools) {
+            foreach ($pools as $pool) {
+                $pool->players()->where('status', 'waiting')->delete();
+                $pool->delete();
+            }
+        });
+
+        $message = trans_choice('{1} Pool deleted.|[2,*] :count pools deleted.', count($ids), ['count' => count($ids)]);
+
+        return $request->expectsJson()
+            ? response()->json(['success' => true, 'message' => $message, 'deleted' => $ids])
+            : back()->with('success', $message);
     }
 
     /** Assign selected players to a pool (one pool per player — moving reassigns). */
@@ -179,7 +297,7 @@ class AuctionPoolController extends Controller
         $eligible = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'))
             ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
             ->whereIn('id', $data['player_ids'])
-            ->get(['id', 'user_id', 'player_mode', 'actual_team_id']);
+            ->get(['id', 'user_id', 'player_mode', 'actual_team_id', 'retained_value']);
 
         if ($eligible->isEmpty()) {
             return back()->with('error', __('No eligible players to assign.'));
@@ -223,9 +341,15 @@ class AuctionPoolController extends Controller
                     $attrs['team_id'] = $player->actual_team_id;
                     $attrs['lot_number'] = null; // retained players don't draw a lot
                     if ($isAuctionType) {
-                        // decimal(15,2) since the column was widened — no longer rounded
-                        // to a whole number.
-                        $attrs['retained_price'] = (float) ($retainedPrices[$player->id] ?? 0);
+                        // A blank field used to be written straight through as 0 — and
+                        // because this is an updateOrCreate, re-assigning an already-priced
+                        // retained player wiped their price and the team got them free.
+                        $attrs['retained_price'] = $this->poolService->resolveRetainedPrice(
+                            $auction,
+                            $player,
+                            $retainedPrices[$player->id] ?? null,
+                            $existing
+                        );
                     }
                 }
 
@@ -249,7 +373,7 @@ class AuctionPoolController extends Controller
     }
 
     /** Remove a single player from its pool (returns them to the unassigned bucket). */
-    public function unassign(Request $request, Auction $auction): RedirectResponse
+    public function unassign(Request $request, Auction $auction): RedirectResponse|JsonResponse
     {
         $this->authorize('auction.edit');
 
@@ -259,10 +383,10 @@ class AuctionPoolController extends Controller
             ->where('player_id', $data['player_id'])->first();
 
         if (! $ap) {
-            return back()->with('error', __('Player is not in this auction.'));
+            return $this->poolReply($request, false, __('Player is not in this auction.'));
         }
         if ($ap->status !== 'waiting') {
-            return back()->with('error', __('Cannot unassign a player who is already in play or sold.'));
+            return $this->poolReply($request, false, __('Cannot unassign a player who is already in play or sold.'));
         }
 
         $pool = $ap->pool;
@@ -271,7 +395,81 @@ class AuctionPoolController extends Controller
             $this->poolService->generateLotNumbers($pool);
         }
 
-        return back()->with('success', __('Player removed from pool.'));
+        return $this->poolReply($request, true, __('Player removed from pool.'), [$data['player_id']]);
+    }
+
+    /**
+     * Remove several players from their pools at once.
+     *
+     * Anyone already in play or sold is reported rather than skipped: "8 removed" when one
+     * of them is the player currently on the block would be a quietly wrong answer to the
+     * only question the organizer is asking.
+     */
+    public function bulkUnassign(Request $request, Auction $auction): RedirectResponse|JsonResponse
+    {
+        $this->authorize('auction.edit');
+
+        $data = $request->validate([
+            'player_ids' => 'required|array|min:1',
+            'player_ids.*' => 'integer',
+        ]);
+
+        $rows = AuctionPlayer::where('auction_id', $auction->id)
+            ->whereIn('player_id', $data['player_ids'])
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return $this->poolReply($request, false, __('None of those players are in this auction.'));
+        }
+
+        $inPlay = $rows->firstWhere(fn (AuctionPlayer $ap) => $ap->status !== 'waiting');
+
+        if ($inPlay) {
+            return $this->poolReply($request, false, __('“:name” is already in play or sold — nothing was removed.', [
+                'name' => $inPlay->player->name ?? ('Player #' . $inPlay->player_id),
+            ]));
+        }
+
+        $playerIds = $rows->pluck('player_id')->all();
+        $poolIds = $rows->pluck('auction_pool_id')->filter()->unique();
+
+        DB::transaction(function () use ($rows, $poolIds) {
+            AuctionPlayer::whereIn('id', $rows->pluck('id'))->delete();
+
+            // Lot numbers are positional, so every touched pool has to be redrawn once —
+            // after the deletes, not per player, or the intermediate draws are wasted.
+            foreach ($poolIds as $poolId) {
+                if ($pool = AuctionPool::find($poolId)) {
+                    $this->poolService->generateLotNumbers($pool);
+                }
+            }
+        });
+
+        return $this->poolReply(
+            $request,
+            true,
+            trans_choice('{1} Player removed from pool.|[2,*] :count players removed from their pools.', count($playerIds), ['count' => count($playerIds)]),
+            $playerIds
+        );
+    }
+
+    /**
+     * One reply shape for the pool-screen mutations.
+     *
+     * The screen acts over fetch so it keeps its scroll position and any open inline edit
+     * forms; the same endpoints still answer a plain form post with a redirect, so nothing
+     * depends on JavaScript being reachable.
+     */
+    private function poolReply(Request $request, bool $ok, string $message, array $affected = []): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson()) {
+            return response()->json(
+                ['success' => $ok, 'message' => $message, 'affected' => $affected],
+                $ok ? 200 : 422
+            );
+        }
+
+        return back()->with($ok ? 'success' : 'error', $message);
     }
 
     /** Auto-group all unassigned approved players into pools by player type. */
@@ -286,6 +484,14 @@ class AuctionPoolController extends Controller
         $players = Player::whereHas('registrations', fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved'))
             ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
             ->whereNotIn('id', $pooledPlayerIds)
+            /*
+             * Retained players are never auto-grouped. Their auction row is deliberately
+             * pool-less (see AuctionPoolService::syncRetainedPlayers()), and "unassigned"
+             * here means `auction_pool_id IS NULL` — so without this filter every sweep
+             * would pull the retained rows straight back into a bidding queue they must
+             * never be in.
+             */
+            ->where(fn ($q) => $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode'))
             ->with('playerType')
             ->get();
 

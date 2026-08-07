@@ -228,8 +228,9 @@
             <div id="poolList" class="space-y-4">
                 @forelse($auction->pools as $pool)
                     @php
+                        // Retained rows are pool-less by design, so a pool holds only
+                        // biddable players. Retained players are listed once, below.
                         $biddable = $pool->players->where('is_retained', false)->sortBy('lot_number')->values();
-                        $retained = $pool->players->where('is_retained', true)->values();
                     @endphp
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4"
                          data-pool-id="{{ $pool->id }}" x-data="{ showRetained: false }">
@@ -263,27 +264,63 @@
                             @endif
                         </ol>
 
-                        @if($retained->count())
-                        <div class="mt-3 border-t border-gray-100 dark:border-gray-700 pt-2">
-                            <button type="button" @click="showRetained = !showRetained" class="text-xs font-medium text-purple-700 dark:text-purple-300">
-                                <span x-text="showRetained ? '▾' : '▸'"></span> Retained ({{ $retained->count() }})
-                            </button>
-                            <div x-show="showRetained" x-cloak class="mt-2 space-y-1">
-                                @foreach($retained as $ap)
-                                    <div class="flex items-center justify-between text-sm">
-                                        <span class="truncate">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
-                                        <span class="text-[11px] text-gray-400">{{ optional($ap->soldToTeam)->name ?? 'retained' }}</span>
-                                    </div>
-                                @endforeach
-                                <button @click="mergeRetained({{ $pool->id }})" class="mt-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded px-3 py-1">Merge into auction</button>
-                            </div>
-                        </div>
-                        @endif
                     </div>
                 @empty
                     <p class="text-sm text-gray-500 dark:text-gray-400">No pools configured.
                         <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="text-indigo-600 underline">Manage pools</a>.</p>
                 @endforelse
+
+                {{-- ── Retained players ──
+                     Listed against the auction, not inside a pool: a retained player is
+                     never bid on, so they have no place in a bidding queue. Their price is
+                     set on their team. Merging is the one thing that changes that — it gives
+                     up the retention and puts them on the block in a pool of your choosing,
+                     at that pool's base price. --}}
+                @isset($retainedPlayers)
+                    @if($retainedPlayers->count() && $auction->pools->count())
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-purple-200 dark:border-purple-800 p-4"
+                         x-data="{ mergePool: {{ $auction->pools->first()->id }} }">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <h4 class="font-semibold text-purple-700 dark:text-purple-300 text-sm">
+                                Retained players ({{ $retainedPlayers->count() }})
+                            </h4>
+                            <a href="{{ route('admin.auctions.pools.index', $auction) }}"
+                               class="text-xs text-gray-500 hover:underline">Budgets &rarr;</a>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            Kept by their team and charged against its budget. Not in the draw.
+                        </p>
+                        <div class="space-y-1 mb-3">
+                            @foreach($retainedPlayers as $ap)
+                                <div class="flex items-center justify-between text-sm gap-2">
+                                    <span class="truncate">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
+                                    <span class="text-[11px] text-gray-400 whitespace-nowrap">
+                                        {{ $ap->team->name ?? 'no team' }}
+                                        @if((float) $ap->retained_price > 0)
+                                            &middot; {{ $auction->formatAmount($ap->retained_price) }}
+                                        @else
+                                            &middot; <span class="text-red-500">no price</span>
+                                        @endif
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+                        @if($isAdmin)
+                        <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                            <select x-model="mergePool" class="form-control !py-1 !text-xs w-auto">
+                                @foreach($auction->pools as $p)
+                                    <option value="{{ $p->id }}">{{ $p->name }}</option>
+                                @endforeach
+                            </select>
+                            <button @click="mergeRetained(mergePool)"
+                                    class="text-xs bg-purple-600 hover:bg-purple-700 text-white rounded px-3 py-1.5">
+                                Give up retention &amp; add to pool
+                            </button>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+                @endisset
             </div>
         </div>
         @endif

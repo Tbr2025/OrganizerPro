@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Auction;
+use App\Models\AuctionClosedBidEntry;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionBid;
 use App\Models\ActualTeam;
@@ -11,6 +12,7 @@ use App\Models\AuctionActionLog;
 use App\Services\Auction\AuctionPoolService;
 use App\Services\Auction\AuctionUndoService;
 use App\Services\Auction\BidIncrementService;
+use App\Services\Auction\ClosedBidService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -86,7 +88,9 @@ class AuctionBiddingController extends Controller
         // inline sum here also omitted the status='sold' filter, so it counted
         // players who were merely on the block.)
         $purse = $this->pools->teamPurseState($auction, $userTeam->id);
-        $maxBudget = $this->cap($purse['allocated'] ?: (float) ($auction->max_budget_per_team ?? 0));
+        // `?:` here treated a deliberate per-team allocation of 0 as "unset" and fell
+        // back to the auction-wide cap, handing a zero-budget team the full purse.
+        $maxBudget = $this->cap($purse['allocated']);
         $remainingBudget = $this->cap($purse['remaining']);
         $maxBidAllowed = $this->cap($purse['max_bid_allowed']);
 
@@ -97,7 +101,7 @@ class AuctionBiddingController extends Controller
                 'player.playerType',
                 'player.battingProfile',
                 'player.bowlingProfile',
-                'bids' => fn ($query) => $query->latest('amount'),
+
                 // Constrained to live bids: the log is append-only, so a retracted
                 // (undone) bid is still present and must not appear as a standing bid.
                 'bids' => fn ($q) => $q->where('is_void', false)->with(['team', 'user']),
@@ -122,16 +126,21 @@ class AuctionBiddingController extends Controller
                     'id' => $auctionPlayer->currentBidTeam->id,
                     'name' => $auctionPlayer->currentBidTeam->name,
                 ] : null,
-                'bids' => $auctionPlayer->bids->map(function ($bid) {
-                    return [
-                        'id' => $bid->id,
-                        'amount' => $bid->amount,
-                        'team' => $bid->team ? [
-                            'id' => $bid->team->id,
-                            'name' => $bid->team->name,
-                        ] : null,
-                    ];
-                })->toArray(),
+                // Only this team's own bids. The page used to embed every team's live
+                // bid rows — id, amount and team name — straight into the HTML, so any
+                // team manager could read the whole board from view-source.
+                'bids' => $auctionPlayer->bids
+                    ->when($userTeam, fn ($bids) => $bids->where('team_id', $userTeam->id))
+                    ->map(function ($bid) {
+                        return [
+                            'id' => $bid->id,
+                            'amount' => $bid->amount,
+                            'team' => $bid->team ? [
+                                'id' => $bid->team->id,
+                                'name' => $bid->team->name,
+                            ] : null,
+                        ];
+                    })->values()->toArray(),
                 'status' => $auctionPlayer->status,
             ];
         }
@@ -273,6 +282,16 @@ class AuctionBiddingController extends Controller
             ], 422);
         }
 
+        // Sealed rounds take a completely different path. A closed bid used to be an
+        // ordinary bid row that publicly raised current_price and stamped
+        // current_bid_team_id — both of which are served by the UNAUTHENTICATED
+        // active-player feed, so the top sealed amount and the team behind it were
+        // visible to every rival within one poll. The sealed amount now goes to the
+        // round's entries, and nothing public moves.
+        if ($auction->bid_type === 'closed') {
+            return $this->submitSealedBid($request, $auction, $userTeam, $validated);
+        }
+
         $newPrice = null;
 
         try {
@@ -292,27 +311,12 @@ class AuctionBiddingController extends Controller
 
                 $current = (float) $auctionPlayer->current_price;
 
-                if ($auction->bid_type === 'open') {
-                    // Open bid: the server sets the amount from the increment ladder.
-                    $bidAmount = $this->increments->nextBidAmount($auction, $current);
+                // Open bidding only: sealed rounds never reach here. The server sets
+                // the amount from the increment ladder, so a client cannot name it.
+                $bidAmount = $this->increments->nextBidAmount($auction, $current);
 
-                    if ($bidAmount === null) {
-                        throw new \Exception('Maximum bid reached. No further increments available.');
-                    }
-                } else {
-                    // Closed bid: the team names its own amount, floored at the
-                    // current price plus one increment.
-                    if (! isset($validated['amount']) || $validated['amount'] <= 0) {
-                        throw new \Exception('Bid amount is required for closed bid.');
-                    }
-                    $bidAmount = (float) $validated['amount'];
-
-                    $minBid = $this->increments->nextBidAmount($auction, $current)
-                        ?? (float) $auctionPlayer->base_price;
-
-                    if ($bidAmount < $minBid) {
-                        throw new \Exception('Bid must be at least ' . format_points($minBid) . ' (current price + increment).');
-                    }
+                if ($bidAmount === null) {
+                    throw new \Exception($this->increments->noIncrementReason($auction, $current));
                 }
 
                 // Budget + squad-reserve validation, via the one canonical
@@ -366,21 +370,14 @@ class AuctionBiddingController extends Controller
 
                 $newPrice = $bidAmount;
 
-                // Auto-transition: open → closed (if threshold configured and not manually overridden)
+                // One rule, on the model. Reaching the sealed threshold also opens the
+                // round, so there is a single place where that can happen.
                 $freshAuction = Auction::find($auction->id);
-                if ($freshAuction->hasAutoPhaseTransition()
-                    && ! $freshAuction->mode_manually_overridden
-                    && $freshAuction->bid_type === 'open'
-                    && $bidAmount >= (float) $freshAuction->closed_bid_starts_at) {
-                    $freshAuction->update(['bid_type' => 'closed']);
-                }
+                $phase = $freshAuction->applyAutoPhase($bidAmount);
 
-                // Auto-transition to offline if price exceeds online limit
-                $freshAuction = $freshAuction->fresh();
-                if ($freshAuction->hasOnlineOfflineMode()
-                    && ! $freshAuction->mode_manually_overridden
-                    && $bidAmount > (float) $freshAuction->online_bid_limit_to) {
-                    $freshAuction->update(['open_bid_mode' => 'offline']);
+                if ($phase['bid_type_changed']) {
+                    app(\App\Services\Auction\ClosedBidService::class)
+                        ->openRoundFor($auctionPlayer->fresh(), $freshAuction->fresh());
                 }
             });
         } catch (\Exception $e) {
@@ -399,6 +396,166 @@ class AuctionBiddingController extends Controller
         ] + $this->pursePayload($purse));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sealed rounds (team side)
+    |--------------------------------------------------------------------------
+    | The team is always taken from the session, never from the request, and an admin
+    | previewing a team's screen is read-only — previewing must not let somebody submit
+    | another team's sealed bid.
+    */
+
+    /**
+     * The requesting user's team in THIS auction's tournament.
+     *
+     * Always from the session, never from the request. Scoped to the tournament because
+     * somebody managing teams in several tournaments would otherwise bid as the wrong one.
+     */
+    private function resolveTeam(Request $request, Auction $auction)
+    {
+        return Auth::user()?->actualTeams()->forTournament($auction->tournament_id)->first();
+    }
+
+    /** The player on the block, with its sealed round resolved. */
+    private function sealedTarget(Auction $auction, ?int $auctionPlayerId = null): ?AuctionPlayer
+    {
+        $query = AuctionPlayer::where('auction_id', $auction->id);
+
+        return $auctionPlayerId
+            ? $query->find($auctionPlayerId)
+            : $query->where('status', 'on_auction')->first();
+    }
+
+    /** Sealed-round state for the requesting team. */
+    public function closedBidState(Request $request, Auction $auction)
+    {
+        $userTeam = $this->resolveTeam($request, $auction);
+        $player = $this->sealedTarget($auction);
+
+        return response()->json([
+            'success' => true,
+            'sealed' => app(ClosedBidService::class)->stateForTeam($auction, $player, $userTeam?->id),
+        ]);
+    }
+
+    /** Accept the round conditions and enter. */
+    public function acceptClosedBid(Request $request, Auction $auction)
+    {
+        return $this->sealedAction($request, $auction, function ($service, $round, $team) {
+            return $service->accept($round, $team, auth()->user());
+        });
+    }
+
+    /** Leave the round without bidding. */
+    public function declineClosedBid(Request $request, Auction $auction)
+    {
+        return $this->sealedAction($request, $auction, function ($service, $round, $team) {
+            return $service->decline($round, $team);
+        });
+    }
+
+    /** Record this team's sealed amount. */
+    public function submitClosedBid(Request $request, Auction $auction)
+    {
+        $validated = $request->validate(['amount' => 'required|numeric|min:0']);
+
+        return $this->sealedAction($request, $auction, function ($service, $round, $team) use ($validated) {
+            return $service->submit($round, $team, (float) $validated['amount'], auth()->user());
+        });
+    }
+
+    /** Withdraw this team from the round. */
+    public function withdrawClosedBid(Request $request, Auction $auction)
+    {
+        return $this->sealedAction($request, $auction, function ($service, $round, $team) {
+            $entry = $round->entries()->where('actual_team_id', $team->id)->first();
+
+            if (! $entry) {
+                return ['handled' => false, 'message' => 'Your team is not in this round.'];
+            }
+
+            return $service->withdraw($entry, auth()->user(), AuctionClosedBidEntry::ROLE_TEAM);
+        });
+    }
+
+    /** Re-enter after withdrawing. */
+    public function reinstateClosedBid(Request $request, Auction $auction)
+    {
+        return $this->sealedAction($request, $auction, function ($service, $round, $team) {
+            $entry = $round->entries()->where('actual_team_id', $team->id)->first();
+
+            if (! $entry) {
+                return ['handled' => false, 'message' => 'Your team is not in this round.'];
+            }
+
+            return $service->reinstate($entry, auth()->user(), AuctionClosedBidEntry::ROLE_TEAM);
+        });
+    }
+
+    /**
+     * The checks every team-side sealed action shares.
+     *
+     * These routes carry only `auth` — the permission work is done here, exactly as
+     * placeBid() does it, so a new endpoint cannot quietly skip a check the old one had.
+     */
+    private function sealedAction(Request $request, Auction $auction, callable $do)
+    {
+        if ($auction->status === 'paused') {
+            return response()->json(['error' => 'The auction is paused.'], 423);
+        }
+
+        $user = auth()->user();
+
+        if ($user?->hasRole('player')) {
+            return response()->json(['error' => 'Players cannot place bids.'], 403);
+        }
+
+        // Read-only preview: an admin looking at a team's screen must not act as them.
+        if ($request->query('preview') || session('auction_preview_team_id')) {
+            return response()->json(['error' => 'Preview mode is read-only.'], 403);
+        }
+
+        $userTeam = $this->resolveTeam($request, $auction);
+
+        if (! $userTeam) {
+            return response()->json(['error' => 'Your team is not in this tournament.'], 403);
+        }
+
+        $player = $this->sealedTarget($auction);
+        $service = app(ClosedBidService::class);
+        $round = $player ? $service->currentRound($player) : null;
+
+        if (! $round || $round->isTerminal()) {
+            return response()->json(['error' => 'No sealed round is open for this player.'], 422);
+        }
+
+        $result = $do($service, $round, $userTeam);
+
+        if (! ($result['handled'] ?? false)) {
+            return response()->json(['error' => $result['message'] ?? 'That is not possible right now.'], 422);
+        }
+
+        $purse = $this->pools->teamPurseState($auction, $userTeam->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => $result['message'] ?? null,
+            'sealed' => $service->stateForTeam($auction, $player->fresh(), $userTeam->id),
+        ] + $this->pursePayload($purse));
+    }
+
+    /** Sealed submission arriving on the legacy place-bid endpoint. */
+    private function submitSealedBid(Request $request, Auction $auction, $userTeam, array $validated)
+    {
+        if (! isset($validated['amount']) || $validated['amount'] <= 0) {
+            return response()->json(['error' => 'A bid amount is required in a sealed round.'], 422);
+        }
+
+        return $this->sealedAction($request, $auction, function ($service, $round, $team) use ($validated) {
+            return $service->submit($round, $team, (float) $validated['amount'], auth()->user());
+        });
+    }
+
     /**
      * Purse figures shaped for the bidding page's Alpine state.
      *
@@ -414,6 +571,13 @@ class AuctionBiddingController extends Controller
             'slots_filled' => $purse['slots_filled'],
             'slots_required' => $purse['slots_required'],
             'slots_remaining' => $purse['slots_remaining'],
+            'allocated' => $this->cap($purse['allocated']),
+            'auction_purse' => $this->cap($purse['auction_purse']),
+            'retained_spent' => $purse['retained_spent'],
+            'auction_spent' => $purse['auction_spent'],
+            'retained_count' => $purse['retained_count'],
+            'retained_expected' => $purse['retained_expected'],
+            'slots_max' => $purse['slots_max'],
         ];
     }
 

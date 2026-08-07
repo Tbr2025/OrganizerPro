@@ -18,6 +18,13 @@ class AuctionActionLog extends Model
     public const ACTION_SKIP = 'skip';
     public const ACTION_ALLOT = 'allot';
 
+    // Sealed rounds. Each must appear in REVERSIBLE below as well, or nextUndoable()
+    // walks straight past it and the action silently cannot be undone.
+    public const ACTION_CLOSED_BID = 'closed_bid';
+    public const ACTION_CLOSED_ADJUST = 'closed_adjust';
+    public const ACTION_CLOSED_WITHDRAW = 'closed_withdraw';
+    public const ACTION_CLOSED_LOT = 'closed_lot';
+
     /** Actions Undo knows how to reverse. */
     public const REVERSIBLE = [
         self::ACTION_BID,
@@ -25,6 +32,10 @@ class AuctionActionLog extends Model
         self::ACTION_PASS,
         self::ACTION_SKIP,
         self::ACTION_ALLOT,
+        self::ACTION_CLOSED_BID,
+        self::ACTION_CLOSED_ADJUST,
+        self::ACTION_CLOSED_WITHDRAW,
+        self::ACTION_CLOSED_LOT,
     ];
 
     protected $fillable = [

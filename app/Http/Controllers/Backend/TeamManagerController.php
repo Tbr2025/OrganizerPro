@@ -45,34 +45,31 @@ class TeamManagerController extends Controller
         $pools = app(\App\Services\Auction\AuctionPoolService::class);
         $state = $pools->teamPurseState($auction, $teamId);
 
-        $retainedCount = $auction->auctionPlayers()
-            ->where('is_retained', true)
-            ->where('team_id', $teamId)
-            ->count();
-
-        $wonCount = $auction->auctionPlayers()
-            ->where('status', 'sold')
-            ->where('sold_to_team_id', $teamId)
-            ->count();
-
         $cap = fn (float $v) => $v >= 1.0e15 ? 1.0e15 : $v;
 
+        // Everything below comes out of the one memoized state array. These counts and
+        // the spend split used to be re-queried here, which both cost four extra
+        // queries and risked drifting from the figures the reserve rule uses.
         return [
             'max' => $cap($state['allocated']),
             'spent' => $state['spent'],
             'remaining' => $cap($state['remaining']),
+            // What is left to bid with once retentions are paid for.
+            'auction_purse' => $cap($state['auction_purse']),
             // Squad composition.
-            'retained_count' => $retainedCount,
-            'won_count' => $wonCount,
+            'retained_count' => $state['retained_count'],
+            'retained_expected' => $state['retained_expected'],
+            'won_count' => $pools->soldCount($auction, $teamId),
             'squad_size' => $state['slots_filled'],
             'squad_required' => $state['slots_required'],
             'squad_remaining' => $state['slots_remaining'],
+            'squad_max' => $state['slots_max'],
             // What the reserve rule currently holds back, and the resulting bid ceiling.
             'reserve' => $state['reserve'],
             'max_bid_allowed' => $cap($state['max_bid_allowed']),
             // Money split the same way as the squad.
-            'retained_spent' => $pools->retainedSpent($auction, $teamId),
-            'auction_spent' => $pools->soldSpent($auction, $teamId),
+            'retained_spent' => $state['retained_spent'],
+            'auction_spent' => $state['auction_spent'],
         ];
     }
 

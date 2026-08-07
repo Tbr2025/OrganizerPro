@@ -16,6 +16,7 @@ use App\Models\TournamentRegistration;
 use App\Models\User;
 use App\Jobs\RemoveImageBackground;
 use App\Models\PlayerType;
+use App\Services\Auction\AuctionPoolService;
 use App\Services\LogoProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -621,7 +622,42 @@ class ActualTeamController extends Controller
         // --- Return the View ---
         $playerTypes = PlayerType::whereIn('type', ['Batsman', 'Bowler', 'All-Rounder'])->get();
 
+        /*
+         * Budget summary.
+         *
+         * Retention is set on this page, and its whole effect is to spend the team's auction
+         * budget — so the figure it spends has to be visible here. Previously the only place
+         * showing it was the teams list and the auction's own Pools screen, which meant
+         * typing a retention value was a blind edit.
+         *
+         * Read through AuctionPoolService so it is the same arithmetic the live auction
+         * enforces, rather than a second, drifting copy (the teams list computes its own,
+         * from players.retained_value; this reads the auction rows the floor actually uses).
+         */
+        $teamBudget = null;
+        if ($teamAuction && $teamAuction->tournament?->isAuction()) {
+            $state = app(AuctionPoolService::class)->teamPurseState($teamAuction, $actualTeam->id);
+
+            $teamBudget = [
+                'auction' => $teamAuction,
+                'allocated' => $state['allocated'],
+                'retained_spent' => $state['retained_spent'],
+                'auction_spent' => $state['auction_spent'],
+                'remaining' => $state['remaining'],
+                'retained_count' => $state['retained_count'],
+                'retained_expected' => $state['retained_expected'],
+                'slots_filled' => $state['slots_filled'],
+                'slots_max' => $state['slots_max'],
+                // What the team can still bid on one player, both ceilings — the same
+                // figures the bidding screen shows them.
+                'max_bid_allowed' => $state['max_bid_allowed'],
+                'per_player_cap' => $state['per_player_cap'],
+                'per_player_cap_pct' => $state['per_player_cap_pct'],
+            ];
+        }
+
         return view('backend.pages.actual_teams.edit', compact(
+            'teamBudget',
             'actualTeam',
             'organizations',
             'tournaments',

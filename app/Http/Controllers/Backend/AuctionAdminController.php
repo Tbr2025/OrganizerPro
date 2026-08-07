@@ -38,6 +38,60 @@ class AuctionAdminController extends Controller
      *
      * @param  array<string, mixed>  $validated
      */
+    /**
+     * Refuse a bid ladder that cannot raise the opening price.
+     *
+     * `incrementFor()` matches the band containing the current price, then falls back to the
+     * next band ABOVE it. If the base price sits above every band, neither finds anything and
+     * the increment is 0 — which the panel reports as "Maximum bid reached." before a single
+     * bid has been placed, and the player can never be sold.
+     *
+     * This is exactly the failure that only shows up mid-event with a player on the block, so
+     * it is caught at save time with the arithmetic spelled out. A ladder that stops *below*
+     * the base price is always a mistake: no configuration makes it work.
+     */
+    protected function assertBidLadderCoversBasePrice(array $validated): void
+    {
+        $base = $validated['base_price'] ?? null;
+        $rules = $validated['bid_rules'] ?? null;
+
+        if ($base === null || ! is_array($rules) || $rules === []) {
+            return;
+        }
+
+        $tops = [];
+        foreach ($rules as $rule) {
+            // A band with no increment cannot raise anything, so it does not count as cover.
+            if (! is_array($rule) || (float) ($rule['increment'] ?? 0) <= 0) {
+                continue;
+            }
+            $tops[] = (float) ($rule['to'] ?? 0);
+        }
+
+        if ($tops === []) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'bid_rules' => 'At least one bid rule needs an increment above zero, '
+                    . 'or no bid can ever be placed.',
+            ]);
+        }
+
+        $ceiling = max($tops);
+
+        if ((float) $base > $ceiling) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'bid_rules' => sprintf(
+                    'The bid rules stop at %s but the base price is %s, so the opening price is '
+                    . 'above every band and no bid could ever be placed — the panel would report '
+                    . '"Maximum bid reached." with nobody having bid. Extend the top rule to at '
+                    . 'least %s, or lower the base price.',
+                    format_points($ceiling),
+                    format_points($base),
+                    format_points($base)
+                ),
+            ]);
+        }
+    }
+
     protected function assertSquadReserveIsSatisfiable(array $validated): void
     {
         $budget = (float) ($validated['max_budget_per_team'] ?? 0);
@@ -117,7 +171,112 @@ class AuctionAdminController extends Controller
                 'tournament_ids' => $p->registrations->pluck('tournament_id')->unique()->values()->all(),
             ]);
 
-        return view('backend.pages.auctions.create', compact('organizations', 'tournaments', 'availablePlayers'));
+        $displayTemplates = $this->selectableTemplates(\App\Models\AuctionTemplate::TYPE_LIVE_DISPLAY);
+        $tickerTemplates = $this->selectableTemplates(\App\Models\AuctionTemplate::TYPE_TICKER);
+
+        return view('backend.pages.auctions.create', compact(
+            'organizations',
+            'tournaments',
+            'availablePlayers',
+            'displayTemplates',
+            'tickerTemplates'
+        ));
+    }
+
+    /**
+     * Templates this user may pick for a given screen: their own organization's, plus the
+     * shared globals. Used by both wizards, so Create and Edit can never offer different
+     * lists — Create offered none at all, which is why an auction created here always fell
+     * back to the default wall however many templates existed.
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\AuctionTemplate>
+     */
+    protected function selectableTemplates(string $type)
+    {
+        return \App\Models\AuctionTemplate::query()
+            ->visibleTo(Auth::user())
+            // The wall accepts player_card as well — same canvas, same element set.
+            ->whereIn('type', \App\Models\AuctionTemplate::acceptableTypes($type))
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'render_mode']);
+    }
+
+    /**
+     * Refuse a sealed-bid configuration in which no legal bid could ever be placed.
+     *
+     * Each of these produces an auction that looks configured and then quietly fails at
+     * the worst possible moment — mid-event, with a player on the block — so they are
+     * caught at save time with the arithmetic spelled out.
+     *
+     * No-ops entirely when no sealed threshold is set.
+     */
+    protected function assertClosedBidRuleIsSatisfiable(array $validated): void
+    {
+        $threshold = $validated['closed_bid_starts_at'] ?? null;
+
+        if ($threshold === null || $threshold === '') {
+            return;
+        }
+
+        $threshold = (float) $threshold;
+        $budget = (float) ($validated['max_budget_per_team'] ?? 0);
+        $step = (float) ($validated['closed_bid_step'] ?? Auction::DEFAULT_CLOSED_BID_STEP);
+        $pct = (float) ($validated['closed_bid_max_pct_of_budget'] ?? Auction::DEFAULT_CLOSED_BID_MAX_PCT);
+
+        // 1. The opening amount must itself sit on the grid, or there is no legal bid at
+        //    the floor. Integer cents, for the reason given in BidIncrementService.
+        $stepCents = (int) round($step * 100);
+        $thresholdCents = (int) round($threshold * 100);
+
+        if ($stepCents > 0 && $thresholdCents % $stepCents !== 0) {
+            $below = intdiv($thresholdCents, $stepCents) * $stepCents / 100;
+
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'closed_bid_starts_at' => sprintf(
+                    'A sealed round opening at %s is not a multiple of the %s bid step, so no team could bid the opening amount. Use %s or %s.',
+                    format_points($threshold),
+                    format_points($step),
+                    format_points($below),
+                    format_points($below + $step)
+                ),
+            ]);
+        }
+
+        // 2. The per-player cap must be able to reach the floor, or every sealed round
+        //    ends with nobody having been allowed to enter it.
+        $cap = $budget * $pct / 100;
+
+        if ($budget > 0 && $threshold > $cap) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'closed_bid_max_pct_of_budget' => sprintf(
+                    'A sealed round opens at %s, but a per-player cap of %s%% of a %s budget is %s — no team could bid the opening amount. Raise the cap, raise the budget, or lower the sealed threshold.',
+                    format_points($threshold),
+                    rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.'),
+                    format_points($budget),
+                    format_points($cap)
+                ),
+            ]);
+        }
+
+        // 3. The squad reserve must leave room for the floor. This is the one most likely
+        //    to bite in practice, because min_squad_size defaults to 11.
+        $squad = (int) ($validated['min_squad_size'] ?? Auction::DEFAULT_MIN_SQUAD_SIZE);
+        $perPlace = (float) ($validated['min_price_per_player'] ?? $validated['base_price'] ?? 0);
+        $reserve = max(0, $squad - 1) * $perPlace;
+
+        if ($budget > 0 && $threshold > $budget - $reserve) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'closed_bid_starts_at' => sprintf(
+                    'A sealed round opens at %s, but holding %s back for %d more squad place(s) leaves only %s of a %s budget — the reserve rule alone would block the opening amount.',
+                    format_points($threshold),
+                    format_points($reserve),
+                    max(0, $squad - 1),
+                    format_points(max(0, $budget - $reserve)),
+                    format_points($budget)
+                ),
+            ]);
+        }
     }
 
     public function store(Request $request)
@@ -154,6 +313,22 @@ class AuctionAdminController extends Controller
             // reserve would block every bid.
             'min_squad_size' => 'nullable|integer|min:1|max:50',
             'min_price_per_player' => 'nullable|numeric|min:0',
+            // A ceiling below the floor is incoherent; everything else here is advisory.
+            'max_squad_size' => 'nullable|integer|min:1|max:50|gte:min_squad_size',
+            'auction_template_id' => 'nullable|exists:auction_templates,id',
+            'ticker_template_id' => 'nullable|exists:auction_templates,id',
+            'default_retained_value' => 'nullable|numeric|min:0',
+            'expected_retained_per_team' => 'nullable|integer|min:0|max:50',
+            // Sealed-round rules. A step of 0 is a configuration error, not "any amount
+            // is legal", so it is refused here rather than defended against downstream.
+            'closed_bid_step' => 'nullable|numeric|min:0.01',
+            'closed_bid_max_pct_of_budget' => 'nullable|numeric|min:1|max:100',
+            'closed_bid_max_rebid_rounds' => 'nullable|integer|min:0|max:5',
+            'closed_bid_timer_seconds' => 'nullable|integer|min:5|max:600',
+            'closed_bid_requires_acceptance' => 'nullable|boolean',
+            'closed_bid_tie_breaker' => 'nullable|in:lot,manual',
+            'team_budgets' => 'nullable|array',
+            'team_budgets.*' => 'nullable|numeric|min:0',
             // What amounts are called on every screen.
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
@@ -209,6 +384,8 @@ class AuctionAdminController extends Controller
         // A squad that costs more than the purse makes the reserve rule
         // unsatisfiable, which would block every bid.
         $this->assertSquadReserveIsSatisfiable($validated);
+        $this->assertClosedBidRuleIsSatisfiable($validated);
+        $this->assertBidLadderCoversBasePrice($validated);
 
         if (! Auth::user()->hasRole('Superadmin')) {
             $validated['organization_id'] = Auth::user()->organization_id;
@@ -248,6 +425,19 @@ class AuctionAdminController extends Controller
                 'base_price' => $validated['base_price'],
                 'min_squad_size' => $validated['min_squad_size'] ?? Auction::DEFAULT_MIN_SQUAD_SIZE,
                 'min_price_per_player' => $validated['min_price_per_player'] ?? $validated['base_price'],
+                // `?? null` rather than a const: the accessors own the defaults, so a
+                // blank field stays blank and stays clearable.
+                'auction_template_id' => $validated['auction_template_id'] ?? null,
+                'ticker_template_id' => $validated['ticker_template_id'] ?? null,
+                'max_squad_size' => $validated['max_squad_size'] ?? null,
+                'default_retained_value' => $validated['default_retained_value'] ?? null,
+                'expected_retained_per_team' => $validated['expected_retained_per_team'] ?? null,
+                'closed_bid_step' => $validated['closed_bid_step'] ?? null,
+                'closed_bid_max_pct_of_budget' => $validated['closed_bid_max_pct_of_budget'] ?? null,
+                'closed_bid_max_rebid_rounds' => $validated['closed_bid_max_rebid_rounds'] ?? null,
+                'closed_bid_timer_seconds' => $validated['closed_bid_timer_seconds'] ?? null,
+                'closed_bid_requires_acceptance' => $request->boolean('closed_bid_requires_acceptance', true),
+                'closed_bid_tie_breaker' => $validated['closed_bid_tie_breaker'] ?? null,
                 'amount_unit' => $validated['amount_unit'] ?? Auction::UNIT_POINTS,
                 'amount_unit_label' => $validated['amount_unit_label'] ?? null,
                 'start_at' => $validated['start_at'],
@@ -304,6 +494,8 @@ class AuctionAdminController extends Controller
                     ]);
                 }
             }
+
+            $this->syncTeamBudgets($auction, $request->input('team_budgets'));
         });
 
         return redirect()->route('admin.auctions.index')->with('success', 'Auction configured and created successfully.');
@@ -546,14 +738,48 @@ class AuctionAdminController extends Controller
             'auction_player_ids.*' => 'integer',
         ]);
 
-        $query = $pool->players()->where('is_retained', true);
+        $poolService = app(AuctionPoolService::class);
+
+        /*
+         * Scoped to the AUCTION's retained players, not to this pool's.
+         *
+         * Retained rows are deliberately pool-less (see
+         * AuctionPoolService::syncRetainedPlayers()) because a retained player is never bid
+         * on. Looking for them inside a pool therefore found nothing and reported a silent
+         * "merged 0". Merging is precisely the act of moving them INTO this pool, so the
+         * pool is the destination here rather than the filter.
+         */
+        $query = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('is_retained', true)
+            // Never rewrite a completed result on the strength of a stale flag.
+            ->where('status', 'waiting');
+
         if (! empty($data['auction_player_ids'])) {
             $query->whereIn('id', $data['auction_player_ids']);
         }
-        $merged = $query->update(['is_retained' => false, 'status' => 'waiting', 'lot_number' => null]);
+
+        // The pool's price, not the retained row's — a retained row carries base_price 0
+        // because it was never meant to be bid on, so merging without this put the player
+        // on the block for nothing.
+        $base = $poolService->resolveBasePrice($auction, $pool);
+
+        $merged = $query->update([
+            'is_retained' => false,
+            'auction_pool_id' => $pool->id,
+            'status' => 'waiting',
+            'lot_number' => null,
+            'base_price' => $base,
+            'current_price' => $base,
+            'starting_price' => $base,
+            // The retention is off, so the team is no longer charged for them and no
+            // longer holds them. Left set, these would keep implying a claim that the
+            // budget arithmetic has already stopped honouring.
+            'team_id' => null,
+            'retained_price' => null,
+        ]);
 
         // Slot the merged players into the pool's draw order.
-        app(AuctionPoolService::class)->generateLotNumbers($pool);
+        $poolService->generateLotNumbers($pool);
 
         return response()->json(['success' => true, 'merged' => $merged]);
     }
@@ -615,12 +841,27 @@ class AuctionAdminController extends Controller
             ? json_decode($auction->bid_rules, true)
             : $auction->bid_rules; // Already array if cast in model
 
+        /*
+         * Retained players, read from the AUCTION rather than from inside a pool.
+         *
+         * Their rows are deliberately pool-less, so the per-pool "Retained (n)" section that
+         * used to hold them is always empty now — which silently took the "Merge into
+         * auction" control off the page with it. They belong to the auction, so they are
+         * listed once, here.
+         */
+        $retainedPlayers = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('is_retained', true)
+            ->where('status', 'waiting')
+            ->with(['player:id,name', 'team:id,name'])
+            ->get();
+
         return view('backend.pages.auctions.show', [
             'auction' => $auction,
             'teams' => $teams,
             'bidRules' => $bidRules,
             'isAdmin' => $isAdmin,
             'userTeam' => $userTeam,
+            'retainedPlayers' => $retainedPlayers,
         ]);
     }
 
@@ -771,7 +1012,9 @@ class AuctionAdminController extends Controller
                 }
 
                 if ($increment <= 0) {
-                    throw new \Exception('Maximum bid reached.');
+                    // Names the real cause: a base price above the top band is not the same
+                    // thing as a ladder that has been climbed to its end.
+                    throw new \Exception($increments->noIncrementReason($auction, $current));
                 }
 
                 $newPrice = $current + $increment;
@@ -846,20 +1089,12 @@ class AuctionAdminController extends Controller
         $increment = $result['increment'];
         $player = $result['player'];
 
-        // Auto-transition: open → closed (if threshold configured and not manually overridden)
-        if ($auction->hasAutoPhaseTransition()
-            && ! $auction->mode_manually_overridden
-            && $auction->bid_type === 'open'
-            && $newPrice >= (float) $auction->closed_bid_starts_at) {
-            $auction->update(['bid_type' => 'closed']);
-        }
-
-        // Auto-transition to offline if price exceeds online limit
+        // Same single rule as the team bid path, including opening the sealed round.
+        $phase = $auction->applyAutoPhase((float) $newPrice);
         $auction = $auction->fresh();
-        if ($auction->hasOnlineOfflineMode()
-            && ! $auction->mode_manually_overridden
-            && $newPrice > (float) $auction->online_bid_limit_to) {
-            $auction->update(['open_bid_mode' => 'offline']);
+
+        if ($phase['bid_type_changed']) {
+            app(\App\Services\Auction\ClosedBidService::class)->openRoundFor($player->fresh(), $auction);
         }
 
         // Load relationships for frontend
@@ -901,6 +1136,17 @@ class AuctionAdminController extends Controller
         $auction = Auction::findOrFail($data['auctionId']);
         $player = AuctionPlayer::where('auction_id', $auction->id)
             ->findOrFail($data['playerID']);
+
+        // The "−" button pops whatever is newest on the auction's undo stack. During a
+        // sealed round that is very likely a TEAM's sealed bid, so pressing it here
+        // would silently retract somebody else's bid instead of lowering a price.
+        $closedBids = app(\App\Services\Auction\ClosedBidService::class);
+        if ($closedBids->hasOpenRound($player)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A sealed round is running for this player — use the sealed-bid panel.',
+            ], 422);
+        }
 
         $result = $undo->undoLast($auction);
 
@@ -1009,6 +1255,10 @@ class AuctionAdminController extends Controller
             : collect();
         $teamBudgets = $auction->teamBudgets->keyBy('actual_team_id'); // actual_team_id => AuctionTeamBudget
 
+        // Templates this auction may render with: its own, plus the shared globals.
+        $displayTemplates = $this->selectableTemplates(\App\Models\AuctionTemplate::TYPE_LIVE_DISPLAY);
+        $tickerTemplates = $this->selectableTemplates(\App\Models\AuctionTemplate::TYPE_TICKER);
+
         return view('backend.pages.auctions.edit', compact(
             'auction',
             'organizations',
@@ -1017,7 +1267,9 @@ class AuctionAdminController extends Controller
             'existingPools',
             'unpooled',
             'budgetTeams',
-            'teamBudgets'
+            'teamBudgets',
+            'displayTemplates',
+            'tickerTemplates'
         ));
     }
 
@@ -1068,6 +1320,20 @@ class AuctionAdminController extends Controller
             // reserve would block every bid.
             'min_squad_size' => 'nullable|integer|min:1|max:50',
             'min_price_per_player' => 'nullable|numeric|min:0',
+            // A ceiling below the floor is incoherent; everything else here is advisory.
+            'max_squad_size' => 'nullable|integer|min:1|max:50|gte:min_squad_size',
+            'auction_template_id' => 'nullable|exists:auction_templates,id',
+            'ticker_template_id' => 'nullable|exists:auction_templates,id',
+            'default_retained_value' => 'nullable|numeric|min:0',
+            'expected_retained_per_team' => 'nullable|integer|min:0|max:50',
+            // Sealed-round rules. A step of 0 is a configuration error, not "any amount
+            // is legal", so it is refused here rather than defended against downstream.
+            'closed_bid_step' => 'nullable|numeric|min:0.01',
+            'closed_bid_max_pct_of_budget' => 'nullable|numeric|min:1|max:100',
+            'closed_bid_max_rebid_rounds' => 'nullable|integer|min:0|max:5',
+            'closed_bid_timer_seconds' => 'nullable|integer|min:5|max:600',
+            'closed_bid_requires_acceptance' => 'nullable|boolean',
+            'closed_bid_tie_breaker' => 'nullable|in:lot,manual',
             // What amounts are called on every screen.
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
@@ -1118,6 +1384,8 @@ class AuctionAdminController extends Controller
         // A squad that costs more than the purse makes the reserve rule
         // unsatisfiable, which would block every bid.
         $this->assertSquadReserveIsSatisfiable($validated);
+        $this->assertClosedBidRuleIsSatisfiable($validated);
+        $this->assertBidLadderCoversBasePrice($validated);
 
         // Keep the auction's org aligned to its tournament so player isolation never
         // mismatches (prevents the pool sync from dropping legitimate players).
@@ -1154,6 +1422,19 @@ class AuctionAdminController extends Controller
                 'base_price' => $validated['base_price'],
                 'min_squad_size' => $validated['min_squad_size'] ?? $auction->min_squad_size ?? Auction::DEFAULT_MIN_SQUAD_SIZE,
                 'min_price_per_player' => $validated['min_price_per_player'] ?? $auction->min_price_per_player,
+                // Deliberately NOT `?? $auction->x` — preserve-on-absent would make these
+                // impossible to clear, the same trap the colour fields fell into.
+                'auction_template_id' => $validated['auction_template_id'] ?? null,
+                'ticker_template_id' => $validated['ticker_template_id'] ?? null,
+                'max_squad_size' => $validated['max_squad_size'] ?? null,
+                'default_retained_value' => $validated['default_retained_value'] ?? null,
+                'expected_retained_per_team' => $validated['expected_retained_per_team'] ?? null,
+                'closed_bid_step' => $validated['closed_bid_step'] ?? null,
+                'closed_bid_max_pct_of_budget' => $validated['closed_bid_max_pct_of_budget'] ?? null,
+                'closed_bid_max_rebid_rounds' => $validated['closed_bid_max_rebid_rounds'] ?? null,
+                'closed_bid_timer_seconds' => $validated['closed_bid_timer_seconds'] ?? null,
+                'closed_bid_requires_acceptance' => $request->boolean('closed_bid_requires_acceptance', true),
+                'closed_bid_tie_breaker' => $validated['closed_bid_tie_breaker'] ?? null,
                 'amount_unit' => $validated['amount_unit'] ?? $auction->amount_unit ?? Auction::UNIT_POINTS,
                 'amount_unit_label' => $validated['amount_unit_label'] ?? null,
                 'bid_rules' => $validated['bid_rules'],
@@ -1189,33 +1470,81 @@ class AuctionAdminController extends Controller
                 $this->syncAuctionPools($auction, $pools);
             }
 
-            // Per-team budget overrides (blank clears the override → uniform cap applies).
-            // Keys are request-supplied, so only teams that actually belong to this
-            // auction's tournament may be written — otherwise any actual_team_id could
-            // be injected, including another tournament's or org's team.
-            if (is_array($request->input('team_budgets'))) {
-                $eligibleTeamIds = ActualTeam::forTournament($auction->tournament_id)
-                    ->pluck('id')
-                    ->flip();
-
-                foreach ($request->input('team_budgets') as $teamId => $budget) {
-                    if (! $eligibleTeamIds->has((int) $teamId)) {
-                        continue;
-                    }
-                    if ($budget === null || $budget === '') {
-                        AuctionTeamBudget::where('auction_id', $auction->id)
-                            ->where('actual_team_id', (int) $teamId)->delete();
-                        continue;
-                    }
-                    AuctionTeamBudget::updateOrCreate(
-                        ['auction_id' => $auction->id, 'actual_team_id' => (int) $teamId],
-                        ['organization_id' => $auction->organization_id, 'budget' => $budget]
-                    );
-                }
-            }
+            $this->syncTeamBudgets($auction, $request->input('team_budgets'));
         });
 
         return redirect()->route('admin.auctions.index')->with('success', 'Auction configuration updated successfully.');
+    }
+
+    /**
+     * The auction broadcast screens, in one place.
+     *
+     * The ticker and the LED wall were reachable only from two ad-hoc links on a single
+     * auction's page, so nobody running a stream could find them.
+     */
+    public function liveTickerIndex()
+    {
+        $this->authorize('auction.view');
+
+        $auctions = Auction::with('tournament')
+            // Live auctions first — that is what somebody opening this page wants.
+            ->orderByRaw("CASE WHEN status = 'running' THEN 0 WHEN status = 'paused' THEN 1 ELSE 2 END")
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        return view('backend.pages.auctions.live-ticker-index', [
+            'auctions' => $auctions,
+            'breadcrumbs' => [
+                'title' => __('Auction Broadcast Screens'),
+                'items' => [
+                    ['label' => __('Auctions'), 'url' => route('admin.auctions.index')],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Persist per-team budget overrides.
+     *
+     * Blank clears the override so the uniform cap applies again — it must NOT write 0,
+     * because a zero row legitimately means "this team has no money" and allocatedBudget()
+     * honours it.
+     *
+     * Keys arrive from the request, so only teams that really belong to this auction's
+     * tournament may be written; without that check any actual_team_id could be injected,
+     * including another organization's. Shared by store() and update() precisely so that
+     * check cannot drift between them.
+     *
+     * @param  mixed  $budgets
+     */
+    protected function syncTeamBudgets(Auction $auction, $budgets): void
+    {
+        if (! is_array($budgets)) {
+            return;
+        }
+
+        $eligibleTeamIds = ActualTeam::forTournament($auction->tournament_id)
+            ->pluck('id')
+            ->flip();
+
+        foreach ($budgets as $teamId => $budget) {
+            if (! $eligibleTeamIds->has((int) $teamId)) {
+                continue;
+            }
+
+            if ($budget === null || $budget === '') {
+                AuctionTeamBudget::where('auction_id', $auction->id)
+                    ->where('actual_team_id', (int) $teamId)
+                    ->delete();
+
+                continue;
+            }
+
+            AuctionTeamBudget::updateOrCreate(
+                ['auction_id' => $auction->id, 'actual_team_id' => (int) $teamId],
+                ['organization_id' => $auction->organization_id, 'budget' => $budget]
+            );
+        }
     }
 
     /**

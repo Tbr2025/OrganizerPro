@@ -15,12 +15,46 @@ use Illuminate\Support\Facades\Auth;
 class ClosedBidController extends Controller
 {
     /**
+     * Auctions this user may see.
+     *
+     * This page used to list every auction and every team in the database to anybody who
+     * could reach the URL — the routes carry no permission gate of their own, and
+     * `organizer.access` only constrains users holding the Organizer role, and only on
+     * route-bound models, of which these routes have none.
+     */
+    private function visibleAuctions()
+    {
+        $user = Auth::user();
+        $query = Auction::orderBy('name');
+
+        if ($user && ! $user->hasRole('Superadmin') && $user->organization_id) {
+            $query->where('organization_id', $user->organization_id);
+        }
+
+        return $query;
+    }
+
+    private function visibleTeams()
+    {
+        $user = Auth::user();
+        $query = ActualTeam::orderBy('name');
+
+        if ($user && ! $user->hasRole('Superadmin') && $user->organization_id) {
+            $query->where('organization_id', $user->organization_id);
+        }
+
+        return $query;
+    }
+
+    /**
      * Show the Closed Bids page
      */
     public function index()
     {
-        $auctions = Auction::orderBy('name')->get(['id', 'name']);
-        $teams = ActualTeam::orderBy('name')->get(['id', 'name']);
+        $this->authorize('auction.view');
+
+        $auctions = $this->visibleAuctions()->get(['id', 'name']);
+        $teams = $this->visibleTeams()->get(['id', 'name']);
         $breadcrumbs = ['title' => __('Closed Bids')];
 
         return view('backend.pages.auctions.closed-bids', compact('auctions', 'teams', 'breadcrumbs'));
@@ -31,17 +65,13 @@ class ClosedBidController extends Controller
      */
     public function fetchClosedBids(Request $request)
     {
-        $user = Auth::user();
+        $this->authorize('auction.view');
 
-        // Query closed bids
+        // Scoped to auctions this user may actually see. Without this the endpoint
+        // returned every organization's closed bids to anybody who could reach the URL.
         $query = AuctionPlayer::with(['player', 'soldToTeam', 'auction', 'bids.team'])
-            ->where('status', 'closed');
-
-        if ($user->hasRole('TeamManager')) {
-            $query->whereHas('soldToTeam', function ($q) use ($user) {
-                $q->where('id', $user->team_id);
-            });
-        }
+            ->where('status', 'closed')
+            ->whereIn('auction_id', $this->visibleAuctions()->pluck('id'));
 
         if ($request->filled('auction_id')) {
             $query->where('auction_id', $request->auction_id);
@@ -116,6 +146,8 @@ class ClosedBidController extends Controller
 
     public function updateFinalPrice(Request $request, Auction $auction, $playerId)
     {
+        $this->authorize('auction.edit');
+
         $request->validate([
             'final_price' => 'required|numeric|min:0',
         ]);

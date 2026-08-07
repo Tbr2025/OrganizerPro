@@ -68,6 +68,16 @@ class AuctionOrganizerController extends Controller
                 $team->players_bought = $state['slots_filled'];
                 $team->total_spent = $state['spent'];
                 $team->remaining_budget = $this->cap($state['remaining']);
+
+                // The configured total, and the purse left once retentions are paid.
+                // Without `allocated` every screen fell back to the auction-wide cap and
+                // a team with its own budget saw somebody else's number.
+                $team->allocated = $this->cap($state['allocated']);
+                $team->auction_purse = $this->cap($state['auction_purse']);
+                $team->retained_spent = $state['retained_spent'];
+                $team->auction_spent = $state['auction_spent'];
+                $team->retained_count = $state['retained_count'];
+                $team->retained_expected = $state['retained_expected'];
                 $team->max_bid_allowed = $this->cap($state['max_bid_allowed']);
                 $team->reserve_amount = $state['reserve'];
                 $team->slots_required = $state['slots_required'];
@@ -287,6 +297,11 @@ class AuctionOrganizerController extends Controller
 
         return response()->json([
             'auction_status' => $freshAuction->status,
+            // Same two fields the public wall reads, from the same server-computed window,
+            // so the panel and the hall screen announce a restart together instead of the
+            // panel guessing from its own local state.
+            'restarting' => $freshAuction->isRestarting(),
+            'restart_seconds' => $freshAuction->restartNoticeRemaining(),
             'available_players' => $availablePlayers,
             'current_player' => $currentPlayer,
             'sold_players' => $soldPlayers,
@@ -300,6 +315,7 @@ class AuctionOrganizerController extends Controller
             'closed_bid_starts_at' => $freshAuction->closed_bid_starts_at,
             // Squad-reserve rule, so the panel can show why a team is locked out.
             'min_squad_size' => $freshAuction->minSquadSize(),
+            'max_squad_size' => $freshAuction->maxSquadSize(),
             'min_price_per_player' => $freshAuction->minPricePerPlayer(),
             'bid_increment' => $bidState['increment'] ?? null,
             'next_bid_amount' => $bidState['next_bid_amount'] ?? null,
@@ -458,8 +474,19 @@ class AuctionOrganizerController extends Controller
             AuctionBid::where('auction_id', $auction->id)->delete();
             AuctionActionLog::where('auction_id', $auction->id)->delete();
 
-            // Reset auction status
-            $auction->update(['status' => 'running']);
+            // Any sealed round belonged to the run that has just been wiped. Abandoned
+            // rather than deleted, so the record of a disputed round survives.
+            $auction->auctionPlayers()->whereNotNull('closed_bid_round_id')->get()
+                ->each(fn ($ap) => app(\App\Services\Auction\ClosedBidService::class)->abandonRoundsFor($ap));
+
+            $auction->update([
+                'status' => 'running',
+                // Without this the big screen keeps counting down a player who is no
+                // longer on the block — a live clock over the waiting screen.
+                'timer_started_at' => null,
+                // Announce the restart instead of silently blanking to the waiting state.
+                'restarted_at' => now(),
+            ]);
         });
 
         broadcast(new AuctionStatusUpdate($auction->id, 'running'));
@@ -549,17 +576,24 @@ class AuctionOrganizerController extends Controller
         ]);
 
         // Reset phase for new player
+        // A new player starts at their base price, so the sealed phase resets with them.
+        // The online/offline mode does NOT: if the organizer is taking bids by hand in the
+        // room, that stays true for the next player too. Resetting it here is why offline
+        // mode never survived a single player.
+        $phaseReset = [];
+
         if ($auction->hasAutoPhaseTransition()) {
-            $auction->update([
-                'bid_type' => 'open',
-                'open_bid_mode' => 'online',
-                'mode_manually_overridden' => false,
-            ]);
-        } elseif ($auction->bid_type === 'open') {
-            $auction->update([
-                'open_bid_mode' => 'online',
-                'mode_manually_overridden' => false,
-            ]);
+            $phaseReset['bid_type'] = 'open';
+            $phaseReset['bid_type_manually_overridden'] = false;
+        }
+
+        // Only undo a mode the PRICE rule set, never one the organizer chose.
+        if (! $auction->mode_manually_overridden && $auction->open_bid_mode === 'offline') {
+            $phaseReset['open_bid_mode'] = 'online';
+        }
+
+        if ($phaseReset !== []) {
+            $auction->update($phaseReset);
         }
 
         // Start the clock. Server-stamped so a slow or tampered browser cannot extend
@@ -826,7 +860,7 @@ class AuctionOrganizerController extends Controller
 
         $auction->update([
             'bid_type' => $validated['bid_type'],
-            'mode_manually_overridden' => true,
+            'bid_type_manually_overridden' => true,
         ]);
 
         return response()->json([
@@ -1112,6 +1146,40 @@ class AuctionOrganizerController extends Controller
             return response()->json(['success' => true, 'message' => 'Already resolved.', 'handled' => false]);
         }
 
+        // A sealed round owns its own clock and its own resolution. Left to the open-bid
+        // path below, an expiring sealed round would be auto-sold to whoever led the
+        // OPEN bidding at the threshold — skipping the sealed round entirely and handing
+        // the player to a team that may not have bid at all.
+        $closedBids = app(\App\Services\Auction\ClosedBidService::class);
+        $round = $closedBids->currentRound($auctionPlayer);
+
+        if ($round && ! $round->isTerminal()) {
+            if ($round->state !== \App\Models\AuctionClosedBidRound::STATE_COLLECTING) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Sealed round is not collecting bids.',
+                    'handled' => false,
+                ]);
+            }
+
+            if (! $auction->closedBidRoundTimerState($round)['expired']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Sealed round still running.',
+                    'handled' => false,
+                ]);
+            }
+
+            $result = $closedBids->lockAndReveal($round, auth()->user());
+
+            return response()->json([
+                'success' => true,
+                'handled' => (bool) ($result['handled'] ?? false),
+                'message' => $result['message'] ?? null,
+                'action' => 'sealed_locked',
+            ]);
+        }
+
         $timerState = $auction->timerStateFor($auctionPlayer);
 
         if (! $timerState['applies']) {
@@ -1271,6 +1339,11 @@ class AuctionOrganizerController extends Controller
             $this->sales->clearTeamAttachment($auctionPlayer);
         }
 
+        // Close off any sealed round. Marked abandoned rather than deleted: this method
+        // wipes bids and action logs, so the round row is the only durable record of who
+        // bid what in a round that may later be disputed.
+        app(\App\Services\Auction\ClosedBidService::class)->abandonRoundsFor($auctionPlayer);
+
         DB::transaction(function () use ($auctionPlayer, $auction) {
             // Reset player price and bids
             $auctionPlayer->update([
@@ -1296,12 +1369,12 @@ class AuctionOrganizerController extends Controller
             Player::where('id', $auctionPlayer->player_id)
                 ->update(['player_mode' => 'normal']);
 
-            // Reset bid phase if auto transition is enabled
+            // The sealed phase resets with the player; the room's online/offline mode is
+            // not a per-player fact and is left as the organizer set it.
             if ($auction->hasAutoPhaseTransition()) {
                 $auction->update([
                     'bid_type' => 'open',
-                    'open_bid_mode' => 'online',
-                    'mode_manually_overridden' => false,
+                    'bid_type_manually_overridden' => false,
                 ]);
             }
 
@@ -1386,6 +1459,10 @@ class AuctionOrganizerController extends Controller
             $this->sales->clearTeamAttachment($auctionPlayer);
         }
 
+        // Any sealed round from the previous attempt is closed off. A fresh attempt gets
+        // its own round numbered from 1 again, and the old record is kept.
+        app(\App\Services\Auction\ClosedBidService::class)->abandonRoundsFor($auctionPlayer);
+
         DB::transaction(function () use ($auctionPlayer, $auction) {
             // Reset and put on auction
             $auctionPlayer->update([
@@ -1405,12 +1482,12 @@ class AuctionOrganizerController extends Controller
                 ->where('auction_player_id', $auctionPlayer->id)
                 ->delete();
 
-            // Reset bid phase if auto transition is enabled
+            // The sealed phase resets with the player; the room's online/offline mode is
+            // not a per-player fact and is left as the organizer set it.
             if ($auction->hasAutoPhaseTransition()) {
                 $auction->update([
                     'bid_type' => 'open',
-                    'open_bid_mode' => 'online',
-                    'mode_manually_overridden' => false,
+                    'bid_type_manually_overridden' => false,
                 ]);
             }
 

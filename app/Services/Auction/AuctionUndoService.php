@@ -91,6 +91,10 @@ class AuctionUndoService
                 AuctionActionLog::ACTION_ALLOT => $this->undoSale($locked, $auctionPlayer),
                 AuctionActionLog::ACTION_PASS,
                 AuctionActionLog::ACTION_SKIP => $this->undoStatusChange($locked, $auctionPlayer),
+                AuctionActionLog::ACTION_CLOSED_BID,
+                AuctionActionLog::ACTION_CLOSED_ADJUST,
+                AuctionActionLog::ACTION_CLOSED_WITHDRAW => $this->undoClosedEntryChange($locked),
+                AuctionActionLog::ACTION_CLOSED_LOT => $this->undoClosedLot($locked, $auctionPlayer),
                 default => ['success' => false, 'message' => 'That action cannot be undone.'],
             };
 
@@ -106,6 +110,130 @@ class AuctionUndoService
                 'auction_player_id' => $locked->auction_player_id,
             ];
         });
+    }
+
+    /**
+     * Reverse a change to one team's sealed entry.
+     *
+     * One method for a submission, an admin adjustment and a withdrawal, because all
+     * three restore the same thing: the entry's prior amount and state.
+     *
+     * Refused once the round has been revealed. Putting an amount back onto a board
+     * everybody has already seen is rewriting history rather than correcting a slip; the
+     * tool at that point is a recorded manual resolution.
+     *
+     * @return array{success: bool, message: string}
+     */
+    private function undoClosedEntryChange(AuctionActionLog $log): array
+    {
+        $payload = $log->payload ?? [];
+        $entry = isset($payload['entry_id'])
+            ? \App\Models\AuctionClosedBidEntry::lockForUpdate()->find($payload['entry_id'])
+            : null;
+
+        if (! $entry) {
+            return ['success' => false, 'message' => 'That sealed entry no longer exists.'];
+        }
+
+        $round = $entry->round;
+
+        if ($round?->isRevealed()) {
+            return ['success' => false, 'message' => 'That round has been revealed — resolve it instead of undoing a bid.'];
+        }
+
+        // A withdrawal and a reinstatement are the same action type; the payload says
+        // which way it went.
+        if (($payload['action'] ?? null) === 'withdraw') {
+            $entry->update([
+                'state' => $payload['previous_state'] ?? \App\Models\AuctionClosedBidEntry::STATE_SUBMITTED,
+                'withdrawn_at' => null,
+                'withdrawn_by' => null,
+                'withdrawn_by_role' => null,
+            ]);
+
+            return ['success' => true, 'message' => 'Withdrawal reversed.'];
+        }
+
+        if (($payload['action'] ?? null) === 'reinstate') {
+            $entry->update([
+                'state' => \App\Models\AuctionClosedBidEntry::STATE_WITHDRAWN,
+                'withdrawn_at' => now(),
+                'reinstated_at' => null,
+                'reinstated_by' => null,
+            ]);
+
+            return ['success' => true, 'message' => 'Reinstatement reversed.'];
+        }
+
+        $previous = $payload['previous_amount'] ?? null;
+
+        // Drop the adjustment this action appended, so the durable trail on the entry
+        // matches what actually stands.
+        $adjustments = $entry->adjustments ?? [];
+        if ($log->action === AuctionActionLog::ACTION_CLOSED_ADJUST && $adjustments !== []) {
+            array_pop($adjustments);
+        }
+
+        $entry->update([
+            'amount' => $previous,
+            'state' => $previous !== null
+                ? \App\Models\AuctionClosedBidEntry::STATE_SUBMITTED
+                : ($payload['previous_state'] ?? \App\Models\AuctionClosedBidEntry::STATE_ACCEPTED),
+            'submitted_at' => $previous !== null ? $entry->submitted_at : null,
+            'adjustments' => $adjustments,
+            'adjusted_count' => max(0, (int) $entry->adjusted_count - ($log->action === AuctionActionLog::ACTION_CLOSED_ADJUST ? 1 : 0)),
+        ]);
+
+        return [
+            'success' => true,
+            'message' => $previous !== null
+                ? 'Sealed bid rolled back to ' . format_points((float) $previous) . '.'
+                : 'Sealed bid removed.',
+        ];
+    }
+
+    /**
+     * Reverse a drawn lot or a manual tie resolution.
+     *
+     * The sale it produced is undone through the normal sale path, so the roster pivot,
+     * the team-user row and the Spatie roles all unwind correctly rather than through a
+     * second, bespoke implementation.
+     *
+     * @return array{success: bool, message: string}
+     */
+    private function undoClosedLot(AuctionActionLog $log, ?AuctionPlayer $auctionPlayer): array
+    {
+        $payload = $log->payload ?? [];
+        $round = isset($payload['round_id'])
+            ? \App\Models\AuctionClosedBidRound::lockForUpdate()->find($payload['round_id'])
+            : null;
+
+        if (! $round) {
+            return ['success' => false, 'message' => 'That sealed round no longer exists.'];
+        }
+
+        if ($auctionPlayer && $auctionPlayer->status === 'sold') {
+            return [
+                'success' => false,
+                'message' => 'The player has been sold — undo the sale first, then the draw.',
+            ];
+        }
+
+        $round->update([
+            'state' => \App\Models\AuctionClosedBidRound::STATE_AWAITING_LOT,
+            'resolution' => null,
+            'winner_team_id' => null,
+            'winning_amount' => null,
+            'resolved_at' => null,
+            'resolved_by' => null,
+            'lot_algorithm' => null,
+            'lot_seed' => null,
+            'lot_candidates' => null,
+            'lot_winner_team_id' => null,
+            'lot_drawn_at' => null,
+        ]);
+
+        return ['success' => true, 'message' => 'The draw has been cleared — it can be run again.'];
     }
 
     /**

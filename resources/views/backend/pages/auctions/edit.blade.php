@@ -321,7 +321,19 @@
                             {{-- Phase Transition Thresholds (only for Open Bid) --}}
                             <div class="md:col-span-2" x-show="auctionData.bid_type === 'open'" x-transition x-cloak>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Auto Phase Transitions</label>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Configure automatic bidding phase changes as the price increases. Phases progress: Open (raise hand) → Closed (sealed bids) → Offline (admin manual).</p>
+                                {{-- These are TWO independent settings, not three stages of one.
+                                     "Open → Closed → Offline" was wrong and it misled: offline
+                                     is not a phase that comes after sealed bidding. Who enters
+                                     the bids, and whether bidding is open or sealed, are
+                                     separate axes — the sealed round happens either way. --}}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Two separate rules, both driven by the price.</p>
+                                <ul class="text-xs text-gray-500 dark:text-gray-400 mb-3 space-y-1 pl-4 list-disc">
+                                    <li><strong>Who enters the bids</strong> — teams from their own screens (online), or the organizer on their behalf in the room (offline).</li>
+                                    <li><strong>How bidding works</strong> — open, where every bid is visible as it happens, or closed, where each team submits one private amount and the highest wins.</li>
+                                </ul>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                    The sealed round runs in <strong>both</strong> modes. Online, the teams type their own amount; offline, the organizer enters each team's amount for them on the control panel. Either way the highest submitted amount takes the player.
+                                </p>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label for="online_bid_limit_from" class="form-label text-xs">Online Bid Starts From</label>
@@ -333,7 +345,7 @@
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
                                         </div>
                                         <input type="hidden" name="online_bid_limit_from" :value="auctionData.online_bid_limit_from">
-                                        <p class="text-xs text-gray-400 mt-1">Informational — online range start.</p>
+                                        <p class="text-xs text-gray-400 mt-1">Informational only — it changes nothing on its own.</p>
                                     </div>
                                     <div>
                                         <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
@@ -345,10 +357,10 @@
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
                                         </div>
                                         <input type="hidden" name="closed_bid_starts_at" :value="auctionData.closed_bid_starts_at">
-                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, bidding switches to sealed mode.</p>
+                                        <p class="text-xs text-gray-400 mt-1">Once a bid reaches this, open bidding stops and the sealed round begins — in online <em>and</em> offline mode.</p>
                                     </div>
                                     <div>
-                                        <label for="online_bid_limit_to" class="form-label text-xs">Offline Bid Starts At</label>
+                                        <label for="online_bid_limit_to" class="form-label text-xs">Organizer Enters Bids From</label>
                                         <div class="relative">
                                             <input type="number" step="any" min="0" id="online_bid_limit_to"
                                                    :value="toM(auctionData.online_bid_limit_to)"
@@ -357,10 +369,107 @@
                                             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
                                         </div>
                                         <input type="hidden" name="online_bid_limit_to" :value="auctionData.online_bid_limit_to">
-                                        <p class="text-xs text-gray-400 mt-1">When price reaches this, admin handles bids manually.</p>
+                                        <p class="text-xs text-gray-400 mt-1">Above this price the organizer enters bids for the teams instead of the teams bidding themselves. It does not skip or replace the sealed round.</p>
                                     </div>
                                 </div>
-                                <p class="text-xs text-gray-500 mt-2">Leave fields empty to skip that phase transition.</p>
+                                <p class="text-xs text-gray-500 mt-2">Leave a field empty to switch that rule off. The organizer can also override either one by hand during the auction, and an override they make is not undone by the next player.</p>
+                            </div>
+
+                            {{-- Sealed round rules. Only meaningful once a closed-bid
+                                 threshold exists, so the card follows it. --}}
+                            <div class="mt-6 p-5 bg-indigo-50 dark:bg-indigo-900/10 rounded-2xl border border-indigo-200 dark:border-indigo-800/60">
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Sealed Round</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                                    Once the price reaches the closed-bid threshold, teams submit a private amount.
+                                    The highest wins; a tie goes to a re-bid and then to a drawn lot.
+                                </p>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="closed_bid_step" class="form-label text-xs">Bid Step</label>
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="closed_bid_step"
+                                                   :value="toM(auctionData.closed_bid_step)"
+                                                   @input="auctionData.closed_bid_step = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="0.1">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="closed_bid_step" :value="auctionData.closed_bid_step">
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            Sealed amounts must be exact multiples of this. Anything else is refused, not rounded. Blank uses 0.1M.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_max_pct_of_budget" class="form-label text-xs">Max Spend Per Player</label>
+                                        <div class="relative">
+                                            <input type="number" step="1" min="1" max="100" id="closed_bid_max_pct_of_budget"
+                                                   x-model.number="auctionData.closed_bid_max_pct_of_budget"
+                                                   class="form-control pr-9" placeholder="70">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">%</span>
+                                        </div>
+                                        <input type="hidden" name="closed_bid_max_pct_of_budget" :value="auctionData.closed_bid_max_pct_of_budget">
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            Share of a team's <strong>total</strong> budget one player may cost. Blank uses 70%.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_max_rebid_rounds" class="form-label text-xs">Re-bid Rounds On A Tie</label>
+                                        <input type="number" name="closed_bid_max_rebid_rounds" id="closed_bid_max_rebid_rounds" min="0" max="5"
+                                               x-model.number="auctionData.closed_bid_max_rebid_rounds"
+                                               class="form-control" placeholder="2">
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            Tied teams bid again this many times, then a lot is drawn. 0 goes straight to the lot.
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label for="closed_bid_timer_seconds" class="form-label text-xs">Sealed Round Timer</label>
+                                        <div class="relative">
+                                            <input type="number" name="closed_bid_timer_seconds" id="closed_bid_timer_seconds" min="5" max="600"
+                                                   x-model.number="auctionData.closed_bid_timer_seconds"
+                                                   class="form-control pr-9" :placeholder="auctionData.bid_timer_seconds || 30">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">s</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mt-1">Blank uses the ordinary bid timer.</p>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4 space-y-3">
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input type="hidden" name="closed_bid_requires_acceptance" value="0">
+                                        <input type="checkbox" name="closed_bid_requires_acceptance" value="1"
+                                               x-model="auctionData.closed_bid_requires_acceptance"
+                                               class="mt-0.5 rounded border-gray-300 text-indigo-600">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                                            Teams must accept the purse conditions before bidding
+                                            <span class="block text-xs text-gray-400">
+                                                They are shown their purse, the places still to fill, the amount held back and their maximum bid.
+                                            </span>
+                                        </span>
+                                    </label>
+
+                                    <div>
+                                        <label for="closed_bid_tie_breaker" class="form-label text-xs">After The Last Re-bid</label>
+                                        <select name="closed_bid_tie_breaker" id="closed_bid_tie_breaker"
+                                                x-model="auctionData.closed_bid_tie_breaker" class="form-control">
+                                            <option value="lot">Draw a lot</option>
+                                            <option value="manual">Organizer decides</option>
+                                        </select>
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            A drawn lot records its seed, so the result can be recomputed and checked afterwards.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {{-- The three ways this configuration can be made unusable are
+                                     refused on save; this warns before that happens. --}}
+                                <template x-if="sealedCapBelowThreshold">
+                                    <p class="mt-3 text-xs px-3 py-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                                        A sealed round opening at <span class="font-semibold" x-text="formatMoney(auctionData.closed_bid_starts_at)"></span>
+                                        is above the per-player cap of
+                                        <span class="font-semibold" x-text="formatMoney(sealedPerPlayerCap)"></span> —
+                                        no team could bid the opening amount.
+                                    </p>
+                                </template>
                             </div>
 
                             {{-- Timer Settings --}}
@@ -638,6 +747,15 @@
                                     <input type="hidden" name="min_price_per_player" :value="auctionData.min_price_per_player">
                                     <p class="text-xs text-gray-400 mt-1">Leave blank to use the base price above.</p>
                                 </div>
+                                <div>
+                                    <label for="max_squad_size" class="form-label text-xs">Maximum Squad Size</label>
+                                    <input type="number" name="max_squad_size" id="max_squad_size" min="1" max="50"
+                                           x-model.number="auctionData.max_squad_size"
+                                           class="form-control" placeholder="No maximum">
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        Shown on the live screens. Blank means no ceiling — it never blocks a bid.
+                                    </p>
+                                </div>
                             </div>
 
                             {{-- Live check: the rule is only satisfiable when a full squad
@@ -657,6 +775,59 @@
                                     <template x-if="!reserveExceedsBudget">
                                         <span>Opening bid cap:
                                         <span class="font-semibold" x-text="formatMoney(Math.max(0, (Number(auctionData.max_budget_per_team) || 0) - reserveTotal + reservePerPlace))"></span>.</span>
+                                    </template>
+                                </p>
+                            </template>
+                        </div>
+
+                        {{-- Retention defaults: a blank retention price used to be stored as
+                             0, so a retained player cost their team nothing. --}}
+                        <div class="mt-6 p-5 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-200 dark:border-purple-800/60">
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Retained Players</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                                Retentions are charged against a team's budget before the auction starts.
+                            </p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="default_retained_value" class="form-label text-xs">Default Retention Price</label>
+                                    <div class="relative">
+                                        <input type="number" step="any" min="0" id="default_retained_value"
+                                               :value="toM(auctionData.default_retained_value)"
+                                               @input="auctionData.default_retained_value = fromM($event.target.value)"
+                                               class="form-control pr-9" placeholder="5">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                    </div>
+                                    <input type="hidden" name="default_retained_value" :value="auctionData.default_retained_value">
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        Used when no price is entered for a retained player. Blank uses 5M; enter 0 to make retentions free.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label for="expected_retained_per_team" class="form-label text-xs">Expected Retentions Per Team</label>
+                                    <input type="number" name="expected_retained_per_team" id="expected_retained_per_team" min="0" max="50"
+                                           x-model.number="auctionData.expected_retained_per_team"
+                                           class="form-control" placeholder="4">
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        Flags teams whose count differs. Advisory only — a team may retain more.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {{-- Soft check only: retentions are per-player priced, so committing
+                                 more than the budget on paper is a warning, never a refusal. --}}
+                            <template x-if="retentionCommitment > 0">
+                                <p class="mt-3 text-xs px-3 py-2 rounded-lg"
+                                   :class="retentionExceedsBudget
+                                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
+                                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'">
+                                    <span x-text="auctionData.expected_retained_per_team || 4"></span> retentions at
+                                    <span class="font-semibold" x-text="formatMoney(retentionPrice)"></span> each commits
+                                    <span class="font-semibold" x-text="formatMoney(retentionCommitment)"></span> of the
+                                    <span class="font-semibold" x-text="formatMoney(auctionData.max_budget_per_team)"></span> team budget
+                                    before a single bid.
+                                    <template x-if="retentionExceedsBudget">
+                                        <span class="font-semibold">That is more than the budget — price retentions individually or raise it.</span>
                                     </template>
                                 </p>
                             </template>
@@ -691,13 +862,22 @@
                             <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Override the budget for specific teams in this tournament.</p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 @foreach($budgetTeams as $team)
-                                    <div class="flex items-center gap-2">
+                                    {{-- Entered in millions like every other money field on this
+                                         page. The raw value rides in a hidden input, and blank must
+                                         stay blank: an empty string clears the override, whereas a 0
+                                         would be honoured as "this team has no money at all". --}}
+                                    <div class="flex items-center gap-2"
+                                         x-data="{ raw: '{{ optional($teamBudgets[$team->id] ?? null)->budget }}' }">
                                         <span class="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">{{ $team->name }}</span>
-                                        <input type="number" min="0" step="1"
-                                               name="team_budgets[{{ $team->id }}]"
-                                               value="{{ optional($teamBudgets[$team->id] ?? null)->budget }}"
-                                               placeholder="Uniform"
-                                               class="form-control form-control-sm w-36 text-right">
+                                        <div class="relative">
+                                            <input type="number" min="0" step="any"
+                                                   :value="raw === '' || raw === null ? '' : toM(raw)"
+                                                   @input="raw = $event.target.value === '' ? '' : fromM($event.target.value)"
+                                                   placeholder="Uniform"
+                                                   class="form-control form-control-sm w-32 text-right pr-7">
+                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="team_budgets[{{ $team->id }}]" :value="raw">
                                     </div>
                                 @endforeach
                             </div>
@@ -989,6 +1169,14 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Customize how the live auction page looks — background images, logos, and accent colors.</p>
                         </div>
 
+                        @include('backend.pages.auctions.partials.screen-templates', [
+                            'auctionId' => $auction->id,
+                            'selectedDisplay' => old('auction_template_id', $auction->auction_template_id),
+                            'selectedTicker' => old('ticker_template_id', $auction->ticker_template_id),
+                            'displayTemplates' => $displayTemplates ?? collect(),
+                            'tickerTemplates' => $tickerTemplates ?? collect(),
+                        ])
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {{-- Card Background Image --}}
                             <div class="md:col-span-2">
@@ -1207,6 +1395,13 @@ document.addEventListener('alpine:init', () => {
             if (!this.auctionData.timer_expiry_action) this.auctionData.timer_expiry_action = 'manual';
             if (!this.auctionData.amount_unit) this.auctionData.amount_unit = 'points';
             if (!this.auctionData.email_dispatch) this.auctionData.email_dispatch = 'deferred';
+            // Older auctions predate these columns, so seed the same defaults the
+            // server's accessors apply rather than leaving the inputs blank-but-bound.
+            if (!this.auctionData.closed_bid_tie_breaker) this.auctionData.closed_bid_tie_breaker = 'lot';
+            this.auctionData.closed_bid_requires_acceptance =
+                auctionData.closed_bid_requires_acceptance === undefined || auctionData.closed_bid_requires_acceptance === null
+                    ? true
+                    : !!auctionData.closed_bid_requires_acceptance;
             this.auctionData.notifications_enabled = auctionData.notifications_enabled === undefined
                 ? true
                 : !!auctionData.notifications_enabled;
@@ -1455,6 +1650,52 @@ document.addEventListener('alpine:init', () => {
         get reserveExceedsBudget() {
             const budget = Number(this.auctionData.max_budget_per_team) || 0;
             return budget > 0 && this.reserveTotal > budget;
+        },
+
+        /* ── Retention preview ── */
+
+        /** Blank falls back to 5M; an explicit 0 is honoured, so `??` not `||`. */
+        get retentionPrice() {
+            const raw = this.auctionData.default_retained_value;
+            return raw === '' || raw === null || raw === undefined
+                ? {{ \App\Models\Auction::DEFAULT_RETAINED_VALUE }}
+                : (Number(raw) || 0);
+        },
+
+        /** What the expected retentions tie up before bidding opens. */
+        get retentionCommitment() {
+            const raw = this.auctionData.expected_retained_per_team;
+            const count = raw === '' || raw === null || raw === undefined
+                ? {{ \App\Models\Auction::DEFAULT_EXPECTED_RETAINED_PER_TEAM }}
+                : (Number(raw) || 0);
+            return count * this.retentionPrice;
+        },
+
+        /** Warned about, never refused — retentions are priced per player. */
+        /* ── Sealed round preview ── */
+
+        /** Blank falls back to 70%; the server applies the same default. */
+        get sealedCapPct() {
+            const raw = this.auctionData.closed_bid_max_pct_of_budget;
+            return raw === '' || raw === null || raw === undefined
+                ? {{ \App\Models\Auction::DEFAULT_CLOSED_BID_MAX_PCT }}
+                : (Number(raw) || 0);
+        },
+
+        /** A share of the TOTAL budget, never of what is left. */
+        get sealedPerPlayerCap() {
+            return (Number(this.auctionData.max_budget_per_team) || 0) * this.sealedCapPct / 100;
+        },
+
+        /** The configuration the server refuses: no team could bid the opening amount. */
+        get sealedCapBelowThreshold() {
+            const threshold = Number(this.auctionData.closed_bid_starts_at) || 0;
+            return threshold > 0 && this.sealedPerPlayerCap > 0 && threshold > this.sealedPerPlayerCap;
+        },
+
+        get retentionExceedsBudget() {
+            const budget = Number(this.auctionData.max_budget_per_team) || 0;
+            return budget > 0 && this.retentionCommitment > budget;
         },
 
         addQuickStep() {

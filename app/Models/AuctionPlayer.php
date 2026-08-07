@@ -10,11 +10,29 @@ class AuctionPlayer extends Model
 {
     use HasFactory;
     use BelongsToOrganization;
-    protected $fillable = ['auction_id', 'auction_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'is_retained', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price'];
-    protected $casts = ['current_price' => 'decimal:2', 'final_price' => 'decimal:2', 'lot_number' => 'integer', 'is_retained' => 'boolean'];
+    protected $fillable = ['auction_id', 'auction_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'is_retained', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price', 'closed_bid_round_id'];
+    // retained_price/base_price/starting_price were left uncast and came back as raw
+    // strings, unlike the two money columns beside them.
+    protected $casts = ['current_price' => 'decimal:2', 'final_price' => 'decimal:2', 'base_price' => 'decimal:2', 'starting_price' => 'decimal:2', 'retained_price' => 'decimal:2', 'lot_number' => 'integer', 'is_retained' => 'boolean'];
     public function auction()
     {
         return $this->belongsTo(Auction::class);
+    }
+
+    /**
+     * The sealed round currently in play for this player, if any.
+     *
+     * Deliberately not eager-loaded anywhere and never included in a broadcast payload:
+     * the round's entries carry sealed amounts.
+     */
+    public function closedBidRound()
+    {
+        return $this->belongsTo(AuctionClosedBidRound::class, 'closed_bid_round_id');
+    }
+
+    public function closedBidRounds()
+    {
+        return $this->hasMany(AuctionClosedBidRound::class);
     }
     public function pool()
     {

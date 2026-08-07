@@ -34,6 +34,11 @@
         ];
 
         // Helper: generate inline CSS from element position/styling data
+        //
+        // Guarded because these are GLOBAL function declarations inside a Blade view:
+        // rendering this template twice in one PHP process — two auctions in one request,
+        // or two renders in one test — was a fatal "cannot redeclare".
+        if (! function_exists('elementStyle')):
         function elementStyle($positions, $key, $defaults = [], $boxShadowMap = [], $textShadowMap = []) {
             $p = array_merge($defaults, $positions[$key] ?? []);
             $css = '';
@@ -88,10 +93,14 @@
             return $css;
         }
 
+        endif;
+
         // Helper: check if element is visible
+        if (! function_exists('isVisible')):
         function isVisible($positions, $key) {
             return ($positions[$key]['visible'] ?? true) !== false && ($positions[$key]['visible'] ?? 1) != 0;
         }
+        endif;
     @endphp
     <style>
         :root {
@@ -293,6 +302,27 @@
             color: #f59e0b !important;
         }
 
+        /* ── Final call with no bids ──
+           Once the closing calls start and nobody has bid, the outcome is effectively
+           decided. Saying so is the difference between an audience watching a countdown and
+           an audience understanding that a player is about to go unsold — and it gives a
+           team the one prompt that might still change it. */
+        .card-container.about-to-go-unsold { filter: grayscale(0.85) brightness(0.62); transition: filter 0.6s ease; }
+
+        #unsold-warning {
+            position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
+            z-index: 9997; padding: 14px 40px; border-radius: 9999px;
+            background: rgba(2,6,23,0.86); backdrop-filter: blur(10px);
+            border: 2px solid #f43f5e; box-shadow: 0 0 60px rgba(244,63,94,0.45);
+            font-size: 2rem; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase;
+            color: #fff; white-space: nowrap;
+            animation: unsoldWarnPulse 1.4s ease-in-out infinite;
+        }
+        @keyframes unsoldWarnPulse {
+            0%, 100% { opacity: 0.92; }
+            50% { opacity: 1; box-shadow: 0 0 84px rgba(244,63,94,0.7); }
+        }
+
         /* ── Waiting screen ── */
         #waiting-screen {
             position: fixed;
@@ -321,6 +351,95 @@
         @keyframes pulse {
             0%, 100% { opacity: 0.5; transform: scale(1); }
             50% { opacity: 1; transform: scale(1.02); }
+        }
+
+        /* "Coming up" name swap. Each new name is re-triggered by removing and re-adding
+           the class, so the cycle reads as a deliberate change rather than a flicker. */
+        @keyframes upNextSwap {
+            0%   { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+            100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        .waiting-upnext-name.swapping { animation: upNextSwap 0.45s ease-out; }
+
+        /* ── Waiting screen: bat and ball ──
+           Pure CSS and inline SVG. No image and no library, so the screen has nothing to
+           download and cannot sit on a broken asset while a hall watches it. One shared
+           2.6s loop keeps the swing and the strike in sync — separate durations drift
+           apart within a few cycles and the bat starts missing. */
+        .cricket-stage {
+            position: relative;
+            width: 460px; height: 250px;
+            margin-bottom: 8px;
+        }
+
+        /* Pivots at the handle, like a real backlift. */
+        .cricket-bat {
+            position: absolute; left: 52%; top: 10px;
+            width: 62px; height: 200px;
+            transform-origin: 50% 9%;
+            animation: batSwing 2.6s cubic-bezier(0.34, 1.15, 0.5, 1) infinite;
+            filter: drop-shadow(0 10px 26px rgba(0,0,0,0.55));
+        }
+        @keyframes batSwing {
+            0%   { transform: translateX(-50%) rotate(16deg); }
+            26%  { transform: translateX(-50%) rotate(54deg); }   /* back-lift */
+            38%  { transform: translateX(-50%) rotate(-30deg); }  /* contact */
+            54%  { transform: translateX(-50%) rotate(-46deg); }  /* follow-through */
+            80%  { transform: translateX(-50%) rotate(16deg); }
+            100% { transform: translateX(-50%) rotate(16deg); }
+        }
+
+        .cricket-ball {
+            position: absolute; left: 50%; top: 46%;
+            width: 36px; height: 36px;
+            animation: ballPath 2.6s linear infinite;
+        }
+        @keyframes ballPath {
+            0%   { transform: translate(210px, 46px) scale(0.75); opacity: 0; }
+            10%  { opacity: 1; }
+            34%  { transform: translate(16px, 26px) scale(1); opacity: 1; }
+            40%  { transform: translate(-24px, 4px) scale(1.1); opacity: 1; }
+            72%  { transform: translate(-170px, -86px) scale(0.9); opacity: 1; }
+            94%  { transform: translate(-290px, -164px) scale(0.65); opacity: 0; }
+            100% { transform: translate(-290px, -164px) scale(0.65); opacity: 0; }
+        }
+
+        /* Spin on an inner element, so it composes with the arc above instead of
+           overwriting its transform. */
+        .cricket-ball-spin {
+            width: 100%; height: 100%;
+            animation: ballSpin 0.45s linear infinite;
+        }
+        @keyframes ballSpin { to { transform: rotate(360deg); } }
+
+        /* Flash at the moment of contact, on the same clock as the swing. */
+        .cricket-spark {
+            position: absolute; left: 50%; top: 46%;
+            width: 120px; height: 120px; margin: -42px 0 0 -46px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(var(--primary-rgb),0.5) 40%, transparent 70%);
+            opacity: 0; pointer-events: none;
+            animation: sparkPop 2.6s linear infinite;
+        }
+        @keyframes sparkPop {
+            0%, 33% { opacity: 0; transform: scale(0.4); }
+            39%     { opacity: 1; transform: scale(1.25); }
+            48%     { opacity: 0; transform: scale(1.7); }
+            100%    { opacity: 0; transform: scale(1.7); }
+        }
+
+        /* The ground the bat stands on — a thin brand-tinted crease. */
+        .cricket-crease {
+            position: absolute; left: 50%; bottom: 18px;
+            width: 260px; height: 3px; margin-left: -130px;
+            background: linear-gradient(90deg, transparent, rgba(var(--primary-rgb),0.75), transparent);
+            border-radius: 2px;
+        }
+        .cricket-crease::after {
+            content: ''; position: absolute; left: 50%; top: -1px;
+            width: 90px; height: 5px; margin-left: -45px; border-radius: 3px;
+            background: rgba(var(--primary-rgb), 0.9);
+            box-shadow: 0 0 22px rgba(var(--primary-rgb), 0.8);
         }
 
         /* ── Waiting screen floating orbs ── */
@@ -362,28 +481,10 @@
         }
 
         /* ── Rotating ring behind loader ── */
-        .led-loader-ring {
-            position: absolute;
-            width: 120px; height: 120px;
-            border-radius: 50%;
-            border: 2px solid transparent;
-            border-top-color: rgba(var(--primary-rgb), 0.4);
-            border-right-color: rgba(var(--secondary-rgb), 0.3);
-            animation: spin 3s linear infinite;
-        }
+
 
         /* Loading spinner for LED wall */
-        .led-loader {
-            width: 80px;
-            height: 80px;
-            border: 6px solid rgba(var(--primary-rgb), 0.2);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 40px;
-            position: relative;
-            z-index: 1;
-        }
+
 
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -605,10 +706,37 @@
             transition: color 0.3s ease;
         }
 
-        /* Highest bidder display */
+        /* ── Highest bidder ──
+           Was bare #00ff00 text floating on the card: pure green is the harshest colour on
+           an LED panel, and with no frame it read as an error message rather than the team
+           who is winning the player.
+
+           The framing declarations come BEFORE elementStyle() on purpose — a template that
+           positions or colours this element emits its own declarations after these, and the
+           later ones win, so an author keeps full control. */
         #highest-bidder {
             position: absolute;
-            {!! elementStyle($positions, 'highest_bidder', ['top'=>470,'left'=>570,'fontSize'=>28,'color'=>'#00ff00'], $boxShadowMap, $textShadowMap) !!}
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 22px;
+            border-radius: 9999px;
+            background: rgba(2, 6, 23, 0.55);
+            border: 1px solid rgba(34, 197, 94, 0.45);
+            box-shadow: 0 0 28px rgba(34, 197, 94, 0.25);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+            {!! elementStyle($positions, 'highest_bidder', ['top'=>470,'left'=>570,'fontSize'=>28,'color'=>'#22c55e'], $boxShadowMap, $textShadowMap) !!}
+        }
+
+        /* A small kicker, so the name is not mistaken for the player's own. */
+        #highest-bidder::before {
+            content: 'HIGHEST BID';
+            font-size: 0.42em;
+            font-weight: 900;
+            letter-spacing: 0.24em;
+            color: rgba(226, 232, 240, 0.75);
         }
 
         /* ── Shuffle / Reveal Animation ── */
@@ -736,8 +864,15 @@
         <div class="waiting-orb waiting-orb-2"></div>
         <div class="waiting-orb waiting-orb-3"></div>
 
+        {{-- Shows whichever logos exist. Upload one at Auctions -> Edit -> Branding
+             (auction logo), or on the tournament; with neither, the bat and ball below
+             carry the screen on their own. --}}
         @if($auction->auction_logo_url || ($auction->tournament && $auction->tournament->logo_url))
-        <div style="display:flex;align-items:center;gap:30px;margin-bottom:40px;position:relative;z-index:1;">
+        <div style="display:flex;align-items:center;gap:36px;margin-bottom:26px;position:relative;z-index:1;
+                    padding:18px 34px;border-radius:20px;
+                    background:rgba(2,6,23,0.45);backdrop-filter:blur(8px);
+                    border:1px solid rgba(var(--primary-rgb),0.28);
+                    box-shadow:0 20px 60px rgba(0,0,0,0.45);">
             @if($auction->auction_logo_url)
                 <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo" style="height:100px;object-fit:contain;">
             @endif
@@ -746,12 +881,84 @@
             @endif
         </div>
         @endif
-        <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:40px;">
-            <div class="led-loader-ring"></div>
-            <div class="led-loader" style="margin-bottom:0;"></div>
+        <div class="cricket-stage" style="z-index:1;">
+            <div class="cricket-crease"></div>
+
+            {{-- Bat: blade, shoulder and grip, drawn rather than loaded. --}}
+            <svg class="cricket-bat" viewBox="0 0 62 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="25" y="0" width="12" height="20" rx="5" fill="#0f172a" stroke="rgba(255,255,255,0.18)"/>
+                <rect x="24" y="16" width="14" height="58" rx="7" fill="#1f2937"/>
+                <path d="M24 30h14M24 40h14M24 50h14M24 60h14" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+                <rect x="27" y="70" width="8" height="16" fill="#c8a15a"/>
+                <path d="M14 84h34a6 6 0 0 1 6 6v88a10 10 0 0 1-10 10H18a10 10 0 0 1-10-10V90a6 6 0 0 1 6-6z"
+                      fill="url(#blade)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+                <path d="M31 92v92" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
+                <defs>
+                    <linearGradient id="blade" x1="8" y1="84" x2="54" y2="188" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#f2d9a8"/>
+                        <stop offset="0.55" stop-color="#dcb877"/>
+                        <stop offset="1" stop-color="#b8935a"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+
+            <div class="cricket-spark"></div>
+
+            {{-- Ball: leather, seam and stitching. --}}
+            <div class="cricket-ball">
+                <svg class="cricket-ball-spin" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="18" cy="18" r="17" fill="url(#leather)" stroke="rgba(0,0,0,0.35)"/>
+                    <path d="M6 9c6 5 6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
+                    <path d="M30 9c-6 5-6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
+                    <path d="M13 8.5l2 2M12 13l2 2M12 18l2 2M12 23l2 2M13 27.5l2 2"
+                          stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
+                    <ellipse cx="12" cy="11" rx="5" ry="4" fill="rgba(255,255,255,0.16)"/>
+                    <defs>
+                        <radialGradient id="leather" cx="0.35" cy="0.3" r="0.85">
+                            <stop stop-color="#e0413b"/>
+                            <stop offset="0.6" stop-color="#a81f21"/>
+                            <stop offset="1" stop-color="#6b0f12"/>
+                        </radialGradient>
+                    </defs>
+                </svg>
+            </div>
         </div>
-        <h1 style="position:relative;z-index:1;">WAITING FOR AUCTION</h1>
-        <p class="text-3xl text-gray-400 mt-4" style="position:relative;z-index:1;">{{ $auction->name }}</p>
+        {{-- Headline, subline and progress are all set by renderWaitingScreen(). The
+             auction being `running` is not the same as a player being on the block, so a
+             hall that has already sold forty players must not be told it is still
+             "waiting for auction" every time the organizer takes a breath. --}}
+        <h1 id="waiting-title" style="position:relative;z-index:1;">WAITING FOR AUCTION</h1>
+        <p id="waiting-sub" class="text-3xl text-gray-400 mt-4" style="position:relative;z-index:1;">{{ $auction->name }}</p>
+
+        {{-- Progress rail. Hidden until the room has actually started working. --}}
+        <div id="waiting-progress" class="hidden" style="position:relative;z-index:1;margin-top:26px;width:min(760px,62vw);">
+            <div style="height:10px;border-radius:999px;overflow:hidden;
+                        background:rgba(255,255,255,0.08);
+                        box-shadow:inset 0 1px 3px rgba(0,0,0,0.6);">
+                <div id="waiting-progress-fill"
+                     style="height:100%;width:0%;border-radius:999px;
+                            background:linear-gradient(90deg,var(--primary),#22d3ee);
+                            box-shadow:0 0 18px rgba(var(--primary-rgb),0.75);
+                            transition:width 0.6s cubic-bezier(0.4,0,0.2,1);"></div>
+            </div>
+            <div id="waiting-progress-text"
+                 style="margin-top:14px;font-size:22px;letter-spacing:0.08em;
+                        text-transform:uppercase;color:rgba(255,255,255,0.55);"></div>
+        </div>
+
+        {{-- "Coming up" teaser. Cycles the names still in the queue, which the feed already
+             sends for the shuffle animation, so a stalled screen still reads as live. --}}
+        <div id="waiting-upnext" class="hidden"
+             style="position:relative;z-index:1;margin-top:22px;display:flex;align-items:center;gap:14px;
+                    padding:12px 26px;border-radius:999px;
+                    background:rgba(2,6,23,0.55);backdrop-filter:blur(6px);
+                    border:1px solid rgba(var(--primary-rgb),0.25);">
+            <span style="font-size:15px;letter-spacing:0.22em;text-transform:uppercase;
+                         color:rgba(var(--primary-rgb),0.9);">Coming up</span>
+            <span id="waiting-upnext-name" class="waiting-upnext-name"
+                  style="font-size:26px;font-weight:700;color:#fff;"></span>
+        </div>
+
         <div class="glow-dots" style="position:relative;z-index:1;">
             <div class="glow-dot"></div>
             <div class="glow-dot"></div>
@@ -760,6 +967,40 @@
     </div>
 
     <!-- Auction Completed Screen -->
+    {{-- Restart announcement. Sits above every other screen for its window, so a
+         restart reads as a deliberate act rather than the wall mysteriously blanking. --}}
+    <div id="restart-screen" class="hidden"
+         style="position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;
+                justify-content:center;align-items:center;
+                background:radial-gradient(circle at 50% 40%, #1e1b4b 0%, #0a0a0a 70%);">
+        <div class="cricket-stage" style="margin-bottom:10px;">
+            <div class="cricket-crease"></div>
+            <svg class="cricket-bat" viewBox="0 0 62 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="25" y="0" width="12" height="20" rx="5" fill="#0f172a" stroke="rgba(255,255,255,0.18)"/>
+                <rect x="24" y="16" width="14" height="58" rx="7" fill="#1f2937"/>
+                <rect x="27" y="70" width="8" height="16" fill="#c8a15a"/>
+                <path d="M14 84h34a6 6 0 0 1 6 6v88a10 10 0 0 1-10 10H18a10 10 0 0 1-10-10V90a6 6 0 0 1 6-6z"
+                      fill="#dcb877" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+            </svg>
+            <div class="cricket-spark"></div>
+            <div class="cricket-ball">
+                <svg class="cricket-ball-spin" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="18" cy="18" r="17" fill="#a81f21" stroke="rgba(0,0,0,0.35)"/>
+                    <path d="M6 9c6 5 6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
+                    <path d="M30 9c-6 5-6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
+                </svg>
+            </div>
+        </div>
+
+        <h1 style="font-size:64px;font-weight:900;letter-spacing:0.06em;color:#a78bfa;
+                   text-shadow:0 0 40px rgba(167,139,250,0.5);animation:pulse 1.6s ease-in-out infinite;">
+            RESTARTING AUCTION
+        </h1>
+        <p style="font-size:24px;color:#94a3b8;margin-top:12px;">
+            Next player in <span id="restart-seconds" style="color:#fff;font-weight:900;"></span>s
+        </p>
+    </div>
+
     <div id="completed-screen" class="hidden" style="position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%);z-index:100;">
         <div style="font-size:120px;margin-bottom:30px;">🏆</div>
         <h1 style="font-size:72px;color:#eab308;text-shadow:0 0 30px rgba(234,179,8,0.5);">AUCTION COMPLETED</h1>
@@ -789,26 +1030,55 @@
         <div style="margin-top:0.75rem;font-size:1.1rem;color:#cbd5e1;">Please wait — the auction will resume shortly.</div>
     </div>
 
-    {{-- Closing call + countdown for the audience. Driven by the same
-         server-supplied thresholds as the organizer panel, so the big screen and the
-         panel escalate on the same second. --}}
-    <div id="final-call-layer" class="hidden"
-         style="position:fixed;left:0;right:0;top:6%;z-index:9998;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-        <div id="final-call-badge"
-             style="padding:1rem 3rem;border-radius:1.25rem;font-size:3.5rem;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;box-shadow:0 25px 60px rgba(0,0,0,0.55);">
+    {{-- Closing call + countdown, as ONE piece of chrome.
+         Previously two separate overlays: a banner pinned across the top of the viewport
+         and a bare 6rem number beneath it. Both sat over the middle of the screen, which
+         is exactly where the player's name is — so a closing call covered the name of the
+         player being called. This lives along the bottom edge instead, clear of the card,
+         and reads as one object rather than two. --}}
+    <div id="clock-hud" class="hidden"
+         style="position:fixed;left:50%;bottom:44px;transform:translateX(-50%);z-index:9998;
+                display:flex;align-items:center;gap:22px;pointer-events:none;
+                padding:14px 30px 14px 18px;border-radius:9999px;
+                background:rgba(2,6,23,0.82);backdrop-filter:blur(10px);
+                border:1px solid rgba(148,163,184,0.25);
+                box-shadow:0 24px 70px rgba(0,0,0,0.6);">
+
+        {{-- A depleting ring reads as "running out" at a glance from the back of a hall,
+             which a plain number does not. --}}
+        <div style="position:relative;width:96px;height:96px;flex-shrink:0;">
+            <svg width="96" height="96" viewBox="0 0 96 96" style="transform:rotate(-90deg);">
+                <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(148,163,184,0.22)" stroke-width="7"/>
+                <circle id="clock-ring" cx="48" cy="48" r="42" fill="none"
+                        stroke="#22d3ee" stroke-width="7" stroke-linecap="round"
+                        stroke-dasharray="263.9" stroke-dashoffset="0"
+                        style="transition:stroke-dashoffset 0.95s linear, stroke 0.3s ease;"/>
+            </svg>
+            <div id="clock-seconds"
+                 style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                        font-size:2.6rem;font-weight:900;line-height:1;color:#fff;
+                        font-variant-numeric:tabular-nums;"></div>
         </div>
-        <div id="final-call-seconds"
-             style="margin-top:0.75rem;font-size:6rem;font-weight:900;font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 6px 24px rgba(0,0,0,0.6);">
+
+        {{-- justify-content:center so the column is centred against the 96px ring whether
+             it holds one row or two. Without it, the caption sat high in the pill for the
+             whole auction and only looked right during a closing call. --}}
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">
+            <div id="clock-caption"
+                 style="font-size:0.68rem;font-weight:800;letter-spacing:0.28em;text-transform:uppercase;
+                        color:#94a3b8;line-height:1;">Time Remaining</div>
+            {{-- Shown only during a closing call. display:none rather than empty text: an
+                 empty block still contributes its line-box to the column, which is what
+                 pushed the caption off centre. --}}
+            <div id="clock-call"
+                 style="display:none;font-size:2.4rem;font-weight:900;letter-spacing:0.1em;
+                        text-transform:uppercase;line-height:1;color:#fff;white-space:nowrap;"></div>
         </div>
     </div>
 
-    {{-- Plain countdown outside the closing window. --}}
-    <div id="bid-countdown" class="hidden"
-         style="position:fixed;top:24px;right:24px;z-index:9997;background:rgba(2,6,23,0.75);backdrop-filter:blur(6px);border-radius:9999px;padding:0.5rem 1.25rem;display:flex;align-items:center;gap:0.5rem;">
-        <span style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#94a3b8;font-weight:700;">Time</span>
-        <span id="bid-countdown-seconds"
-              style="font-size:1.75rem;font-weight:800;font-variant-numeric:tabular-nums;color:#fff;line-height:1;"></span>
-    </div>
+    {{-- Announced on the wall AND the ticker, from the same server-computed final-call
+         state, so the hall and the stream never disagree about what is happening. --}}
+    <div id="unsold-warning" class="hidden">No bids &mdash; player will go unsold</div>
 
     <div id="card-container" class="card-container hidden">
         @if($auction->auction_logo_url)
@@ -924,6 +1194,20 @@
         <!-- Highest Bidder (shown during live bidding) -->
         @if(isVisible($positions, 'highest_bidder'))
         <div id="highest-bidder" class="hidden"><span id="bidder-name"></span></div>
+
+        {{-- Sealed round. The hall and the stream must be told that bidding has gone
+             private, or a frozen price looks like a stalled auction. --}}
+        <div id="sealed-banner" class="hidden"
+             style="position:absolute;top:0;left:0;right:0;z-index:30;padding:14px 0;text-align:center;
+                    background:linear-gradient(90deg,rgba(88,28,135,0.95),rgba(147,51,234,0.95));
+                    border-bottom:3px solid #c084fc;">
+            <div style="font-size:13px;font-weight:900;letter-spacing:6px;text-transform:uppercase;color:#e9d5ff;">
+                <span id="sealed-banner-title">Closed Bid</span>
+            </div>
+            <div style="font-size:26px;font-weight:900;color:#fff;line-height:1.1;margin-top:2px;">
+                <span id="sealed-banner-line"></span>
+            </div>
+        </div>
         @endif
 
         {{-- Custom Elements (text labels and shapes) --}}
@@ -952,11 +1236,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"></script>
     <script>
         const auctionId = {{ $auction->id }};
+        // JSON-encoded rather than interpolated into quotes: an auction named O'Brien's Cup
+        // would otherwise close the string and break every script on the page.
+        const AUCTION_NAME = @json($auction->name);
         let currentStatus = 'waiting';
         let lastPlayerId = null;
         let lastOnAuctionPlayerId = null;
         let lastActionPlayerId = null;
         let isShuffling = false;
+        // The most recent payload that had a player on the block — the recovery path's input.
+        let lastGoodPlayer = null;
         let hasCompletedFirstLoad = false;
         let _confettiFiredForPlayer = null;
 
@@ -976,96 +1265,171 @@
             namePool: ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5'],
             interval: null,
 
+            watchdog: null,
+
+            /**
+             * Give up and just show the card.
+             *
+             * `isShuffling` gates the whole poll loop, and it used to be cleared only by the
+             * very last line of reveal()'s setTimeout — behind a dozen unguarded
+             * getElementById dereferences. One throw anywhere in there left it stuck true
+             * for the rest of the session: every later poll returned early, so the card never
+             * appeared and the wall sat on the waiting screen while the clock (updated
+             * deliberately BEFORE that guard) kept counting down over it.
+             *
+             * Every exit from the animation now goes through here, so the flag cannot stay
+             * set. Losing the animation is a cosmetic disappointment; losing the player card
+             * for the rest of the auction is not.
+             */
+            finish(playerData) {
+                if (this.interval) { clearInterval(this.interval); this.interval = null; }
+                if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
+
+                const screen = document.getElementById('shuffle-screen');
+                if (screen) {
+                    screen.classList.add('hidden');
+                    screen.style.display = 'none';
+                }
+
+                isShuffling = false;
+
+                if (playerData) updatePlayerCard(playerData);
+            },
+
             start(playerData, namePool) {
                 if (namePool && namePool.length > 1) {
                     this.namePool = namePool;
                 }
+
+                // A second start while one is already running would orphan the first
+                // interval and leave two writing to the same node.
+                if (this.interval) { clearInterval(this.interval); this.interval = null; }
+                if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
+
                 isShuffling = true;
 
-                const screen = document.getElementById('shuffle-screen');
-                const nameEl = document.getElementById('shuffle-name');
-                const statusEl = document.getElementById('shuffle-status');
-                const revealName = document.getElementById('shuffle-reveal-name');
-                const revealRole = document.getElementById('shuffle-reveal-role');
-                const center = document.getElementById('shuffle-center');
-                const ringOuter = document.getElementById('shuffle-ring-outer');
-                const ringInner = document.getElementById('shuffle-ring-inner');
+                /* Backstop, independent of anything inside the animation: 30 ticks x 80ms
+                   plus the 1.8s reveal hold is ~4.2s, so 10s means something went wrong. */
+                this.watchdog = setTimeout(() => {
+                    console.warn('[Live] shuffle watchdog fired — showing the card directly');
+                    this.finish(playerData);
+                }, 10000);
 
-                center.classList.remove('revealed');
-                nameEl.classList.remove('hidden');
-                revealName.classList.add('hidden');
-                revealRole.classList.add('hidden');
-                statusEl.classList.remove('hidden');
-                ringOuter.style.display = '';
-                ringInner.style.display = '';
-                statusEl.textContent = 'Selecting Player...';
+                try {
+                    const screen = document.getElementById('shuffle-screen');
+                    const nameEl = document.getElementById('shuffle-name');
+                    const statusEl = document.getElementById('shuffle-status');
+                    const revealName = document.getElementById('shuffle-reveal-name');
+                    const revealRole = document.getElementById('shuffle-reveal-role');
+                    const center = document.getElementById('shuffle-center');
+                    const ringOuter = document.getElementById('shuffle-ring-outer');
+                    const ringInner = document.getElementById('shuffle-ring-inner');
 
-                document.getElementById('waiting-screen').classList.add('hidden');
-                document.getElementById('card-container').classList.add('hidden');
-                screen.classList.remove('hidden');
-                screen.style.display = 'flex';
-
-                let tick = 0;
-                const totalTicks = 30;
-                this.interval = setInterval(() => {
-                    tick++;
-                    const idx = Math.floor(Math.random() * this.namePool.length);
-                    nameEl.textContent = this.namePool[idx];
-
-                    if (tick >= totalTicks) {
-                        clearInterval(this.interval);
-                        this.interval = null;
-                        this.reveal(playerData);
+                    // reveal() rebuilds #shuffle-center's children, so any of these can be
+                    // missing if a previous run was interrupted part-way.
+                    if (!screen || !nameEl || !statusEl || !revealName || !revealRole || !center) {
+                        this.finish(playerData);
+                        return;
                     }
-                }, 80);
+
+                    center.classList.remove('revealed');
+                    nameEl.classList.remove('hidden');
+                    revealName.classList.add('hidden');
+                    revealRole.classList.add('hidden');
+                    statusEl.classList.remove('hidden');
+                    if (ringOuter) ringOuter.style.display = '';
+                    if (ringInner) ringInner.style.display = '';
+                    statusEl.textContent = 'Selecting Player...';
+
+                    document.getElementById('waiting-screen')?.classList.add('hidden');
+                    document.getElementById('card-container')?.classList.add('hidden');
+                    // The teaser cycles on a timer of its own; left running it would keep
+                    // animating behind the card once this finishes.
+                    stopUpNext();
+                    screen.classList.remove('hidden');
+                    screen.style.display = 'flex';
+
+                    let tick = 0;
+                    const totalTicks = 30;
+                    this.interval = setInterval(() => {
+                        tick++;
+                        // Re-queried each tick: the node is replaced by reveal(), so a
+                        // reference captured up front can be detached.
+                        const el = document.getElementById('shuffle-name');
+                        if (el) {
+                            const idx = Math.floor(Math.random() * this.namePool.length);
+                            el.textContent = this.namePool[idx];
+                        }
+
+                        if (tick >= totalTicks) {
+                            clearInterval(this.interval);
+                            this.interval = null;
+                            this.reveal(playerData);
+                        }
+                    }, 80);
+                } catch (e) {
+                    console.error('[Live] shuffle failed to start:', e);
+                    this.finish(playerData);
+                }
             },
 
             reveal(playerData) {
-                const nameEl = document.getElementById('shuffle-name');
-                const statusEl = document.getElementById('shuffle-status');
-                const revealName = document.getElementById('shuffle-reveal-name');
-                const revealRole = document.getElementById('shuffle-reveal-role');
-                const center = document.getElementById('shuffle-center');
-                const ringOuter = document.getElementById('shuffle-ring-outer');
-                const ringInner = document.getElementById('shuffle-ring-inner');
+                try {
+                    const nameEl = document.getElementById('shuffle-name');
+                    const statusEl = document.getElementById('shuffle-status');
+                    const revealName = document.getElementById('shuffle-reveal-name');
+                    const revealRole = document.getElementById('shuffle-reveal-role');
+                    const center = document.getElementById('shuffle-center');
+                    const ringOuter = document.getElementById('shuffle-ring-outer');
+                    const ringInner = document.getElementById('shuffle-ring-inner');
 
-                const pName = playerData.player?.name || 'Unknown';
-                const playerType = playerData.player?.player_type || playerData.player?.playerType;
-                const pRole = typeof playerType === 'object' ? (playerType?.type || playerType?.name || '') : (playerType || '');
+                    if (!center || !revealName || !revealRole) {
+                        this.finish(playerData);
+                        return;
+                    }
 
-                ringOuter.style.display = 'none';
-                ringInner.style.display = 'none';
-                statusEl.classList.add('hidden');
+                    const pName = playerData.player?.name || 'Unknown';
+                    const playerType = playerData.player?.player_type || playerData.player?.playerType;
+                    const pRole = typeof playerType === 'object' ? (playerType?.type || playerType?.name || '') : (playerType || '');
 
-                if (playerData.player?.image_path) {
-                    nameEl.classList.add('hidden');
-                    const img = document.createElement('img');
-                    img.src = '/storage/' + playerData.player.image_path;
-                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
-                    center.innerHTML = '';
-                    center.appendChild(img);
-                } else {
-                    nameEl.textContent = pName;
+                    if (ringOuter) ringOuter.style.display = 'none';
+                    if (ringInner) ringInner.style.display = 'none';
+                    if (statusEl) statusEl.classList.add('hidden');
+
+                    if (playerData.player?.image_path) {
+                        if (nameEl) nameEl.classList.add('hidden');
+                        const img = document.createElement('img');
+                        img.src = '/storage/' + playerData.player.image_path;
+                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+                        center.innerHTML = '';
+                        center.appendChild(img);
+                    } else if (nameEl) {
+                        nameEl.textContent = pName;
+                    }
+
+                    center.classList.add('revealed');
+
+                    revealName.textContent = pName;
+                    revealName.classList.remove('hidden');
+                    revealRole.textContent = pRole;
+                    revealRole.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        try {
+                            // Put the name node back — the image branch above removed it, and
+                            // the next run looks it up by id.
+                            center.innerHTML = '<span class="shuffle-name" id="shuffle-name">—</span>';
+                            center.classList.remove('revealed');
+                        } catch (e) {
+                            console.error('[Live] shuffle teardown failed:', e);
+                        }
+                        // Always, even if the teardown above threw.
+                        this.finish(playerData);
+                    }, 1800);
+                } catch (e) {
+                    console.error('[Live] shuffle reveal failed:', e);
+                    this.finish(playerData);
                 }
-
-                center.classList.add('revealed');
-
-                revealName.textContent = pName;
-                revealName.classList.remove('hidden');
-                revealRole.textContent = pRole;
-                revealRole.classList.remove('hidden');
-
-                setTimeout(() => {
-                    const screen = document.getElementById('shuffle-screen');
-                    screen.classList.add('hidden');
-                    screen.style.display = 'none';
-
-                    center.innerHTML = '<span class="shuffle-name" id="shuffle-name">—</span>';
-                    center.classList.remove('revealed');
-
-                    isShuffling = false;
-                    updatePlayerCard(playerData);
-                }, 1800);
             }
         };
 
@@ -1109,10 +1473,177 @@
             currentStatus = 'waiting';
         }
 
+        /* ── The waiting screen, told what it is actually waiting for ──
+           "WAITING FOR AUCTION" was hardcoded, so a room that had already sold half its
+           players still announced that the auction had not begun every time the block was
+           empty between players. What decides the wording is not `status` alone — an
+           auction is `running` from the moment it starts, before anyone is up — but how
+           much of the room has actually been worked through. */
+        let upNextIndex = 0;
+        let upNextTimer = null;
+
+        function stopUpNext() {
+            if (upNextTimer) { clearInterval(upNextTimer); upNextTimer = null; }
+        }
+
+        function renderUpNext(names) {
+            const wrap = document.getElementById('waiting-upnext');
+            const label = document.getElementById('waiting-upnext-name');
+            if (!wrap || !label) return;
+
+            if (!Array.isArray(names) || names.length === 0) {
+                wrap.classList.add('hidden');
+                stopUpNext();
+                return;
+            }
+
+            wrap.classList.remove('hidden');
+
+            const show = () => {
+                if (upNextIndex >= names.length) upNextIndex = 0;
+                label.textContent = names[upNextIndex] || '';
+                upNextIndex = (upNextIndex + 1) % names.length;
+                // Re-trigger the keyframe: removing the class and forcing a reflow is the
+                // only reliable way to replay a CSS animation on the same element.
+                label.classList.remove('swapping');
+                void label.offsetWidth;
+                label.classList.add('swapping');
+            };
+
+            if (!upNextTimer) {
+                show();
+                upNextTimer = setInterval(show, 2600);
+            }
+        }
+
+        function renderWaitingScreen(data) {
+            const title = document.getElementById('waiting-title');
+            const sub = document.getElementById('waiting-sub');
+            const bar = document.getElementById('waiting-progress');
+            const fill = document.getElementById('waiting-progress-fill');
+            const text = document.getElementById('waiting-progress-text');
+            if (!title || !sub) return;
+
+            const status = data?.auction_status;
+            const p = data?.progress || {};
+            const total = Number(p.total || 0);
+            const done = Number(p.done || 0);
+            const waiting = Number(p.waiting || 0);
+            const started = status === 'running' || status === 'paused';
+
+            let heading, subline;
+
+            if (status === 'paused') {
+                heading = 'AUCTION PAUSED';
+                subline = 'Back shortly';
+            } else if (!started) {
+                heading = 'WAITING FOR AUCTION';
+                subline = AUCTION_NAME;
+            } else if (done === 0) {
+                // Started, but nobody has been through the block yet.
+                heading = 'AUCTION IS LIVE';
+                subline = waiting > 0 ? `First player coming up — ${waiting} in the queue` : AUCTION_NAME;
+            } else if (waiting === 0) {
+                // Everyone has been through, but the auction has not been ended.
+                heading = 'ALL PLAYERS DONE';
+                subline = AUCTION_NAME;
+            } else {
+                heading = 'WAITING FOR NEXT PLAYER';
+                subline = AUCTION_NAME;
+            }
+
+            title.textContent = heading;
+            sub.textContent = subline;
+
+            // The rail is meaningless before anyone has been through the block.
+            if (bar && fill && text) {
+                if (started && total > 0 && done > 0) {
+                    bar.classList.remove('hidden');
+                    fill.style.width = Math.min(100, (done / total) * 100).toFixed(1) + '%';
+                    text.textContent = `${done} of ${total} done · ${waiting} to go`;
+                } else {
+                    bar.classList.add('hidden');
+                }
+            }
+
+            /* Only tease names while nobody is on the block. Left running it kept cycling
+               over a live player card, because the cycle has its own interval and was only
+               stopped from showCard(). */
+            const somebodyUp = data?.auctionPlayer?.status === 'on_auction';
+            renderUpNext(started && waiting > 0 && ! somebodyUp ? (data?.waitingPlayers || []) : []);
+        }
+
         function showCard() {
             console.log('[Live] showCard()');
             document.getElementById('waiting-screen').classList.add('hidden');
             document.getElementById('card-container').classList.remove('hidden');
+            // Nothing is watching the teaser behind the card; leaving its interval running
+            // would keep re-animating a hidden node for the rest of the session.
+            stopUpNext();
+        }
+
+        // Set from each poll before the card is rendered. A variable rather than a new
+        // parameter, so the several existing updatePlayerCard() call sites are untouched.
+        let sealedState = null;
+
+        function renderSealedBanner(sealed) {
+            sealedState = sealed || null;
+
+            const banner = document.getElementById('sealed-banner');
+            if (!banner) return;
+
+            if (!sealedState) {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            const title = document.getElementById('sealed-banner-title');
+            const line = document.getElementById('sealed-banner-line');
+
+            const labels = {
+                pending: ['Closed Bid', 'Bidding has gone private'],
+                entry_open: ['Closed Bid', 'Teams are entering the sealed round'],
+                collecting: ['Closed Bid', 'Sealed bids are being taken'],
+                locked: ['Closed Bid', 'Bidding closed'],
+                revealed: ['Closed Bid', 'Result incoming'],
+                tie: ['Tie', 'Going to a re-bid'],
+                awaiting_lot: ['Tie', 'Drawing a lot'],
+                no_entries: ['Closed Bid', 'No team entered'],
+            };
+
+            const [heading, text] = labels[sealedState.state] || ['Closed Bid', 'Sealed round'];
+
+            if (title) title.textContent = heading;
+            if (line) {
+                line.textContent = sealedState.total_rounds > 1 && sealedState.round_number
+                    ? `${text} — round ${sealedState.round_number} of ${sealedState.total_rounds}`
+                    : text;
+            }
+
+            banner.classList.remove('hidden');
+        }
+
+        /**
+         * "Restarting" notice.
+         *
+         * The window is measured by the server, so a projector, an OBS source and every
+         * phone watching come back at the same moment rather than each timing its own ten
+         * seconds from whenever it last polled.
+         */
+        function renderRestartNotice(data) {
+            const screen = document.getElementById('restart-screen');
+            if (!screen) return false;
+
+            if (!data?.restarting) {
+                screen.classList.add('hidden');
+                return false;
+            }
+
+            const secondsEl = document.getElementById('restart-seconds');
+            if (secondsEl) secondsEl.textContent = data.restart_seconds ?? '';
+
+            screen.classList.remove('hidden');
+            return true;
         }
 
         function updatePlayerCard(p) {
@@ -1147,15 +1678,31 @@
                 ? playerType?.type || playerType?.name || ''
                 : playerType || '';
 
-            const battingStyle = p.player.batting_profile || p.player.battingProfile;
-            document.getElementById('player-batting').textContent = typeof battingStyle === 'object'
-                ? battingStyle?.style || battingStyle?.name || 'N/A'
-                : battingStyle || 'N/A';
+            /**
+             * A missing style hides its row rather than printing "N/A".
+             *
+             * Two empty rows reading N/A on a hall screen is worse than two fewer rows:
+             * it draws the eye to what the system does not know about the player being
+             * auctioned. The column is `style`; `name` is an accessor alias, so both are
+             * accepted here.
+             */
+            const styleText = (value) => {
+                if (!value) return '';
+                return typeof value === 'object' ? (value.style || value.name || '') : String(value);
+            };
 
-            const bowlingStyle = p.player.bowling_profile || p.player.bowlingProfile;
-            document.getElementById('player-bowling').textContent = typeof bowlingStyle === 'object'
-                ? bowlingStyle?.style || bowlingStyle?.name || 'N/A'
-                : bowlingStyle || 'N/A';
+            const setStyleRow = (id, value) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const text = styleText(value);
+                el.textContent = text;
+                // Hide the element itself, so a template that positioned it keeps its
+                // remaining rows where the designer put them.
+                el.style.display = text === '' ? 'none' : '';
+            };
+
+            setStyleRow('player-batting', p.player.batting_profile || p.player.battingProfile);
+            setStyleRow('player-bowling', p.player.bowling_profile || p.player.bowlingProfile);
 
             // Show current bid price if available, otherwise base price
             const price = p.current_price || p.base_price || 0;
@@ -1218,6 +1765,18 @@
                 if (highestBidder) highestBidder.classList.add('hidden');
             } else if (p.status === 'on_auction') {
                 resetDramaticStates();
+
+                // While a sealed round runs there is no public bid to show: the price is
+                // frozen at the round's floor and the sealed amounts never leave the
+                // server. Say so plainly rather than leaving a stale figure on screen.
+                if (sealedState) {
+                    if (soldText) soldText.textContent = 'SEALED BIDDING';
+                    if (highestBidder) highestBidder.classList.add('hidden');
+                    if (soldBadge) soldBadge.classList.add('hidden');
+                    if (teamLogo) teamLogo.classList.add('hidden');
+                    return;
+                }
+
                 if (p.current_bid_team) {
                     if (soldText) soldText.textContent = 'CURRENT BID';
                     if (bidderName) bidderName.textContent = p.current_bid_team.name;
@@ -1291,64 +1850,164 @@
             return stages.find(s => remaining <= s.at) || null;
         }
 
-        function renderClock() {
-            const layer = document.getElementById('final-call-layer');
-            const badge = document.getElementById('final-call-badge');
-            const secondsEl = document.getElementById('final-call-seconds');
-            const plain = document.getElementById('bid-countdown');
-            const plainSeconds = document.getElementById('bid-countdown-seconds');
-            if (!layer || !plain) return;
+        // Longest closing-call threshold seen, used to scale the ring when the round's
+        // own limit is not in the payload.
+        let clockScale = 30;
 
-            // No live clock: hide everything.
-            if (!timerEnabled || timerRemaining === null || timerRemaining === undefined) {
-                layer.classList.add('hidden');
-                plain.classList.add('hidden');
+        // Whether anybody is actually on the block. The clock hides without one.
+        let clockHasPlayer = false;
+        // Whether the player on the block has attracted a bid. Set from the poll, read by
+        // the closing-call logic below.
+        let noBidsOnBlock = false;
+
+        /**
+         * "This player is about to go unsold."
+         *
+         * Only during a closing call, and only when nobody has bid. The card greys out so the
+         * screen reads as a lost lot at a glance from the back of a hall, and the banner says
+         * it in words for anyone who is not watching the clock.
+         */
+        function renderUnsoldWarning(inClosingCall, noBids) {
+            const banner = document.getElementById('unsold-warning');
+            const card = document.getElementById('card-container');
+            const show = inClosingCall && noBids && clockHasPlayer;
+
+            if (banner) banner.classList.toggle('hidden', !show);
+            if (card) card.classList.toggle('about-to-go-unsold', show);
+        }
+
+        function clearUnsoldWarning() {
+            renderUnsoldWarning(false, false);
+        }
+
+        function renderClock() {
+            const hud = document.getElementById('clock-hud');
+            const ring = document.getElementById('clock-ring');
+            const secondsEl = document.getElementById('clock-seconds');
+            const caption = document.getElementById('clock-caption');
+            const callEl = document.getElementById('clock-call');
+            if (!hud || !ring) return;
+
+            // A countdown only means something while somebody is on the block. After a
+            // pass, a sale or a restart the stamp on the auction can still be recent, so
+            // without this check the HUD counts down over the waiting screen.
+            if (!timerEnabled || timerRemaining === null || timerRemaining === undefined || !clockHasPlayer) {
+                hud.classList.add('hidden');
                 lastCallStage = 0;
+                renderUnsoldWarning(false, false);
                 return;
             }
 
             const seconds = Math.max(0, timerRemaining);
             const call = finalCallFor(seconds, finalCallStages);
 
+            /* A countdown at zero has finished. Leaving "0 — FINAL CALL" frozen on the wall
+               kept calling a player nobody was still bidding on, and the call is the loudest
+               thing on the screen. The unsold notice below outlives it on purpose: that state
+               really does persist until the organizer passes the player. */
+            if (seconds <= 0) {
+                hud.classList.add('hidden');
+                hud.style.animation = 'none';
+                lastCallStage = 0;
+                renderUnsoldWarning(true, noBidsOnBlock);
+                return;
+            }
+
+            hud.classList.remove('hidden');
+
+            clockScale = Math.max(clockScale, seconds);
+
+            // 2πr for r=42. Deplete clockwise as the seconds run down.
+            const CIRCUMFERENCE = 263.9;
+            const fraction = clockScale > 0 ? Math.min(1, seconds / clockScale) : 0;
+            ring.setAttribute('stroke-dashoffset', String(CIRCUMFERENCE * (1 - fraction)));
+
+            // Grey the card and say what is about to happen. `noBids` is the whole test:
+            // a closing call with a leading team is drama, without one it is a foregone
+            // conclusion nobody in the room has been told about.
+            renderUnsoldWarning(!!call, noBidsOnBlock);
+
             if (call) {
-                plain.classList.add('hidden');
-                layer.classList.remove('hidden');
+                // Closing call: the HUD grows, turns, and names the call.
+                const colour = call.is_final ? '#f43f5e' : '#f59e0b';
+                ring.setAttribute('stroke', colour);
+                secondsEl.style.color = colour;
+                // The kicker must not repeat the label underneath it — "Final Call" above
+                // "FINAL CALL" read as a mistake. It says how long is left instead.
+                caption.textContent = seconds === 1 ? '1 second left' : `${seconds} seconds left`;
+                caption.style.color = colour;
+                callEl.textContent = call.label;
+                callEl.style.color = '#fff';
+                callEl.style.display = '';
+                hud.style.borderColor = colour;
+                hud.style.boxShadow = `0 24px 70px rgba(0,0,0,0.6), 0 0 46px ${colour}66`;
 
-                badge.textContent = call.label;
-                badge.style.background = call.is_final ? '#dc2626' : '#f59e0b';
-                badge.style.color = call.is_final ? '#ffffff' : '#111827';
-                secondsEl.textContent = seconds;
-                secondsEl.style.color = call.is_final ? '#f87171' : '#fcd34d';
-
-                // Replay the punch-in animation only when a NEW call fires.
+                // Punch in only when a NEW call fires, not on every tick.
                 if (call.stage > lastCallStage) {
-                    badge.style.animation = 'none';
-                    void badge.offsetWidth; // force reflow so the animation restarts
-                    badge.style.animation = 'finalCallPulse 0.9s cubic-bezier(0.34,1.56,0.64,1) both';
+                    hud.style.animation = 'none';
+                    void hud.offsetWidth; // force reflow so the animation restarts
+                    hud.style.animation = 'finalCallPulse 0.9s cubic-bezier(0.34,1.56,0.64,1) both';
                     lastCallStage = call.stage;
                 }
             } else {
-                layer.classList.add('hidden');
                 lastCallStage = 0;
-                plain.classList.remove('hidden');
-                plainSeconds.textContent = seconds;
+                const colour = seconds <= 10 ? '#fbbf24' : '#22d3ee';
+                ring.setAttribute('stroke', colour);
+                secondsEl.style.color = '#fff';
+                caption.textContent = 'Time Remaining';
+                caption.style.color = '#94a3b8';
+                callEl.textContent = '';
+                callEl.style.display = 'none';
+                hud.style.borderColor = 'rgba(148,163,184,0.25)';
+                hud.style.boxShadow = '0 24px 70px rgba(0,0,0,0.6)';
+                hud.style.animation = 'none';
             }
+
+            secondsEl.textContent = seconds;
+        }
+
+        /**
+         * Tick the countdown between polls.
+         *
+         * The server is polled every 2 seconds, so without a local tick the number jumps
+         * 30, 28, 26 — which on a hall screen reads as a broken clock, and means a closing
+         * call can land up to two seconds late. This only ever counts DOWN from the last
+         * server value; the next poll overwrites it, so the server stays authoritative and
+         * drift cannot accumulate.
+         *
+         * This function was called by syncClock() but never actually defined — a
+         * ReferenceError on every single poll. The rejection was swallowed by the poll's
+         * .catch(), and because it threw AFTER the clock rendered but BEFORE the player-card
+         * branch, the wall showed a live countdown over a waiting screen and the card could
+         * never appear at all.
+         */
+        let clockTickInterval = null;
+
+        function stopClockTick() {
+            if (clockTickInterval) { clearInterval(clockTickInterval); clockTickInterval = null; }
         }
 
         function startClockTick() {
-            if (timerTick) return;
-            timerTick = setInterval(() => {
-                if (timerRemaining !== null && timerRemaining > 0) {
-                    timerRemaining--;
+            stopClockTick();
+
+            if (!timerEnabled || timerRemaining === null || timerRemaining === undefined) return;
+
+            clockTickInterval = setInterval(() => {
+                if (timerRemaining === null || timerRemaining <= 0) {
+                    stopClockTick();
+                    return;
                 }
+                timerRemaining -= 1;
                 renderClock();
             }, 1000);
         }
 
-        /** Re-seed the local clock from a poll response. */
         function syncClock(data) {
             timerEnabled = !!data?.timer_enabled;
             timerRemaining = data?.timer_seconds_remaining ?? null;
+            // The server sends the round's limit, so the ring is scaled to the real
+            // window rather than to whatever the longest countdown so far happened to be.
+            if (data?.bid_timer_seconds) clockScale = Number(data.bid_timer_seconds);
             if (Array.isArray(data?.final_call_stages)) {
                 finalCallStages = data.final_call_stages;
             }
@@ -1357,9 +2016,12 @@
         }
 
         function hideClock() {
+            stopClockTick();
             timerEnabled = false;
             timerRemaining = null;
             renderClock();
+            // No clock means no closing call — the warning must not outlive it.
+            clearUnsoldWarning();
         }
 
         let shuffleNamePool = [];
@@ -1380,6 +2042,34 @@
                 .then(res => res.json())
                 .then(data => {
                     console.log('[Live] API response:', data);
+
+                    // Before the card renders: the sealed banner also sets the flag
+                    // updatePlayerCard() reads to suppress the public bid figure.
+                    renderSealedBanner(data.closed_bid || null);
+
+                    // No player on the block means no meaningful countdown.
+                    clockHasPlayer = data?.auctionPlayer?.status === 'on_auction';
+
+                    // Kept so the .catch() below can still put the card up if the rest of
+                    // this handler fails.
+                    if (data?.auctionPlayer) lastGoodPlayer = data.auctionPlayer;
+
+                    // A bid exists when a team is leading. `current_price > base_price` is
+                    // not a safe substitute: an offline opening bid can land exactly on base.
+                    noBidsOnBlock = clockHasPlayer && ! (
+                        data?.auctionPlayer?.current_bid_team
+                        || data?.auctionPlayer?.current_bid_team_id
+                    );
+
+                    // Wording, progress and the up-next teaser, whatever the screen ends
+                    // up showing. Cheap, and it keeps the waiting screen correct the moment
+                    // it becomes visible rather than one poll later.
+                    renderWaitingScreen(data);
+
+                    // A restart owns the screen for its window. Returning here also keeps
+                    // the shuffle from firing on the next player until the notice ends,
+                    // so the two announcements cannot overlap.
+                    if (renderRestartNotice(data)) return;
 
                     // Real-time PAUSED overlay (reflects organizer pause/resume within ~2s).
                     const pausedOverlay = document.getElementById('paused-overlay');
@@ -1455,7 +2145,21 @@
                     }
                 })
                 .catch(err => {
+                    /* A throw anywhere in the handler above used to be swallowed here, and
+                       whatever was on screen stayed there for the rest of the auction — a
+                       missing function reference froze the wall on its waiting screen for
+                       every poll. The card is the whole point of this page, so recover to it
+                       rather than leaving the hall looking at nothing. */
                     console.error('[Live] Fetch error:', err);
+
+                    try {
+                        if (lastGoodPlayer && !isShuffling) {
+                            console.warn('[Live] recovering the card after a handler error');
+                            updatePlayerCard(lastGoodPlayer);
+                        }
+                    } catch (e) {
+                        console.error('[Live] recovery failed too:', e);
+                    }
                 });
         }
 
@@ -1499,18 +2203,37 @@
         // ── Responsive scaling for card container ──
         const canvasWidth = {{ $canvasWidth }};
         const canvasHeight = {{ $canvasHeight }};
+        /**
+         * Scale the designed card to fill the screen.
+         *
+         * The scale used to be capped at 1 (`Math.min(scaleX, scaleY, 1)`), so on anything
+         * larger than the design size the card refused to grow: a 1601x910 template sat at
+         * native size in the middle of a 1920x1080 projector with black bands around it, and
+         * the template's own background covered only part of the screen. There is no reason
+         * to cap it — everything on the card is either vector, text, or an image with room to
+         * spare, and the alternative is deliberately wasting the display.
+         *
+         * Aspect ratio is preserved on purpose. Stretching to fill both axes would distort
+         * every logo and photo, and cropping would cut elements the designer positioned; with
+         * a 1601x910 canvas (1.76) on a 16:9 screen (1.78) the remaining letterbox is about
+         * one percent.
+         */
         function scaleLive() {
             const container = document.getElementById('card-container');
             if (!container || container.classList.contains('hidden')) return;
-            const maxWidth = window.innerWidth;
-            const maxHeight = window.innerHeight;
-            const scaleX = maxWidth / canvasWidth;
-            const scaleY = maxHeight / canvasHeight;
-            const scale = Math.min(scaleX, scaleY, 1);
+
+            const scale = Math.min(
+                window.innerWidth / canvasWidth,
+                window.innerHeight / canvasHeight
+            );
+
             container.style.transform = `scale(${scale})`;
             container.style.transformOrigin = 'center center';
         }
         window.addEventListener('resize', scaleLive);
+        // Entering or leaving fullscreen changes the viewport without firing resize on
+        // every browser, and the wall is run fullscreen more often than not.
+        document.addEventListener('fullscreenchange', () => setTimeout(scaleLive, 60));
         // Scale on initial load and whenever card becomes visible
         const origShowCard = showCard;
         showCard = function() {

@@ -1044,6 +1044,71 @@
                     </div>
                 </div>
 
+                {{-- ── Auction budget ──
+                     Retention is set on this page and its whole effect is to spend this
+                     team's auction budget, so the figure it spends belongs here. Read
+                     through AuctionPoolService, so these are the same numbers the live
+                     auction enforces rather than a second copy that can drift. --}}
+                @isset($teamBudget)
+                    @if($teamBudget)
+                    @php $ab = $teamBudget['auction']; @endphp
+                    <div class="mb-3 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+                        <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Auction budget</h2>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $ab->name }} — retained players are deducted up front.</p>
+                            </div>
+                            @can('auction.view')
+                                <a href="{{ route('admin.auctions.pools.index', $ab) }}"
+                                   class="text-xs font-medium text-brand-600 hover:underline">Pools &amp; budgets &rarr;</a>
+                            @endcan
+                        </div>
+                        <div class="p-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <p class="text-[11px] uppercase tracking-wider text-gray-400">Total budget</p>
+                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $ab->formatAmount($teamBudget['allocated'], '0') }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] uppercase tracking-wider text-gray-400">Retained</p>
+                                <p class="text-lg font-bold text-amber-600">{{ $ab->formatAmount($teamBudget['retained_spent'], '0') }}</p>
+                                {{-- Interpolated, not an inline @if: Blade will not compile a
+                                     directive glued to a word character, so "expected@endif"
+                                     left the @endif as literal text and the @if unclosed —
+                                     which is a fatal parse error for the whole page. --}}
+                                <p class="text-[11px] text-gray-400">
+                                    {{ $teamBudget['retained_count'] }}{{ ($teamBudget['retained_expected'] ?? 0) > 0 ? ' / ' . $teamBudget['retained_expected'] . ' expected' : '' }}
+                                    player(s)
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] uppercase tracking-wider text-gray-400">Bought at auction</p>
+                                <p class="text-lg font-bold text-gray-700 dark:text-gray-200">{{ $ab->formatAmount($teamBudget['auction_spent'], '0') }}</p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] uppercase tracking-wider text-gray-400">Remaining</p>
+                                <p class="text-lg font-bold {{ $teamBudget['remaining'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">
+                                    {{ $ab->formatAmount($teamBudget['remaining'], '0') }}
+                                </p>
+                                <p class="text-[11px] text-gray-400">
+                                    Squad {{ $teamBudget['slots_filled'] }}{{ $teamBudget['slots_max'] ? '/' . $teamBudget['slots_max'] : '' }}
+                                </p>
+                            </div>
+                        </div>
+                        {{-- Overspend is possible: retention is entered by hand and is not
+                             capped, so say so plainly rather than showing a red number and
+                             leaving the organizer to work out why. --}}
+                        @if($teamBudget['remaining'] < 0)
+                        <div class="px-5 pb-5">
+                            <p class="text-xs text-red-600 dark:text-red-400">
+                                This team is over its budget by {{ $ab->formatAmount(abs($teamBudget['remaining']), '0') }}.
+                                Lower a retention value below, or raise the team's allocation on the auction.
+                            </p>
+                        </div>
+                        @endif
+                    </div>
+                    @endif
+                @endisset
+
                 {{-- Current Squad (Players only) --}}
                 <div class="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                     <div class="flex items-start gap-2">

@@ -40,8 +40,25 @@ class PublicAuctionController extends Controller
     {
         $auction->load('tournament');
 
-        // Fetch auction-specific or default template
-        $template = AuctionTemplate::forAuction($auction->id, 'live_display');
+        // The auction's explicit pick wins, then a template bound to it, then the default.
+        $template = AuctionTemplate::resolveFor($auction, 'live_display');
+
+        // An HTML-mode template owns the whole screen, so it renders as its own
+        // document rather than inside the positioned-element page.
+        if ($template?->isHtmlMode()) {
+            // The policy goes on THIS response only. On the route it also hit the
+            // positioned wall below, whose CDN scripts it blocks.
+            $nonce = \App\Http\Middleware\AddTemplateCsp::nonce();
+
+            return response()
+                ->view('public.auction.html-template', [
+                    'auction' => $auction,
+                    'template' => $template,
+                    'nonce' => $nonce,
+                    'staticTokens' => \App\Services\Auction\TemplateTokenService::staticTokens($auction),
+                ])
+                ->header('Content-Security-Policy', \App\Http\Middleware\AddTemplateCsp::policy($nonce));
+        }
 
         // Resolve element positions
         $positions = $template?->element_positions ?? AuctionTemplate::getDefaultPositions();
@@ -94,8 +111,6 @@ class PublicAuctionController extends Controller
                 'player.bowlingProfile',
                 'soldToTeam',
                 'currentBidTeam',
-                'bids',
-                'bids.team',
             ])
             ->where('status', 'on_auction')
             ->first();
@@ -108,6 +123,29 @@ class PublicAuctionController extends Controller
             ->pluck('player.name')
             ->filter()
             ->values();
+
+        /*
+         * How far through the room is, for the waiting screen.
+         *
+         * One grouped count rather than a count() per status: this endpoint is polled every
+         * two seconds by the wall, every phone watching and any OBS source, so four
+         * aggregates here is four queries a tick per viewer.
+         */
+        $byStatus = $auction->auctionPlayers()
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $progress = [
+            'sold' => (int) $byStatus->get('sold', 0),
+            'unsold' => (int) $byStatus->get('unsold', 0) + (int) $byStatus->get('skipped', 0),
+            'waiting' => (int) $byStatus->get('waiting', 0),
+            'total' => (int) $byStatus->sum(),
+        ];
+        // Whether the room has started working, which is what decides between "waiting for
+        // the auction" and "waiting for the next player". `status` alone is not enough: an
+        // auction is `running` from the moment it is started, before anyone is on the block.
+        $progress['done'] = $progress['sold'] + $progress['unsold'];
 
         if (! $auctionPlayer) {
             // Return the most recently sold or unsold player so the live page
@@ -151,8 +189,12 @@ class PublicAuctionController extends Controller
                 'lastActionPlayer' => $lastActionData,
                 'last_sold_player' => $lastActionData && $lastActionData['status'] === 'sold' ? $lastActionData : null,
                 'auction_status' => $auction->status,
+                // Server-computed, so every screen announces the restart for the same window.
+                'restarting' => $auction->isRestarting(),
+                'restart_seconds' => $auction->restartNoticeRemaining(),
                 'open_bid_mode' => $auction->open_bid_mode,
                 'waitingPlayers' => $waitingPlayers,
+                'progress' => $progress,
             ]);
         }
 
@@ -175,6 +217,12 @@ class PublicAuctionController extends Controller
             ] : null,
         ];
 
+        // A sealed round publishes only that it is running. `current_price` is frozen at
+        // the round's floor and `current_bid_team_id` still holds the OPEN-bid leader —
+        // both were public before the round opened — so nothing here reveals a sealed
+        // amount or who placed it.
+        $sealed = app(\App\Services\Auction\ClosedBidService::class)->stateForPublic($auction, $auctionPlayer);
+
         // Authoritative clock, so the big screen counts down in step with the
         // organizer panel rather than guessing from player_updated_at.
         $timerState = $auction->timerStateFor($auctionPlayer);
@@ -183,8 +231,13 @@ class PublicAuctionController extends Controller
             'success' => true,
             'auctionPlayer' => $responsePlayer,
             'auction_status' => $auction->status,
+            // Server-computed, so every screen announces the restart for the same window.
+            'restarting' => $auction->isRestarting(),
+            'restart_seconds' => $auction->restartNoticeRemaining(),
             'open_bid_mode' => $auction->open_bid_mode,
             'bid_type' => $auction->bid_type,
+            // Counts only — never an amount, never a team-to-amount mapping.
+            'closed_bid' => $sealed,
             'bid_timer_seconds' => $timerState['limit'],
             'bid_timer_reset_seconds' => $auction->bid_timer_reset_seconds ?? 15,
             'timer_enabled' => $timerState['applies'],
@@ -197,6 +250,7 @@ class PublicAuctionController extends Controller
             'player_updated_at' => $auctionPlayer->updated_at->timestamp,
             'server_time' => now()->timestamp,
             'waitingPlayers' => $waitingPlayers,
+            'progress' => $progress,
         ]);
     }
 
@@ -209,8 +263,6 @@ class PublicAuctionController extends Controller
                 'player.battingProfile',
                 'player.bowlingProfile',
                 'soldToTeam', // This is needed for team logo
-                'bids',
-                'bids.team',
             ])
             ->whereIn('status', ['sold']) // include sold players
             ->orderBy('updated_at', 'desc') // optionally show 'on_auction' first
@@ -230,6 +282,9 @@ class PublicAuctionController extends Controller
                 ] : null,
             ] : null,
             'auction_status' => $auction->status,
+            // Server-computed, so every screen announces the restart for the same window.
+            'restarting' => $auction->isRestarting(),
+            'restart_seconds' => $auction->restartNoticeRemaining(),
         ]);
     }
 
@@ -239,10 +294,35 @@ class PublicAuctionController extends Controller
      * Mirrors the existing match ticker at public/match/live-ticker.blade.php — same
      * transparency, sizing and shortcuts — so the two behave identically in a stream.
      */
-    public function liveTicker(Auction $auction): View
+    public function liveTicker(Auction $auction): View|\Illuminate\Http\Response
     {
         $auction->load('tournament.organization');
 
+        /*
+         * An authored ticker template owns the whole strip.
+         *
+         * Same treatment the LED wall already gets: the markup renders as its own document
+         * with a nonce CSP, so nothing in it can execute and no platform chrome is around
+         * for it to collide with. Ticker templates are HTML-only by definition — the
+         * positioned editor describes a 1601x910 card, not a lower third — so there is no
+         * positioned branch to fall back through here.
+         */
+        $template = AuctionTemplate::resolveFor($auction, AuctionTemplate::TYPE_TICKER);
+
+        if ($template?->isHtmlMode()) {
+            $nonce = \App\Http\Middleware\AddTemplateCsp::nonce();
+
+            return response()
+                ->view('public.auction.html-template', [
+                    'auction' => $auction,
+                    'template' => $template,
+                    'nonce' => $nonce,
+                    'staticTokens' => \App\Services\Auction\TemplateTokenService::staticTokens($auction),
+                ])
+                ->header('Content-Security-Policy', \App\Http\Middleware\AddTemplateCsp::policy($nonce));
+        }
+
+        // Nothing chosen: the built-in strip, which is what every existing auction expects.
         return view('public.auction.ticker', ['auction' => $auction]);
     }
 
@@ -280,9 +360,9 @@ class PublicAuctionController extends Controller
 
         // Purses are not exposed by any other public endpoint, so the ticker needs its
         // own read — figures only, no per-team internals.
-        $teams = ActualTeam::forTournament($auction->tournament_id)
-            ->orderBy('name')
-            ->get()
+        // Only the teams actually taking part — the strip used to list every team in the
+        // tournament, including ones with no allocation who were never in this auction.
+        $teams = $pools->participatingTeams($auction)
             ->map(function (ActualTeam $team) use ($auction, $pools) {
                 $state = $pools->teamPurseState($auction, $team->id);
 
@@ -302,6 +382,9 @@ class PublicAuctionController extends Controller
         return response()->json([
             'success' => true,
             'auction_status' => $auction->status,
+            // Server-computed, so every screen announces the restart for the same window.
+            'restarting' => $auction->isRestarting(),
+            'restart_seconds' => $auction->restartNoticeRemaining(),
             'amount_unit' => $auction->amountUnitConfig(),
             'current_player' => $current ? [
                 'id' => $current->id,
@@ -311,6 +394,10 @@ class PublicAuctionController extends Controller
                 'base_price' => $current->base_price,
                 'current_price' => $current->current_price,
                 'leading_team' => $current->currentBidTeam?->name,
+                // The right-hand cell of the lower third is narrow; full team names overflow.
+                'leading_team_short' => $current->currentBidTeam?->display_name,
+                'lot_number' => $current->lot_number,
+                'stats' => $this->careerStats($current->player),
             ] : null,
             'timer' => [
                 'enabled' => $timerState['applies'],
@@ -320,7 +407,17 @@ class PublicAuctionController extends Controller
                 'final_call_stages' => $timerState['final_call_stages'],
             ],
             'recent_sales' => $recentSales,
+            // That a sealed round is running, and nothing else. Counts only — never an
+            // amount, never a team-to-amount mapping.
+            'closed_bid' => app(\App\Services\Auction\ClosedBidService::class)
+                ->stateForPublic($auction, $current),
             'teams' => $teams,
+            // Squad bounds for the teams table footer. `max` is null when unconfigured
+            // so the display can omit it rather than invent a ceiling.
+            'squad' => [
+                'min' => $auction->minSquadSize(),
+                'max' => $auction->maxSquadSize(),
+            ],
             'active_pool' => $progress['active_pool'],
             'stats' => [
                 'sold' => $auction->auctionPlayers()->where('status', 'sold')->count(),
@@ -329,6 +426,36 @@ class PublicAuctionController extends Controller
             ],
             'server_time' => now()->timestamp,
         ]);
+    }
+
+    /**
+     * The self-declared career figures shown on the broadcast strip.
+     *
+     * These are the numbers a player typed at registration (`players.total_*`) — the
+     * only career data that actually exists. Real per-match aggregates live in
+     * `player_statistics`, which is effectively empty, and nothing anywhere stores a
+     * strike rate or a 50s/100s count, so the strip deliberately shows matches, runs
+     * and wickets only.
+     *
+     * Null is preserved rather than coalesced to 0: 0 is a figure somebody entered and
+     * should render, while null means "never filled in" and the cell is dropped. When
+     * all three are null the whole strip goes, so the screen never shows an empty frame.
+     *
+     * @return array{matches: int|null, runs: int|null, wickets: int|null}|null
+     */
+    private function careerStats(?\App\Models\Player $player): ?array
+    {
+        if (! $player) {
+            return null;
+        }
+
+        $stats = [
+            'matches' => $player->total_matches !== null ? (int) $player->total_matches : null,
+            'runs' => $player->total_runs !== null ? (int) $player->total_runs : null,
+            'wickets' => $player->total_wickets !== null ? (int) $player->total_wickets : null,
+        ];
+
+        return array_filter($stats, fn ($v) => $v !== null) === [] ? null : $stats;
     }
 
     /**
