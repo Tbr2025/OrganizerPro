@@ -715,9 +715,9 @@ class ClosedBidService
      * round is locked but not yet resolved is a window in which somebody could read the
      * amounts and act on them.
      */
-    public function lockAndReveal(AuctionClosedBidRound $round, ?User $actor = null): array
+    public function lockAndReveal(AuctionClosedBidRound $round, ?User $actor = null, bool $force = false): array
     {
-        return DB::transaction(function () use ($round, $actor) {
+        return DB::transaction(function () use ($round, $actor, $force) {
             $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
 
             if ($round->locked_at !== null) {
@@ -729,6 +729,38 @@ class ClosedBidService
             }
 
             $standing = $round->entries()->standing()->get();
+
+            /*
+             * Refuse a manual lock with nothing entered.
+             *
+             * Locking an empty round resolves it to `no_entries`, which is a real outcome but
+             * a terminal one — the round is over and the only ways out are awarding the
+             * open-bid leader or marking the player unsold. Pressing Lock moments after Start
+             * therefore threw the round away, and the only feedback was "No team entered the
+             * sealed round", which reads as a fault rather than as "you have not entered any
+             * amounts yet".
+             *
+             * It matters most offline, where the teams are in the room and CANNOT submit for
+             * themselves — the organizer types every amount, so an empty board is always
+             * premature rather than a genuine absence of interest.
+             *
+             * The timer-expiry path passes $force, so a round that genuinely ran its course
+             * with no bids still resolves to no_entries exactly as before.
+             */
+            if (! $force && $standing->isEmpty()) {
+                $auction = $round->auction;
+                $expired = $auction->closedBidRoundTimerState($round)['expired'] ?? false;
+
+                if (! $expired) {
+                    return [
+                        'handled' => false,
+                        'message' => $auction->open_bid_mode === 'offline'
+                            ? 'No amounts have been entered yet. Type each team\'s sealed amount on this board first — offline, the teams cannot submit for themselves.'
+                            : 'No team has submitted yet. Wait for the teams, or enter their amounts here, before locking the round.',
+                        'round' => $round,
+                    ];
+                }
+            }
 
             // A team that was required to bid again and did not has left the tie. Its
             // earlier amount is deliberately NOT carried forward — doing so would

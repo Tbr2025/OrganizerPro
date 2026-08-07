@@ -192,4 +192,52 @@ class ClosedBidOfflineTest extends TestCase
         $this->assertSame('offline', $auction->open_bid_mode);
         $this->assertSame('open', $auction->bid_type);
     }
+
+    #[Test]
+    public function locking_a_round_nobody_has_entered_is_refused_not_resolved(): void
+    {
+        [$org, $auction, $alpha, $bravo] = $this->offlineScenario();
+        $player = $this->makeAuctionPlayer($auction, ['status' => 'on_auction', 'current_price' => 8_000_000]);
+        $round = $this->closedBids()->openRoundFor($player, $auction);
+
+        $this->actingAs($this->makeAuctionOperator($org));
+        $this->postJson(route('admin.auction.organizer.api.closed-bid.start', $auction), ['auction_player_id' => $player->id]);
+
+        /*
+         * Locking an empty round resolved it to `no_entries` — a terminal state whose only
+         * exits are awarding the open-bid leader or marking the player unsold. So pressing
+         * Lock moments after Start threw the round away, and the only feedback was "No team
+         * entered the sealed round", which reads as a fault rather than as "you have not
+         * typed any amounts yet". Offline it is always premature: the teams are in the room
+         * and cannot submit for themselves.
+         */
+        $this->postJson(route('admin.auction.organizer.api.closed-bid.lock', $auction), [
+            'auction_player_id' => $player->id,
+        ])->assertOk()->assertJsonPath('handled', false);
+
+        $this->assertSame(
+            AuctionClosedBidRound::STATE_COLLECTING,
+            $round->fresh()->state,
+            'the round must still be open to receive amounts'
+        );
+    }
+
+    #[Test]
+    public function an_expired_round_with_no_bids_still_resolves_to_no_entries(): void
+    {
+        [$org, $auction, $alpha] = $this->offlineScenario(['closed_bid_timer_seconds' => 30]);
+        $player = $this->makeAuctionPlayer($auction, ['status' => 'on_auction', 'current_price' => 8_000_000]);
+        $round = $this->closedBids()->openRoundFor($player, $auction);
+
+        $this->closedBids()->start($round, null);
+
+        // The clock genuinely ran out, so an empty round is a real result and must still
+        // resolve — the refusal above is only for a premature manual lock.
+        $this->travel(120)->seconds();
+
+        $result = $this->closedBids()->lockAndReveal($round->fresh(), null, force: true);
+
+        $this->assertTrue($result['handled']);
+        $this->assertSame(AuctionClosedBidRound::STATE_NO_ENTRIES, $round->fresh()->state);
+    }
 }

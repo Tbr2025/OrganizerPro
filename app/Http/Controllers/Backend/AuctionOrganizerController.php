@@ -1194,7 +1194,8 @@ class AuctionOrganizerController extends Controller
                 ]);
             }
 
-            $result = $closedBids->lockAndReveal($round, auth()->user());
+            // The clock ran out, so an empty round is a real result rather than a slip.
+            $result = $closedBids->lockAndReveal($round, auth()->user(), force: true);
 
             return response()->json([
                 'success' => true,
