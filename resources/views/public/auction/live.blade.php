@@ -2102,10 +2102,28 @@
                         hideClock();
                     }
 
-                    if (data?.auction_status === 'completed') {
+                    /*
+                     * A completed auction is NOT a reason to blank the wall.
+                     *
+                     * This returned early and put up a full-screen "auction complete", so the
+                     * moment the status flipped the hall lost the player who had just been
+                     * won — while the organizer was still working through the sale on the
+                     * panel. The room wants to see the winning team, not a notice that the
+                     * event is over.
+                     *
+                     * The completed screen is kept only for the case where there is genuinely
+                     * nothing to show: no player on the block and no last result to hold.
+                     */
+                    if (data?.auction_status === 'completed'
+                        && ! data?.auctionPlayer
+                        && ! data?.lastActionPlayer) {
                         showCompleted();
                         return;
                     }
+
+                    // Anything else: fall through and keep rendering the card, which for a
+                    // finished auction is the last player sold, with their winning team.
+                    document.getElementById('completed-screen')?.classList.add('hidden');
 
                     if (data?.waitingPlayers && data.waitingPlayers.length > 0) {
                         shuffleNamePool = data.waitingPlayers;

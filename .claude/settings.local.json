@@ -280,7 +280,8 @@
       "Bash(npm run *)",
       "Bash(awk -v n=488 'NR<=n && /public function [a-zA-Z]+\\\\\\(/ {m=$0; ln=NR} NR==n {print \"line 488 is in: \" m \" \\(line \" ln \"\\)\"}' app/Http/Controllers/Backend/AuctionOrganizerController.php)",
       "Bash(./vendor/bin/pint --dirty)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(npx vite *)"
     ]
   }
 }

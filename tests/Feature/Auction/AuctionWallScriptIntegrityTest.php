@@ -167,4 +167,42 @@ class AuctionWallScriptIntegrityTest extends TestCase
 
         return array_values(array_unique($m[1] ?? []));
     }
+
+    #[Test]
+    public function a_completed_auction_keeps_showing_the_winner(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'status' => 'completed',
+        ]);
+        $team = $this->makeTeam($org, 'Squad of Cuba', $tournament);
+        $player = $this->makePlayer($org, ['name' => 'Adil Rashid']);
+
+        $this->makeAuctionPlayer($auction, [
+            'player' => $player,
+            'status' => 'sold',
+            'sold_to_team_id' => $team->id,
+            'final_price' => 40_000_000,
+        ]);
+
+        /*
+         * The wall used to return early on a completed status and put up a full-screen
+         * "auction complete", so the hall lost the player who had just been won while the
+         * organizer was still finishing the sale on the panel. The feed must still carry the
+         * last result for the card to hold.
+         */
+        $this->getJson("/auction/{$auction->id}/active-player")
+            ->assertOk()
+            ->assertJsonPath('auction_status', 'completed')
+            ->assertJsonPath('lastActionPlayer.status', 'sold')
+            ->assertJsonPath('lastActionPlayer.sold_to_team.name', 'Squad of Cuba');
+
+        $html = (string) $this->get(route('public.auction.live', $auction))->assertOk()->getContent();
+
+        // The completed screen is now reserved for having nothing at all to show.
+        $this->assertStringContainsString("&& ! data?.auctionPlayer", $html);
+        $this->assertStringContainsString("&& ! data?.lastActionPlayer", $html);
+    }
 }
