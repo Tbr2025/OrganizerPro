@@ -281,7 +281,9 @@ class ClosedBidAdminTest extends TestCase
     {
         ['org' => $org, 'auction' => $auction, 'teamA' => $teamA, 'round' => $round, 'player' => $player] = $this->scenario();
 
-        $this->closedBids()->lockAndReveal($round, null);
+        // force: the clock is what ends an empty round now — a premature manual lock is
+        // refused so an organizer cannot discard a round they have not typed into yet.
+        $this->closedBids()->lockAndReveal($round, null, force: true);
         $this->assertSame(AuctionClosedBidRound::STATE_NO_ENTRIES, $round->fresh()->state);
 
         $this->actingAs($this->makeAuctionOperator($org))
@@ -309,7 +311,9 @@ class ClosedBidAdminTest extends TestCase
     {
         ['org' => $org, 'auction' => $auction, 'round' => $round, 'player' => $player] = $this->scenario();
 
-        $this->closedBids()->lockAndReveal($round, null);
+        // force: the clock is what ends an empty round now — a premature manual lock is
+        // refused so an organizer cannot discard a round they have not typed into yet.
+        $this->closedBids()->lockAndReveal($round, null, force: true);
 
         $this->actingAs($this->makeAuctionOperator($org))
             ->postJson(route('admin.auction.organizer.api.closed-bid.no-entries-decision', $auction), [

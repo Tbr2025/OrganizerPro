@@ -403,7 +403,9 @@ class ClosedBidSealingTest extends TestCase
     {
         ['round' => $round] = $this->scenario();
 
-        $result = $this->closedBids()->lockAndReveal($round, null);
+        // force: the clock is what ends an empty round now — a premature manual lock is
+        // refused so an organizer cannot discard a round they have not typed into yet.
+        $result = $this->closedBids()->lockAndReveal($round, null, force: true);
 
         $this->assertTrue($result['handled']);
         $this->assertSame(AuctionClosedBidRound::STATE_NO_ENTRIES, $round->fresh()->state);

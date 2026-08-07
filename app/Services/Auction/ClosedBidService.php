@@ -747,7 +747,12 @@ class ClosedBidService
              * The timer-expiry path passes $force, so a round that genuinely ran its course
              * with no bids still resolves to no_entries exactly as before.
              */
-            if (! $force && $standing->isEmpty()) {
+            /*
+             * Only the FIRST round. In a re-bid, zero standing entries has defined meaning —
+             * the required teams did not come back, so the tie goes to a lot — and refusing
+             * the lock there blocked a legitimate path to `awaiting_lot`.
+             */
+            if (! $force && $standing->isEmpty() && (int) $round->round_number === 1) {
                 $auction = $round->auction;
                 $expired = $auction->closedBidRoundTimerState($round)['expired'] ?? false;
 
