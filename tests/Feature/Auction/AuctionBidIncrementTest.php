@@ -196,4 +196,72 @@ class AuctionBidIncrementTest extends TestCase
         $row = $auction->auctionPlayers()->where('player_id', $player->id)->first();
         $this->assertSame('5000.00', (string) $row->base_price);
     }
+
+    #[Test]
+    public function a_shared_boundary_uses_the_higher_band(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+
+        // Written the way organizers write them: consecutive bands share an endpoint.
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'bid_rules' => [
+                ['from' => 1_000_000, 'to' => 2_000_000, 'increment' => 100_000],
+                ['from' => 2_000_000, 'to' => 3_000_000, 'increment' => 200_000],
+                ['from' => 3_000_000, 'to' => 5_000_000, 'increment' => 500_000],
+            ],
+        ]);
+
+        $svc = app(BidIncrementService::class);
+
+        // Inside a band is unambiguous.
+        $this->assertSame(100_000.0, $svc->incrementFor($auction, 1_500_000));
+        $this->assertSame(200_000.0, $svc->incrementFor($auction, 2_500_000));
+
+        /*
+         * On the boundary two rules genuinely match. Returning the first meant the band the
+         * price had just LEFT won, so at exactly 2M the bid rose by 0.1M rather than 0.2M —
+         * and an auction spends most of its time on round numbers.
+         */
+        $this->assertSame(200_000.0, $svc->incrementFor($auction, 2_000_000), 'at 2M the 2-3M band applies');
+        $this->assertSame(500_000.0, $svc->incrementFor($auction, 3_000_000), 'at 3M the 3-5M band applies');
+    }
+
+    #[Test]
+    public function stepping_down_from_a_boundary_undoes_the_raise_that_reached_it(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'bid_rules' => [
+                ['from' => 1_000_000, 'to' => 2_000_000, 'increment' => 100_000],
+                ['from' => 2_000_000, 'to' => 3_000_000, 'increment' => 200_000],
+            ],
+        ]);
+
+        // The mirror of the rule above: 2M was reached by a 0.1M raise from 1.9M, so undoing
+        // it must return 0.1M, not the 0.2M that now applies going up.
+        $this->assertSame(100_000.0, app(BidIncrementService::class)->decrementFor($auction, 2_000_000));
+    }
+
+    #[Test]
+    public function a_price_in_a_gap_uses_the_nearest_band_above_it(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'bid_rules' => [
+                ['from' => 5_000_000, 'to' => 8_000_000, 'increment' => 1_000_000],
+                ['from' => 1_000_000, 'to' => 2_000_000, 'increment' => 100_000],
+            ],
+        ]);
+
+        // 3M sits in a gap. Declared order puts the 5-8M rule first, so "first match above"
+        // would have picked 1M; the nearest band above 3M is the 1-2M... no: the nearest
+        // band whose `from` is above 3M is 5-8M, giving 1M. Order must not decide this.
+        $this->assertSame(1_000_000.0, app(BidIncrementService::class)->incrementFor($auction, 3_000_000));
+    }
 }

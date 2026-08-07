@@ -65,23 +65,51 @@ class BidIncrementService
     {
         $rules = $this->rules($auction);
 
+        /*
+         * At a shared boundary the HIGHER band wins.
+         *
+         * Ladders are written as 1–2, 2–3, 3–5, so consecutive bands share an endpoint and
+         * two rules genuinely match the boundary price. Returning the first match let the
+         * lower band win: at exactly 2M the bid still rose by 0.1M instead of 0.2M, and the
+         * same at 3M and 5M. Every round number — which is precisely where an auction spends
+         * its time — used the increment of the band it had just left.
+         *
+         * Taking the greatest `from` among the matches is also order-independent, so a rule
+         * list saved out of sequence behaves the same as a sorted one.
+         *
+         * decrementFor() deliberately keeps first-match: stepping DOWN from 2M should undo
+         * the raise that got there, which used the lower band.
+         */
+        $best = null;
+
         foreach ($rules as $rule) {
-            if ($currentPrice >= $rule['from'] && $currentPrice <= $rule['to']) {
-                if ($rule['increment'] > 0) {
-                    return $rule['increment'];
+            if ($currentPrice < $rule['from'] || $currentPrice > $rule['to']) {
+                continue;
+            }
+            if ($rule['increment'] <= 0) {
+                continue;
+            }
+            if ($best === null || $rule['from'] > $best['from']) {
+                $best = $rule;
+            }
+        }
+
+        if ($best !== null) {
+            return $best['increment'];
+        }
+
+        // Price falls in a gap (or every matching band has a zero increment): use the
+        // nearest band above it, not merely the first one declared above it.
+        $next = null;
+        foreach ($rules as $rule) {
+            if ($currentPrice < $rule['from'] && $rule['increment'] > 0) {
+                if ($next === null || $rule['from'] < $next['from']) {
+                    $next = $rule;
                 }
             }
         }
 
-        // Price falls in a gap (or the matching band has a zero increment):
-        // use the next band up.
-        foreach ($rules as $rule) {
-            if ($currentPrice < $rule['from'] && $rule['increment'] > 0) {
-                return $rule['increment'];
-            }
-        }
-
-        return 0.0;
+        return $next !== null ? $next['increment'] : 0.0;
     }
 
     /**
