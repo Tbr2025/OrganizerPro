@@ -837,12 +837,23 @@
                                     </div>
                                     <div class="w-44">
                                         <div class="flex items-center bg-gray-700 border border-gray-600 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                                            {{-- The value is converted with toM()/fromM(), so this
+                                                 field is in MILLIONS. It was labelled "L" for Lakhs:
+                                                 an organizer reading that types 45 meaning 45 lakh
+                                                 (4.5M) and sells the player for 45M instead — a 10x
+                                                 error, entered on their behalf, mid-auction. The
+                                                 sell modal above had exactly this bug and was fixed;
+                                                 this copy was missed.
+
+                                                 step="any" because the server validates the amount
+                                                 against the increment ladder; a hardcoded 0.5 made
+                                                 the browser reject ordinary values like 4.7. --}}
                                             <input type="number"
                                                    :value="toM(offlineTeamBids[tid])"
                                                    @input="offlineTeamBids[tid] = fromM($event.target.value)"
                                                    class="w-full bg-transparent px-3 py-2 text-white text-sm text-right outline-none"
-                                                   placeholder="0" min="0" step="0.5">
-                                            <span class="pr-3 text-xs text-gray-400 whitespace-nowrap">L</span>
+                                                   placeholder="0" min="0" step="any">
+                                            <span class="pr-3 text-xs text-gray-400 whitespace-nowrap">M</span>
                                         </div>
                                     </div>
                                     <button @click="toggleOfflineParticipant(tid)" class="p-2 text-gray-400 hover:text-red-400 transition-colors">

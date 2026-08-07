@@ -1304,6 +1304,29 @@ document.addEventListener('DOMContentLoaded', () => {
         renderLayers();
     }
 
+    /**
+     * Remove a custom element from the layer list.
+     *
+     * Built-ins are refused rather than silently ignored: the wall renders a fixed set of
+     * eleven, so "deleting" one only discards the position it was given. Hiding is what the
+     * designer actually wants, and saying so is more use than a dead button.
+     */
+    function layersDelete(el) {
+        const key = el.dataset.key || '';
+
+        if (! key.startsWith('custom_')) {
+            alert('Built-in elements cannot be deleted. Use the eye toggle to hide it instead — the wall still expects it to exist.');
+            return;
+        }
+
+        const label = layerLabel(el);
+        if (! confirm(`Delete "${label}"? This cannot be undone once you save the template.`)) return;
+
+        // Reuses the existing teardown, which also removes the element's hidden inputs so
+        // nothing stale is posted for a key that no longer exists.
+        deleteCustomElement(el);
+    }
+
     let layerDragKey = null;
 
     function renderLayers() {
@@ -1317,6 +1340,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = el.dataset.key;
             const hidden = el.dataset.visible === '0';
             const isActive = activeEl === el;
+            /* Only custom elements can be removed. The eleven built-ins are the fixed set the
+               LED wall renders — deleting one from the template would not stop the wall
+               looking for it, it would just lose the position you gave it. Hiding is the
+               supported way to take one off the screen, so the control says so. */
+            const isCustom = key.startsWith('custom_');
 
             const li = document.createElement('li');
             li.draggable = true;
@@ -1336,6 +1364,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         class="px-1 text-gray-500 hover:text-gray-800 dark:hover:text-white ${idx === 0 ? 'opacity-30' : ''}">&#9650;</button>
                 <button type="button" data-act="down" title="Move down"
                         class="px-1 text-gray-500 hover:text-gray-800 dark:hover:text-white ${idx === order.length - 1 ? 'opacity-30' : ''}">&#9660;</button>
+                <button type="button" data-act="del"
+                        title="${isCustom ? 'Delete this element' : 'Built-in elements cannot be deleted — hide it instead'}"
+                        class="px-1 ${isCustom ? 'text-red-500 hover:text-red-700' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}">&times;</button>
             `;
 
             // textContent, not innerHTML: a custom text element's content is author input.
@@ -1346,6 +1377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (act === 'up') { layersMove(el, -1); return; }
                 if (act === 'down') { layersMove(el, 1); return; }
                 if (act === 'vis') { layersToggleVisible(el); return; }
+                if (act === 'del') { layersDelete(el); return; }
                 selectElement(el);
                 renderLayers();
             });

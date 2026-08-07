@@ -43,7 +43,12 @@ class AuctionTemplateLayersTest extends TestCase
             ->assertSee('layersSendToBack()', false)
             // Reordering renumbers the whole stack rather than nudging one value, because
             // hand-entered z-indexes collide and a nudge leaves them colliding.
-            ->assertSee('function layersRenumber', false);
+            ->assertSee('function layersRenumber', false)
+            // Delete lives in the layer row, but only for custom elements: the wall renders
+            // a fixed set of built-ins, so removing one would lose its position rather than
+            // take it off the screen.
+            ->assertSee('function layersDelete', false)
+            ->assertSee("key.startsWith('custom_')", false);
     }
 
     #[Test]

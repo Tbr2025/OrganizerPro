@@ -1740,7 +1740,10 @@
 
             if (p.status === 'sold') {
                 resetDramaticStates();
-                if (soldText) soldText.textContent = 'SOLD';
+                /* The badge says SOLD. This label sits over the player image, so repeating
+                   the word there just covered the photo with a duplicate of the stamp
+                   already on screen. It keeps naming the FIGURE beneath it instead. */
+                if (soldText) soldText.textContent = 'FINAL PRICE';
                 if (soldBadge) soldBadge.classList.remove('hidden');
                 cardContainer.classList.add('sold-state');
                 if (soldText) soldText.classList.add('sold-active');
@@ -1790,8 +1793,9 @@
             } else if (p.status === 'unsold') {
                 resetDramaticStates();
                 cardContainer.classList.add('unsold-state');
+                // Same again: the UNSOLD badge is the announcement, this is just its label.
                 if (soldText) {
-                    soldText.textContent = 'UNSOLD';
+                    soldText.textContent = 'BASE VALUE';
                     soldText.classList.add('unsold-active');
                 }
                 if (soldBadge) soldBadge.classList.add('hidden');
@@ -1802,7 +1806,7 @@
                 resetDramaticStates();
                 cardContainer.classList.add('skipped-state');
                 if (soldText) {
-                    soldText.textContent = 'SKIPPED';
+                    soldText.textContent = 'BASE VALUE';
                     soldText.classList.add('skipped-active');
                 }
                 if (soldBadge) soldBadge.classList.add('hidden');

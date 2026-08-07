@@ -371,6 +371,27 @@
     /* ── Marquee: duplicated track so the loop has no visible seam ── */
     let salesOffset = 0, salesAnim = null, salesWidth = 0;
 
+    /**
+     * Attribute-safe escaping for anything interpolated into innerHTML.
+     *
+     * Player and team names arrive through PUBLIC tournament registration, so a name
+     * containing markup is stored XSS on a page that is, by design, open to anyone and
+     * usually running unattended on a projector or in an OBS browser source. None of the
+     * template strings below escaped anything.
+     */
+    function esc(v) {
+        return String(v ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // Only rebuild the strip when the sales actually change: it was re-rendered on every
+    // 2-second poll, which replaced the DOM mid-scroll and made the marquee stutter.
+    let salesSignature = null;
+
     function renderSales(sales) {
         const strip = document.getElementById('sales-strip');
         const track = document.getElementById('sales-track');
@@ -381,26 +402,49 @@
         }
         strip.classList.remove('hidden');
 
+        const signature = sales.map(s => `${s.id}:${s.price}`).join('|');
+        if (signature === salesSignature) return;      // nothing new — leave the scroll alone
+        salesSignature = signature;
+
         const html = sales.map(s => `
             <div class="sale">
                 ${s.team_logo
-                    ? `<img src="${s.team_logo}" alt="">`
-                    : `<span class="initials">${initials(s.team_name)}</span>`}
-                <span class="who">${s.player_name}</span>
+                    ? `<img src="${esc(s.team_logo)}" alt="">`
+                    : `<span class="initials">${esc(initials(s.team_name))}</span>`}
+                <span class="who">${esc(s.player_name)}</span>
                 <span class="to">to</span>
-                <span class="who">${s.team_name}</span>
-                <span class="price">${amount(s.price)}</span>
+                <span class="who">${esc(s.team_name)}</span>
+                <span class="price">${esc(amount(s.price))}</span>
             </div>`).join('');
 
-        // Two copies so scrolling past the first reveals the second, seamlessly.
-        track.innerHTML = html + html;
-        salesWidth = track.scrollWidth / 2;
+        /* Measure one copy first.
+           The strip used to be built as `html + html` unconditionally, so the second copy
+           is what the marquee scrolls into — but with only a handful of sales the doubled
+           content still fits on screen and every entry was simply visible twice at once,
+           side by side. Duplicate only when one copy genuinely overflows. */
+        track.innerHTML = html;
+        const oneCopy = track.scrollWidth;
+        const visible = strip.clientWidth;
+
+        if (oneCopy > visible) {
+            track.innerHTML = html + html;
+            salesWidth = oneCopy;
+        } else {
+            // Fits: show it once and park it. A marquee with nothing to scroll past just
+            // slides the list off the edge and back for no reason.
+            salesWidth = 0;
+            salesOffset = 0;
+            track.style.transform = 'translateX(0)';
+        }
 
         if (!salesAnim) {
             const step = () => {
-                salesOffset -= 1.1;
-                if (salesWidth > 0 && Math.abs(salesOffset) >= salesWidth) salesOffset = 0;
-                track.style.transform = `translateX(${salesOffset}px)`;
+                // salesWidth of 0 means one copy fits, so there is nothing to scroll.
+                if (salesWidth > 0) {
+                    salesOffset -= 1.1;
+                    if (Math.abs(salesOffset) >= salesWidth) salesOffset = 0;
+                    track.style.transform = `translateX(${salesOffset}px)`;
+                }
                 salesAnim = requestAnimationFrame(step);
             };
             salesAnim = requestAnimationFrame(step);
@@ -490,19 +534,20 @@
             caption = `Teams ${from + 1}-${Math.min(from + VISIBLE_TEAMS, sorted.length)} of ${sorted.length}`;
         }
 
+        // Escaped: team names are organizer input and reach this public page verbatim.
         const rows = shown.map(t => `
             <div class="row tr">
                 <div class="team">
-                    ${t.logo ? `<img src="${t.logo}" alt="">` : `<span class="initials">${initials(t.short_name || t.name)}</span>`}
-                    <span class="nm">${t.short_name || t.name}</span>
+                    ${t.logo ? `<img src="${esc(t.logo)}" alt="">` : `<span class="initials">${esc(initials(t.short_name || t.name))}</span>`}
+                    <span class="nm">${esc(t.short_name || t.name)}</span>
                 </div>
-                <div class="amt">${t.remaining === null ? '—' : amount(t.remaining)}</div>
-                <div class="cnt">${t.players}</div>
+                <div class="amt">${t.remaining === null ? '—' : esc(amount(t.remaining))}</div>
+                <div class="cnt">${esc(t.players)}</div>
             </div>`).join('');
 
         // `max` is omitted rather than shown as a dash when nothing is configured.
         const squadRow = squad
-            ? `<div class="sq"><span>Squad Size</span><span>Min: ${squad.min}</span>${squad.max ? `<span>Max: ${squad.max}</span>` : ''}</div>`
+            ? `<div class="sq"><span>Squad Size</span><span>Min: ${esc(squad.min)}</span>${squad.max ? `<span>Max: ${esc(squad.max)}</span>` : ''}</div>`
             : '';
 
         panel.innerHTML = `
@@ -535,7 +580,8 @@
         strip.classList.remove('hidden');
         slab.classList.remove('no-stats');
         strip.innerHTML = `<div class="st-head">Career</div>` +
-            cells.map(([k, v]) => `<div class="st"><b>${k}</b><span>${v}</span></div>`).join('');
+            // Values are self-declared career figures from registration, so escaped too.
+            cells.map(([k, v]) => `<div class="st"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('');
     }
 
     function renderCurrent(p, sealed = null) {
