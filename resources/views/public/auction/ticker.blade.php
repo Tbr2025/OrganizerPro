@@ -617,7 +617,9 @@
                 tickerNoBids = !!d.current_player && ! d.current_player.leading_team;
 
                 // Clock only runs while someone is actually on the block.
-                if (d.current_player && d.auction_status !== 'paused') {
+                // Same as the wall: a pause is a state to SHOW, not a reason to blank the
+                // clock. renderClock() presents the frozen figure and labels it Paused.
+                if (d.current_player) {
                     clockEnabled = !!d.timer?.enabled;
                     clockRemaining = d.timer?.remaining ?? null;
                     clockPaused = !!d.timer?.paused;

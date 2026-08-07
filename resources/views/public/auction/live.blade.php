@@ -2087,8 +2087,11 @@
                     // The countdown and closing calls must keep running even while the
                     // shuffle animation is playing, so they are updated before the
                     // isShuffling guard below rather than after it.
+                    /* Paused is no longer a reason to skip this. The clock used to be hidden
+                       outright on a pause, so the hall saw the countdown vanish with nothing
+                       to explain it — and the "Paused" state the server now reports could
+                       never be shown. renderClock() presents the frozen figure itself. */
                     if (data?.auctionPlayer?.status === 'on_auction'
-                        && data?.auction_status !== 'paused'
                         && data?.auction_status !== 'completed') {
                         syncClock(data);
                     } else {
