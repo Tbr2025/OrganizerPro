@@ -293,12 +293,17 @@
 
                 {{-- Closing call, compact. Shown in every mode: a sealed round has a clock
                      too, and the operator needs to know it is running. --}}
-                <div x-show="finalCall && displayState === 'bidding'" x-cloak
+                <div x-show="finalCall && displayState === 'bidding' && !timerPaused" x-cloak
                      class="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest"
                      :class="finalCall && finalCall.is_final
                         ? 'bg-red-600 text-white'
                         : 'bg-amber-500 text-black'"
                      x-text="finalCall ? finalCall.label : ''"></div>
+
+                <div x-show="timerPaused" x-cloak
+                     class="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-amber-500 text-black">
+                    Timer paused
+                </div>
 
                 {{-- Timer --}}
                 <div x-show="displayState === 'bidding' && openBidMode !== 'offline'"
@@ -1765,6 +1770,8 @@ function auctionOrganizerPanel() {
         _lastCurrentPlayerId: null,
         // Seconds left in the restart announcement, from the server's window.
         restartSeconds: 0,
+        // Whether the SERVER says the bid clock is frozen.
+        timerPaused: false,
         _pollInterval: null,
 
         startStatePolling() {
@@ -1828,6 +1835,13 @@ function auctionOrganizerPanel() {
                 this.timerExpiryAction = data.timer_expiry_action || 'manual';
 
                 // The server owns the clock; the local countdown only renders it.
+                /* One clock, three screens. The panel already re-read the server value each
+                   poll, but its local tick kept running through a pause — so the operator's
+                   number drifted away from the wall and the stream until the next poll
+                   yanked it back. */
+                this.timerPaused = !!data.timer_paused;
+                if (this.timerPaused) this.stopBiddingTimer();
+
                 if (data.timer_seconds_remaining !== null && data.timer_seconds_remaining !== undefined) {
                     this.biddingTimerSeconds = data.timer_seconds_remaining;
                     const limit = data.bid_timer_seconds || 30;

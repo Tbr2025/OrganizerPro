@@ -242,6 +242,7 @@ class PublicAuctionController extends Controller
             'bid_timer_reset_seconds' => $auction->bid_timer_reset_seconds ?? 15,
             'timer_enabled' => $timerState['applies'],
             'timer_seconds_remaining' => $timerState['remaining'],
+            'timer_paused' => $timerState['paused'],
             'timer_expired' => $timerState['expired'],
             // Closing calls, so the audience display escalates with the room.
             'final_call' => $timerState['final_call'],
@@ -403,6 +404,7 @@ class PublicAuctionController extends Controller
                 'enabled' => $timerState['applies'],
                 'remaining' => $timerState['remaining'],
                 'limit' => $timerState['limit'],
+                'paused' => $timerState['paused'],
                 'final_call' => $timerState['final_call'],
                 'final_call_stages' => $timerState['final_call_stages'],
             ],

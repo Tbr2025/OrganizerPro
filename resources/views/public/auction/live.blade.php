@@ -1856,6 +1856,9 @@
 
         // Whether anybody is actually on the block. The clock hides without one.
         let clockHasPlayer = false;
+        // Server-declared. A frozen clock must not keep ticking locally, or the wall counts
+        // down past a pause and disagrees with the panel and the stream.
+        let clockPaused = false;
         // Whether the player on the block has attracted a bid. Set from the poll, read by
         // the closing-call logic below.
         let noBidsOnBlock = false;
@@ -1899,13 +1902,14 @@
             }
 
             const seconds = Math.max(0, timerRemaining);
-            const call = finalCallFor(seconds, finalCallStages);
+            // A closing call on a stopped clock is a lie: nothing is closing.
+            const call = clockPaused ? null : finalCallFor(seconds, finalCallStages);
 
             /* A countdown at zero has finished. Leaving "0 — FINAL CALL" frozen on the wall
                kept calling a player nobody was still bidding on, and the call is the loudest
                thing on the screen. The unsold notice below outlives it on purpose: that state
                really does persist until the organizer passes the player. */
-            if (seconds <= 0) {
+            if (seconds <= 0 && ! clockPaused) {
                 hud.classList.add('hidden');
                 hud.style.animation = 'none';
                 lastCallStage = 0;
@@ -1954,8 +1958,8 @@
                 const colour = seconds <= 10 ? '#fbbf24' : '#22d3ee';
                 ring.setAttribute('stroke', colour);
                 secondsEl.style.color = '#fff';
-                caption.textContent = 'Time Remaining';
-                caption.style.color = '#94a3b8';
+                caption.textContent = clockPaused ? 'Paused' : 'Time Remaining';
+                caption.style.color = clockPaused ? '#fbbf24' : '#94a3b8';
                 callEl.textContent = '';
                 callEl.style.display = 'none';
                 hud.style.borderColor = 'rgba(148,163,184,0.25)';
@@ -1990,7 +1994,8 @@
         function startClockTick() {
             stopClockTick();
 
-            if (!timerEnabled || timerRemaining === null || timerRemaining === undefined) return;
+            // Paused: the server is holding the number, so nothing local may move it.
+            if (!timerEnabled || timerRemaining === null || timerRemaining === undefined || clockPaused) return;
 
             clockTickInterval = setInterval(() => {
                 if (timerRemaining === null || timerRemaining <= 0) {
@@ -2005,6 +2010,7 @@
         function syncClock(data) {
             timerEnabled = !!data?.timer_enabled;
             timerRemaining = data?.timer_seconds_remaining ?? null;
+            clockPaused = !!data?.timer_paused;
             // The server sends the round's limit, so the ring is scaled to the real
             // window rather than to whatever the longest countdown so far happened to be.
             if (data?.bid_timer_seconds) clockScale = Number(data.bid_timer_seconds);

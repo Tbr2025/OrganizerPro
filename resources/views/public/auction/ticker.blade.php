@@ -306,6 +306,8 @@
     let clockRemaining = null, clockEnabled = false, callStages = [], clockTick = null;
     // Whether anyone has bid on the player currently on the block. Drives the unsold notice.
     let tickerNoBids = false;
+    // Server-declared, same flag the wall and the panel read.
+    let clockPaused = false;
 
     function renderClock() {
         const wrap = document.getElementById('lt-clock');
@@ -320,8 +322,9 @@
         const s = Math.max(0, clockRemaining);
 
         // Finished. A frozen "0 · FINAL CALL" on a broadcast keeps calling a player whose
-        // clock ran out, so the whole cell goes rather than sitting there stale.
-        if (s <= 0) {
+        // clock ran out, so the whole cell goes rather than sitting there stale. A PAUSED
+        // clock at zero is different — it is being held, and the stream should say so.
+        if (s <= 0 && ! clockPaused) {
             wrap.classList.add('hidden');
             call.classList.add('hidden');
             return;
@@ -329,6 +332,16 @@
 
         wrap.classList.remove('hidden');
         secs.textContent = s;
+
+        if (clockPaused) {
+            // No closing call while the clock is stopped: nothing is closing.
+            call.classList.remove('hidden');
+            call.textContent = 'Paused';
+            call.style.background = '#facc15';
+            call.style.color = '#111827';
+            secs.style.color = '#facc15';
+            return;
+        }
 
         const c = finalCallFor(s, callStages);
         if (c) {
@@ -607,6 +620,7 @@
                 if (d.current_player && d.auction_status !== 'paused') {
                     clockEnabled = !!d.timer?.enabled;
                     clockRemaining = d.timer?.remaining ?? null;
+                    clockPaused = !!d.timer?.paused;
                     if (Array.isArray(d.timer?.final_call_stages)) callStages = d.timer.final_call_stages;
                     startClock();
                 } else {

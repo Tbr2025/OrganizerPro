@@ -333,6 +333,8 @@ class AuctionOrganizerController extends Controller
             'bid_timer_seconds' => $timerState['limit'],
             'timer_seconds_remaining' => $timerState['remaining'],
             'timer_expired' => $timerState['expired'],
+            // One flag, shared by the panel, the wall and the ticker.
+            'timer_paused' => $timerState['paused'],
             // Closing calls: the stage the clock has reached, plus the thresholds so
             // the panel can escalate between polls without waiting for the next one.
             'final_call' => $timerState['final_call'],
@@ -754,6 +756,18 @@ class AuctionOrganizerController extends Controller
 
         // 3. Update the auction's status in the database
         $auction->update(['status' => $newStatus]);
+
+        /*
+         * Freeze or release the bid clock with it.
+         *
+         * Pausing used to flip `status` and nothing else, while the countdown carried on as
+         * wall-clock arithmetic — so a paused player came back with less time, or none.
+         */
+        if ($newStatus === 'paused') {
+            $auction->pauseTimer();
+        } else {
+            $auction->resumeTimer();
+        }
 
         // 4. Broadcast the status update to all connected clients
         // This is the crucial step that makes the UI update in real-time.

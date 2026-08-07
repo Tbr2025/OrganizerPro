@@ -35,6 +35,7 @@ class Auction extends Model
         'timer_enabled',
         'timer_expiry_action',
         'timer_started_at',
+        'timer_paused_at',
         'final_call_enabled',
         'final_call_interval_seconds',
         'open_bid_mode',
@@ -86,6 +87,7 @@ class Auction extends Model
         'quick_bid_steps' => 'array',
         'timer_enabled' => 'boolean',
         'timer_started_at' => 'datetime',
+        'timer_paused_at' => 'datetime',
         'final_call_enabled' => 'boolean',
         'final_call_interval_seconds' => 'integer',
         'notifications_enabled' => 'boolean',
@@ -248,16 +250,73 @@ class Auction extends Model
             return null;
         }
 
+        /*
+         * Measured to the moment of the pause, not to now.
+         *
+         * The countdown is wall-clock arithmetic, so before this it kept running through a
+         * pause: pausing a 30-second timer for a minute brought the player back already
+         * expired, and with timer_expiry_action = auto_sell they were sold the instant the
+         * room resumed. Resuming shifts `timer_started_at` forward by the paused duration,
+         * so the same number of seconds is left as when it stopped.
+         */
+        $until = $this->timerIsPaused()
+            ? $this->timer_paused_at->getTimestamp()
+            : now()->getTimestamp();
+
         // Integer timestamps, not diffInSeconds(): that returns a float in Carbon 3, so
         // a fraction of a second elapsed (the column stores whole seconds, the clock
         // does not) silently ate a full second off every countdown.
-        $elapsed = max(0, now()->getTimestamp() - $this->timer_started_at->getTimestamp());
+        $elapsed = max(0, $until - $this->timer_started_at->getTimestamp());
 
         return max(0, $this->timerLimitSeconds($afterBid) - $elapsed);
     }
 
+    /** Is the bid clock frozen? Distinct from the auction being paused: only a running
+     *  clock can be frozen, and a paused auction with no player on the block has none. */
+    public function timerIsPaused(): bool
+    {
+        return $this->timer_paused_at !== null;
+    }
+
+    /**
+     * Freeze the clock, so a pause does not eat the player's remaining seconds.
+     * Idempotent — pausing twice must not move the mark.
+     */
+    public function pauseTimer(): void
+    {
+        if ($this->timer_started_at !== null && ! $this->timerIsPaused()) {
+            $this->update(['timer_paused_at' => now()]);
+        }
+    }
+
+    /**
+     * Resume, giving back exactly the time that was left.
+     *
+     * The start mark moves forward by the length of the pause rather than the remaining
+     * seconds being written back, so there is one source of truth (`timer_started_at`) and
+     * no rounding creeps in across repeated pauses.
+     */
+    public function resumeTimer(): void
+    {
+        if (! $this->timerIsPaused()) {
+            return;
+        }
+
+        $pausedFor = max(0, now()->getTimestamp() - $this->timer_paused_at->getTimestamp());
+
+        $this->update([
+            'timer_started_at' => $this->timer_started_at?->copy()->addSeconds($pausedFor),
+            'timer_paused_at' => null,
+        ]);
+    }
+
     public function timerHasExpired(bool $afterBid = false): bool
     {
+        // A frozen clock cannot expire, or pausing at 0:01 would auto-sell on resume.
+        if ($this->timerIsPaused()) {
+            return false;
+        }
+
         $remaining = $this->timerSecondsRemaining($afterBid);
 
         return $remaining !== null && $remaining <= 0;
@@ -280,6 +339,9 @@ class Auction extends Model
             'remaining' => $remaining,
             'expired' => $this->timerHasExpired($afterBid),
             'after_bid' => $afterBid,
+            // Every screen reads this, so the hall, the stream and the operator agree that
+            // the clock is stopped rather than each guessing from `status`.
+            'paused' => $this->timerIsPaused(),
             'final_call' => $this->finalCallFor($remaining),
             // Shipped with every payload so each screen — including the public
             // displays, which are standalone documents and cannot import the admin
