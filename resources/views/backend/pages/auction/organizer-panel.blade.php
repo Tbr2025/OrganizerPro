@@ -245,21 +245,12 @@
                  "Going once, going twice": escalates in the closing seconds so the room
                  knows the hammer is coming. Shown on every screen off the same
                  server-supplied thresholds. --}}
-            <template x-if="finalCall && displayState === 'bidding'">
-                <div class="absolute inset-x-0 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center pointer-events-none">
-                    <div class="px-10 py-4 rounded-2xl shadow-2xl final-call-pulse"
-                         :class="finalCall.is_final
-                            ? 'bg-red-600 text-white ring-4 ring-red-400/60'
-                            : 'bg-amber-500 text-black ring-4 ring-amber-300/50'">
-                        <p class="text-5xl font-black tracking-widest uppercase" x-text="finalCall.label"></p>
-                    </div>
-                    <p class="mt-3 text-7xl font-black font-mono tabular-nums"
-                       :class="finalCall.is_final ? 'text-red-400' : 'text-amber-300'"
-                       x-text="Math.max(0, biddingTimerSeconds)"></p>
-                    <p x-show="finalCall.is_final" class="mt-1 text-sm font-bold uppercase tracking-widest text-red-300"
-                       x-text="timerExpiryAction === 'auto_sell' ? 'Selling automatically at zero' : 'Bidding closes at zero'"></p>
-                </div>
-            </template>
+            {{-- No centred call banner here.
+                 The closing call is for the audience; this is the operator's control screen.
+                 A full-width layer dead-centre covered the sealed board — the very thing the
+                 organizer has to read and act on while the call is running — so the call is
+                 now a compact chip beside the header timer instead. The big treatment stays
+                 on the LED wall, where it belongs. --}}
 
 
             {{-- Logos (top-left) --}}
@@ -299,6 +290,15 @@
                           }"
                           x-text="openBidMode === 'offline' ? 'OFFLINE' : (bidType === 'closed' ? 'CLOSED BID' : 'OPEN BID')"></span>
                 </div>
+
+                {{-- Closing call, compact. Shown in every mode: a sealed round has a clock
+                     too, and the operator needs to know it is running. --}}
+                <div x-show="finalCall && displayState === 'bidding'" x-cloak
+                     class="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest"
+                     :class="finalCall && finalCall.is_final
+                        ? 'bg-red-600 text-white'
+                        : 'bg-amber-500 text-black'"
+                     x-text="finalCall ? finalCall.label : ''"></div>
 
                 {{-- Timer --}}
                 <div x-show="displayState === 'bidding' && openBidMode !== 'offline'"
