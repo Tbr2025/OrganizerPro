@@ -271,6 +271,32 @@ class Auction extends Model
         return max(0, $this->timerLimitSeconds($afterBid) - $elapsed);
     }
 
+    /**
+     * Start the clock for the player now on the block.
+     *
+     * Server-stamped, so a slow or tampered browser cannot extend the round.
+     */
+    public function startTimer(): void
+    {
+        $this->update(['timer_started_at' => now(), 'timer_paused_at' => null]);
+    }
+
+    /**
+     * Stop the clock, because nobody is on the block.
+     *
+     * The clock used to be left running when a player was sold or passed — it was only ever
+     * cleared by a full restart. So it counted on through the gap between players and was
+     * already expired by the time the next one came up: `timerHasExpired()` returned true
+     * with nobody up at all, which with timer_expiry_action = auto_sell is the last thing
+     * that should be true while an organizer is choosing who to auction next.
+     */
+    public function stopTimer(): void
+    {
+        if ($this->timer_started_at !== null || $this->timer_paused_at !== null) {
+            $this->update(['timer_started_at' => null, 'timer_paused_at' => null]);
+        }
+    }
+
     /** Is the bid clock frozen? Distinct from the auction being paused: only a running
      *  clock can be frozen, and a paused auction with no player on the block has none. */
     public function timerIsPaused(): bool
@@ -330,7 +356,27 @@ class Auction extends Model
      */
     public function timerStateFor(?AuctionPlayer $auctionPlayer): array
     {
-        $afterBid = $auctionPlayer?->current_bid_team_id !== null;
+        /*
+         * A timer belongs to the player on the block. With nobody up there is nothing to
+         * count down, and reporting one meant every screen showed a stale countdown — often
+         * already at zero, with a FINAL CALL on it — for a player who had been sold minutes
+         * earlier. One guard here covers the panel, the wall and the ticker, rather than
+         * three clients each having to remember to check.
+         */
+        if ($auctionPlayer === null || $auctionPlayer->status !== 'on_auction') {
+            return [
+                'applies' => false,
+                'limit' => $this->timerLimitSeconds(false),
+                'remaining' => null,
+                'expired' => false,
+                'after_bid' => false,
+                'paused' => false,
+                'final_call' => null,
+                'final_call_stages' => $this->finalCallStages(),
+            ];
+        }
+
+        $afterBid = $auctionPlayer->current_bid_team_id !== null;
         $remaining = $this->timerSecondsRemaining($afterBid);
 
         return [

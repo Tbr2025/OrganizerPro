@@ -599,8 +599,8 @@ class AuctionOrganizerController extends Controller
         }
 
         // Start the clock. Server-stamped so a slow or tampered browser cannot extend
-        // the round.
-        $auction->update(['timer_started_at' => now()]);
+        // the round. Also clears any pause left over from the previous player.
+        $auction->startTimer();
 
         // Eager-load relationships for broadcast
         $playerDataForBroadcast = $auctionPlayer->fresh([
@@ -681,6 +681,10 @@ class AuctionOrganizerController extends Controller
 
         $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $amount);
 
+        // Nobody is on the block now, so the clock stops. Left running it counted through
+        // the gap to the next player and arrived already expired.
+        $auction->stopTimer();
+
         return response()->json([
             'success' => true,
             'message' => 'Player sold to ' . $team->name . ' for ' . format_points($amount) . '.',
@@ -738,6 +742,9 @@ class AuctionOrganizerController extends Controller
 
         // Held in the outbox with the rest of the auction's mail.
         $this->mail->raise($auction, AuctionPendingEmail::TYPE_UNSOLD, $auctionPlayer);
+
+        // Nobody on the block, so the clock stops with them.
+        $auction->stopTimer();
 
         return response()->json(['message' => 'Player has been passed.']);
     }
@@ -836,6 +843,9 @@ class AuctionOrganizerController extends Controller
 
         // Send notifications
         $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $amount);
+
+        // Nobody on the block, so the clock stops with them.
+        $auction->stopTimer();
 
         return response()->json([
             'success' => true,

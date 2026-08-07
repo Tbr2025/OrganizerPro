@@ -154,4 +154,52 @@ class AuctionTimerPauseTest extends TestCase
         $this->assertNull($auction->fresh()->timer_started_at);
         $this->assertNull($auction->fresh()->timerSecondsRemaining());
     }
+
+    #[Test]
+    public function the_clock_does_not_run_when_nobody_is_on_the_block(): void
+    {
+        [$org, $auction] = $this->runningAuction(['timer_started_at' => now()->subSeconds(45)]);
+
+        /*
+         * The clock was only ever cleared by a full restart, so after a sale it counted on
+         * through the gap to the next player. With nobody up, timerHasExpired() returned
+         * TRUE — and with timer_expiry_action = auto_sell that is the last thing that should
+         * be true while the organizer is deciding who to auction next.
+         */
+        $state = $auction->timerStateFor(null);
+
+        $this->assertFalse($state['applies'], 'no player on the block means no clock');
+        $this->assertNull($state['remaining']);
+        $this->assertFalse($state['expired']);
+        $this->assertNull($state['final_call'], 'and certainly no closing call');
+    }
+
+    #[Test]
+    public function a_player_who_has_left_the_block_carries_no_clock(): void
+    {
+        [$org, $auction] = $this->runningAuction(['timer_started_at' => now()->subSeconds(45)]);
+        $sold = $this->makeAuctionPlayer($auction, ['status' => 'sold']);
+
+        // Guarded on the player's status, not merely on being handed a player: the wall's
+        // "last action" payload hands over a sold player to keep the card on screen.
+        $this->assertFalse($auction->timerStateFor($sold)['applies']);
+    }
+
+    #[Test]
+    public function selling_stops_the_clock_so_the_next_player_starts_fresh(): void
+    {
+        [$org, $auction] = $this->runningAuction();
+        $tournament = $auction->tournament;
+        $team = $this->makeTeam($org, 'Alpha', $tournament);
+        $player = $this->makeAuctionPlayer($auction, ['status' => 'on_auction', 'current_price' => 500]);
+
+        $this->actingAs($this->makeAuctionOperator($org))
+            ->postJson(route('admin.auction.organizer.api.player.sell-to-team', $auction), [
+                'auction_player_id' => $player->id,
+                'team_id' => $team->id,
+                'amount' => 500,
+            ]);
+
+        $this->assertNull($auction->fresh()->timer_started_at, 'the clock stops with the player');
+    }
 }
