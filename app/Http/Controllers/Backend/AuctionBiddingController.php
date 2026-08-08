@@ -510,6 +510,21 @@ class AuctionBiddingController extends Controller
             return response()->json(['error' => 'Players cannot place bids.'], 403);
         }
 
+        /*
+         * Offline means the organizer enters every amount, including sealed ones — which is
+         * what the wizard tells the operator and what the team's own screen already shows
+         * (bidding-page.blade.php hides the sealed controls at `auctionMode === 'offline'`).
+         *
+         * placeBid() has refused offline bids for a long time; these endpoints never did, so
+         * there were two doors to the same action and only one was locked. In a room being
+         * called aloud a team could still submit a sealed amount by hand.
+         */
+        if ($auction->fresh()->open_bid_mode === 'offline') {
+            return response()->json([
+                'error' => 'This auction is offline. The organizer enters sealed amounts on the control panel.',
+            ], 422);
+        }
+
         // Read-only preview: an admin looking at a team's screen must not act as them.
         if ($request->query('preview') || session('auction_preview_team_id')) {
             return response()->json(['error' => 'Preview mode is read-only.'], 403);

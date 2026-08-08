@@ -92,6 +92,43 @@ class AuctionAdminController extends Controller
         }
     }
 
+    /**
+     * The bidding-mode half of a create/update payload.
+     *
+     * Online or offline is a decision about the WHOLE auction — who enters the bids — and
+     * until now it could not be stated at all: `open_bid_mode` appeared nowhere in either
+     * wizard and the migration defaults it to `online`, so every auction was born online and
+     * an offline room had to be set up by pressing the panel's Offline toggle each session.
+     *
+     * Choosing offline also sets `mode_manually_overridden`, which has always meant "a human
+     * chose this mode; do not auto-change it". Declaring it at creation is that same
+     * statement made earlier, and it stops the `online_bid_limit_to` price rule from quietly
+     * moving the mode later. Choosing ONLINE deliberately leaves the flag alone, so that
+     * price rule keeps working for the auctions it is meant for.
+     *
+     * Returns an empty array when the key is absent, so an edit that does not mention the
+     * mode leaves it exactly as it was — never `?? $auction->open_bid_mode` written
+     * unconditionally, which is the preserve-on-absent trap documented on update().
+     *
+     * @return array<string, mixed>
+     */
+    protected function biddingModeData(array $validated): array
+    {
+        $mode = $validated['open_bid_mode'] ?? null;
+
+        if ($mode === null) {
+            return [];
+        }
+
+        $data = ['open_bid_mode' => $mode];
+
+        if ($mode === 'offline') {
+            $data['mode_manually_overridden'] = true;
+        }
+
+        return $data;
+    }
+
     protected function assertSquadReserveIsSatisfiable(array $validated): void
     {
         $budget = (float) ($validated['max_budget_per_team'] ?? 0);
@@ -365,6 +402,11 @@ class AuctionAdminController extends Controller
             ]),
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
 
+            // Online or offline: who enters the bids for the whole auction. Nullable, not
+            // required -- AuctionUpdatePoolsTest posts a minimal payload, and any newly
+            // required field breaks every existing edit.
+            'open_bid_mode' => 'nullable|in:online,offline',
+
             // Branding
             'background_image' => 'nullable|image|max:5120',
             'auction_logo' => 'nullable|image|max:5120',
@@ -462,7 +504,7 @@ class AuctionAdminController extends Controller
                 'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
                 'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
-            ], $brandingData));
+            ], $brandingData, $this->biddingModeData($validated)));
 
             // Named pools from the wizard builder (preferred), else flat player list.
             $pools = json_decode($validated['pools'] ?? '', true);
@@ -1368,6 +1410,8 @@ class AuctionAdminController extends Controller
                 $request->filled('online_bid_limit_from') ? 'gt:online_bid_limit_from' : null,
             ]),
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
+            // See the matching rule in store().
+            'open_bid_mode' => 'nullable|in:online,offline',
             // Branding
             'background_image' => 'nullable|image|max:5120',
             'auction_logo' => 'nullable|image|max:5120',
@@ -1457,7 +1501,7 @@ class AuctionAdminController extends Controller
                 'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
                 'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
-            ], $brandingData));
+            ], $brandingData, $this->biddingModeData($validated)));
 
             // Preferred path: the pool-builder JSON (same as create) drives the player
             // layout. Rebuilds the "waiting" players/pools/lots; never touches players

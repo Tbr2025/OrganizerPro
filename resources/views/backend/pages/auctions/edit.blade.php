@@ -286,6 +286,42 @@
                                 <input type="hidden" name="status" x-model="auctionData.status">
                             </div>
 
+                            {{-- Bidding Mode. Edit reads auctionData, which is the spread of
+                                 json_encode($auction), so the column arrives for free. --}}
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bidding Mode <span class="text-red-500">*</span></label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                    Who enters the bids. This is a decision about the whole auction, not a phase.
+                                </p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <button type="button" @click="auctionData.open_bid_mode = 'online'"
+                                            class="p-4 rounded-lg border-2 transition-all text-left"
+                                            :class="auctionData.open_bid_mode === 'online' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                                                 :class="auctionData.open_bid_mode === 'online' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                            </div>
+                                            <h4 class="font-semibold text-gray-900 dark:text-white">Online</h4>
+                                        </div>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">Team managers bid from their own dashboards, wherever they are.</p>
+                                    </button>
+                                    <button type="button" @click="auctionData.open_bid_mode = 'offline'"
+                                            class="p-4 rounded-lg border-2 transition-all text-left"
+                                            :class="auctionData.open_bid_mode === 'offline' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                                                 :class="auctionData.open_bid_mode === 'offline' ? 'bg-orange-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                            </div>
+                                            <h4 class="font-semibold text-gray-900 dark:text-white">Offline</h4>
+                                        </div>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">Everyone is in the room. Only the admin and organizer enter bids &mdash; they tap a team's logo and the price rises by the increment.</p>
+                                    </button>
+                                </div>
+                                <input type="hidden" name="open_bid_mode" x-model="auctionData.open_bid_mode">
+                            </div>
+
                             {{-- Bid Type --}}
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Bid Type <span class="text-red-500">*</span></label>
@@ -359,7 +395,7 @@
                                         <input type="hidden" name="closed_bid_starts_at" :value="auctionData.closed_bid_starts_at">
                                         <p class="text-xs text-gray-400 mt-1">Once a bid reaches this, open bidding stops and the sealed round begins — in online <em>and</em> offline mode.</p>
                                     </div>
-                                    <div>
+                                    <div x-show="auctionData.open_bid_mode === 'online'" x-cloak>
                                         <label for="online_bid_limit_to" class="form-label text-xs">Organizer Enters Bids From</label>
                                         <div class="relative">
                                             <input type="number" step="any" min="0" id="online_bid_limit_to"
@@ -1390,6 +1426,7 @@ document.addEventListener('alpine:init', () => {
         init() {
             // Ensure new fields have defaults for existing auctions
             if (!this.auctionData.bid_type) this.auctionData.bid_type = 'open';
+            if (!this.auctionData.open_bid_mode) this.auctionData.open_bid_mode = 'online';
             if (!this.auctionData.bid_timer_seconds) this.auctionData.bid_timer_seconds = 30;
             if (!this.auctionData.bid_timer_reset_seconds) this.auctionData.bid_timer_reset_seconds = 15;
             if (!this.auctionData.timer_expiry_action) this.auctionData.timer_expiry_action = 'manual';

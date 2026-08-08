@@ -201,7 +201,12 @@
                                 @endif
                             </span>
                             @if($auction->status === 'running')
-                                <a href="{{ route('team.auction.bidding.show', $auction) }}" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">Join Bidding &rarr;</a>
+                                {{-- Offline: the organizer enters every bid in the room, so
+                                     "Join Bidding" would open a screen with no controls on it.
+                                     The link still goes there — a manager wants to watch the
+                                     lot and their purse — but it does not promise a button
+                                     that will never appear. --}}
+                                <a href="{{ route('team.auction.bidding.show', $auction) }}" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">{{ $auction->isOfflineMode() ? 'Watch Auction →' : 'Join Bidding →' }}</a>
                             @endif
                         </div>
 
@@ -250,7 +255,11 @@
                                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
                                     <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Live
                                 </span>
-                                <a href="{{ route('team.auction.bidding.show', $auction) }}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition">Join</a>
+                                @if($auction->isOfflineMode())
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                                          title="Bids are entered by the organizer in the room">In the room</span>
+                                @endif
+                                <a href="{{ route('team.auction.bidding.show', $auction) }}" class="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition">{{ $auction->isOfflineMode() ? 'Watch' : 'Join' }}</a>
                             @elseif($auction->status === 'paused')
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Paused</span>
                             @else

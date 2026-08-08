@@ -306,7 +306,7 @@
                 </div>
 
                 {{-- Timer --}}
-                <div x-show="displayState === 'bidding' && openBidMode !== 'offline'"
+                <div x-show="displayState === 'bidding' && showLiveStage"
                      class="bg-gray-900/80 backdrop-blur px-4 py-1.5 rounded-full">
                     <span class="text-xl font-bold font-mono"
                           :class="biddingTimerSeconds <= 5 ? 'text-red-500 timer-critical' : 'text-white'"
@@ -599,7 +599,7 @@
             </div>
 
             {{-- ── ACTIVE PLAYER: HORIZONTAL LAYOUT (online/closed) ── --}}
-            <div x-show="displayState === 'bidding' && openBidMode !== 'offline'" x-transition class="flex items-stretch px-12 w-full h-full">
+            <div x-show="displayState === 'bidding' && showLiveStage" x-transition class="flex items-stretch px-12 w-full h-full">
                 {{-- LEFT: Player Photo + Info --}}
                 <div class="flex-1 flex items-center gap-10">
                     {{-- Player Photo --}}
@@ -728,7 +728,7 @@
             </div>
 
             {{-- ── OFFLINE BIDDING STATE ── --}}
-            <div x-show="displayState === 'bidding' && openBidMode === 'offline'" x-transition class="w-full px-6 py-4 overflow-y-auto h-full">
+            <div x-show="displayState === 'bidding' && !showLiveStage" x-transition class="w-full px-6 py-4 overflow-y-auto h-full">
                 {{-- Compact Player Info Bar --}}
                 <div class="bg-gray-800 border border-gray-700 rounded-xl p-3 mb-3">
                     <div class="flex items-center gap-3">
@@ -996,7 +996,7 @@
         {{-- ══════════════════════════════════════════════ --}}
         <div class="flex-shrink-0">
             {{-- Timer progress bar --}}
-            <div x-show="displayState === 'bidding' && openBidMode !== 'offline' && timerEnabled" class="h-1 bg-gray-800">
+            <div x-show="displayState === 'bidding' && showLiveStage && timerEnabled" class="h-1 bg-gray-800">
                 <div class="h-full transition-all duration-1000 ease-linear"
                      :class="biddingTimerSeconds <= 5 ? 'bg-red-500' : 'bg-blue-500'"
                      :style="`width: ${timerWidth}%`"></div>
@@ -1207,11 +1207,28 @@
                             :class="openBidMode === 'offline' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'">Offline</button>
                 </div>
 
+                {{-- How an offline room is run. Live is the auctioneer's way: tap a team's
+                     logo and the price rises by the configured increment. Batch is the older
+                     three-step form -- tick the teams, type each amount, end bidding -- kept
+                     for rooms that work that way. Only meaningful while offline, so it is
+                     hidden otherwise rather than sitting there doing nothing. --}}
+                <div class="flex gap-1" x-show="displayState === 'bidding' && openBidMode === 'offline'" x-cloak>
+                    <div class="w-px h-8 bg-gray-700"></div>
+                    <button @click="offlineStageMode = 'live'"
+                            class="px-2.5 py-1.5 rounded text-xs font-semibold transition"
+                            :class="offlineStageMode === 'live' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                            title="Tap a team logo to raise the price by the increment">Live</button>
+                    <button @click="offlineStageMode = 'batch'"
+                            class="px-2.5 py-1.5 rounded text-xs font-semibold transition"
+                            :class="offlineStageMode === 'batch' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'"
+                            title="Tick the participating teams and type each one's amount">Batch</button>
+                </div>
+
                 <div class="flex-1"></div>
 
                 {{-- Quick-bid jumps: applied to whichever team is currently leading,
                      for when the room moves faster than the standard increment. --}}
-                <template x-if="quickBidSteps.length && displayState === 'bidding' && openBidMode !== 'offline'">
+                <template x-if="quickBidSteps.length && displayState === 'bidding' && showLiveStage">
                     <div class="flex items-center gap-1 flex-shrink-0">
                         <div class="w-px h-8 bg-gray-700"></div>
                         <template x-for="(step, i) in quickBidSteps" :key="i">
@@ -2250,9 +2267,26 @@ function auctionOrganizerPanel() {
          * the standard increment — an index, never an amount, so the server stays the
          * only thing that decides how much a jump is worth.
          */
+        /*
+         * Raise the price for one team by the configured increment.
+         *
+         * This is the auctioneer's gesture, and it is the ONLY one an offline room needs:
+         * the organizer taps a logo, the ladder in AuctionAdminController::addBid() decides
+         * the increment, and the squad-reserve ceiling is enforced there too. It used to
+         * refuse outright when the mode was offline, which left every logo dead on the one
+         * screen driving the room -- the standalone offline panel has always allowed it.
+         */
+        _isBidding: false,
+
         async bidForTeam(teamId, stepIndex = null) {
-            if (!this.currentPlayer || this.displayState !== 'bidding' || this.openBidMode === 'offline') return;
+            if (!this.currentPlayer || this.displayState !== 'bidding') return;
             if (this.currentPlayer?.current_bid_team_id == teamId) return;
+
+            // A double-tap on a hall touchscreen posted twice and the price climbed two
+            // increments. The standalone offline panel has always held this lock; the main
+            // panel never did, and going live in offline is what makes it reachable.
+            if (this._isBidding) return;
+            this._isBidding = true;
 
             const team = this.teams.find(t => t.id == teamId);
             if (team?.excluded) {
@@ -2293,6 +2327,8 @@ function auctionOrganizerPanel() {
                 }
             } catch (e) {
                 console.error('Bid error:', e);
+            } finally {
+                this._isBidding = false;
             }
         },
 
@@ -2535,10 +2571,28 @@ function auctionOrganizerPanel() {
             }
         },
 
+        /*
+         * Which bidding stage is on screen.
+         *
+         * Offline used to REPLACE the live auctioneer view with a three-step form (tick the
+         * participating teams, type each one's amount, end bidding). That form is kept --
+         * some rooms are run that way -- but it is no longer the only option, so an offline
+         * auction defaults to the same live stage as an online one and the organizer bids by
+         * tapping logos. One predicate for both gates so they cannot drift apart and show
+         * two stages at once, or none, on the screen driving the room.
+         */
+        offlineStageMode: 'live',
+
+        get showLiveStage() {
+            return this.openBidMode !== 'offline' || this.offlineStageMode === 'live';
+        },
+
         isTeamBidDisabled(team) {
+            // No offline clause: the organizer bidding for a team IS how an offline room
+            // works. Everything left here is mode-independent -- no player up, the wrong
+            // display state, the team already leading, or the squad-reserve exclusion.
             return !this.currentPlayer
                 || this.displayState !== 'bidding'
-                || this.openBidMode === 'offline'
                 || this.currentPlayer?.current_bid_team_id == team.id
                 || !!team.excluded;
         },
