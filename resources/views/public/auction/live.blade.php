@@ -544,7 +544,14 @@
         #player-image {
             position: absolute;
             {!! elementStyle($positions, 'player_image', ['bottom'=>305,'left'=>114,'width'=>380], $boxShadowMap, $textShadowMap) !!}
-            object-fit: cover;
+            /* `contain`, not `cover`.
+               Templates give this box a square (380x380 here) while player photos are
+               portrait, and `cover` fills the square by cropping — which cut the player off
+               at the knees, and on a head-and-shoulders shot cut the head. The box is a frame
+               to sit inside, so the whole figure is shown and any spare width is left as
+               space rather than taken out of the player. */
+            object-fit: contain;
+            object-position: center bottom;
         }
 
         /* ── Player image radial glow ── */

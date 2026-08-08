@@ -140,7 +140,10 @@
         }
         #teams-panel.tp-out { transform: translateX(calc(100% + 80px)); opacity: 0; pointer-events: none; }
         #teams-panel.tp-in  { transform: translateX(0); opacity: 1; }
-        #teams-panel .row { display: grid; grid-template-columns: 1fr 152px 92px; }
+        /* The name column takes the slack. Short names were being cut to three characters
+           upstream, so two differently-named teams both read "Bac"; the full name is shown
+           and only ellipsised if it genuinely will not fit. */
+        #teams-panel .row { display: grid; grid-template-columns: minmax(0, 1fr) 152px 92px; }
         #teams-panel .hd { background: var(--primary); color: #02121c; font-size: 12px; font-weight: 900; letter-spacing: 2.5px; text-transform: uppercase; }
         #teams-panel .hd > div, #teams-panel .tr > div { padding: 9px 14px; }
         #teams-panel .tr { background: var(--panel); border-top: 1px solid rgba(34,211,238,0.16); font-size: 17px; font-weight: 700; align-items: center; }
@@ -538,8 +541,8 @@
         const rows = shown.map(t => `
             <div class="row tr">
                 <div class="team">
-                    ${t.logo ? `<img src="${esc(t.logo)}" alt="">` : `<span class="initials">${esc(initials(t.short_name || t.name))}</span>`}
-                    <span class="nm">${esc(t.short_name || t.name)}</span>
+                    ${t.logo ? `<img src="${esc(t.logo)}" alt="">` : `<span class="initials">${esc(initials(t.name || t.short_name))}</span>`}
+                    <span class="nm">${esc(t.name || t.short_name)}</span>
                 </div>
                 <div class="amt">${t.remaining === null ? '—' : esc(amount(t.remaining))}</div>
                 <div class="cnt">${esc(t.players)}</div>

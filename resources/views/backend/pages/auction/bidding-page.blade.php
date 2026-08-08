@@ -934,24 +934,42 @@ function teamBiddingPanel() {
             this.bidSuccess = "";
         },
 
+        /**
+         * What the next raise will cost.
+         *
+         * This MUST agree with BidIncrementService::incrementFor() on the server, because
+         * the server is what actually charges the team. It did not: both used first-match,
+         * and bands are written 1-2, 2-3, 3-5 so they share endpoints — at exactly 2M this
+         * showed "your bid will be 2.1M" while the server placed 2.2M. A team was being told
+         * one price and charged another.
+         *
+         * Same rule as the server now: among the bands containing the price, take the one
+         * with the greatest `from`, so the higher band wins a shared boundary. For a price in
+         * a gap, take the NEAREST band above rather than the first one declared above.
+         */
         get nextBidAmount() {
             const current = this.player.current_price || this.player.base_price || 0;
             const rules = this.bidRules || [];
-            let increment = 0;
+
+            let best = null;
             for (const r of rules) {
                 const from = Number(r.from) || 0;
                 const to = Number(r.to) || Infinity;
                 const inc = Number(r.increment) || 0;
-                if (current >= from && current <= to) { increment = inc; break; }
+                if (inc <= 0 || current < from || current > to) continue;
+                if (best === null || from > best.from) best = { from, inc };
             }
-            if (increment === 0) {
+
+            if (best === null) {
                 for (const r of rules) {
                     const from = Number(r.from) || 0;
                     const inc = Number(r.increment) || 0;
-                    if (current < from) { increment = inc; break; }
+                    if (inc <= 0 || current >= from) continue;
+                    if (best === null || from < best.from) best = { from, inc };
                 }
             }
-            return increment > 0 ? current + increment : 0;
+
+            return best ? current + best.inc : 0;
         },
 
         get canRaiseHand() {
