@@ -2701,6 +2701,9 @@ function auctionOrganizerPanel() {
         },
 
         async startAuction() {
+            // Opens the auction to the room. Ending it already asks; starting it did not.
+            if (! await this.askConfirm('Start the auction now?', { title: 'Start auction' })) return;
+
             const result = await this.sendCommand('start');
             if (result) {
                 this.auctionStatus = 'running';
@@ -3030,7 +3033,26 @@ function auctionOrganizerPanel() {
 
         /* ── Pool control ── */
 
+        /*
+         * Starting a pool commits the room to a queue: while one is running the panel will
+         * only offer players from it, so starting the wrong one mid-auction means closing
+         * it again and leaving whoever it had left unsold. Closing a pool has always asked;
+         * opening one — the decision that causes it — did not.
+         *
+         * Named with its size, because "Pool A" and "Pool B" are one key apart on the
+         * screen and the player count is what tells them apart at a glance.
+         */
         async activatePool(poolId) {
+            const pool = (this.pools || []).find(p => p.id == poolId);
+
+            if (pool) {
+                const left = pool.waiting ?? 0;
+                if (! await this.askConfirm(
+                    `Start ${pool.name}?\n\n${left} player${left === 1 ? '' : 's'} will be auctioned from this pool, and only this pool, until it is closed.`,
+                    { title: 'Start pool' }
+                )) return;
+            }
+
             const result = await this.sendCommand(`pools/${poolId}/activate`);
             if (result?.success) {
                 this.statusText = result.message;

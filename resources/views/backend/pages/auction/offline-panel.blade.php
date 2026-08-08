@@ -1711,6 +1711,14 @@
             // ─── SKIP PLAYER ───
             async skipCurrentPlayer() {
                 if (!this.currentPlayer) return;
+
+                // Sets the player aside mid-lot. Recoverable through re-auction, but only
+                // if somebody notices — and SKIP sits next to SELL on the toolbar.
+                if (! await this.askConfirm(
+                    `Skip ${this.currentPlayer.player?.name || 'this player'}?\n\nThey are set aside and can be brought back later with a re-auction.`,
+                    { title: 'Skip player' }
+                )) return;
+
                 this.skippedPlayerName = this.currentPlayer.player?.name || 'Unknown';
                 this.skippedPlayerImage = this.currentPlayer.player?.image_path || null;
                 this.lastActionPlayerId = this.currentPlayer.id;
@@ -1752,6 +1760,14 @@
             // ─── RE-AUCTION ───
             async reAuctionLastPlayer() {
                 if (!this.lastActionPlayerId) return;
+
+                // Puts the last player back on the block. If they were SOLD this unwinds a
+                // completed sale, which is the room's most expensive undo.
+                if (! await this.askConfirm(
+                    'Re-auction the last player?\n\nThey go back on the block at base price. If they were already sold, that sale is undone.',
+                    { title: 'Re-auction', danger: true }
+                )) return;
+
                 try {
                     const res = await fetch(this.apiBase + '/api/re-auction-player', {
                         method: 'POST',
@@ -1790,7 +1806,19 @@
                 }
             },
 
+            /* Same confirmation as the main panel: closing a pool has always asked, and
+               opening one is the decision that leads to it. */
             async activatePool(poolId) {
+                const pool = (this.pools || []).find(p => p.id == poolId);
+
+                if (pool) {
+                    const left = pool.waiting ?? 0;
+                    if (! await this.askConfirm(
+                        `Start ${pool.name}?\n\n${left} player${left === 1 ? '' : 's'} will be auctioned from this pool, and only this pool, until it is closed.`,
+                        { title: 'Start pool' }
+                    )) return;
+                }
+
                 const result = await this._post(`pools/${poolId}/activate`);
                 if (result?.success) {
                     await this.pollAuctionState();
