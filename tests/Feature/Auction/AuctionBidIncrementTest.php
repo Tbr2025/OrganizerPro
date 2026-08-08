@@ -75,17 +75,62 @@ class AuctionBidIncrementTest extends TestCase
     }
 
     #[Test]
-    public function running_off_the_top_of_the_ladder_reports_max_reached(): void
+    public function bidding_carries_on_above_the_top_of_the_ladder(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org, [
             'bid_rules' => [['from' => 0, 'to' => 1000, 'increment' => 100]],
         ]);
 
-        // No fallback constant — the old copies invented 1000 / 10000 / 100000 here.
-        $this->assertSame(0.0, $this->service()->incrementFor($auction, 50000));
-        $this->assertNull($this->service()->nextBidAmount($auction, 50000));
-        $this->assertTrue($this->service()->state($auction, 50000)['max_reached']);
+        /*
+         * The end of the last band is not the end of the bidding.
+         *
+         * This used to return 0 and report "maximum bid reached", which stopped an auction
+         * dead: with the sealed threshold at 8M and the ladder's last band also ending at
+         * 8M, an organizer who chose to keep open bidding past the threshold could not
+         * place a bid at all, and the only way forward was editing the auction mid-room.
+         *
+         * rules() already reads a missing upper bound as "and everything above"; this is the
+         * same intent applied to a top band that was given an explicit end.
+         */
+        $this->assertSame(100.0, $this->service()->incrementFor($auction, 50000));
+        $this->assertSame(50100.0, $this->service()->nextBidAmount($auction, 50000));
+        $this->assertFalse($this->service()->state($auction, 50000)['max_reached']);
+    }
+
+    #[Test]
+    public function the_highest_band_is_the_one_that_carries_on(): void
+    {
+        $org = $this->makeOrganization();
+        $auction = $this->makeAuction($org, [
+            // Deliberately out of order: the answer must not depend on how they were saved.
+            'bid_rules' => [
+                ['from' => 5000, 'to' => 8000, 'increment' => 1000],
+                ['from' => 0, 'to' => 2000, 'increment' => 100],
+                ['from' => 2000, 'to' => 5000, 'increment' => 500],
+            ],
+        ]);
+
+        // Past 8000, the 5000-8000 band's 1000 continues — not the first or last declared.
+        $this->assertSame(1000.0, $this->service()->incrementFor($auction, 9000));
+        $this->assertSame(1000.0, $this->service()->decrementFor($auction, 9000));
+    }
+
+    #[Test]
+    public function a_ladder_with_no_usable_increment_still_reports_max_reached(): void
+    {
+        $org = $this->makeOrganization();
+        $auction = $this->makeAuction($org, [
+            'bid_rules' => [['from' => 0, 'to' => 1000, 'increment' => 0]],
+        ]);
+
+        // The one honest "no increment" case, and the message still says so.
+        $this->assertSame(0.0, $this->service()->incrementFor($auction, 500));
+        $this->assertTrue($this->service()->state($auction, 500)['max_reached']);
+        $this->assertStringContainsString(
+            'No bid rule has an increment above zero',
+            $this->service()->noIncrementReason($auction, 500)
+        );
     }
 
     #[Test]

@@ -109,7 +109,38 @@ class BidIncrementService
             }
         }
 
-        return $next !== null ? $next['increment'] : 0.0;
+        if ($next !== null) {
+            return $next['increment'];
+        }
+
+        /*
+         * Above every band: the TOP band keeps applying.
+         *
+         * A ladder says how much to raise by at each price level. It is not a ceiling on
+         * what a player may fetch, and treating the end of the last band as the end of the
+         * bidding stopped an auction dead: with the sealed threshold at 8M and the ladder's
+         * last band ending at 8M, an organizer who chose to keep open bidding past the
+         * threshold found no bid could be placed at all — "the bid rules stop at 8M but the
+         * price is 9M" — with no way forward except editing the auction mid-room.
+         *
+         * rules() already treats a MISSING upper bound as "and everything above", so this
+         * only extends that same intent to a top band that happens to have been given an
+         * explicit end. Bidding now runs until somebody sells.
+         *
+         * A genuine "no increment" answer is still possible, and still means what it says:
+         * there are no usable rules at all.
+         */
+        $top = null;
+        foreach ($rules as $rule) {
+            if ($rule['increment'] <= 0) {
+                continue;
+            }
+            if ($top === null || $rule['from'] > $top['from']) {
+                $top = $rule;
+            }
+        }
+
+        return $top !== null ? $top['increment'] : 0.0;
     }
 
     /**
@@ -134,17 +165,12 @@ class BidIncrementService
                 . 'Set the increments under Edit auction -> Bid Increments.';
         }
 
-        $ceiling = max($tops);
-
-        if ($currentPrice > $ceiling) {
-            return sprintf(
-                'The bid rules stop at %s but the price is %s, so there is no increment to apply. '
-                . 'Extend the top bid rule under Edit auction -> Bid Increments.',
-                format_points($ceiling),
-                format_points($currentPrice)
-            );
-        }
-
+        /*
+         * There is no longer a "the rules stop at X" answer: incrementFor() keeps applying
+         * the top band above its own ceiling, so a price past the last band is not a dead
+         * end and this method is not reached for it. It used to be, and the message told an
+         * organizer mid-room to go and edit the auction.
+         */
         return 'Maximum bid reached. No further increments available.';
     }
 
@@ -177,14 +203,19 @@ class BidIncrementService
             }
         }
 
-        $decrement = 0.0;
+        // Above every band, the top band applies here too — otherwise a price that can be
+        // raised (see incrementFor) could not be walked back down, and the organizer's
+        // correction button would die exactly where the raise button now works.
+        $top = null;
         foreach ($rules as $rule) {
             if ($currentPrice > $rule['from'] && $rule['increment'] > 0) {
-                $decrement = $rule['increment'];
+                if ($top === null || $rule['from'] > $top['from']) {
+                    $top = $rule;
+                }
             }
         }
 
-        return $decrement;
+        return $top !== null ? $top['increment'] : 0.0;
     }
 
     /**

@@ -75,21 +75,15 @@ class AuctionAdminController extends Controller
             ]);
         }
 
-        $ceiling = max($tops);
-
-        if ((float) $base > $ceiling) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'bid_rules' => sprintf(
-                    'The bid rules stop at %s but the base price is %s, so the opening price is '
-                    . 'above every band and no bid could ever be placed — the panel would report '
-                    . '"Maximum bid reached." with nobody having bid. Extend the top rule to at '
-                    . 'least %s, or lower the base price.',
-                    format_points($ceiling),
-                    format_points($base),
-                    format_points($base)
-                ),
-            ]);
-        }
+        /*
+         * A base price above every band used to be fatal: no rule contained it, so the
+         * increment was 0 and the panel reported "Maximum bid reached." before anybody had
+         * bid. The top band now keeps applying above its own ceiling, so this is no longer
+         * a dead end and blocking the save would refuse a configuration that works.
+         *
+         * The check above stays, because it is still true: with no rule carrying a positive
+         * increment there is nothing to raise by at any price.
+         */
     }
 
     /**
