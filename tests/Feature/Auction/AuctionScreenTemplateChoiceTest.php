@@ -189,4 +189,63 @@ class AuctionScreenTemplateChoiceTest extends TestCase
         $this->assertSame($wall->id, $created->auction_template_id);
         $this->assertSame($ticker->id, $created->ticker_template_id, 'Create never sent this before');
     }
+
+    #[Test]
+    public function create_offers_the_squad_reserve_settings(): void
+    {
+        $org = $this->makeOrganization();
+
+        /*
+         * store() has always validated and saved both of these, but Create never offered
+         * them — so every auction made through the wizard silently took the defaults (a
+         * squad of 11, reserving the base price per place) and the reserve could only be
+         * configured by going back in through Edit.
+         */
+        $this->actingAs($this->makeAuctionOperator($org))
+            ->get(route('admin.auctions.create'))
+            ->assertOk()
+            ->assertSee('name="min_squad_size"', false)
+            ->assertSee('name="min_price_per_player"', false)
+            ->assertSee('Squad Reserve Rule');
+    }
+
+    #[Test]
+    public function the_reserve_settings_are_stored_from_create(): void
+    {
+        $org = $this->makeOrganization();
+        $org->update(['auction_enabled' => true]);
+        $tournament = $this->makeTournament($org);
+
+        $this->actingAs($this->makeAuctionOperator($org, ['auction.create', 'auction.edit', 'auction.view']))
+            ->post(route('admin.auctions.store'), [
+                'name' => 'Reserve Auction',
+                'organization_id' => $org->id,
+                'tournament_id' => $tournament->id,
+                'status' => 'scheduled',
+                'bid_type' => 'open',
+                'base_price' => 100,
+                'max_budget_per_team' => 50_000_000,
+                'bid_timer_seconds' => 30,
+                'bid_rules' => [['from' => 0, 'to' => 50_000_000, 'increment' => 100_000]],
+                'start_at' => now()->addDay()->format('Y-m-d H:i:s'),
+                'end_at' => now()->addDays(2)->format('Y-m-d H:i:s'),
+                'min_squad_size' => 10,
+                'min_price_per_player' => 1_000_000,
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $created = \App\Models\Auction::where('name', 'Reserve Auction')->firstOrFail();
+
+        $this->assertSame(10, (int) $created->min_squad_size);
+        $this->assertSame(1_000_000.0, (float) $created->min_price_per_player);
+
+        // And the rule the organizer just configured is what the floor enforces: a team with
+        // ten places to fill must hold back nine of them.
+        $team = $this->makeTeam($org, 'Alpha', $tournament);
+        $pools = app(\App\Services\Auction\AuctionPoolService::class);
+
+        $this->assertSame(9_000_000.0, $pools->reserveFor($created, $team->id));
+        $this->assertSame(41_000_000.0, $pools->maxAllowedBid($created, $team->id));
+    }
 }

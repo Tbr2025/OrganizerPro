@@ -414,6 +414,55 @@
                                 <p class="text-xs text-gray-500 mt-1 font-mono" x-text="rawLabel(defaultBasePrice)"></p>
                             </div>
 
+                            {{-- Squad reserve rule.
+                                 store() has always validated and saved both of these, but
+                                 Create never offered them — so every auction made here took
+                                 the defaults (a squad of 11, reserving the base price per
+                                 place) and the only way to set them was to go back in via
+                                 Edit. Mirrors the block on edit.blade.php. --}}
+                            <div class="md:col-span-2 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/60">
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Squad Reserve Rule</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                                    Teams must keep back enough to buy the places they still have to fill. A bid is
+                                    refused if it would leave them unable to complete a legal squad.
+                                </p>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="min_squad_size" class="form-label text-xs">Minimum Squad Size</label>
+                                        <input type="number" name="min_squad_size" id="min_squad_size" min="1" max="50"
+                                               x-model.number="minSquadSize"
+                                               class="form-control" placeholder="11">
+                                        <p class="text-xs text-gray-400 mt-1">Players each team must end up with.</p>
+                                    </div>
+                                    <div>
+                                        <label for="min_price_per_player" class="form-label text-xs">Reserve Per Remaining Place</label>
+                                        <div class="relative">
+                                            <input type="number" step="any" min="0" id="min_price_per_player"
+                                                   :value="toM(minPricePerPlayer)"
+                                                   @input="minPricePerPlayer = fromM($event.target.value)"
+                                                   class="form-control pr-9" placeholder="e.g. 1">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
+                                        </div>
+                                        <input type="hidden" name="min_price_per_player" :value="minPricePerPlayer">
+                                        <p class="text-xs text-gray-400 mt-1">Left blank, the base price is used.</p>
+                                    </div>
+                                </div>
+
+                                <p class="mt-3 text-xs px-3 py-2 rounded-lg"
+                                   :class="reserveExceedsBudget
+                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'">
+                                    A squad of <span class="font-semibold" x-text="minSquadSize || 11"></span>
+                                    at <span class="font-semibold" x-text="rawLabel(reservePerPlace)"></span> each needs
+                                    <span class="font-semibold" x-text="rawLabel(reserveTotal)"></span>.
+                                    <template x-if="reserveExceedsBudget">
+                                        <span>That is more than the team budget, so no player could ever be bought —
+                                        raise the budget or lower these figures.</span>
+                                    </template>
+                                </p>
+                            </div>
+
                             {{-- What the money is called on every screen. --}}
                             <div class="md:col-span-2 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/60">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -765,6 +814,20 @@ function auctionCreateForm() {
         amountUnitLabel: '{{ old('amount_unit_label') }}',
         defaultBasePrice: {{ old('base_price', 100000) }},
         maxBudgetPerTeam: {{ old('max_budget_per_team', 10000000) }},
+        // Squad reserve rule. Blank min price posts null and the server falls back to the
+        // base price, which is the documented behaviour — so it must not be pre-filled.
+        minSquadSize: {{ old('min_squad_size', 11) }},
+        minPricePerPlayer: {{ old('min_price_per_player', 'null') }},
+
+        get reservePerPlace() {
+            return Number(this.minPricePerPlayer) || Number(this.defaultBasePrice) || 0;
+        },
+        get reserveTotal() {
+            return (Number(this.minSquadSize) || 0) * this.reservePerPlace;
+        },
+        get reserveExceedsBudget() {
+            return this.reserveTotal > (Number(this.maxBudgetPerTeam) || 0);
+        },
         _uid: 1,
 
         /* ── Money entry in millions ───────────────────────────────────────────────
