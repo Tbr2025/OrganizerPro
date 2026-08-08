@@ -56,8 +56,17 @@ class AuctionOrganizerController extends Controller
             ? $this->increments->nextBidAmount($auction, (float) $currentPlayer->current_price)
             : null;
 
-        return ActualTeam::forTournament($auction->tournament_id)
-            ->get()
+        /*
+         * The teams actually in this auction — approved registrations only.
+         *
+         * This read ActualTeam::forTournament() directly, which is every team row in the
+         * tournament. So the control panel's bubbles and its offline team picker listed all
+         * seven of the tournament's teams while the broadcast ticker, which goes through
+         * participatingTeams(), listed the five that had been approved. Two screens in the
+         * same room disagreeing about who is even in the auction, and the panel was the one
+         * you could bid from.
+         */
+        return $this->pools->participatingTeams($auction)
             ->map(function (ActualTeam $team) use ($auction, $nextBid) {
                 $state = $this->pools->teamPurseState($auction, $team->id, $nextBid);
 

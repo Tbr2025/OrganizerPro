@@ -818,7 +818,7 @@
                         </div>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
-                        <template x-for="team in teams" :key="team.id">
+                        <template x-for="team in selectableTeams" :key="team.id">
                             <div @click="toggleOfflineParticipant(team.id)"
                                  class="relative bg-gray-800 border-2 rounded-lg p-3 cursor-pointer transition-all hover:scale-[1.03] flex items-center gap-2"
                                  :class="isOfflineParticipant(team.id) ? 'border-orange-500 bg-orange-500/10 team-card-selected' : 'border-gray-700 hover:border-gray-500'">
@@ -1984,6 +1984,7 @@ function auctionOrganizerPanel() {
                 this.canUndo = !!data.can_undo;
                 this.nextUndoLabel = data.next_undo || null;
                 this.activePool = data.active_pool || null;
+                this.syncParticipantsToPool();
                 this.nextPool = data.next_pool || null;
                 this.pools = data.pools || [];
                 this.quickBidSteps = data.quick_bid_steps || [];
@@ -2378,6 +2379,24 @@ function auctionOrganizerPanel() {
         },
 
         startOfflineBidding() {
+            /*
+             * Drop anyone who can no longer act on THIS player before opening the round.
+             *
+             * The selection is now kept across a whole pool, so a team that was in the room
+             * for the last player may since have filled its squad or spent down past the
+             * squad-reserve ceiling. Carrying them in would open a bid row for a team whose
+             * bid the server refuses.
+             */
+            const blocked = new Set((this.teams || []).filter(t => t.excluded).map(t => t.id));
+            const dropped = this.offlineParticipants.filter(id => blocked.has(id));
+
+            if (dropped.length) {
+                this.offlineParticipants = this.offlineParticipants.filter(id => !blocked.has(id));
+                dropped.forEach(id => delete this.offlineTeamBids[id]);
+                const names = dropped.map(id => this.getTeamById(id)?.name || 'A team').join(', ');
+                this.toast(`${names} cannot bid on this player and was left out.`, 'info', 'Teams updated');
+            }
+
             if (this.offlineParticipants.length === 0) return;
             const basePrice = this.currentPlayer?.base_price || 0;
             this.offlineParticipants.forEach(tid => {
@@ -2420,12 +2439,56 @@ function auctionOrganizerPanel() {
             }
         },
 
+        /*
+         * Between players in the same pool, KEEP who is in the room.
+         *
+         * This used to clear offlineParticipants after every sale, so the organizer
+         * re-ticked the same teams for every single player — fourteen times through a pool
+         * of fourteen, with the room waiting. The teams sitting at the table do not change
+         * between one player and the next; the pool is what changes them.
+         *
+         * The amounts are cleared, because those are per player and carrying one over would
+         * silently open the next player at the last one's price.
+         */
         resetOfflinePanel() {
             this.offlinePhase = 'selection';
-            this.offlineParticipants = [];
             this.offlineTeamBids = {};
             this.offlineHighestBidder = null;
             this.offlineHighestAmount = 0;
+        },
+
+        /** Which pool the current selection was made for. */
+        _participantsPoolId: null,
+
+        /**
+         * Drop the selection when the pool changes.
+         *
+         * A new pool is a new set of players and usually a different set of teams still
+         * needing them, so carrying a selection across that boundary would quietly bid on
+         * behalf of teams nobody chose. Called from the poll, which is the only thing that
+         * knows the active pool has moved.
+         */
+        syncParticipantsToPool() {
+            const poolId = this.activePool?.id ?? null;
+
+            if (this._participantsPoolId === poolId) return;
+
+            this._participantsPoolId = poolId;
+            this.offlineParticipants = [];
+            this.offlineTeamBids = {};
+        },
+
+        /*
+         * Only teams that can still take part.
+         *
+         * The server already withholds unapproved registrations (see
+         * AuctionOrganizerController::teamsWithPurse), so what is left to filter here is a
+         * team that cannot act on THIS player — no purse left under the squad-reserve rule,
+         * or a squad already full. Offering them in the picker invites a bid the server
+         * would refuse.
+         */
+        get selectableTeams() {
+            return (this.teams || []).filter(t => !t.excluded);
         },
 
         offlineGoBack() {

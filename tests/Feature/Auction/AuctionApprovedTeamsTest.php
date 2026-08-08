@@ -116,6 +116,31 @@ class AuctionApprovedTeamsTest extends TestCase
     }
 
     #[Test]
+    public function the_control_panel_shows_the_same_teams_as_every_other_screen(): void
+    {
+        [$org, $tournament, $auction] = $this->scenario();
+
+        $this->registerTeam($org, $tournament, 'Approved United', 'approved');
+        $this->registerTeam($org, $tournament, 'Pending Rovers', 'pending');
+
+        /*
+         * The panel read ActualTeam::forTournament() directly while the ticker and the
+         * sealed round went through participatingTeams(), so the hall's broadcast strip
+         * listed five teams and the screen the organizer bids from listed seven. The panel
+         * was the one you could act on: a pending registration had a bubble, a purse and a
+         * place in the offline team picker.
+         */
+        $response = $this->actingAs($this->makeAuctionOperator($org))
+            ->getJson(route('admin.auction.organizer.api.poll-state', $auction))
+            ->assertOk();
+
+        $names = collect($response->json('teams'))->pluck('name')->all();
+
+        $this->assertContains('Approved United', $names);
+        $this->assertNotContains('Pending Rovers', $names);
+    }
+
+    #[Test]
     public function the_broadcast_ticker_lists_the_same_teams_as_the_sealed_round(): void
     {
         [$org, $tournament, $auction] = $this->scenario();
