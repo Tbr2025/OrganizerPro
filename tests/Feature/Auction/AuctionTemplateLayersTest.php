@@ -164,4 +164,83 @@ class AuctionTemplateLayersTest extends TestCase
         // The ticker is a genuinely different screen, so it must NOT be broadened.
         $this->assertNull(AuctionTemplate::resolveFor($auction, AuctionTemplate::TYPE_TICKER));
     }
+
+    #[Test]
+    public function the_wall_honours_the_tables_own_row_backgrounds(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+
+        $template = AuctionTemplate::create([
+            'name' => 'Wall',
+            'type' => AuctionTemplate::TYPE_LIVE_DISPLAY,
+            'organization_id' => $org->id,
+            'canvas_width' => 1601,
+            'canvas_height' => 910,
+            'is_active' => true,
+            'element_positions' => [
+                'stats_table' => [
+                    'top' => 545, 'left' => 550, 'width' => 500, 'height' => 150,
+                    'headerBg' => 'rgba(0,0,0,0.7)',
+                    'rowBg' => 'rgba(255,255,255,0.1)',
+                ],
+            ],
+        ]);
+
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'auction_template_id' => $template->id,
+        ]);
+
+        $html = (string) $this->get(route('public.auction.live', $auction))->assertOk()->getContent();
+
+        /*
+         * These were hardcoded to `transparent`, so a template that set them in the editor
+         * had both silently dropped on the wall — the editor drew panels and the wall let the
+         * background artwork show straight through them. That is most of why a stats table
+         * "did not match" what was designed.
+         */
+        $this->assertStringContainsString('background: rgba(0,0,0,0.7);', $html);
+        $this->assertStringContainsString('background: rgba(255,255,255,0.1);', $html);
+    }
+
+    #[Test]
+    public function a_table_that_asks_for_no_background_stays_transparent(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+
+        /*
+         * The borderless look is deliberate — a boxed grid fights the artwork behind it — so
+         * honouring the template must not mean forcing a background on a template that
+         * deliberately cleared one.
+         *
+         * Note the built-in defaults DO specify backgrounds (rgba(0,0,0,0.7) and
+         * rgba(255,255,255,0.1)), which the hardcoded `transparent` was overriding as well:
+         * the wall was ignoring its own defaults, not just custom templates.
+         */
+        $template = AuctionTemplate::create([
+            'name' => 'Bare',
+            'type' => AuctionTemplate::TYPE_LIVE_DISPLAY,
+            'organization_id' => $org->id,
+            'canvas_width' => 1601,
+            'canvas_height' => 910,
+            'is_active' => true,
+            'element_positions' => [
+                'stats_table' => ['top' => 545, 'left' => 550, 'headerBg' => '', 'rowBg' => ''],
+            ],
+        ]);
+
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'auction_template_id' => $template->id,
+        ]);
+
+        $html = (string) $this->get(route('public.auction.live', $auction))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/#stats-table-wrap thead tr \{\s*background: transparent;/',
+            $html
+        );
+    }
 }

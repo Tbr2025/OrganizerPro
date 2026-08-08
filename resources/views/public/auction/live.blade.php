@@ -609,8 +609,11 @@
         }
 
         @php
-            $st = array_merge(['top'=>480,'left'=>550,'width'=>500,'height'=>150,'fontSize'=>20,'zIndex'=>10],
-                $positions['stats_table'] ?? []);
+            $st = array_merge([
+                'top'=>480,'left'=>550,'width'=>500,'height'=>150,'fontSize'=>20,'zIndex'=>10,
+                // Declared so the `?:` fallbacks below never touch a missing key.
+                'headerBg'=>'', 'rowBg'=>'',
+            ], $positions['stats_table'] ?? []);
         @endphp
         #stats-table-wrap {
             position: absolute;
@@ -626,12 +629,18 @@
             border-spacing: {{ $st['cellSpacing'] ?? 10 }}px 0;
             font-size: {{ $st['fontSize'] ?? 20 }}px;
         }
+        /* Honour the template's own row backgrounds.
+           These were hardcoded to `transparent`, so a template that set headerBg and rowBg
+           in the editor had both silently dropped on the wall — the editor drew panels and
+           the wall let the artwork show straight through them, which is most of why the
+           table "did not match". Transparent is still the DEFAULT, preserving the borderless
+           look the comment above describes; it is no longer forced. */
         #stats-table-wrap thead tr {
-            background: transparent;
+            background: {{ $st['headerBg'] ?: 'transparent' }};
             color: {{ $st['headerColor'] ?? 'rgba(255,255,255,0.65)' }};
         }
         #stats-table-wrap tbody tr {
-            background: transparent;
+            background: {{ $st['rowBg'] ?: 'transparent' }};
             color: {{ $st['cellColor'] ?? '#ffffff' }};
         }
         #stats-table-wrap th,
