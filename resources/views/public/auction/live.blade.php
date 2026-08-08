@@ -1291,6 +1291,47 @@
         let lastPlayerId = null;
         let lastOnAuctionPlayerId = null;
         let lastActionPlayerId = null;
+
+        /**
+         * Take the previous player's outcome off the screen.
+         *
+         * Everything a finished lot leaves behind: the badge, the winning team's logo, the
+         * glow on the card, the bidder line and the banner naming the result. Written
+         * against getElementById rather than closed-over consts so it can be called from
+         * outside updatePlayerCard — which is the whole point, since the gap this fixes is
+         * the window where updatePlayerCard is NOT running.
+         *
+         * Safe to call at any time: every lookup is null-guarded, and a wall template can
+         * legitimately omit any of these elements (see isVisible() in the markup).
+         */
+        function clearOutcomeState() {
+            const card = document.getElementById('card-container');
+            if (card) card.classList.remove('sold-state', 'unsold-state', 'skipped-state');
+
+            const soldText = document.getElementById('sold-text');
+            if (soldText) soldText.classList.remove('sold-active', 'unsold-active', 'skipped-active');
+
+            const soldBadge = document.getElementById('sold-badge');
+            if (soldBadge) {
+                soldBadge.classList.remove('sold-entrance');
+                soldBadge.classList.add('hidden');
+            }
+
+            const unsoldBadge = document.getElementById('unsold-badge');
+            if (unsoldBadge) {
+                unsoldBadge.classList.add('hidden');
+                unsoldBadge.style.display = 'none';
+            }
+
+            const teamLogo = document.getElementById('team-logo');
+            if (teamLogo) {
+                teamLogo.classList.remove('sold-entrance');
+                teamLogo.classList.add('hidden');
+            }
+
+            document.getElementById('highest-bidder')?.classList.add('hidden');
+            document.getElementById('result-banner')?.classList.add('hidden');
+        }
         let isShuffling = false;
         // The most recent payload that had a player on the block — the recovery path's input.
         let lastGoodPlayer = null;
@@ -1345,6 +1386,17 @@
             },
 
             start(playerData, namePool) {
+                /*
+                 * Wipe the PREVIOUS player's result before the shuffle covers the stage.
+                 *
+                 * updatePlayerCard() clears this, but on a new player the poll calls
+                 * start() and returns — so updatePlayerCard does not run until reveal()
+                 * finishes, four seconds later. For all four seconds the sold badge, the
+                 * winning team's logo, the sold glow and the result banner from the player
+                 * just sold sat on top of the shuffle and then on top of the next player.
+                 */
+                clearOutcomeState();
+
                 if (namePool && namePool.length > 1) {
                     this.namePool = namePool;
                 }
@@ -1516,6 +1568,9 @@
 
         function showWaiting() {
             console.log('[Live] showWaiting()');
+            // The result banner sits outside the card, so hiding the card alone would leave
+            // "Sold - Ben Stokes" across a screen that is waiting for the next player.
+            clearOutcomeState();
             document.getElementById('waiting-screen').classList.remove('hidden');
             document.getElementById('card-container').classList.add('hidden');
             currentStatus = 'waiting';

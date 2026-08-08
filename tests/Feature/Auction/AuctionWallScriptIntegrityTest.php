@@ -169,6 +169,53 @@ class AuctionWallScriptIntegrityTest extends TestCase
     }
 
     #[Test]
+    public function the_previous_players_result_is_cleared_before_the_shuffle(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'status' => 'running',
+        ]);
+        $this->makeAuctionPlayer($auction, ['status' => 'on_auction']);
+
+        $html = $this->get(route('public.auction.live', $auction))->assertOk()->getContent();
+        $js = $this->inlineScript((string) $html);
+
+        /*
+         * A timing bug with no visible seam in the code: on a new player the poll calls
+         * shuffleController.start() and RETURNS, so updatePlayerCard() — which is where the
+         * sold badge, the winning team's logo, the sold glow and the result banner are
+         * cleared — does not run until reveal() finishes about four seconds later. For those
+         * four seconds the previous player's result sat on top of the shuffle and then on
+         * top of the next player.
+         *
+         * Asserted structurally because there is no browser layer here: clearOutcomeState()
+         * must exist, and start() must call it. Anyone removing that call gets a failure
+         * rather than a hall watching two players at once.
+         */
+        $this->assertStringContainsString(
+            'function clearOutcomeState()',
+            $js,
+            'the wall needs a clear that works outside updatePlayerCard'
+        );
+
+        $start = strpos($js, 'start(playerData, namePool)');
+        $this->assertNotFalse($start, 'shuffleController.start must still exist');
+
+        /*
+         * Early in start(), before any of the animation work. The window is generous
+         * because the call carries a comment explaining why it is there — the point is
+         * that the clear happens in start() at all, not that it lands on a given line.
+         */
+        $this->assertStringContainsString(
+            'clearOutcomeState()',
+            substr($js, $start, 1500),
+            'start() must clear the previous result before covering the stage'
+        );
+    }
+
+    #[Test]
     public function a_completed_auction_keeps_showing_the_winner(): void
     {
         $org = $this->makeOrganization();
