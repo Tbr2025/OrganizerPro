@@ -667,15 +667,30 @@
                             </div>
                         </template>
 
-                        {{-- Base Price --}}
-                        <div class="mt-4 inline-block border rounded-xl px-6 py-3 border-blue-500/30 bg-blue-500/10">
-                            <div class="text-xs uppercase tracking-widest mb-0.5 text-blue-400">Base Price</div>
-                            <div class="text-3xl font-black text-blue-400" x-text="formatCurrency(currentPlayer?.base_price)"></div>
-                        </div>
+                        {{-- Base price, and how much of the room is actually in this player.
+                             Two matching cards rather than a card and a line of grey text
+                             underneath it: this is the stage the hall is watching, and the
+                             second figure was small, unlabelled and easy to miss. --}}
+                        <div class="mt-4 flex items-stretch gap-3">
+                            <div class="border rounded-xl px-6 py-3 border-blue-500/30 bg-blue-500/10">
+                                <div class="text-xs uppercase tracking-widest mb-0.5 text-blue-400">Base Price</div>
+                                <div class="text-3xl font-black text-blue-400" x-text="formatCurrency(currentPlayer?.base_price)"></div>
+                            </div>
 
-                        {{-- Sealed bids count --}}
-                        <div x-show="sealedBids.length > 0" class="text-gray-400 text-sm">
-                            <span class="text-green-400 font-semibold" x-text="sealedBids.length + ' bid(s) received'"></span>
+                            {{-- TEAMS, not bids. fetchSealedBids() collapses the append-only
+                                 bid log to one standing row per team, so this length has
+                                 always been a count of teams — it read "7 bid(s) received"
+                                 for seven teams, and would have read "1 bid(s) received"
+                                 for one team that had raised twenty times. --}}
+                            <div x-show="sealedBids.length > 0"
+                                 class="border rounded-xl px-6 py-3 border-emerald-500/30 bg-emerald-500/10">
+                                <div class="text-xs uppercase tracking-widest mb-0.5 text-emerald-400">In The Bidding</div>
+                                <div class="text-3xl font-black text-emerald-400">
+                                    <span x-text="sealedBids.length"></span>
+                                    <span class="text-base font-bold opacity-80"
+                                          x-text="sealedBids.length === 1 ? 'team' : 'teams'"></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1500,7 +1515,9 @@
                 <div x-show="sidePanel === 'bids'" class="p-4">
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-sm text-gray-400">Current player bids</span>
-                        <span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400" x-text="sealedBids.length + ' bids'"></span>
+                        {{-- One row per team, so this counts teams (see above). --}}
+                        <span class="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400"
+                              x-text="sealedBids.length + (sealedBids.length === 1 ? ' team' : ' teams')"></span>
                     </div>
                     <div class="space-y-2">
                         <template x-for="bid in sealedBids" :key="bid.id">
