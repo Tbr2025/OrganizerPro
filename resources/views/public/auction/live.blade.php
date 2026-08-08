@@ -1566,6 +1566,46 @@
             return AMOUNT_UNIT.prefix ? AMOUNT_UNIT.label + figure : figure + ' ' + AMOUNT_UNIT.label;
         }
 
+        /**
+         * Apply a live raise to the card already on screen.
+         *
+         * Deliberately narrow: only the two things a bid changes — the figure and who is
+         * leading. It does NOT re-render the card, because a broadcast payload carries a
+         * few fields rather than the whole player, and handing that to updatePlayerCard
+         * would blank the stats, the image and the pool that are already correct.
+         */
+        function renderLiveBid(ap) {
+            if (!ap || ap.status !== 'on_auction') return;
+
+            // Element id and formatter mirror the poll path exactly (see updatePlayerCard),
+            // so a pushed raise and a polled one are indistinguishable to the room.
+            const price = ap.current_price || ap.base_price || 0;
+            const bidEl = document.getElementById('current-bid');
+
+            if (bidEl) {
+                bidEl.textContent = formatMillions(price);
+
+                if (price !== window._lastDisplayedPrice) {
+                    bidEl.classList.add('bid-updated');
+                    if (window._bidColorTimeout) clearTimeout(window._bidColorTimeout);
+                    window._bidColorTimeout = setTimeout(() => {
+                        bidEl.classList.remove('bid-updated');
+                    }, 1500);
+                    window._lastDisplayedPrice = price;
+                }
+            }
+
+            const soldText = document.getElementById('sold-text');
+            const highestBidder = document.getElementById('highest-bidder');
+            const bidderName = document.getElementById('bidder-name');
+
+            if (ap.current_bid_team) {
+                if (soldText) soldText.textContent = 'CURRENT BID';
+                if (bidderName) bidderName.textContent = ap.current_bid_team.name || '';
+                if (highestBidder) highestBidder.classList.remove('hidden');
+            }
+        }
+
         function showWaiting() {
             console.log('[Live] showWaiting()');
             // The result banner sits outside the card, so hiding the card alone would leave
@@ -2380,10 +2420,34 @@
                     lastPlayerId = ap.id;
                     const pool = shuffleNamePool.length > 1 ? shuffleNamePool : [ap.player?.name || 'Player'];
                     shuffleController.start(ap, pool);
+                    return;
                 }
+
+                /*
+                 * Same player, new price: apply it now.
+                 *
+                 * This branch did not exist — the handler only ever started a shuffle for a
+                 * NEW player, so even with the event delivering, a raise on the player
+                 * already up did nothing and the hall waited for the next poll.
+                 *
+                 * Taken from the event rather than by re-fetching, because the payload IS
+                 * the figure that was just written, while the public feed is micro-cached
+                 * for a second and could hand back the price this event supersedes.
+                 */
+                if (isShuffling) return;
+
+                renderLiveBid(ap);
             });
 
-        // Poll for updates every 2 seconds (for bid updates)
+        /*
+         * The poll is a BACKSTOP, not the mechanism.
+         *
+         * Sales and bids both arrive by broadcast now, so this exists to recover a screen
+         * that missed an event — a dropped websocket, a laptop resumed from sleep, a wall
+         * opened halfway through — and to carry the states nothing broadcasts (the timer,
+         * the pool progress, a restart). Left at two seconds deliberately: tightening it
+         * would add load to fix a delay that the events have already removed.
+         */
         setInterval(fetchActivePlayer, 2000);
 
         // Initial fetch
