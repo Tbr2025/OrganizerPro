@@ -95,6 +95,15 @@ class AuctionRestartTest extends TestCase
         // And it closes on its own.
         $auction->update(['restarted_at' => now()->subSeconds(Auction::RESTART_NOTICE_SECONDS + 1)]);
 
+        /*
+         * The public feeds are cached for a second so that every screen watching shares one
+         * build (see PublicAuctionController::FEED_TTL). This test moves the auction's own
+         * clock rather than the wall clock, so the entry from the assertion above is still
+         * live; drop it to read the new state. In production the same staleness is bounded
+         * by one second, well inside the ten-second restart window.
+         */
+        \Illuminate\Support\Facades\Cache::forget("auction-feed:active-player:{$auction->id}");
+
         $this->assertFalse($auction->fresh()->isRestarting());
         $this->getJson("/auction/{$auction->id}/active-player")
             ->assertOk()

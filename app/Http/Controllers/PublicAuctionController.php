@@ -3,12 +3,68 @@
 namespace App\Http\Controllers;
 
 use App\Models\Auction;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use App\Models\ActualTeam;
 use App\Models\AuctionTemplate;
 use Illuminate\View\View;
 
 class PublicAuctionController extends Controller
 {
+    /**
+     * How long a broadcast feed may be reused, in seconds.
+     *
+     * These three endpoints are public, read-only and — this is the point — IDENTICAL for
+     * every viewer. The hall projector, the OBS ticker, the organizer's second screen and
+     * every phone in the room were each triggering their own full rebuild every two seconds.
+     * On live that was ~1,500 of ~2,400 requests in a two-minute sample, against a pool of
+     * five PHP workers on two cores, and every page on the site — including /login — had
+     * degraded to a ten-to-twenty second response.
+     *
+     * One second, deliberately: the clients already poll on a two-second cycle and tick their
+     * own countdowns between polls, so this adds at most a second of staleness while
+     * collapsing all concurrent viewers onto a single build.
+     */
+    private const FEED_TTL = 1;
+
+    /**
+     * Serve a public feed from a short shared cache.
+     *
+     * Keyed per auction, and the PAYLOAD is cached rather than the response object so the
+     * JSON headers are still built fresh. Nothing here is user-specific — the authenticated
+     * purse poll is a separate endpoint precisely because this one carries no team data — so
+     * one cached copy is correct for every viewer.
+     */
+    private function cachedFeed(string $name, Auction $auction, \Closure $build): JsonResponse
+    {
+        $payload = Cache::remember(
+            "auction-feed:{$name}:{$auction->id}",
+            self::FEED_TTL,
+            function () use ($build) {
+                $result = $build();
+
+                return $result instanceof JsonResponse ? $result->getData(true) : $result;
+            }
+        );
+
+        return response()->json($payload);
+    }
+
+    public function activePlayer(Auction $auction): JsonResponse
+    {
+        return $this->cachedFeed('active-player', $auction, fn () => $this->buildActivePlayer($auction));
+    }
+
+    public function tickerFeed(Auction $auction): JsonResponse
+    {
+        return $this->cachedFeed('ticker', $auction, fn () => $this->buildTickerFeed($auction));
+    }
+
+    public function soldPlayers(Auction $auction): JsonResponse
+    {
+        return $this->cachedFeed('sold-players', $auction, fn () => $this->buildSoldPlayers($auction));
+    }
+
     /**
      * Display the public auction results page with all players.
      */
@@ -101,7 +157,7 @@ class PublicAuctionController extends Controller
     /**
      * Return JSON data for the currently active bidding player.
      */
-    public function activePlayer(Auction $auction)
+    private function buildActivePlayer(Auction $auction)
     {
         $auctionPlayer = $auction->auctionPlayers()
             ->with([
@@ -334,7 +390,7 @@ class PublicAuctionController extends Controller
      * Deliberately excludes the increment ladder and sealed-bid thresholds — this is a
      * public endpoint and those would reveal the ceiling to anyone watching.
      */
-    public function tickerFeed(Auction $auction)
+    private function buildTickerFeed(Auction $auction)
     {
         $pools = app(\App\Services\Auction\AuctionPoolService::class);
 
@@ -463,7 +519,7 @@ class PublicAuctionController extends Controller
     /**
      * Return JSON data for all sold players in the auction.
      */
-    public function soldPlayers(Auction $auction)
+    private function buildSoldPlayers(Auction $auction)
     {
         $soldPlayers = $auction->auctionPlayers()
             ->with(['player.playerType', 'soldToTeam'])
