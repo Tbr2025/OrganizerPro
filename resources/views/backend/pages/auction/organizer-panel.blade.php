@@ -1361,7 +1361,50 @@
                                     <p class="font-semibold text-white truncate" x-text="team.name"></p>
                                     <p class="text-xs text-gray-400"><span x-text="team.players_bought"></span> players</p>
                                 </div>
+                                {{-- Fetched on demand. A roster per team on the two-second
+                                     poll would multiply its cost by the squad size. --}}
+                                <button type="button" @click="toggleSquad(team.id)"
+                                        class="px-2 py-1 rounded text-[11px] font-semibold text-gray-300 bg-gray-700 hover:bg-gray-600 whitespace-nowrap">
+                                    <span x-show="openSquad !== team.id">Squad</span>
+                                    <span x-show="openSquad === team.id">Hide</span>
+                                </button>
                             </div>
+
+                            {{-- Who the team actually holds, and what each cost.
+                                 AUCTION vs RETAINED comes from the auction rows, not from
+                                 players.player_mode — selling sets that to `retained` too,
+                                 so it cannot tell a buy from a keep. --}}
+                            <template x-if="openSquad === team.id">
+                                <div class="mb-3 rounded-lg bg-gray-900/70 border border-gray-700 divide-y divide-gray-800">
+                                    <p x-show="squadLoading" class="px-3 py-3 text-xs text-gray-500">Loading squad…</p>
+
+                                    <template x-for="p in squadPlayers" :key="p.id">
+                                        <div class="flex items-center gap-2 px-3 py-2">
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-black tracking-wider"
+                                                  :class="p.acquisition === 'auction' ? 'bg-emerald-600/30 text-emerald-300' : 'bg-amber-600/30 text-amber-300'"
+                                                  x-text="p.acquisition === 'auction' ? 'AUC' : 'RET'"></span>
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-xs text-white truncate" x-text="p.name"></p>
+                                                <p class="text-[10px] text-gray-500">
+                                                    <span x-show="p.role" x-text="p.role"></span>
+                                                    <span x-show="p.matches !== null && p.matches !== undefined">
+                                                        <span x-show="p.role"> · </span><span x-text="p.matches"></span>M
+                                                    </span>
+                                                    <span x-show="p.runs !== null && p.runs !== undefined"> · <span x-text="p.runs"></span>R</span>
+                                                    <span x-show="p.wickets !== null && p.wickets !== undefined"> · <span x-text="p.wickets"></span>W</span>
+                                                </p>
+                                            </div>
+                                            <span class="text-[11px] font-bold whitespace-nowrap"
+                                                  :class="p.acquisition === 'auction' ? 'text-emerald-400' : 'text-amber-400'"
+                                                  x-text="formatCurrency(p.price)"></span>
+                                        </div>
+                                    </template>
+
+                                    <p x-show="!squadLoading && !squadPlayers.length" class="px-3 py-3 text-xs text-gray-500">
+                                        No players acquired yet.
+                                    </p>
+                                </div>
+                            </template>
                             <div class="space-y-1">
                                 {{-- The configured total for THIS team, then what is actually
                                      left to bid with once its retentions are paid for. --}}
@@ -2426,6 +2469,32 @@ function auctionOrganizerPanel() {
             if (!this.currentPlayer || this.displayState !== 'bidding') return [];
 
             return (this.teams || []).filter(t => t.excluded && t.exclusion_reason);
+        },
+
+        /* ── A team's roster, loaded when asked for ── */
+        openSquad: null,
+        squadPlayers: [],
+        squadLoading: false,
+
+        async toggleSquad(teamId) {
+            if (this.openSquad === teamId) { this.openSquad = null; return; }
+
+            this.openSquad = teamId;
+            this.squadPlayers = [];
+            this.squadLoading = true;
+
+            try {
+                const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/team/${teamId}/squad`, {
+                    headers: { Accept: 'application/json' },
+                });
+                const data = await res.json();
+                // Ignore a reply for a team the organizer has already navigated away from.
+                if (this.openSquad === teamId) this.squadPlayers = data.players || [];
+            } catch (e) {
+                this.toast('Could not load that squad.', 'error');
+            } finally {
+                this.squadLoading = false;
+            }
         },
 
         isTeamBidDisabled(team) {

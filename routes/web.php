@@ -254,6 +254,8 @@ Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
             Route::post('/restart', [AuctionOrganizerController::class, 'restartAuction'])->name('restart');
             Route::post('/toggle-pause', [AuctionOrganizerController::class, 'togglePause'])->name('toggle-pause');
             Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('player.onbid');
+            // On demand, not on the 2s poll: a roster per team would multiply its cost.
+            Route::get('/team/{team}/squad', [AuctionOrganizerController::class, 'teamSquad'])->name('team.squad');
             Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('player.sell');
             Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('player.pass');
             Route::post('/sell-to-team', [AuctionOrganizerController::class, 'sellToTeam'])->name('player.sell-to-team');

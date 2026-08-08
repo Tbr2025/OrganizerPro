@@ -749,6 +749,60 @@ class AuctionOrganizerController extends Controller
         return response()->json(['message' => 'Player has been passed.']);
     }
 
+    /**
+     * Who a team actually holds, and what each of them cost.
+     *
+     * Deliberately NOT folded into pollState(): that runs every two seconds for every open
+     * panel, and a roster per team would multiply its cost by the squad size. This is fetched
+     * once, when the organizer opens a team.
+     *
+     * `players.player_mode` cannot classify these — selling sets it to `retained`, so a buy
+     * and a keep are indistinguishable by that column and the value `sold` is never written.
+     * The auction rows are the only honest source.
+     */
+    public function teamSquad(Auction $auction, ActualTeam $team)
+    {
+        abort_unless((int) $team->tournament_id === (int) $auction->tournament_id, 404);
+
+        $rows = AuctionPlayer::where('auction_id', $auction->id)
+            ->where(function ($q) use ($team) {
+                $q->where(fn ($sold) => $sold->where('status', 'sold')->where('sold_to_team_id', $team->id))
+                    ->orWhere(fn ($kept) => $kept->where('is_retained', true)->where('team_id', $team->id));
+            })
+            ->with(['player:id,name,image_path,total_matches,total_runs,total_wickets,player_type_id', 'player.playerType'])
+            ->get()
+            ->map(function (AuctionPlayer $ap) use ($team) {
+                $bought = $ap->status === 'sold' && (int) $ap->sold_to_team_id === (int) $team->id;
+                $price = (float) ($bought ? $ap->final_price : $ap->retained_price);
+
+                return [
+                    'id' => $ap->id,
+                    'name' => $ap->player->name ?? 'Player',
+                    'role' => $ap->player?->playerType?->type,
+                    'image' => $ap->player?->image_path ? asset('storage/' . $ap->player->image_path) : null,
+                    'acquisition' => $bought ? 'auction' : 'retained',
+                    'price' => $price,
+                    // Self-declared career figures — the only ones that exist.
+                    'matches' => $ap->player?->total_matches,
+                    'runs' => $ap->player?->total_runs,
+                    'wickets' => $ap->player?->total_wickets,
+                ];
+            })
+            // Bought players first, then kept, dearest first inside each.
+            ->sortBy([['acquisition', 'asc'], ['price', 'desc']])
+            ->values();
+
+        return response()->json([
+            'team' => ['id' => $team->id, 'name' => $team->name],
+            'players' => $rows,
+            'totals' => [
+                'auction' => $rows->where('acquisition', 'auction')->sum('price'),
+                'retained' => $rows->where('acquisition', 'retained')->sum('price'),
+                'count' => $rows->count(),
+            ],
+        ]);
+    }
+
     public function togglePause(Auction $auction)
     {
         // 1. Determine the new status
