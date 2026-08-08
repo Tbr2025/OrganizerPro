@@ -221,6 +221,39 @@ class AuctionTemplate extends Model
      * Types with no column of their own fall straight through to the per-auction/default
      * chain, which is the pre-existing behaviour for sold_display and player_card.
      */
+    /**
+     * A template this auction is allowed to render, chosen explicitly per screen.
+     *
+     * One auction drives several physical displays — a 16:9 projector, a portrait LED wall,
+     * a broadcast strip — and one stored template cannot serve all of them, because each is
+     * designed against a fixed canvas. So each screen may name its own template in the URL
+     * and every display keeps the layout drawn for its resolution.
+     *
+     * These pages are PUBLIC and unauthenticated, so the id cannot simply be trusted: the
+     * template must belong to this auction, or to this auction's organization, or be a
+     * global one, and it must be the right type for the screen asking. Anything else falls
+     * back to the auction's normal choice rather than rendering another org's artwork.
+     */
+    public static function overrideFor(Auction $auction, string $type, mixed $templateId): ?self
+    {
+        if (! is_numeric($templateId)) {
+            return null;
+        }
+
+        return static::where('id', (int) $templateId)
+            ->whereIn('type', static::acceptableTypes($type))
+            ->where('is_active', true)
+            ->where(function ($q) use ($auction) {
+                $q->whereNull('organization_id')
+                    ->orWhere('auction_id', $auction->id);
+
+                if ($auction->organization_id) {
+                    $q->orWhere('organization_id', $auction->organization_id);
+                }
+            })
+            ->first();
+    }
+
     public static function chosenIdFor(Auction $auction, string $type): ?int
     {
         $column = match ($type) {

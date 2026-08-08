@@ -96,8 +96,18 @@ class PublicAuctionController extends Controller
     {
         $auction->load('tournament');
 
-        // The auction's explicit pick wins, then a template bound to it, then the default.
-        $template = AuctionTemplate::resolveFor($auction, 'live_display');
+        /*
+         * ?template= lets each physical screen pick its own layout.
+         *
+         * A projector, a portrait LED wall and a second monitor are different resolutions,
+         * and a template is drawn against one fixed canvas — so one stored choice cannot
+         * serve them all. Each display opens the same auction with its own template id.
+         *
+         * Validated against the auction, never trusted: see AuctionTemplate::overrideFor().
+         */
+        $template = AuctionTemplate::overrideFor($auction, 'live_display', request('template'))
+            // Otherwise the auction's explicit pick, then one bound to it, then the default.
+            ?? AuctionTemplate::resolveFor($auction, 'live_display');
 
         // An HTML-mode template owns the whole screen, so it renders as its own
         // document rather than inside the positioned-element page.
@@ -364,7 +374,9 @@ class PublicAuctionController extends Controller
          * positioned editor describes a 1601x910 card, not a lower third — so there is no
          * positioned branch to fall back through here.
          */
-        $template = AuctionTemplate::resolveFor($auction, AuctionTemplate::TYPE_TICKER);
+        // Same per-screen override as the wall: an OBS strip and a hall ticker can differ.
+        $template = AuctionTemplate::overrideFor($auction, AuctionTemplate::TYPE_TICKER, request('template'))
+            ?? AuctionTemplate::resolveFor($auction, AuctionTemplate::TYPE_TICKER);
 
         if ($template?->isHtmlMode()) {
             $nonce = \App\Http\Middleware\AddTemplateCsp::nonce();

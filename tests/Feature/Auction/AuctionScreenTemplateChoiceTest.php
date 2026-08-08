@@ -248,4 +248,83 @@ class AuctionScreenTemplateChoiceTest extends TestCase
         $this->assertSame(9_000_000.0, $pools->reserveFor($created, $team->id));
         $this->assertSame(41_000_000.0, $pools->maxAllowedBid($created, $team->id));
     }
+
+    #[Test]
+    public function each_screen_can_ask_for_its_own_template(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+
+        // One auction, two displays of different shapes.
+        $projector = $this->template($org, AuctionTemplate::TYPE_LIVE_DISPLAY, [
+            'name' => 'Projector 16x9',
+            'html_body' => '<div class="wide">{player_name}</div>',
+        ]);
+        $portrait = $this->template($org, AuctionTemplate::TYPE_LIVE_DISPLAY, [
+            'name' => 'Portrait LED',
+            'html_body' => '<div class="tall">{player_name}</div>',
+        ]);
+
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'auction_template_id' => $projector->id,
+        ]);
+
+        // Without an override, the auction's stored pick.
+        $this->get(route('public.auction.live', $auction))->assertOk()->assertSee('wide', false);
+
+        // The portrait wall opens the same auction with its own layout.
+        $this->get(route('public.auction.live', $auction) . '?template=' . $portrait->id)
+            ->assertOk()
+            ->assertSee('tall', false)
+            ->assertDontSee('class="wide"', false);
+    }
+
+    #[Test]
+    public function the_override_cannot_reach_another_organizations_template(): void
+    {
+        $mine = $this->makeOrganization('Mine');
+        $theirs = $this->makeOrganization('Theirs');
+        $tournament = $this->makeTournament($mine);
+
+        $ours = $this->template($mine, AuctionTemplate::TYPE_LIVE_DISPLAY, [
+            'name' => 'Ours',
+            'html_body' => '<div class="ours">x</div>',
+        ]);
+        $foreign = $this->template($theirs, AuctionTemplate::TYPE_LIVE_DISPLAY, [
+            'name' => 'Theirs',
+            'html_body' => '<div class="stolen">x</div>',
+        ]);
+
+        $auction = $this->makeAuction($mine, [
+            'tournament_id' => $tournament->id,
+            'auction_template_id' => $ours->id,
+        ]);
+
+        /*
+         * These pages are public and unauthenticated, so the id in the URL cannot be
+         * trusted — it must belong to this auction, its organization, or the global set.
+         * Anything else falls back rather than rendering someone else's artwork.
+         */
+        $this->get(route('public.auction.live', $auction) . '?template=' . $foreign->id)
+            ->assertOk()
+            ->assertDontSee('stolen', false)
+            ->assertSee('ours', false);
+    }
+
+    #[Test]
+    public function the_override_will_not_put_a_ticker_template_on_the_wall(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $ticker = $this->template($org, AuctionTemplate::TYPE_TICKER, [
+            'html_body' => '<div class="strip">x</div>',
+        ]);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+
+        // Type still guards the override, so a lower-third cannot be rendered as the wall.
+        $this->get(route('public.auction.live', $auction) . '?template=' . $ticker->id)
+            ->assertOk()
+            ->assertDontSee('class="strip"', false);
+    }
 }

@@ -77,4 +77,40 @@
             @endif
         </div>
     </div>
+
+    {{-- One URL per physical screen.
+         A projector, a portrait LED wall and a broadcast strip are different resolutions,
+         and each template is drawn against one fixed canvas — so rather than forcing a single
+         choice on every display, each screen opens the auction with its own template id and
+         keeps the layout designed for it. The stored pick above is what any URL without a
+         ?template= uses. --}}
+    @if($auctionId && ($displayTemplates->count() || $tickerTemplates->count()))
+        <div class="mt-5 pt-4 border-t border-indigo-200 dark:border-indigo-800/60">
+            <h4 class="text-xs font-bold text-indigo-900 dark:text-indigo-200 mb-1">Per-screen links</h4>
+            <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                Different resolution on each display? Open it with its own template.
+            </p>
+
+            <div class="space-y-3">
+                @foreach([
+                    ['label' => 'LED Wall', 'path' => 'live', 'set' => $displayTemplates],
+                    ['label' => 'Ticker',   'path' => 'ticker', 'set' => $tickerTemplates],
+                ] as $screen)
+                    @if($screen['set']->count())
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1">{{ $screen['label'] }}</p>
+                            <div class="space-y-1">
+                                @foreach($screen['set'] as $tpl)
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <span class="w-40 truncate text-gray-700 dark:text-gray-200">{{ $tpl->name }}</span>
+                                        <code class="flex-1 truncate px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300">{{ url("/auction/{$auctionId}/{$screen['path']}") }}?template={{ $tpl->id }}</code>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+    @endif
 </div>
