@@ -42,6 +42,21 @@
                                 @if($player->is_wicket_keeper)
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-400/30 text-white">WK</span>
                                 @endif
+
+                                {{-- How this player joined the squad, and what they cost.
+                                     Not from players.player_mode: selling sets that to
+                                     `retained` too, so it cannot tell a buy from a keep.
+                                     Attached from the auction row — see
+                                     TeamManagerController::attachAcquisition(). --}}
+                                @if($player->acquisition === 'auction')
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-400/30 text-white">
+                                        AUCTION{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
+                                    </span>
+                                @elseif($player->acquisition === 'retained')
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/30 text-white">
+                                        RETAINED{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
+                                    </span>
+                                @endif
                             </div>
                         </div>
                     </div>
