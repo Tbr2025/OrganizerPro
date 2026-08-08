@@ -1138,6 +1138,23 @@
                     </template>
                 </div>
 
+                {{-- Why a team cannot bid, stated rather than hidden in a tooltip.
+                     The chip already greys out and the control is genuinely :disabled, but
+                     the reason only appeared on hover — so on a projector, or to anyone not
+                     holding a mouse over the right circle, a team simply looked broken. The
+                     squad-reserve rule is the auction's own rule and the room is entitled to
+                     see it applied. --}}
+                <template x-if="excludedTeams.length">
+                    <div class="mt-3 pt-3 border-t border-gray-800 space-y-1">
+                        <template x-for="team in excludedTeams" :key="'ex-' + team.id">
+                            <p class="text-[11px] text-amber-300/90 leading-snug">
+                                <span class="font-bold" x-text="team.name"></span>
+                                <span class="text-amber-200/70" x-text="' — ' + (team.exclusion_reason || 'cannot bid on this player.')"></span>
+                            </p>
+                        </template>
+                    </div>
+                </template>
+
                 <p x-show="!teams.length" class="text-center text-xs text-gray-500 py-2">
                     No teams in this tournament yet.
                 </p>
@@ -2404,6 +2421,13 @@ function auctionOrganizerPanel() {
          * A team cannot be bid for when there's no live player, when it already leads,
          * in offline mode, or when the squad-reserve rule prices it out of this player.
          */
+        /** Teams the squad-reserve rule has priced out of the player on the block. */
+        get excludedTeams() {
+            if (!this.currentPlayer || this.displayState !== 'bidding') return [];
+
+            return (this.teams || []).filter(t => t.excluded && t.exclusion_reason);
+        },
+
         isTeamBidDisabled(team) {
             return !this.currentPlayer
                 || this.displayState !== 'bidding'

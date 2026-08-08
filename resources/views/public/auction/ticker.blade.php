@@ -669,9 +669,20 @@
                 // Same as the wall: a pause is a state to SHOW, not a reason to blank the
                 // clock. renderClock() presents the frozen figure and labels it Paused.
                 if (d.current_player) {
-                    clockEnabled = !!d.timer?.enabled;
-                    clockRemaining = d.timer?.remaining ?? null;
-                    clockPaused = !!d.timer?.paused;
+                    /* A sealed round runs on its own clock; the auction's is stopped for the
+                       duration, so without this the strip showed no countdown at all while
+                       the teams were submitting. Matches the wall and the panel. */
+                    const sealedTimer = d.closed_bid?.timer;
+
+                    if (sealedTimer && sealedTimer.applies && sealedTimer.remaining !== null) {
+                        clockEnabled = true;
+                        clockRemaining = sealedTimer.remaining;
+                        clockPaused = false;
+                    } else {
+                        clockEnabled = !!d.timer?.enabled;
+                        clockRemaining = d.timer?.remaining ?? null;
+                        clockPaused = !!d.timer?.paused;
+                    }
                     if (Array.isArray(d.timer?.final_call_stages)) callStages = d.timer.final_call_stages;
                     startClock();
                 } else {

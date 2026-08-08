@@ -318,6 +318,18 @@ class ClosedBidService
             return null;
         }
 
+        /*
+         * The round owns its own clock.
+         *
+         * The auction-level timer belongs to open bidding and is not running during a sealed
+         * round, so both public screens simply showed nothing — the hall and the stream had
+         * no idea how long the teams had left to submit. `closedBidRoundTimerState()` is the
+         * same arithmetic the organizer's panel reads, so all three now agree.
+         *
+         * Counts only, as before: never an amount, never a team-to-amount mapping.
+         */
+        $timer = $auction->closedBidRoundTimerState($round);
+
         return [
             'state' => $round->state,
             'round_number' => $round->round_number,
@@ -325,6 +337,12 @@ class ClosedBidService
             'floor' => (float) $round->floor,
             'submitted_count' => $round->entries()->standing()->count(),
             'invited_count' => $round->entries()->count(),
+            'timer' => [
+                'applies' => (bool) ($timer['applies'] ?? false),
+                'remaining' => $timer['remaining'] ?? null,
+                'limit' => $timer['limit'] ?? null,
+                'expired' => (bool) ($timer['expired'] ?? false),
+            ],
         ];
     }
 

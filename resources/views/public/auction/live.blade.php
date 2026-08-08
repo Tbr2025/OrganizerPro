@@ -302,6 +302,24 @@
             color: #f59e0b !important;
         }
 
+        #result-banner {
+            position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
+            z-index: 9996; display: flex; align-items: center; gap: 18px;
+            padding: 12px 38px; border-radius: 9999px;
+            background: rgba(2,6,23,0.88); backdrop-filter: blur(10px);
+            white-space: nowrap;
+        }
+        #result-banner #result-word {
+            font-size: 1.9rem; font-weight: 900; letter-spacing: 0.18em; text-transform: uppercase;
+        }
+        #result-banner #result-name {
+            font-size: 1.6rem; font-weight: 700; color: #fff;
+        }
+        #result-banner.is-unsold { border: 2px solid #f43f5e; box-shadow: 0 0 54px rgba(244,63,94,0.4); }
+        #result-banner.is-unsold #result-word { color: #fb7185; }
+        #result-banner.is-sold { border: 2px solid #22c55e; box-shadow: 0 0 54px rgba(34,197,94,0.4); }
+        #result-banner.is-sold #result-word { color: #4ade80; }
+
         /* ── Final call with no bids ──
            Once the closing calls start and nobody has bid, the outcome is effectively
            decided. Saying so is the difference between an audience watching a countdown and
@@ -1087,6 +1105,16 @@
          state, so the hall and the stream never disagree about what is happening. --}}
     <div id="unsold-warning" class="hidden">No bids &mdash; player will go unsold</div>
 
+    {{-- The RESULT, once a player has left the block.
+         The word used to sit on the price label over the player's photo, which was removed
+         because it covered the image and duplicated the badge. Without it a passed player
+         showed a card with no wording at all and read as just another player coming up — so
+         the announcement lives here instead, clear of the artwork, and names who it was. --}}
+    <div id="result-banner" class="hidden">
+        <span id="result-word"></span>
+        <span id="result-name"></span>
+    </div>
+
     <div id="card-container" class="card-container hidden">
         @if($auction->auction_logo_url)
         <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo"
@@ -1745,6 +1773,28 @@
                 if (teamLogo) teamLogo.classList.remove('sold-entrance');
             }
 
+            /* Name the outcome. `skipped` and `unsold` are the same thing to a room: the
+               player did not sell. Anything still live clears the banner. */
+            (function () {
+                const banner = document.getElementById('result-banner');
+                const word = document.getElementById('result-word');
+                const nameEl = document.getElementById('result-name');
+                if (!banner || !word || !nameEl) return;
+
+                const outcome = { sold: 'Sold', unsold: 'Unsold', skipped: 'Passed' }[p.status] || null;
+
+                if (!outcome) {
+                    banner.classList.add('hidden');
+                    return;
+                }
+
+                word.textContent = outcome;
+                nameEl.textContent = p.player?.name || '';
+                banner.classList.toggle('is-sold', p.status === 'sold');
+                banner.classList.toggle('is-unsold', p.status !== 'sold');
+                banner.classList.remove('hidden');
+            })();
+
             if (p.status === 'sold') {
                 resetDramaticStates();
                 /* The badge says SOLD. This label sits over the player image, so repeating
@@ -2019,6 +2069,25 @@
         }
 
         function syncClock(data) {
+            /*
+             * A sealed round runs on its OWN clock, not the auction's.
+             *
+             * The auction-level timer belongs to open bidding and stops when the sealed round
+             * opens, so the wall showed no countdown at all for the whole round — the hall had
+             * no idea how long the teams had left. When one is running its clock wins.
+             */
+            const sealedTimer = data?.closed_bid?.timer;
+
+            if (sealedTimer && sealedTimer.applies && sealedTimer.remaining !== null) {
+                timerEnabled = true;
+                timerRemaining = sealedTimer.remaining;
+                clockPaused = false;
+                if (sealedTimer.limit) clockScale = Number(sealedTimer.limit);
+                renderClock();
+                startClockTick();
+                return;
+            }
+
             timerEnabled = !!data?.timer_enabled;
             timerRemaining = data?.timer_seconds_remaining ?? null;
             clockPaused = !!data?.timer_paused;
@@ -2104,6 +2173,8 @@
                        never be shown. renderClock() presents the frozen figure itself. */
                     if (data?.auctionPlayer?.status === 'on_auction'
                         && data?.auction_status !== 'completed') {
+                        // syncClock picks the sealed round's clock over the auction's when a
+                        // round is running, so this one call covers both phases.
                         syncClock(data);
                     } else {
                         hideClock();
