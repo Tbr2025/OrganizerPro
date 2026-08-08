@@ -382,20 +382,22 @@
         /* ── Waiting screen: bat and ball ──
            Pure CSS and inline SVG. No image and no library, so the screen has nothing to
            download and cannot sit on a broken asset while a hall watches it. One shared
-           2.6s loop keeps the swing and the strike in sync — separate durations drift
+           1.5s loop keeps the swing and the strike in sync — separate durations drift
            apart within a few cycles and the bat starts missing. */
         .cricket-stage {
             position: relative;
-            width: 460px; height: 250px;
-            margin-bottom: 8px;
+            /* Sized for a hall, not a laptop: at 460x250 on a projector this was a detail
+               in the middle of the screen rather than something anyone would look at. */
+            width: 740px; height: 400px;
+            margin-bottom: 12px;
         }
 
         /* Pivots at the handle, like a real backlift. */
         .cricket-bat {
-            position: absolute; left: 52%; top: 10px;
-            width: 62px; height: 200px;
+            position: absolute; left: 52%; top: 14px;
+            width: 100px; height: 322px;
             transform-origin: 50% 9%;
-            animation: batSwing 2.6s cubic-bezier(0.34, 1.15, 0.5, 1) infinite;
+            animation: batSwing 1.5s cubic-bezier(0.34, 1.15, 0.5, 1) infinite;
             filter: drop-shadow(0 10px 26px rgba(0,0,0,0.55));
         }
         @keyframes batSwing {
@@ -409,35 +411,37 @@
 
         .cricket-ball {
             position: absolute; left: 50%; top: 46%;
-            width: 36px; height: 36px;
-            animation: ballPath 2.6s linear infinite;
+            width: 58px; height: 58px;
+            animation: ballPath 1.5s linear infinite;
         }
         @keyframes ballPath {
-            0%   { transform: translate(210px, 46px) scale(0.75); opacity: 0; }
+            /* Pixel offsets, so they scale with the stage rather than staying put while
+               everything around them grew. */
+            0%   { transform: translate(336px, 74px) scale(0.75); opacity: 0; }
             10%  { opacity: 1; }
-            34%  { transform: translate(16px, 26px) scale(1); opacity: 1; }
-            40%  { transform: translate(-24px, 4px) scale(1.1); opacity: 1; }
-            72%  { transform: translate(-170px, -86px) scale(0.9); opacity: 1; }
-            94%  { transform: translate(-290px, -164px) scale(0.65); opacity: 0; }
-            100% { transform: translate(-290px, -164px) scale(0.65); opacity: 0; }
+            34%  { transform: translate(26px, 42px) scale(1); opacity: 1; }
+            40%  { transform: translate(-38px, 6px) scale(1.1); opacity: 1; }
+            72%  { transform: translate(-272px, -138px) scale(0.9); opacity: 1; }
+            94%  { transform: translate(-464px, -262px) scale(0.65); opacity: 0; }
+            100% { transform: translate(-464px, -262px) scale(0.65); opacity: 0; }
         }
 
         /* Spin on an inner element, so it composes with the arc above instead of
            overwriting its transform. */
         .cricket-ball-spin {
             width: 100%; height: 100%;
-            animation: ballSpin 0.45s linear infinite;
+            animation: ballSpin 0.28s linear infinite;
         }
         @keyframes ballSpin { to { transform: rotate(360deg); } }
 
         /* Flash at the moment of contact, on the same clock as the swing. */
         .cricket-spark {
             position: absolute; left: 50%; top: 46%;
-            width: 120px; height: 120px; margin: -42px 0 0 -46px;
+            width: 190px; height: 190px; margin: -66px 0 0 -72px;
             border-radius: 50%;
             background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(var(--primary-rgb),0.5) 40%, transparent 70%);
             opacity: 0; pointer-events: none;
-            animation: sparkPop 2.6s linear infinite;
+            animation: sparkPop 1.5s linear infinite;
         }
         @keyframes sparkPop {
             0%, 33% { opacity: 0; transform: scale(0.4); }
@@ -449,7 +453,7 @@
         /* The ground the bat stands on — a thin brand-tinted crease. */
         .cricket-crease {
             position: absolute; left: 50%; bottom: 18px;
-            width: 260px; height: 3px; margin-left: -130px;
+            width: 420px; height: 4px; margin-left: -210px;
             background: linear-gradient(90deg, transparent, rgba(var(--primary-rgb),0.75), transparent);
             border-radius: 2px;
         }
