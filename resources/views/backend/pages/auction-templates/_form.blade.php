@@ -1173,10 +1173,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const dy = (e.clientY - startY) / scale;
 
         if (dragTarget) {
+            /*
+             * Free positioning, including off the edges.
+             *
+             * The drag was clamped to 0..canvas, so an element could never be pushed past a
+             * boundary — you could not bleed a logo off the left edge, sit a badge half over
+             * the top, or park a piece of artwork so it runs out of frame, all of which the
+             * wall renders perfectly well because the canvas is `overflow: hidden`.
+             *
+             * A generous bound is still applied, purely so a slip cannot fling an element so
+             * far away it becomes unfindable — one full canvas beyond each edge, which is far
+             * more than any deliberate bleed needs.
+             */
+            const slack = Math.max(canvasW, canvasH);
             let newLeft = Math.round(origLeft + dx);
             let newTop = Math.round(origTop + dy);
-            newLeft = Math.max(0, Math.min(canvasW - dragTarget.offsetWidth, newLeft));
-            newTop = Math.max(0, Math.min(canvasH - dragTarget.offsetHeight, newTop));
+            newLeft = Math.max(-slack, Math.min(canvasW + slack, newLeft));
+            newTop = Math.max(-slack, Math.min(canvasH + slack, newTop));
             dragTarget.style.left = newLeft + 'px';
             dragTarget.style.top = newTop + 'px';
             dragTarget.style.bottom = 'auto';
