@@ -723,12 +723,21 @@ class Auction extends Model
      * override switches the automatic rule off entirely (both halves of it), which is
      * what the previous inline copies did.
      *
-     * @return array{bid_type_changed: bool, open_bid_mode_changed: bool}
+     * THE SEALED THRESHOLD IS NOT APPLIED WITHOUT `$sealedConfirmed`. Crossing it used to
+     * tip the whole room into a sealed round the instant a bid landed on 8M, with no way
+     * back: the organizer had lost the option of simply selling to the leading team, and a
+     * threshold set a little too low turned every ordinary sale into a sealed round. The
+     * crossing is now reported as pending and the organizer answers it — sealed round, or
+     * sell to the standing top bid. The mode axis (online -> offline) still applies on its
+     * own, because it changes who may bid, not what happens to the player.
+     *
+     * @return array{bid_type_changed: bool, bid_type_pending: bool, open_bid_mode_changed: bool}
      */
-    public function applyAutoPhase(float $price): array
+    public function applyAutoPhase(float $price, bool $sealedConfirmed = false): array
     {
         $expected = $this->getExpectedBidPhase($price);
         $changes = [];
+        $sealedPending = false;
 
         // The two axes are judged separately. Sharing one override flag meant that
         // choosing to run the room offline also silenced the sealed-bid threshold — so an
@@ -737,7 +746,11 @@ class Auction extends Model
             && $this->hasAutoPhaseTransition()
             && $this->bid_type === 'open'
             && $expected['bid_type'] === 'closed') {
-            $changes['bid_type'] = 'closed';
+            if ($sealedConfirmed) {
+                $changes['bid_type'] = 'closed';
+            } else {
+                $sealedPending = true;
+            }
         }
 
         if (! $this->mode_manually_overridden
@@ -753,8 +766,30 @@ class Auction extends Model
 
         return [
             'bid_type_changed' => isset($changes['bid_type']),
+            'bid_type_pending' => $sealedPending,
             'open_bid_mode_changed' => isset($changes['open_bid_mode']),
         ];
+    }
+
+    /**
+     * Has this player's price crossed the sealed threshold with nobody having decided
+     * what to do about it?
+     *
+     * Derived rather than stored, so there is no flag to leave behind: the question stops
+     * being asked the moment the auction turns `closed` (the organizer said yes) or the
+     * player leaves the block (the organizer sold them instead, or passed).
+     */
+    public function sealedThresholdPendingFor(?AuctionPlayer $auctionPlayer): bool
+    {
+        if ($auctionPlayer === null || $auctionPlayer->status !== 'on_auction') {
+            return false;
+        }
+
+        return $this->hasAutoPhaseTransition()
+            && ! $this->bid_type_manually_overridden
+            && $this->bid_type === 'open'
+            && $auctionPlayer->closed_bid_round_id === null
+            && (float) $auctionPlayer->current_price >= (float) $this->closed_bid_starts_at;
     }
 
     public function getExpectedBidPhase(float $price): array

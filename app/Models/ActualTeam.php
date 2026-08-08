@@ -148,6 +148,32 @@ class ActualTeam extends Model
         });
     }
 
+    /**
+     * Scope: teams the tournament has actually let in.
+     *
+     * An ActualTeam row is not proof of approval — on the live tournament seven teams exist
+     * while only five registrations were approved. Anywhere that means "the teams in this
+     * tournament" has to go through the registration, or pending sides end up in group
+     * draws, on the broadcast ticker and in sealed bidding rounds.
+     *
+     * A team with NO registration at all is KEPT: those are created directly by an organizer
+     * and were never part of the approval flow, so filtering on the absence of a row would
+     * hide legitimate teams. Only a team whose registration exists and has not been approved
+     * is withheld.
+     */
+    public function scopeApprovedForTournament(Builder $query, $tournamentId): Builder
+    {
+        return $query->where(function ($outer) use ($tournamentId) {
+            $outer->whereHas('tournamentRegistrations', function ($r) use ($tournamentId) {
+                $r->where('tournament_id', $tournamentId)
+                    ->where('type', 'team')
+                    ->where('status', 'approved');
+            })->orWhereDoesntHave('tournamentRegistrations', function ($r) use ($tournamentId) {
+                $r->where('tournament_id', $tournamentId)->where('type', 'team');
+            });
+        });
+    }
+
     public function scopeApplyFilters(Builder $query, array $filters): Builder
     {
         // Apply Organization filter if provided

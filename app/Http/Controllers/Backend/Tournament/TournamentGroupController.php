@@ -46,17 +46,9 @@ class TournamentGroupController extends Controller
             ->with(['users' => function ($q) {
                 $q->wherePivotIn('role', ['Owner', 'Manager']);
             }])
-            ->when(! $seesEverything, function ($q) use ($tournament) {
-                $q->where(function ($inner) use ($tournament) {
-                    $inner->whereHas('tournamentRegistrations', function ($r) use ($tournament) {
-                        $r->where('tournament_id', $tournament->id)
-                            ->where('type', 'team')
-                            ->where('status', 'approved');
-                    })->orWhereDoesntHave('tournamentRegistrations', function ($r) use ($tournament) {
-                        $r->where('tournament_id', $tournament->id)->where('type', 'team');
-                    });
-                });
-            })
+            // One definition of "approved", shared with the auction (which applies it to
+            // everyone, Superadmin included — see AuctionPoolService::participatingTeams()).
+            ->when(! $seesEverything, fn ($q) => $q->approvedForTournament($tournament->id))
             ->get();
 
         // Teams not yet assigned to any group (available for group assignment)

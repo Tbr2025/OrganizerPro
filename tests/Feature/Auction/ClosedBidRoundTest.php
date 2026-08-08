@@ -45,19 +45,14 @@ class ClosedBidRoundTest extends TestCase
         ], $overrides))];
     }
 
-    #[Test]
-    public function the_threshold_still_flips_the_auction_to_closed_bidding(): void
+    /** Raise the price to the 8M threshold and hand back the player. */
+    private function raiseToThreshold($org, $tournament, $auction, $team, $operator)
     {
-        [$org, $tournament, $auction] = $this->sealedAuction();
-        $team = $this->makeTeam($org, 'Strikers', $tournament);
-        $operator = $this->makeAuctionOperator($org);
         $player = $this->makeAuctionPlayer($auction, [
             'status' => 'on_auction',
             'current_price' => 7_900_000,
         ]);
 
-        // A raise that reaches 8M. The rule that decides this has moved onto the model,
-        // but its behaviour must be identical.
         $this->actingAs($operator)
             ->postJson(route('admin.auctions.players.addBid'), [
                 'auctionId' => $auction->id,
@@ -66,7 +61,117 @@ class ClosedBidRoundTest extends TestCase
             ])
             ->assertOk();
 
+        return $player;
+    }
+
+    #[Test]
+    public function the_threshold_asks_rather_than_flipping_the_auction_on_its_own(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $operator = $this->makeAuctionOperator($org);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
+
+        /*
+         * Crossing 8M used to tip the whole room into a sealed round by itself, with no way
+         * back — the organizer had lost the option of simply selling to the leading team,
+         * and a threshold set slightly too low turned ordinary sales into sealed rounds.
+         */
+        $this->assertSame('open', $auction->fresh()->bid_type, 'the room must not flip itself');
+        $this->assertNull(
+            AuctionClosedBidRound::where('auction_player_id', $player->id)->first(),
+            'and no round exists until somebody says so'
+        );
+
+        // The question reaches the panel instead.
+        $this->actingAs($operator)
+            ->getJson(route('admin.auction.organizer.api.poll-state', $auction))
+            ->assertOk()
+            ->assertJsonPath('sealed_threshold_pending', true)
+            ->assertJsonPath('sealed_threshold_leader', 'Strikers');
+    }
+
+    #[Test]
+    public function the_question_stops_being_asked_once_the_player_leaves_the_block(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $operator = $this->makeAuctionOperator($org);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
+
+        // Answering "sell to the leading team" is just the ordinary sale — there is no
+        // separate decline to record, because the player going means the question goes.
+        $player->update(['status' => 'sold']);
+
+        $this->actingAs($operator)
+            ->getJson(route('admin.auction.organizer.api.poll-state', $auction))
+            ->assertOk()
+            ->assertJsonPath('sealed_threshold_pending', false);
+    }
+
+    #[Test]
+    public function confirming_the_threshold_flips_the_auction_and_opens_the_round(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $operator = $this->makeAuctionOperator($org);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.closed-bid.confirm-threshold', $auction), [
+                'auction_player_id' => $player->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('handled', true);
+
+        // Both halves or neither: bid_type `closed` with no round is the state where the
+        // panel offers a sealed board that does not exist.
         $this->assertSame('closed', $auction->fresh()->bid_type);
+        $this->assertNotNull(AuctionClosedBidRound::where('auction_player_id', $player->id)->first());
+    }
+
+    #[Test]
+    public function confirming_twice_is_not_an_error(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $operator = $this->makeAuctionOperator($org);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
+        $url = route('admin.auction.organizer.api.closed-bid.confirm-threshold', $auction);
+
+        $this->actingAs($operator)->postJson($url, ['auction_player_id' => $player->id])->assertOk();
+
+        // Two panels are routinely open on the same auction; the second press must not
+        // raise a red toast, and must not build a second round.
+        $this->actingAs($operator)
+            ->postJson($url, ['auction_player_id' => $player->id])
+            ->assertOk()
+            ->assertJsonPath('handled', false);
+
+        $this->assertSame(1, AuctionClosedBidRound::where('auction_player_id', $player->id)->count());
+    }
+
+    #[Test]
+    public function the_threshold_cannot_be_confirmed_before_it_is_reached(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $operator = $this->makeAuctionOperator($org);
+        $player = $this->makeAuctionPlayer($auction, [
+            'status' => 'on_auction',
+            'current_price' => 3_000_000,
+        ]);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.closed-bid.confirm-threshold', $auction), [
+                'auction_player_id' => $player->id,
+            ])
+            ->assertStatus(422);
+
+        $this->assertSame('open', $auction->fresh()->bid_type);
     }
 
     #[Test]
@@ -75,16 +180,12 @@ class ClosedBidRoundTest extends TestCase
         [$org, $tournament, $auction] = $this->sealedAuction();
         $team = $this->makeTeam($org, 'Strikers', $tournament);
         $operator = $this->makeAuctionOperator($org);
-        $player = $this->makeAuctionPlayer($auction, [
-            'status' => 'on_auction',
-            'current_price' => 7_900_000,
-        ]);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
 
         $this->actingAs($operator)
-            ->postJson(route('admin.auctions.players.addBid'), [
-                'auctionId' => $auction->id,
-                'playerID' => $player->id,
-                'teamId' => $team->id,
+            ->postJson(route('admin.auction.organizer.api.closed-bid.confirm-threshold', $auction), [
+                'auction_player_id' => $player->id,
             ])
             ->assertOk();
 
@@ -183,9 +284,18 @@ class ClosedBidRoundTest extends TestCase
             'mode_manually_overridden' => true,
         ]);
 
+        // The threshold is still NOTICED while the room runs offline — it is simply put to
+        // the organizer rather than acted on, which is the whole point of the two axes
+        // being judged separately.
         $phase = $auction->applyAutoPhase(9_000_000);
 
-        $this->assertTrue($phase['bid_type_changed']);
+        $this->assertTrue($phase['bid_type_pending'], 'the offline override must not silence the threshold');
+        $this->assertFalse($phase['bid_type_changed'], 'but noticing it is not the same as doing it');
+
+        // And answering yes still works with the room offline.
+        $confirmed = $auction->fresh()->applyAutoPhase(9_000_000, sealedConfirmed: true);
+
+        $this->assertTrue($confirmed['bid_type_changed']);
         $this->assertSame('closed', $auction->fresh()->bid_type);
         $this->assertSame('offline', $auction->fresh()->open_bid_mode, 'the room is still offline');
     }

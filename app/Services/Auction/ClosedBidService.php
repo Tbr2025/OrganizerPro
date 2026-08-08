@@ -1216,6 +1216,17 @@ class ClosedBidService
      *
      * @param  string  $direction  'up', 'down', or '' when an explicit amount is given
      */
+    /**
+     * The highest amount standing on the board right now, or 0.0 when nobody has bid.
+     *
+     * standing() is the single definition of "a bid that counts" — submitted and not
+     * withdrawn — so a withdrawn team's amount never sets the pace for the next raise.
+     */
+    private function topStandingAmount(AuctionClosedBidRound $round): float
+    {
+        return (float) ($round->entries()->standing()->max('amount') ?? 0.0);
+    }
+
     public function adjust(
         AuctionClosedBidEntry $entry,
         ?float $amount,
@@ -1233,7 +1244,25 @@ class ClosedBidService
         }
 
         $step = (float) $round->step;
-        $current = $entry->amount !== null ? (float) $entry->amount : (float) $round->floor;
+
+        /*
+         * Where a raise starts from.
+         *
+         * A team with an amount steps from its own. A team with none steps from the top of
+         * the board — the way an auctioneer works a room, each raise going over the last
+         * one called, not over the opening figure. Starting every new team at the floor
+         * meant the organizer had to press + once per increment to catch up with the
+         * standing bid: ten presses to reach 9M on a 100K step, which is what
+         * "adjusted x10" on the board was recording.
+         *
+         * Computed here rather than handed to the panel on purpose. Amounts are withheld
+         * from the organizer's board until the round is revealed because that board is
+         * routinely on a projector, and shipping the current top so the client could do
+         * this arithmetic would put the leading sealed bid on the wall.
+         */
+        $current = $entry->amount !== null
+            ? (float) $entry->amount
+            : max((float) $round->floor, $this->topStandingAmount($round));
 
         $target = match ($direction) {
             // Snap onto the grid as it steps, so a +/- press also rescues an amount that

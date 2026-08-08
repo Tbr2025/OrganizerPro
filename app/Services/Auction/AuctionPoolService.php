@@ -556,7 +556,18 @@ class AuctionPoolService
      */
     public function participatingTeams(Auction $auction)
     {
-        $allTeams = ActualTeam::forTournament($auction->tournament_id)->orderBy('name')->get();
+        /*
+         * Approved sides only, for everybody — there is no Superadmin bypass here as there
+         * is on the Groups screen. Who may LOOK at a list is a permissions question; who may
+         * spend money in this auction is not. A pending registration turning up in a sealed
+         * round can win a player, and the sealed board listed all seven of the tournament's
+         * teams (including the same club twice, once approved and once not) with a purse and
+         * a Withdraw button beside each.
+         */
+        $allTeams = ActualTeam::forTournament($auction->tournament_id)
+            ->approvedForTournament($auction->tournament_id)
+            ->orderBy('name')
+            ->get();
 
         $allocated = AuctionTeamBudget::where('auction_id', $auction->id)
             ->pluck('actual_team_id')
@@ -566,6 +577,8 @@ class AuctionPoolService
             return $allTeams;
         }
 
+        // Intersected, not substituted: a budget row is an organizer's statement of intent,
+        // but it cannot let a side in that the tournament has not approved.
         return $allTeams->whereIn('id', $allocated)->values();
     }
 

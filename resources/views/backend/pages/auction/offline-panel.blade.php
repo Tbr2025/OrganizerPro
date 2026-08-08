@@ -1130,7 +1130,9 @@
                :class="confirmBox.danger ? 'text-red-400' : 'text-gray-400'"
                x-text="confirmBox.title"></p>
             <p class="mt-3 text-white text-sm whitespace-pre-line" x-text="confirmBox.message"></p>
-            <div class="mt-6 flex items-center justify-end gap-3">
+
+            {{-- Plain yes/no: every action button on this panel. --}}
+            <div class="mt-6 flex items-center justify-end gap-3" x-show="!confirmBox.choices">
                 <button type="button" @click="_settleConfirm(false)"
                         class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition">
                     Cancel
@@ -1140,6 +1142,21 @@
                         :class="confirmBox.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'">
                     Confirm
                 </button>
+            </div>
+
+            {{-- More than two ways out — the sealed-threshold question. Stacked full-width
+                 because three answers with real sentences on them truncate to nothing side
+                 by side at this panel's width. --}}
+            <div class="mt-6 flex flex-col gap-2" x-show="confirmBox.choices" x-cloak>
+                <template x-for="choice in (confirmBox.choices || [])" :key="choice.value">
+                    <button type="button" @click="_settleConfirm(choice.value)"
+                            class="w-full px-5 py-3 rounded-xl text-sm font-bold text-white text-left transition"
+                            :class="choice.class || 'bg-white/10 hover:bg-white/20'">
+                        <span x-text="choice.label"></span>
+                        <span class="block text-xs font-normal opacity-75 mt-0.5"
+                              x-show="choice.hint" x-text="choice.hint"></span>
+                    </button>
+                </template>
             </div>
         </div>
     </div>
@@ -1158,7 +1175,7 @@
                Replaces alert()/confirm(), which drop the browser out of fullscreen. */
             toasts: [],
             _toastSeq: 0,
-            confirmBox: { open: false, title: '', message: '', danger: false, _resolve: null },
+            confirmBox: { open: false, title: '', message: '', danger: false, choices: null, _resolve: null },
 
             toast(message, type = 'info', title = null) {
                 const id = ++this._toastSeq;
@@ -1168,15 +1185,19 @@
                 }, type === 'error' ? 6000 : 3600);
             },
 
-            askConfirm(message, { title = 'Confirm', danger = false } = {}) {
+            /**
+             * Awaitable replacement for confirm(). Resolves true/false, or — when `choices`
+             * is given — the chosen value, for a question with more than two answers.
+             */
+            askConfirm(message, { title = 'Confirm', danger = false, choices = null } = {}) {
                 return new Promise((resolve) => {
-                    this.confirmBox = { open: true, title, message, danger, _resolve: resolve };
+                    this.confirmBox = { open: true, title, message, danger, choices, _resolve: resolve };
                 });
             },
 
             _settleConfirm(answer) {
                 const resolve = this.confirmBox._resolve;
-                this.confirmBox = { open: false, title: '', message: '', danger: false, _resolve: null };
+                this.confirmBox = { open: false, title: '', message: '', danger: false, choices: null, _resolve: null };
                 if (resolve) resolve(answer);
             },
 
@@ -1855,6 +1876,89 @@
                 } catch (e) { /* a dropped poll is not worth surfacing */ }
             },
 
+            /*
+             * "The bidding has reached the sealed threshold — what now?"
+             *
+             * The same question the organizer panel asks, and it has to exist here too:
+             * crossing the threshold no longer flips the room by itself, so without this
+             * an offline auction could never enter a sealed round at all — and this panel
+             * carries a full sealed board.
+             *
+             * Asked once per player. Dismissing means "not yet", so it does not come back
+             * on the next 2-second poll and interrupt a room being called by hand.
+             */
+            _sealedPromptAskedFor: null,
+            _sealedPromptOpen: false,
+
+            async maybeAskSealedThreshold(data) {
+                if (! data?.sealed_threshold_pending) return;
+                if (this._sealedPromptOpen) return;
+
+                const playerId = this.currentPlayer?.id ?? data.current_player?.id ?? null;
+                if (playerId === null || this._sealedPromptAskedFor === playerId) return;
+
+                this._sealedPromptAskedFor = playerId;
+                this._sealedPromptOpen = true;
+
+                const name = this.currentPlayer?.player?.name || 'This player';
+                const amount = this.formatCurrency(data.sealed_threshold_amount ?? 0);
+                const threshold = this.formatCurrency(data.closed_bid_starts_at ?? 0);
+                const leader = data.sealed_threshold_leader;
+
+                let answer = false;
+                try {
+                    answer = await this.askConfirm(
+                        `${name} has reached ${amount}, the sealed-bid threshold of ${threshold}.`
+                        + (leader ? `\n\nThe leading team is ${leader}.` : '\n\nNo team is currently leading.'),
+                        {
+                            title: 'Sealed bid threshold',
+                            choices: [
+                                {
+                                    value: 'sealed',
+                                    label: 'Move to sealed bid',
+                                    hint: 'Teams submit written amounts. Highest wins.',
+                                    class: 'bg-indigo-600 hover:bg-indigo-700',
+                                },
+                                // Only when there IS somebody to sell to.
+                                ...(leader ? [{
+                                    value: 'sell',
+                                    label: `Sell to ${leader} for ${amount}`,
+                                    hint: 'Ends the bidding here and moves to the next player.',
+                                    class: 'bg-emerald-600 hover:bg-emerald-700',
+                                }] : []),
+                                {
+                                    value: 'keep',
+                                    label: 'Keep open bidding',
+                                    hint: 'Carry on as normal. You will not be asked again for this player.',
+                                },
+                            ],
+                        }
+                    );
+                } finally {
+                    this._sealedPromptOpen = false;
+                }
+
+                if (answer === 'sealed') {
+                    const result = await this.sealedCommand('confirm-threshold');
+                    if (! result || result.success === false) {
+                        this._sealedPromptAskedFor = null;   // nothing happened; ask again
+                        return;
+                    }
+                    await this.pollAuctionState();
+                    return;
+                }
+
+                if (answer === 'sell') {
+                    // sellCurrentPlayer() runs its own confirmation with the purse summary
+                    // on it, which is the more informative screen — so it is not skipped
+                    // here even though this dialog has already been answered.
+                    await this.sellCurrentPlayer();
+                    return;
+                }
+
+                // 'keep', or dismissed. Open bidding continues untouched.
+            },
+
             async sealedCommand(path, body = {}) {
                 try {
                     const res = await fetch(`${this.apiBase}/api/closed-bid/${path}`, {
@@ -1923,6 +2027,7 @@
                     this.stats = data.stats;
 
                     this.fetchSealedState();
+                    this.maybeAskSealedThreshold(data);
 
                     // Pool lock + timer, both owned by the server.
                     this.activePool = data.active_pool || null;

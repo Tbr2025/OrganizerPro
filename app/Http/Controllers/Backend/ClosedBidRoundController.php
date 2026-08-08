@@ -46,6 +46,61 @@ class ClosedBidRoundController extends Controller
         ]);
     }
 
+    /**
+     * The organizer's answer to "the price has reached the sealed threshold — go sealed?".
+     *
+     * Crossing the threshold no longer tips the room into a sealed round by itself (see
+     * Auction::applyAutoPhase); it raises a question, and this is the yes. Answering no
+     * needs nothing here — the organizer sells to the leading team through the ordinary
+     * sell button, and the player leaving the block ends the question.
+     *
+     * Idempotent: a second press while a round already exists returns that round rather
+     * than an error, because two panels are routinely open on the same auction.
+     */
+    public function confirmThreshold(Request $request, Auction $auction): JsonResponse
+    {
+        $auctionPlayer = $this->resolvePlayer($request, $auction);
+
+        if (! $auctionPlayer || $auctionPlayer->status !== 'on_auction') {
+            return response()->json(['success' => false, 'message' => 'No player is on the block.'], 422);
+        }
+
+        if ($existing = $this->closedBids->currentRound($auctionPlayer)) {
+            return response()->json([
+                'success' => true,
+                'handled' => false,
+                'message' => 'That player is already in a sealed round.',
+                'closed_bid' => $this->closedBids->stateForOrganizer($auction, $auctionPlayer),
+            ]);
+        }
+
+        if (! $auction->sealedThresholdPendingFor($auctionPlayer)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The price has not reached the sealed threshold.',
+            ], 422);
+        }
+
+        // Confirmed, so the phase rule may now apply. Both steps or neither: a bid_type of
+        // `closed` with no round is the state where the panel offers a sealed board that
+        // does not exist, and openRoundFor() refuses to build one while bid_type is `open`.
+        $auction->applyAutoPhase((float) $auctionPlayer->current_price, sealedConfirmed: true);
+        $auction = $auction->fresh();
+
+        $round = $this->closedBids->openRoundFor($auctionPlayer->fresh(), $auction);
+
+        if (! $round) {
+            return response()->json(['success' => false, 'message' => 'Could not open a sealed round.'], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'handled' => true,
+            'message' => 'Sealed round opened.',
+            'closed_bid' => $this->closedBids->stateForOrganizer($auction, $auctionPlayer->fresh()),
+        ]);
+    }
+
     /** Invite the teams and show them the conditions. */
     public function openEntry(Request $request, Auction $auction): JsonResponse
     {

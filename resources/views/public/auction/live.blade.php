@@ -2293,7 +2293,19 @@
                 if (event.winningTeam) {
                     auctionPlayer.sold_to_team = event.winningTeam;
                 }
-                if (_confettiFiredForPlayer !== auctionPlayer.id) {
+
+                /*
+                 * Celebrate a SALE, never a pass.
+                 *
+                 * passPlayer() deliberately broadcasts this same `player-on-sold` event so
+                 * every screen updates — but with no winning team. This listener fired the
+                 * confetti regardless, so a player nobody wanted got the same celebration as
+                 * a record buy, in front of the player. The poll path was already gated on
+                 * status === 'sold'; only this one was not.
+                 */
+                const reallySold = !!event.winningTeam || auctionPlayer.status === 'sold';
+
+                if (reallySold && _confettiFiredForPlayer !== auctionPlayer.id) {
                     _confettiFiredForPlayer = auctionPlayer.id;
                     fireConfetti();
                 }

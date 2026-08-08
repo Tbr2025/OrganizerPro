@@ -267,6 +267,9 @@ Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
             // confined to their own tournaments.
             Route::prefix('closed-bid')->name('closed-bid.')->group(function () {
                 Route::get('/state', [ClosedBidRoundController::class, 'state'])->name('state');
+                // The organizer's yes to crossing the sealed threshold. There is no
+                // matching "no" route: no is selling to the leading team.
+                Route::post('/confirm-threshold', [ClosedBidRoundController::class, 'confirmThreshold'])->name('confirm-threshold');
                 Route::post('/open-entry', [ClosedBidRoundController::class, 'openEntry'])->name('open-entry');
                 Route::post('/start', [ClosedBidRoundController::class, 'start'])->name('start');
                 Route::post('/lock', [ClosedBidRoundController::class, 'lock'])->name('lock');

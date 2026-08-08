@@ -431,11 +431,23 @@
                                             <div class="flex items-center gap-1">
                                                 <button @click="sealedAdjust(entry, 'down')"
                                                         class="w-6 h-6 rounded bg-red-500/15 border border-red-500/25 text-red-400 text-xs font-bold">&minus;</button>
-                                                <input type="number" step="any"
+                                                {{-- step="any" here meant the box accepted anything at all: the
+                                                     round's configured step was printed in the header and then
+                                                     ignored by the one control that types an amount. Both bounds
+                                                     come from the round's own snapshot, so a round keeps the rules
+                                                     it opened under even if the auction is reconfigured. --}}
+                                                <input type="number"
+                                                       {{-- toM() gives '' for a missing figure, and an EMPTY step
+                                                            attribute is not "no constraint" — the browser falls back
+                                                            to step=1, which would refuse 8.1M outright. Fall back to
+                                                            'any', and drop min entirely rather than binding ''. --}}
+                                                       :step="sealed.step ? toM(sealed.step) : 'any'"
+                                                       :min="sealed.floor ? toM(sealed.floor) : null"
+                                                       inputmode="decimal"
                                                        x-model="sealedAdjustAmount[entry.entry_id]"
                                                        @keydown.enter.prevent="sealedAdjustCustom(entry)"
                                                        class="w-16 px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-white text-[11px] text-center"
-                                                       placeholder="M">
+                                                       :placeholder="sealed.floor ? toM(sealed.floor) : 'M'">
                                                 <button @click="sealedAdjust(entry, 'up')"
                                                         class="w-6 h-6 rounded bg-green-500/15 border border-green-500/25 text-green-400 text-xs font-bold">+</button>
                                             </div>
@@ -1583,7 +1595,9 @@
                x-text="confirmBox.title"></p>
             {{-- pre-line: some confirmations are a short summary block, not one sentence. --}}
             <p class="mt-3 text-white text-sm whitespace-pre-line" x-text="confirmBox.message"></p>
-            <div class="mt-6 flex items-center justify-end gap-3">
+
+            {{-- Plain yes/no: every action button on this panel. --}}
+            <div class="mt-6 flex items-center justify-end gap-3" x-show="!confirmBox.choices">
                 <button type="button" @click="_settleConfirm(false)"
                         class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition">
                     Cancel
@@ -1593,6 +1607,21 @@
                         :class="confirmBox.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'">
                     Confirm
                 </button>
+            </div>
+
+            {{-- More than two ways out. Stacked full-width rather than in a row: the
+                 sealed-threshold question has three answers with real sentences on them,
+                 and side by side they truncate to nothing on the panel's own width. --}}
+            <div class="mt-6 flex flex-col gap-2" x-show="confirmBox.choices" x-cloak>
+                <template x-for="choice in (confirmBox.choices || [])" :key="choice.value">
+                    <button type="button" @click="_settleConfirm(choice.value)"
+                            class="w-full px-5 py-3 rounded-xl text-sm font-bold text-white text-left transition"
+                            :class="choice.class || 'bg-white/10 hover:bg-white/20'">
+                        <span x-text="choice.label"></span>
+                        <span class="block text-xs font-normal opacity-75 mt-0.5"
+                              x-show="choice.hint" x-text="choice.hint"></span>
+                    </button>
+                </template>
             </div>
         </div>
     </div>
@@ -1654,7 +1683,7 @@ function auctionOrganizerPanel() {
         toasts: [],
         _toastSeq: 0,
 
-        confirmBox: { open: false, title: '', message: '', danger: false, _resolve: null },
+        confirmBox: { open: false, title: '', message: '', danger: false, choices: null, _resolve: null },
 
         toast(message, type = 'info', title = null) {
             const id = ++this._toastSeq;
@@ -1664,16 +1693,23 @@ function auctionOrganizerPanel() {
             }, type === 'error' ? 6000 : 3600);
         },
 
-        /** Awaitable replacement for confirm(). Resolves true on confirm, false on cancel. */
-        askConfirm(message, { title = 'Confirm', danger = false } = {}) {
+        /**
+         * Awaitable replacement for confirm(). Resolves true on confirm, false on cancel.
+         *
+         * Pass `choices` for a question with more than two answers — each is
+         * {value, label, hint?, class?} and the promise resolves with the chosen `value`,
+         * or false if the dialog is dismissed. Everything on this panel goes through here
+         * rather than native confirm(), which drops fullscreen the moment it opens.
+         */
+        askConfirm(message, { title = 'Confirm', danger = false, choices = null } = {}) {
             return new Promise((resolve) => {
-                this.confirmBox = { open: true, title, message, danger, _resolve: resolve };
+                this.confirmBox = { open: true, title, message, danger, choices, _resolve: resolve };
             });
         },
 
         _settleConfirm(answer) {
             const resolve = this.confirmBox._resolve;
-            this.confirmBox = { open: false, title: '', message: '', danger: false, _resolve: null };
+            this.confirmBox = { open: false, title: '', message: '', danger: false, choices: null, _resolve: null };
             if (resolve) resolve(answer);
         },
 
@@ -1877,6 +1913,8 @@ function auctionOrganizerPanel() {
                     this.hasOnlineOfflineMode = data.online_bid_limit_from !== null && data.online_bid_limit_to !== null;
                     this.hasAutoPhaseTransition = data.closed_bid_starts_at !== null;
                 }
+
+                this.maybeAskSealedThreshold(data);
 
                 this.availablePlayers = (data.available_players || []).map(ap => ({
                     id: ap.id,
@@ -2665,6 +2703,102 @@ function auctionOrganizerPanel() {
          * player goes unsold. The team picker is only for sealed bids and offline mode,
          * where the organizer genuinely decides.
          */
+        /*
+         * "The bidding has reached the sealed threshold — what now?"
+         *
+         * Crossing 8M used to swing the whole room into a sealed round on its own, with no
+         * way back: the organizer had lost the option of just selling to the team already
+         * leading, and a threshold set slightly too low turned ordinary sales into sealed
+         * rounds. The server now reports the crossing instead of acting on it, and this is
+         * where it is put to the organizer.
+         *
+         * Asked once per player. Dismissing means "not yet" and open bidding carries on, so
+         * the question does not reappear on the next 2-second poll and interrupt a live
+         * room; it comes back when the next player reaches the threshold.
+         */
+        _sealedPromptAskedFor: null,
+        _sealedPromptOpen: false,
+
+        async maybeAskSealedThreshold(data) {
+            if (! data?.sealed_threshold_pending) return;
+            if (this._sealedPromptOpen) return;
+
+            const playerId = this.currentPlayer?.id ?? data.current_player?.id ?? null;
+            if (playerId === null || this._sealedPromptAskedFor === playerId) return;
+
+            this._sealedPromptAskedFor = playerId;
+            this._sealedPromptOpen = true;
+
+            const name = this.currentPlayer?.player?.name || 'This player';
+            const amount = this.formatCurrency(data.sealed_threshold_amount ?? this.currentPlayer?.current_price ?? 0);
+            const threshold = this.formatCurrency(data.closed_bid_starts_at ?? 0);
+            const leader = data.sealed_threshold_leader;
+
+            let answer = false;
+            try {
+                answer = await this.askConfirm(
+                    `${name} has reached ${amount}, the sealed-bid threshold of ${threshold}.` +
+                    (leader ? `\n\nThe leading team is ${leader}.` : '\n\nNo team is currently leading.'),
+                    {
+                        title: 'Sealed bid threshold',
+                        choices: [
+                            {
+                                value: 'sealed',
+                                label: 'Move to sealed bid',
+                                hint: 'Teams submit written amounts. Highest wins.',
+                                class: 'bg-indigo-600 hover:bg-indigo-700',
+                            },
+                            // Only offered when there IS somebody to sell to. With no leader
+                            // this button would sell the player to nobody.
+                            ...(leader ? [{
+                                value: 'sell',
+                                label: `Sell to ${leader} for ${amount}`,
+                                hint: 'Ends the bidding here and moves to the next player.',
+                                class: 'bg-emerald-600 hover:bg-emerald-700',
+                            }] : []),
+                            {
+                                value: 'keep',
+                                label: 'Keep open bidding',
+                                hint: 'Carry on as normal. You will not be asked again for this player.',
+                            },
+                        ],
+                    }
+                );
+            } finally {
+                this._sealedPromptOpen = false;
+            }
+
+            if (answer === 'sealed') {
+                const result = await this.sendCommand('closed-bid/confirm-threshold', {
+                    auction_player_id: playerId,
+                });
+                // sendCommand() returns null on a non-2xx (it has already raised its own
+                // toast), so null is a failure too — not "no opinion".
+                if (! result || result.success === false) {
+                    // Let them be asked again — nothing happened.
+                    this._sealedPromptAskedFor = null;
+                    if (result) this.toast(result.message || 'Could not open the sealed round.', 'error', 'Sealed round');
+                    return;
+                }
+                if (result?.closed_bid) this.sealed = result.closed_bid;
+                this.toast('Sealed round opened.', 'success', 'Sealed round');
+                await this.pollAuctionState();
+                return;
+            }
+
+            if (answer === 'sell') {
+                // Already confirmed by the choice above, so this does not ask a second time.
+                const result = await this.sendCommand('sell-player', { auction_player_id: playerId });
+                if (result && result.success !== false) {
+                    this._fireConfetti();
+                    await this.pollAuctionState();
+                }
+                return;
+            }
+
+            // 'keep', or dismissed. Open bidding continues untouched.
+        },
+
         async sellPlayer() {
             if (!this.currentPlayer) return;
 
@@ -2758,7 +2892,10 @@ function auctionOrganizerPanel() {
                otherwise sell, skip or unfullscreen behind an open dialog. */
             if (this.confirmBox.open) {
                 e.preventDefault();
-                if (e.key === 'Enter') this._settleConfirm(true);
+                /* Enter confirms a yes/no question only. With three answers on screen there
+                   is no "the" confirm, and guessing one would sell a player nobody chose to
+                   sell. Escape still dismisses either kind. */
+                if (e.key === 'Enter' && ! this.confirmBox.choices) this._settleConfirm(true);
                 if (e.key === 'Escape') this._settleConfirm(false);
                 return;
             }

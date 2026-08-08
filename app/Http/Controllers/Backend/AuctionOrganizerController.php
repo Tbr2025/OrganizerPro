@@ -313,6 +313,15 @@ class AuctionOrganizerController extends Controller
             'online_bid_limit_to' => $freshAuction->online_bid_limit_to,
             'bid_type' => $freshAuction->bid_type,
             'closed_bid_starts_at' => $freshAuction->closed_bid_starts_at,
+            /*
+             * The price has reached the sealed threshold and nobody has said what to do
+             * about it. The room no longer flips itself: the organizer is asked, and the
+             * alternative to a sealed round is simply selling to the team already leading,
+             * so the panel is handed who that is and for how much.
+             */
+            'sealed_threshold_pending' => $freshAuction->sealedThresholdPendingFor($currentPlayer),
+            'sealed_threshold_leader' => $currentPlayer?->currentBidTeam?->name,
+            'sealed_threshold_amount' => $currentPlayer ? (float) $currentPlayer->current_price : null,
             // Squad-reserve rule, so the panel can show why a team is locked out.
             'min_squad_size' => $freshAuction->minSquadSize(),
             'max_squad_size' => $freshAuction->maxSquadSize(),
