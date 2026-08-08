@@ -27,11 +27,36 @@ class TournamentGroupController extends Controller
 
         $groups = $tournament->groups()->with(['teams', 'pointTableEntries.team'])->get();
 
-        // All teams for this tournament (from registration approval)
+        /*
+         * Teams for this tournament — approved ones only, unless you are a Superadmin.
+         *
+         * An ActualTeam row is not proof of approval: on this tournament seven teams exist
+         * while only five registrations have been approved, so the page listed all seven and
+         * labelled every one of them "Approved". Groups were being built from teams nobody
+         * had let in yet.
+         *
+         * A team with NO registration at all is kept: those are created directly by an
+         * organizer and were never part of the approval flow, so filtering on the absence of
+         * a row would hide legitimate teams. Only a team whose registration exists and has
+         * not been approved is withheld.
+         */
+        $seesEverything = Auth::user()?->hasRole('Superadmin') ?? false;
+
         $allTeams = ActualTeam::forTournament($tournament->id)
             ->with(['users' => function ($q) {
                 $q->wherePivotIn('role', ['Owner', 'Manager']);
             }])
+            ->when(! $seesEverything, function ($q) use ($tournament) {
+                $q->where(function ($inner) use ($tournament) {
+                    $inner->whereHas('tournamentRegistrations', function ($r) use ($tournament) {
+                        $r->where('tournament_id', $tournament->id)
+                            ->where('type', 'team')
+                            ->where('status', 'approved');
+                    })->orWhereDoesntHave('tournamentRegistrations', function ($r) use ($tournament) {
+                        $r->where('tournament_id', $tournament->id)->where('type', 'team');
+                    });
+                });
+            })
             ->get();
 
         // Teams not yet assigned to any group (available for group assignment)

@@ -240,6 +240,18 @@ class ActualTeam extends Model
     }
 
     /**
+     * The public-registration rows that produced this team.
+     *
+     * An ActualTeam row is not proof of approval — a team can exist while its registration
+     * is still pending — so anywhere that means "teams who are actually in the tournament"
+     * has to go through these rather than assuming the team's existence is enough.
+     */
+    public function tournamentRegistrations()
+    {
+        return $this->hasMany(TournamentRegistration::class, 'actual_team_id');
+    }
+
+    /**
      * Many-to-many: all tournaments this team participates in
      */
     public function tournaments()
