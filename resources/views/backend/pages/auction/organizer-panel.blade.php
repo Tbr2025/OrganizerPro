@@ -306,7 +306,13 @@
                 </div>
 
                 {{-- Timer --}}
-                <div x-show="displayState === 'bidding' && showLiveStage"
+                {{-- `timerEnabled` matters here now. This badge used to be hidden for the
+                     whole of offline mode, so TIMER OFF had nothing to contradict it. Once
+                     offline started showing the live stage the countdown came with it and
+                     kept ticking after the timer was switched off — the button flipped to
+                     OFF while the big number carried on, which reads as a dead button. The
+                     progress bar below the stage already checks this. --}}
+                <div x-show="displayState === 'bidding' && showLiveStage && timerEnabled"
                      class="bg-gray-900/80 backdrop-blur px-4 py-1.5 rounded-full">
                     <span class="text-xl font-bold font-mono"
                           :class="biddingTimerSeconds <= 5 ? 'text-red-500 timer-critical' : 'text-white'"
