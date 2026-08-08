@@ -39,10 +39,146 @@ class AuctionSnapshotExport
 
     public function build(Auction $auction): XlsxWriter
     {
+        [$squadRows, $squadMerges] = $this->squadBoard($auction);
+
         return (new XlsxWriter())
+            ->addSheet('Squads', $squadRows, $squadMerges)
             ->addSheet('Players', $this->playerRows($auction))
             ->addSheet('Teams', $this->teamRows($auction))
             ->addSheet('Summary', $this->summaryRows($auction));
+    }
+
+    /**
+     * The squad board, laid out the way the finance sheet already in use is laid out.
+     *
+     * Teams run ACROSS in column pairs (players, points) with squads running down, a master
+     * roster of everyone in the auction on the left, and SPENT / BALANCE rows underneath.
+     * The other sheets are one row per record, which is the right shape for filtering and
+     * summing; this one is the shape the organizers actually read at the table, and it drops
+     * into the workbook they already keep.
+     *
+     * Column positions match that sheet — C for the roster, then E/F, G/H, I/J and so on —
+     * so a block can be pasted straight across if it is being reconciled by hand.
+     *
+     * @return array{0: array<int, array<int, mixed>>, 1: array<int, string>}
+     */
+    private function squadBoard(Auction $auction): array
+    {
+        $teams = $this->pools->participatingTeams($auction)->values();
+
+        // Every player in the auction, for the roster column on the left.
+        $allPlayers = $auction->auctionPlayers()
+            ->with('player:id,name')
+            ->orderByRaw('COALESCE(lot_number, 999999)')
+            ->orderBy('id')
+            ->get();
+
+        // Each team's acquisitions, in the order they were won.
+        $byTeam = [];
+        foreach ($allPlayers as $ap) {
+            if ($ap->status === 'sold' && $ap->sold_to_team_id) {
+                $byTeam[$ap->sold_to_team_id][] = [
+                    $ap->player->name ?? '(unknown)',
+                    (float) ($ap->final_price ?? 0),
+                ];
+            }
+        }
+
+        // Retained players are part of a squad and part of what a team has spent, so a
+        // board that left them out would not reconcile against the BALANCE row.
+        foreach ($allPlayers as $ap) {
+            if ($ap->status !== 'sold' && $ap->is_retained && $ap->team_id) {
+                $byTeam[$ap->team_id][] = [
+                    ($ap->player->name ?? '(unknown)') . ' (retained)',
+                    (float) ($ap->retained_price ?? 0),
+                ];
+            }
+        }
+
+        $firstTeamCol = 4;          // zero-based: column E
+        $width = $firstTeamCol + max(1, $teams->count()) * 2;
+        $blank = fn () => array_fill(0, $width, '');
+
+        // Header rows.
+        $head = $blank();
+        $head[2] = 'NAME';
+        $sub = $blank();
+        $merges = [];
+
+        foreach ($teams as $i => $team) {
+            $col = $firstTeamCol + $i * 2;
+            $head[$col] = (string) $team->name;
+            $sub[$col] = 'PLAYERS';
+            $sub[$col + 1] = 'POINTS';
+            $merges[] = $this->columnLetter($col) . '1:' . $this->columnLetter($col + 1) . '1';
+        }
+
+        $rows = [$head, $sub];
+
+        // How many body rows: the longer of the roster and the biggest squad.
+        $deepest = 0;
+        foreach ($byTeam as $list) {
+            $deepest = max($deepest, count($list));
+        }
+        $depth = max($allPlayers->count(), $deepest);
+
+        for ($r = 0; $r < $depth; $r++) {
+            $row = $blank();
+
+            if ($r < $allPlayers->count()) {
+                $row[1] = $r + 1;
+                $row[2] = $allPlayers[$r]->player->name ?? '(unknown)';
+            }
+
+            foreach ($teams as $i => $team) {
+                $entry = $byTeam[$team->id][$r] ?? null;
+                if ($entry === null) {
+                    continue;
+                }
+                $col = $firstTeamCol + $i * 2;
+                $row[$col] = $entry[0];
+                $row[$col + 1] = $entry[1];
+            }
+
+            $rows[] = $row;
+        }
+
+        // SPENT and BALANCE, from the same purse service every screen reads, so the board
+        // cannot disagree with the panel about what a team has left.
+        $spent = $blank();
+        $balance = $blank();
+        $count = $blank();
+        $spent[$firstTeamCol - 1] = 'SPENT';
+        $balance[$firstTeamCol - 1] = 'BALANCE';
+        $count[$firstTeamCol - 1] = 'TOTAL PLAYERS';
+
+        foreach ($teams as $i => $team) {
+            $purse = $this->pools->teamPurseState($auction, $team->id);
+            $col = $firstTeamCol + $i * 2;
+
+            $spent[$col + 1] = $this->money($purse['spent'] ?? null);
+            $balance[$col + 1] = $this->money($purse['remaining'] ?? null);
+            $count[$col + 1] = (int) ($purse['slots_filled'] ?? 0);
+        }
+
+        $rows[] = $blank();
+        $rows[] = $spent;
+        $rows[] = $balance;
+        $rows[] = $count;
+
+        return [$rows, $merges];
+    }
+
+    /** 0 -> A, 26 -> AA. Mirrors XlsxWriter's own addressing for the merge refs. */
+    private function columnLetter(int $index): string
+    {
+        $letters = '';
+
+        for ($i = $index; $i >= 0; $i = intdiv($i, 26) - 1) {
+            $letters = chr(65 + ($i % 26)) . $letters;
+        }
+
+        return $letters;
     }
 
     /**

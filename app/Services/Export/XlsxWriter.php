@@ -32,10 +32,15 @@ class XlsxWriter
 
     /**
      * @param  array<int, array<int, mixed>>  $rows  The first row is treated as headers.
+     * @param  array<int, string>  $merges  Optional A1-style ranges, e.g. ['E1:F1'].
      */
-    public function addSheet(string $name, array $rows): self
+    public function addSheet(string $name, array $rows, array $merges = []): self
     {
-        $this->sheets[] = ['name' => $this->safeSheetName($name), 'rows' => $rows];
+        $this->sheets[] = [
+            'name' => $this->safeSheetName($name),
+            'rows' => $rows,
+            'merges' => $merges,
+        ];
 
         return $this;
     }
@@ -60,7 +65,10 @@ class XlsxWriter
         $zip->addFromString('xl/styles.xml', $this->styles());
 
         foreach ($this->sheets as $i => $sheet) {
-            $zip->addFromString('xl/worksheets/sheet' . ($i + 1) . '.xml', $this->sheetXml($sheet['rows']));
+            $zip->addFromString(
+                'xl/worksheets/sheet' . ($i + 1) . '.xml',
+                $this->sheetXml($sheet['rows'], $sheet['merges'] ?? [])
+            );
         }
 
         $zip->close();
@@ -77,7 +85,7 @@ class XlsxWriter
         return mb_substr(trim($name) ?: 'Sheet', 0, 31);
     }
 
-    private function sheetXml(array $rows): string
+    private function sheetXml(array $rows, array $merges = []): string
     {
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
@@ -110,7 +118,21 @@ class XlsxWriter
             $xml .= '</row>';
         }
 
-        return $xml . '</sheetData></worksheet>';
+        $xml .= '</sheetData>';
+
+        /*
+         * mergeCells MUST come after sheetData — the schema fixes the order of a
+         * worksheet's children, and Excel rejects the file outright if it does not.
+         */
+        if ($merges !== []) {
+            $xml .= '<mergeCells count="' . count($merges) . '">';
+            foreach ($merges as $ref) {
+                $xml .= '<mergeCell ref="' . $this->escape($ref) . '"/>';
+            }
+            $xml .= '</mergeCells>';
+        }
+
+        return $xml . '</worksheet>';
     }
 
     /**
@@ -219,6 +241,10 @@ class XlsxWriter
             . '<borders count="1"><border/></borders>'
             . '<cellStyleXfs count="1"><xf/></cellStyleXfs>'
             . '<cellXfs count="2"><xf xfId="0"/><xf xfId="0" fontId="1" applyFont="1"/></cellXfs>'
+            // Named styles. Excel copes without them, but stricter readers warn that the
+            // workbook has no default style, and this file has to open first time on
+            // whatever laptop is to hand.
+            . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             . '</styleSheet>';
     }
 }

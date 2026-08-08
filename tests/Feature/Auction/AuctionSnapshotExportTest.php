@@ -73,6 +73,7 @@ class AuctionSnapshotExportTest extends TestCase
             'xl/worksheets/sheet1.xml',
             'xl/worksheets/sheet2.xml',
             'xl/worksheets/sheet3.xml',
+            'xl/worksheets/sheet4.xml',
         ] as $part) {
             $this->assertNotFalse($zip->locateName($part), "{$part} is missing");
         }
@@ -80,13 +81,14 @@ class AuctionSnapshotExportTest extends TestCase
         $workbook = $zip->getFromName('xl/workbook.xml');
         $zip->close();
 
+        $this->assertStringContainsString('name="Squads"', $workbook);
         $this->assertStringContainsString('name="Players"', $workbook);
         $this->assertStringContainsString('name="Teams"', $workbook);
         $this->assertStringContainsString('name="Summary"', $workbook);
 
         // Every part must be well-formed XML, or Excel reports a corrupt file with no
         // indication of which one.
-        $this->assertNotFalse(simplexml_load_string($this->sheetXml($path, 1)));
+        $this->assertNotFalse(simplexml_load_string($this->sheetXml($path, 2)));
 
         unlink($path);
     }
@@ -107,7 +109,7 @@ class AuctionSnapshotExportTest extends TestCase
 
         $path = tempnam(sys_get_temp_dir(), 'x');
         app(AuctionSnapshotExport::class)->build($auction)->save($path);
-        $xml = $this->sheetXml($path, 1);
+        $xml = $this->sheetXml($path, 2);
 
         $this->assertStringContainsString('Virat Kohli', $xml);
         $this->assertStringContainsString('Alpha Strikers', $xml);
@@ -132,7 +134,7 @@ class AuctionSnapshotExportTest extends TestCase
         // "Who is left" is usually the first question when a run has to be finished by
         // hand, so an export of sold players only would be useless for the case this
         // tool exists to serve.
-        $this->assertStringContainsString('Still Waiting', $this->sheetXml($path, 1));
+        $this->assertStringContainsString('Still Waiting', $this->sheetXml($path, 2));
 
         unlink($path);
     }
@@ -158,8 +160,8 @@ class AuctionSnapshotExportTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'x');
         app(AuctionSnapshotExport::class)->build($auction)->save($path);
 
-        $this->assertStringContainsString('No Pool No Team', $this->sheetXml($path, 1));
-        $this->assertNotFalse(simplexml_load_string($this->sheetXml($path, 1)));
+        $this->assertStringContainsString('No Pool No Team', $this->sheetXml($path, 2));
+        $this->assertNotFalse(simplexml_load_string($this->sheetXml($path, 2)));
 
         unlink($path);
     }
@@ -180,7 +182,7 @@ class AuctionSnapshotExportTest extends TestCase
 
         $path = tempnam(sys_get_temp_dir(), 'x');
         app(AuctionSnapshotExport::class)->build($auction)->save($path);
-        $teams = $this->sheetXml($path, 2);
+        $teams = $this->sheetXml($path, 3);
 
         // Budget, spend and what is left — read from the same service the panel uses, so
         // a figure disputed in the hall and a figure in this file cannot disagree.
@@ -210,7 +212,7 @@ class AuctionSnapshotExportTest extends TestCase
          * the encoding would be testing htmlspecialchars' flags instead of the thing that
          * matters, which is that the name arrives intact.
          */
-        $sheet = simplexml_load_string($this->sheetXml($path, 1));
+        $sheet = simplexml_load_string($this->sheetXml($path, 2));
         $this->assertNotFalse($sheet, 'a name with XML characters must not corrupt the sheet');
 
         $values = [];
@@ -256,6 +258,75 @@ class AuctionSnapshotExportTest extends TestCase
         // The whole value of a rescue tool is that it is always safe to press. Pressing
         // it while the room is already in trouble must not be able to make things worse.
         $this->assertSame($before, [$auction->fresh()->toArray(), $player->fresh()->toArray()]);
+    }
+
+    #[Test]
+    public function the_squad_board_lays_teams_out_across_the_page(): void
+    {
+        [$org, $tournament, $auction] = $this->scenario();
+        $alpha = $this->makeTeam($org, 'Chennai Warriors', $tournament);
+        $bravo = $this->makeTeam($org, 'Thrissur Thunders', $tournament);
+
+        $bought = $this->makePlayer($org, ['name' => 'Aqeel Ahmad']);
+        $this->makeAuctionPlayer($auction, [
+            'player_id' => $bought->id,
+            'status' => 'sold',
+            'sold_to_team_id' => $alpha->id,
+            'final_price' => 5_000_000,
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'x');
+        app(AuctionSnapshotExport::class)->build($auction)->save($path);
+        $board = $this->sheetXml($path, 1);
+
+        /*
+         * The shape the organizers already keep their finance workbook in: teams across in
+         * column pairs, squads down, totals underneath. The other sheets are one row per
+         * record, which is right for filtering and summing; this one is right for reading
+         * at the table.
+         */
+        $this->assertStringContainsString('Chennai Warriors', $board);
+        $this->assertStringContainsString('Thrissur Thunders', $board);
+        $this->assertStringContainsString('PLAYERS', $board);
+        $this->assertStringContainsString('POINTS', $board);
+        $this->assertStringContainsString('Aqeel Ahmad', $board);
+        $this->assertStringContainsString('SPENT', $board);
+        $this->assertStringContainsString('BALANCE', $board);
+
+        // Each team name spans its own pair of columns, as in the sheet being matched.
+        $this->assertStringContainsString('<mergeCell ref="E1:F1"/>', $board);
+        $this->assertStringContainsString('<mergeCell ref="G1:H1"/>', $board);
+
+        // And it stays valid XML with merges present — mergeCells must follow sheetData or
+        // Excel rejects the whole file.
+        $this->assertNotFalse(simplexml_load_string($board));
+
+        unlink($path);
+    }
+
+    #[Test]
+    public function a_retained_player_appears_in_the_squad_board(): void
+    {
+        [$org, $tournament, $auction] = $this->scenario();
+        $team = $this->makeTeam($org, 'Alpha', $tournament);
+        $kept = $this->makePlayer($org, ['name' => 'Kept Player']);
+
+        $this->makeAuctionPlayer($auction, [
+            'player_id' => $kept->id,
+            'status' => 'waiting',
+            'is_retained' => true,
+            'team_id' => $team->id,
+            'retained_price' => 3_000_000,
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'x');
+        app(AuctionSnapshotExport::class)->build($auction)->save($path);
+
+        // A retained player is part of a squad and part of what a team has spent, so a
+        // board that left them out would not reconcile against its own BALANCE row.
+        $this->assertStringContainsString('Kept Player (retained)', $this->sheetXml($path, 1));
+
+        unlink($path);
     }
 
     #[Test]
