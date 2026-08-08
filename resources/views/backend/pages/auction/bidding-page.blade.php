@@ -766,9 +766,25 @@ function teamBiddingPanel() {
             this.isSubmitting = true;
             this.bidError = '';
             this.bidSuccess = '';
+
+            /*
+             * A hung request must not lock the button.
+             *
+             * `finally` already resets isSubmitting, but only once the fetch settles — and a
+             * request that never comes back never settles. During a live round the server was
+             * saturated and taking 10-20s, so the button sat on "Submitting…" indefinitely
+             * with no way to retry and no idea whether the bid had landed.
+             *
+             * Fifteen seconds, then abort and say so. The team can retry; the round's own
+             * clock is the thing that decides whether they are still in time.
+             */
+            const abort = new AbortController();
+            const timeout = setTimeout(() => abort.abort(), 15000);
+
             try {
                 const res = await fetch(`/admin/team/auction/${this.auctionId}/api/closed-bid/${path}`, {
                     method: 'POST',
+                    signal: abort.signal,
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
@@ -782,8 +798,11 @@ function teamBiddingPanel() {
                 this.applyPurse(data);
                 if (data.message) this.bidSuccess = data.message;
             } catch (e) {
-                this.bidError = e.message;
+                this.bidError = e.name === 'AbortError'
+                    ? 'The server did not answer in time. Your bid may not have been placed — check the board and try again.'
+                    : e.message;
             } finally {
+                clearTimeout(timeout);
                 this.isSubmitting = false;
             }
         },
