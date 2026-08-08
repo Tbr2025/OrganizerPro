@@ -842,6 +842,13 @@
                 <button @click="showSidePanelFn('players')" :class="sidePanel === 'players' ? 'bg-gray-700' : 'bg-gray-800 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-gray-400 transition-colors" title="All Players">P</button>
                 <button @click="showSidePanelFn('teams')" :class="sidePanel === 'teams' ? 'bg-gray-700' : 'bg-gray-800 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-gray-400 transition-colors" title="Team Details">T</button>
                 <button @click="showSidePanelFn('auction')" :class="sidePanel === 'auction' ? 'bg-gray-700' : 'bg-gray-800 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-gray-400 transition-colors" title="Auction Stats">A</button>
+
+                {{-- Rescue hatch, same as the main panel. A plain link rather than a fetch:
+                     a download must work even if polling has fallen over, which is exactly
+                     when it is wanted. Read-only, so it is always safe to press. --}}
+                <a href="/admin/organizer/auction/{{ $auction->id }}/api/export"
+                   class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors bg-gray-800 text-gray-400 hover:bg-emerald-600 hover:text-white"
+                   title="Download this auction as a spreadsheet (players, teams, spend and what is left)">&darr;</a>
             </div>
 
             <div class="w-px h-8 bg-gray-700"></div>

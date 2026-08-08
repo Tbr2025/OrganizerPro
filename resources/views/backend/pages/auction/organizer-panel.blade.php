@@ -1307,6 +1307,13 @@
                     <button @click="showSidePanelFn('teams')" :class="sidePanel === 'teams' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors" title="Teams">T</button>
                     <button @click="showSidePanelFn('bids')" :class="sidePanel === 'bids' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors" title="Bids">B</button>
                     <button @click="showSidePanelFn('allPlayers')" :class="sidePanel === 'allPlayers' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors" title="All Players">A</button>
+
+                    {{-- Rescue hatch. A plain link, not a fetch: a download must work even
+                         if the panel's polling has fallen over, which is exactly when it is
+                         wanted. Read-only, so it is always safe to press. --}}
+                    <a href="/admin/organizer/auction/{{ $auction->id }}/api/export"
+                       class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors bg-gray-800 text-gray-400 hover:bg-emerald-600 hover:text-white"
+                       title="Download this auction as a spreadsheet (players, teams, spend and what is left)">&darr;</a>
                 </div>
             </div>
         </div>

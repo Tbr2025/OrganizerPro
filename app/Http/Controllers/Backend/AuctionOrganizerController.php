@@ -21,6 +21,7 @@ use App\Services\Auction\AuctionPoolService;
 use App\Services\Auction\AuctionSaleService;
 use App\Services\Auction\AuctionUndoService;
 use App\Services\Auction\BidIncrementService;
+use App\Services\Export\AuctionSnapshotExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -240,6 +241,33 @@ class AuctionOrganizerController extends Controller
             'stats',
             'bidRules'
         ));
+    }
+
+    /**
+     * Download everything this auction currently knows, as a spreadsheet.
+     *
+     * A rescue hatch: when something goes wrong in the hall, the organizer needs the
+     * state out of the system and onto a laptop straight away — who has been sold to
+     * whom for how much, what each team has spent and has left, and who is still waiting
+     * — without anyone having to open a database.
+     *
+     * Read-only by construction, so it is always safe to press. It streams to a temp file
+     * rather than building the zip in memory: ZipArchive writes to a path, and a half
+     * written file must never reach the browser as a download that opens as corrupt.
+     */
+    public function exportSnapshot(Auction $auction, AuctionSnapshotExport $export)
+    {
+        $path = tempnam(sys_get_temp_dir(), 'auction-export-');
+
+        $export->build($auction)->save($path);
+
+        // deleteFileAfterSend: the temp file is this request's alone, and without it the
+        // system temp directory accumulates one workbook per press.
+        return response()
+            ->download($path, $export->filename($auction), [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])
+            ->deleteFileAfterSend(true);
     }
 
     /**

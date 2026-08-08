@@ -262,6 +262,10 @@ Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
             Route::post('/close-bidding', [AuctionOrganizerController::class, 'closeBidding'])->name('player.close-bidding');
             Route::get('/sealed-bids', [AuctionOrganizerController::class, 'fetchSealedBids'])->name('sealed-bids');
 
+            // Rescue hatch: the whole auction as a spreadsheet, for when something goes
+            // wrong in the hall and the state has to come out now. Read-only.
+            Route::get('/export', [AuctionOrganizerController::class, 'exportSnapshot'])->name('export');
+
             // Sealed (closed) rounds. The group already carries auth + auction.edit +
             // organizer.access, and {auction} is model-bound so a pure Organizer is
             // confined to their own tournaments.
