@@ -987,9 +987,32 @@ class AuctionOrganizerController extends Controller
             'bid_type_manually_overridden' => true,
         ]);
 
+        /*
+         * Choosing CLOSED is now the deliberate way into a sealed round, so it has to
+         * actually open one.
+         *
+         * It only ever set the flag. That left the auction in `closed` with no round for
+         * the player on the block — a phase with nothing behind it, no board to run and no
+         * way for a team to submit. The automatic path always created the round alongside
+         * the flip; the manual path never did, and nobody noticed while the threshold was
+         * doing the work.
+         */
+        $round = null;
+
+        if ($validated['bid_type'] === 'closed') {
+            $onBlock = $auction->auctionPlayers()->where('status', 'on_auction')->first();
+
+            if ($onBlock) {
+                $round = app(\App\Services\Auction\ClosedBidService::class)
+                    ->openRoundFor($onBlock, $auction->fresh());
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'message' => 'Switched to ' . strtoupper($validated['bid_type']) . ' bid.',
+            'message' => $round
+                ? 'Sealed round opened.'
+                : 'Switched to ' . strtoupper($validated['bid_type']) . ' bid.',
             'bid_type' => $validated['bid_type'],
         ]);
     }

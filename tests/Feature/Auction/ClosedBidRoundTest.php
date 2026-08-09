@@ -156,6 +156,66 @@ class ClosedBidRoundTest extends TestCase
     }
 
     #[Test]
+    public function keeping_open_bidding_is_remembered_across_a_refresh(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $operator = $this->makeAuctionOperator($org);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.closed-bid.confirm-threshold', $auction), [
+                'auction_player_id' => $player->id,
+                'decision' => 'keep',
+            ])
+            ->assertOk();
+
+        /*
+         * The decline lived only in the browser, so a refresh asked again immediately and
+         * again on every raise after that — in a room past the threshold the dialog came
+         * back over and over. Recorded as a manual override, which is exactly what that
+         * flag has always meant and what the panel's Open button already does.
+         */
+        $this->assertTrue((bool) $auction->fresh()->bid_type_manually_overridden);
+        $this->assertFalse($auction->fresh()->sealedThresholdPendingFor($player->fresh()));
+
+        $this->actingAs($operator)
+            ->getJson(route('admin.auction.organizer.api.poll-state', $auction))
+            ->assertOk()
+            ->assertJsonPath('sealed_threshold_pending', false);
+    }
+
+    #[Test]
+    public function choosing_closed_by_hand_actually_opens_a_round(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $operator = $this->makeAuctionOperator($org);
+        $player = $this->makeAuctionPlayer($auction, [
+            'status' => 'on_auction',
+            'current_price' => 9_000_000,
+        ]);
+
+        /*
+         * With the threshold prompt declinable, the Closed button is the deliberate way
+         * into a sealed round — so it has to open one. It only set the flag, leaving the
+         * auction in `closed` with no round for the player on the block: a phase with
+         * nothing behind it, no board to run and no way for a team to submit.
+         */
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.switch-bid-type', $auction), [
+                'bid_type' => 'closed',
+            ])
+            ->assertOk();
+
+        $this->assertSame('closed', $auction->fresh()->bid_type);
+        $this->assertNotNull(
+            AuctionClosedBidRound::where('auction_player_id', $player->id)->first(),
+            'choosing Closed must leave a round to actually run'
+        );
+    }
+
+    #[Test]
     public function the_threshold_cannot_be_confirmed_before_it_is_reached(): void
     {
         [$org, $tournament, $auction] = $this->sealedAuction();

@@ -59,6 +59,32 @@ class ClosedBidRoundController extends Controller
      */
     public function confirmThreshold(Request $request, Auction $auction): JsonResponse
     {
+        /*
+         * "Keep open bidding" has to be remembered by the SERVER.
+         *
+         * It was only ever remembered in the browser, so a refresh — or a second panel, or
+         * a laptop waking up — asked again immediately, and again on every raise after
+         * that. In a room past the threshold the dialog came back over and over.
+         *
+         * Recording it as a manual override is not a new concept: it is exactly what
+         * `bid_type_manually_overridden` has always meant, and what pressing the panel's
+         * Open button already does. The organizer has taken charge of the phase, so the
+         * automatic rule stays out of the way. Going sealed later is then a deliberate act
+         * — the Closed button — rather than something the price does on its own.
+         */
+        if ($request->input('decision') === 'keep') {
+            $auction->update([
+                'bid_type' => 'open',
+                'bid_type_manually_overridden' => true,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'handled' => true,
+                'message' => 'Open bidding continues. Use the Closed button to start a sealed round.',
+            ]);
+        }
+
         $auctionPlayer = $this->resolvePlayer($request, $auction);
 
         if (! $auctionPlayer || $auctionPlayer->status !== 'on_auction') {

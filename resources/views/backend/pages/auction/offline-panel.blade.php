@@ -1991,7 +1991,14 @@
                     return;
                 }
 
-                // 'keep', or dismissed. Open bidding continues untouched.
+                if (answer === 'keep') {
+                    // Recorded on the server; see the matching note on the organizer panel.
+                    await this.sealedCommand('confirm-threshold', { decision: 'keep' });
+                    await this.pollAuctionState();
+                    return;
+                }
+
+                // Dismissed without choosing: not a decision, so the question stands.
             },
 
             async sealedCommand(path, body = {}) {

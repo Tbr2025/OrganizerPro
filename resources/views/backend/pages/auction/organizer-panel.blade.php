@@ -2946,7 +2946,23 @@ function auctionOrganizerPanel() {
                 return;
             }
 
-            // 'keep', or dismissed. Open bidding continues untouched.
+            if (answer === 'keep') {
+                /*
+                 * Tell the server, or a refresh asks again immediately — and again on every
+                 * raise after that, because the suppression only ever lived in this tab.
+                 * From here the phase is the organizer's: the Closed button starts a sealed
+                 * round when they want one.
+                 */
+                await this.sendCommand('closed-bid/confirm-threshold', {
+                    auction_player_id: playerId,
+                    decision: 'keep',
+                });
+                await this.pollAuctionState();
+                return;
+            }
+
+            // Dismissed without choosing. Left un-recorded on purpose: closing a dialog is
+            // not a decision, so the question stands and returns on the next player.
         },
 
         async sellPlayer() {
