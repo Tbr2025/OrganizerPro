@@ -66,9 +66,26 @@ class AuctionOrganizerController extends Controller
          * same room disagreeing about who is even in the auction, and the panel was the one
          * you could bid from.
          */
-        return $this->pools->participatingTeams($auction)
-            ->map(function (ActualTeam $team) use ($auction, $nextBid) {
-                $state = $this->pools->teamPurseState($auction, $team->id, $nextBid);
+        $teams = $this->pools->participatingTeams($auction);
+
+        /*
+         * One batched read for every team, not five queries each.
+         *
+         * This ran teamPurseState() per team, and pollState() calls this method on a
+         * two-second poll — seven teams meant thirty-five queries every two seconds while
+         * the auction was also writing bids to the same table. poll-state was taking
+         * between one and eight seconds on the live panel, and a slow poll is what stacks
+         * requests until a browser runs out of connections.
+         */
+        $purses = $this->pools->teamPurseStates(
+            $auction,
+            $teams->pluck('id')->all(),
+            $nextBid
+        );
+
+        return $teams
+            ->map(function (ActualTeam $team) use ($purses) {
+                $state = $purses[$team->id];
 
                 // The column is `team_logo`; the panels were binding a non-existent
                 // `logo_path`, so no team logo ever rendered — every team fell back to

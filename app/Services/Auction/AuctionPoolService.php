@@ -991,11 +991,104 @@ class AuctionPoolService
     {
         $applies = $this->budgetApplies($auction);
 
-        $allocated = $applies ? $this->allocatedBudget($auction, $actualTeamId) : 0.0;
-        $soldSpent = $this->soldSpent($auction, $actualTeamId);
-        $retainedSpent = $this->retainedSpent($auction, $actualTeamId);
-        $soldCount = $this->soldCount($auction, $actualTeamId);
-        $retainedCount = $this->retainedCount($auction, $actualTeamId);
+        return $this->purseFrom($auction, [
+            'allocated' => $applies ? $this->allocatedBudget($auction, $actualTeamId) : 0.0,
+            'sold_spent' => $this->soldSpent($auction, $actualTeamId),
+            'retained_spent' => $this->retainedSpent($auction, $actualTeamId),
+            'sold_count' => $this->soldCount($auction, $actualTeamId),
+            'retained_count' => $this->retainedCount($auction, $actualTeamId),
+        ], $nextBidAmount);
+    }
+
+    /**
+     * The same figures for MANY teams, at a fixed cost.
+     *
+     * teamPurseState() runs five leaf queries per team, and pollState() calls it once per
+     * team on a two-second poll — seven teams meant thirty-five queries every two seconds,
+     * all of them aggregates over the same two tables, while the auction was also writing
+     * bids to one of them. On the live panel poll-state was taking between one and eight
+     * seconds.
+     *
+     * Every one of those leaves is the same aggregate filtered to a team, so they group
+     * instead: three queries here, whatever the number of teams. The arithmetic is
+     * untouched — both paths go through purseFrom(), so a rule cannot drift between the
+     * money the panel shows and the money the bidding page shows.
+     *
+     * Deliberately NOT cached. A cache would need invalidating on every bid, sale, undo,
+     * withdrawal and retention edit; miss one and a team is shown money it has already
+     * spent, mid-auction, in front of a hall. This is exact by construction.
+     *
+     * @param  list<int>  $teamIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function teamPurseStates(Auction $auction, array $teamIds, ?float $nextBidAmount = null): array
+    {
+        $applies = $this->budgetApplies($auction);
+
+        // Sold: spend and squad count for every team in one pass.
+        $sold = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('status', 'sold')
+            ->whereNotNull('sold_to_team_id')
+            ->groupBy('sold_to_team_id')
+            ->selectRaw('sold_to_team_id AS team_id, SUM(final_price) AS spent, COUNT(*) AS filled')
+            ->get()
+            ->keyBy('team_id');
+
+        // Retained rows key on `team_id`, not `sold_to_team_id`. Mixing the two would
+        // credit the wrong side and the totals would still look plausible.
+        $retained = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('is_retained', true)
+            ->whereNotNull('team_id')
+            ->groupBy('team_id')
+            ->selectRaw('team_id, SUM(retained_price) AS spent, COUNT(*) AS filled')
+            ->get()
+            ->keyBy('team_id');
+
+        $budgets = AuctionTeamBudget::where('auction_id', $auction->id)
+            ->pluck('budget', 'actual_team_id');
+
+        $fallback = (float) ($auction->max_budget_per_team ?? 0);
+
+        $states = [];
+
+        foreach ($teamIds as $teamId) {
+            $teamId = (int) $teamId;
+
+            // A team with no players appears in none of the prefetches, and must still come
+            // back with a full state of zeros rather than a missing key. SUM() over an empty
+            // group is null, so every read is cast at this boundary.
+            $states[$teamId] = $this->purseFrom($auction, [
+                'allocated' => $applies
+                    ? (float) ($budgets[$teamId] ?? $fallback)
+                    : 0.0,
+                'sold_spent' => (float) ($sold[$teamId]->spent ?? 0),
+                'retained_spent' => (float) ($retained[$teamId]->spent ?? 0),
+                'sold_count' => (int) ($sold[$teamId]->filled ?? 0),
+                'retained_count' => (int) ($retained[$teamId]->filled ?? 0),
+            ], $nextBidAmount);
+        }
+
+        return $states;
+    }
+
+    /**
+     * The derivation, shared by the single-team and batched paths.
+     *
+     * Takes the five leaf figures already read and does the arithmetic. Keeping this in one
+     * place is the point: two copies of these rules would eventually disagree about what a
+     * team can afford, and the two screens showing it would disagree in public.
+     *
+     * @param  array{allocated: float, sold_spent: float, retained_spent: float, sold_count: int, retained_count: int}  $leaves
+     */
+    private function purseFrom(Auction $auction, array $leaves, ?float $nextBidAmount): array
+    {
+        $applies = $this->budgetApplies($auction);
+
+        $allocated = $leaves['allocated'];
+        $soldSpent = $leaves['sold_spent'];
+        $retainedSpent = $leaves['retained_spent'];
+        $soldCount = $leaves['sold_count'];
+        $retainedCount = $leaves['retained_count'];
 
         $spent = $soldSpent + $retainedSpent;
         $slotsFilled = $soldCount + $retainedCount;
