@@ -401,13 +401,20 @@
                                                   x-text="(entry.team_name || '?').substring(0,2).toUpperCase()"></span>
                                         </template>
                                         <span class="text-white font-semibold truncate" x-text="entry.team_name"></span>
-                                        {{-- Rank appears only once the board is revealed. --}}
+                                        {{-- The revealed amount, kept clear of the next column.
+                                             It had ml-auto alone, so it ran to the very edge of
+                                             the team cell and printed over "cap 50M / reserve
+                                             43M" beside it — two figures on top of each other on
+                                             the board an organizer awards from. shrink-0 stops it
+                                             being compressed by a long team name, and the padding
+                                             keeps a gap the next column cannot be dragged into. --}}
                                         <template x-if="sealed.revealed && entry.amount">
-                                            <span class="ml-auto text-emerald-400 font-black tabular-nums" x-text="formatCurrency(entry.amount)"></span>
+                                            <span class="ml-auto shrink-0 whitespace-nowrap pl-3 pr-4 text-emerald-400 font-black tabular-nums"
+                                                  x-text="formatCurrency(entry.amount)"></span>
                                         </template>
                                     </div>
 
-                                    <div class="col-span-3 text-[10px] leading-tight">
+                                    <div class="col-span-3 text-[10px] leading-tight pl-2">
                                         <div :class="entry.per_player_cap <= entry.reserve_max ? 'text-amber-400 font-bold' : 'text-gray-500'">
                                             cap <span x-text="formatCurrency(entry.per_player_cap)"></span>
                                         </div>

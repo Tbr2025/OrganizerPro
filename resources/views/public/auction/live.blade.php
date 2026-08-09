@@ -315,6 +315,34 @@
         #result-banner #result-name {
             font-size: 1.6rem; font-weight: 700; color: #fff;
         }
+
+        /* Current bidder. Same position and shape as the result banner, so the two read as
+           one slot at the top of the screen rather than two competing strips. */
+        #bid-flash {
+            position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
+            z-index: 9995; display: flex; align-items: center; gap: 18px;
+            padding: 12px 38px; border-radius: 9999px;
+            background: rgba(2,6,23,0.88); backdrop-filter: blur(10px);
+            border: 2px solid rgba(34,197,94,0.55);
+            white-space: nowrap;
+        }
+        #bid-flash #bid-flash-team {
+            font-size: 1.9rem; font-weight: 900; letter-spacing: 0.06em;
+            text-transform: uppercase; color: #ffffff;
+        }
+        #bid-flash #bid-flash-amount {
+            font-size: 1.9rem; font-weight: 900; color: #22c55e;
+        }
+        /* Pulses only when the figure CHANGES — a banner that flashes continuously stops
+           being read after the first minute. Re-armed by removing and re-adding the class. */
+        #bid-flash.bid-flash-pulse {
+            animation: bid-flash-pop 0.9s ease-out 2;
+        }
+        @keyframes bid-flash-pop {
+            0%   { transform: translateX(-50%) scale(1);    box-shadow: 0 0 0 0 rgba(34,197,94,0.55); }
+            35%  { transform: translateX(-50%) scale(1.06); box-shadow: 0 0 42px 12px rgba(34,197,94,0.45); }
+            100% { transform: translateX(-50%) scale(1);    box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+        }
         #result-banner.is-unsold { border: 2px solid #f43f5e; box-shadow: 0 0 54px rgba(244,63,94,0.4); }
         #result-banner.is-unsold #result-word { color: #fb7185; }
         #result-banner.is-sold { border: 2px solid #22c55e; box-shadow: 0 0 54px rgba(34,197,94,0.4); }
@@ -1128,6 +1156,14 @@
         <span id="result-name"></span>
     </div>
 
+    {{-- Who is bidding, called out across the top of the hall.
+         Separate from the result banner: that one announces a finished lot, this one
+         announces a live raise, and the two must never be on screen together. --}}
+    <div id="bid-flash" class="hidden">
+        <span id="bid-flash-team"></span>
+        <span id="bid-flash-amount"></span>
+    </div>
+
     <div id="card-container" class="card-container hidden">
         @if($auction->auction_logo_url)
         <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo"
@@ -1319,6 +1355,51 @@
             return String(text).replace(/(\w)-(\w)/g, '$1 $2');
         }
 
+        /**
+         * Call out who is bidding, and pulse when the figure moves.
+         *
+         * The leading team was only shown small, beside the price on the card. Across a
+         * hall that is unreadable, and the room needs to see who is in front the moment it
+         * changes. This says it across the top, in the same slot the result banner uses.
+         *
+         * Pulses on CHANGE only. A banner that flashes on every poll stops being read
+         * within a minute, and the whole point is that a raise catches the eye.
+         */
+        let _lastFlashKey = null;
+
+        function renderBidFlash(p) {
+            const el = document.getElementById('bid-flash');
+            if (!el) return;
+
+            const team = p?.current_bid_team;
+            const live = p && p.status === 'on_auction' && team && !sealedState;
+
+            // Not on the block, nobody leading, or a sealed round where the leader is
+            // frozen and the amounts are secret — nothing honest to announce.
+            if (!live) {
+                el.classList.add('hidden');
+                el.classList.remove('bid-flash-pulse');
+                _lastFlashKey = null;
+                return;
+            }
+
+            const amount = p.current_price ?? p.base_price ?? 0;
+            const key = `${team.id ?? team.name}:${amount}`;
+
+            document.getElementById('bid-flash-team').textContent = team.name || '';
+            document.getElementById('bid-flash-amount').textContent = formatMillions(amount);
+            el.classList.remove('hidden');
+
+            if (key !== _lastFlashKey) {
+                _lastFlashKey = key;
+                // Removing, forcing a reflow, then re-adding restarts the animation; without
+                // the reflow the browser coalesces the two changes and nothing plays.
+                el.classList.remove('bid-flash-pulse');
+                void el.offsetWidth;
+                el.classList.add('bid-flash-pulse');
+            }
+        }
+
         function clearOutcomeState() {
             const card = document.getElementById('card-container');
             if (card) card.classList.remove('sold-state', 'unsold-state', 'skipped-state');
@@ -1346,6 +1427,15 @@
 
             document.getElementById('highest-bidder')?.classList.add('hidden');
             document.getElementById('result-banner')?.classList.add('hidden');
+
+            // The two banners share a slot at the top; a finished lot must not be announced
+            // underneath a live bid.
+            const flash = document.getElementById('bid-flash');
+            if (flash) {
+                flash.classList.add('hidden');
+                flash.classList.remove('bid-flash-pulse');
+            }
+            _lastFlashKey = null;
         }
         let isShuffling = false;
         // The most recent payload that had a player on the block — the recovery path's input.
@@ -1619,6 +1709,10 @@
                 if (bidderName) bidderName.textContent = ap.current_bid_team.name || '';
                 if (highestBidder) highestBidder.classList.remove('hidden');
             }
+
+            // The pushed path flashes too, or a raise delivered by websocket would update
+            // the price instantly and announce the bidder two seconds later.
+            renderBidFlash(ap);
         }
 
         function showWaiting() {
@@ -1865,6 +1959,9 @@
 
             setStyleRow('player-batting', p.player.batting_profile || p.player.battingProfile);
             setStyleRow('player-bowling', p.player.bowling_profile || p.player.bowlingProfile);
+
+            // Who is leading, called out across the top.
+            renderBidFlash(p);
 
             // Show current bid price if available, otherwise base price
             const price = p.current_price || p.base_price || 0;
