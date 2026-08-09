@@ -658,7 +658,10 @@
         {{-- ═══════════════════════════════════════════════════ --}}
         {{-- ROW 3: BOTTOM TOOLBAR --}}
         {{-- ═══════════════════════════════════════════════════ --}}
-        <div class="h-16 bg-gray-900 border-t border-gray-800 flex items-center px-4 gap-3 flex-shrink-0">
+        {{-- overflow-x-auto for the same reason as the main panel: this row has outgrown a
+             laptop's width, and with no wrap and no scroll whatever sits at the end is cut
+             off and unreachable rather than merely tight. --}}
+        <div class="h-16 bg-gray-900 border-t border-gray-800 flex items-center px-4 gap-3 flex-shrink-0 overflow-x-auto">
 
             {{-- 1. Player Input --}}
             <div class="flex items-center gap-1.5">
@@ -836,8 +839,9 @@
 
             <div class="w-px h-8 bg-gray-700"></div>
 
-            {{-- 5. Navigation buttons --}}
-            <div class="flex items-center gap-1">
+            {{-- 5. Navigation buttons. flex-shrink-0 so this group, which now carries the
+                 export button, is never squeezed off the end of a crowded toolbar. --}}
+            <div class="flex items-center gap-1 flex-shrink-0">
                 <button @click="showSidePanelFn('summary')" :class="sidePanel === 'summary' ? 'bg-gray-700' : 'bg-gray-800 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-gray-400 transition-colors" title="Team Summary">S</button>
                 <button @click="showSidePanelFn('players')" :class="sidePanel === 'players' ? 'bg-gray-700' : 'bg-gray-800 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-gray-400 transition-colors" title="All Players">P</button>
                 <button @click="showSidePanelFn('teams')" :class="sidePanel === 'teams' ? 'bg-gray-700' : 'bg-gray-800 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-gray-400 transition-colors" title="Team Details">T</button>

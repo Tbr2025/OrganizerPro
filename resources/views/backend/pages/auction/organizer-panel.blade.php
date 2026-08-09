@@ -1193,7 +1193,11 @@
                 </p>
             </div>
 
-            <div class="h-14 bg-gray-900 border-t border-gray-800 flex items-center px-4 gap-2">
+            {{-- overflow-x-auto: this row has grown (phase buttons, the Live/Batch toggle,
+                 quick-bid jumps) past the width of a laptop, and with no wrap and no scroll
+                 whatever sat at the end was simply cut off the screen and unreachable. The
+                 export button was the casualty. --}}
+            <div class="h-14 bg-gray-900 border-t border-gray-800 flex items-center px-4 gap-2 overflow-x-auto">
 
                 {{-- 1. Player Input --}}
                 <div class="flex items-center gap-1.5">
@@ -1317,7 +1321,7 @@
                 </button>
 
                 {{-- 8. Side Panel Toggles --}}
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1 flex-shrink-0">
                     <button @click="showSidePanelFn('queue')" :class="sidePanel === 'queue' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors" title="Queue">Q</button>
                     <button @click="showSidePanelFn('teams')" :class="sidePanel === 'teams' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors" title="Teams">T</button>
                     <button @click="showSidePanelFn('bids')" :class="sidePanel === 'bids' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors" title="Bids">B</button>
