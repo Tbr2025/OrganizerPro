@@ -706,8 +706,13 @@
             .catch(e => console.error('[Ticker] poll failed', e));
     }
 
-    poll();
-    setInterval(poll, 2000);
+    /* Chained, not on an interval — an interval stacks requests when the server is slow
+       until the browser runs out of connections and the strip freezes on air. */
+    (function tickerLoop() {
+        Promise.resolve(poll())
+            .catch(() => {})
+            .finally(() => setTimeout(tickerLoop, 2000));
+    })();
 
     // Same shortcuts as the match ticker: r reloads, f goes fullscreen.
     document.addEventListener('keydown', (e) => {

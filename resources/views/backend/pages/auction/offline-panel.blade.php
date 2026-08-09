@@ -1300,7 +1300,17 @@
             _bidFlashTimeout: null,
 
             init() {
-                this._pollInterval = setInterval(() => this.pollAuctionState(), 2000);
+                // Chained, not on an interval — see the note on the organizer panel. An
+                // interval stacks requests when the server is slow until the browser's
+                // per-host connection limit is exhausted and the panel stops responding.
+                const tick = async () => {
+                    try {
+                        await this.pollAuctionState();
+                    } finally {
+                        this._pollTimer = setTimeout(tick, 2000);
+                    }
+                };
+                tick();
                 document.addEventListener('fullscreenchange', () => {
                     this.isFullscreen = !!document.fullscreenElement;
                 });
@@ -2063,9 +2073,19 @@
             toM(raw) { return window.auctionToM ? window.auctionToM(raw) : raw; },
             fromM(value) { return window.auctionFromM ? window.auctionFromM(value) : value; },
 
+            _pollTimer: null,
+            _pollInFlight: false,
+
             async pollAuctionState() {
+                if (this._pollInFlight) return;
+                this._pollInFlight = true;
+
+                // A hung request must not hold the chain for ever.
+                const abort = new AbortController();
+                const killer = setTimeout(() => abort.abort(), 8000);
+
                 try {
-                    const res = await fetch(this.apiBase + '/api/poll-state');
+                    const res = await fetch(this.apiBase + '/api/poll-state', { signal: abort.signal });
                     const data = await res.json();
 
                     this.auctionStatus = data.auction_status;
@@ -2123,7 +2143,10 @@
                         this._lastCurrentPlayerId = null;
                     }
                 } catch (e) {
-                    console.error('Poll error:', e);
+                    if (e?.name !== 'AbortError') console.error('Poll error:', e);
+                } finally {
+                    clearTimeout(killer);
+                    this._pollInFlight = false;
                 }
             },
 

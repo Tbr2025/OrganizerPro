@@ -1932,15 +1932,61 @@ function auctionOrganizerPanel() {
         timerPaused: false,
         _pollInterval: null,
 
+        /*
+         * Poll on a CHAIN, never on an interval.
+         *
+         * setInterval fired every 2s whether or not the previous request had come back, so
+         * one slow response meant the next was sent on top of it, and the next. On a live
+         * panel the network tab filled with poll-state requests all stuck at (pending) and
+         * 0 B transferred. A browser allows about six connections per host: once they are
+         * all held by stalled polls, NOTHING else can go out -- not a bid, not a sale, not
+         * the export. The panel appears to hang, and it hangs hardest exactly when the
+         * server is under load, which is the middle of an auction.
+         *
+         * Chaining removes the failure mode by construction: the next poll is scheduled
+         * only once the previous one has settled, so at most one is ever in flight.
+         */
+        _pollTimer: null,
+        _pollInFlight: false,
+
         startStatePolling() {
             this._lastCurrentPlayerId = this.currentPlayer?.id || null;
-            this._pollInterval = setInterval(() => this.pollAuctionState(), 2000);
+
+            const tick = async () => {
+                try {
+                    await this.pollAuctionState();
+                } finally {
+                    // finally, not then: a thrown poll must still schedule the next one, or
+                    // a single failure silently ends the loop for the rest of the auction.
+                    this._pollTimer = setTimeout(tick, 2000);
+                }
+            };
+
+            tick();
+        },
+
+        stopStatePolling() {
+            if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; }
         },
 
         async pollAuctionState() {
+            // A second caller (a command finishing, say) must not start another request
+            // while one is already open — that is the pile-up this exists to prevent.
+            if (this._pollInFlight) return;
+            this._pollInFlight = true;
+
+            /*
+             * And a hung request must not hold the slot for ever. Without this, one poll
+             * that never resolves stops the chain permanently and the panel goes quiet
+             * with no error anywhere.
+             */
+            const abort = new AbortController();
+            const killer = setTimeout(() => abort.abort(), 8000);
+
             try {
                 const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/poll-state`, {
-                    headers: { 'Accept': 'application/json' }
+                    headers: { 'Accept': 'application/json' },
+                    signal: abort.signal,
                 });
                 if (!res.ok) return;
                 const data = await res.json();
@@ -2106,7 +2152,14 @@ function auctionOrganizerPanel() {
                     this._lastKnownBid = 0;
                 }
             } catch (e) {
-                console.error('[OrganizerPanel] Poll error:', e);
+                // An abort is this code timing itself out, not a fault worth logging on
+                // every slow network.
+                if (e?.name !== 'AbortError') {
+                    console.error('[OrganizerPanel] Poll error:', e);
+                }
+            } finally {
+                clearTimeout(killer);
+                this._pollInFlight = false;
             }
         },
 

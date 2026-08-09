@@ -2467,7 +2467,21 @@
          * the pool progress, a restart). Left at two seconds deliberately: tightening it
          * would add load to fix a delay that the events have already removed.
          */
-        setInterval(fetchActivePlayer, 2000);
+        /*
+         * Chained, not on an interval.
+         *
+         * setInterval fires whether or not the last request came back, so a slow server
+         * stacks them until the browser's per-host connection limit is exhausted and the
+         * wall stops updating entirely — the failure looks like a frozen screen in front of
+         * a hall. Scheduling the next only once the previous settles makes that impossible.
+         */
+        let _wallPollTimer = null;
+
+        (function pollWall() {
+            Promise.resolve(fetchActivePlayer())
+                .catch(() => {})
+                .finally(() => { _wallPollTimer = setTimeout(pollWall, 2000); });
+        })();
 
         // Initial fetch
         fetchActivePlayer();
