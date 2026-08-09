@@ -1194,10 +1194,10 @@
 
         <!-- Batting / Bowling -->
         @if(isVisible($positions, 'batting_style'))
-        <p id="player-batting">Right-Hand Bat</p>
+        <p id="player-batting">Right Hand Bat</p>
         @endif
         @if(isVisible($positions, 'bowling_style'))
-        <p id="player-bowling">Right-Arm Medium</p>
+        <p id="player-bowling">Right Arm Medium</p>
         @endif
 
         <!-- Current Bid -->
@@ -1304,6 +1304,21 @@
          * Safe to call at any time: every lookup is null-guarded, and a wall template can
          * legitimately omit any of these elements (see isVisible() in the markup).
          */
+        /**
+         * A stored label, as a hall screen should read it.
+         *
+         * These come out of the database hyphenated — "Right-hand Bat", "Right-arm Medium",
+         * "All-Rounder" — which is fine in a form and wrong on a wall six metres away,
+         * where the hyphen reads as a dash between two separate words. Only the separator
+         * is touched: nothing is re-cased, so a label an organizer typed deliberately keeps
+         * the capitalisation they gave it.
+         */
+        function displayLabel(text) {
+            if (!text) return '';
+            // Hyphens BETWEEN words only, so a trailing or leading dash is left alone.
+            return String(text).replace(/(\w)-(\w)/g, '$1 $2');
+        }
+
         function clearOutcomeState() {
             const card = document.getElementById('card-container');
             if (card) card.classList.remove('sold-state', 'unsold-state', 'skipped-state');
@@ -1817,9 +1832,11 @@
             document.getElementById('player-name').textContent = p.player.name;
 
             const playerType = p.player.player_type || p.player.playerType;
-            document.getElementById('player-role').textContent = typeof playerType === 'object'
-                ? playerType?.type || playerType?.name || ''
-                : playerType || '';
+            document.getElementById('player-role').textContent = displayLabel(
+                typeof playerType === 'object'
+                    ? playerType?.type || playerType?.name || ''
+                    : playerType || ''
+            );
 
             /**
              * A missing style hides its row rather than printing "N/A".
@@ -1831,7 +1848,9 @@
              */
             const styleText = (value) => {
                 if (!value) return '';
-                return typeof value === 'object' ? (value.style || value.name || '') : String(value);
+                return displayLabel(
+                    typeof value === 'object' ? (value.style || value.name || '') : String(value)
+                );
             };
 
             const setStyleRow = (id, value) => {
