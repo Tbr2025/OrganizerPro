@@ -159,6 +159,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::get('/auctions/{auction}/emails', [AuctionAdminController::class, 'emailOutbox'])->name('auctions.emails.index');
     Route::post('/auctions/{auction}/emails/retry', [AuctionAdminController::class, 'retryEmails'])->name('auctions.emails.retry');
 
+    // Housekeeping and inspection for the outbox. Clearing only ever removes rows that
+    // have already resolved; preview renders without sending.
+    Route::post('/auctions/{auction}/emails/clear', [AuctionAdminController::class, 'clearEmailLog'])->name('auctions.emails.clear');
+    Route::get('/auctions/{auction}/emails/{email}/preview', [AuctionAdminController::class, 'previewEmail'])->name('auctions.emails.preview');
+
     // Final allotment: place unsold players with teams that are short of a squad.
     Route::get('/auctions/{auction}/allotment', [AuctionAllotmentController::class, 'index'])->name('auctions.allotment');
     Route::post('/auctions/{auction}/allotment/allot', [AuctionAllotmentController::class, 'allot'])->name('auctions.allotment.allot');

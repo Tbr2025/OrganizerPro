@@ -1598,6 +1598,72 @@ class AuctionAdminController extends Controller
      * Test mode is only useful if you can read back what a real run would have sent, so
      * every raised message is listed here with its status and, on failure, the reason.
      */
+    /**
+     * Clear finished rows out of the outbox.
+     *
+     * Only what has already resolved: `sent` and `skipped`. A pending email is still owed
+     * to somebody and a failed one is the record of a delivery that has to be chased, so
+     * neither can be cleared here — the outbox would otherwise become a way to lose mail
+     * quietly. Requeue a failure first if you want it gone.
+     */
+    public function clearEmailLog(Auction $auction, Request $request)
+    {
+        $this->authorize('auction.edit');
+
+        $validated = $request->validate([
+            'scope' => 'required|in:sent,skipped,resolved',
+        ]);
+
+        $statuses = match ($validated['scope']) {
+            'sent' => [\App\Models\AuctionPendingEmail::STATUS_SENT],
+            'skipped' => [\App\Models\AuctionPendingEmail::STATUS_SKIPPED],
+            default => [
+                \App\Models\AuctionPendingEmail::STATUS_SENT,
+                \App\Models\AuctionPendingEmail::STATUS_SKIPPED,
+            ],
+        };
+
+        // Scoped to THIS auction as well as the status: the id in the URL is the only thing
+        // separating one organizer's outbox from another's.
+        $deleted = \App\Models\AuctionPendingEmail::where('auction_id', $auction->id)
+            ->whereIn('status', $statuses)
+            ->delete();
+
+        return back()->with('success', $deleted === 0
+            ? 'Nothing to clear.'
+            : "Cleared {$deleted} finished email(s) from the log.");
+    }
+
+    /**
+     * The email as the recipient would receive it.
+     *
+     * Rendered from the same mailable the queue sends, so what is previewed is what goes
+     * out rather than a second rendering that can drift. Read-only: previewing must never
+     * send, and must never mark a pending row as handled.
+     */
+    public function previewEmail(Auction $auction, \App\Models\AuctionPendingEmail $email)
+    {
+        $this->authorize('auction.edit');
+
+        // Route-model binding hands over whatever id is in the URL, and nothing else on
+        // this route ties the email to the auction.
+        if ((int) $email->auction_id !== (int) $auction->id) {
+            abort(404);
+        }
+
+        try {
+            $html = app(\App\Services\Auction\AuctionMailService::class)->renderPreview($email);
+        } catch (\Throwable $e) {
+            // A template that throws is exactly what somebody is previewing to find out
+            // about, so show the reason rather than a blank page or a 500.
+            $html = '<pre style="padding:24px;font:14px/1.5 monospace;color:#b91c1c;white-space:pre-wrap">'
+                . e('This email could not be rendered:' . PHP_EOL . PHP_EOL . $e->getMessage())
+                . '</pre>';
+        }
+
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+    }
+
     public function emailOutbox(Auction $auction, Request $request)
     {
         $this->authorize('auction.edit');

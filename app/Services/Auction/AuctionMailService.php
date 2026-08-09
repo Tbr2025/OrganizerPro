@@ -207,6 +207,45 @@ class AuctionMailService
         $this->notifications->sendRetainedWelcomeCard($registration);
     }
 
+    /**
+     * The email as HTML, without sending it.
+     *
+     * Built from the same mailables send() uses, so a preview cannot drift from what
+     * actually goes out. Strictly read-only: it never touches the row's status, never
+     * notifies anybody, and never dispatches mail.
+     *
+     * The welcome card is the exception, and deliberately so — it is produced by
+     * TournamentNotificationService, which generates a poster and sends in one step. There
+     * is no way to render it without the side effects, so it says so instead of pretending.
+     */
+    public function renderPreview(AuctionPendingEmail $row): string
+    {
+        $auction = $row->auction;
+        $player = Player::with('user')->find($row->player_id);
+
+        if (! $player) {
+            throw new \RuntimeException('The player on this email no longer exists.');
+        }
+
+        $mailable = match ($row->type) {
+            AuctionPendingEmail::TYPE_SOLD => new PlayerSoldMail(
+                $player,
+                $row->team,
+                $auction,
+                $row->payload['amount'] ?? null
+            ),
+            AuctionPendingEmail::TYPE_UNSOLD => new PlayerUnsoldMail($player, $auction),
+            AuctionPendingEmail::TYPE_WELCOME_CARD => throw new \RuntimeException(
+                'The welcome card is generated and sent in one step, with its poster, so it '
+                . 'cannot be previewed here without sending it. Use the email template '
+                . 'preview under Admin -> Emails to see its layout.'
+            ),
+            default => throw new \RuntimeException("Unknown auction email type [{$row->type}]."),
+        };
+
+        return $mailable->render();
+    }
+
     private function sendSold(AuctionPendingEmail $row): void
     {
         $player = Player::with('user')->find($row->player_id);

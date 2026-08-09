@@ -61,6 +61,21 @@
                     </button>
                 </form>
             @endif
+            @php $finished = ($counts['sent'] ?? 0) + ($counts['skipped'] ?? 0); @endphp
+            @if($finished > 0)
+                {{-- Only rows that have already resolved. A pending email is still owed to
+                     somebody and a failed one is the record of a delivery to chase, so
+                     neither is clearable — the log must not become a way to lose mail. --}}
+                <form action="{{ route('admin.auctions.emails.clear', $auction) }}" method="POST"
+                      onsubmit="return confirm('Clear {{ $finished }} finished email(s) from the log?\n\nOnly sent and not-sent rows are removed. Pending and failed emails are kept.')">
+                    @csrf
+                    <input type="hidden" name="scope" value="resolved">
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        Clear {{ $finished }} finished
+                    </button>
+                </form>
+            @endif
             @if($pending > 0 && ! $auction->email_test_mode)
                 <form action="{{ route('admin.auctions.emails.flush', $auction) }}" method="POST"
                       onsubmit="return confirm('Send {{ $pending }} held email(s) now?')">
@@ -119,6 +134,7 @@
                         <th class="px-4 py-3 font-semibold">Team</th>
                         <th class="px-4 py-3 font-semibold">Status</th>
                         <th class="px-4 py-3 font-semibold">When</th>
+                        <th class="px-4 py-3 font-semibold text-right">View</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -149,10 +165,20 @@
                             <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                                 {{ ($email->sent_at ?? $email->created_at)?->diffForHumans() ?? '—' }}
                             </td>
+                            {{-- Opens in its own tab: an email is a full HTML document and
+                                 rendering it inside this page would inherit the admin
+                                 stylesheet, showing something the recipient never sees. --}}
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <a href="{{ route('admin.auctions.emails.preview', [$auction, $email]) }}"
+                                   target="_blank" rel="noopener"
+                                   class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    Preview
+                                </a>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
+                            <td colspan="7" class="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
                                 Nothing here yet. Player emails appear as players are sold or passed.
                             </td>
                         </tr>
