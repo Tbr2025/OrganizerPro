@@ -304,6 +304,11 @@ class AuctionUndoService
 
         $reverted = $this->reopenIfUndoneBelowThreshold($auctionPlayer->fresh(), (float) $newPrice);
 
+        // Still sealed, but cheaper than it was: the floor follows the price down.
+        if (! $reverted) {
+            $this->lowerFloorToPrice($auctionPlayer->fresh(), (float) $newPrice);
+        }
+
         return [
             'success' => true,
             'message' => ($amount !== null
@@ -311,6 +316,62 @@ class AuctionUndoService
                 : sprintf('Undid %s bid.', $teamName))
                 . ($reverted ? ' Back below the sealed threshold — open bidding resumed.' : ''),
         ];
+    }
+
+    /**
+     * Bring an open round's floor down when an undo lowers the price under it.
+     *
+     * The floor is worked out once, from the price at the moment the round opens. Undoing
+     * the raises that opened it left the board demanding 10M for a player back at 8M — a
+     * gap created purely by the undo, and a floor that reads as though the bidding had
+     * gone higher than it now has.
+     *
+     * Deliberately one-way. A floor that rose again as the price recovered would move
+     * under teams mid-round, and only ever falls to what the price justifies:
+     *
+     *  - Nothing submitted yet. Lowering the bar under a team that has already bid
+     *    against the published floor would change the terms it bid on.
+     *  - First rounds only. A tie-break round's floor comes from the tied amount, not
+     *    the price, so re-deriving it from the price would be wrong.
+     *  - Before the reveal. Once amounts are out the floor is part of the record.
+     */
+    private function lowerFloorToPrice(AuctionPlayer $auctionPlayer, float $newPrice): void
+    {
+        $auction = $auctionPlayer->auction;
+
+        if (! $auction || $auction->bid_type !== 'closed') {
+            return;
+        }
+
+        $round = AuctionClosedBidRound::where('auction_player_id', $auctionPlayer->id)
+            ->whereIn('state', [
+                AuctionClosedBidRound::STATE_PENDING,
+                AuctionClosedBidRound::STATE_ENTRY_OPEN,
+                AuctionClosedBidRound::STATE_COLLECTING,
+            ])
+            ->whereNull('parent_round_id')
+            ->latest('id')
+            ->first();
+
+        if (! $round || $round->locked_at !== null) {
+            return;
+        }
+
+        if (AuctionClosedBidEntry::where('auction_closed_bid_round_id', $round->id)->standing()->exists()) {
+            return;
+        }
+
+        $threshold = $auction->closed_bid_starts_at !== null
+            ? (float) $auction->closed_bid_starts_at
+            : 0.0;
+
+        // The same derivation as ClosedBidService::floorFor(), which cannot be called
+        // from here — that service depends on this one.
+        $floor = app(BidIncrementService::class)->snapUpToStep($auction, max($threshold, $newPrice));
+
+        if ($floor < (float) $round->floor) {
+            $round->update(['floor' => $floor]);
+        }
     }
 
     /**

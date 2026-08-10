@@ -448,10 +448,17 @@ class ClosedBidService
         });
     }
 
-    /** Start collecting amounts, and start the round's own clock. */
-    public function start(AuctionClosedBidRound $round, ?User $actor = null): array
+    /**
+     * Start collecting amounts, and start the round's own clock.
+     *
+     * @param  list<int>|null  $teamIds  Carried through to openEntry() for the case where
+     *                                    Start is pressed without opening entry first —
+     *                                    otherwise the organizer's chosen subset would be
+     *                                    silently replaced by everyone.
+     */
+    public function start(AuctionClosedBidRound $round, ?User $actor = null, ?array $teamIds = null): array
     {
-        return DB::transaction(function () use ($round, $actor) {
+        return DB::transaction(function () use ($round, $actor, $teamIds) {
             $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
 
             if ($round->state === AuctionClosedBidRound::STATE_COLLECTING) {
@@ -467,7 +474,14 @@ class ClosedBidService
 
             // Starting without opening entry first is allowed — it just skips the gate.
             if ($round->entries()->count() === 0) {
-                $this->openEntry($round, $actor);
+                $invited = $this->openEntry($round, $actor, $teamIds);
+
+                // An empty selection is refused rather than quietly starting a round with
+                // everyone in it, which is the outcome the selection exists to avoid.
+                if (! ($invited['handled'] ?? false)) {
+                    return $invited;
+                }
+
                 $round = $round->fresh();
             }
 

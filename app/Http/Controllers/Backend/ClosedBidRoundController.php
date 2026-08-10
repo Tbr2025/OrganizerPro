@@ -147,10 +147,25 @@ class ClosedBidRoundController extends Controller
         ));
     }
 
-    /** Start collecting sealed amounts, and start the round's clock. */
+    /**
+     * Start collecting sealed amounts, and start the round's clock.
+     *
+     * Accepts `team_ids` for the same reason openEntry does: Start may be pressed on a
+     * pending round without opening entry first, and that shortcut has to honour the
+     * organizer's chosen subset rather than inviting everyone behind their back.
+     */
     public function start(Request $request, Auction $auction): JsonResponse
     {
-        return $this->run($request, $auction, fn ($round) => $this->closedBids->start($round, auth()->user()));
+        $validated = $request->validate([
+            'team_ids' => 'nullable|array',
+            'team_ids.*' => 'integer',
+        ]);
+
+        return $this->run($request, $auction, fn ($round) => $this->closedBids->start(
+            $round,
+            auth()->user(),
+            $validated['team_ids'] ?? null
+        ));
     }
 
     /** Close submissions and reveal the board. */

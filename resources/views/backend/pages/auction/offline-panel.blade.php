@@ -222,7 +222,7 @@
                                     class="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold">
                                 Open Entry (<span x-text="sealedSelectedCount"></span>)
                             </button>
-                            <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedCommand('start')"
+                            <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedStart()"
                                     class="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold">Start Round</button>
                             <button x-show="sealed.state === 'collecting'" @click="sealedCommand('lock')"
                                     class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Lock &amp; Reveal</button>
@@ -813,7 +813,7 @@
 
                     <button x-show="sealed.state === 'pending'" @click="sealedOpenEntry()"
                             class="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold">Open Entry</button>
-                    <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedCommand('start')"
+                    <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedStart()"
                             class="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold">Start</button>
                     <button x-show="sealed.state === 'collecting'" @click="sealedCommand('lock')"
                             class="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold">Lock &amp; Reveal</button>
@@ -1322,6 +1322,30 @@
                 const result = await this.sealedCommand('open-entry', { team_ids: ids });
                 if (result?.handled) this.sealedTeamSelection = null;
                 return result;
+            },
+
+            /*
+             * Start carries the selection too — pressing it on a pending round skips Open
+             * Entry, and the server invites everyone when a round has no entries yet, so
+             * taking the quicker of the two buttons silently discarded the choice.
+             */
+            async sealedStart() {
+                if (this.sealed.state === 'pending') {
+                    const ids = this.sealedTeamSelection === null
+                        ? (this.teams || []).map(t => t.id)
+                        : this.sealedTeamSelection;
+
+                    if (ids.length === 0) {
+                        this.toast('Select at least one team to invite.', 'error');
+                        return null;
+                    }
+
+                    const result = await this.sealedCommand('start', { team_ids: ids });
+                    if (result?.handled) this.sealedTeamSelection = null;
+                    return result;
+                }
+
+                return this.sealedCommand('start');
             },
 
             currentBidAmount: {{ $currentPlayer?->current_price ?? 0 }},

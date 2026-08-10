@@ -2310,7 +2310,31 @@ function auctionOrganizerPanel() {
             if (result?.handled) this.sealedTeamSelection = null;
             return result;
         },
-        sealedStart() { return this.sealedCommand('start'); },
+        /*
+         * Start carries the selection too.
+         *
+         * Pressing Start on a pending round skips Open Entry, and the server invites
+         * everyone when a round has no entries yet — so a selection made in the picker
+         * was silently discarded by taking the quicker of the two buttons.
+         */
+        async sealedStart() {
+            if (this.sealed.state === 'pending') {
+                const ids = this.sealedTeamSelection === null
+                    ? (this.teams || []).map(t => t.id)
+                    : this.sealedTeamSelection;
+
+                if (ids.length === 0) {
+                    this.toast('Select at least one team to invite.', 'error');
+                    return null;
+                }
+
+                const result = await this.sealedCommand('start', { team_ids: ids });
+                if (result?.handled) this.sealedTeamSelection = null;
+                return result;
+            }
+
+            return this.sealedCommand('start');
+        },
         sealedLock() { return this.sealedCommand('lock'); },
         sealedStartRebid() { return this.sealedCommand('start-rebid'); },
 
