@@ -1208,6 +1208,16 @@ class AuctionOrganizerController extends Controller
      */
     public function undoLastAction(Auction $auction)
     {
+        // Paused means nothing moves, undo included — the same hold that stops bids,
+        // sales and passes. Enforced here as well as on the button, because U and Ctrl+Z
+        // reach this endpoint without it.
+        if ($auction->status === 'paused') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The auction is paused — resume it before undoing.',
+            ], 422);
+        }
+
         $result = $this->undo->undoLast($auction);
 
         if (! ($result['success'] ?? false)) {

@@ -1321,10 +1321,12 @@
 
                 {{-- Undo: recovery for a wrong-team click. --}}
                 <button @click="undoLast()"
-                        :disabled="!canUndo || isUndoing"
+                        :disabled="!canUndo || isUndoing || auctionStatus === 'paused'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap flex items-center gap-1"
-                        :class="(canUndo && !isUndoing) ? 'bg-orange-600 hover:bg-orange-500' : 'bg-gray-700 cursor-not-allowed opacity-50'"
-                        :title="canUndo ? ('Undo (U): ' + (nextUndoLabel || 'last action')) : 'Nothing to undo'">
+                        :class="(canUndo && !isUndoing && auctionStatus !== 'paused') ? 'bg-orange-600 hover:bg-orange-500' : 'bg-gray-700 cursor-not-allowed opacity-50'"
+                        :title="auctionStatus === 'paused'
+                            ? 'Paused — resume before undoing'
+                            : (canUndo ? ('Undo (U): ' + (nextUndoLabel || 'last action')) : 'Nothing to undo')">
                     <span>&#8630;</span> UNDO
                 </button>
 
@@ -3407,8 +3409,10 @@ function auctionOrganizerPanel() {
                 && !this.currentPlayer?.current_bid_team_id && this.auctionStatus !== 'paused') {
                 e.preventDefault(); this.passPlayer(); return;
             }
-            // Undo the last action. Ctrl/Cmd+Z works too, for muscle memory.
-            if (key === 'U' || ((e.ctrlKey || e.metaKey) && key === 'Z')) {
+            // Undo the last action. Ctrl/Cmd+Z works too, for muscle memory. Both carry the
+            // pause condition, like S and P — the shortcut must not do what the greyed
+            // button refuses.
+            if ((key === 'U' || ((e.ctrlKey || e.metaKey) && key === 'Z')) && this.auctionStatus !== 'paused') {
                 e.preventDefault(); this.undoLast(); return;
             }
 
