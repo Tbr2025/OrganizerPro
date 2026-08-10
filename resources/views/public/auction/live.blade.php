@@ -355,6 +355,23 @@
            team the one prompt that might still change it. */
         .card-container.about-to-go-unsold { filter: grayscale(0.85) brightness(0.62); transition: filter 0.6s ease; }
 
+        /* The whole screen darkens once the closing call starts, not only the card. The
+           hall reads a change across the wall long before it reads any text, and this is the
+           moment the room has to feel: bidding is closing.
+
+           An OVERLAY, not a filter on <body>. A CSS filter creates a containing block for
+           fixed-position descendants, which would tear the clock and the banners out of
+           their positions the instant the call began. This sits above the stage and below
+           those banners (z-index 9000 against their 9995+), so what still matters stays
+           bright and readable on top of it. */
+        #final-call-dim {
+            position: fixed; inset: 0; z-index: 9000;
+            background: rgba(2,6,23,0.62);
+            pointer-events: none; opacity: 0;
+            transition: opacity 0.45s ease;
+        }
+        #final-call-dim.is-on { opacity: 1; }
+
         #unsold-warning {
             position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
             z-index: 9997; padding: 14px 40px; border-radius: 9999px;
@@ -916,6 +933,10 @@
 </head>
 
 <body class="text-white">
+
+    {{-- Dims the stage through the closing call. Empty by design: it is a wash of colour,
+         not a message — the banners above it carry the words. --}}
+    <div id="final-call-dim"></div>
 
     <!-- Live Indicator -->
     <div class="live-indicator">
@@ -2162,6 +2183,18 @@
 
             if (banner) banner.classList.toggle('hidden', !show);
             if (card) card.classList.toggle('about-to-go-unsold', show);
+
+            /*
+             * The screen-wide dim follows the CLOSING CALL alone — not whether anyone has
+             * bid. The card-level grey above says "this player is going unsold"; this says
+             * "bidding is closing", which is true whether the lot is about to be won or
+             * lost, and is the thing the hall has to notice.
+             *
+             * Cleared by the same call that clears everything else, so a player who is sold
+             * or passed during the call cannot leave the wall grey.
+             */
+            const dim = document.getElementById('final-call-dim');
+            if (dim) dim.classList.toggle('is-on', !!inClosingCall && clockHasPlayer);
         }
 
         function clearUnsoldWarning() {
