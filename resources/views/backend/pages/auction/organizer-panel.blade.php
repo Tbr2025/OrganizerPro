@@ -3001,7 +3001,23 @@ function auctionOrganizerPanel() {
             }
 
             if (answer === 'sell') {
-                // Already confirmed by the choice above, so this does not ask a second time.
+                /*
+                 * A second, explicit confirmation before the sale actually happens.
+                 *
+                 * Choosing the button used to be treated as confirmation enough. A sale is
+                 * the one action here that cannot be walked back by pressing the button
+                 * again — undoing it is possible but does real work — so it gets the same
+                 * two-step confirmation every other sale on this panel already has, rather
+                 * than resolving on the first click a mis-tap could also have produced.
+                 */
+                if (! await this.askConfirm(
+                    `Sell ${name} to ${leader} for ${amount}?`,
+                    { title: 'Confirm sale' }
+                )) {
+                    this._sealedPromptAskedFor = null;
+                    return;
+                }
+
                 const result = await this.sendCommand('sell-player', { auction_player_id: playerId });
                 if (result && result.success !== false) {
                     this._fireConfetti();

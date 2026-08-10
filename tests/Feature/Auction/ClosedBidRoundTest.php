@@ -235,6 +235,130 @@ class ClosedBidRoundTest extends TestCase
     }
 
     #[Test]
+    public function undoing_the_raise_that_crossed_the_threshold_reopens_bidding(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $operator = $this->makeAuctionOperator($org);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.closed-bid.confirm-threshold', $auction), [
+                'auction_player_id' => $player->id,
+            ])
+            ->assertOk();
+
+        $this->assertSame('closed', $auction->fresh()->bid_type);
+        $round = \App\Models\AuctionClosedBidRound::where('auction_player_id', $player->id)->firstOrFail();
+
+        /*
+         * The panel showed a full sealed board — floor, ceilings, controls — for a player
+         * sitting below the threshold, with no way back to ordinary bidding except editing
+         * the auction. Undoing the raise that opened the round must take the round with it.
+         */
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.undo', $auction))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('open', $auction->fresh()->bid_type);
+        $this->assertSame(
+            \App\Models\AuctionClosedBidRound::STATE_ABANDONED,
+            $round->fresh()->state
+        );
+        $this->assertNull($player->fresh()->closed_bid_round_id);
+        $this->assertLessThan(8_000_000, (float) $player->fresh()->current_price);
+    }
+
+    #[Test]
+    public function a_standing_sealed_bid_blocks_the_auto_revert_even_when_its_the_raise_being_undone(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $second = $this->makeTeam($org, 'Titans', $tournament);
+        $operator = $this->makeAuctionOperator($org);
+
+        $player = $this->raiseToThreshold($org, $tournament, $auction, $team, $operator);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.closed-bid.confirm-threshold', $auction), [
+                'auction_player_id' => $player->id,
+            ])
+            ->assertOk();
+
+        $round = AuctionClosedBidRound::where('auction_player_id', $player->id)->firstOrFail();
+        $service = app(\App\Services\Auction\ClosedBidService::class);
+        $service->openEntry($round->fresh());
+        $service->start($round->fresh());
+
+        // Titans accepts and types a real amount, and it stands.
+        $service->accept($round->fresh(), $second);
+        $service->submit($round->fresh(), $second, 9_000_000.0);
+
+        /*
+         * In the ordinary flow undo is a LIFO stack, so the submission — logged after the
+         * raise — is always undone before the raise can become "next undoable" at all, and
+         * by then it is no longer standing. This is the guard checked directly instead: the
+         * submission's log entry is marked undone WITHOUT reverting the entry (which a real
+         * bug elsewhere, or two panels racing, could do), so the raise becomes the next
+         * undoable action while a real sealed amount still stands on the board.
+         */
+        \App\Models\AuctionActionLog::where('auction_id', $auction->id)
+            ->where('action', \App\Models\AuctionActionLog::ACTION_CLOSED_BID)
+            ->update(['undone_at' => now()]);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.undo', $auction))
+            ->assertOk();
+
+        // Abandoning the round now would discard Titans' standing bid. The phase stays
+        // closed and the round stays in place.
+        $this->assertSame('closed', $auction->fresh()->bid_type);
+        $this->assertNotSame(AuctionClosedBidRound::STATE_ABANDONED, $round->fresh()->state);
+    }
+
+    #[Test]
+    public function a_manual_closed_choice_survives_undoing_an_unrelated_bid(): void
+    {
+        [$org, $tournament, $auction] = $this->sealedAuction();
+        $operator = $this->makeAuctionOperator($org);
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $player = $this->makeAuctionPlayer($auction, [
+            'status' => 'on_auction',
+            'current_price' => 1_000_000,
+        ]);
+
+        // Forced Closed by hand, well below the threshold — a deliberate choice this fix
+        // must not reverse just because some other bid on the same player is undone.
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.switch-bid-type', $auction), [
+                'bid_type' => 'closed',
+            ])
+            ->assertOk();
+        $this->assertTrue((bool) $auction->fresh()->bid_type_manually_overridden);
+
+        // An ordinary offline bid, logged and reversible, on a player well under 8M.
+        $this->actingAs($operator)
+            ->postJson(route('admin.auctions.players.addBid'), [
+                'auctionId' => $auction->id,
+                'playerID' => $player->id,
+                'teamId' => $team->id,
+            ])
+            ->assertOk();
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.undo', $auction))
+            ->assertOk();
+
+        $this->assertSame(
+            'closed',
+            $auction->fresh()->bid_type,
+            'a manual override is not something an unrelated undo gets to reverse'
+        );
+    }
+
+    #[Test]
     public function reaching_the_threshold_opens_a_round_with_the_leader_snapshotted(): void
     {
         [$org, $tournament, $auction] = $this->sealedAuction();

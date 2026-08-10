@@ -7,6 +7,8 @@ namespace App\Services\Auction;
 use App\Models\Auction;
 use App\Models\AuctionActionLog;
 use App\Models\AuctionBid;
+use App\Models\AuctionClosedBidEntry;
+use App\Models\AuctionClosedBidRound;
 use App\Models\AuctionPlayer;
 use Illuminate\Support\Facades\DB;
 
@@ -265,8 +267,10 @@ class AuctionUndoService
             ->orderByDesc('id')
             ->first();
 
+        $newPrice = $previous->amount ?? $auctionPlayer->base_price;
+
         $auctionPlayer->update([
-            'current_price' => $previous->amount ?? $auctionPlayer->base_price,
+            'current_price' => $newPrice,
             'current_bid_team_id' => $previous->team_id ?? null,
             'final_price' => $previous->amount ?? null,
         ]);
@@ -274,12 +278,82 @@ class AuctionUndoService
         $teamName = $log->payload['team_name'] ?? 'that team';
         $amount = $log->payload['amount'] ?? null;
 
+        $reverted = $this->reopenIfUndoneBelowThreshold($auctionPlayer->fresh(), (float) $newPrice);
+
         return [
             'success' => true,
-            'message' => $amount !== null
+            'message' => ($amount !== null
                 ? sprintf('Undid %s bid of %s.', $teamName, format_points($amount))
-                : sprintf('Undid %s bid.', $teamName),
+                : sprintf('Undid %s bid.', $teamName))
+                . ($reverted ? ' Back below the sealed threshold — open bidding resumed.' : ''),
         ];
+    }
+
+    /**
+     * If undoing a bid takes the price back below the sealed threshold, take the round
+     * down with it.
+     *
+     * "Closed" used to be one-way once the price fell — deliberately, because a price that
+     * genuinely rises and falls during open bidding should not repeatedly flip the phase.
+     * But this is not that: undoing the very bid that crossed the threshold is undoing the
+     * reason the round exists at all, and the live panel showed a sealed board — floor 8M,
+     * a full team list, controls — for a player sitting at 6M with nothing anyone can
+     * safely act on, and no way back to ordinary bidding except editing the auction.
+     *
+     * Two guards keep this from undoing more than the one thing it should:
+     *
+     *  - `bid_type_manually_overridden` must be false. A press of the Closed button sets
+     *    it and means the organizer chose sealed regardless of price — undoing an unrelated
+     *    bid must not silently reverse that choice.
+     *  - The round must have no STANDING entries. If a team has already submitted a real
+     *    sealed amount, abandoning the round on the way out would discard their bid; the
+     *    round is left in place and the phase stays closed.
+     *
+     * @return bool  Whether the round was abandoned and the phase reverted.
+     */
+    private function reopenIfUndoneBelowThreshold(AuctionPlayer $auctionPlayer, float $newPrice): bool
+    {
+        $auction = $auctionPlayer->auction;
+
+        if (! $auction
+            || $auction->bid_type !== 'closed'
+            || $auction->bid_type_manually_overridden
+            || $auction->closed_bid_starts_at === null
+            || $newPrice >= (float) $auction->closed_bid_starts_at) {
+            return false;
+        }
+
+        $round = AuctionClosedBidRound::where('auction_player_id', $auctionPlayer->id)
+            ->open()
+            ->latest('id')
+            ->first();
+
+        if (! $round) {
+            return false;
+        }
+
+        if (AuctionClosedBidEntry::where('auction_closed_bid_round_id', $round->id)->standing()->exists()) {
+            return false;
+        }
+
+        /*
+         * The same abandonment ClosedBidService::abandonRoundsFor() performs — done inline
+         * rather than by injecting that service, which depends on THIS one (undo has to be
+         * able to reverse a sealed-round action) and would deadlock the container in a
+         * constructor cycle.
+         */
+        AuctionClosedBidRound::where('auction_player_id', $auctionPlayer->id)
+            ->open()
+            ->update([
+                'state' => AuctionClosedBidRound::STATE_ABANDONED,
+                'resolution' => AuctionClosedBidRound::RESOLUTION_ABANDONED,
+                'abandoned_at' => now(),
+            ]);
+
+        $auctionPlayer->update(['closed_bid_round_id' => null]);
+        $auction->update(['bid_type' => 'open']);
+
+        return true;
     }
 
     /**
