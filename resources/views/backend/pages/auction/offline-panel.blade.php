@@ -308,7 +308,7 @@
                                      recorded manual resolution. --}}
                                 <div x-show="!sealed.revealed && !row.withdrawn && sealed.state === 'collecting'"
                                      class="flex items-center gap-1">
-                                    <button @click="sealedEntry(row.entry_id, 'adjust', { direction: 'down' })"
+                                    <button @click="sealedStepAmount(row.entry_id, 'down')"
                                             class="w-8 h-8 rounded bg-gray-800 hover:bg-gray-700 text-white font-bold">&minus;</button>
                                     <input type="number" step="any" min="0"
                                            :placeholder="toM(sealed.floor)"
@@ -316,7 +316,7 @@
                                            @keydown.enter.prevent="sealedSubmitCustom(row.entry_id)"
                                            class="w-24 px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-white text-sm text-center"
                                            title="Amount in millions">
-                                    <button @click="sealedEntry(row.entry_id, 'adjust', { direction: 'up' })"
+                                    <button @click="sealedStepAmount(row.entry_id, 'up')"
                                             class="w-8 h-8 rounded bg-gray-800 hover:bg-gray-700 text-white font-bold">+</button>
                                     <button @click="sealedSubmitCustom(row.entry_id)"
                                             class="px-2.5 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold">Set</button>
@@ -2165,6 +2165,39 @@
                 // Only clear the box on success, so a rejected amount stays visible to fix
                 // rather than vanishing under an error toast.
                 if (data?.handled) this.sealedCustom[entryId] = '';
+            },
+
+            /**
+             * Where a step lands, in raw units — see the matching method on the main
+             * organizer panel.
+             *
+             * Stepped here and sent as an explicit amount rather than asking the server to
+             * step, because the board withholds amounts until the reveal: the box could
+             * only ever show the floor as a placeholder while each press quietly recorded
+             * a higher figure. An empty box means nothing is set yet, so the first press
+             * lands on the floor itself.
+             */
+            sealedSteppedAmount(entryId, direction) {
+                const floorC = Math.round(Number(this.sealed.floor || 0) * 100);
+                const stepC = Math.round(Number(this.sealed.step || 0) * 100);
+                const typed = this.sealedCustom[entryId];
+
+                if (typed === '' || typed === null || typed === undefined) return floorC / 100;
+
+                const currentC = Math.round(this.fromM(typed) * 100);
+                const nextC = direction === 'up' ? currentC + stepC : currentC - stepC;
+                const snappedC = stepC > 0 ? Math.round(nextC / stepC) * stepC : nextC;
+
+                return Math.max(floorC, snappedC) / 100;
+            },
+
+            async sealedStepAmount(entryId, direction) {
+                const amount = this.sealedSteppedAmount(entryId, direction);
+
+                // Shown before the round-trip so the control responds to the press itself.
+                this.sealedCustom[entryId] = String(this.toM(amount));
+
+                return this.sealedEntry(entryId, 'adjust', { amount });
             },
 
             /** Money entry in millions, shared with every other screen. */

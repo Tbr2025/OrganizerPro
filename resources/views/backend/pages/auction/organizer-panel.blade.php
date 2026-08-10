@@ -2349,16 +2349,57 @@ function auctionOrganizerPanel() {
             return this.sealedCommand(`entries/${entryId}/${action}`, body);
         },
 
+        /**
+         * The figure a step will land on, in raw units.
+         *
+         * Stepped on the client and sent as an explicit amount rather than asking the
+         * server to step: the server starts an untouched entry from the top standing bid,
+         * which is deliberately never sent here, so the box could not show where a press
+         * had landed. It showed the floor as a placeholder throughout while each press
+         * recorded a higher figure — the organizer pressed + eight times because nothing
+         * on screen moved.
+         *
+         * An empty box means nothing has been set yet, so the first press lands on the
+         * floor itself — the minimum legal bid, and the figure the placeholder was already
+         * promising — rather than a step above it.
+         *
+         * Integer cents, because the grain is two decimal places and a float would drift
+         * off the step grid after a few presses.
+         */
+        sealedSteppedAmount(entry, direction) {
+            const floorC = Math.round(Number(this.sealed.floor || 0) * 100);
+            const stepC = Math.round(Number(this.sealed.step || 0) * 100);
+            const typed = this.sealedAdjustAmount[entry.entry_id];
+
+            if (typed === undefined || typed === '') return floorC / 100;
+
+            const currentC = Math.round(this.fromM(typed) * 100);
+            const nextC = direction === 'up' ? currentC + stepC : currentC - stepC;
+
+            // Snap onto the grid as it steps, so a press also rescues an amount typed off
+            // it, and never below the round's own floor.
+            const snappedC = stepC > 0 ? Math.round(nextC / stepC) * stepC : nextC;
+
+            return Math.max(floorC, snappedC) / 100;
+        },
+
         sealedAdjust(entry, direction) {
-            return this.sealedEntryCommand(entry.entry_id, 'adjust', { direction });
+            const amount = this.sealedSteppedAmount(entry, direction);
+
+            // Shown before the round-trip so the control responds to the press itself.
+            this.sealedAdjustAmount[entry.entry_id] = String(this.toM(amount));
+
+            return this.sealedEntryCommand(entry.entry_id, 'adjust', { amount });
         },
 
         sealedAdjustCustom(entry) {
             const typed = this.sealedAdjustAmount[entry.entry_id];
             if (typed === undefined || typed === '') return;
-            // Entered in millions like every other money field on this screen.
-            return this.sealedEntryCommand(entry.entry_id, 'adjust', { amount: this.fromM(typed) })
-                .then(() => { this.sealedAdjustAmount[entry.entry_id] = ''; });
+
+            // Entered in millions like every other money field on this screen. The figure
+            // stays in the box afterwards — clearing it put the floor placeholder back and
+            // left no sign of what had just been recorded.
+            return this.sealedEntryCommand(entry.entry_id, 'adjust', { amount: this.fromM(typed) });
         },
 
         /**
