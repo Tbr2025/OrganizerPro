@@ -1331,10 +1331,15 @@
                 <div class="w-px h-8 bg-gray-700"></div>
 
                 {{-- 5. Action Buttons --}}
+                {{-- Greyed while the room is on hold: bidding is refused during a pause, so
+                     letting the hammer fall would award a player at a price nobody was
+                     allowed to answer. The server refuses it as well — the S shortcut gets
+                     here without the button. --}}
                 <button @click="sellPlayer()"
-                        :disabled="!currentPlayer || displayState !== 'bidding'"
+                        :disabled="!currentPlayer || displayState !== 'bidding' || auctionStatus === 'paused'"
+                        :title="auctionStatus === 'paused' ? 'Paused — resume before selling' : 'Sell (S)'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
-                        :class="(currentPlayer && displayState === 'bidding') ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">SELL</button>
+                        :class="(currentPlayer && displayState === 'bidding' && auctionStatus !== 'paused') ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">SELL</button>
                 <button @click="passPlayer()"
                         :disabled="!currentPlayer || displayState !== 'bidding' || !!currentPlayer?.current_bid_team_id"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
@@ -3388,7 +3393,10 @@ function auctionOrganizerPanel() {
 
             if (key === 'F' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); this.toggleFullscreen(); return; }
             if (key === 'N') { e.preventDefault(); this.loadNextPlayer(); return; }
-            if (key === 'S' && !e.ctrlKey && !e.metaKey && this.currentPlayer && this.displayState === 'bidding') {
+            // Matches the button, pause included — a greyed SELL that the shortcut still
+            // fires is not a block.
+            if (key === 'S' && !e.ctrlKey && !e.metaKey && this.currentPlayer
+                && this.displayState === 'bidding' && this.auctionStatus !== 'paused') {
                 e.preventDefault(); this.sellPlayer(); return;
             }
             if (key === 'P' && this.currentPlayer && this.displayState === 'bidding' && !this.currentPlayer?.current_bid_team_id) {

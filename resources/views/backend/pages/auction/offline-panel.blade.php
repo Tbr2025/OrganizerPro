@@ -1740,6 +1740,15 @@
             // ─── SELL CURRENT PLAYER ───
             async sellCurrentPlayer() {
                 if (!this.currentPlayer || !this.currentBidTeamId) return;
+
+                // Paused means paused here too. The server refuses it as well; this is so
+                // the operator is told why instead of losing a confirmation dialog to a
+                // rejection.
+                if (this.auctionStatus === 'paused') {
+                    this.toast('The auction is paused — resume it before selling.', 'error', 'Paused');
+                    return;
+                }
+
                 const team = this.getCurrentBidTeam();
                 const teamName = team?.name || 'Team #' + this.currentBidTeamId;
 

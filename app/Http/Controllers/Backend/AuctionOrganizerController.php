@@ -707,7 +707,21 @@ class AuctionOrganizerController extends Controller
      */
     public function sellPlayer(Request $request, Auction $auction)
     {
-        // dd($sellPlayer);
+        /*
+         * The hammer cannot fall while the room is on hold.
+         *
+         * Bidding is already refused during a pause, so selling through it awarded a player
+         * at a price no one was allowed to answer — the teams are told to stop and the one
+         * irreversible action carried on regardless. Enforced here rather than only by
+         * greying the button, because the S shortcut reaches this without touching it.
+         */
+        if ($auction->status === 'paused') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The auction is paused — resume it before selling.',
+            ], 422);
+        }
+
         $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
 
         $auctionPlayer = AuctionPlayer::where('id', $request->auction_player_id)
@@ -926,6 +940,15 @@ class AuctionOrganizerController extends Controller
      */
     public function sellToTeam(Request $request, Auction $auction)
     {
+        // Paused means paused on this path too — it is the same hammer, reached from the
+        // team picker rather than the SELL button.
+        if ($auction->status === 'paused') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The auction is paused — resume it before selling.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'auction_player_id' => 'required|exists:auction_players,id',
             'team_id' => 'required|exists:actual_teams,id',
