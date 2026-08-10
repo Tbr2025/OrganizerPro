@@ -187,7 +187,7 @@
                         </svg>
                     </div>
                     <h2 class="text-3xl font-bold text-gray-500 mb-2">Ready to Auction</h2>
-                    <p class="text-gray-600">Enter player number or press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd></p>
+                    <p class="text-gray-600">Hit <span class="px-2 py-1 bg-blue-600/80 rounded text-white text-sm font-bold">START</span> below, press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd>, or enter a player number</p>
                 </div>
             </template>
 
@@ -706,9 +706,11 @@
 
             <div class="w-px h-8 bg-gray-700"></div>
 
-            {{-- NEW button --}}
-            <button @click="loadNextPlayer()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded transition-colors whitespace-nowrap">
-                NEW (N)
+            {{-- NEW button. Reads START on an empty block, same as the main panel: with
+                 nobody up, this is how a run begins. --}}
+            <button @click="loadNextPlayer()"
+                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded transition-colors whitespace-nowrap"
+                    x-text="currentPlayer ? 'NEW (N)' : 'START (N)'">
             </button>
 
             <div class="w-px h-8 bg-gray-700"></div>

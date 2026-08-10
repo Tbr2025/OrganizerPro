@@ -616,7 +616,7 @@
                     </svg>
                 </div>
                 <h2 class="text-3xl font-bold text-gray-500 mb-2">Ready to Auction</h2>
-                <p class="text-gray-600">Press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd> for next player or enter ID below</p>
+                <p class="text-gray-600">Hit <span class="px-2 py-1 bg-blue-600/80 rounded text-white text-sm font-bold">START</span> below, press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd>, or enter a player ID</p>
             </div>
 
             {{-- ── RESTARTING ──
@@ -1251,11 +1251,16 @@
 
                 <div class="w-px h-8 bg-gray-700"></div>
 
-                {{-- 2. NEXT button --}}
+                {{-- 2. NEXT button.
+                     Reads START while the block is empty. It was the way to begin a run
+                     and said only "NEXT", so on the Ready to Auction screen there was
+                     nothing that looked like a way in -- the empty state pointed at the N
+                     key and the one button that does it named a different thing. Same
+                     action either way; only the label follows the state. --}}
                 <button @click="loadNextPlayer()"
                         :disabled="isTumbling || displayState === 'bidding' || availablePlayers.length === 0"
-                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded transition-colors whitespace-nowrap">
-                    NEXT (N)
+                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
+                        x-text="currentPlayer ? 'NEXT (N)' : 'START (N)'">
                 </button>
 
                 <div class="w-px h-8 bg-gray-700"></div>
