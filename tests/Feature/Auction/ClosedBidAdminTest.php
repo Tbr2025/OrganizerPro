@@ -258,14 +258,57 @@ class ClosedBidAdminTest extends TestCase
         $this->assertFalse($entry->fresh()->isWithdrawn());
     }
 
+    /**
+     * Undo takes the reveal off first, then the bids beneath it.
+     *
+     * A revealed round used to be a dead end: the reveal was not recorded, so undo reached
+     * straight past it to the bid and hit the guard below every time, leaving no way to
+     * correct a mistyped amount short of re-bidding the player.
+     */
     #[Test]
-    public function a_sealed_bid_cannot_be_undone_once_the_round_is_revealed(): void
+    public function undo_takes_the_reveal_off_before_the_bids_beneath_it(): void
     {
         ['auction' => $auction, 'round' => $round, 'teamA' => $teamA] = $this->scenario();
 
         $this->closedBids()->accept($round, $teamA);
         $this->closedBids()->submit($round, $teamA, 9_000_000, null);
         $this->closedBids()->lockAndReveal($round, null);
+
+        $this->assertTrue($round->fresh()->isRevealed());
+
+        $first = app(AuctionUndoService::class)->undoLast($auction);
+
+        $this->assertTrue($first['success']);
+        $this->assertFalse($round->fresh()->isRevealed());
+        $this->assertSame(AuctionClosedBidRound::STATE_COLLECTING, $round->fresh()->state);
+        $this->assertNull($round->fresh()->winner_team_id);
+
+        // With the board no longer revealed, the amount underneath comes off normally.
+        $second = app(AuctionUndoService::class)->undoLast($auction);
+
+        $this->assertTrue($second['success']);
+        $this->assertNull($round->entries()->where('actual_team_id', $teamA->id)->first()->amount);
+    }
+
+    #[Test]
+    public function a_sealed_bid_cannot_be_undone_while_the_board_is_still_revealed(): void
+    {
+        ['auction' => $auction, 'round' => $round, 'teamA' => $teamA] = $this->scenario();
+
+        $this->closedBids()->accept($round, $teamA);
+        $this->closedBids()->submit($round, $teamA, 9_000_000, null);
+        $this->closedBids()->lockAndReveal($round, null);
+
+        /*
+         * Take the reveal out of the stack WITHOUT restoring the round, so the board stays
+         * revealed and the bid is the next undoable action. That is how a round revealed
+         * before reveals were recorded still looks, and it is the only way to aim undo at
+         * the bid while the amounts are public — the ordinary ladder removes the reveal
+         * first, which is what the test above covers.
+         */
+        AuctionActionLog::where('auction_id', $auction->id)
+            ->where('action', AuctionActionLog::ACTION_CLOSED_REVEAL)
+            ->update(['undone_at' => now()]);
 
         $result = app(AuctionUndoService::class)->undoLast($auction);
 
