@@ -25,6 +25,17 @@ class AuctionActionLog extends Model
     public const ACTION_CLOSED_WITHDRAW = 'closed_withdraw';
     public const ACTION_CLOSED_LOT = 'closed_lot';
 
+    /*
+     * Lock & Reveal, so it can be stepped back like anything else.
+     *
+     * It used not to be recorded at all, which meant UNDO skipped straight over it to the
+     * last sealed bid — and undoing a bid under a revealed board is refused, because the
+     * winner on screen was worked out from the amounts being changed. So a revealed round
+     * could not be walked back at all: the one action that needed reversing was the one
+     * the stack did not know about.
+     */
+    public const ACTION_CLOSED_REVEAL = 'closed_reveal';
+
     /** Actions Undo knows how to reverse. */
     public const REVERSIBLE = [
         self::ACTION_BID,
@@ -36,6 +47,7 @@ class AuctionActionLog extends Model
         self::ACTION_CLOSED_ADJUST,
         self::ACTION_CLOSED_WITHDRAW,
         self::ACTION_CLOSED_LOT,
+        self::ACTION_CLOSED_REVEAL,
     ];
 
     protected $fillable = [

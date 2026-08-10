@@ -97,6 +97,7 @@ class AuctionUndoService
                 AuctionActionLog::ACTION_CLOSED_ADJUST,
                 AuctionActionLog::ACTION_CLOSED_WITHDRAW => $this->undoClosedEntryChange($locked),
                 AuctionActionLog::ACTION_CLOSED_LOT => $this->undoClosedLot($locked, $auctionPlayer),
+                AuctionActionLog::ACTION_CLOSED_REVEAL => $this->undoClosedReveal($locked),
                 default => ['success' => false, 'message' => 'That action cannot be undone.'],
             };
 
@@ -126,6 +127,66 @@ class AuctionUndoService
      *
      * @return array{success: bool, message: string}
      */
+    /**
+     * Put a revealed sealed round back to collecting.
+     *
+     * This is what makes a revealed round steppable at all. Undoing a sealed bid under a
+     * revealed board is refused — the winner on screen was derived from the amounts being
+     * changed, and silently leaving it there would show a result the bids no longer
+     * support. With the reveal itself on the stack, UNDO takes the reveal off first and
+     * the bids beneath it then step back one at a time, each re-revealed by pressing Lock
+     * again rather than recomputed behind the organizer's back.
+     *
+     * The award is not undone here: a sale is its own recorded step, so it is newer on the
+     * stack and comes off first. The guard is for the case where the two ever disagree.
+     */
+    private function undoClosedReveal(AuctionActionLog $log): array
+    {
+        $payload = $log->payload ?? [];
+
+        $round = isset($payload['round_id'])
+            ? AuctionClosedBidRound::lockForUpdate()->find($payload['round_id'])
+            : null;
+
+        if (! $round) {
+            return ['success' => false, 'message' => 'That sealed round no longer exists.'];
+        }
+
+        if ($round->state === AuctionClosedBidRound::STATE_AWARDED) {
+            return ['success' => false, 'message' => 'That player has been sold — undo the sale first.'];
+        }
+
+        $round->update([
+            'state' => $payload['state'] ?? AuctionClosedBidRound::STATE_COLLECTING,
+            'locked_at' => $payload['locked_at'] ?? null,
+            'revealed_at' => $payload['revealed_at'] ?? null,
+            'winner_team_id' => $payload['winner_team_id'] ?? null,
+            'winning_amount' => $payload['winning_amount'] ?? null,
+            'resolution' => $payload['resolution'] ?? null,
+            'tie_amount' => $payload['tie_amount'] ?? null,
+            'tied_team_ids' => $payload['tied_team_ids'] ?? null,
+
+            /*
+             * A fresh clock, not the one that had already run out.
+             *
+             * Collection is genuinely open again, and both submitting and adjusting are
+             * refused once a round's timer has expired — restoring the old start time
+             * would hand back a round in which nothing could be entered or corrected,
+             * which is the whole reason for stepping back to it.
+             */
+            'timer_started_at' => now(),
+        ]);
+
+        // Teams marked as having missed a required re-bid are put back as they were.
+        foreach ($payload['no_entry_entries'] ?? [] as $snapshot) {
+            if (isset($snapshot['id'], $snapshot['state'])) {
+                AuctionClosedBidEntry::whereKey($snapshot['id'])->update(['state' => $snapshot['state']]);
+            }
+        }
+
+        return ['success' => true, 'message' => 'Reveal undone — the round is collecting again.'];
+    }
+
     private function undoClosedEntryChange(AuctionActionLog $log): array
     {
         $payload = $log->payload ?? [];

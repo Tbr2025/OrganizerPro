@@ -867,6 +867,44 @@ class ClosedBidService
                 }
             }
 
+            /*
+             * Everything the reveal is about to overwrite, recorded before it moves.
+             *
+             * The reveal used not to be on the undo stack at all, so UNDO stepped over it
+             * to the last sealed bid — which is refused while a board is revealed, since
+             * the winner on screen was worked out from the very amounts being changed.
+             * A revealed round therefore could not be walked back at all. Recording it
+             * makes the reveal the next thing UNDO reverses, after which the bids beneath
+             * it step back normally.
+             *
+             * Past this point every path mutates and returns, so this is recorded once.
+             */
+            $noEntry = $round->entries()
+                ->required()
+                ->whereNull('submitted_at')
+                ->get()
+                ->map(fn (AuctionClosedBidEntry $e) => ['id' => $e->id, 'state' => $e->state])
+                ->all();
+
+            $this->undo->record(
+                $round->auction,
+                AuctionActionLog::ACTION_CLOSED_REVEAL,
+                $round->auctionPlayer,
+                [
+                    'round_id' => $round->id,
+                    'state' => $round->state,
+                    'locked_at' => $round->locked_at?->toIso8601String(),
+                    'revealed_at' => $round->revealed_at?->toIso8601String(),
+                    'winner_team_id' => $round->winner_team_id,
+                    'winning_amount' => $round->winning_amount !== null ? (float) $round->winning_amount : null,
+                    'resolution' => $round->resolution,
+                    'tie_amount' => $round->tie_amount !== null ? (float) $round->tie_amount : null,
+                    'tied_team_ids' => $round->tied_team_ids,
+                    'no_entry_entries' => $noEntry,
+                ],
+                'Locked and revealed the sealed round'
+            );
+
             // A team that was required to bid again and did not has left the tie. Its
             // earlier amount is deliberately NOT carried forward — doing so would
             // recreate the same tie every round and the ladder would never terminate.
