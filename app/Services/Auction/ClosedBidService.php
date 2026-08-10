@@ -643,6 +643,19 @@ class ClosedBidService
             $entry = $this->entryFor($round, $team);
             $before = $entry->amount !== null ? (float) $entry->amount : null;
 
+            /*
+             * Read BEFORE the update, like $before above.
+             *
+             * This used to be recorded as $entry->getOriginal('state') down in the log
+             * payload, which runs after the save — and Eloquent re-syncs originals on
+             * save, so it read back the state just written and every log claimed the
+             * entry was already 'submitted'. Undo then restored 'submitted' onto an entry
+             * whose amount it had just cleared to null, and that contradiction counted as
+             * a live sealed bid: it blocked the undo-below-threshold revert, leaving a
+             * sealed board running for a player back at 3M against an 8M threshold.
+             */
+            $previousState = $entry->state;
+
             $entry->update([
                 'state' => AuctionClosedBidEntry::STATE_SUBMITTED,
                 'amount' => $amount,
@@ -681,7 +694,7 @@ class ClosedBidService
                     'team_name' => $team->name,
                     'amount' => $amount,
                     'previous_amount' => $before,
-                    'previous_state' => $entry->getOriginal('state'),
+                    'previous_state' => $previousState,
                 ],
                 sprintf('Sealed bid %s by %s', format_points($amount), $team->name)
             );

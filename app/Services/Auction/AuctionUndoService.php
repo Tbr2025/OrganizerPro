@@ -146,8 +146,16 @@ class AuctionUndoService
         // A withdrawal and a reinstatement are the same action type; the payload says
         // which way it went.
         if (($payload['action'] ?? null) === 'withdraw') {
+            // Same contradiction guarded on the way back in: a team with no amount cannot
+            // be restored as having submitted one, and the default here is 'submitted'.
+            $restored = $payload['previous_state'] ?? \App\Models\AuctionClosedBidEntry::STATE_SUBMITTED;
+
+            if ($entry->amount === null && $restored === \App\Models\AuctionClosedBidEntry::STATE_SUBMITTED) {
+                $restored = \App\Models\AuctionClosedBidEntry::STATE_ACCEPTED;
+            }
+
             $entry->update([
-                'state' => $payload['previous_state'] ?? \App\Models\AuctionClosedBidEntry::STATE_SUBMITTED,
+                'state' => $restored,
                 'withdrawn_at' => null,
                 'withdrawn_by' => null,
                 'withdrawn_by_role' => null,
@@ -176,11 +184,27 @@ class AuctionUndoService
             array_pop($adjustments);
         }
 
+        /*
+         * With no amount to restore, the entry must land in a state that means "has not
+         * bid" — whatever the payload says.
+         *
+         * previous_state was recorded after the save for a while, so logs already written
+         * claim 'submitted' for an entry that was only invited. Restoring that verbatim
+         * produced submitted-with-no-amount, which counted as a live sealed bid and
+         * wedged the round. Those logs are still on disk and still undoable, so the
+         * contradiction is refused here as well as at the source.
+         */
+        $restoredState = $payload['previous_state'] ?? \App\Models\AuctionClosedBidEntry::STATE_ACCEPTED;
+
+        if ($previous === null && $restoredState === \App\Models\AuctionClosedBidEntry::STATE_SUBMITTED) {
+            $restoredState = \App\Models\AuctionClosedBidEntry::STATE_ACCEPTED;
+        }
+
         $entry->update([
             'amount' => $previous,
             'state' => $previous !== null
                 ? \App\Models\AuctionClosedBidEntry::STATE_SUBMITTED
-                : ($payload['previous_state'] ?? \App\Models\AuctionClosedBidEntry::STATE_ACCEPTED),
+                : $restoredState,
             'submitted_at' => $previous !== null ? $entry->submitted_at : null,
             'adjustments' => $adjustments,
             'adjusted_count' => max(0, (int) $entry->adjusted_count - ($log->action === AuctionActionLog::ACTION_CLOSED_ADJUST ? 1 : 0)),

@@ -92,7 +92,14 @@ class AuctionClosedBidEntry extends Model
      */
     public function scopeStanding($query)
     {
-        return $query->where('state', self::STATE_SUBMITTED)->whereNull('withdrawn_at');
+        // The amount is part of the definition, not an implied extra. An entry marked
+        // submitted with no amount is a contradiction rather than a bid, and counting one
+        // as standing let it act as a real sealed bid everywhere this scope is used —
+        // blocking the undo-below-threshold revert, inflating submitted_count, and being
+        // eligible to win a reveal with a null amount.
+        return $query->where('state', self::STATE_SUBMITTED)
+            ->whereNotNull('amount')
+            ->whereNull('withdrawn_at');
     }
 
     /** Teams obliged to bid again in a tie-break round. */
@@ -103,7 +110,9 @@ class AuctionClosedBidEntry extends Model
 
     public function isStanding(): bool
     {
-        return $this->state === self::STATE_SUBMITTED && $this->withdrawn_at === null;
+        return $this->state === self::STATE_SUBMITTED
+            && $this->amount !== null
+            && $this->withdrawn_at === null;
     }
 
     public function isWithdrawn(): bool
