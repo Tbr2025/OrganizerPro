@@ -1807,6 +1807,15 @@
             // ─── PASS PLAYER ───
             async passCurrentPlayer() {
                 if (!this.currentPlayer || this.currentBidTeamId) return;
+
+                // Told up front rather than after confirming, same as selling. Only this
+                // operator-initiated path is guarded — _passPlayerRequest() is shared with
+                // the timer-expiry flows, and a paused clock does not expire anyway.
+                if (this.auctionStatus === 'paused') {
+                    this.toast('The auction is paused — resume it before passing a player.', 'error', 'Paused');
+                    return;
+                }
+
                 if (! await this.askConfirm('Mark this player UNSOLD?', { title: 'Unsold', danger: true })) return;
 
                 this.unsoldPlayerName = this.currentPlayer.player?.name || 'Unknown';

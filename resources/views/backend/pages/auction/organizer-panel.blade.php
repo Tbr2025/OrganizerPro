@@ -1340,10 +1340,13 @@
                         :title="auctionStatus === 'paused' ? 'Paused — resume before selling' : 'Sell (S)'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
                         :class="(currentPlayer && displayState === 'bidding' && auctionStatus !== 'paused') ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">SELL</button>
+                {{-- Greyed while paused for the same reason as SELL: passing a player is as
+                     final as selling one, and the teams cannot bid to stop it. --}}
                 <button @click="passPlayer()"
-                        :disabled="!currentPlayer || displayState !== 'bidding' || !!currentPlayer?.current_bid_team_id"
+                        :disabled="!currentPlayer || displayState !== 'bidding' || !!currentPlayer?.current_bid_team_id || auctionStatus === 'paused'"
+                        :title="auctionStatus === 'paused' ? 'Paused — resume before passing' : 'Pass (P)'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
-                        :class="(currentPlayer && displayState === 'bidding' && !currentPlayer?.current_bid_team_id) ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">PASS</button>
+                        :class="(currentPlayer && displayState === 'bidding' && !currentPlayer?.current_bid_team_id && auctionStatus !== 'paused') ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">PASS</button>
                 <button @click="rebidCurrentPlayer()"
                         :disabled="!currentPlayer || displayState !== 'bidding'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
@@ -3399,7 +3402,9 @@ function auctionOrganizerPanel() {
                 && this.displayState === 'bidding' && this.auctionStatus !== 'paused') {
                 e.preventDefault(); this.sellPlayer(); return;
             }
-            if (key === 'P' && this.currentPlayer && this.displayState === 'bidding' && !this.currentPlayer?.current_bid_team_id) {
+            // Carries the pause condition too, like S above.
+            if (key === 'P' && this.currentPlayer && this.displayState === 'bidding'
+                && !this.currentPlayer?.current_bid_team_id && this.auctionStatus !== 'paused') {
                 e.preventDefault(); this.passPlayer(); return;
             }
             // Undo the last action. Ctrl/Cmd+Z works too, for muscle memory.

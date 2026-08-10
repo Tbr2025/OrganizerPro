@@ -793,6 +793,20 @@ class AuctionOrganizerController extends Controller
      */
     public function passPlayer(Request $request, Auction $auction)
     {
+        /*
+         * Nothing is settled while the room is on hold — passing a player is as final as
+         * selling one, and the teams cannot bid to stop it. Same 422 as the sell paths.
+         *
+         * sellPlayer() falls through to here when there are no bids, but refuses on pause
+         * before it gets this far, so that route never arrives in a paused auction.
+         */
+        if ($auction->status === 'paused') {
+            return response()->json([
+                'success' => false,
+                'message' => 'The auction is paused — resume it before passing a player.',
+            ], 422);
+        }
+
         $request->validate(['auction_player_id' => 'required|exists:auction_players,id']);
 
         // Scoped to this auction: without the auction_id filter this could mark a
