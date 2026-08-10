@@ -2134,7 +2134,31 @@ function auctionOrganizerPanel() {
                    number drifted away from the wall and the stream until the next poll
                    yanked it back. */
                 this.timerPaused = !!data.timer_paused;
-                if (this.timerPaused) this.stopBiddingTimer();
+
+                if (this.timerPaused) {
+                    this.stopBiddingTimer();
+                } else if (! this.biddingTimerInterval
+                    && ! this.biddingClosed
+                    && this.currentPlayer
+                    && this.displayState === 'bidding'
+                    && data.auction_status === 'running'
+                    && data.timer_enabled
+                    && (data.timer_seconds_remaining ?? 0) > 0) {
+                    /*
+                     * Pick the local tick back up when the server's clock is running and
+                     * ours is not.
+                     *
+                     * The tick only ever started as a player took the block, so a pause
+                     * killed it for good: resuming left the same player up, nothing
+                     * restarted it, and the number moved only when a poll landed — in
+                     * two-second jumps, with the closing calls (which escalate off the
+                     * local tick between polls) never firing at all.
+                     *
+                     * Written as "the server says running, we are not ticking" rather than
+                     * as a resume handler, so any other way the tick dies also recovers.
+                     */
+                    this.startBiddingTimer(data.timer_seconds_remaining);
+                }
 
                 if (data.timer_seconds_remaining !== null && data.timer_seconds_remaining !== undefined) {
                     this.biddingTimerSeconds = data.timer_seconds_remaining;
@@ -3007,7 +3031,22 @@ function auctionOrganizerPanel() {
             }
         },
 
+        /**
+         * Open the auction to the room.
+         *
+         * Resuming is NOT this, and used to run through it because one button covered both
+         * `scheduled` and `paused`. Two things went wrong on every resume:
+         *
+         *  - The server's start path calls stopTimer(), which clears the clock outright.
+         *    That is right when starting — nobody is on the block yet — and wrong when
+         *    resuming, where the player who was up is owed exactly the time that was left.
+         *    resumeTimer(), on the pause endpoint, is what gives it back.
+         *  - It forced displayState to 'waiting', so resuming dropped the live player off
+         *    the panel and showed Ready to Auction as though nobody were up.
+         */
         async startAuction() {
+            if (this.auctionStatus === 'paused') return this.resumeAuction();
+
             // Opens the auction to the room. Ending it already asks; starting it did not.
             if (! await this.askConfirm('Start the auction now?', { title: 'Start auction' })) return;
 
@@ -3016,6 +3055,22 @@ function auctionOrganizerPanel() {
                 this.auctionStatus = 'running';
                 this.statusText = 'Auction started! Select first player.';
                 this.displayState = 'waiting';
+            }
+        },
+
+        /**
+         * Pick the room back up where it was left.
+         *
+         * Goes through the same endpoint as Pause, so the clock is released by resumeTimer()
+         * and the player on the block keeps the seconds they had. Nothing about the display
+         * is assumed here — the poll that follows reports what is actually on the block.
+         */
+        async resumeAuction() {
+            const result = await this.sendCommand('toggle-pause');
+            if (result) {
+                this.auctionStatus = 'running';
+                this.statusText = 'Auction resumed.';
+                await this.pollAuctionState();
             }
         },
 
@@ -3058,10 +3113,20 @@ function auctionOrganizerPanel() {
             }
         },
 
+        /**
+         * Pause. Only ever reached from the running state — the button is hidden otherwise,
+         * and Resume has its own path.
+         *
+         * Set outright rather than flipped off whatever the panel last believed: a stale
+         * status flipped the wrong way and left the controls showing the opposite of what
+         * the server had. The poll then re-reads it from the server either way.
+         */
         async togglePause() {
             const result = await this.sendCommand('toggle-pause');
             if (result) {
-                this.auctionStatus = this.auctionStatus === 'running' ? 'paused' : 'running';
+                this.auctionStatus = 'paused';
+                this.stopBiddingTimer();
+                await this.pollAuctionState();
             }
         },
 
