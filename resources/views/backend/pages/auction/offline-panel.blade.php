@@ -1134,7 +1134,9 @@
          Escape/Enter are handled in handleKeydown(), which also swallows the shortcuts. --}}
     <div x-show="confirmBox.open" x-cloak
          class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4"
-         @click.self="_settleConfirm(false)"
+         {{-- A multi-choice dialog has no "Cancel" among its answers, so clicking
+             outside it must not stand in for one. --}}
+         @click.self="if (!confirmBox.choices) _settleConfirm(false)"
          x-transition.opacity>
         <div class="w-full max-w-md rounded-2xl bg-gray-900 border border-white/10 shadow-2xl p-6">
             <p class="text-sm font-bold uppercase tracking-wide"
@@ -2224,11 +2226,13 @@
             // ─── KEYBOARD SHORTCUTS ───
             handleKeydown(e) {
                 /* A confirmation is modal and must swallow the shortcuts — see the same
-                   guard on the organizer panel. Enter confirms, Escape cancels. */
+                   guard on the organizer panel. Enter confirms, Escape cancels — neither
+                   for a multi-choice dialog, which has no "the" confirm and no "Cancel"
+                   among its answers; the organizer has to press an actual button. */
                 if (this.confirmBox.open) {
                     e.preventDefault();
-                    if (e.key === 'Enter') this._settleConfirm(true);
-                    if (e.key === 'Escape') this._settleConfirm(false);
+                    if (e.key === 'Enter' && ! this.confirmBox.choices) this._settleConfirm(true);
+                    if (e.key === 'Escape' && ! this.confirmBox.choices) this._settleConfirm(false);
                     return;
                 }
 
