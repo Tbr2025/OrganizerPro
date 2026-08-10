@@ -142,6 +142,63 @@ class AuctionTimerPauseTest extends TestCase
     }
 
     #[Test]
+    public function starting_an_auction_releases_a_clock_left_paused(): void
+    {
+        [$org, $auction] = $this->runningAuction();
+        $operator = $this->makeAuctionOperator($org);
+
+        // Paused, then started again later — which is what an organizer does after a break.
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.toggle-pause', $auction))
+            ->assertOk();
+
+        $this->assertTrue($auction->fresh()->timerIsPaused());
+
+        $auction->update(['status' => 'paused']);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.start', $auction))
+            ->assertOk();
+
+        /*
+         * START set `status` and nothing else, so the auction came back RUNNING with
+         * `timer_paused_at` still set. The two screens then read different fields: the
+         * wall's paused overlay keys off `status` and showed nothing, while the countdown
+         * keys off `timer_paused` and sat frozen at a fixed number. On the live auction it
+         * stayed like that for hours, with no indication anywhere of why the clock had
+         * stopped.
+         */
+        $fresh = $auction->fresh();
+
+        $this->assertSame('running', $fresh->status);
+        $this->assertFalse($fresh->timerIsPaused(), 'a running auction must not hold a pause mark');
+        $this->assertNull($fresh->timer_paused_at);
+    }
+
+    #[Test]
+    public function restarting_while_paused_does_not_leave_the_clock_frozen(): void
+    {
+        [$org, $auction] = $this->runningAuction();
+        $operator = $this->makeAuctionOperator($org);
+        $this->makeAuctionPlayer($auction, ['status' => 'on_auction']);
+
+        $auction->pauseTimer();
+        $auction->update(['status' => 'paused']);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.restart', $auction))
+            ->assertOk();
+
+        // The same split state as Start, reached a different way: restart cleared
+        // timer_started_at but not the pause mark.
+        $fresh = $auction->fresh();
+
+        $this->assertSame('running', $fresh->status);
+        $this->assertNull($fresh->timer_paused_at);
+        $this->assertFalse($fresh->timerIsPaused());
+    }
+
+    #[Test]
     public function resuming_an_auction_that_was_never_timing_is_harmless(): void
     {
         // No player up, so no clock was ever started.

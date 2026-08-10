@@ -426,6 +426,22 @@ class AuctionOrganizerController extends Controller
         }
 
         $auction->update(['status' => 'running']);
+
+        /*
+         * Release any clock left frozen by an earlier pause.
+         *
+         * This set `status` and nothing else, so Pause followed later by Start produced an
+         * auction that was RUNNING with `timer_paused_at` still set — and the two screens
+         * read different fields. The wall's paused overlay keys off `status`, so it showed
+         * nothing; the countdown keys off `timer_paused`, so it sat frozen at a fixed number
+         * with no explanation anywhere. It stayed that way for hours on the live auction.
+         *
+         * stopTimer() rather than resumeTimer(): nobody is on the block at the moment an
+         * auction starts, so the clock should be clear, not shifted forward by however long
+         * the pause lasted.
+         */
+        $auction->stopTimer();
+
         broadcast(new AuctionStatusUpdate($auction->id, 'running'));
 
         // In-app notices only, and only when this auction wants them.
@@ -549,6 +565,10 @@ class AuctionOrganizerController extends Controller
                 // Without this the big screen keeps counting down a player who is no
                 // longer on the block — a live clock over the waiting screen.
                 'timer_started_at' => null,
+                // And the pause mark with it. Restarting while paused used to leave this
+                // set, so the auction came back RUNNING with a clock frozen before it
+                // started — the same split state as Start, reached a different way.
+                'timer_paused_at' => null,
                 // Announce the restart instead of silently blanking to the waiting state.
                 'restarted_at' => now(),
             ]);
