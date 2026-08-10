@@ -79,7 +79,7 @@
 
           <!-- Turnstile CAPTCHA -->
           @if(config('turnstile.site_key') && !app()->environment('local'))
-              <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="auto"></div>
+              <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="auto" data-retry="auto" data-retry-interval="1500" data-refresh-expired="auto"></div>
           @endif
 
           <!-- Sign In Button -->
@@ -152,6 +152,8 @@
 
 @if(config('turnstile.site_key') && !app()->environment('local'))
     @push('scripts')
+        <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
+        <link rel="dns-prefetch" href="https://challenges.cloudflare.com">
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     @endpush
 @endif

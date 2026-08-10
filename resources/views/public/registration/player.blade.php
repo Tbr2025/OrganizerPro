@@ -226,7 +226,7 @@
             {{-- Turnstile CAPTCHA --}}
             @if(config('turnstile.site_key') && !app()->environment('local'))
             <div class="flex justify-center my-4">
-                <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="dark"></div>
+                <div class="cf-turnstile" data-sitekey="{{ config('turnstile.site_key') }}" data-theme="dark" data-retry="auto" data-retry-interval="1500" data-refresh-expired="auto"></div>
             </div>
             @endif
 
@@ -258,7 +258,9 @@
 
 @if(config('turnstile.site_key') && !app()->environment('local'))
 @push('scripts')
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
+        <link rel="dns-prefetch" href="https://challenges.cloudflare.com">
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 @endpush
 @endif
 
