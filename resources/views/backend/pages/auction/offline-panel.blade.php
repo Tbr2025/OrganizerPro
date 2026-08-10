@@ -218,8 +218,10 @@
                                 <div class="text-[10px] uppercase tracking-wider text-gray-500">Time</div>
                                 <div class="text-xl font-black text-white" x-text="sealed.timer?.remaining ?? '—'"></div>
                             </div>
-                            <button x-show="sealed.state === 'pending'" @click="sealedCommand('open-entry')"
-                                    class="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold">Open Entry</button>
+                            <button x-show="sealed.state === 'pending'" @click="sealedOpenEntry()"
+                                    class="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold">
+                                Open Entry (<span x-text="sealedSelectedCount"></span>)
+                            </button>
                             <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedCommand('start')"
                                     class="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold">Start Round</button>
                             <button x-show="sealed.state === 'collecting'" @click="sealedCommand('lock')"
@@ -330,7 +332,33 @@
                                 </div>
                             </div>
                         </template>
-                        <p x-show="!(sealed.entries || []).length" class="text-sm text-gray-500 py-6 text-center">
+                        {{-- Which teams take part, chosen before Open Entry — same as the main
+                             organizer panel. --}}
+                        <template x-if="sealed.state === 'pending'">
+                            <div class="py-3">
+                                <p class="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">
+                                    Select which teams take part in this round
+                                </p>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    <template x-for="team in (teams || [])" :key="team.id">
+                                        <label class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
+                                               :class="isSealedTeamSelected(team.id)
+                                                   ? 'border-purple-500 bg-purple-500/10'
+                                                   : 'border-gray-800 bg-gray-900/40'">
+                                            <input type="checkbox" class="accent-purple-500"
+                                                   :checked="isSealedTeamSelected(team.id)"
+                                                   @change="toggleSealedTeam(team.id)">
+                                            <template x-if="team.logo_url">
+                                                <img :src="team.logo_url" class="w-5 h-5 rounded-full object-cover shrink-0" alt="">
+                                            </template>
+                                            <span class="text-white text-xs font-semibold truncate" x-text="team.name"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <p x-show="sealed.state !== 'pending' && !(sealed.entries || []).length" class="text-sm text-gray-500 py-6 text-center">
                             Press <strong>Open Entry</strong> to bring the teams into this round.
                         </p>
                     </div>
@@ -783,7 +811,7 @@
                         </div>
                     </div>
 
-                    <button x-show="sealed.state === 'pending'" @click="sealedCommand('open-entry')"
+                    <button x-show="sealed.state === 'pending'" @click="sealedOpenEntry()"
                             class="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold">Open Entry</button>
                     <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedCommand('start')"
                             class="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold">Start</button>
@@ -1252,6 +1280,50 @@
             // auction that crossed its threshold left the organizer with a frozen price
             // and no way to run the round.
             sealed: { active: false },
+
+            // Which teams to invite into the NEXT sealed round — see the matching state on
+            // the main organizer panel. null means everyone eligible.
+            sealedTeamSelection: null,
+
+            isSealedTeamSelected(teamId) {
+                return this.sealedTeamSelection === null || this.sealedTeamSelection.includes(teamId);
+            },
+
+            toggleSealedTeam(teamId) {
+                if (this.sealedTeamSelection === null) {
+                    this.sealedTeamSelection = (this.teams || [])
+                        .map(t => t.id)
+                        .filter(id => id !== teamId);
+                    return;
+                }
+                if (this.sealedTeamSelection.includes(teamId)) {
+                    this.sealedTeamSelection = this.sealedTeamSelection.filter(id => id !== teamId);
+                } else {
+                    this.sealedTeamSelection.push(teamId);
+                }
+            },
+
+            get sealedSelectedCount() {
+                return this.sealedTeamSelection === null
+                    ? (this.teams || []).length
+                    : this.sealedTeamSelection.length;
+            },
+
+            async sealedOpenEntry() {
+                const ids = this.sealedTeamSelection === null
+                    ? (this.teams || []).map(t => t.id)
+                    : this.sealedTeamSelection;
+
+                if (ids.length === 0) {
+                    this.toast('Select at least one team to invite.', 'error');
+                    return null;
+                }
+
+                const result = await this.sealedCommand('open-entry', { team_ids: ids });
+                if (result?.handled) this.sealedTeamSelection = null;
+                return result;
+            },
+
             currentBidAmount: {{ $currentPlayer?->current_price ?? 0 }},
             currentBidTeamId: {{ $currentPlayer?->current_bid_team_id ?? 'null' }},
             basePrice: {{ $currentPlayer?->base_price ?? 0 }},
@@ -2131,6 +2203,9 @@
                             this.dismissOverlays();
                             // Allow a fresh time-up announcement for this player.
                             this._timerFiredForPlayer = null;
+                            // A team selection made for the last player's sealed round must
+                            // not silently carry into this one.
+                            this.sealedTeamSelection = null;
                         }
                         this.currentPlayer = cp;
                         this.currentBidAmount = parseFloat(cp.current_price) || cp.base_price;

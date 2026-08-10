@@ -127,10 +127,24 @@ class ClosedBidRoundController extends Controller
         ]);
     }
 
-    /** Invite the teams and show them the conditions. */
+    /**
+     * Invite the teams and show them the conditions.
+     *
+     * Optionally scoped to `team_ids` — the organizer's pre-selected subset for this
+     * round. Omitting it invites everyone eligible, the pre-existing default.
+     */
     public function openEntry(Request $request, Auction $auction): JsonResponse
     {
-        return $this->run($request, $auction, fn ($round) => $this->closedBids->openEntry($round, auth()->user()));
+        $validated = $request->validate([
+            'team_ids' => 'nullable|array',
+            'team_ids.*' => 'integer',
+        ]);
+
+        return $this->run($request, $auction, fn ($round) => $this->closedBids->openEntry(
+            $round,
+            auth()->user(),
+            $validated['team_ids'] ?? null
+        ));
     }
 
     /** Start collecting sealed amounts, and start the round's clock. */

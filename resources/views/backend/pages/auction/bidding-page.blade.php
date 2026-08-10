@@ -284,8 +284,20 @@
                             </div>
                         </template>
 
+                        {{-- Left out of this round. The organizer chooses which teams take
+                             part, so say so plainly rather than showing an entry form the
+                             server would refuse. --}}
+                        <template x-if="sealed.active && sealed.invited === false">
+                            <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3.5 text-center">
+                                <div class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Sealed Round</div>
+                                <p class="text-gray-500 text-[11px]">
+                                    Your team is not taking part in this player's sealed round.
+                                </p>
+                            </div>
+                        </template>
+
                         {{-- The conditions, and the decision to enter --}}
-                        <template x-if="sealed.active && sealed.state === 'entry_open' && sealedEntryState !== 'accepted'">
+                        <template x-if="sealed.active && sealed.invited !== false && sealed.state === 'entry_open' && sealedEntryState !== 'accepted'">
                             <div class="bg-gray-900/60 border border-purple-500/25 rounded-lg p-3.5">
                                 <div class="text-purple-300 text-xs font-bold uppercase tracking-wider mb-2.5 text-center">Enter Sealed Round</div>
 
@@ -710,6 +722,9 @@ function teamBiddingPanel() {
         /** Is the team in a position to type an amount at all? */
         get sealedCanBid() {
             if (!this.sealed.active || this.sealed.state !== 'collecting') return false;
+            // Not one of the teams this round was opened to. Without this, a round that
+            // does not require acceptance offered the bid box to every team.
+            if (this.sealed.invited === false) return false;
             if (this.sealedEntryState === 'withdrawn' || this.sealedEntryState === 'declined') return false;
             if (this.sealed.requires_acceptance) {
                 return ['accepted', 'submitted', 'must_rebid', 'may_opt_in'].includes(this.sealedEntryState);

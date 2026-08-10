@@ -478,7 +478,39 @@
                                 </div>
                             </template>
 
-                            <div x-show="!(sealed.entries || []).length" class="px-4 py-6 text-center text-gray-500 text-sm">
+                            {{-- Which teams take part, chosen BEFORE Open Entry rather than after
+                                 every eligible team is already invited. An expensive player does
+                                 not always need every team weighing in, and there was no way to
+                                 leave one out before the board was already built around it. --}}
+                            <template x-if="sealed.state === 'pending'">
+                                <div class="px-4 py-4">
+                                    <p class="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">
+                                        Select which teams take part in this round
+                                    </p>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                        <template x-for="team in (teams || [])" :key="team.id">
+                                            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
+                                                   :class="isSealedTeamSelected(team.id)
+                                                       ? 'border-purple-500 bg-purple-500/10'
+                                                       : 'border-gray-800 bg-gray-900/40'">
+                                                <input type="checkbox" class="accent-purple-500"
+                                                       :checked="isSealedTeamSelected(team.id)"
+                                                       @change="toggleSealedTeam(team.id)">
+                                                <template x-if="team.logo_url">
+                                                    <img :src="team.logo_url" class="w-5 h-5 rounded-full object-cover shrink-0" alt="">
+                                                </template>
+                                                <span class="text-white text-xs font-semibold truncate" x-text="team.name"></span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                    <p x-show="!(teams || []).length" class="text-gray-500 text-sm text-center py-2">
+                                        No teams available.
+                                    </p>
+                                </div>
+                            </template>
+
+                            <div x-show="sealed.state !== 'pending' && !(sealed.entries || []).length"
+                                 class="px-4 py-6 text-center text-gray-500 text-sm">
                                 No teams invited yet.
                             </div>
                         </div>
@@ -492,7 +524,9 @@
 
                             <div class="flex gap-2">
                                 <button x-show="sealed.state === 'pending'" @click="sealedOpenEntry()"
-                                        class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">Open Entry</button>
+                                        class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">
+                                    Open Entry (<span x-text="sealedSelectedCount"></span>)
+                                </button>
                                 <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedStart()"
                                         class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold">Start Closed Bid</button>
                                 <button x-show="sealed.state === 'collecting'" @click="sealedLock()"
@@ -1779,6 +1813,45 @@ function auctionOrganizerPanel() {
         sealedAdjustAmount: {},
         sealedManualReason: '',
 
+        /*
+         * Which teams to invite into the NEXT sealed round, before Open Entry is pressed.
+         *
+         * Open Entry used to invite every participating team unconditionally — an
+         * expensive player does not always need every team weighing in, and the organizer
+         * had no way to leave some out before the board was already built.
+         *
+         * null means "everyone", so a round opened with no selection made behaves exactly
+         * as before. Reset to null whenever a new player takes the block, so a choice made
+         * for one player's round never carries into the next.
+         */
+        sealedTeamSelection: null,
+
+        isSealedTeamSelected(teamId) {
+            return this.sealedTeamSelection === null || this.sealedTeamSelection.includes(teamId);
+        },
+
+        toggleSealedTeam(teamId) {
+            if (this.sealedTeamSelection === null) {
+                // Leaving "all selected" for an explicit set: everyone stays checked
+                // except the one just clicked.
+                this.sealedTeamSelection = (this.teams || [])
+                    .map(t => t.id)
+                    .filter(id => id !== teamId);
+                return;
+            }
+            if (this.sealedTeamSelection.includes(teamId)) {
+                this.sealedTeamSelection = this.sealedTeamSelection.filter(id => id !== teamId);
+            } else {
+                this.sealedTeamSelection.push(teamId);
+            }
+        },
+
+        get sealedSelectedCount() {
+            return this.sealedTeamSelection === null
+                ? (this.teams || []).length
+                : this.sealedTeamSelection.length;
+        },
+
         showShuffleOverlay: false,
         shufflePhase: 'spinning',
         shuffleDisplayName: '',
@@ -2102,6 +2175,9 @@ function auctionOrganizerPanel() {
                         this.displayState = 'bidding';
                         this.biddingClosed = false;
                         this.sealedBids = [];
+                        // A team selection made for the last player's sealed round must not
+                        // silently carry into this one.
+                        this.sealedTeamSelection = null;
                         this.resetOfflinePanel();
                         this.statusText = `${newPlayer.player?.name} is now live!`;
                         this._lastCurrentPlayerId = newPlayer.id;
@@ -2218,7 +2294,22 @@ function auctionOrganizerPanel() {
             }
         },
 
-        sealedOpenEntry() { return this.sealedCommand('open-entry'); },
+        async sealedOpenEntry() {
+            const ids = this.sealedTeamSelection === null
+                ? (this.teams || []).map(t => t.id)
+                : this.sealedTeamSelection;
+
+            if (ids.length === 0) {
+                this.toast('Select at least one team to invite.', 'error');
+                return null;
+            }
+
+            const result = await this.sealedCommand('open-entry', { team_ids: ids });
+            // Handled once, so a stray re-selection doesn't linger for whatever round
+            // comes after this one.
+            if (result?.handled) this.sealedTeamSelection = null;
+            return result;
+        },
         sealedStart() { return this.sealedCommand('start'); },
         sealedLock() { return this.sealedCommand('lock'); },
         sealedStartRebid() { return this.sealedCommand('start-rebid'); },

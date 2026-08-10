@@ -180,6 +180,14 @@ class ClosedBidService
             ? $round->entries()->where('actual_team_id', $actualTeamId)->first()
             : null;
 
+        /*
+         * A round may be opened to a chosen subset of teams, so "no entry" now has two
+         * meanings: nobody has been invited yet (pending), or this team was deliberately
+         * left out. The panel needs to tell those apart — one is "wait", the other is
+         * "this round is not yours".
+         */
+        $invited = $entry !== null || $round->state === AuctionClosedBidRound::STATE_PENDING;
+
         $purse = $actualTeamId ? $this->pools->teamPurseState($auction, $actualTeamId) : null;
         $timer = $auction->closedBidRoundTimerState($round);
 
@@ -192,6 +200,7 @@ class ClosedBidService
             'floor' => (float) $round->floor,
             'step' => (float) $round->step,
             'requires_acceptance' => $auction->closedBidRequiresAcceptance(),
+            'invited' => $invited,
             'timer' => $timer,
 
             // The tied amount is public to the round's participants; who tied is not.
@@ -374,9 +383,14 @@ class ClosedBidService
      * Each invitation records the ceilings the team is being shown, so a later dispute
      * about "the system told me I could bid 7M" can be settled from the record.
      */
-    public function openEntry(AuctionClosedBidRound $round, ?User $actor = null): array
+    /**
+     * @param  list<int>|null  $teamIds  The organizer's chosen subset, or null for everyone
+     *                                    eligible — the pre-existing default, still used by
+     *                                    startRound()'s "start without opening entry first".
+     */
+    public function openEntry(AuctionClosedBidRound $round, ?User $actor = null, ?array $teamIds = null): array
     {
-        return DB::transaction(function () use ($round, $actor) {
+        return DB::transaction(function () use ($round, $actor, $teamIds) {
             $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
 
             if ($round->state !== AuctionClosedBidRound::STATE_PENDING) {
@@ -384,8 +398,22 @@ class ClosedBidService
             }
 
             $auction = $round->auction;
+            $eligible = $this->eligibleTeams($auction);
 
-            foreach ($this->eligibleTeams($auction) as $team) {
+            /*
+             * A chosen subset is INTERSECTED with who is actually eligible, never taken on
+             * trust — a client sending an id for a team that was never approved for this
+             * auction must not be able to invite it into a sealed round.
+             */
+            $teams = $teamIds === null
+                ? $eligible
+                : $eligible->filter(fn ($t) => in_array((int) $t->id, array_map('intval', $teamIds), true));
+
+            if ($teams->isEmpty()) {
+                return ['handled' => false, 'message' => 'Select at least one team to invite.'];
+            }
+
+            foreach ($teams as $team) {
                 $purse = $this->pools->teamPurseState($auction, $team->id);
 
                 AuctionClosedBidEntry::updateOrCreate(
@@ -410,7 +438,13 @@ class ClosedBidService
                 'opened_by' => $actor?->id,
             ]);
 
-            return ['handled' => true, 'message' => 'Teams may now enter the sealed round.', 'round' => $round->fresh()];
+            return [
+                'handled' => true,
+                'message' => $teamIds === null
+                    ? 'Teams may now enter the sealed round.'
+                    : sprintf('%d team%s invited to the sealed round.', $teams->count(), $teams->count() === 1 ? '' : 's'),
+                'round' => $round->fresh(),
+            ];
         });
     }
 
@@ -458,6 +492,12 @@ class ClosedBidService
                 return ['handled' => false, 'message' => 'That round is closed.'];
             }
 
+            // Only teams the round was opened to. A round can be opened to a chosen
+            // subset, and a team left out must not be able to enter from its own panel.
+            if (! $this->invitedEntry($round, $team)) {
+                return ['handled' => false, 'message' => 'Your team is not in this round.'];
+            }
+
             $auction = $round->auction;
             $ceiling = $this->pools->perPlayerCeiling($auction, $team->id);
 
@@ -494,10 +534,15 @@ class ClosedBidService
     /** A team declines the round outright. */
     public function decline(AuctionClosedBidRound $round, ActualTeam $team): array
     {
-        $entry = $this->entryFor($round, $team);
-
         if ($round->isTerminal() || $round->locked_at !== null) {
             return ['handled' => false, 'message' => 'That round is closed.'];
+        }
+
+        // Nothing to leave if the round was never opened to this team.
+        $entry = $this->invitedEntry($round, $team);
+
+        if (! $entry) {
+            return ['handled' => false, 'message' => 'Your team is not in this round.'];
         }
 
         $entry->update([
@@ -539,10 +584,20 @@ class ClosedBidService
                 return ['handled' => false, 'message' => 'Time is up for this round.'];
             }
 
-            if ($auction->closedBidRequiresAcceptance() && $source === AuctionClosedBidEntry::ROLE_TEAM) {
-                $existing = $round->entries()->where('actual_team_id', $team->id)->first();
+            if ($source === AuctionClosedBidEntry::ROLE_TEAM) {
+                $existing = $this->invitedEntry($round, $team);
 
-                if (! $existing || ! in_array($existing->state, [
+                /*
+                 * Checked whether or not acceptance is required. With acceptance off there
+                 * was no per-team gate at all here, so entryFor() below would have created
+                 * an entry on the spot — letting a team the organizer left out of the round
+                 * bid its way into it.
+                 */
+                if (! $existing) {
+                    return ['handled' => false, 'message' => 'Your team is not in this round.'];
+                }
+
+                if ($auction->closedBidRequiresAcceptance() && ! in_array($existing->state, [
                     AuctionClosedBidEntry::STATE_ACCEPTED,
                     AuctionClosedBidEntry::STATE_SUBMITTED,
                     AuctionClosedBidEntry::STATE_MUST_REBID,
@@ -1337,6 +1392,19 @@ class ClosedBidService
     }
 
     /** The team's row for this round, created on demand. */
+    /**
+     * The team's entry, or null if the round was never opened to it.
+     *
+     * The strict counterpart to entryFor(): every team-initiated action goes through this
+     * first, because entryFor() would create the missing entry and admit a team the
+     * organizer deliberately left out of the round.
+     */
+    private function invitedEntry(AuctionClosedBidRound $round, ActualTeam $team): ?AuctionClosedBidEntry
+    {
+        return $round->entries()->where('actual_team_id', $team->id)->first();
+    }
+
+    /** The team's entry, created as an invitation if it does not exist yet. */
     private function entryFor(AuctionClosedBidRound $round, ActualTeam $team): AuctionClosedBidEntry
     {
         return AuctionClosedBidEntry::firstOrCreate(
