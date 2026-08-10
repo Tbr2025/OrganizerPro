@@ -1304,6 +1304,25 @@ class ClosedBidService
                 'team_name' => $team->name,
                 'audit_bid_id' => $auditBid->id,
                 'round_id' => $round->id,
+
+                /*
+                 * The round as it stands before the award, so undoing the sale can put it
+                 * back. Undo used to unwind the player and the audit bid but leave the
+                 * round marked awarded, which is terminal — the player returned to the
+                 * block while the round that decided them stayed closed, with no way to
+                 * award again or to step any further back.
+                 *
+                 * Recorded here rather than after, while $round still holds the old values:
+                 * the update that marks it awarded runs below.
+                 */
+                'round_before' => [
+                    'state' => $round->state,
+                    'resolution' => $round->resolution,
+                    'winner_team_id' => $round->winner_team_id,
+                    'winning_amount' => $round->winning_amount !== null ? (float) $round->winning_amount : null,
+                    'resolved_at' => $round->resolved_at?->toIso8601String(),
+                    'resolved_by' => $round->resolved_by,
+                ],
             ],
             sprintf('Sealed round: awarded to %s for %s', $team->name, format_points($amount))
         );

@@ -152,7 +152,16 @@ class AuctionUndoService
             return ['success' => false, 'message' => 'That sealed round no longer exists.'];
         }
 
-        if ($round->state === AuctionClosedBidRound::STATE_AWARDED) {
+        /*
+         * Keyed on the player still being sold, not on the round saying `awarded`.
+         *
+         * Those two came apart: undoing the sale left the round marked awarded, so this
+         * refused for a player who was already back on the block and told the organizer to
+         * undo a sale that no longer existed — a dead end with nothing left to press.
+         * reopenAwardedRound() now keeps the round in step, and reading the player's own
+         * status here recovers rounds that were already stranded by the old behaviour.
+         */
+        if ($round->auctionPlayer?->status === 'sold') {
             return ['success' => false, 'message' => 'That player has been sold — undo the sale first.'];
         }
 
@@ -526,6 +535,9 @@ class AuctionUndoService
             ]);
         }
 
+        // A sealed award also closed the round that decided it; reopen that too.
+        $this->reopenAwardedRound($log->payload ?? []);
+
         $teamName = $log->payload['team_name'] ?? 'the team';
         $amount = $log->payload['amount'] ?? null;
 
@@ -535,6 +547,51 @@ class AuctionUndoService
                 ? sprintf('Undid sale to %s for %s. Player is back on the block.', $teamName, format_points($amount))
                 : sprintf('Undid sale to %s. Player is back on the block.', $teamName),
         ];
+    }
+
+    /**
+     * Take a sealed round back out of `awarded` when its sale is undone.
+     *
+     * `awarded` is terminal. Undoing the sale put the player back on the block but left
+     * the round closed on top of them — so the board could not be awarded again, and the
+     * reveal beneath it could not be stepped back either, because undoing a reveal under
+     * an awarded round is refused. The player was recoverable; the round was not.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function reopenAwardedRound(array $payload): void
+    {
+        $roundId = $payload['round_id'] ?? null;
+
+        if (! $roundId) {
+            return;
+        }
+
+        $round = AuctionClosedBidRound::find($roundId);
+
+        if (! $round || $round->state !== AuctionClosedBidRound::STATE_AWARDED) {
+            return;
+        }
+
+        $before = $payload['round_before'] ?? null;
+
+        /*
+         * Sales recorded before the snapshot existed still have to be recoverable, so they
+         * fall back to a revealed board: the winner and amount stay on it, which is what
+         * the reveal itself worked out, and the organizer can award again or step back.
+         */
+        $round->update($before ? [
+            'state' => $before['state'] ?? AuctionClosedBidRound::STATE_REVEALED,
+            'resolution' => $before['resolution'] ?? null,
+            'winner_team_id' => $before['winner_team_id'] ?? null,
+            'winning_amount' => $before['winning_amount'] ?? null,
+            'resolved_at' => $before['resolved_at'] ?? null,
+            'resolved_by' => $before['resolved_by'] ?? null,
+        ] : [
+            'state' => AuctionClosedBidRound::STATE_REVEALED,
+            'resolved_at' => null,
+            'resolved_by' => null,
+        ]);
     }
 
     /**
