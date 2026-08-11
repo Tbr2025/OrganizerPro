@@ -26,6 +26,14 @@ use App\Services\Auction\AuctionPoolService;
  */
 class AuctionSnapshotExport
 {
+    /**
+     * The four fills the finance workbook this board replaces uses, in its order: yellow,
+     * blue, green, amber. Cycled when an auction has more teams than colours — the colour is
+     * there to separate a team's column pair from its NEIGHBOUR's, so repeating one six columns
+     * away costs nothing.
+     */
+    private const TEAM_COLOURS = ['FFFF00', '00B0F0', '92D050', 'FFC000'];
+
     public function __construct(private readonly AuctionPoolService $pools)
     {
     }
@@ -107,9 +115,15 @@ class AuctionSnapshotExport
 
         foreach ($teams as $i => $team) {
             $col = $firstTeamCol + $i * 2;
-            $head[$col] = (string) $team->name;
-            $sub[$col] = 'PLAYERS';
-            $sub[$col + 1] = 'POINTS';
+            $fill = self::TEAM_COLOURS[$i % count(self::TEAM_COLOURS)];
+
+            // Colour on the two header rows, which is where it does the work: it is what makes
+            // one team's PLAYERS/POINTS pair readable as a pair rather than as two loose
+            // columns among a dozen.
+            $head[$col] = ['v' => (string) $team->name, 'fill' => $fill];
+            $head[$col + 1] = ['v' => '', 'fill' => $fill];
+            $sub[$col] = ['v' => 'PLAYERS', 'fill' => $fill];
+            $sub[$col + 1] = ['v' => 'POINTS', 'fill' => $fill];
             $merges[] = $this->columnLetter($col) . '1:' . $this->columnLetter($col + 1) . '1';
         }
 

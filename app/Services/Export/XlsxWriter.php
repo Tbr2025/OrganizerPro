@@ -31,6 +31,13 @@ class XlsxWriter
     private array $sheets = [];
 
     /**
+     * Fill colours in use, ARGB or RGB => cellXfs index.
+     *
+     * @var array<string, int>
+     */
+    private array $fillStyles = [];
+
+    /**
      * @param  array<int, array<int, mixed>>  $rows  The first row is treated as headers.
      * @param  array<int, string>  $merges  Optional A1-style ranges, e.g. ['E1:F1'].
      */
@@ -58,17 +65,26 @@ class XlsxWriter
             throw new RuntimeException("Could not create {$path}.");
         }
 
+        /*
+         * Sheets are rendered BEFORE styles.xml is written, because writing a cell is what
+         * registers its fill colour — styles.xml has to know all of them, and it was being
+         * written first, so every colour was silently dropped and the header cells referenced
+         * a style that did not exist.
+         */
+        $bodies = [];
+
+        foreach ($this->sheets as $i => $sheet) {
+            $bodies[$i] = $this->sheetXml($sheet['rows'], $sheet['merges'] ?? []);
+        }
+
         $zip->addFromString('[Content_Types].xml', $this->contentTypes());
         $zip->addFromString('_rels/.rels', $this->rootRels());
         $zip->addFromString('xl/workbook.xml', $this->workbook());
         $zip->addFromString('xl/_rels/workbook.xml.rels', $this->workbookRels());
         $zip->addFromString('xl/styles.xml', $this->styles());
 
-        foreach ($this->sheets as $i => $sheet) {
-            $zip->addFromString(
-                'xl/worksheets/sheet' . ($i + 1) . '.xml',
-                $this->sheetXml($sheet['rows'], $sheet['merges'] ?? [])
-            );
+        foreach ($bodies as $i => $body) {
+            $zip->addFromString('xl/worksheets/sheet' . ($i + 1) . '.xml', $body);
         }
 
         $zip->close();
@@ -96,8 +112,27 @@ class XlsxWriter
 
             foreach (array_values($row) as $c => $value) {
                 $ref = $this->columnLetter($c) . $rowNo;
+
+                /*
+                 * A cell is a plain value, or ['v' => value, 'fill' => 'FFFF00'].
+                 *
+                 * The array form exists for the squad board, where a team's colour is what
+                 * separates its column pair from its neighbour's — the same four colours the
+                 * finance workbook this board replaces uses.
+                 */
+                $fill = null;
+
+                if (is_array($value)) {
+                    $fill = $value['fill'] ?? null;
+                    $value = $value['v'] ?? null;
+                }
+
                 // Row 0 is the header, which carries the one bold style in the workbook.
                 $style = $r === 0 ? ' s="1"' : '';
+
+                if ($fill !== null && $fill !== '') {
+                    $style = ' s="' . $this->fillStyleIndex((string) $fill) . '"';
+                }
 
                 if ($this->isNumeric($value)) {
                     $xml .= '<c r="' . $ref . '"' . $style . '><v>' . (0 + $value) . '</v></c>';
@@ -230,21 +265,66 @@ class XlsxWriter
             . '</Relationships>';
     }
 
-    /** Two cell formats: 0 is the default, 1 is bold — used for the header row. */
+    /**
+     * Cell formats: 0 default, 1 bold (the header row), then one per colour asked for.
+     *
+     * Colours are collected as cells are written rather than declared up front, so a caller
+     * says `['v' => 'x', 'fill' => 'FFFF00']` and never has to know what a cellXf index is.
+     */
     private function styles(): string
     {
+        /*
+         * fillId 0 and 1 are reserved by the format: Excel expects `none` then `gray125` in
+         * those slots and misreads every later fill if they are missing — the symptom is
+         * colours landing on the wrong cells rather than an error. So real fills start at 2.
+         */
+        $fills = '<fill><patternFill patternType="none"/></fill>'
+            . '<fill><patternFill patternType="gray125"/></fill>';
+        $xfs = '<xf xfId="0"/><xf xfId="0" fontId="1" applyFont="1"/>';
+        $fillId = 2;
+
+        foreach ($this->fillStyles as $argb => $_index) {
+            // 6-digit hex is what a designer quotes; Excel wants 8, with the alpha byte first.
+            $rgb = strlen($argb) === 6 ? 'FF' . $argb : $argb;
+            $fills .= '<fill><patternFill patternType="solid">'
+                . '<fgColor rgb="' . $rgb . '"/><bgColor indexed="64"/>'
+                . '</patternFill></fill>';
+
+            // Bold as well as filled: every colour here is a header or a total.
+            $xfs .= '<xf xfId="0" fontId="1" fillId="' . $fillId . '" applyFont="1" applyFill="1"/>';
+            $fillId++;
+        }
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             . '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
             . '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
-            . '<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
+            . '<fills count="' . $fillId . '">' . $fills . '</fills>'
             . '<borders count="1"><border/></borders>'
             . '<cellStyleXfs count="1"><xf/></cellStyleXfs>'
-            . '<cellXfs count="2"><xf xfId="0"/><xf xfId="0" fontId="1" applyFont="1"/></cellXfs>'
+            . '<cellXfs count="' . (2 + count($this->fillStyles)) . '">' . $xfs . '</cellXfs>'
             // Named styles. Excel copes without them, but stricter readers warn that the
             // workbook has no default style, and this file has to open first time on
             // whatever laptop is to hand.
             . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             . '</styleSheet>';
+    }
+
+    /**
+     * The cellXfs index for a fill colour, registering it the first time it is seen.
+     *
+     * Deduplicated because every cell resolves its style through this one table: a fresh entry
+     * per cell would work, and would grow the part by one row per cell in the workbook.
+     */
+    private function fillStyleIndex(string $argb): int
+    {
+        $argb = strtoupper(ltrim($argb, '#'));
+
+        if (! isset($this->fillStyles[$argb])) {
+            // 0 and 1 are the default and bold formats, so colours start at 2.
+            $this->fillStyles[$argb] = 2 + count($this->fillStyles);
+        }
+
+        return $this->fillStyles[$argb];
     }
 }

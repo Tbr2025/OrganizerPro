@@ -180,13 +180,25 @@ class AuctionOrganizerController extends Controller
             'waiting_count' => $availablePlayers->count(),
         ];
 
+        /*
+         * The clock as it stands right now, so the panel does not have to guess it at load.
+         *
+         * Without this the panel started a FULL countdown on every page load and only learned
+         * the truth from the first poll two seconds later — so refreshing a screen whose timer
+         * had already run out showed a healthy clock ticking down from the top, then snapped to
+         * expired. Reloading is exactly what an operator does when something looks wrong, and
+         * it was the one moment the panel lied about the state of the room.
+         */
+        $timerState = $auction->timerStateFor($currentPlayer);
+
         return view('backend.pages.auction.organizer-panel', compact(
             'auction',
             'availablePlayers',
             'currentPlayer',
             'soldPlayers',
             'teams',
-            'stats'
+            'stats',
+            'timerState'
         ));
     }
 
@@ -549,7 +561,7 @@ class AuctionOrganizerController extends Controller
      * than taking a second pass at whoever went unsold. Players outside the pool, their
      * bids and their undo history are untouched.
      */
-    public function restartPool(Auction $auction, AuctionPool $pool)
+    public function restartPool(Request $request, Auction $auction, AuctionPool $pool)
     {
         if ((int) $pool->auction_id !== (int) $auction->id) {
             return response()->json(['success' => false, 'message' => 'That pool belongs to a different auction.'], 422);
@@ -559,12 +571,30 @@ class AuctionOrganizerController extends Controller
             return response()->json(['success' => false, 'message' => 'This auction cannot be restarted from its current state.'], 422);
         }
 
-        // A player mid-bid belongs to the run being wiped; finishing them first keeps the
-        // reset from stranding a live board.
-        if ($auction->auctionPlayers()->where('status', 'on_auction')->exists()) {
+        /*
+         * A player mid-bid belongs to the run being wiped, so finishing them first is the
+         * ordinary path — it keeps the reset from stranding a live board.
+         *
+         * But it cannot be the ONLY path. A player whose clock has run out, or who was left
+         * on the block by an undo, cannot be finished: Sell needs a bid, Pass refuses a player
+         * who has one, and the timer will not expire twice. That left the pool unrestartable
+         * with no way forward at all, in the middle of an auction. `force` is that way
+         * forward: the live player is reset with the rest of the pool, which is what a restart
+         * means anyway.
+         *
+         * Still a separate, deliberate act rather than the default, because the guard is right
+         * in every case except the stuck one — and the caller has to say so.
+         */
+        $force = $request->boolean('force');
+        $onBlock = $auction->auctionPlayers()->where('status', 'on_auction')->exists();
+
+        if ($onBlock && ! $force) {
             return response()->json([
                 'success' => false,
                 'message' => 'Finish the player currently on the block before restarting the pool.',
+                // The panel keys off this to offer a forced restart rather than guessing from
+                // the wording of the message.
+                'player_on_block' => true,
             ], 422);
         }
 

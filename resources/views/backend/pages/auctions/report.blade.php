@@ -17,7 +17,15 @@
             <a href="{{ route('admin.auctions.show', $auction) }}" class="btn btn-secondary inline-flex items-center gap-2">
                 <i class="fas fa-arrow-left"></i> Back to Auction
             </a>
-            <button onclick="window.print()" class="btn btn-primary inline-flex items-center gap-2">
+            {{-- The export already existed and was reachable only by typing its URL: nothing in
+                 the interface linked to it, so a finished auction had no visible way out to a
+                 spreadsheet. Four sheets — the colour-coded squad board, players, teams and a
+                 summary. --}}
+            <a href="{{ route('admin.auction.organizer.api.export', $auction) }}"
+               class="btn btn-secondary inline-flex items-center gap-2 print:hidden">
+                <i class="fas fa-file-excel text-emerald-600"></i> Export Excel
+            </a>
+            <button onclick="window.print()" class="btn btn-primary inline-flex items-center gap-2 print:hidden">
                 <i class="fas fa-print"></i> Print Report
             </button>
         </div>

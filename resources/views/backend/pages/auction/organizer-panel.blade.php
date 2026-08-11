@@ -2047,7 +2047,37 @@ function auctionOrganizerPanel() {
                 this._lastKnownBid = this.currentBid;
                 this.displayState = 'bidding';
                 this.sealedBids = [];
-                this.startBiddingTimer();
+
+                /*
+                 * Seeded from the server's clock, not from the top.
+                 *
+                 * startBiddingTimer() with no argument counts down from the FULL duration, so
+                 * every page load showed a healthy timer regardless of what the clock actually
+                 * said, and only the first poll — up to two seconds later — corrected it.
+                 * Refreshing a screen whose timer had already run out therefore showed it
+                 * running again, which is the opposite of the truth at the moment an operator
+                 * reloads precisely because something looks wrong.
+                 */
+                const seed = @json($timerState ?? null);
+
+                this.timerEnabled = seed ? !!seed.applies : true;
+                this.timerExpired = seed ? !!seed.expired : false;
+                this.timerPaused = seed ? !!seed.paused : false;
+
+                if (seed && seed.applies === false) {
+                    // No clock on this auction at all; nothing to count.
+                    this.biddingTimerSeconds = 0;
+                } else if (seed && (seed.remaining === null || seed.remaining <= 0)) {
+                    // Already run out: show that, and do not start ticking.
+                    this.biddingTimerSeconds = 0;
+                    this.timerWidth = 0;
+                } else if (seed && seed.remaining !== undefined) {
+                    this.startBiddingTimer(seed.remaining);
+                    const limit = seed.limit || this.BID_TIMER_DURATION;
+                    this.timerWidth = limit > 0 ? (seed.remaining / limit) * 100 : 0;
+                } else {
+                    this.startBiddingTimer();
+                }
             }
 
             this.startStatePolling();
@@ -3721,13 +3751,37 @@ function auctionOrganizerPanel() {
             const pool = this.activePool;
             const sold = pool.sold || 0;
 
-            const warning = sold > 0
+            /*
+             * A player still on the block normally has to be finished first — but sometimes
+             * cannot be. A player whose clock has run out, or who was left up by an undo, has
+             * no way off: Sell needs a bid, Pass refuses a player who has one, and the timer
+             * will not expire twice. That made the pool unrestartable with nothing left to
+             * press, so this offers the forced reset instead of refusing.
+             *
+             * Decided here rather than from the server's 422, because sendCommand() reports an
+             * error as a toast and returns null — the reason never reaches the caller. The
+             * panel already knows what is on the block, so it can ask the right question the
+             * first time instead of failing and retrying.
+             */
+            const live = !! this.currentPlayer;
+            const liveName = this.currentPlayer?.player?.name || 'the player on the block';
+
+            let warning = sold > 0
                 ? `Restart ${pool.name}?\n\nAll ${pool.total} of its players go back on the block, and its ${sold} sale(s) are UNDONE — those teams get their money back and lose those players.\n\nOther pools are not affected.`
                 : `Restart ${pool.name}?\n\nAll ${pool.total} of its players go back on the block. Other pools are not affected.`;
 
-            if (! await this.askConfirm(warning, { title: 'Restart pool', danger: true })) return;
+            if (live) {
+                warning = `FORCE RESTART ${pool.name}?\n\n${liveName} is still on the block`
+                    + `${this.timerExpired ? ' with the clock already run out' : ''}`
+                    + ` — bidding on them will be discarded and they go back in the queue with everyone else.\n\n`
+                    + warning;
+            }
 
-            const result = await this.sendCommand(`pools/${pool.id}/restart`);
+            if (! await this.askConfirm(warning, { title: live ? 'Force restart pool' : 'Restart pool', danger: true })) return;
+
+            // force only when there is genuinely something to force past, so the guard keeps
+            // protecting the ordinary case.
+            const result = await this.sendCommand(`pools/${pool.id}/restart`, live ? { force: true } : {});
             if (! result?.success) return;
 
             // Same clean-up the whole-auction restart does: what the panel was holding

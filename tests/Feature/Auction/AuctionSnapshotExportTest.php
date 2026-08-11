@@ -330,6 +330,41 @@ class AuctionSnapshotExportTest extends TestCase
     }
 
     #[Test]
+    public function each_team_column_pair_carries_its_own_fill_colour(): void
+    {
+        [$org, $tournament, $auction] = $this->scenario();
+        $this->makeTeam($org, 'Alpha', $tournament);
+        $this->makeTeam($org, 'Bravo', $tournament);
+
+        $path = tempnam(sys_get_temp_dir(), 'snap-colour-');
+        app(AuctionSnapshotExport::class)->build($auction)->save($path);
+
+        $zip = new ZipArchive();
+        $zip->open($path);
+        $styles = $zip->getFromName('xl/styles.xml');
+        $squads = $zip->getFromName('xl/worksheets/sheet1.xml');
+
+        /*
+         * fillId 0 and 1 are reserved by the format — Excel expects `none` then `gray125` there
+         * and misreads every later fill if they are missing. The symptom is colour landing on
+         * the wrong cells rather than an error, so both are asserted.
+         */
+        $this->assertStringContainsString('patternType="none"', $styles);
+        $this->assertStringContainsString('patternType="gray125"', $styles);
+
+        // The first of the four colours the finance workbook this board replaces uses. Declared
+        // as a solid pattern, or the fill exists but paints nothing.
+        $this->assertStringContainsString('FFFFFF00', $styles);
+        $this->assertStringContainsString('patternType="solid"', $styles);
+
+        // And the header cells actually reference a colour style rather than the plain bold one.
+        $this->assertMatchesRegularExpression('/<c r="E1" s="[2-9]\d*"/', $squads);
+
+        $zip->close();
+        @unlink($path);
+    }
+
+    #[Test]
     public function a_column_index_past_z_is_addressed_correctly(): void
     {
         // The Teams sheet has thirteen columns today and will grow. Getting this wrong

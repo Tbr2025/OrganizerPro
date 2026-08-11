@@ -154,6 +154,65 @@ class AuctionPoolRestartTest extends TestCase
         $this->assertSame('on_auction', $live->fresh()->status);
     }
 
+    /**
+     * The stuck case the guard above cannot see its way out of.
+     *
+     * A player whose clock has run out, or who was left on the block by an undo, has no way
+     * off: Sell needs a bid, Pass refuses a player who has one, and the timer will not expire
+     * twice. Refusing the restart there leaves an organizer with nothing left to press, mid
+     * auction — so force exists, and resets the live player along with the rest.
+     */
+    #[Test]
+    public function force_restarts_the_pool_even_with_a_player_on_the_block(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id, 'status' => 'running']);
+        $operator = $this->makeAuctionOperator($org);
+        $team = $this->makeTeam($org, 'Alpha', $tournament);
+
+        $pool = $this->makePool($auction, ['name' => 'Pool A', 'sequence' => 1, 'status' => AuctionPool::STATUS_ACTIVE]);
+
+        $live = $this->makeAuctionPlayer($auction, [
+            'auction_pool_id' => $pool->id,
+            'lot_number' => 1,
+            'status' => 'on_auction',
+            'current_price' => 4_000_000,
+            'current_bid_team_id' => $team->id,
+        ]);
+
+        AuctionBid::create([
+            'auction_id' => $auction->id,
+            'auction_player_id' => $live->id,
+            'player_id' => $live->player_id,
+            'team_id' => $team->id,
+            'user_id' => $operator->id,
+            'amount' => 4_000_000,
+            'bid_source' => 'offline',
+        ]);
+
+        // Without force it is still refused, and says why in a way the panel can act on.
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.pool.restart', [$auction, $pool]))
+            ->assertStatus(422)
+            ->assertJsonPath('player_on_block', true);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.pool.restart', [$auction, $pool]), ['force' => true])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $live->refresh();
+        $this->assertSame('waiting', $live->status);
+        $this->assertNull($live->current_bid_team_id);
+        $this->assertEquals($live->base_price, $live->current_price);
+
+        // The bidding on them is discarded with the rest of the run, not left behind to be
+        // counted against the team's purse.
+        $this->assertSame(0, AuctionBid::where('auction_player_id', $live->id)->count());
+        $this->assertSame(AuctionPool::STATUS_ACTIVE, $pool->fresh()->status);
+    }
+
     #[Test]
     public function a_pool_from_another_auction_is_refused(): void
     {
