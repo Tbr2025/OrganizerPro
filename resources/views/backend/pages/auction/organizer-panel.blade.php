@@ -456,13 +456,24 @@
                                                             'any', and drop min entirely rather than binding ''. --}}
                                                        :step="sealed.step ? toM(sealed.step) : 'any'"
                                                        :min="sealed.floor ? toM(sealed.floor) : null"
+                                                       {{-- The team's own ceiling, so the box refuses what the server
+                                                            would refuse instead of accepting it and failing later. --}}
+                                                       :max="entry.binding_ceiling ? toM(entry.binding_ceiling) : null"
                                                        inputmode="decimal"
                                                        x-model="sealedAdjustAmount[entry.entry_id]"
+                                                       {{-- Enter was the ONLY way to commit a typed amount, so typing
+                                                            one and clicking away lost it silently — the +/- buttons
+                                                            looked like the only thing that worked. Blur commits it
+                                                            too, and Set is there for anyone who wants a button. --}}
                                                        @keydown.enter.prevent="sealedAdjustCustom(entry)"
+                                                       @change="sealedAdjustCustom(entry)"
                                                        class="w-16 px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-white text-[11px] text-center"
                                                        :placeholder="sealed.floor ? toM(sealed.floor) : 'M'">
                                                 <button @click="sealedAdjust(entry, 'up')"
                                                         class="w-6 h-6 rounded bg-green-500/15 border border-green-500/25 text-green-400 text-xs font-bold">+</button>
+                                                <button @click="sealedAdjustCustom(entry)"
+                                                        class="px-1.5 h-6 rounded bg-cyan-600/80 hover:bg-cyan-500 text-white text-[10px] font-bold"
+                                                        title="Record the typed amount">Set</button>
                                             </div>
                                         </template>
                                         <button x-show="!entry.withdrawn && !sealed.revealed"
@@ -2651,10 +2662,31 @@ function auctionOrganizerPanel() {
             const typed = this.sealedAdjustAmount[entry.entry_id];
             if (typed === undefined || typed === '') return;
 
+            const amount = this.fromM(typed);
+
+            /*
+             * Checked here as well as on the server, which has always refused these — but it
+             * refused them after the round trip, so an amount over a team's ceiling looked like
+             * it had been accepted until the board failed to change. There was no limit on the
+             * box at all.
+             */
+            const ceiling = Number(entry.binding_ceiling ?? 0);
+            const floor = Number(this.sealed.floor ?? 0);
+
+            if (ceiling > 0 && amount > ceiling) {
+                this.toast(`${entry.team_name} cannot go above ${this.formatCurrency(ceiling)} on this player.`, 'error', 'Over the limit');
+                return;
+            }
+
+            if (floor > 0 && amount < floor) {
+                this.toast(`Bids in this round start at ${this.formatCurrency(floor)}.`, 'error', 'Below the floor');
+                return;
+            }
+
             // Entered in millions like every other money field on this screen. The figure
             // stays in the box afterwards — clearing it put the floor placeholder back and
             // left no sign of what had just been recorded.
-            return this.sealedEntryCommand(entry.entry_id, 'adjust', { amount: this.fromM(typed) });
+            return this.sealedEntryCommand(entry.entry_id, 'adjust', { amount });
         },
 
         /**
