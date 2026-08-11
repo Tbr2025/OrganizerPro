@@ -2467,10 +2467,32 @@
                     // it becomes visible rather than one poll later.
                     renderWaitingScreen(data);
 
-                    // A restart owns the screen for its window. Returning here also keeps
-                    // the shuffle from firing on the next player until the notice ends,
-                    // so the two announcements cannot overlap.
-                    if (renderRestartNotice(data)) return;
+                    /*
+                     * A restart owns the screen for its window. Returning here also keeps the
+                     * shuffle from firing on the next player until the notice ends, so the two
+                     * announcements cannot overlap.
+                     *
+                     * But the return skips everything below, including the calls that clear the
+                     * per-player overlays — so whatever was on screen when the restart began
+                     * stayed there through the whole window. A player in a closing call with no
+                     * bids left the hall reading "NO BIDS — PLAYER WILL GO UNSOLD" across a
+                     * "RESTARTING AUCTION" notice: two contradictory announcements at once,
+                     * about a player who is no longer on the block.
+                     *
+                     * A restart means no player, so none of those states can be true. Cleared
+                     * before handing the screen over.
+                     */
+                    if (renderRestartNotice(data)) {
+                        clockHasPlayer = false;
+                        noBidsOnBlock = false;
+                        renderUnsoldWarning(false, false);
+                        hideClock();
+
+                        const pausedDuringRestart = document.getElementById('paused-overlay');
+                        if (pausedDuringRestart) pausedDuringRestart.classList.add('hidden');
+
+                        return;
+                    }
 
                     // Real-time PAUSED overlay (reflects organizer pause/resume within ~2s).
                     const pausedOverlay = document.getElementById('paused-overlay');
