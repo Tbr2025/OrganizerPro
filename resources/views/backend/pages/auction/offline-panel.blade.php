@@ -151,7 +151,21 @@
                                         <div class="text-lg font-bold text-gray-300 truncate" x-text="shuffleDisplayName"></div>
                                     </div>
                                 </template>
-                                <template x-if="shufflePhase === 'reveal' && shuffleSelectedPlayer">
+                                {{-- The same overlay serves the player shuffle and a lot draw
+                                     between tied teams, so the reveal branches on which it is
+                                     showing rather than assuming a player. --}}
+                                <template x-if="shufflePhase === 'reveal' && shuffleSelectedPlayer && shuffleKind === 'team'">
+                                    <div class="w-full h-full">
+                                        <template x-if="shuffleSelectedPlayer.image_path">
+                                            <img :src="shuffleSelectedPlayer.image_path" class="w-full h-full object-cover">
+                                        </template>
+                                        <template x-if="!shuffleSelectedPlayer.image_path">
+                                            <div class="w-full h-full flex items-center justify-center text-2xl font-black text-gray-300"
+                                                 x-text="(shuffleSelectedPlayer.name || '??').substring(0,3).toUpperCase()"></div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="shufflePhase === 'reveal' && shuffleSelectedPlayer && shuffleKind !== 'team'">
                                     <div class="w-full h-full">
                                         <template x-if="shuffleSelectedPlayer.player?.image_path">
                                             <img :src="'/storage/' + shuffleSelectedPlayer.player.image_path" class="w-full h-full object-cover">
@@ -167,10 +181,15 @@
                         </div>
 
                         {{-- Status text --}}
-                        <div x-show="shufflePhase === 'spinning'" class="text-xl text-blue-400 font-semibold tracking-wider uppercase">
-                            Selecting Player...
+                        <div x-show="shufflePhase === 'spinning'" class="text-xl font-semibold tracking-wider uppercase"
+                             :class="shuffleKind === 'team' ? 'text-amber-400' : 'text-blue-400'"
+                             x-text="shuffleKind === 'team' ? 'Drawing the lot…' : 'Selecting Player...'">
                         </div>
-                        <div x-show="shufflePhase === 'reveal'" class="shuffle-reveal">
+                        <div x-show="shufflePhase === 'reveal' && shuffleKind === 'team'" class="shuffle-reveal">
+                            <div class="text-amber-300 text-[11px] uppercase tracking-[0.2em] font-bold mb-1">Lot winner</div>
+                            <div class="text-3xl font-black text-white mb-1" x-text="shuffleSelectedPlayer?.name || ''"></div>
+                        </div>
+                        <div x-show="shufflePhase === 'reveal' && shuffleKind !== 'team'" class="shuffle-reveal">
                             <div class="text-3xl font-black text-white mb-1" x-text="shuffleSelectedPlayer?.player?.name || ''"></div>
                             <div class="text-gray-400" x-text="shuffleSelectedPlayer?.player?.player_type?.name || ''"></div>
                         </div>
@@ -230,7 +249,7 @@
                                     class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Award</button>
                             <button x-show="sealed.state === 'tie'" @click="sealedCommand('start-rebid')"
                                     class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold">Start Re-bid</button>
-                            <button x-show="sealed.state === 'awaiting_lot'" @click="sealedCommand('lot')"
+                            <button x-show="sealed.state === 'awaiting_lot'" @click="sealedDrawLot()"
                                     class="px-3 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-black">Draw Lot</button>
                         </div>
                     </div>
@@ -323,6 +342,13 @@
                                 </div>
 
                                 <div class="flex items-center gap-1">
+                                    {{-- The physical draw's outcome, recorded against the team
+                                         that won it at the desk. --}}
+                                    <button x-show="sealed.state === 'awaiting_lot' && (sealed.tied_team_ids || []).includes(row.team_id)"
+                                            @click="sealedResolveManual(row.team_id)"
+                                            :disabled="!sealedManualReason.trim()"
+                                            :title="sealedManualReason.trim() ? 'Record this team as the winner of the physical draw' : 'Give a reason below first'"
+                                            class="px-2.5 py-1 rounded text-[11px] font-bold bg-amber-600/30 border border-amber-500/40 text-amber-200 hover:bg-amber-600/50 disabled:opacity-40 disabled:cursor-not-allowed">Pick</button>
                                     <button x-show="!row.withdrawn && !sealed.revealed"
                                             @click="sealedEntry(row.entry_id, 'withdraw')"
                                             class="px-2 py-1 rounded text-[11px] font-semibold text-red-400 hover:bg-red-900/30">Withdraw</button>
@@ -357,6 +383,47 @@
                                 </div>
                             </div>
                         </template>
+
+                        {{-- ── HOW THE TIE GETS SETTLED ──
+                             Two deliberate answers to the same question, said out loud: draw it
+                             on screen for the hall, or draw it at the desk and record who won.
+                             The offline board had only a LOT button that settled the tie with
+                             no draw for anyone to watch, and no way to enter a physical result
+                             at all. --}}
+                        <div x-show="sealed.state === 'awaiting_lot'" class="grid gap-3 md:grid-cols-2 py-3">
+                            <div class="px-4 py-4 rounded-xl bg-gray-900/60 border border-amber-500/25">
+                                <div class="text-amber-300 text-[10px] uppercase tracking-[0.15em] font-bold mb-1">
+                                    Live draw &middot; on screen
+                                </div>
+                                <p class="text-gray-400 text-[11px] leading-relaxed mb-3">
+                                    Cycles the tied teams for about
+                                    <span x-text="Math.round(LOT_SPIN_MS / 1000)"></span> seconds, then lands on the
+                                    winner. Drawn on the server before the spin starts, from a random seed recorded
+                                    with the result — unpredictable, and checkable afterwards.
+                                </p>
+                                <button @click="sealedDrawLot()"
+                                        class="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-sm font-black">
+                                    DRAW LOT
+                                </button>
+                            </div>
+
+                            <div class="px-4 py-4 rounded-xl bg-gray-900/60 border border-gray-700/50">
+                                <div class="text-gray-300 text-[10px] uppercase tracking-[0.15em] font-bold mb-1">
+                                    Physical draw &middot; at the desk
+                                </div>
+                                <p class="text-gray-400 text-[11px] leading-relaxed mb-3">
+                                    Slips, a coin, a toss — done in the room. Give the reason, then press
+                                    <span class="text-amber-200 font-semibold">Pick</span> on the winning team's row
+                                    above. Recorded as an organizer decision rather than a draw.
+                                </p>
+                                <input type="text" x-model="sealedManualReason"
+                                       class="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-xs placeholder-gray-600"
+                                       placeholder="e.g. slips drawn at the desk by the tournament referee">
+                                <p x-show="!sealedManualReason.trim()" class="text-gray-600 text-[10px] mt-1.5">
+                                    Pick stays refused until this is filled in.
+                                </p>
+                            </div>
+                        </div>
 
                         <p x-show="sealed.state !== 'pending' && !(sealed.entries || []).length" class="text-sm text-gray-500 py-6 text-center">
                             Press <strong>Open Entry</strong> to bring the teams into this round.
@@ -823,7 +890,7 @@
                             class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold">Award</button>
                     <button x-show="sealed.state === 'tie'" @click="sealedCommand('start-rebid')"
                             class="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold">Re-bid</button>
-                    <button x-show="sealed.state === 'awaiting_lot'" @click="sealedCommand('lot')"
+                    <button x-show="sealed.state === 'awaiting_lot'" @click="sealedDrawLot()"
                             class="px-2.5 py-1 rounded bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[11px] font-black">Draw Lot</button>
 
                     <a :href="`/admin/organizer/auction/{{ $auction->id }}/panel`"
@@ -1364,6 +1431,13 @@
 
             // Shuffle animation
             showShuffleOverlay: false,
+
+            // Which thing the shuffle overlay is showing: a player being picked off the
+            // queue, or a lot being drawn between tied teams.
+            shuffleKind: 'player',
+            _lotSpinTimeout: null,
+            LOT_SPIN_MS: 15000,
+            sealedManualReason: '',
             shufflePhase: 'spinning', // 'spinning' | 'reveal'
             shuffleDisplayName: '',
             shuffleSelectedPlayer: null,
@@ -2185,6 +2259,105 @@
                 // Only clear the box on success, so a rejected amount stays visible to fix
                 // rather than vanishing under an error toast.
                 if (data?.handled) this.sealedCustom[entryId] = '';
+            },
+
+            /**
+             * Draw the lot on screen, for the room to watch.
+             *
+             * The winner comes back from the server before the spin starts — drawn there
+             * from a random seed that is recorded with the result, so it cannot be predicted
+             * and can be rechecked afterwards. Spinning first and then picking a name here
+             * would be a fabricated draw, so a failed request shows the error and does not
+             * animate.
+             *
+             * This button used to call the endpoint and nothing else: the tie was settled
+             * with no draw for anyone to see, which in a hall is the one thing a lot has to
+             * provide.
+             */
+            async sealedDrawLot() {
+                const tied = (this.sealed.entries || []).filter(r => r.is_tied
+                    || (this.sealed.tied_team_ids || []).includes(r.team_id));
+
+                const data = await this.sealedCommand('lot');
+                if (! data?.handled) return;
+
+                const entrants = tied.map(r => ({ id: r.team_id, name: r.team_name, image_path: r.team_logo || null }));
+                const winnerId = data.closed_bid?.winner_team_id;
+                const winner = entrants.find(e => e.id === winnerId) || entrants[0];
+
+                if (winner) await this._runLotSpin(winner, entrants);
+            },
+
+            /** Cycle the tied names for LOT_SPIN_MS, easing out, then land on the winner. */
+            _runLotSpin(winner, entrants) {
+                return new Promise((resolve) => {
+                    this.shuffleKind = 'team';
+                    this.shufflePhase = 'spinning';
+                    this.shuffleSelectedPlayer = null;
+                    this.shuffleDisplayName = '';
+                    this.showShuffleOverlay = true;
+
+                    if (entrants.length <= 1) {
+                        this.shuffleSelectedPlayer = winner;
+                        this.shufflePhase = 'reveal';
+                        setTimeout(() => { this.showShuffleOverlay = false; resolve(); }, 1500);
+                        return;
+                    }
+
+                    const spinMs = this.LOT_SPIN_MS;
+                    const started = Date.now();
+                    let lastIdx = -1;
+
+                    const step = () => {
+                        const elapsed = Date.now() - started;
+
+                        if (elapsed >= spinMs) {
+                            this._lotSpinTimeout = null;
+                            this.shuffleDisplayName = winner.name;
+                            setTimeout(() => {
+                                this.shuffleSelectedPlayer = winner;
+                                this.shufflePhase = 'reveal';
+                                setTimeout(() => {
+                                    this.showShuffleOverlay = false;
+                                    this.shuffleKind = 'player';
+                                    resolve();
+                                }, 2500);
+                            }, 300);
+                            return;
+                        }
+
+                        // Never the same name twice running — a repeat reads as a freeze.
+                        let idx = Math.floor(Math.random() * entrants.length);
+                        if (idx === lastIdx) idx = (idx + 1) % entrants.length;
+                        lastIdx = idx;
+                        this.shuffleDisplayName = entrants[idx].name;
+
+                        const remaining = spinMs - elapsed;
+                        const easeWindow = Math.min(3000, spinMs / 2);
+                        const delay = remaining > easeWindow
+                            ? 80
+                            : 80 + ((easeWindow - remaining) / easeWindow) * 340;
+
+                        this._lotSpinTimeout = setTimeout(step, delay);
+                    };
+
+                    step();
+                });
+            },
+
+            /** The physical draw: the organizer records who won it, and why. */
+            async sealedResolveManual(teamId) {
+                if (! this.sealedManualReason.trim()) {
+                    this.toast('An unexplained override cannot be defended later.', 'error', 'Reason required');
+                    return;
+                }
+
+                const data = await this.sealedCommand('resolve-manual', {
+                    team_id: teamId,
+                    reason: this.sealedManualReason,
+                });
+
+                if (data?.handled) this.sealedManualReason = '';
             },
 
             /**

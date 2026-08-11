@@ -537,16 +537,51 @@
                                 </button>
                                 <button x-show="sealed.state === 'tie'" @click="sealedStartRebid()"
                                         class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Start Re-bid</button>
-                                <button x-show="sealed.state === 'awaiting_lot'" @click="sealedDrawLot()"
-                                        class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-black">DRAW LOT</button>
                             </div>
                         </div>
 
-                        {{-- A manual override has to be explained; the reason is recorded. --}}
-                        <div x-show="sealed.state === 'awaiting_lot'" class="mt-3">
-                            <input type="text" x-model="sealedManualReason"
-                                   class="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-xs"
-                                   placeholder="Reason, if you pick a winner by hand instead of drawing…">
+                        {{-- ── HOW THE TIE GETS SETTLED ──
+                             Both ways were already here, but only as a DRAW LOT button beside
+                             a per-team Pick and an unlabelled reason box — so which one you
+                             were choosing, and what each meant, had to be inferred. They are
+                             two deliberate answers to the same question and now say so. --}}
+                        <div x-show="sealed.state === 'awaiting_lot'" class="mt-4 grid gap-3 md:grid-cols-2">
+
+                            {{-- 1. On screen, for the hall to watch. --}}
+                            <div class="px-4 py-4 rounded-xl bg-gray-900/60 border border-amber-500/25">
+                                <div class="text-amber-300 text-[10px] uppercase tracking-[0.15em] font-bold mb-1">
+                                    Live draw &middot; on screen
+                                </div>
+                                <p class="text-gray-400 text-[11px] leading-relaxed mb-3">
+                                    Cycles the tied teams for about
+                                    <span x-text="Math.round(LOT_SPIN_MS / 1000)"></span> seconds, then lands on the
+                                    winner. Drawn on the server before the spin starts, from a random seed that is
+                                    recorded with the result — so it cannot be predicted, and it can be checked
+                                    afterwards.
+                                </p>
+                                <button @click="sealedDrawLot()"
+                                        class="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-sm font-black">
+                                    DRAW LOT
+                                </button>
+                            </div>
+
+                            {{-- 2. Drawn at the desk; the organizer records the outcome. --}}
+                            <div class="px-4 py-4 rounded-xl bg-gray-900/60 border border-gray-700/50">
+                                <div class="text-gray-300 text-[10px] uppercase tracking-[0.15em] font-bold mb-1">
+                                    Physical draw &middot; at the desk
+                                </div>
+                                <p class="text-gray-400 text-[11px] leading-relaxed mb-3">
+                                    Slips, a coin, a toss — done in the room. Give the reason, then press
+                                    <span class="text-amber-200 font-semibold">Pick</span> on the winning team's row
+                                    above. Recorded as an organizer decision rather than a draw.
+                                </p>
+                                <input type="text" x-model="sealedManualReason"
+                                       class="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-xs placeholder-gray-600"
+                                       placeholder="e.g. slips drawn at the desk by the tournament referee">
+                                <p x-show="!sealedManualReason.trim()" class="text-gray-600 text-[10px] mt-1.5">
+                                    Pick stays refused until this is filled in.
+                                </p>
+                            </div>
                         </div>
 
                         {{-- Summary: how the player was won, not just who won. --}}
@@ -1872,6 +1907,11 @@ function auctionOrganizerPanel() {
         shuffleDisplayName: '',
         shuffleSelectedPlayer: null,
         _shuffleInterval: null,
+        _shuffleTimeout: null,
+
+        // How long a lot draw cycles the tied team names before landing. The draw is
+        // decided on the server before any of this starts; the spin only shows it.
+        LOT_SPIN_MS: 15000,
 
         isTumbling: false,
         selectedPlayerId: null,
@@ -2456,11 +2496,14 @@ function auctionOrganizerPanel() {
             if (!data?.handled) return;
 
             const winnerId = data.closed_bid?.winner_team_id;
-            const entrants = tied.map(e => ({ id: e.team_id, name: e.team_name, image_path: null }));
+            const entrants = tied.map(e => ({ id: e.team_id, name: e.team_name, image_path: e.team_logo || null }));
             const winner = entrants.find(e => e.id === winnerId) || entrants[0];
 
             if (winner) {
-                await this._runShuffleAnimation(winner, entrants);
+                // Long enough to read as a draw rather than a flicker. The winner is already
+                // decided and recorded server-side, so the length of the spin changes only
+                // what the room watches, never the result.
+                await this._runShuffleAnimation(winner, entrants, { spinMs: this.LOT_SPIN_MS });
             }
             this._fireConfetti();
         },
@@ -2802,8 +2845,22 @@ function auctionOrganizerPanel() {
          * Entrants are normalised to {id, name, image_path} at the call site so the
          * overlay markup does not have to know which it is showing.
          */
-        _runShuffleAnimation(chosenPlayer, pool = null) {
+        /**
+         * @param {object} chosenPlayer  The result, already decided by the server.
+         * @param {Array|null} pool      Entrants to cycle; the player queue when omitted.
+         * @param {object} opts          spinMs — how long to cycle before landing.
+         *
+         * A lot draw in front of a hall needs to look like a draw, so it passes a much
+         * longer spinMs than picking the next player does. The cycle is driven by elapsed
+         * time rather than a tick count, so the length is stated in seconds instead of
+         * being an emergent property of an interval times a magic number, and the last few
+         * seconds stretch out so the final names land one at a time.
+         */
+        _runShuffleAnimation(chosenPlayer, pool = null, opts = {}) {
             return new Promise((resolve) => {
+                const spinMs = Math.max(600, opts.spinMs ?? 2800);
+                const holdMs = opts.holdMs ?? 1500;
+
                 this.shufflePhase = 'spinning';
                 this.showShuffleOverlay = true;
                 this.shuffleSelectedPlayer = null;
@@ -2820,28 +2877,49 @@ function auctionOrganizerPanel() {
                     return;
                 }
 
-                let tick = 0;
-                const totalTicks = players.length === 2 ? 40 : 30;
+                const nameOf = (entrant) => entrant.name || 'Player ' + entrant.id;
+                const started = Date.now();
+                let lastIdx = -1;
 
-                this._shuffleInterval = setInterval(() => {
-                    tick++;
-                    const currentIdx = Math.floor(Math.random() * players.length);
-                    this.shuffleDisplayName = players[currentIdx].name || 'Player ' + players[currentIdx].id;
-
-                    if (tick >= totalTicks) {
-                        clearInterval(this._shuffleInterval);
-                        this._shuffleInterval = null;
-                        this.shuffleDisplayName = chosenPlayer.name || 'Player ' + chosenPlayer.id;
+                const land = () => {
+                    this.shuffleDisplayName = nameOf(chosenPlayer);
+                    setTimeout(() => {
+                        this.shuffleSelectedPlayer = chosenPlayer;
+                        this.shufflePhase = 'reveal';
                         setTimeout(() => {
-                            this.shuffleSelectedPlayer = chosenPlayer;
-                            this.shufflePhase = 'reveal';
-                            setTimeout(() => {
-                                this.showShuffleOverlay = false;
-                                resolve();
-                            }, 1500);
-                        }, 300);
+                            this.showShuffleOverlay = false;
+                            resolve();
+                        }, holdMs);
+                    }, 300);
+                };
+
+                const step = () => {
+                    const elapsed = Date.now() - started;
+
+                    if (elapsed >= spinMs) {
+                        this._shuffleTimeout = null;
+                        land();
+                        return;
                     }
-                }, 80);
+
+                    // Never the same name twice running: over a long spin a repeat reads as
+                    // the animation having frozen.
+                    let idx = Math.floor(Math.random() * players.length);
+                    if (idx === lastIdx) idx = (idx + 1) % players.length;
+                    lastIdx = idx;
+                    this.shuffleDisplayName = nameOf(players[idx]);
+
+                    // Steady flicker, easing out over the closing seconds.
+                    const remaining = spinMs - elapsed;
+                    const easeWindow = Math.min(3000, spinMs / 2);
+                    const delay = remaining > easeWindow
+                        ? 80
+                        : 80 + ((easeWindow - remaining) / easeWindow) * 340;
+
+                    this._shuffleTimeout = setTimeout(step, delay);
+                };
+
+                step();
             });
         },
 
