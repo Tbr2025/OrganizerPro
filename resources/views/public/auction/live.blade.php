@@ -1505,6 +1505,21 @@
         }
 
         // ── Shuffle Animation Controller ──
+        /*
+         * How long the reveal takes on the wall, from pressing NEXT to the card being up.
+         *
+         * It was 30 ticks x 80ms of name-flicker plus a 1.8s hold on the revealed name — 4.2
+         * seconds before the player appeared, which reads as the wall lagging behind the panel
+         * rather than as a reveal. The event itself arrives in milliseconds; this was all
+         * animation.
+         *
+         * Two numbers so either half can be tuned: raise SPIN for more flicker, raise HOLD to
+         * let the name land before the card replaces it.
+         */
+        const SHUFFLE_SPIN_MS = 480;
+        const SHUFFLE_HOLD_MS = 400;
+        const SHUFFLE_TICK_MS = 80;
+
         const shuffleController = {
             namePool: ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5'],
             interval: null,
@@ -1563,12 +1578,15 @@
 
                 isShuffling = true;
 
-                /* Backstop, independent of anything inside the animation: 30 ticks x 80ms
-                   plus the 1.8s reveal hold is ~4.2s, so 10s means something went wrong. */
+                /* Backstop, independent of anything inside the animation: the spin plus the
+                   hold is the expected duration, so several times that means something went
+                   wrong and the card should go up regardless. Derived rather than hardcoded, so
+                   shortening the reveal cannot leave a watchdog that waits 10s for a 0.9s
+                   animation. */
                 this.watchdog = setTimeout(() => {
                     console.warn('[Live] shuffle watchdog fired — showing the card directly');
                     this.finish(playerData);
-                }, 10000);
+                }, Math.max(4000, (SHUFFLE_SPIN_MS + SHUFFLE_HOLD_MS) * 4));
 
                 try {
                     const screen = document.getElementById('shuffle-screen');
@@ -1605,7 +1623,7 @@
                     screen.style.display = 'flex';
 
                     let tick = 0;
-                    const totalTicks = 30;
+                    const totalTicks = Math.max(1, Math.round(SHUFFLE_SPIN_MS / SHUFFLE_TICK_MS));
                     this.interval = setInterval(() => {
                         tick++;
                         // Re-queried each tick: the node is replaced by reveal(), so a
@@ -1621,7 +1639,7 @@
                             this.interval = null;
                             this.reveal(playerData);
                         }
-                    }, 80);
+                    }, SHUFFLE_TICK_MS);
                 } catch (e) {
                     console.error('[Live] shuffle failed to start:', e);
                     this.finish(playerData);
@@ -1680,7 +1698,7 @@
                         }
                         // Always, even if the teardown above threw.
                         this.finish(playerData);
-                    }, 1800);
+                    }, SHUFFLE_HOLD_MS);
                 } catch (e) {
                     console.error('[Live] shuffle reveal failed:', e);
                     this.finish(playerData);
