@@ -20,6 +20,14 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
+        <!-- Never broadcast for real from a test. This was unpinned, so the suite inherited
+             whatever BROADCAST_DRIVER the local .env happened to hold: pointing it at pusher
+             made every ShouldBroadcastNow event a live HTTP call to Pusher's API, which took
+             the auction suite from 18s to 135s and failed three tests outright on the events
+             that are not wrapped in a try/catch. Tests assert with Event::fake(); they have
+             no business reaching a third party. -->
+        <env name="BROADCAST_DRIVER" value="null"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_DRIVER" value="array"/>
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_HOST" value="127.0.0.1"/>

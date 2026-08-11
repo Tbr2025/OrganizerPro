@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auction Ticker | {{ $auction->name }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+    {{-- Same CDN versions the LED wall uses. This is a standalone document with no Vite
+         bundle, so Echo comes from the CDN rather than resources/js. --}}
+    <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"></script>
     <style>
         /* ── OBS browser source ──
            Transparent background and a fixed 1920x1080 canvas, matching the match
@@ -649,6 +653,15 @@
         renderStats(p.stats);
     }
 
+    /* Retained so a pushed raise can patch and re-render without waiting for a feed. The
+       strip renders straight from the response, so without keeping these there is nothing
+       for an event to update. */
+    let lastCurrentPlayer = null;
+    let lastSealed = null;
+    /* Ordering token for pushed raises: frames are unordered and can repeat, so anything not
+       newer is dropped rather than put on air. */
+    let lastAppliedBidId = 0;
+
     function poll() {
         fetch(`/auction/${auctionId}/ticker-feed`)
             .then(r => r.json())
@@ -657,6 +670,8 @@
 
                 if (d.amount_unit) AMOUNT_UNIT = d.amount_unit;
 
+                lastCurrentPlayer = d.current_player || null;
+                lastSealed = d.closed_bid || null;
                 renderCurrent(d.current_player, d.closed_bid || null);
                 renderTeams(d.teams || [], d.squad || null);
                 renderSales(d.recent_sales || []);
@@ -712,6 +727,51 @@
         Promise.resolve(poll())
             .catch(() => {})
             .finally(() => setTimeout(tickerLoop, 2000));
+    })();
+
+    /*
+     * Live raises, straight off the wire.
+     *
+     * The strip is on air, so a price two to three seconds behind the room is visible to
+     * everyone watching the stream — the poll above runs every 2 s and the feed it reads is
+     * itself cached for a second. This subscribes to the same public channel the wall uses.
+     *
+     * The poll is untouched and stays the source of truth: it carries the clock, the pool,
+     * the sales and the team strip, none of which this event knows about. If the socket never
+     * connects, the strip behaves exactly as it did before.
+     */
+    (function subscribeToRaises() {
+        const key = @json(config('broadcasting.connections.pusher.key'));
+        const cluster = @json(config('broadcasting.connections.pusher.options.cluster'));
+
+        // config(), not env(): env() returns null under `php artisan config:cache`, which
+        // would take this down silently.
+        if (!key || typeof Echo === 'undefined') return;
+
+        try {
+            const echo = new Echo({ broadcaster: 'pusher', key, cluster, forceTLS: true });
+
+            echo.channel(`auction.${auctionId}`).listen('.bid.raised', (e) => {
+                if (!e || !lastCurrentPlayer) return;
+                if (Number(e.auction_player_id) !== Number(lastCurrentPlayer.id)) return;
+
+                const bidId = Number(e.bid_id) || 0;
+                if (bidId <= lastAppliedBidId) return;
+                lastAppliedBidId = bidId;
+
+                /* Patch the retained player and re-render through the normal path, so a
+                   pushed raise and a polled one look identical on air. renderCurrent() keeps
+                   its own sealed-round branch, which is what stops an amount appearing while
+                   a sealed round is running. */
+                lastCurrentPlayer.current_price = e.current_price;
+                lastCurrentPlayer.leading_team = e.team_name || lastCurrentPlayer.leading_team;
+                lastCurrentPlayer.leading_team_short = e.team_name || lastCurrentPlayer.leading_team_short;
+
+                renderCurrent(lastCurrentPlayer, lastSealed);
+            });
+        } catch (err) {
+            console.warn('[Ticker] live updates unavailable, polling only:', err);
+        }
     })();
 
     // Same shortcuts as the match ticker: r reloads, f goes fullscreen.

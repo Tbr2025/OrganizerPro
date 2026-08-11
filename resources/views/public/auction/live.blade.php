@@ -1347,6 +1347,9 @@
         let currentStatus = 'waiting';
         let lastPlayerId = null;
         let lastOnAuctionPlayerId = null;
+        // Ordering token for pushed raises: socket frames are unordered and can repeat, so
+        // anything not newer than this is dropped rather than drawn on the wall.
+        let _lastAppliedBidId = 0;
         let lastActionPlayerId = null;
 
         /**
@@ -2592,6 +2595,46 @@
                 if (isShuffling) return;
 
                 renderLiveBid(ap);
+            })
+            /*
+             * The raise itself.
+             *
+             * `player.onbid` only fires where the organizer put a player up or edited a
+             * price; a team raising from its own screen published nothing at all, so the
+             * hall learned about the bidding one poll late — and the poll is served from a
+             * one-second cache on top of that. This is the event that carries a raise.
+             *
+             * A flat payload rather than a model, so nothing here re-fetches: the numbers on
+             * the frame ARE what was just written, while the public feed is micro-cached and
+             * can hand back the price this event supersedes.
+             */
+            .listen('.bid.raised', (event) => {
+                if (!event) return;
+                if (Number(event.auction_player_id) !== Number(lastOnAuctionPlayerId)) return;
+
+                // Frames arrive unordered and can repeat, so bid_id decides. Without this a
+                // late frame drops the price back below what the hall has already seen.
+                const bidId = Number(event.bid_id) || 0;
+                if (bidId <= _lastAppliedBidId) return;
+                _lastAppliedBidId = bidId;
+
+                hasCompletedFirstLoad = true;
+
+                // Never over a shuffle — the reveal owns the screen until it finishes.
+                if (isShuffling) return;
+
+                renderLiveBid({
+                    id: event.auction_player_id,
+                    // renderLiveBid() refuses anything not on the block. Safe to assert here:
+                    // the id was already matched against lastOnAuctionPlayerId above, which is
+                    // only ever set for the player currently up.
+                    status: 'on_auction',
+                    current_price: event.current_price,
+                    current_bid_team_id: event.current_bid_team_id,
+                    current_bid_team: event.current_bid_team_id
+                        ? { id: event.current_bid_team_id, name: event.team_name }
+                        : null,
+                });
             });
 
         /*
