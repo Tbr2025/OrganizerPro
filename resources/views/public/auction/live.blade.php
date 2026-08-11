@@ -2563,6 +2563,8 @@
                     fireConfetti();
                 }
                 updatePlayerCard(auctionPlayer);
+                // Brings the sales strip, the pool chip and the counts with it.
+                refreshNow('sold');
             })
             .listen('.player.onbid', (event) => {
                 console.log('[Live] Player on-bid event (instant):', event);
@@ -2578,6 +2580,8 @@
                     lastPlayerId = ap.id;
                     const pool = shuffleNamePool.length > 1 ? shuffleNamePool : [ap.player?.name || 'Player'];
                     shuffleController.start(ap, pool);
+                    // A new player brings a new clock, pool position and stats with them.
+                    refreshNow('new-player');
                     return;
                 }
 
@@ -2635,6 +2639,24 @@
                         ? { id: event.current_bid_team_id, name: event.team_name }
                         : null,
                 });
+
+                // The price is already on screen from the frame above; this follows with the
+                // restarted clock and anything else the raise moved.
+                refreshNow('bid');
+            });
+
+        /*
+         * Pause, resume, end and restart.
+         *
+         * AuctionStatusUpdate publishes on its own channel (`auction.public.X`), not the one
+         * above, so it needs a second subscription. Without it the hall would keep counting
+         * down through a pause until the heartbeat came round — the one state the room most
+         * needs to see immediately.
+         */
+        window.Echo.channel(`auction.public.${auctionId}`)
+            .listen('.auction.status', (event) => {
+                console.info('[Live] auction status:', event?.status);
+                refreshNow('status:' + (event?.status ?? '?'));
             });
 
         /*
@@ -2656,11 +2678,66 @@
          */
         let _wallPollTimer = null;
 
+        /*
+         * Event-driven, with the timer as a heartbeat rather than the mechanism.
+         *
+         * WALL_HEARTBEAT_MS is how long the wall can stay wrong if a broadcast is missed
+         * altogether — a dropped socket, a laptop resumed from sleep, a screen opened
+         * mid-auction. Every actual change (a raise, a new player, a sale, a pause) refetches
+         * immediately via refreshNow() below, so this is not what keeps the wall current; it
+         * is what recovers it. Drop it back to 2000 if you would rather trade bandwidth for a
+         * shorter worst case.
+         */
+        const HEARTBEAT_PUSH_OK = 10000;
+        const HEARTBEAT_NO_PUSH = 2000;
+        let heartbeatMs = HEARTBEAT_NO_PUSH;   // pessimistic until push proves itself
+
         (function pollWall() {
             Promise.resolve(fetchActivePlayer())
                 .catch(() => {})
-                .finally(() => { _wallPollTimer = setTimeout(pollWall, 2000); });
+                .finally(() => { _wallPollTimer = setTimeout(pollWall, heartbeatMs); });
         })();
+
+        /* The wall reports its own transport too, and drives the heartbeat from it: a dropped
+           socket returns the poll to its pre-push 2s cadence rather than leaving the hall ten
+           seconds behind. */
+        try {
+            const wallConn = window.Echo.connector.pusher.connection;
+            wallConn.bind('connected', () => {
+                console.info('[Live] LIVE — pusher connected');
+                heartbeatMs = HEARTBEAT_PUSH_OK;
+            });
+            ['unavailable', 'failed', 'disconnected'].forEach((state) => {
+                wallConn.bind(state, () => {
+                    console.warn('[Live] pusher ' + state + ' — polling only.');
+                    heartbeatMs = HEARTBEAT_NO_PUSH;
+                });
+            });
+        } catch (e) {
+            console.warn('[Live] could not observe pusher connection:', e);
+        }
+
+        /*
+         * Refetch because something actually changed.
+         *
+         * Events trigger a refetch rather than each one patching the DOM itself: the feed is
+         * the authoritative shape every renderer here already understands, so there is one
+         * render path instead of one per event — and no chance of two events disagreeing about
+         * the same field. The price is still applied straight from the raise frame for
+         * instant feedback; this brings the rest (player, sale, clock, pool) with it.
+         *
+         * Debounced, because a sale arrives as two events and a bid burst as several; without
+         * it each one would fire its own request.
+         */
+        let _refreshTimer = null;
+
+        function refreshNow(reason) {
+            clearTimeout(_refreshTimer);
+            _refreshTimer = setTimeout(() => {
+                console.info('[Live] refresh:', reason);
+                fetchActivePlayer();
+            }, 150);
+        }
 
         // Initial fetch
         fetchActivePlayer();

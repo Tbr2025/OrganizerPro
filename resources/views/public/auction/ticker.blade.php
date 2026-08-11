@@ -723,11 +723,40 @@
 
     /* Chained, not on an interval — an interval stacks requests when the server is slow
        until the browser runs out of connections and the strip freezes on air. */
+    /* TICKER_HEARTBEAT_MS is how long the strip can stay wrong if a broadcast is missed
+       outright — a dropped socket, an OBS source reloaded mid-auction. Every real change
+       refetches immediately through refreshNow() below, so this is not what keeps the strip
+       current; it is what recovers it. Set it back to 2000 to trade bandwidth for a shorter
+       worst case. */
+    /* Adaptive, and it starts pessimistic.
+       2s until push has actually proved itself, then 10s while the socket is up, and straight
+       back to 2s the moment it drops. A fixed slow heartbeat would mean a dead socket costs
+       ten seconds of staleness on air before anyone notices; this way a socket failure
+       degrades to exactly the behaviour that was running before push existed. */
+    const HEARTBEAT_PUSH_OK = 10000;
+    const HEARTBEAT_NO_PUSH = 2000;
+    let heartbeatMs = HEARTBEAT_NO_PUSH;
+
     (function tickerLoop() {
         Promise.resolve(poll())
             .catch(() => {})
-            .finally(() => setTimeout(tickerLoop, 2000));
+            .finally(() => setTimeout(tickerLoop, heartbeatMs));
     })();
+
+    /* Refetch because something actually changed.
+       Events trigger a refetch rather than each patching the DOM itself: the feed is the
+       shape every renderer here already understands, so there is one render path instead of
+       one per event. Debounced, because a sale arrives as two events and a bid burst as
+       several. */
+    let _refreshTimer = null;
+
+    function refreshNow(reason) {
+        clearTimeout(_refreshTimer);
+        _refreshTimer = setTimeout(() => {
+            console.info('[Ticker] refresh:', reason);
+            poll();
+        }, 150);
+    }
 
     /*
      * Live raises, straight off the wire.
@@ -809,10 +838,23 @@
             conn.bind('connected', () => {
                 console.info('[Ticker] LIVE — pusher connected (' + cluster + ')');
                 setTransport(true, cluster);
+                heartbeatMs = HEARTBEAT_PUSH_OK;
             });
-            conn.bind('unavailable', () => { console.warn('[Ticker] pusher unavailable — polling only.'); setTransport(false, 'unavailable'); });
-            conn.bind('failed', () => { console.warn('[Ticker] pusher failed — polling only.'); setTransport(false, 'failed'); });
-            conn.bind('disconnected', () => { console.warn('[Ticker] pusher disconnected — polling only.'); setTransport(false, 'disconnected'); });
+            conn.bind('unavailable', () => {
+                console.warn('[Ticker] pusher unavailable — polling only.');
+                setTransport(false, 'unavailable');
+                heartbeatMs = HEARTBEAT_NO_PUSH;   // back to the pre-push cadence
+            });
+            conn.bind('failed', () => {
+                console.warn('[Ticker] pusher failed — polling only.');
+                setTransport(false, 'failed');
+                heartbeatMs = HEARTBEAT_NO_PUSH;   // back to the pre-push cadence
+            });
+            conn.bind('disconnected', () => {
+                console.warn('[Ticker] pusher disconnected — polling only.');
+                setTransport(false, 'disconnected');
+                heartbeatMs = HEARTBEAT_NO_PUSH;   // back to the pre-push cadence
+            });
 
             window.Echo.channel(`auction.${auctionId}`).listen('.bid.raised', (e) => {
                 if (!e || !lastCurrentPlayer) return;
@@ -833,7 +875,23 @@
                 renderCurrent(lastCurrentPlayer, lastSealed);
                 pushedFrames++;
                 setTransport(true, cluster + ' · ' + pushedFrames + ' raise(s) pushed');
+
+                // Price is on screen already; this follows with the restarted clock.
+                refreshNow('bid');
             });
+
+            /* The other things the admin changes. Each only triggers a refetch — the feed
+               carries the authoritative shape, and these events publish different payload
+               shapes to each other, so reading them directly would mean three more render
+               paths to keep in step. */
+            window.Echo.channel(`auction.${auctionId}`)
+                .listen('.player.onbid', () => refreshNow('player-onbid'))
+                .listen('.player-on-sold', () => refreshNow('sold'));
+
+            /* Pause, resume, end and restart publish on their own channel. Without this the
+               strip would count down through a pause until the heartbeat came round — on air. */
+            window.Echo.channel(`auction.public.${auctionId}`)
+                .listen('.auction.status', (e) => refreshNow('status:' + (e?.status ?? '?')));
         } catch (err) {
             console.warn('[Ticker] live updates unavailable, polling only:', err);
             setTransport(false, 'init error');
