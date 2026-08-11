@@ -10,10 +10,45 @@
         $tournament = $auction->tournament;
         $primaryColor = $tournament?->settings?->primary_color ?? '#1a56db';
         $secondaryColor = $tournament?->settings?->secondary_color ?? '#ffffff';
+
+        /*
+         * The text colour is DERIVED from the background it sits on, not taken from the
+         * brand's secondary colour.
+         *
+         * The header and the button paint themselves the tournament's primary colour and then
+         * wrote their text in its secondary — two brand colours stacked with nothing
+         * guaranteeing they contrast. A tournament whose colours are both dark rendered
+         * "You've Been Selected!" in navy on navy: present in the markup, invisible to the
+         * reader, and equally invisible on the button.
+         *
+         * sRGB relative luminance, the same measure WCAG uses, with a threshold that keeps
+         * white on anything but genuinely light backgrounds.
+         */
+        $readableOn = function (?string $hex) {
+            $hex = ltrim((string) $hex, '#');
+
+            if (strlen($hex) === 3) {
+                $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+            }
+
+            // An unparseable colour is not worth guessing at; white is safe on the dark
+            // headers these emails have always had.
+            if (! preg_match('/^[0-9a-fA-F]{6}$/', $hex)) {
+                return '#ffffff';
+            }
+
+            $luminance = (0.2126 * hexdec(substr($hex, 0, 2))
+                + 0.7152 * hexdec(substr($hex, 2, 2))
+                + 0.0722 * hexdec(substr($hex, 4, 2))) / 255;
+
+            return $luminance > 0.6 ? '#111827' : '#ffffff';
+        };
+
+        $onPrimary = $readableOn($primaryColor);
     @endphp
     <div style="background: {{ $primaryColor }}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
         <img src="{{ $tournament?->settings?->logo_url ?? url('/images/logo/logo.png') }}" alt="{{ $tournament?->name ?? config('app.name') }}" style="width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: block; object-fit: contain; background: white; padding: 8px;">
-        <h1 style="color: {{ $secondaryColor }}; margin: 0; font-size: 24px;">You've Been Selected!</h1>
+        <h1 style="color: {{ $onPrimary }}; margin: 0; font-size: 24px;">You've Been Selected!</h1>
     </div>
 
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
@@ -58,7 +93,7 @@
         @if($tournament?->slug)
         <div style="text-align: center;">
             <a href="{{ route('public.tournament.show', $tournament->slug) }}"
-               style="display: inline-block; background: {{ $primaryColor }}; color: {{ $secondaryColor }}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+               style="display: inline-block; background: {{ $primaryColor }}; color: {{ $onPrimary }}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 View Tournament
             </a>
         </div>
