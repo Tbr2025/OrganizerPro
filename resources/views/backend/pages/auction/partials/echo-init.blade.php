@@ -39,6 +39,20 @@
              */
             window.auctionChannel = function (auctionId) {
                 try {
+                    /*
+                     * Say so, loudly, when Echo is missing.
+                     *
+                     * This threw and was caught silently, so a blocked CDN script and a
+                     * working connection looked identical from the outside — the page just
+                     * carried on polling with nothing to explain why. An ad blocker or
+                     * privacy extension blocking js.pusher.com is the usual cause.
+                     */
+                    if (typeof Echo === 'undefined') {
+                        console.warn('[auction] Echo failed to load (js.pusher.com or cdnjs '
+                            + 'blocked by an extension?) — polling only.');
+                        return null;
+                    }
+
                     if (!window.Echo) {
                         window.Echo = new Echo({
                             broadcaster: 'pusher',
@@ -46,6 +60,14 @@
                             cluster: @json($pusherCluster),
                             forceTLS: true,
                         });
+
+                        // The connection reports itself, so "push or polling?" is answerable
+                        // from the console rather than by reading WebSocket frames.
+                        const conn = window.Echo.connector.pusher.connection;
+                        conn.bind('connected', () => console.info('[auction] LIVE — pusher connected (@json($pusherCluster))'));
+                        conn.bind('unavailable', () => console.warn('[auction] pusher unavailable — polling only.'));
+                        conn.bind('failed', () => console.warn('[auction] pusher failed — polling only.'));
+                        conn.bind('disconnected', () => console.warn('[auction] pusher disconnected — polling only.'));
                     }
 
                     return window.Echo.channel('auction.' + auctionId);

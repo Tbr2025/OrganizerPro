@@ -746,7 +746,25 @@
 
         // config(), not env(): env() returns null under `php artisan config:cache`, which
         // would take this down silently.
-        if (!key || typeof Echo === 'undefined') return;
+        if (!key) {
+            console.warn('[Ticker] no Pusher key configured — polling only.');
+            return;
+        }
+
+        /*
+         * Say so, loudly.
+         *
+         * This returned silently when Echo was missing, so a blocked CDN script and a working
+         * connection looked identical from the outside — the strip just carried on polling
+         * with nothing to explain why. An ad blocker or privacy extension blocking
+         * js.pusher.com is the most common cause, and it is invisible unless something says
+         * it happened.
+         */
+        if (typeof Echo === 'undefined') {
+            console.warn('[Ticker] Echo failed to load (js.pusher.com or cdnjs blocked by an '
+                + 'extension?) — polling only.');
+            return;
+        }
 
         try {
             /* On window, like the LED wall, so the connection can be inspected from the
@@ -755,6 +773,14 @@
                A local instance works identically but leaves no way to check whether the strip
                is actually live during a broadcast. */
             window.Echo = new Echo({ broadcaster: 'pusher', key, cluster, forceTLS: true });
+
+            /* The connection reports itself, so "is this on push or polling?" is answerable
+               from the console instead of by reading WebSocket frames. */
+            const conn = window.Echo.connector.pusher.connection;
+            conn.bind('connected', () => console.info('[Ticker] LIVE — pusher connected (' + cluster + ')'));
+            conn.bind('unavailable', () => console.warn('[Ticker] pusher unavailable — polling only.'));
+            conn.bind('failed', () => console.warn('[Ticker] pusher failed — polling only.'));
+            conn.bind('disconnected', () => console.warn('[Ticker] pusher disconnected — polling only.'));
 
             window.Echo.channel(`auction.${auctionId}`).listen('.bid.raised', (e) => {
                 if (!e || !lastCurrentPlayer) return;
