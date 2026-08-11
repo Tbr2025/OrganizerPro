@@ -188,12 +188,20 @@
             100% { transform: scale(1); opacity: 1; }
         }
         #sold-badge.sold-entrance {
-            animation: badge-spin-in 0.8s ease-out forwards;
+            animation: badge-flash-in 0.45s ease-out forwards;
         }
-        @keyframes badge-spin-in {
-            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
-            60% { transform: scale(1.2) rotate(10deg); opacity: 1; }
-            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        /*
+         * Flashes in; it does not spin.
+         *
+         * A badge that arrives spinning through 180 degrees reads as a graphic doing a trick,
+         * and it fights the template's own rotation — an author who tilts the badge in the
+         * editor had that tilt overwritten by the animation's final `rotate(0deg)`. A short
+         * fade with the faintest overshoot lands it without either problem.
+         */
+        @keyframes badge-flash-in {
+            0%   { transform: scale(0.86); opacity: 0; }
+            55%  { transform: scale(1.04); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
         }
 
         /* HTML fallback sold stamp (when no sticker uploaded) */
@@ -263,13 +271,15 @@
                 0 10px 30px rgba(0,0,0,0.55);
         }
         #team-logo.sold-entrance {
-            animation: team-logo-entrance 0.8s ease-out 0.2s forwards;
+            animation: team-logo-entrance 0.45s ease-out 0.15s forwards;
             opacity: 0;
         }
+        /* Flash in, like the badge above — a winning team's logo tumbling into place was the
+           same trick twice on the same screen. */
         @keyframes team-logo-entrance {
-            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
-            60% { transform: scale(1.15) rotate(5deg); opacity: 1; }
-            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            0%   { transform: scale(0.9); opacity: 0; }
+            55%  { transform: scale(1.03); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
         }
 
         /* ── IPL UNSOLD dramatic effects ── */
@@ -3024,13 +3034,87 @@
         // Entering or leaving fullscreen changes the viewport without firing resize on
         // every browser, and the wall is run fullscreen more often than not.
         document.addEventListener('fullscreenchange', () => setTimeout(scaleLive, 60));
+        /**
+         * Shrink a text element until it fits inside the card.
+         *
+         * Every text element is positioned by a `left` and given a font size, with no width —
+         * so a long name simply ran on past the edge of the artwork. It used to spill onto the
+         * page, which looked wrong; now that the canvas clips its children it is cut off
+         * instead, which is worse, because the end of somebody's name disappears.
+         *
+         * The designed size is remembered on the node and restored before every measurement,
+         * so a short name after a long one goes back to full size rather than inheriting the
+         * shrink. An element the template gives an explicit width is fitted to that width; the
+         * rest are fitted to what remains of the canvas to their right.
+         */
+        const FIT_MIN_PX = 12;
+
+        function fitTextElement(el) {
+            if (!el || el.classList.contains('hidden') || !el.textContent.trim()) return;
+
+            if (!el.dataset.designedFontSize) {
+                el.dataset.designedFontSize = parseFloat(getComputedStyle(el).fontSize) || 16;
+            }
+
+            const designed = parseFloat(el.dataset.designedFontSize);
+            el.style.fontSize = designed + 'px';
+
+            // An explicit width wins; otherwise the room left between this element and the
+            // right edge of the canvas, less a small margin so text never touches it.
+            const explicit = parseFloat(getComputedStyle(el).width);
+            const hasExplicitWidth = el.style.width && el.style.width !== 'auto';
+            const available = hasExplicitWidth
+                ? explicit
+                : Math.max(40, canvasWidth - el.offsetLeft - 24);
+
+            let size = designed;
+
+            // scrollWidth is the laid-out width of the content, which is what overflows.
+            while (el.scrollWidth > available && size > FIT_MIN_PX) {
+                size -= 1;
+                el.style.fontSize = size + 'px';
+            }
+        }
+
+        function fitCardText() {
+            [
+                'player-name', 'player-role', 'player-batting', 'player-bowling',
+                'current-bid', 'bid-label', 'bidder-name', 'sold-text',
+            ].forEach((id) => fitTextElement(document.getElementById(id)));
+        }
+
+        /*
+         * Wrapped rather than called at the end of updatePlayerCard(): that function has
+         * several early returns (a sealed round, a missing player), and text set on the way to
+         * one of them would never be fitted.
+         */
+        const origUpdatePlayerCard = updatePlayerCard;
+        updatePlayerCard = function (p) {
+            origUpdatePlayerCard(p);
+            fitCardText();
+        };
+
+        const origRenderLiveBid = renderLiveBid;
+        renderLiveBid = function (ap) {
+            origRenderLiveBid(ap);
+            fitCardText();
+        };
+
         // Scale on initial load and whenever card becomes visible
         const origShowCard = showCard;
         showCard = function() {
             origShowCard();
             setTimeout(scaleLive, 50);
+            setTimeout(fitCardText, 60);
         };
         scaleLive();
+
+        /* Web fonts land after first paint and change every measurement, so anything fitted
+           before they arrive is fitted against the fallback face. */
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(fitCardText);
+        }
+        window.addEventListener('resize', fitCardText);
     </script>
 
 </body>
