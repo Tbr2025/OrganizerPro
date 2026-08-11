@@ -666,43 +666,51 @@
                     });
                 },
 
+                /**
+                 * Live prices on the player list, where they are available.
+                 *
+                 * This was broken in three ways at once and had never worked: it subscribed
+                 * to the PRIVATE `auction.X` channel while every event publishes on the
+                 * public one; three of the five names it listened for (`.player.added`,
+                 * `.player.removed`, `.player.statusUpdated`) are broadcast by nothing at
+                 * all, and `.player.sold` is really `player-on-sold`; and when
+                 * `window.Echo` was undefined — which it always is on this page, since Echo
+                 * is initialised nowhere in resources/js — it retried every 100 ms forever,
+                 * a timer that ran for as long as the tab stayed open.
+                 *
+                 * Now: the public channel, only names that exist, and a single attempt that
+                 * gives up quietly. This screen has no poll, so without Echo it simply shows
+                 * the figures it was rendered with, exactly as it did before.
+                 */
                 connectToEcho() {
-                    const connect = () => {
-                        if (window.Echo) {
-                            window.Echo.private(`auction.${this.auctionId}`)
-                                .listen('.player.onbid', e => {
-                                    const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                    if (player) player.current_price = e.auctionPlayer.current_price;
-                                })
-                                .listen('.player.sold', e => {
-                                    const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                    if (player) {
-                                        player.status = 'sold';
-                                        player.sold_to_team = e.auctionPlayer.sold_to_team;
-                                        player.final_price = e.auctionPlayer.final_price;
-                                        this.sortPlayers();
-                                    }
-                                })
-                                .listen('.player.added', e => {
-                                    const exists = this.players.find(p => p.id === e.auctionPlayer.id);
-                                    if (!exists) this.players.push({
-                                        ...e.auctionPlayer,
-                                        selectedTeamId: null
-                                    });
-                                    this.sortPlayers();
-                                })
-                                .listen('.player.removed', e => {
-                                    this.players = this.players.filter(p => p.id !== e.auctionPlayer.id);
-                                })
-                                .listen('.player.statusUpdated', e => {
-                                    const player = this.players.find(p => p.id === e.auctionPlayer.id);
-                                    if (player) player.status = e.auctionPlayer.status;
-                                });
-                        } else {
-                            setTimeout(connect, 100);
-                        }
+                    if (!window.auctionChannel) return;
+
+                    const channel = window.auctionChannel(this.auctionId);
+                    if (!channel) return;
+
+                    const setPrice = (id, price) => {
+                        const player = this.players.find(p => p.id === id);
+                        if (player && price !== undefined) player.current_price = price;
                     };
-                    connect();
+
+                    channel
+                        .listen('.bid.raised', e => setPrice(e.auction_player_id, e.current_price))
+                        // Two events publish `player.onbid` with different shapes — one nests
+                        // the model under `auctionPlayer`, the other sends it at the top
+                        // level. Both are live, so both have to be read.
+                        .listen('.player.onbid', e => {
+                            const ap = e.auctionPlayer || e;
+                            if (ap?.id) setPrice(ap.id, ap.current_price);
+                        })
+                        .listen('.player-on-sold', e => {
+                            const ap = e.auctionPlayer || e;
+                            const player = this.players.find(p => p.id === ap?.id);
+                            if (!player) return;
+                            player.status = 'sold';
+                            player.sold_to_team = ap.sold_to_team ?? e.winningTeam ?? player.sold_to_team;
+                            player.final_price = ap.final_price ?? player.final_price;
+                            this.sortPlayers();
+                        });
                 },
 
                 sortPlayers() {
@@ -773,4 +781,8 @@
             }
         }
     </script>
+
+    {{-- Provides window.auctionChannel. Optional: this page has no poll, so without it
+         the list simply keeps the figures it was rendered with. --}}
+    @include('backend.pages.auction.partials.echo-init')
 @endsection

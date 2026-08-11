@@ -587,6 +587,10 @@ function teamBiddingPanel() {
     return {
         auctionId: {{ $auction->id }},
         userTeam: @json($userTeam),
+        // Chained poll handle, and the ordering token for pushed raises: socket frames
+        // arrive unordered, so anything not newer than this is dropped.
+        _pollTimer: null,
+        _lastAppliedBidId: 0,
         player: { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", total_matches: null, total_runs: null, total_wickets: null },
         soldPlayers: @json($soldPlayers ?? []),
         state: "waiting",
@@ -642,6 +646,7 @@ function teamBiddingPanel() {
                 }
             }
             this.startPolling();
+            this.subscribeToRaises();
             document.addEventListener('fullscreenchange', () => {
                 this.isFullscreen = !!document.fullscreenElement;
             });
@@ -656,16 +661,94 @@ function teamBiddingPanel() {
             }
         },
 
+        /**
+         * Chained, not setInterval.
+         *
+         * This screen fired four requests in parallel every 2 s regardless of whether the
+         * previous four had finished — the one live screen that never got the chained-poll
+         * treatment the organizer panels have. With SESSION_DRIVER=file each request takes
+         * an exclusive lock on the session file, so those four serialise anyway and a slow
+         * tick simply stacked more work behind itself. Waiting for the round trip before
+         * scheduling the next one keeps at most one tick in flight.
+         *
+         * The interval is unchanged. This is the fallback path now — pushed raises arrive
+         * through subscribeToRaises() in milliseconds — so it only has to be steady, not
+         * fast.
+         */
         startPolling() {
-            this.fetchCurrentPlayer();
-            this.fetchPurse();
-            this.fetchSealed();
-            setInterval(() => {
-                this.fetchCurrentPlayer();
-                this.fetchSoldPlayers();
-                this.fetchPurse();
-                this.fetchSealed();
-            }, 2000);
+            const tick = async () => {
+                try {
+                    await Promise.all([
+                        this.fetchCurrentPlayer(),
+                        this.fetchSoldPlayers(),
+                        this.fetchPurse(),
+                        this.fetchSealed(),
+                    ]);
+                } catch (e) {
+                    // A failed tick must not end the loop — that is what would leave the
+                    // screen frozen for the rest of the auction.
+                } finally {
+                    this._pollTimer = setTimeout(tick, 2000);
+                }
+            };
+
+            // First pass immediately, same as before.
+            tick();
+        },
+
+        /**
+         * Take a raise straight off the wire.
+         *
+         * This is the screen the delay actually mattered on: a manager was deciding against
+         * a price up to ~3 s old (2 s poll + 1 s feed cache), with the clock running. The
+         * poll above still runs and remains the source of truth.
+         */
+        subscribeToRaises() {
+            if (!window.auctionChannel) {
+                window.addEventListener('load', () => this.subscribeToRaises(), { once: true });
+                return;
+            }
+
+            const channel = window.auctionChannel(this.auctionId);
+            if (!channel) return;
+
+            channel.listen('.bid.raised', (e) => this.applyRaise(e));
+        },
+
+        /**
+         * Socket frames are unordered and may repeat, so `bid_id` decides: anything not
+         * newer than the last applied frame is dropped. Otherwise a late frame can show a
+         * price below what the bidding has already reached — and this is the screen where
+         * somebody is about to bet money on that number.
+         */
+        applyRaise(e) {
+            if (!e || !this.player) return;
+
+            // Only the player this screen currently shows. `lastPlayerId` is what the poll
+            // path tracks, so the two agree on who is up.
+            if (Number(e.auction_player_id) !== Number(this.lastPlayerId)) return;
+
+            const bidId = Number(e.bid_id) || 0;
+            if (bidId <= (this._lastAppliedBidId || 0)) return;
+            this._lastAppliedBidId = bidId;
+
+            const price = Number(e.current_price);
+            if (!isFinite(price)) return;
+
+            if (price !== this.player.current_price) this._flashBid();
+
+            this.player.current_price = price;
+            this.player.current_bid_team = e.current_bid_team_id
+                ? { id: e.current_bid_team_id, name: e.team_name }
+                : null;
+
+            /*
+             * The frame carries the poll's own timer field names, so the existing re-seed
+             * handles it. Passing a partial object here would be worse than doing nothing:
+             * syncTimerFromServer() treats a missing `timer_seconds_remaining` as "no clock"
+             * and would zero the countdown on every raise.
+             */
+            this.syncTimerFromServer(e);
         },
 
         /**
@@ -1160,4 +1243,9 @@ function teamBiddingPanel() {
     };
 }
 </script>
+
+{{-- Push layer, inside the scripts push so the layout actually renders it. Additive:
+     the chained poll above stays the source of truth, so a socket that never connects
+     leaves this screen behaving exactly as before. --}}
+@include('backend.pages.auction.partials.echo-init')
 @endpush

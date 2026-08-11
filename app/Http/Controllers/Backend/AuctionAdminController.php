@@ -1110,7 +1110,7 @@ class AuctionAdminController extends Controller
                 // A successful bid restarts the clock (at bid_timer_reset_seconds).
                 $auction->update(['timer_started_at' => now()]);
 
-                return ['newPrice' => $newPrice, 'increment' => $increment, 'player' => $player];
+                return ['newPrice' => $newPrice, 'increment' => $increment, 'player' => $player, 'bid_id' => $bid->id];
             });
         } catch (\Exception $e) {
             $player = AuctionPlayer::where('auction_id', $auction->id)->find($data['playerID']);
@@ -1143,6 +1143,15 @@ class AuctionAdminController extends Controller
         $team = ActualTeam::find($data['teamId'] ?? null);
 
         broadcast(new PlayerOnBidEvent($player, $team))->toOthers();
+
+        /*
+         * The raise itself, for the screens that only need the new number.
+         *
+         * Not ->toOthers(): both panels bid through this endpoint, and the panel that did
+         * not place the bid is precisely the one that needs telling. The listener's own
+         * bid_id ordering makes a self-delivered frame a no-op.
+         */
+        \App\Events\BidRaised::announce($player, (int) $result['bid_id'], $team?->name);
 
         return response()->json([
             'success' => true,

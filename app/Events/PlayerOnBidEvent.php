@@ -6,11 +6,11 @@ use App\Models\ActualTeam;
 use App\Models\AuctionPlayer;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class PlayerOnBidEvent implements ShouldBroadcast
+class PlayerOnBidEvent implements ShouldBroadcastNow
 {
     use Dispatchable;
     use SerializesModels;

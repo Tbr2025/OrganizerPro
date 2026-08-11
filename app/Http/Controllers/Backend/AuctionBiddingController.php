@@ -293,9 +293,10 @@ class AuctionBiddingController extends Controller
         }
 
         $newPrice = null;
+        $raise = null;
 
         try {
-            DB::transaction(function () use ($validated, $userTeam, $auction, &$newPrice) {
+            DB::transaction(function () use ($validated, $userTeam, $auction, &$newPrice, &$raise) {
                 $auctionPlayer = AuctionPlayer::where('id', $validated['auction_player_id'])
                     ->where('auction_id', $auction->id)
                     ->lockForUpdate()
@@ -370,6 +371,13 @@ class AuctionBiddingController extends Controller
 
                 $newPrice = $bidAmount;
 
+                // Carried out of the transaction (by reference) so the raise can be
+                // announced only once it has actually committed.
+                $raise = [
+                    'player' => $auctionPlayer,
+                    'bid_id' => $bid->id,
+                ];
+
                 // One rule, on the model. Reaching the sealed threshold also opens the
                 // round, so there is a single place where that can happen.
                 $freshAuction = Auction::find($auction->id);
@@ -382,6 +390,21 @@ class AuctionBiddingController extends Controller
             });
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 422);
+        }
+
+        /*
+         * Announce the raise, after the commit.
+         *
+         * Every other screen learned about a bid only when its own poll came round — up to
+         * two seconds, plus a second of feed cache — so a team could bid against a price
+         * roughly three seconds old. This is the push that closes that window; the polls
+         * stay exactly as they are and remain the reconciliation path.
+         *
+         * Outside the transaction on purpose: broadcasting inside it would publish a raise
+         * that a later rollback erases, and there is no way to un-send it.
+         */
+        if ($raise !== null) {
+            \App\Events\BidRaised::announce($raise['player'], $raise['bid_id'], $userTeam->name);
         }
 
         // Hand the fresh purse state back so the bidding page can update its

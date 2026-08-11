@@ -1326,6 +1326,19 @@
             timerEnabled: {{ $auction->timerApplies() ? 'true' : 'false' }},
             timerExpiryAction: '{{ $auction->timer_expiry_action ?? 'manual' }}',
             timerSecondsRemaining: null,
+            // Ordering token for pushed raises — frames arrive unordered, so anything not
+            // newer than this is dropped rather than applied.
+            _lastAppliedBidId: 0,
+
+            /*
+             * This panel had no idea whether the auction was open or sealed — it inferred
+             * everything from whatever `sealed.active` came back as, which is why it polled
+             * the expensive sealed endpoint on every tick regardless. pollState() has always
+             * returned bid_type; it was simply never read here.
+             *
+             * Seeded from the server render and refreshed by each poll.
+             */
+            bidType: '{{ $auction->bid_type ?? 'open' }}',
             timerExpired: false,
             _timerFiring: false,
             _timerFiredForPlayer: null,
@@ -1485,9 +1498,59 @@
                     }
                 };
                 tick();
+                this.subscribeToRaises();
                 document.addEventListener('fullscreenchange', () => {
                     this.isFullscreen = !!document.fullscreenElement;
                 });
+            },
+
+            /**
+             * Take the price off the wire rather than waiting for the next poll.
+             *
+             * Additive — the chained poll above keeps running and stays the source of truth,
+             * so a socket that never connects (or later drops) leaves this panel behaving
+             * exactly as it did before. One deferred retry, never a loop.
+             */
+            subscribeToRaises() {
+                if (!window.auctionChannel) {
+                    window.addEventListener('load', () => this.subscribeToRaises(), { once: true });
+                    return;
+                }
+
+                const channel = window.auctionChannel({{ $auction->id }});
+                if (!channel) return;
+
+                channel.listen('.bid.raised', (e) => this.applyRaise(e));
+            },
+
+            /**
+             * Socket frames are unordered and can repeat, so `bid_id` decides: anything not
+             * newer than the last applied frame is dropped, or a late frame would drag the
+             * price back below where the bidding has already reached.
+             *
+             * Moves the price, the leader and the clock only. Sell, pass and unsold stay
+             * with the poll and the operator's own action, so a stale frame can never stamp
+             * a result on the board.
+             */
+            applyRaise(e) {
+                if (!e || !this.currentPlayer) return;
+                if (Number(e.auction_player_id) !== Number(this.currentPlayer.id)) return;
+
+                const bidId = Number(e.bid_id) || 0;
+                if (bidId <= (this._lastAppliedBidId || 0)) return;
+                this._lastAppliedBidId = bidId;
+
+                const price = Number(e.current_price);
+                if (!isFinite(price)) return;
+
+                this.currentBidAmount = price;
+                this.currentBidTeamId = e.current_bid_team_id ?? null;
+                this.currentPlayer.current_price = price;
+                this.currentPlayer.current_bid_team_id = e.current_bid_team_id ?? null;
+
+                if (e.timer_seconds_remaining !== null && e.timer_seconds_remaining !== undefined) {
+                    this.timerSecondsRemaining = e.timer_seconds_remaining;
+                }
             },
 
             toggleFullscreen() {
@@ -2106,6 +2169,21 @@
                     if (this.sealed.active) this.sealed = { active: false };
                     return;
                 }
+
+                /*
+                 * Only in a sealed auction.
+                 *
+                 * This ran on every 2-second tick whatever the bid type, and the endpoint
+                 * behind it is the expensive one — stateForOrganizer() computes a purse per
+                 * invited team, so an open-bid auction was paying for a board that was not
+                 * even on screen. The board is cleared on the way out so a leftover sealed
+                 * panel cannot linger after a switch back to open.
+                 */
+                if (this.bidType !== 'closed') {
+                    if (this.sealed.active) this.sealed = { active: false };
+                    return;
+                }
+
                 try {
                     const res = await fetch(
                         `${this.apiBase}/api/closed-bid/state?auction_player_id=${this.currentPlayer.id}`,
@@ -2413,6 +2491,9 @@
                     const data = await res.json();
 
                     this.auctionStatus = data.auction_status;
+                    // Kept fresh so the sealed-state poll below can skip itself in an
+                    // open-bid auction, and so a mid-auction switch to CLOSED is picked up.
+                    if (data.bid_type) this.bidType = data.bid_type;
                     this.teams = data.teams;
                     this.stats = data.stats;
 
@@ -2641,4 +2722,8 @@
         };
     }
     </script>
+
+    {{-- Push layer, inside the scripts push so the layout renders it. Additive: the
+         chained poll stays the source of truth. --}}
+    @include('backend.pages.auction.partials.echo-init')
 @endpush

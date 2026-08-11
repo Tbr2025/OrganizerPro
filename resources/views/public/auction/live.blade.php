@@ -1659,11 +1659,17 @@
             }
         };
 
-        // Initialize Echo
+        /* Initialize Echo.
+
+           config(), not env(). env() returns null the moment anyone runs
+           `php artisan config:cache`, which would have taken the wall's live updates down
+           silently — no error, just a page that quietly went back to polling. The values are
+           JSON-encoded rather than dropped inside quotes, like every other server value on
+           this page. */
         window.Echo = new Echo({
             broadcaster: 'pusher',
-            key: '{{ env('PUSHER_APP_KEY') }}',
-            cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
+            key: @json(config('broadcasting.connections.pusher.key')),
+            cluster: @json(config('broadcasting.connections.pusher.options.cluster')),
             forceTLS: true
         });
 

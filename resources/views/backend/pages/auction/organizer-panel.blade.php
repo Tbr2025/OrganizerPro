@@ -1965,6 +1965,10 @@ function auctionOrganizerPanel() {
         _shuffleInterval: null,
         _shuffleTimeout: null,
 
+        // Ordering token for pushed raises — socket frames arrive unordered, so anything not
+        // newer than this is dropped rather than applied.
+        _lastAppliedBidId: 0,
+
         // How long a lot draw cycles the tied team names before landing. The draw is
         // decided on the server before any of this starts; the spin only shows it.
         LOT_SPIN_MS: 15000,
@@ -2047,11 +2051,73 @@ function auctionOrganizerPanel() {
             }
 
             this.startStatePolling();
+            this.subscribeToRaises();
 
             // Listen for fullscreen changes (e.g. user presses Esc to exit)
             document.addEventListener('fullscreenchange', () => {
                 this.isFullscreen = !!document.fullscreenElement;
             });
+        },
+
+        /**
+         * Take the price straight off the wire instead of waiting for the next poll.
+         *
+         * Additive: the 2-second poll keeps running and stays the source of truth. If the
+         * socket never connects or later drops, this simply never fires and the panel
+         * behaves exactly as it did before.
+         */
+        subscribeToRaises() {
+            // One deferred retry, not a loop: the CDN scripts are parser-blocking so they
+            // normally run before Alpine boots, but if they have not yet, `load` is the last
+            // moment they could. A retry loop is the defect in auctions/show.blade.php.
+            if (!window.auctionChannel) {
+                window.addEventListener('load', () => this.subscribeToRaises(), { once: true });
+                return;
+            }
+
+            const channel = window.auctionChannel(this.auctionId);
+            if (!channel) return;
+
+            channel.listen('.bid.raised', (e) => this.applyRaise(e));
+        },
+
+        /**
+         * Apply a pushed raise.
+         *
+         * Socket frames are neither ordered nor deduplicated, so this trusts `bid_id` and
+         * nothing else: a frame that is not newer than the last one applied is dropped.
+         * Without that, a late frame can drag a price back below where the bidding has
+         * already reached.
+         *
+         * Deliberately narrow — it moves the price, the leader and the clock, and never
+         * resolves a player. Sell, pass and unsold stay with the poll and the organizer's
+         * own action, so a stale frame cannot stamp a result on the board.
+         */
+        applyRaise(e) {
+            if (!e || !this.currentPlayer) return;
+            if (Number(e.auction_player_id) !== Number(this.currentPlayer.id)) return;
+
+            const bidId = Number(e.bid_id) || 0;
+            if (bidId <= (this._lastAppliedBidId || 0)) return;
+            this._lastAppliedBidId = bidId;
+
+            const price = Number(e.current_price);
+            if (!isFinite(price)) return;
+
+            this.currentBid = price;
+            this.currentPlayer.current_price = price;
+            this.currentPlayer.current_bid_team_id = e.current_bid_team_id ?? null;
+
+            // Keep the poll's own change-detection in step, or it will treat this as a new
+            // bid on the next tick and reset the clock a second time.
+            this._lastKnownBid = price;
+
+            const team = (this.teams || []).find(t => t.id == e.current_bid_team_id);
+            this.winningTeamName = team?.name || e.team_name || 'No Bids';
+
+            // A raise restarts the clock server-side; mirror it through the existing reset
+            // rather than keeping a second countdown of our own.
+            this.resetBiddingTimer();
         },
 
         toggleFullscreen() {
@@ -2578,6 +2644,13 @@ function auctionOrganizerPanel() {
 
         async fetchSealedBids() {
             if (!this.currentPlayer) return;
+
+            // Only in a sealed auction. This ran on every 2-second tick regardless of
+            // bid_type, so a pure open-bid auction was making an extra round trip per tick,
+            // per open panel, for a board that was not on screen. fetchSealedState() beside
+            // it has always been guarded this way.
+            if (this.bidType !== 'closed') return;
+
             try {
                 const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/sealed-bids?auction_player_id=${this.currentPlayer.id}`, {
                     headers: { 'Accept': 'application/json' }
@@ -3797,4 +3870,8 @@ function auctionOrganizerPanel() {
     }
 }
 </script>
+
+{{-- Loaded after the component definition so window.auctionChannel exists before init()
+     runs and calls subscribeToRaises(). --}}
+@include('backend.pages.auction.partials.echo-init')
 @endsection
