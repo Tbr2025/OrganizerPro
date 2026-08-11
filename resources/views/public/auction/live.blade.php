@@ -799,10 +799,15 @@
            later ones win, so an author keeps full control. */
         #highest-bidder {
             position: absolute;
+            /* Stacked, not side by side. The label used to sit inline ahead of the name on one
+               line, so at a glance "HIGHEST BID  TEST Alpha" read as a single run of text and
+               neither part was legible from the back of a room. The label is now a small
+               kicker above a large centred name. */
             display: inline-flex;
+            flex-direction: column;
             align-items: center;
-            gap: 12px;
-            padding: 10px 22px;
+            gap: 2px;
+            padding: 10px 26px;
             border-radius: 9999px;
             background: rgba(2, 6, 23, 0.55);
             border: 1px solid rgba(34, 197, 94, 0.45);
@@ -810,16 +815,37 @@
             font-weight: 800;
             letter-spacing: 0.04em;
             white-space: nowrap;
-            {!! elementStyle($positions, 'highest_bidder', ['top'=>470,'left'=>570,'fontSize'=>28,'color'=>'#22c55e'], $boxShadowMap, $textShadowMap) !!}
+
+            /* Kept on one line and given room of its own: it used to sit at left 570, inside
+               the stats table's own 550..1050 span and barely above a block starting at 545,
+               so "HIGHEST BID  TEST Alpha" printed across the MATCHES / RUNS / WICKETS row
+               and neither could be read.
+ 
+               `left` stays the LEFT EDGE here. Anchoring by centre would read better, but
+               saved templates already store dragged left-edge coordinates, and changing what
+               the number means would move every existing template's pill by half its own
+               width. Position is template data — the editor is where it gets nudged. */
+            {!! elementStyle($positions, 'highest_bidder', ['top'=>715,'left'=>600,'fontSize'=>28,'color'=>'#22c55e'], $boxShadowMap, $textShadowMap) !!}
         }
 
         /* A small kicker, so the name is not mistaken for the player's own. */
         #highest-bidder::before {
             content: 'HIGHEST BID';
-            font-size: 0.42em;
+            font-size: 0.38em;
             font-weight: 900;
-            letter-spacing: 0.24em;
+            letter-spacing: 0.28em;
+            /* Optical centring: letter-spacing adds a trailing gap after the last letter, which
+               makes a centred label sit visibly left of the name under it. */
+            text-indent: 0.28em;
+            line-height: 1.1;
             color: rgba(226, 232, 240, 0.75);
+        }
+
+        /* The name carries the weight now that it has a line to itself. */
+        #highest-bidder #bidder-name {
+            font-size: 1em;
+            font-weight: 900;
+            line-height: 1.1;
         }
 
         /* ── Shuffle / Reveal Animation ── */

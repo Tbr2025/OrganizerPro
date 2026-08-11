@@ -405,7 +405,13 @@ class AuctionTemplate extends Model
             // the two always overlapped on a default layout — the team name printed
             // straight through the table header. The name keeps its band and the table
             // starts below it.
-            'highest_bidder' => ['top' => 470, 'left' => 570, 'fontSize' => 28],
+            /*
+             * Was top 470 / left 570: inside the stats table's own 550..1050 span and only 75px
+             * above a block starting at 545, so the highest bidder printed straight across the
+             * MATCHES / RUNS / WICKETS row and neither could be read. Moved below the table,
+             * which ends at 695, and roughly centred on the 1601-wide canvas.
+             */
+            'highest_bidder' => ['top' => 715, 'left' => 600, 'fontSize' => 28],
             'stats_table' => ['top' => 545, 'left' => 550, 'width' => 500, 'height' => 150, 'fontSize' => 20,
                 'headerBg' => 'rgba(0,0,0,0.7)', 'headerColor' => '#ffffff',
                 'rowBg' => 'rgba(255,255,255,0.1)', 'cellColor' => '#ffffff', 'cellPadding' => 10,
