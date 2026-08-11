@@ -1964,6 +1964,8 @@ function auctionOrganizerPanel() {
         shuffleSelectedPlayer: null,
         _shuffleInterval: null,
         _shuffleTimeout: null,
+        // The player last seen on the block, so an overlay can name them once they are gone.
+        _lastOnBlockPlayer: null,
 
         // Ordering token for pushed raises — socket frames arrive unordered, so anything not
         // newer than this is dropped rather than applied.
@@ -2043,6 +2045,9 @@ function auctionOrganizerPanel() {
 
             if (currentPlayer) {
                 this.currentPlayer = currentPlayer;
+                // Also on load, not only when the poll adopts a new player: a panel opened with
+                // somebody already up must be able to name them when they leave the block.
+                this._lastOnBlockPlayer = currentPlayer;
                 this.currentBid = currentPlayer.current_price || currentPlayer.base_price;
                 this._lastKnownBid = this.currentBid;
                 this.displayState = 'bidding';
@@ -2412,6 +2417,10 @@ function auctionOrganizerPanel() {
                         this.resetOfflinePanel();
                         this.statusText = `${newPlayer.player?.name} is now live!`;
                         this._lastCurrentPlayerId = newPlayer.id;
+                        /* Kept so the overlay that follows can name the player who just left
+                           the block. Without it the UNSOLD branch below had nothing to show and
+                           reused whoever was stamped last. */
+                        this._lastOnBlockPlayer = newPlayer;
                         this.startBiddingTimer();
                     } else {
                         const newBid = newPlayer.current_price || this.currentBid;
@@ -2456,6 +2465,21 @@ function auctionOrganizerPanel() {
                         this.displayState = 'restarting';
                         this.lastSoldPlayer = null;
                     } else {
+                        /*
+                         * The player left the block and is not in sold_players — a PASS, most
+                         * often, since an unsold player never enters that list.
+                         *
+                         * This set the state and nothing else, so the overlay rendered with
+                         * whatever lastSoldPlayer still held from the PREVIOUS player: pass one
+                         * player and the wall stamped UNSOLD across someone else's face, with
+                         * their name under it. Named from the player who was actually up.
+                         */
+                        const wasUp = this._lastOnBlockPlayer;
+
+                        this.lastSoldPlayer = wasUp
+                            ? { player: wasUp.player, final_price: null, winning_team: null }
+                            : null;
+
                         this.displayState = 'unsold';
                     }
 
