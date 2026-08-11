@@ -637,15 +637,33 @@
                                     $tBC = $p['tableBorderColor'] ?? 'rgba(255,255,255,0.2)';
                                     $bdr = $tBW.'px solid '.$tBC;
                                 @endphp
-                                <table style="width:100%;height:100%;border-collapse:collapse;font-size:{{ $p['fontSize'] ?? 20 }}px;pointer-events:none;">
+                                {{-- The wall's own treatment, not a second one.
+                                     This drew a plain bordered grid while the LED wall draws
+                                     small uppercase labels over big figures on rounded
+                                     translucent tiles — so the preview and the screen showed
+                                     two different tables and there was no way to design against
+                                     it. Both now derive from the same rules: label 0.62em
+                                     uppercase at 0.8 opacity, figure 1.25em heavy on a rowBg
+                                     tile. Keep this in step with #stats-table-wrap in
+                                     public/auction/live.blade.php. --}}
+                                @php
+                                    $thCss = 'padding:'.$tCP.'px;border:'.($tBW > 0 ? $bdr : 'none').';text-align:center;'
+                                        .'font-weight:700;text-transform:uppercase;letter-spacing:2px;'
+                                        .'font-size:0.62em;padding-bottom:2px;opacity:0.8;';
+                                    $tdCss = 'padding:'.$tCP.'px;border:'.($tBW > 0 ? $bdr : 'none').';text-align:center;'
+                                        .'font-weight:800;font-size:1.25em;line-height:1.1;'
+                                        .'background:'.($p['rowBg'] ?? 'rgba(255,255,255,0.07)').';'
+                                        .'border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);';
+                                @endphp
+                                <table style="width:100%;height:100%;border-collapse:separate;border-spacing:6px 2px;font-size:{{ $p['fontSize'] ?? 20 }}px;pointer-events:none;">
                                     <thead><tr style="background:{{ $p['headerBg'] ?? 'rgba(0,0,0,0.7)' }};color:{{ $p['headerColor'] ?? '#fff' }};">
                                         @foreach($cols as $col)
-                                        <th style="padding:{{ $tCP }}px;border:{{ $bdr }};{{ !empty($col['headerBg']) ? 'background:'.$col['headerBg'].';' : '' }}{{ !empty($col['headerColor']) ? 'color:'.$col['headerColor'].';' : '' }}{{ !empty($col['width']) ? 'width:'.$col['width'].';' : '' }}">{{ $col['label'] ?? '' }}</th>
+                                        <th style="{{ $thCss }}{{ !empty($col['headerBg']) ? 'background:'.$col['headerBg'].';' : '' }}{{ !empty($col['headerColor']) ? 'color:'.$col['headerColor'].';' : '' }}{{ !empty($col['width']) ? 'width:'.$col['width'].';' : '' }}">{{ $col['label'] ?? '' }}</th>
                                         @endforeach
                                     </tr></thead>
-                                    <tbody><tr style="background:{{ $p['rowBg'] ?? 'rgba(255,255,255,0.1)' }};color:{{ $p['cellColor'] ?? '#fff' }};">
+                                    <tbody><tr style="color:{{ $p['cellColor'] ?? '#fff' }};">
                                         @foreach($cols as $col)
-                                        <td style="padding:{{ $tCP }}px;border:{{ $bdr }};text-align:center;{{ !empty($col['cellBg']) ? 'background:'.$col['cellBg'].';' : '' }}{{ !empty($col['cellColor']) ? 'color:'.$col['cellColor'].';' : '' }}">0</td>
+                                        <td style="{{ $tdCss }}{{ !empty($col['cellBg']) ? 'background:'.$col['cellBg'].';' : '' }}{{ !empty($col['cellColor']) ? 'color:'.$col['cellColor'].';' : '' }}">0</td>
                                         @endforeach
                                     </tr></tbody>
                                 </table>
@@ -2028,18 +2046,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cols.length) cols = [{label:'Matches',field:'total_matches'},{label:'Runs',field:'total_runs'},{label:'Wickets',field:'total_wickets'}];
 
         // Rebuild entire table HTML
-        let html = `<table style="width:100%;height:100%;border-collapse:collapse;font-size:${fs};pointer-events:none;">`;
+        /* Mirrors #stats-table-wrap on the LED wall — small uppercase label, big figure on a
+           rounded translucent tile. Kept identical to the server-rendered block above and to
+           the wall itself; three copies of one table is how the preview stopped resembling the
+           output in the first place. */
+        const thBase = `padding:${cP}px;border:${bdr};text-align:center;font-weight:700;`
+            + `text-transform:uppercase;letter-spacing:2px;font-size:0.62em;padding-bottom:2px;opacity:0.8;`;
+        const tdBase = `padding:${cP}px;border:${bdr};text-align:center;font-weight:800;`
+            + `font-size:1.25em;line-height:1.1;background:${rBg};border-radius:12px;`
+            + `box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);`;
+
+        let html = `<table style="width:100%;height:100%;border-collapse:separate;border-spacing:6px 2px;font-size:${fs};pointer-events:none;">`;
         html += `<thead><tr style="background:${hBg};color:${hC};">`;
         cols.forEach(c => {
-            let thStyle = `padding:${cP}px;border:${bdr};`;
+            let thStyle = thBase;
             if (c.headerBg) thStyle += `background:${c.headerBg};`;
             if (c.headerColor) thStyle += `color:${c.headerColor};`;
             if (c.width) thStyle += `width:${c.width};`;
             html += `<th style="${thStyle}">${c.label || ''}</th>`;
         });
-        html += `</tr></thead><tbody><tr style="background:${rBg};color:${cC};">`;
+        html += `</tr></thead><tbody><tr style="color:${cC};">`;
         cols.forEach(c => {
-            let tdStyle = `padding:${cP}px;border:${bdr};text-align:center;`;
+            let tdStyle = tdBase;
             if (c.cellBg) tdStyle += `background:${c.cellBg};`;
             if (c.cellColor) tdStyle += `color:${c.cellColor};`;
             html += `<td style="${tdStyle}">0</td>`;
