@@ -310,6 +310,15 @@
                                     ? `${selectedInPool({{ $pool->id }}).length} selected in this pool`
                                     : 'Select all in this pool'"></span>
                             </label>
+                            {{-- Cards for the players ticked in THIS pool, as one zip. Rendered
+                                 server-side, a browser per card, so it is seconds per player —
+                                 which is why it is a deliberate click on a chosen few rather
+                                 than something offered for the whole auction by default. --}}
+                            <button type="button" x-show="selectedInPool({{ $pool->id }}).length" :disabled="busy"
+                                    @click="downloadCards(selectedInPool({{ $pool->id }}))"
+                                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                                <span x-text="`Download ${selectedInPool({{ $pool->id }}).length} card(s)`"></span>
+                            </button>
                             <button type="button" x-show="selectedInPool({{ $pool->id }}).length" :disabled="busy"
                                     @click="confirmRemovePlayers(selectedInPool({{ $pool->id }}))"
                                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
@@ -554,6 +563,22 @@ function poolManager(auctionId) {
         poolFullySelected(poolId) {
             const ids = this.playerIdsInPool(poolId);
             return ids.length > 0 && ids.every(id => this.selectedPlayers.includes(id));
+        },
+
+        /**
+         * The selected players' cards, as a zip.
+         *
+         * A plain navigation rather than fetch(): the response is a file download, and letting
+         * the browser handle it keeps its own progress and save dialog. Nothing is posted, so a
+         * mis-click cannot change anything.
+         */
+        downloadCards(ids) {
+            if (!ids || ids.length === 0) return;
+
+            const params = new URLSearchParams();
+            ids.forEach(id => params.append('players[]', id));
+
+            window.location = `{{ route('admin.auctions.cards', $auction) }}?${params.toString()}`;
         },
 
         togglePlayer(id) {

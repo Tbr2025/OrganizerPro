@@ -124,6 +124,22 @@
             position: relative;
             width: {{ $canvasWidth }}px;
             height: {{ $canvasHeight }}px;
+
+            /*
+             * The canvas is the edge of the artwork, so anything hanging over it is cut.
+             *
+             * Every element on this card is absolutely positioned, and a template is free to
+             * place one so that it extends past the canvas — a cut-out player photo sized to
+             * bleed off the bottom, or a decorative panel taller than the card. Without a clip
+             * they were drawn OUTSIDE the card, over the page behind it: a player's shoulder
+             * and a diagonal graphic hanging below the artwork on the wall, and the same spill
+             * baked into every downloaded card.
+             *
+             * The overlays that are meant to cover the whole screen — the shuffle reveal, the
+             * closing-call dim, the clock, the restart notice — are position:fixed and not
+             * children of this element, so none of them is affected by this.
+             */
+            overflow: hidden;
             @if($backgroundUrl)
             background: url('{{ $backgroundUrl }}') no-repeat center center;
             background-size: auto;

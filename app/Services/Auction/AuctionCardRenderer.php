@@ -67,6 +67,16 @@ class AuctionCardRenderer
              * data-card-ready on <body> when it is done.
              */
                 ->waitForFunction("document.body.getAttribute('data-card-ready') === '1'", null, 15000)
+                /*
+                 * Capture the CARD, not the viewport.
+                 *
+                 * A full-viewport shot included the page's own "Download PNG" control, which
+                 * sits outside the card so that the browser-side capture excludes it — and
+                 * that put a green button in the corner of every server-rendered card. Cropping
+                 * to the element also means the file is exactly the canvas, whatever window
+                 * size Chrome happened to open with.
+                 */
+                ->select('#card-container')
                 ->save($path);
         } catch (\Throwable $e) {
             @unlink($path);

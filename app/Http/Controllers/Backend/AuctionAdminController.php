@@ -2094,9 +2094,18 @@ class AuctionAdminController extends Controller
 
         $withResult = $request->boolean('result');
 
+        /*
+         * An optional subset, given as PLAYER ids because that is what the pools screen's
+         * checkboxes carry — its selection drives the remove action too, and re-keying it to
+         * auction-player ids to suit this download would have put that at risk for no gain.
+         * Mapped through this auction, so an id from elsewhere selects nothing.
+         */
+        $only = array_filter(array_map('intval', (array) $request->query('players', [])));
+
         $players = $auction->auctionPlayers()
             ->with('player')
             ->whereHas('player')
+            ->when($only !== [], fn ($q) => $q->whereIn('player_id', $only))
             ->orderByRaw('COALESCE(lot_number, 999999)')
             ->orderBy('id')
             ->get();
