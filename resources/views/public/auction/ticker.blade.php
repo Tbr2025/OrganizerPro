@@ -749,9 +749,14 @@
         if (!key || typeof Echo === 'undefined') return;
 
         try {
-            const echo = new Echo({ broadcaster: 'pusher', key, cluster, forceTLS: true });
+            /* On window, like the LED wall, so the connection can be inspected from the
+               console on any of the live screens the same way:
+                 window.Echo.connector.pusher.connection.state   // "connected"
+               A local instance works identically but leaves no way to check whether the strip
+               is actually live during a broadcast. */
+            window.Echo = new Echo({ broadcaster: 'pusher', key, cluster, forceTLS: true });
 
-            echo.channel(`auction.${auctionId}`).listen('.bid.raised', (e) => {
+            window.Echo.channel(`auction.${auctionId}`).listen('.bid.raised', (e) => {
                 if (!e || !lastCurrentPlayer) return;
                 if (Number(e.auction_player_id) !== Number(lastCurrentPlayer.id)) return;
 
