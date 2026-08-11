@@ -2048,6 +2048,18 @@ class AuctionAdminController extends Controller
             abort(404);
         }
 
+        /*
+         * Chrome needs seconds per card, and PHP's default ceiling is 30 — so a single card
+         * could die halfway and a zip of a pool always did ("Maximum execution time of 30
+         * seconds exceeded"). Lifted here rather than in php.ini, so the feature does not
+         * depend on how a particular machine is configured; production already allows 600s at
+         * both FPM and nginx, and this makes a development box behave the same.
+         *
+         * Note the gateway still has the last word: nginx's fastcgi_read_timeout will cut a
+         * very large zip regardless. That is the reason the per-player download exists.
+         */
+        set_time_limit(0);
+
         $withResult = $request->boolean('result');
         $path = $cards->render($auction, $auctionPlayer, $withResult);
 
@@ -2067,6 +2079,18 @@ class AuctionAdminController extends Controller
     public function downloadPlayerCards(Request $request, Auction $auction, AuctionCardRenderer $cards)
     {
         $this->authorize('auction.view');
+
+        /*
+         * Chrome needs seconds per card, and PHP's default ceiling is 30 — so a single card
+         * could die halfway and a zip of a pool always did ("Maximum execution time of 30
+         * seconds exceeded"). Lifted here rather than in php.ini, so the feature does not
+         * depend on how a particular machine is configured; production already allows 600s at
+         * both FPM and nginx, and this makes a development box behave the same.
+         *
+         * Note the gateway still has the last word: nginx's fastcgi_read_timeout will cut a
+         * very large zip regardless. That is the reason the per-player download exists.
+         */
+        set_time_limit(0);
 
         $withResult = $request->boolean('result');
 
