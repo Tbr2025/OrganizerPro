@@ -2399,6 +2399,11 @@
                     // updatePlayerCard() reads to suppress the public bid figure.
                     renderSealedBanner(data.closed_bid || null);
 
+                    /* Sealed transitions are not broadcast, so while a round is live the wall
+                       has to keep asking. scheduleWallPoll() reads this on the way out of
+                       every fetch. */
+                    sealedActive = !!(data.closed_bid && data.closed_bid.active);
+
                     // No player on the block means no meaningful countdown.
                     clockHasPlayer = data?.auctionPlayer?.status === 'on_auction';
 
@@ -2679,24 +2684,41 @@
         let _wallPollTimer = null;
 
         /*
-         * Event-driven, with the timer as a heartbeat rather than the mechanism.
+         * No periodic requests while push is healthy.
          *
-         * WALL_HEARTBEAT_MS is how long the wall can stay wrong if a broadcast is missed
-         * altogether — a dropped socket, a laptop resumed from sleep, a screen opened
-         * mid-auction. Every actual change (a raise, a new player, a sale, a pause) refetches
-         * immediately via refreshNow() below, so this is not what keeps the wall current; it
-         * is what recovers it. Drop it back to 2000 if you would rather trade bandwidth for a
-         * shorter worst case.
+         * The wall refetches when something actually changes, and otherwise sits silent. A
+         * timer is only used where there is genuinely no alternative:
+         *
+         *   push is down  -> 2s, the cadence that ran before push existed. Nothing else can
+         *                    keep the hall current, and a reconnect refetches on the way back.
+         *   sealed round  -> 2s. Its state transitions (entry open, collecting, locked,
+         *                    revealed, tie, lot) are the one part of the auction nothing
+         *                    broadcasts, so they can only be discovered by asking.
+         *
+         * Recovery does not need a heartbeat: pusher-js reconnects on its own and the
+         * `connected` binding refetches, which closes the window where events were missed.
+         * Returning to visibility and regaining the network refetch for the same reason.
          */
-        const HEARTBEAT_PUSH_OK = 10000;
-        const HEARTBEAT_NO_PUSH = 2000;
-        let heartbeatMs = HEARTBEAT_NO_PUSH;   // pessimistic until push proves itself
+        const POLL_MS = 2000;
+        let pushConnected = false;
+        let sealedActive = false;
 
-        (function pollWall() {
+        function scheduleWallPoll() {
+            clearTimeout(_wallPollTimer);
+
+            // Silence is the normal state: push is up and nothing needs asking for.
+            if (pushConnected && !sealedActive) return;
+
+            _wallPollTimer = setTimeout(pollWall, POLL_MS);
+        }
+
+        function pollWall() {
             Promise.resolve(fetchActivePlayer())
                 .catch(() => {})
-                .finally(() => { _wallPollTimer = setTimeout(pollWall, heartbeatMs); });
-        })();
+                .finally(scheduleWallPoll);
+        }
+
+        pollWall();
 
         /* The wall reports its own transport too, and drives the heartbeat from it: a dropped
            socket returns the poll to its pre-push 2s cadence rather than leaving the hall ten
@@ -2705,12 +2727,17 @@
             const wallConn = window.Echo.connector.pusher.connection;
             wallConn.bind('connected', () => {
                 console.info('[Live] LIVE — pusher connected');
-                heartbeatMs = HEARTBEAT_PUSH_OK;
+                pushConnected = true;
+                // Catch up on anything missed while it was down, THEN go quiet. This is what
+                // replaces the heartbeat as the recovery path.
+                refreshNow('pusher-connected');
+                scheduleWallPoll();
             });
             ['unavailable', 'failed', 'disconnected'].forEach((state) => {
                 wallConn.bind(state, () => {
-                    console.warn('[Live] pusher ' + state + ' — polling only.');
-                    heartbeatMs = HEARTBEAT_NO_PUSH;
+                    console.warn('[Live] pusher ' + state + ' — polling until it returns.');
+                    pushConnected = false;
+                    scheduleWallPoll();
                 });
             });
         } catch (e) {
@@ -2738,6 +2765,13 @@
                 fetchActivePlayer();
             }, 150);
         }
+
+        /* A screen that was hidden or offline may have missed events entirely; both are
+           moments where asking once is worth more than any timer. */
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) refreshNow('tab-visible');
+        });
+        window.addEventListener('online', () => refreshNow('network-online'));
 
         // Initial fetch
         fetchActivePlayer();

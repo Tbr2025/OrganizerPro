@@ -672,6 +672,9 @@
 
                 lastCurrentPlayer = d.current_player || null;
                 lastSealed = d.closed_bid || null;
+                // Sealed transitions are not broadcast, so the strip keeps asking while a
+                // round is live. scheduleTickerPoll() reads this after every fetch.
+                sealedActive = !!(lastSealed && lastSealed.active);
                 renderCurrent(d.current_player, d.closed_bid || null);
                 renderTeams(d.teams || [], d.squad || null);
                 renderSales(d.recent_sales || []);
@@ -723,25 +726,39 @@
 
     /* Chained, not on an interval — an interval stacks requests when the server is slow
        until the browser runs out of connections and the strip freezes on air. */
-    /* TICKER_HEARTBEAT_MS is how long the strip can stay wrong if a broadcast is missed
-       outright — a dropped socket, an OBS source reloaded mid-auction. Every real change
-       refetches immediately through refreshNow() below, so this is not what keeps the strip
-       current; it is what recovers it. Set it back to 2000 to trade bandwidth for a shorter
-       worst case. */
     /* Adaptive, and it starts pessimistic.
        2s until push has actually proved itself, then 10s while the socket is up, and straight
        back to 2s the moment it drops. A fixed slow heartbeat would mean a dead socket costs
        ten seconds of staleness on air before anyone notices; this way a socket failure
        degrades to exactly the behaviour that was running before push existed. */
-    const HEARTBEAT_PUSH_OK = 10000;
-    const HEARTBEAT_NO_PUSH = 2000;
-    let heartbeatMs = HEARTBEAT_NO_PUSH;
+    /* No periodic requests while push is healthy — see the matching note on the LED wall.
+       A timer is used only where nothing else can do the job: push being down (2s, the
+       pre-push cadence) and a live sealed round, whose state transitions are the one part of
+       the auction nothing broadcasts. Recovery comes from the reconnect, visibility and
+       online handlers rather than from a heartbeat. */
+    const POLL_MS = 2000;
+    let pushConnected = false;
+    let sealedActive = false;
+    let _tickerTimer = null;
 
-    (function tickerLoop() {
+    function scheduleTickerPoll() {
+        clearTimeout(_tickerTimer);
+        if (pushConnected && !sealedActive) return;   // silence is the normal state
+        _tickerTimer = setTimeout(tickerLoop, POLL_MS);
+    }
+
+    function tickerLoop() {
         Promise.resolve(poll())
             .catch(() => {})
-            .finally(() => setTimeout(tickerLoop, heartbeatMs));
-    })();
+            .finally(scheduleTickerPoll);
+    }
+
+    tickerLoop();
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) refreshNow('tab-visible');
+    });
+    window.addEventListener('online', () => refreshNow('network-online'));
 
     /* Refetch because something actually changed.
        Events trigger a refetch rather than each patching the DOM itself: the feed is the
@@ -838,22 +855,29 @@
             conn.bind('connected', () => {
                 console.info('[Ticker] LIVE — pusher connected (' + cluster + ')');
                 setTransport(true, cluster);
-                heartbeatMs = HEARTBEAT_PUSH_OK;
+                pushConnected = true;
+                // Catch up on whatever was missed while down, THEN go quiet. This replaces
+                // the heartbeat as the recovery path.
+                refreshNow('pusher-connected');
+                scheduleTickerPoll();
             });
             conn.bind('unavailable', () => {
                 console.warn('[Ticker] pusher unavailable — polling only.');
                 setTransport(false, 'unavailable');
-                heartbeatMs = HEARTBEAT_NO_PUSH;   // back to the pre-push cadence
+                pushConnected = false;
+                scheduleTickerPoll();   // back to the pre-push cadence
             });
             conn.bind('failed', () => {
                 console.warn('[Ticker] pusher failed — polling only.');
                 setTransport(false, 'failed');
-                heartbeatMs = HEARTBEAT_NO_PUSH;   // back to the pre-push cadence
+                pushConnected = false;
+                scheduleTickerPoll();   // back to the pre-push cadence
             });
             conn.bind('disconnected', () => {
                 console.warn('[Ticker] pusher disconnected — polling only.');
                 setTransport(false, 'disconnected');
-                heartbeatMs = HEARTBEAT_NO_PUSH;   // back to the pre-push cadence
+                pushConnected = false;
+                scheduleTickerPoll();   // back to the pre-push cadence
             });
 
             window.Echo.channel(`auction.${auctionId}`).listen('.bid.raised', (e) => {
