@@ -90,8 +90,25 @@
         .lt-figure { font-size: 38px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
 
         #lt-base { flex: 0 0 264px; }
-        #lt-bid  { flex: 0 0 300px; align-items: flex-end; text-align: right; border-left: 1px solid rgba(255,255,255,0.10); }
-        #lt-bid-val { color: var(--secondary); font-size: 44px; }
+
+        /* Sized to its content, not to a fixed 300px.
+           "1.2M Points" at 44px needs about 316px including the cell's own padding, so a
+           fixed 300px cell wrapped the amount onto a second line — and the slab is only 112px
+           tall, so the wrap pushed CURRENT BID off the top edge and the team name off the
+           bottom, clipping both. The amount is the one figure on this strip that must never
+           wrap, and its width is unknowable in advance: "1M" and "12.5M" differ by a lot, and
+           the unit word is configurable per auction. So the cell takes what it needs and the
+           nameplate beside it (flex:1, min-width:0) gives up the difference. */
+        #lt-bid  {
+            flex: 0 0 auto;
+            min-width: 300px;          /* keeps a short amount from looking cramped */
+            max-width: 520px;          /* and a long one from starving the nameplate */
+            align-items: flex-end; text-align: right;
+            border-left: 1px solid rgba(255,255,255,0.10);
+        }
+        /* Every line in this cell stays on one line — see above. */
+        #lt-bid .lt-label, #lt-bid-val, #lt-bid-team { white-space: nowrap; }
+        #lt-bid-val { color: var(--secondary); font-size: 44px; line-height: 1.05; }
         #lt-bid-team { font-size: 15px; font-weight: 700; opacity: 0.85; margin-top: 4px; }
 
         /* Nameplate. clip-path cannot clip a border, so the edge and the fill are two
