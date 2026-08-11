@@ -310,6 +310,8 @@ Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
             // Pool-locked auctioning: run one pool at a time.
             Route::post('/pools/{pool}/activate', [AuctionOrganizerController::class, 'activatePool'])->name('pool.activate');
             Route::post('/pools/{pool}/complete', [AuctionOrganizerController::class, 'completePool'])->name('pool.complete');
+            // Re-run one pool without wiping the pools around it.
+            Route::post('/pools/{pool}/restart', [AuctionOrganizerController::class, 'restartPool'])->name('pool.restart');
             Route::post('/pools/{pool}/toggle-enabled', [AuctionOrganizerController::class, 'togglePoolEnabled'])->name('pool.toggle-enabled');
 
             // Bid timer.

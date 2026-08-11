@@ -643,8 +643,50 @@
                 </div>
             </template>
 
+            {{-- ── POOL FINISHED ──
+                 Takes the place of Ready to Auction once the running pool has nothing left
+                 and nobody on the block. The generic empty state invited the organizer to
+                 press START or N for a player that cannot come — there is none left in this
+                 pool — so the two ways on are named instead: run the pool again, or close it
+                 and move to the next. --}}
+            <div x-show="displayState === 'waiting' && activePool && activePool.finished" x-transition class="text-center">
+                <div class="w-32 h-32 mx-auto mb-6 rounded-full border-2 border-emerald-600/40 flex items-center justify-center">
+                    <svg class="w-16 h-16 text-emerald-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-1">
+                    <span x-text="activePool?.name"></span> complete
+                </h2>
+                <p class="text-gray-500 mb-6">
+                    <span x-text="activePool?.total"></span> players auctioned &middot;
+                    <span x-text="activePool?.sold"></span> sold
+                </p>
+
+                <div class="flex items-center justify-center gap-3">
+                    <button @click="restartActivePool()"
+                            class="px-5 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold">
+                        Restart <span x-text="activePool?.name"></span>
+                    </button>
+                    <button @click="completeActivePool()"
+                            class="px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold">
+                        Close <span x-text="activePool?.name"></span>
+                    </button>
+                    <template x-if="nextPool">
+                        <button @click="activatePool(nextPool.id)"
+                                class="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">
+                            Start <span x-text="nextPool.name"></span>
+                        </button>
+                    </template>
+                </div>
+
+                <p class="text-gray-600 text-xs mt-4">
+                    Restarting puts this pool's players back on the block and undoes its sales.
+                </p>
+            </div>
+
             {{-- ── EMPTY STATE ── --}}
-            <div x-show="displayState === 'waiting'" x-transition class="text-center">
+            <div x-show="displayState === 'waiting' && !(activePool && activePool.finished)" x-transition class="text-center">
                 <div class="w-32 h-32 mx-auto mb-6 rounded-full border-2 border-dashed border-gray-700 flex items-center justify-center">
                     <svg class="w-16 h-16 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
@@ -1142,10 +1184,18 @@
                         <span x-show="activePool.times_used > 1" class="text-[10px] text-gray-500"
                               x-text="'run #' + activePool.times_used"></span>
 
-                        {{-- Exhausted: offer the next pool without auto-advancing. --}}
-                        <template x-if="activePool.exhausted">
+                        {{-- Finished: offer the next pool without auto-advancing.
+                             Keyed on `finished` rather than `exhausted` — the queue empties
+                             as the LAST player goes up, so exhausted alone announced "Pool
+                             complete" over a player still being auctioned. --}}
+                        <template x-if="activePool.finished">
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-emerald-400 font-semibold">Pool complete</span>
+                                <button @click="restartActivePool()"
+                                        class="px-2.5 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs font-semibold rounded transition whitespace-nowrap"
+                                        title="Put this pool's players back on the block and run it again">
+                                    Restart pool
+                                </button>
                                 <button @click="completeActivePool()"
                                         class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded transition whitespace-nowrap">
                                     Close <span x-text="activePool.name"></span>
@@ -1400,7 +1450,13 @@
                 </button>
                 <button @click="endAuction()" x-show="auctionStatus === 'running'"
                         class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition">End</button>
-                <button @click="restartAuction()" x-show="auctionStatus === 'completed' || auctionStatus === 'running' || auctionStatus === 'paused'"
+                {{-- Restarts the RUNNING POOL when the auction is locked to one, and only
+                     falls back to wiping the whole auction when it is not pool-locked.
+                     Re-running one pool used to mean resetting every pool, so a finished
+                     pool could not be redone without throwing away the ones after it. --}}
+                <button @click="activePool ? restartActivePool() : restartAuction()"
+                        x-show="auctionStatus === 'completed' || auctionStatus === 'running' || auctionStatus === 'paused'"
+                        :title="activePool ? ('Restart ' + activePool.name + ' — its players go back on the block') : 'Restart the whole auction'"
                         class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs font-semibold transition">Restart</button>
 
                 <div class="w-px h-8 bg-gray-700"></div>
@@ -3577,6 +3633,49 @@ function auctionOrganizerPanel() {
                 this.toast(result.message, 'success', 'Pool closed');
                 await this.pollAuctionState();
             }
+        },
+
+        /**
+         * Run the current pool again, and only it.
+         *
+         * Its sales are undone and the teams get their purse back, which is what separates
+         * this from a second pass over whoever went unsold. Pools before and after it keep
+         * their results, their bids and their undo history.
+         */
+        async restartActivePool() {
+            if (!this.activePool) return;
+
+            const pool = this.activePool;
+            const sold = pool.sold || 0;
+
+            const warning = sold > 0
+                ? `Restart ${pool.name}?\n\nAll ${pool.total} of its players go back on the block, and its ${sold} sale(s) are UNDONE — those teams get their money back and lose those players.\n\nOther pools are not affected.`
+                : `Restart ${pool.name}?\n\nAll ${pool.total} of its players go back on the block. Other pools are not affected.`;
+
+            if (! await this.askConfirm(warning, { title: 'Restart pool', danger: true })) return;
+
+            const result = await this.sendCommand(`pools/${pool.id}/restart`);
+            if (! result?.success) return;
+
+            // Same clean-up the whole-auction restart does: what the panel was holding
+            // belongs to the run just wiped, and a stale pointer makes the next poll stamp
+            // UNSOLD over a player who simply went back into the queue.
+            this.auctionStatus = 'running';
+            this.displayState = 'waiting';
+            this.currentPlayer = null;
+            this.stopBiddingTimer();
+            this._lastCurrentPlayerId = null;
+            this._lastKnownBid = 0;
+            this.lastSoldPlayer = null;
+            this.currentBid = 0;
+            this.winningTeamName = 'No Bids';
+            this.sealedBids = [];
+            // Shape, not null — the markup reads sealed.active unguarded.
+            this.sealed = { active: false };
+
+            this.statusText = result.message;
+            this.toast(result.message, 'success', 'Pool restarted');
+            await this.pollAuctionState();
         },
 
         /* ── Timer ── */

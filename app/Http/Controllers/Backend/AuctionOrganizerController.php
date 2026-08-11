@@ -506,15 +506,121 @@ class AuctionOrganizerController extends Controller
         }
 
         DB::transaction(function () use ($auction) {
-            // Reset sold players' mode back to pool
-            $soldPlayerIds = $auction->auctionPlayers()
-                ->where('status', 'sold')
-                ->pluck('player_id');
+            /*
+             * Every player, through the same unwinding the pool restart uses — a sold player
+             * left holding their roster row, team pivot or Player role is the bug that
+             * shared helper exists to prevent.
+             */
+            $this->unwindAuctionPlayers($auction, $auction->auctionPlayers()->get());
 
-            // A restart used to reset only the auction rows, leaving each sold
-            // player still attached to their team: players.actual_team_id, the
-            // tournament roster pivot and the team roster all kept pointing at the
-            // team from the abandoned run.
+            // Belt and braces on top of the per-player deletes: a whole-auction restart
+            // means nothing from the previous run survives, including any log row that
+            // was never tied to a player.
+            AuctionBid::where('auction_id', $auction->id)->delete();
+            AuctionActionLog::where('auction_id', $auction->id)->delete();
+
+            $auction->update([
+                'status' => 'running',
+                // Without this the big screen keeps counting down a player who is no
+                // longer on the block — a live clock over the waiting screen.
+                'timer_started_at' => null,
+                // And the pause mark with it. Restarting while paused used to leave this
+                // set, so the auction came back RUNNING with a clock frozen before it
+                // started — the same split state as Start, reached a different way.
+                'timer_paused_at' => null,
+                // Announce the restart instead of silently blanking to the waiting state.
+                'restarted_at' => now(),
+            ]);
+        });
+
+        broadcast(new AuctionStatusUpdate($auction->id, 'running'));
+        return response()->json(['success' => true, 'message' => 'Auction restarted. All players reset.']);
+    }
+
+    /**
+     * Restart the running pool, and only it.
+     *
+     * The whole-auction restart is the wrong tool once an auction is several pools deep:
+     * re-running one pool meant wiping every pool, so a completed pool could not be redone
+     * without throwing away the ones after it.
+     *
+     * Every player in the pool goes back to waiting, sales included — those are undone and
+     * the teams get their purse back, which is the point of re-auctioning a pool rather
+     * than taking a second pass at whoever went unsold. Players outside the pool, their
+     * bids and their undo history are untouched.
+     */
+    public function restartPool(Auction $auction, AuctionPool $pool)
+    {
+        if ((int) $pool->auction_id !== (int) $auction->id) {
+            return response()->json(['success' => false, 'message' => 'That pool belongs to a different auction.'], 422);
+        }
+
+        if (! in_array($auction->status, ['completed', 'running', 'paused'], true)) {
+            return response()->json(['success' => false, 'message' => 'This auction cannot be restarted from its current state.'], 422);
+        }
+
+        // A player mid-bid belongs to the run being wiped; finishing them first keeps the
+        // reset from stranding a live board.
+        if ($auction->auctionPlayers()->where('status', 'on_auction')->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Finish the player currently on the block before restarting the pool.',
+            ], 422);
+        }
+
+        // Retained players were never auctioned, so they are not part of a re-run.
+        $auctionPlayers = $auction->auctionPlayers()
+            ->where('auction_pool_id', $pool->id)
+            ->where('is_retained', false)
+            ->get();
+
+        if ($auctionPlayers->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => sprintf('%s has no players to restart.', $pool->name),
+            ], 422);
+        }
+
+        DB::transaction(function () use ($auction, $pool, $auctionPlayers) {
+            $this->unwindAuctionPlayers($auction, $auctionPlayers);
+
+            // Back in play, so it serves its players again. activatePool() refuses while
+            // another pool is running, which is the correct guard but not reachable here:
+            // this pool is the one the auction is already locked to.
+            $pool->update(['status' => AuctionPool::STATUS_ACTIVE]);
+
+            $auction->update([
+                'status' => 'running',
+                'timer_started_at' => null,
+                'timer_paused_at' => null,
+                'restarted_at' => now(),
+            ]);
+        });
+
+        broadcast(new AuctionStatusUpdate($auction->id, 'running'));
+
+        return response()->json([
+            'success' => true,
+            'message' => sprintf('%s restarted — %d players back on the block.', $pool->name, $auctionPlayers->count()),
+            'progress' => $this->pools->poolProgress($auction->fresh()),
+        ]);
+    }
+
+    /**
+     * Put a set of auction players back to waiting, undoing anything a sale attached.
+     *
+     * Shared with the whole-auction restart so the two cannot drift on what "reset" means:
+     * a sold player who keeps their roster row, team pivot or Player role is the bug this
+     * exists to prevent, and it is easy to remember one of the four and forget another.
+     *
+     * @param  \Illuminate\Support\Collection<int, AuctionPlayer>  $auctionPlayers
+     */
+    private function unwindAuctionPlayers(Auction $auction, $auctionPlayers): void
+    {
+        $auctionPlayerIds = $auctionPlayers->pluck('id');
+        $soldPlayerIds = $auctionPlayers->where('status', 'sold')->pluck('player_id');
+
+        if ($soldPlayerIds->isNotEmpty()) {
             Player::whereIn('id', $soldPlayerIds)->update([
                 'player_mode' => 'normal',
                 'actual_team_id' => null,
@@ -539,43 +645,39 @@ class AuctionOrganizerController extends Controller
                     ->where('role', 'Player')
                     ->delete();
             }
+        }
 
-            // Reset all auction players back to waiting
-            $auction->auctionPlayers()->update([
-                'status' => 'waiting',
-                'current_price' => DB::raw('base_price'),
-                'current_bid_team_id' => null,
-                'sold_to_team_id' => null,
-                'final_price' => null,
-            ]);
+        AuctionPlayer::whereIn('id', $auctionPlayerIds)->update([
+            'status' => 'waiting',
+            'current_price' => DB::raw('base_price'),
+            'current_bid_team_id' => null,
+            'sold_to_team_id' => null,
+            'final_price' => null,
+        ]);
 
-            // Clear all bids and the undo stack — the previous run no longer exists,
-            // so leaving reversible actions behind would let Undo "restore" state
-            // from an auction that has been wiped.
-            AuctionBid::where('auction_id', $auction->id)->delete();
-            AuctionActionLog::where('auction_id', $auction->id)->delete();
+        /*
+         * Bids and undo history for these players only.
+         *
+         * Team purses are derived from live bids and sold rows rather than stored, so
+         * clearing the bids is what gives the money back — there is no budget column to
+         * put right. The undo entries go with them because they describe a run that no
+         * longer exists, and undoing into it would restore state from a wiped auction.
+         */
+        AuctionBid::where('auction_id', $auction->id)
+            ->whereIn('auction_player_id', $auctionPlayerIds)
+            ->delete();
 
-            // Any sealed round belonged to the run that has just been wiped. Abandoned
-            // rather than deleted, so the record of a disputed round survives.
-            $auction->auctionPlayers()->whereNotNull('closed_bid_round_id')->get()
-                ->each(fn ($ap) => app(\App\Services\Auction\ClosedBidService::class)->abandonRoundsFor($ap));
+        AuctionActionLog::where('auction_id', $auction->id)
+            ->whereIn('auction_player_id', $auctionPlayerIds)
+            ->delete();
 
-            $auction->update([
-                'status' => 'running',
-                // Without this the big screen keeps counting down a player who is no
-                // longer on the block — a live clock over the waiting screen.
-                'timer_started_at' => null,
-                // And the pause mark with it. Restarting while paused used to leave this
-                // set, so the auction came back RUNNING with a clock frozen before it
-                // started — the same split state as Start, reached a different way.
-                'timer_paused_at' => null,
-                // Announce the restart instead of silently blanking to the waiting state.
-                'restarted_at' => now(),
-            ]);
-        });
-
-        broadcast(new AuctionStatusUpdate($auction->id, 'running'));
-        return response()->json(['success' => true, 'message' => 'Auction restarted. All players reset.']);
+        // Sealed rounds are abandoned rather than deleted: the record of a disputed round
+        // outlives the run it belonged to.
+        $closedBids = app(\App\Services\Auction\ClosedBidService::class);
+        AuctionPlayer::whereIn('id', $auctionPlayerIds)
+            ->whereNotNull('closed_bid_round_id')
+            ->get()
+            ->each(fn ($ap) => $closedBids->abandonRoundsFor($ap));
     }
 
     /**

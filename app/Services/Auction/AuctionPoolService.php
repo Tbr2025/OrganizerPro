@@ -247,6 +247,9 @@ class AuctionPoolService
             ->withCount([
                 'players as waiting_count' => fn ($q) => $q->where('status', 'waiting')->where('is_retained', false),
                 'players as sold_count' => fn ($q) => $q->where('status', 'sold'),
+                // Still being auctioned. An empty queue is not a finished pool while one of
+                // its players is on the block, and the two were the same number.
+                'players as on_block_count' => fn ($q) => $q->where('status', 'on_auction'),
                 'players as total_count',
             ])
             ->orderBy('sequence')
@@ -267,7 +270,20 @@ class AuctionPoolService
                 'waiting' => (int) $active->waiting_count,
                 'sold' => (int) $active->sold_count,
                 'done' => (int) $active->total_count - (int) $active->waiting_count,
+                'on_block' => (int) $active->on_block_count,
+
+                // Nothing left to call up. True the moment the last player leaves the queue,
+                // so it is already true while that player is being auctioned.
                 'exhausted' => (int) $active->waiting_count === 0,
+
+                /*
+                 * Actually finished: nothing waiting AND nobody still on the block.
+                 *
+                 * The panel announced "Pool complete" off `exhausted` alone, so it said so
+                 * over a player who was still live — and offered the controls for a pool
+                 * that had not ended yet.
+                 */
+                'finished' => (int) $active->waiting_count === 0 && (int) $active->on_block_count === 0,
             ] : null,
             'next_pool' => $next ? ['id' => $next->id, 'name' => $next->name] : null,
             'pools' => $pools->map(fn (AuctionPool $p) => [
