@@ -48,7 +48,9 @@ class AuctionWallScriptIntegrityTest extends TestCase
         'IntersectionObserver', 'ResizeObserver', 'MutationObserver', 'AbortController',
         'structuredClone', 'queueMicrotask', 'btoa', 'atob',
         // loaded from CDN by this page
-        'Echo', 'Pusher', 'confetti',
+        // html2canvas is loaded only on a ?card= page, where the download is done in the
+        // browser rather than by a server-side Chrome; guarded by @isset($cardPayload).
+        'Echo', 'Pusher', 'confetti', 'html2canvas',
     ];
 
     #[Test]

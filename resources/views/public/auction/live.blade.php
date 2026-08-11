@@ -1211,6 +1211,17 @@
         <span id="bid-flash-amount"></span>
     </div>
 
+    @isset($cardPayload)
+        {{-- Deliberately outside #card-container, or it would appear in its own screenshot. --}}
+        <button id="card-download" type="button" class="hidden"
+                style="position:fixed;top:16px;right:16px;z-index:99999;padding:12px 22px;
+                       border:0;border-radius:10px;cursor:pointer;
+                       font:800 15px/1 system-ui,sans-serif;letter-spacing:0.04em;
+                       background:#16a34a;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.45);">
+            Download PNG
+        </button>
+    @endisset
+
     <div id="card-container" class="card-container hidden">
         @if($auction->auction_logo_url)
         <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo"
@@ -1363,6 +1374,10 @@
         @endforeach
     </div>
 
+    @isset($cardPayload)
+        {{-- Only on a card page. The wall never loads this. --}}
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    @endisset
     <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"></script>
     <script>
@@ -2839,6 +2854,64 @@
             /* Tells the screenshotter the paint is finished. Waiting on a fixed delay instead
                would either cut the image short or add seconds to every download. */
             document.body.setAttribute('data-card-ready', '1');
+
+            /*
+             * Download in the BROWSER, not on the server.
+             *
+             * The server-side render needs Chrome to fetch this page over HTTP while the
+             * request that started it is still open — which `php artisan serve` cannot do,
+             * being single-threaded, so it deadlocked and timed out. Capturing the card here
+             * needs no second request at all: the card is already on screen, and html2canvas
+             * paints the same DOM to a canvas.
+             *
+             * The server route still exists and still works where the app has more than one
+             * worker; this is the path that works everywhere.
+             */
+            const dlBtn = document.getElementById('card-download');
+
+            if (dlBtn && window.html2canvas) {
+                dlBtn.classList.remove('hidden');
+
+                /* A named function, not `async () =>`: the wall's script-integrity test reads
+                   `async (` as a call to an undefined `async`, and that guard is worth more
+                   than the terser form. */
+                async function captureCard() {
+                    const card = document.getElementById('card-container');
+                    if (!card) return;
+
+                    const label = dlBtn.textContent;
+                    dlBtn.textContent = 'Rendering…';
+                    dlBtn.disabled = true;
+
+                    try {
+                        const canvas = await html2canvas(card, {
+                            // Same-origin assets, but the flag is needed for the crossOrigin
+                            // attribute html2canvas puts on the images it re-fetches.
+                            useCORS: true,
+                            // The card paints its own background; a white canvas underneath
+                            // would show through anywhere the artwork is transparent.
+                            backgroundColor: null,
+                            // The card is a fixed 1601x910 canvas, so capture it at its own
+                            // size rather than at the device pixel ratio.
+                            scale: 1,
+                            logging: false,
+                        });
+
+                        const link = document.createElement('a');
+                        link.download = @json($cardFilename ?? 'player-card.png');
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                    } catch (e) {
+                        console.error('[Card] capture failed:', e);
+                        alert('Could not capture the card: ' + e.message);
+                    } finally {
+                        dlBtn.textContent = label;
+                        dlBtn.disabled = false;
+                    }
+                }
+
+                dlBtn.addEventListener('click', captureCard);
+            }
         } else {
 
         pollWall();

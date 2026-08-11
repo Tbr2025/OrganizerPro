@@ -272,9 +272,7 @@
                                            target="_blank" rel="noopener"
                                            class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap"
                                            title="Preview this card in a new tab">Preview</a>
-                                        <a href="{{ route('admin.auctions.cards.player', [$auction, $ap] + ($ap->status === 'sold' ? ['result' => 1] : [])) }}"
-                                           class="text-[11px] text-blue-600 hover:underline whitespace-nowrap"
-                                           title="Download this player's card as a PNG">PNG</a>
+
                                     </span>
                                 </li>
                             @endforeach
@@ -568,14 +566,10 @@
                                    title="Open this player's card in a new tab — instant, no rendering">
                                     <i class="fas fa-eye"></i> Preview
                                 </a>
-                                <a :href="`{{ url('admin/auctions/' . $auction->id . '/cards') }}/${player.id}`"
-                                   class="flex-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs text-center hover:bg-blue-100 hover:text-blue-600 transition"
-                                   title="Download as PNG (no SOLD badge)">
-                                    <i class="fas fa-download"></i> PNG
-                                </a>
-                                <a :href="`{{ url('admin/auctions/' . $auction->id . '/cards') }}/${player.id}?result=1`"
+                                <a :href="`{{ url('auction/' . $auction->id . '/live') }}?card=${player.id}&result=1`"
+                                   target="_blank" rel="noopener"
                                    class="flex-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs text-center hover:bg-emerald-100 hover:text-emerald-600 transition"
-                                   title="Download as PNG with the SOLD badge and price">
+                                   title="Open the card with the SOLD badge — download it from there">
                                     <i class="fas fa-stamp"></i> +SOLD
                                 </a>
                             </div>

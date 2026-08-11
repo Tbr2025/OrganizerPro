@@ -210,6 +210,10 @@ class PublicAuctionController extends Controller
                 'current_bid_team' => null,
             ],
             'cardShowResult' => request()->boolean('result'),
+            // The in-browser download names the file from this, so a folder of them is
+            // readable — same scheme the server-side render uses.
+            'cardFilename' => app(\App\Services\Auction\AuctionCardRenderer::class)
+                ->filename($ap, request()->boolean('result')),
         ];
     }
 
