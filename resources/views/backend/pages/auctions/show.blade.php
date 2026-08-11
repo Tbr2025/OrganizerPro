@@ -264,6 +264,13 @@
                                     </span>
                                     <span class="flex items-center gap-2">
                                         <span class="text-[11px] px-2 py-0.5 rounded-full {{ $statusChip[$ap->status] ?? 'bg-gray-100 text-gray-700' }}">{{ $ap->status }}</span>
+                                        {{-- The same card download as the grid below, so it is
+                                             to hand from whichever listing is open. Sold players
+                                             get the stamped version by default; everyone else the
+                                             plain one, which is the useful default in each case. --}}
+                                        <a href="{{ route('admin.auctions.cards.player', [$auction, $ap] + ($ap->status === 'sold' ? ['result' => 1] : [])) }}"
+                                           class="text-[11px] text-blue-600 hover:underline whitespace-nowrap"
+                                           title="Download this player's card as a PNG">Card</a>
                                         @if($ap->status === 'waiting')
                                             <button @click="skip({{ $ap->id }})" class="text-[11px] text-amber-600 hover:underline">Skip</button>
                                         @endif

@@ -2051,17 +2051,29 @@
 
             // Show current bid price if available, otherwise base price
             const price = p.current_price || p.base_price || 0;
+            /*
+             * Null-checked, because a template may switch this element off.
+             *
+             * isVisible() omits a hidden element from the DOM entirely, so a template with the
+             * price turned off made this line throw — and it throws BEFORE the rest of
+             * updatePlayerCard(), so the whole card stopped rendering: no name, no stats, no
+             * badge. Hiding one field silently broke the entire wall. The sibling at
+             * renderLiveBid() was already guarded; this one never was.
+             */
             const bidEl = document.getElementById('current-bid');
-            bidEl.textContent = formatMillions(price);
 
-            // Brief green highlight when price changes, then back to white
-            if (price !== window._lastDisplayedPrice) {
-                bidEl.classList.add('bid-updated');
-                if (window._bidColorTimeout) clearTimeout(window._bidColorTimeout);
-                window._bidColorTimeout = setTimeout(() => {
-                    bidEl.classList.remove('bid-updated');
-                }, 1500);
-                window._lastDisplayedPrice = price;
+            if (bidEl) {
+                bidEl.textContent = formatMillions(price);
+
+                // Brief green highlight when price changes, then back to white
+                if (price !== window._lastDisplayedPrice) {
+                    bidEl.classList.add('bid-updated');
+                    if (window._bidColorTimeout) clearTimeout(window._bidColorTimeout);
+                    window._bidColorTimeout = setTimeout(() => {
+                        bidEl.classList.remove('bid-updated');
+                    }, 1500);
+                    window._lastDisplayedPrice = price;
+                }
             }
 
             // Status text and badges
