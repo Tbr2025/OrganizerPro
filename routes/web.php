@@ -151,6 +151,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::delete('/auctions/{auction}/pools/bulk', [AuctionPoolController::class, 'bulkDestroy'])->name('auctions.pools.bulk-destroy');
     Route::delete('/auctions/{auction}/pools/{pool}', [AuctionPoolController::class, 'destroy'])->name('auctions.pools.destroy');
     Route::get('/auctions/{auction}/report', [AuctionAdminController::class, 'report'])->name('auctions.report');
+    /*
+     * A player's wall card as a PNG, and the whole pool as a zip. `?result=1` keeps the SOLD
+     * stamp and price on the card; without it the card is the player before the hammer fell.
+     */
+    Route::get('/auctions/{auction}/cards', [AuctionAdminController::class, 'downloadPlayerCards'])->name('auctions.cards');
+    Route::get('/auctions/{auction}/cards/{auctionPlayer}', [AuctionAdminController::class, 'downloadPlayerCard'])->name('auctions.cards.player');
     // Broadcast screens picker — the ticker and LED wall had no home in the menu.
     Route::get('/auctions-broadcast', [AuctionAdminController::class, 'liveTickerIndex'])->name('auctions.broadcast');
     // Release held player emails by hand — the safety net when no queue worker is running.

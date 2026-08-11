@@ -77,6 +77,17 @@
                             @endif
                         </a>
                         <a href="{{ route('admin.auctions.report', $auction) }}" class="{{ $ghost }}">Report</a>
+                        {{-- Every player's card as one zip. A browser is started per card, so
+                             this is seconds per player rather than milliseconds — hence a
+                             deliberate click rather than anything the page does on load. --}}
+                        <a href="{{ route('admin.auctions.cards', $auction) }}" class="{{ $ghost }}"
+                           title="Download every player's card as a zip (no SOLD badge). Takes a few seconds per player.">
+                            <i class="fas fa-images"></i> All cards
+                        </a>
+                        <a href="{{ route('admin.auctions.cards', [$auction, 'result' => 1]) }}" class="{{ $ghost }}"
+                           title="Download every player's card with the SOLD badge and price">
+                            <i class="fas fa-images"></i> All cards + SOLD
+                        </a>
                         <a href="{{ route('admin.auction.organizer.offline-panel', $auction) }}" target="_blank" class="{{ $ghost }}">Offline panel</a>
                         <a href="{{ route('public.auction.live', $auction) }}" target="_blank" class="{{ $ghost }}">LED wall</a>
                         {{-- Transparent 1920x1080 overlay for a streaming mixer. --}}
@@ -531,6 +542,26 @@
                                     </select>
                                 </div>
                             </template>
+
+                            {{-- Card download.
+                                 A PNG of this player exactly as the LED wall draws them — same
+                                 template, background and fonts, because the file IS a capture of
+                                 that page rather than a second drawing of it.
+
+                                 Two variants: with the SOLD badge and without. The plain one is
+                                 the version wanted before the auction; the stamped one after. --}}
+                            <div class="mt-2 flex gap-1">
+                                <a :href="`{{ url('admin/auctions/' . $auction->id . '/cards') }}/${player.id}`"
+                                   class="flex-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs text-center hover:bg-blue-100 hover:text-blue-600 transition"
+                                   title="Download this player's card (no SOLD badge)">
+                                    <i class="fas fa-image"></i> Card
+                                </a>
+                                <a :href="`{{ url('admin/auctions/' . $auction->id . '/cards') }}/${player.id}?result=1`"
+                                   class="flex-1 px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs text-center hover:bg-emerald-100 hover:text-emerald-600 transition"
+                                   title="Download with the SOLD badge and price">
+                                    <i class="fas fa-stamp"></i> + SOLD
+                                </a>
+                            </div>
 
                             {{-- Remove Button --}}
                             <div class="mt-2">

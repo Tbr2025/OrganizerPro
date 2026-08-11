@@ -1372,6 +1372,14 @@
         const AUCTION_NAME = @json($auction->name);
         let currentStatus = 'waiting';
         let lastPlayerId = null;
+        /*
+         * CARD MODE. Set only when this page is being rendered as ONE player's card for
+         * download — a screenshot of this very page, so the file and the LED wall cannot drift
+         * apart. Absent for the wall itself, and every live mechanism below is guarded on it.
+         */
+        const CARD_PAYLOAD = @json($cardPayload ?? null);
+        const CARD_SHOW_RESULT = @json($cardShowResult ?? false);
+
         let lastOnAuctionPlayerId = null;
         // Ordering token for pushed raises: socket frames are unordered and can repeat, so
         // anything not newer than this is dropped rather than drawn on the wall.
@@ -1713,12 +1721,16 @@
            silently — no error, just a page that quietly went back to polling. The values are
            JSON-encoded rather than dropped inside quotes, like every other server value on
            this page. */
-        window.Echo = new Echo({
-            broadcaster: 'pusher',
-            key: @json(config('broadcasting.connections.pusher.key')),
-            cluster: @json(config('broadcasting.connections.pusher.options.cluster')),
-            forceTLS: true
-        });
+        // Not in card mode: nothing about a still image needs a live connection, and the
+        // listeners below call into the live branch's helpers.
+        if (! CARD_PAYLOAD) {
+            window.Echo = new Echo({
+                broadcaster: 'pusher',
+                key: @json(config('broadcasting.connections.pusher.key')),
+                cluster: @json(config('broadcasting.connections.pusher.options.cluster')),
+                forceTLS: true
+            });
+        }
 
         /* Amounts read on the K / M / B ladder with this auction's unit — the Lakh /
            Crore ladder this used to hardcode is wrong for an auction run in points,
@@ -2610,6 +2622,7 @@
         }
 
         // Listen to public channel for real-time events
+        if (! CARD_PAYLOAD)
         window.Echo.channel(`auction.${auctionId}`)
             .listen('.player-on-sold', (event) => {
                 console.log('[Live] Player sold event:', event);
@@ -2724,6 +2737,7 @@
          * down through a pause until the heartbeat came round — the one state the room most
          * needs to see immediately.
          */
+        if (! CARD_PAYLOAD)
         window.Echo.channel(`auction.public.${auctionId}`)
             .listen('.auction.status', (event) => {
                 console.info('[Live] auction status:', event?.status);
@@ -2784,6 +2798,37 @@
                 .finally(scheduleWallPoll);
         }
 
+        /*
+         * CARD MODE — one player, rendered once, nothing live.
+         *
+         * The download of a player's card is a screenshot of this very page, so the file and
+         * the LED wall cannot drift apart: one set of positions, one background, one set of
+         * CSS. The alternative was re-drawing the card in GD from element_positions, which
+         * means maintaining a second renderer that has to agree with this one forever.
+         *
+         * So in card mode the page renders the player it was given and stops: no poll, no
+         * socket, no clock, no shuffle. Guarded on a variable the wall never receives, so the
+         * live path below is untouched when it is absent.
+         */
+        if (CARD_PAYLOAD) {
+            // The sold badge is the whole point of the "with result" variant, and
+            // updatePlayerCard() reads status to decide whether to stamp it.
+            if (! CARD_SHOW_RESULT) {
+                CARD_PAYLOAD.status = 'on_auction';
+                CARD_PAYLOAD.sold_to_team = null;
+                CARD_PAYLOAD.final_price = null;
+            }
+
+            renderSealedBanner(null);
+            updatePlayerCard(CARD_PAYLOAD);
+            hideClock();
+            document.getElementById('final-call-dim')?.classList.remove('is-on');
+
+            /* Tells the screenshotter the paint is finished. Waiting on a fixed delay instead
+               would either cut the image short or add seconds to every download. */
+            document.body.setAttribute('data-card-ready', '1');
+        } else {
+
         pollWall();
 
         /* The wall reports its own transport too, and drives the heartbeat from it: a dropped
@@ -2841,6 +2886,8 @@
 
         // Initial fetch
         fetchActivePlayer();
+
+        }   // end: live mode (see CARD_PAYLOAD above)
 
         // ── Responsive scaling for card container ──
         const canvasWidth = {{ $canvasWidth }};

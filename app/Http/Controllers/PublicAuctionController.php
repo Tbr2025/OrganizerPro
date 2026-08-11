@@ -155,7 +155,62 @@ class PublicAuctionController extends Controller
             'unsoldBadgeUrl' => $unsoldBadgeUrl,
             'canvasWidth' => $canvasWidth,
             'canvasHeight' => $canvasHeight,
-        ]);
+        ] + $this->cardModePayload($auction));
+    }
+
+    /**
+     * Card mode: `?card={auctionPlayerId}` turns the wall into ONE player's still card.
+     *
+     * The download of a player card is a screenshot of the wall page itself, so the file and
+     * the screen cannot drift apart — one set of positions, one background, one set of CSS.
+     * Re-drawing the card in GD from element_positions was the alternative, and it means
+     * keeping a second renderer that has to agree with this one forever.
+     *
+     * `?result=1` keeps the outcome on the card (the SOLD stamp and price); without it the
+     * card renders as the player looked before the hammer fell.
+     *
+     * @return array<string, mixed>  Empty for the wall, which must be untouched by this.
+     */
+    private function cardModePayload(Auction $auction): array
+    {
+        $cardId = request('card');
+
+        if (! $cardId) {
+            return [];
+        }
+
+        $ap = $auction->auctionPlayers()
+            ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile', 'soldToTeam'])
+            ->find($cardId);
+
+        if (! $ap || ! $ap->player) {
+            return [];
+        }
+
+        // The same shape the live feed hands updatePlayerCard(), so the page renders it by
+        // exactly the path it uses for a player on the block.
+        $player = $ap->player;
+        $player->player_type = $ap->player->playerType;
+        $player->batting_profile = $ap->player->battingProfile;
+        $player->bowling_profile = $ap->player->bowlingProfile;
+
+        return [
+            'cardPayload' => [
+                'id' => $ap->id,
+                'player' => $player,
+                'base_price' => $ap->base_price,
+                'current_price' => $ap->final_price ?? $ap->current_price,
+                'final_price' => $ap->final_price,
+                'status' => $ap->status,
+                'sold_to_team' => $ap->soldToTeam ? [
+                    'id' => $ap->soldToTeam->id,
+                    'name' => $ap->soldToTeam->name,
+                    'logo_path' => $ap->soldToTeam->team_logo_url,
+                ] : null,
+                'current_bid_team' => null,
+            ],
+            'cardShowResult' => request()->boolean('result'),
+        ];
     }
 
     public function showPublicDisplaySold(Auction $auction)

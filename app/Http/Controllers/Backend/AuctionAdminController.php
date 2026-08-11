@@ -13,6 +13,7 @@ use App\Models\AuctionPool;
 use App\Models\AuctionTeamBudget;
 use Illuminate\Http\JsonResponse;
 use App\Models\AuctionActionLog;
+use App\Services\Auction\AuctionCardRenderer;
 use App\Services\Auction\AuctionPoolService;
 use App\Services\Auction\AuctionUndoService;
 use App\Services\Auction\BidIncrementService;
@@ -2032,6 +2033,100 @@ class AuctionAdminController extends Controller
     /**
      * Display the auction report with bid history, highlights, and team breakdown.
      */
+    /**
+     * One player's wall card as a PNG.
+     *
+     * `?result=1` keeps the outcome on it — the SOLD stamp and the price. Without it the card
+     * is the player as they looked before the hammer fell, which is the version wanted for
+     * pre-auction promotion.
+     */
+    public function downloadPlayerCard(Request $request, Auction $auction, AuctionPlayer $auctionPlayer, AuctionCardRenderer $cards)
+    {
+        $this->authorize('auction.view');
+
+        if ((int) $auctionPlayer->auction_id !== (int) $auction->id) {
+            abort(404);
+        }
+
+        $withResult = $request->boolean('result');
+        $path = $cards->render($auction, $auctionPlayer, $withResult);
+
+        return response()->download($path, $cards->filename($auctionPlayer, $withResult), [
+            'Content-Type' => 'image/png',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Every player's card, as one zip.
+     *
+     * A browser is started per card, so this is seconds per player rather than milliseconds —
+     * the reason it is a separate deliberate action rather than something the page does on
+     * load. A pool of two hundred will take minutes; that is the honest cost of rendering the
+     * real card rather than approximating it.
+     */
+    public function downloadPlayerCards(Request $request, Auction $auction, AuctionCardRenderer $cards)
+    {
+        $this->authorize('auction.view');
+
+        $withResult = $request->boolean('result');
+
+        $players = $auction->auctionPlayers()
+            ->with('player')
+            ->whereHas('player')
+            ->orderByRaw('COALESCE(lot_number, 999999)')
+            ->orderBy('id')
+            ->get();
+
+        if ($players->isEmpty()) {
+            return back()->with('error', 'This auction has no players to render.');
+        }
+
+        $zipPath = tempnam(sys_get_temp_dir(), 'auction-cards-') . '.zip';
+        $zip = new \ZipArchive();
+
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return back()->with('error', 'Could not create the zip file.');
+        }
+
+        $rendered = [];
+
+        foreach ($players as $ap) {
+            try {
+                $png = $cards->render($auction, $ap, $withResult);
+                $zip->addFile($png, $cards->filename($ap, $withResult));
+                // Kept until close(): ZipArchive reads the files when the archive is written,
+                // so deleting one here would put an empty entry in the zip.
+                $rendered[] = $png;
+            } catch (\Throwable $e) {
+                /*
+                 * One unrenderable player must not lose the other 199. A missing photo or a
+                 * name Chrome chokes on is exactly the kind of thing found by exporting, so the
+                 * failure is logged and the rest of the pool still arrives.
+                 */
+                Log::warning('Auction card render failed', [
+                    'auction_player_id' => $ap->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $zip->close();
+
+        foreach ($rendered as $png) {
+            @unlink($png);
+        }
+
+        if ($rendered === []) {
+            @unlink($zipPath);
+
+            return back()->with('error', 'None of the cards could be rendered — see the log for why.');
+        }
+
+        $name = sprintf('auction-%d-cards%s.zip', $auction->id, $withResult ? '-sold' : '');
+
+        return response()->download($zipPath, $name)->deleteFileAfterSend(true);
+    }
+
     public function report(Auction $auction)
     {
         $this->authorize('auction.view');

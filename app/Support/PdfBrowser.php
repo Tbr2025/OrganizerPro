@@ -31,7 +31,24 @@ class PdfBrowser
     /** A Browsershot instance from raw HTML, configured for headless server use. */
     public static function html(string $html): Browsershot
     {
-        $browsershot = Browsershot::html($html)->noSandbox();
+        return self::configure(Browsershot::html($html));
+    }
+
+    /**
+     * The same, but fetching a URL.
+     *
+     * Needed where the page builds itself — CDN stylesheets, fonts and JavaScript that runs
+     * after load. Handing Browsershot an HTML string captures the document before any of that
+     * has happened, which for the auction wall means an empty card.
+     */
+    public static function url(string $url): Browsershot
+    {
+        return self::configure(Browsershot::url($url));
+    }
+
+    private static function configure(Browsershot $browsershot): Browsershot
+    {
+        $browsershot->noSandbox();
 
         if ($path = self::chromePath()) {
             $browsershot->setChromePath($path);
