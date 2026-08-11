@@ -740,6 +740,33 @@
      * the sales and the team strip, none of which this event knows about. If the socket never
      * connects, the strip behaves exactly as it did before.
      */
+    /*
+     * On-screen transport badge, only with ?debug=1 in the URL.
+     *
+     * Push and poll run together by design, so the Network tab cannot answer "is this live?"
+     * unless you know that WebSockets hide behind the Socket/WS filter and never appear under
+     * Fetch/XHR. This says it in one glance instead. Absent unless asked for, so it can never
+     * appear on air.
+     */
+    const showTransportBadge = new URLSearchParams(location.search).has('debug');
+    let transportBadge = null;
+    let pushedFrames = 0;
+
+    if (showTransportBadge) {
+        transportBadge = document.createElement('div');
+        transportBadge.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;'
+            + 'font:700 12px/1 Roboto,sans-serif;padding:6px 10px;border-radius:6px;'
+            + 'background:#7f1d1d;color:#fff;letter-spacing:.08em';
+        transportBadge.textContent = 'POLLING (no push)';
+        document.body.appendChild(transportBadge);
+    }
+
+    function setTransport(live, detail) {
+        if (!transportBadge) return;
+        transportBadge.style.background = live ? '#065f46' : '#7f1d1d';
+        transportBadge.textContent = live ? `PUSHER LIVE — ${detail}` : `POLLING — ${detail}`;
+    }
+
     (function subscribeToRaises() {
         const key = @json(config('broadcasting.connections.pusher.key'));
         const cluster = @json(config('broadcasting.connections.pusher.options.cluster'));
@@ -748,6 +775,7 @@
         // would take this down silently.
         if (!key) {
             console.warn('[Ticker] no Pusher key configured — polling only.');
+            setTransport(false, 'no key configured');
             return;
         }
 
@@ -763,6 +791,7 @@
         if (typeof Echo === 'undefined') {
             console.warn('[Ticker] Echo failed to load (js.pusher.com or cdnjs blocked by an '
                 + 'extension?) — polling only.');
+            setTransport(false, 'Echo script blocked');
             return;
         }
 
@@ -777,10 +806,13 @@
             /* The connection reports itself, so "is this on push or polling?" is answerable
                from the console instead of by reading WebSocket frames. */
             const conn = window.Echo.connector.pusher.connection;
-            conn.bind('connected', () => console.info('[Ticker] LIVE — pusher connected (' + cluster + ')'));
-            conn.bind('unavailable', () => console.warn('[Ticker] pusher unavailable — polling only.'));
-            conn.bind('failed', () => console.warn('[Ticker] pusher failed — polling only.'));
-            conn.bind('disconnected', () => console.warn('[Ticker] pusher disconnected — polling only.'));
+            conn.bind('connected', () => {
+                console.info('[Ticker] LIVE — pusher connected (' + cluster + ')');
+                setTransport(true, cluster);
+            });
+            conn.bind('unavailable', () => { console.warn('[Ticker] pusher unavailable — polling only.'); setTransport(false, 'unavailable'); });
+            conn.bind('failed', () => { console.warn('[Ticker] pusher failed — polling only.'); setTransport(false, 'failed'); });
+            conn.bind('disconnected', () => { console.warn('[Ticker] pusher disconnected — polling only.'); setTransport(false, 'disconnected'); });
 
             window.Echo.channel(`auction.${auctionId}`).listen('.bid.raised', (e) => {
                 if (!e || !lastCurrentPlayer) return;
@@ -799,9 +831,12 @@
                 lastCurrentPlayer.leading_team_short = e.team_name || lastCurrentPlayer.leading_team_short;
 
                 renderCurrent(lastCurrentPlayer, lastSealed);
+                pushedFrames++;
+                setTransport(true, cluster + ' · ' + pushedFrames + ' raise(s) pushed');
             });
         } catch (err) {
             console.warn('[Ticker] live updates unavailable, polling only:', err);
+            setTransport(false, 'init error');
         }
     })();
 
