@@ -275,9 +275,6 @@
                                         <a href="{{ route('admin.auctions.cards.player', [$auction, $ap] + ($ap->status === 'sold' ? ['result' => 1] : [])) }}"
                                            class="text-[11px] text-blue-600 hover:underline whitespace-nowrap"
                                            title="Download this player's card as a PNG">PNG</a>
-                                        @if($ap->status === 'waiting')
-                                            <button @click="skip({{ $ap->id }})" class="text-[11px] text-amber-600 hover:underline">Skip</button>
-                                        @endif
                                     </span>
                                 </li>
                             @endforeach
@@ -654,10 +651,6 @@
                     this._post(`/admin/organizer/auction/${this.auctionId}/api/start`).then(() => {
                         window.location = `/admin/organizer/auction/${this.auctionId}/panel`;
                     });
-                },
-                skip(apId) {
-                    this._post(`/admin/organizer/auction/${this.auctionId}/api/skip-player`, { auction_player_id: apId })
-                        .then(r => r.success && location.reload());
                 },
                 reAuctionRound() {
                     this._post(`/admin/organizer/auction/${this.auctionId}/api/start-reauction-round`)

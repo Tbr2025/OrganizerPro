@@ -42,16 +42,48 @@ class AuctionCardRenderer
         $canvasWidth = 1601;
         $canvasHeight = 910;
 
-        PdfBrowser::url($url)
-            ->windowSize($canvasWidth, $canvasHeight)
+        try {
+            PdfBrowser::url($url)
+                ->windowSize($canvasWidth, $canvasHeight)
+                /*
+                 * Chrome fetches this page over HTTP from THIS application, so the app has to be
+                 * able to serve a second request while it is still serving this one.
+                 *
+                 * nginx + PHP-FPM do that by default. `php artisan serve` does NOT — PHP's
+                 * built-in server is single-threaded, so the download request occupies it, Chrome's
+                 * fetch queues behind itself, and the navigation times out having never been
+                 * served. The fix is on the dev server, not here:
+                 *
+                 *     PHP_CLI_SERVER_WORKERS=4 php artisan serve
+                 *
+                 * 120s rather than puppeteer's default 30, so a slow first paint (cold Chrome,
+                 * remote fonts, a large background) is not mistaken for this deadlock.
+                 */
+                ->timeout(120)
             /*
              * Wait for the page to say it has finished painting rather than for a fixed delay.
              * The card is built in JS after the fonts and background load, so a timeout either
              * cuts the image short or adds seconds to every download; card mode sets
              * data-card-ready on <body> when it is done.
              */
-            ->waitForFunction("document.body.getAttribute('data-card-ready') === '1'", null, 15000)
-            ->save($path);
+                ->waitForFunction("document.body.getAttribute('data-card-ready') === '1'", null, 15000)
+                ->save($path);
+        } catch (\Throwable $e) {
+            @unlink($path);
+
+            /*
+             * Say which of the two failures this is, because they look identical in the raw
+             * puppeteer output and have completely different fixes: one is a dev server that
+             * cannot answer a second request, the other is a card that will not paint.
+             */
+            $hint = str_contains($e->getMessage(), 'Navigation timeout')
+                ? ' The card page could not be loaded. If this is a local `php artisan serve`,'
+                    . ' it serves one request at a time and cannot answer Chrome while it is busy'
+                    . ' answering this one — restart it as `PHP_CLI_SERVER_WORKERS=4 php artisan serve`.'
+                : '';
+
+            throw new \RuntimeException('Could not render the card for ' . ($auctionPlayer->player->name ?? 'this player') . '.' . $hint, 0, $e);
+        }
 
         return $path;
     }
