@@ -388,6 +388,61 @@ class ClosedBidService
      *                                    eligible — the pre-existing default, still used by
      *                                    startRound()'s "start without opening entry first".
      */
+    /**
+     * Back out of the invite step, to the team-selection screen.
+     *
+     * openEntry() is a decision the organizer routinely wants to change — the wrong team ticked,
+     * or a team that should not be in this round — and until now the only ways back were UNDO
+     * (which reverts by action, not by step) or withdrawing invitations one at a time. Neither
+     * reads as "go back", which is what the screen is asking for.
+     *
+     * Refused the moment a team has actually DONE something. Once an invitation has been accepted
+     * or a bid submitted, un-inviting silently discards a team's own act — so the round has to be
+     * carried forward or undone deliberately, not stepped back out of.
+     */
+    public function reopenSelection(AuctionClosedBidRound $round, ?User $actor = null): array
+    {
+        return DB::transaction(function () use ($round, $actor) {
+            $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
+
+            if ($round->state !== AuctionClosedBidRound::STATE_ENTRY_OPEN) {
+                return ['handled' => false, 'message' => 'The team selection can only be reopened before the round starts.'];
+            }
+
+            $acted = $round->entries()
+                ->whereNotIn('state', [AuctionClosedBidEntry::STATE_INVITED, AuctionClosedBidEntry::STATE_DECLINED])
+                ->count();
+
+            if ($acted > 0) {
+                return [
+                    'handled' => false,
+                    'message' => $acted === 1
+                        ? 'A team has already responded to this round — undo that first, or carry on.'
+                        : sprintf('%d teams have already responded to this round — undo those first, or carry on.', $acted),
+                ];
+            }
+
+            // Only the untouched invitations go; nothing a team did is thrown away, because the
+            // guard above means there is nothing.
+            $round->entries()
+                ->whereIn('state', [AuctionClosedBidEntry::STATE_INVITED, AuctionClosedBidEntry::STATE_DECLINED])
+                ->delete();
+
+            $round->update([
+                'state' => AuctionClosedBidRound::STATE_PENDING,
+                // The clock has not started for a pending round, and leaving a stale start time
+                // would have the next Start inherit an already-expired timer.
+                'timer_started_at' => null,
+            ]);
+
+            return [
+                'handled' => true,
+                'message' => 'Back to team selection.',
+                'round' => $round->fresh(),
+            ];
+        });
+    }
+
     public function openEntry(AuctionClosedBidRound $round, ?User $actor = null, ?array $teamIds = null): array
     {
         return DB::transaction(function () use ($round, $actor, $teamIds) {

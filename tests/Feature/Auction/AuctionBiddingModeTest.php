@@ -205,7 +205,7 @@ class AuctionBiddingModeTest extends TestCase
     }
 
     #[Test]
-    public function a_team_cannot_submit_a_sealed_amount_in_an_offline_auction(): void
+    public function a_team_can_submit_a_sealed_amount_in_an_offline_auction(): void
     {
         $ctx = $this->biddableAuction('offline');
         $auction = $ctx['auction'];
@@ -220,30 +220,34 @@ class AuctionBiddingModeTest extends TestCase
         $service->start($round->fresh());
 
         /*
-         * placeBid() has refused offline bids for a long time; these endpoints never did,
-         * so there were two doors to the same action and only one was locked. The team's
-         * own screen already hides the control — the server did not.
+         * Offline does NOT lock a team out of a SEALED round, and this is the test that says so.
          *
-         * ACCEPT is asserted as well as SUBMIT, and that is what gives this test its teeth.
-         * Submitting without accepting is refused anyway ("Accept the round conditions
-         * before bidding"), so a test that only posted an amount would pass with the guard
-         * removed — it would be measuring the acceptance gate, not the mode. Accept is the
-         * first door, and in an offline auction it must already be shut.
+         * Offline describes OPEN bidding — the organizer calls the room aloud, and placeBid()
+         * still refuses a team's own open bid for exactly that reason. A sealed round is the
+         * opposite kind of thing: one private number, entered without seeing anyone else's, which
+         * is what a manager should type on their own device even in a room-called auction. Making
+         * the organizer collect six sealed amounts by hand defeated the privacy the round is for.
          */
         $this->actingAs($ctx['manager'])
             ->postJson(route('team.auction.bidding.api.closed-bid.accept', $auction))
-            ->assertStatus(422);
+            ->assertOk();
 
         $this->actingAs($ctx['manager'])
             ->postJson(route('team.auction.bidding.api.closed-bid.submit', $auction), ['amount' => 9_000_000])
-            ->assertStatus(422);
+            ->assertOk();
 
-        $this->assertNull(
-            AuctionClosedBidEntry::where('auction_closed_bid_round_id', $round->id)
+        $this->assertSame(
+            9_000_000.0,
+            (float) AuctionClosedBidEntry::where('auction_closed_bid_round_id', $round->id)
                 ->where('actual_team_id', $ctx['team']->id)
                 ->value('amount'),
-            'nothing may be recorded for a team that cannot bid'
+            'a sealed amount entered by the team is recorded in offline mode too'
         );
+
+        // The OPEN path is unchanged: an offline auction still refuses a team's own raise.
+        $this->actingAs($ctx['manager'])
+            ->postJson(route('team.auction.bidding.api.place-bid', $auction), ['auction_player_id' => $player->id])
+            ->assertStatus(422);
     }
 
     #[Test]

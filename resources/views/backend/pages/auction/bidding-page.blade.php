@@ -101,7 +101,7 @@
                     <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full tracking-wide"
                           :class="{
                               'bg-blue-500/15 text-blue-400 border border-blue-500/25': bidType === 'open' && auctionMode !== 'offline',
-                              'bg-purple-500/15 text-purple-400 border border-purple-500/25': bidType === 'closed' && auctionMode !== 'offline',
+                              'bg-purple-500/15 text-purple-400 border border-purple-500/25': bidType === 'closed',
                               'bg-orange-500/15 text-orange-400 border border-orange-500/25': auctionMode === 'offline'
                           }"
                           x-text="auctionMode === 'offline' ? 'OFFLINE' : (bidType === 'closed' ? 'SEALED' : 'OPEN')"></span>
@@ -272,7 +272,12 @@
                     </div>
 
                     {{-- SEALED (CLOSED) ROUND --}}
-                    <div x-show="bidType === 'closed' && auctionMode !== 'offline'" class="space-y-2.5">
+                    {{-- No `auctionMode !== 'offline'` here.
+                         Offline describes OPEN bidding — the organizer calls the room aloud — and
+                         the open controls below are still hidden for it. A sealed round is a
+                         single private number, which is exactly what a manager should type on
+                         their own device even in a room-called auction. --}}
+                    <div x-show="bidType === 'closed'" class="space-y-2.5">
 
                         {{-- Waiting for the organizer to open the round --}}
                         <template x-if="!sealed.active || sealed.state === 'pending'">
@@ -548,14 +553,17 @@
                         </template>
                     </div>
 
-                    {{-- OFFLINE MODE --}}
-                    <div x-show="auctionMode === 'offline'" class="text-center">
+                    {{-- OFFLINE MODE — open bidding only.
+                         Shown for the OPEN round, where the organizer really is taking the raises
+                         from the room. A sealed round is entered here regardless of mode, so this
+                         must not claim otherwise while the sealed box is on screen above it. --}}
+                    <div x-show="auctionMode === 'offline' && bidType !== 'closed'" class="text-center">
                         <div class="bg-orange-500/10 border border-orange-500/25 rounded-lg p-3.5">
                             <div class="flex items-center justify-center gap-1.5 mb-1">
                                 <span class="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
                                 <span class="text-orange-400 text-[11px] font-bold uppercase tracking-wider">Offline Bidding</span>
                             </div>
-                            <p class="text-gray-400 text-[11px]">The organizer is handling bids manually.</p>
+                            <p class="text-gray-400 text-[11px]">The organizer is calling the open bidding in the room.</p>
                         </div>
                     </div>
 

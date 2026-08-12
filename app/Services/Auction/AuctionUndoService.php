@@ -193,7 +193,36 @@ class AuctionUndoService
             }
         }
 
-        return ['success' => true, 'message' => 'Reveal undone — the round is collecting again.'];
+        /*
+         * Say where this leaves the price, because one undo is one action.
+         *
+         * The sealed round was opened by a bid crossing the threshold, and that bid is a separate
+         * action still standing. So the operator presses UNDO expecting to be back at the
+         * previous open-bid step and instead lands in a half-state: no sealed round, but a price
+         * that is still over the line. Naming it — with the figure and what another undo would
+         * do — is the whole difference between that being confusing and being a step.
+         */
+        $player = $round->auctionPlayer?->fresh();
+        $roundAuction = $round->auction;
+        $threshold = $roundAuction?->closed_bid_starts_at !== null ? (float) $roundAuction->closed_bid_starts_at : null;
+        $price = $player ? (float) $player->current_price : null;
+
+        $note = '';
+
+        if ($threshold !== null && $price !== null && $price >= $threshold) {
+            $previous = $player->liveBids()->orderByDesc('id')->skip(1)->first();
+
+            $note = sprintf(
+                ' The price is still %s, at or above the %s sealed threshold%s.',
+                format_points($price),
+                format_points($threshold),
+                $previous
+                    ? sprintf(' — undo again to go back to %s', format_points((float) $previous->amount))
+                    : ''
+            );
+        }
+
+        return ['success' => true, 'message' => 'Reveal undone — the round is collecting again.' . $note];
     }
 
     private function undoClosedEntryChange(AuctionActionLog $log): array

@@ -534,19 +534,19 @@ class AuctionBiddingController extends Controller
         }
 
         /*
-         * Offline means the organizer enters every amount, including sealed ones — which is
-         * what the wizard tells the operator and what the team's own screen already shows
-         * (bidding-page.blade.php hides the sealed controls at `auctionMode === 'offline'`).
+         * Offline does NOT lock a team out of a sealed round.
          *
-         * placeBid() has refused offline bids for a long time; these endpoints never did, so
-         * there were two doors to the same action and only one was locked. In a room being
-         * called aloud a team could still submit a sealed amount by hand.
+         * "Offline" describes OPEN bidding: the organizer calls the room aloud and enters the
+         * raises, and placeBid() still refuses a team's own open bid for that reason. A sealed
+         * round is the opposite kind of thing — a single private number, entered without seeing
+         * anyone else's — and that is exactly what a manager should type on their own device even
+         * in a room-called auction. Forcing the organizer to collect six sealed amounts by hand
+         * defeats the privacy the round exists for, and it was the one thing teams could not do.
+         *
+         * The organizer can still enter on a team's behalf; both doors are open on purpose here,
+         * and every other guard still applies — invitation, acceptance, the deadline, the
+         * ceilings, and one final bid per team per round.
          */
-        if ($auction->fresh()->open_bid_mode === 'offline') {
-            return response()->json([
-                'error' => 'This auction is offline. The organizer enters sealed amounts on the control panel.',
-            ], 422);
-        }
 
         // Read-only preview: an admin looking at a team's screen must not act as them.
         if ($request->query('preview') || session('auction_preview_team_id')) {

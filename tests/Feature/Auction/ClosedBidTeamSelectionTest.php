@@ -256,4 +256,43 @@ class ClosedBidTeamSelectionTest extends TestCase
             AuctionClosedBidEntry::where('auction_closed_bid_round_id', $round->id)->count()
         );
     }
+
+    #[Test]
+    public function the_organizer_can_step_back_to_team_selection(): void
+    {
+        [$org, $auction, $round, $alpha] = $this->scenario();
+
+        app(ClosedBidService::class)->openEntry($round, null, [$alpha->id]);
+        $this->assertSame('entry_open', $round->fresh()->state);
+
+        $result = app(ClosedBidService::class)->reopenSelection($round->fresh(), null);
+
+        $this->assertTrue($result['handled'], $result['message'] ?? '');
+        $this->assertSame('pending', $round->fresh()->state);
+        // The untouched invitation goes with it, so the next selection starts clean.
+        $this->assertSame(0, $round->fresh()->entries()->count());
+        // And no stale clock is left for the next Start to inherit.
+        $this->assertNull($round->fresh()->timer_started_at);
+    }
+
+    #[Test]
+    public function stepping_back_is_refused_once_a_team_has_responded(): void
+    {
+        [$org, $auction, $round, $alpha] = $this->scenario();
+
+        app(ClosedBidService::class)->openEntry($round, null, [$alpha->id]);
+        app(ClosedBidService::class)->accept($round->fresh(), $alpha);
+
+        /*
+         * Un-inviting a team that has already accepted would silently discard its own act. At
+         * that point the round is carried forward or undone deliberately — it is not something to
+         * step back out of.
+         */
+        $result = app(ClosedBidService::class)->reopenSelection($round->fresh(), null);
+
+        $this->assertFalse($result['handled']);
+        $this->assertStringContainsString('already responded', $result['message']);
+        $this->assertSame('entry_open', $round->fresh()->state);
+        $this->assertSame(1, $round->fresh()->entries()->count());
+    }
 }

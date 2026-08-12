@@ -357,37 +357,23 @@
                              a full board of AWAITING looked like teams ignoring the round or the
                              page being broken. Both states are named rather than left to be
                              inferred from an absence. --}}
-                        <div class="mb-4 px-4 py-2.5 rounded-xl flex items-start gap-2.5"
-                             :class="openBidMode === 'offline'
-                                ? 'bg-amber-500/10 border border-amber-500/30'
-                                : 'bg-cyan-500/10 border border-cyan-500/25'">
-                            <svg class="w-4 h-4 mt-0.5 shrink-0"
-                                 :class="openBidMode === 'offline' ? 'text-amber-400' : 'text-cyan-400'"
+                        <div class="mb-4 px-4 py-2.5 rounded-xl flex items-start gap-2.5 bg-cyan-500/10 border border-cyan-500/25">
+                            <svg class="w-4 h-4 mt-0.5 shrink-0 text-cyan-400"
                                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
-                            <p class="text-[12px] leading-relaxed"
-                               :class="openBidMode === 'offline' ? 'text-amber-200/90' : 'text-cyan-200/90'">
-                                <template x-if="openBidMode === 'offline'">
-                                    <span>
-                                        <span class="font-bold">Offline round.</span>
-                                        Team managers cannot enter sealed bids from their own screens —
-                                        type each amount below and press Set. Switch to
-                                        <span class="font-semibold">Live</span> on the toolbar if the teams
-                                        should enter their own.
+                            <p class="text-[12px] leading-relaxed text-cyan-200/90">
+                                <span>
+                                    <span class="font-bold">Teams enter their own sealed amounts</span>
+                                    — on their own screens, in offline mode too, because a sealed bid is a
+                                    private number rather than a raise called across the room.
+                                    <span x-show="sealed.requires_acceptance">
+                                        Each team must accept the round first: one still reading
+                                        <span class="font-semibold">Awaiting</span> has not accepted yet.
                                     </span>
-                                </template>
-                                <template x-if="openBidMode !== 'offline'">
-                                    <span>
-                                        <span class="font-bold">Teams enter their own amounts.</span>
-                                        <span x-show="sealed.requires_acceptance">
-                                            Each team must accept the round first — a team still reading
-                                            <span class="font-semibold">Awaiting</span> has not accepted yet.
-                                        </span>
-                                        You can still enter on a team's behalf below.
-                                    </span>
-                                </template>
+                                    You can also enter on a team's behalf below.
+                                </span>
                             </p>
                         </div>
 
@@ -405,16 +391,24 @@
                         <template x-if="sealed.state === 'no_entries'">
                             <div class="mb-4 px-4 py-4 rounded-xl bg-gray-900 border border-gray-700 text-center">
                                 <p class="text-gray-300 text-sm mb-3">No team entered the sealed round.</p>
+                                {{-- No "send to unsold" here.
+                                     A sealed round is only reached because the OPEN bidding had
+                                     already climbed past the threshold — so there is a leading team
+                                     at the floor price, and the player is not unsold by any
+                                     reasonable reading. Offering it invited an organizer to throw
+                                     away a live bid with one click. A player who genuinely should
+                                     not sell is passed with PASS on the toolbar, which is the
+                                     control that means that. --}}
                                 <div class="flex gap-2 justify-center">
                                     <button @click="sealedNoEntries('award_leader')" x-show="sealed.leader"
                                             class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold">
                                         Award <span x-text="sealed.leader?.team_name"></span> at <span x-text="formatCurrency(sealed.floor)"></span>
                                     </button>
-                                    <button @click="sealedNoEntries('unsold')"
-                                            class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold">
-                                        Send to unsold
-                                    </button>
                                 </div>
+                                <p x-show="!sealed.leader" class="text-gray-500 text-xs mt-2">
+                                    No leading team to award — use <span class="font-semibold text-gray-400">PASS</span>
+                                    on the toolbar if this player should not sell.
+                                </p>
                             </div>
                         </template>
 
@@ -575,6 +569,20 @@
                             </div>
 
                             <div class="flex gap-2">
+                                {{-- Back to team selection.
+                                     Changing who is in a round is an ordinary correction — the wrong
+                                     team ticked, or one that should not be here — and the only ways
+                                     back were UNDO (which reverts by action, not by step) or
+                                     withdrawing invitations one at a time. Neither reads as "go
+                                     back". Refused server-side once a team has actually responded,
+                                     because stepping back out then would discard their act. --}}
+                                <button x-show="sealed.state === 'entry_open'" @click="sealedReopenSelection()"
+                                        class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold inline-flex items-center gap-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                    </svg>
+                                    Back
+                                </button>
                                 <button x-show="sealed.state === 'pending'" @click="sealedOpenEntry()"
                                         class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">
                                     Open Entry (<span x-text="sealedSelectedCount"></span>)
@@ -2802,6 +2810,17 @@ function auctionOrganizerPanel() {
             } catch (e) {
                 this.toast('That did not go through.', 'error', 'Sealed round');
                 return null;
+            }
+        },
+
+        /** Back to the team-selection step. The server refuses it once a team has responded. */
+        async sealedReopenSelection() {
+            const result = await this.sealedCommand('reopen-selection');
+
+            if (result?.handled) {
+                // The selection is the organizer's again, so start from every eligible team
+                // rather than from whoever happened to be invited a moment ago.
+                this.sealedTeamSelection = null;
             }
         },
 

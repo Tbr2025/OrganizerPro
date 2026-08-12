@@ -174,7 +174,7 @@ class ClosedBidTeamDeadlineTest extends TestCase
     }
 
     #[Test]
-    public function an_offline_auction_refuses_a_teams_own_sealed_bid_and_says_so(): void
+    public function an_offline_auction_still_lets_a_team_enter_its_own_sealed_bid(): void
     {
         ['auction' => $auction, 'team' => $team, 'round' => $round, 'user' => $user] = $this->scenario([
             'open_bid_mode' => 'offline',
@@ -183,19 +183,19 @@ class ClosedBidTeamDeadlineTest extends TestCase
         $this->closedBids()->accept($round, $team);
 
         /*
-         * Deliberate: in offline mode the organizer types every amount on the panel, and the
-         * team's own controls are hidden. The point of this test is the MESSAGE — a board of
-         * "Awaiting" with a silent refusal behind it is indistinguishable from teams ignoring
-         * the round, which is what cost an operator a live round's worth of confusion.
+         * Offline describes OPEN bidding — the organizer calling raises across the room. A sealed
+         * bid is a private number, and having the organizer collect six of them by hand defeats
+         * the privacy the round exists for.
          */
-        $response = $this->actingAs($user)->postJson(
+        $this->actingAs($user)->postJson(
             route('team.auction.bidding.api.closed-bid.submit', $auction),
             ['amount' => 9_000_000]
-        );
+        )->assertOk();
 
-        $response->assertStatus(422);
-        $this->assertStringContainsString('offline', strtolower((string) $response->json('error')));
-        $this->assertStringContainsString('organizer', strtolower((string) $response->json('error')));
+        $this->assertSame(
+            9_000_000.0,
+            (float) $round->entries()->where('actual_team_id', $team->id)->value('amount')
+        );
     }
 
     #[Test]
@@ -208,10 +208,10 @@ class ClosedBidTeamDeadlineTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // Both states are named on the sealed console, so a full board of AWAITING is never left
-        // to be explained by an absence.
-        $this->assertStringContainsString('Offline round.', $html);
-        $this->assertStringContainsString('Teams enter their own amounts.', $html);
+        // A full board of AWAITING is never left to be explained by an absence: the console says
+        // who enters the amounts and what Awaiting is waiting for.
+        $this->assertStringContainsString('Teams enter their own sealed amounts', $html);
+        $this->assertStringContainsString('has not accepted yet', $html);
     }
 
     #[Test]

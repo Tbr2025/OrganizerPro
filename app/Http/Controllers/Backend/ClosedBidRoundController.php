@@ -147,6 +147,12 @@ class ClosedBidRoundController extends Controller
         ));
     }
 
+    /** Step back out of the invite list, to the team-selection screen. */
+    public function reopenSelection(Request $request, Auction $auction): JsonResponse
+    {
+        return $this->run($request, $auction, fn ($round) => $this->closedBids->reopenSelection($round, auth()->user()));
+    }
+
     /**
      * Start collecting sealed amounts, and start the round's clock.
      *
