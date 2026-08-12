@@ -3297,11 +3297,53 @@ function auctionOrganizerPanel() {
             // This used to pick at random, discarding the draw entirely.
             const chosenPlayer = this.availablePlayers[0];
 
-            // The animation is theatre; the player is already decided.
-            await this._runShuffleAnimation(chosenPlayer);
+            try {
+                // The animation is theatre; the player is already decided. The cover stays up
+                // past the reveal — see keepOverlay — so nothing shows between landing on the
+                // name and the player actually being live.
+                await this._runShuffleAnimation(chosenPlayer, null, { keepOverlay: true });
 
-            this.selectedPlayerId = chosenPlayer.id;
-            await this.putPlayerOnBid();
+                this.selectedPlayerId = chosenPlayer.id;
+                await this.putPlayerOnBid();
+
+                /*
+                 * Hold the cover until the panel is genuinely showing this player.
+                 *
+                 * putPlayerOnBid()'s own poll can be swallowed — pollAuctionState() refuses to
+                 * run while another is in flight, and a background poll can easily own the slot
+                 * across a four-second animation. Without this wait the overlay dropped onto an
+                 * empty state and stayed there until the next chained poll two seconds later.
+                 * Bounded, so a genuine failure costs a moment rather than the screen.
+                 */
+                await this._waitForPlayerLive(chosenPlayer.id);
+            } finally {
+                // In a finally: a refused player, a dropped request or a thrown poll must never
+                // leave the panel behind a spinner that will not land.
+                this.showShuffleOverlay = false;
+            }
+        },
+
+        /**
+         * Wait for the poll to report a given player as the one on the block.
+         *
+         * Polls rather than trusting the POST, because the endpoint answers only success/message
+         * — the panel learns who is live from pollAuctionState(), and that is also what sets
+         * displayState. Gives up after ~3s so a failure surfaces as the ordinary empty state
+         * instead of a permanent cover.
+         */
+        async _waitForPlayerLive(auctionPlayerId, timeoutMs = 3000) {
+            const deadline = Date.now() + timeoutMs;
+
+            while (Date.now() < deadline) {
+                if (this.currentPlayer?.id === auctionPlayerId && this.displayState === 'bidding') {
+                    return true;
+                }
+
+                await new Promise((r) => setTimeout(r, 150));
+                await this.pollAuctionState();
+            }
+
+            return false;
         },
 
         /**
@@ -3326,6 +3368,19 @@ function auctionOrganizerPanel() {
             return new Promise((resolve) => {
                 const spinMs = Math.max(600, opts.spinMs ?? 2800);
                 const holdMs = opts.holdMs ?? 1500;
+                /*
+                 * `keepOverlay` leaves the cover up when the reveal ends.
+                 *
+                 * The animation used to lower it the moment it landed on a name — but the player
+                 * is not on the block until the POST that follows has been applied, so for that
+                 * gap the panel fell back to its empty state: a default screen appearing right
+                 * after the selection, which is the flash being reported. The caller that knows
+                 * when the player is genuinely live lowers it instead.
+                 */
+                const release = () => {
+                    if (! opts.keepOverlay) this.showShuffleOverlay = false;
+                    resolve();
+                };
 
                 /* Idempotent on the flag: loadNextPlayer() raises the overlay before its first
                    await so no empty state can flash, and a lot draw calls in with it down. */
@@ -3338,10 +3393,7 @@ function auctionOrganizerPanel() {
                 if (players.length <= 1) {
                     this.shuffleSelectedPlayer = chosenPlayer;
                     this.shufflePhase = 'reveal';
-                    setTimeout(() => {
-                        this.showShuffleOverlay = false;
-                        resolve();
-                    }, 1200);
+                    setTimeout(release, 1200);
                     return;
                 }
 
@@ -3354,10 +3406,7 @@ function auctionOrganizerPanel() {
                     setTimeout(() => {
                         this.shuffleSelectedPlayer = chosenPlayer;
                         this.shufflePhase = 'reveal';
-                        setTimeout(() => {
-                            this.showShuffleOverlay = false;
-                            resolve();
-                        }, holdMs);
+                        setTimeout(release, holdMs);
                     }, 300);
                 };
 

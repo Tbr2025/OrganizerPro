@@ -188,4 +188,25 @@ class OrganizerPanelStateTest extends TestCase
         // The lock also disables the chips, so a double-tap cannot post twice.
         $this->assertStringContainsString('|| this._isBidding;', $html);
     }
+
+    #[Test]
+    public function the_cover_stays_up_until_the_player_is_actually_live(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+
+        $html = $this->panel($org, $auction);
+
+        // The reveal used to lower the overlay the moment it landed on a name — but the player is
+        // not on the block until the POST after it has been applied, so a default screen appeared
+        // right after the selection.
+        $this->assertStringContainsString('keepOverlay: true', $html);
+        $this->assertStringContainsString('_waitForPlayerLive', $html);
+
+        // And it comes down in a finally, so a refusal or a dropped request cannot leave the
+        // panel behind a spinner that never lands.
+        $this->assertMatchesRegularExpression(
+            '/finally \{[^}]*this\.showShuffleOverlay = false;/s',
+            $html
+        );
+    }
 }
