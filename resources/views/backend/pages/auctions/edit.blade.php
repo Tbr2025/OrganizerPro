@@ -810,7 +810,43 @@
                                         Shown on the live screens. Blank means no ceiling — it never blocks a bid.
                                     </p>
                                 </div>
+
+                                {{-- The second half of "how much can this team bid".
+                                     The reserve rule stops a team going broke; it does nothing to stop
+                                     one spending 90% of its purse on a single marquee player and filling
+                                     the rest of the squad at the minimum. This caps any ONE player as a
+                                     share of the team's whole allocation, the same way the sealed round
+                                     always has. Blank means no cap, which is the default — an auction that
+                                     does not set it behaves exactly as before. --}}
+                                <div>
+                                    <label for="max_bid_pct_of_budget" class="form-label text-xs">Max Per Player</label>
+                                    <div class="relative">
+                                        <input type="number" step="any" min="1" max="100" id="max_bid_pct_of_budget"
+                                               name="max_bid_pct_of_budget"
+                                               x-model.number="auctionData.max_bid_pct_of_budget"
+                                               class="form-control pr-9" placeholder="No limit">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">%</span>
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        Share of a team's budget it may spend on one player in open bidding.
+                                        Blank means no limit.
+                                    </p>
+                                </div>
                             </div>
+
+                            {{-- State the ceiling in money, not just a percentage: "70%" is not a figure
+                                 anyone can check against a bid being called in a room. --}}
+                            <template x-if="Number(auctionData.max_bid_pct_of_budget) > 0">
+                                <p class="mt-3 text-xs px-3 py-2 rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                    No team may bid more than
+                                    <span class="font-semibold"
+                                          x-text="formatMoney((Number(auctionData.max_budget_per_team) || 0) * Number(auctionData.max_bid_pct_of_budget) / 100)"></span>
+                                    on a single player
+                                    (<span x-text="auctionData.max_bid_pct_of_budget"></span>% of
+                                    <span x-text="formatMoney(auctionData.max_budget_per_team)"></span>),
+                                    on top of the squad reserve below.
+                                </p>
+                            </template>
 
                             {{-- Live check: the rule is only satisfiable when a full squad
                                  fits inside the purse, and the server rejects it otherwise. --}}

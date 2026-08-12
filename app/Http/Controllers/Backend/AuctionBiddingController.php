@@ -605,6 +605,12 @@ class AuctionBiddingController extends Controller
         return [
             'remaining_budget' => $this->cap($purse['remaining']),
             'max_bid_allowed' => $this->cap($purse['max_bid_allowed']),
+            // The reserve maximum and the per-player ceiling, and the lower of the two — which
+            // is the only one a manager actually has to obey. `open_per_player_cap_pct` is null
+            // when no ceiling is configured, which the page uses to say nothing about one.
+            'open_max_bid' => $this->cap($purse['open_max_bid']),
+            'open_per_player_cap' => $this->cap($purse['open_per_player_cap']),
+            'open_per_player_cap_pct' => $purse['open_per_player_cap_pct'],
             'reserve_amount' => $purse['reserve'],
             'slots_filled' => $purse['slots_filled'],
             'slots_required' => $purse['slots_required'],

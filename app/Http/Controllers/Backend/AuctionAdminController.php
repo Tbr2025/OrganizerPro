@@ -349,6 +349,9 @@ class AuctionAdminController extends Controller
             // reserve would block every bid.
             'min_squad_size' => 'nullable|integer|min:1|max:50',
             'min_price_per_player' => 'nullable|numeric|min:0',
+            // Open-round per-player ceiling, as a share of a team's allocation. Blank means no
+            // ceiling; 0 would mean "may not bid at all", so the floor is 1.
+            'max_bid_pct_of_budget' => 'nullable|numeric|min:1|max:100',
             // A ceiling below the floor is incoherent; everything else here is advisory.
             'max_squad_size' => 'nullable|integer|min:1|max:50|gte:min_squad_size',
             'auction_template_id' => 'nullable|exists:auction_templates,id',
@@ -465,6 +468,7 @@ class AuctionAdminController extends Controller
                 'max_budget_per_team' => $validated['max_budget_per_team'],
                 'base_price' => $validated['base_price'],
                 'min_squad_size' => $validated['min_squad_size'] ?? Auction::DEFAULT_MIN_SQUAD_SIZE,
+                'max_bid_pct_of_budget' => $validated['max_bid_pct_of_budget'] ?? null,
                 'min_price_per_player' => $validated['min_price_per_player'] ?? $validated['base_price'],
                 // `?? null` rather than a const: the accessors own the defaults, so a
                 // blank field stays blank and stays clearable.
@@ -1374,6 +1378,9 @@ class AuctionAdminController extends Controller
             // reserve would block every bid.
             'min_squad_size' => 'nullable|integer|min:1|max:50',
             'min_price_per_player' => 'nullable|numeric|min:0',
+            // Open-round per-player ceiling, as a share of a team's allocation. Blank means no
+            // ceiling; 0 would mean "may not bid at all", so the floor is 1.
+            'max_bid_pct_of_budget' => 'nullable|numeric|min:1|max:100',
             // A ceiling below the floor is incoherent; everything else here is advisory.
             'max_squad_size' => 'nullable|integer|min:1|max:50|gte:min_squad_size',
             'auction_template_id' => 'nullable|exists:auction_templates,id',
@@ -1477,6 +1484,9 @@ class AuctionAdminController extends Controller
                 'max_budget_per_team' => $validated['max_budget_per_team'],
                 'base_price' => $validated['base_price'],
                 'min_squad_size' => $validated['min_squad_size'] ?? $auction->min_squad_size ?? Auction::DEFAULT_MIN_SQUAD_SIZE,
+                // Not `?? $auction->x` — preserve-on-absent would make the ceiling impossible
+                // to clear once set, the trap the colour fields fell into.
+                'max_bid_pct_of_budget' => $validated['max_bid_pct_of_budget'] ?? null,
                 'min_price_per_player' => $validated['min_price_per_player'] ?? $auction->min_price_per_player,
                 // Deliberately NOT `?? $auction->x` — preserve-on-absent would make these
                 // impossible to clear, the same trap the colour fields fell into.

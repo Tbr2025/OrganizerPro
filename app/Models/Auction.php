@@ -21,6 +21,7 @@ class Auction extends Model
         'max_budget_per_team',
         'min_squad_size',
         'min_price_per_player',
+        'max_bid_pct_of_budget',
         'amount_unit',
         'amount_unit_label',
         'notifications_enabled',
@@ -76,6 +77,7 @@ class Auction extends Model
         'min_squad_size' => 'integer',
         'max_squad_size' => 'integer',
         'min_price_per_player' => 'decimal:2',
+        'max_bid_pct_of_budget' => 'decimal:2',
         'default_retained_value' => 'decimal:2',
         'expected_retained_per_team' => 'integer',
         'closed_bid_step' => 'decimal:2',
@@ -587,6 +589,21 @@ class Auction extends Model
         return $this->closed_bid_max_pct_of_budget !== null
             ? (float) $this->closed_bid_max_pct_of_budget
             : self::DEFAULT_CLOSED_BID_MAX_PCT;
+    }
+
+    /**
+     * Share of a team's allocation it may commit to any ONE player in open bidding.
+     *
+     * NULL means no ceiling, and that is the default: an auction that does not configure this
+     * is bound only by the squad-reserve rule, exactly as before. Returned as a nullable float
+     * rather than defaulted like closedBidMaxPct(), because "not configured" and "100%" are
+     * different statements and only one of them should show a ceiling on a team's screen.
+     */
+    public function maxBidPct(): ?float
+    {
+        return $this->max_bid_pct_of_budget !== null
+            ? (float) $this->max_bid_pct_of_budget
+            : null;
     }
 
     /** 0 is meaningful: it sends a tie straight to the lot with no re-bid. */

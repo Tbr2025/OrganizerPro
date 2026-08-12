@@ -631,6 +631,37 @@
                              :class="teamBudget < teamPurse * 0.2 ? 'bg-red-500' : 'bg-emerald-500'"
                              :style="`width: ${Math.max(0, Math.min(100, (teamBudget / (teamAllocated || 1)) * 100))}%`"></div>
                     </div>
+
+                    {{-- What that budget actually allows on THIS player.
+                         The remaining budget on its own is a misleading number to bid against:
+                         a team with 40M left and eight places still to fill cannot spend 40M,
+                         and the page only told it so by refusing the bid. The ceiling, the
+                         places still to fill and the money held back for them are stated
+                         together, because the figure makes no sense without its reason. --}}
+                    <div class="mt-2.5 pt-2.5 border-t border-emerald-800/30 text-left space-y-1">
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-[9px] text-gray-400 uppercase tracking-[0.12em]">Max on one player</span>
+                            <span class="text-sm font-bold text-cyan-400" x-text="formatCurrency(openMaxBid)"></span>
+                        </div>
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-[9px] text-gray-500">Places still to fill</span>
+                            <span class="text-[11px] font-semibold text-gray-300" x-text="slotsRemaining"></span>
+                        </div>
+                        <div class="flex items-baseline justify-between gap-2" x-show="reserveAmount > 0">
+                            <span class="text-[9px] text-gray-500">Held back for them</span>
+                            <span class="text-[11px] font-semibold text-amber-400" x-text="formatCurrency(reserveAmount)"></span>
+                        </div>
+                        {{-- Only when a cap is configured. Saying "capped at 100%" where no cap
+                             exists invents a rule. --}}
+                        <div class="flex items-baseline justify-between gap-2" x-show="openCapPct !== null && openCapPct !== undefined">
+                            <span class="text-[9px] text-gray-500">
+                                Per-player cap (<span x-text="openCapPct"></span>%)
+                            </span>
+                            <span class="text-[11px] font-semibold"
+                                  :class="openCap <= maxBidAllowed ? 'text-amber-400' : 'text-gray-400'"
+                                  x-text="formatCurrency(openCap)"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -696,6 +727,20 @@ function teamBiddingPanel() {
         teamAllocated: {{ $maxBudget ?? 0 }},
         teamPurse: {{ $purse['auction_purse'] ?? ($maxBudget ?? 0) }},
         maxBidAllowed: {{ $maxBidAllowed ?? 0 }},
+        /*
+         * The open round's own ceiling, and why it is what it is.
+         *
+         * The page has always known maxBidAllowed — it greys the bid button out with
+         * "BUDGET EXCEEDED" — but never showed the number, so a manager found the limit by
+         * hitting it. These three name it: the reserve maximum, the optional per-player cap,
+         * and the lower of the two. `openCapPct` is null when no cap is configured, and the
+         * panel then says nothing about one rather than drawing a limit that does not exist.
+         */
+        openMaxBid: {{ $maxBidAllowed ?? 0 }},
+        openCap: 0,
+        openCapPct: null,
+        slotsRemaining: {{ $purse['slots_remaining'] ?? 0 }},
+        reserveAmount: {{ $purse['reserve'] ?? 0 }},
 
         /* ── Sealed round ──
            `sealed` is the server's view of the round for THIS team. It never contains a
@@ -1088,6 +1133,11 @@ function teamBiddingPanel() {
             if (d.allocated !== undefined) this.teamAllocated = Number(d.allocated);
             if (d.auction_purse !== undefined) this.teamPurse = Number(d.auction_purse);
             if (d.max_bid_allowed !== undefined) this.maxBidAllowed = Number(d.max_bid_allowed);
+            if (d.open_max_bid !== undefined) this.openMaxBid = Number(d.open_max_bid);
+            if (d.open_per_player_cap !== undefined) this.openCap = Number(d.open_per_player_cap);
+            if (d.open_per_player_cap_pct !== undefined) this.openCapPct = d.open_per_player_cap_pct;
+            if (d.slots_remaining !== undefined) this.slotsRemaining = Number(d.slots_remaining);
+            if (d.reserve_amount !== undefined) this.reserveAmount = Number(d.reserve_amount);
         },
 
         async fetchPurse() {

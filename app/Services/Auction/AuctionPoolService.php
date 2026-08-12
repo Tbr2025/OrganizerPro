@@ -883,10 +883,44 @@ class AuctionPoolService
         );
     }
 
+    /**
+     * Share of a team's allocation it may commit to any ONE player in open bidding.
+     *
+     * Unset means no ceiling — PHP_FLOAT_MAX rather than a default percentage, so an auction
+     * that has not configured this is bound only by the reserve rule and behaves exactly as it
+     * did before the setting existed. Computed off the team's TOTAL allocation, like the sealed
+     * cap, so the figure is fixed for the auction and cannot move under a team mid-round.
+     */
+    public function openPerPlayerCap(Auction $auction, int $actualTeamId): float
+    {
+        $pct = $auction->maxBidPct();
+
+        if ($pct === null || ! $this->budgetApplies($auction)) {
+            return PHP_FLOAT_MAX;
+        }
+
+        return $this->allocatedBudget($auction, $actualTeamId) * $pct / 100;
+    }
+
+    /**
+     * The most a team may bid on the player in front of it, under EVERY open-round rule.
+     *
+     * maxAllowedBid() is the squad-reserve rule alone and is left that way on purpose — the
+     * sealed round's message logic reads it as "the reserve ceiling" and would start naming the
+     * wrong rule if it silently included this one.
+     */
+    public function openBidCeiling(Auction $auction, int $actualTeamId): float
+    {
+        return min(
+            $this->maxAllowedBid($auction, $actualTeamId),
+            $this->openPerPlayerCap($auction, $actualTeamId)
+        );
+    }
+
     /** Budget check including the squad reserve. Use this at every bid/sell. */
     public function canAffordWithReserve(Auction $auction, int $actualTeamId, float $amount): bool
     {
-        return $amount <= $this->maxAllowedBid($auction, $actualTeamId);
+        return $amount <= $this->openBidCeiling($auction, $actualTeamId);
     }
 
     /*
@@ -986,7 +1020,7 @@ class AuctionPoolService
             return false;
         }
 
-        return $nextBidAmount > $this->maxAllowedBid($auction, $actualTeamId);
+        return $nextBidAmount > $this->openBidCeiling($auction, $actualTeamId);
     }
 
     /**
@@ -1123,7 +1157,13 @@ class AuctionPoolService
             'slots_filled' => $slotsFilled,
             'slots_required' => $auction->minSquadSize(),
             'slots_remaining' => $slotsRemaining,
-            'excluded' => $applies && $nextBidAmount !== null && $nextBidAmount > $maxBid,
+            // Checked against the SAME ceiling canAffordWithReserve() uses, or a team would
+            // look able to bid an amount the server then refuses.
+            'excluded' => $applies && $nextBidAmount !== null && $nextBidAmount > (
+                $auction->maxBidPct() !== null
+                    ? min($maxBid, $allocated * $auction->maxBidPct() / 100)
+                    : $maxBid
+            ),
 
             // The "show both" split: the whole allocation, and the purse left for
             // bidding once retentions are paid for.
@@ -1137,6 +1177,16 @@ class AuctionPoolService
             // Sealed ceilings. Derived from $allocated and $maxBid already in hand —
             // calling perPlayerCap() here would re-run allocatedBudget() and cost a
             // sixth query on a method that runs once per team every two seconds.
+            // Open-round ceiling. Null pct means "not configured", which is a different
+            // statement from 100% and must not draw a limit on a team's screen.
+            'open_per_player_cap_pct' => $applies ? $auction->maxBidPct() : null,
+            'open_per_player_cap' => $applies && $auction->maxBidPct() !== null
+                ? $allocated * $auction->maxBidPct() / 100
+                : PHP_FLOAT_MAX,
+            'open_max_bid' => $applies && $auction->maxBidPct() !== null
+                ? min($maxBid, $allocated * $auction->maxBidPct() / 100)
+                : $maxBid,
+
             'per_player_cap_pct' => $applies ? $auction->closedBidMaxPct() : null,
             'per_player_cap' => $applies ? $this->perPlayerCapFrom($auction, $allocated) : PHP_FLOAT_MAX,
             'sealed_max_bid' => $applies
@@ -1155,6 +1205,26 @@ class AuctionPoolService
         $slotsAfter = max(0, $this->slotsRemaining($auction, $actualTeamId) - 1);
         $maxBid = $this->maxAllowedBid($auction, $actualTeamId);
         $who = $teamName ?: 'This team';
+
+        /*
+         * Name the per-player ceiling when THAT is what bound, not the reserve.
+         *
+         * Being told to hold money back for empty squad places, when the money is there and
+         * the rule in the way is a single-player limit, sends a manager looking for the wrong
+         * fix. Checked first because a cap below the reserve maximum is the binding rule.
+         */
+        $cap = $this->openPerPlayerCap($auction, $actualTeamId);
+
+        if ($cap < $maxBid && $amount > $cap) {
+            return sprintf(
+                '%s may not spend more than %s on one player (%s%% of a %s budget). Requested %s.',
+                $who,
+                format_points($cap),
+                rtrim(rtrim(number_format((float) $auction->maxBidPct(), 2, '.', ''), '0'), '.'),
+                format_points($this->allocatedBudget($auction, $actualTeamId)),
+                format_points($amount)
+            );
+        }
 
         if ($reserve > 0 && $amount > $maxBid) {
             return sprintf(
