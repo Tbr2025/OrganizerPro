@@ -360,6 +360,33 @@
                         {{-- Bidding --}}
                         <template x-if="sealedCanBid">
                             <div>
+                                {{-- The round's clock.
+                                     The server has always refused a late submission — ClosedBidService::submit()
+                                     checks closedBidRoundTimerState() before anything else — but the team could
+                                     not SEE the deadline, so the first they knew of it was a rejection. The bar
+                                     turns amber then red as it runs down, and everything below locks at zero. --}}
+                                <template x-if="sealedSecondsLeft !== null">
+                                    <div class="mb-2.5 rounded-lg border p-2.5"
+                                         :class="sealedExpired
+                                            ? 'bg-red-500/10 border-red-500/40'
+                                            : (sealedSecondsLeft <= 10 ? 'bg-red-500/10 border-red-500/30' : 'bg-gray-900/60 border-gray-800/60')">
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <span class="text-[10px] uppercase tracking-wider"
+                                                  :class="sealedExpired ? 'text-red-400' : 'text-gray-400'"
+                                                  x-text="sealedExpired ? 'Time is up' : 'Time remaining'"></span>
+                                            <span class="font-bold tabular-nums"
+                                                  :class="sealedExpired ? 'text-red-400 text-sm'
+                                                        : (sealedSecondsLeft <= 10 ? 'text-red-400 text-lg animate-pulse' : 'text-white text-lg')"
+                                                  x-text="sealedClockText"></span>
+                                        </div>
+                                        <div class="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+                                            <div class="h-full rounded-full transition-all duration-500 ease-linear"
+                                                 :class="sealedSecondsLeft <= 10 ? 'bg-red-500' : (sealedSecondsLeft <= 30 ? 'bg-amber-400' : 'bg-cyan-500')"
+                                                 :style="`width: ${sealedTimerPct}%`"></div>
+                                        </div>
+                                    </div>
+                                </template>
+
                                 <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3 mb-2.5">
                                     {{-- A tie-break round tells the team the amount to beat and
                                          how many shared it. Never which teams, never a losing
@@ -380,6 +407,60 @@
                                                   x-text="toM(sealedCeiling)"></span>
                                     </label>
 
+                                    {{-- Why the ceiling is what it is.
+                                         The figures were only shown on the ACCEPT step, so by the time a
+                                         manager was actually typing an amount all they saw was a bare "max",
+                                         with no way to tell whether they were short of money or holding back
+                                         for places they still have to fill. Both are named, and the one doing
+                                         the limiting is highlighted. --}}
+                                    <template x-if="sealed.ceilings">
+                                        <p class="text-[10px] text-center mb-1.5 leading-relaxed"
+                                           :class="sealedCeiling < sealed.floor ? 'text-amber-400' : 'text-gray-500'">
+                                            You can bid up to
+                                            <span class="font-bold text-emerald-400" x-text="formatCurrency(sealedCeiling)"></span>
+                                            &middot;
+                                            <span class="font-semibold"
+                                                  x-text="(sealed.ceilings.slots_remaining ?? 0) + ' place' + ((sealed.ceilings.slots_remaining ?? 0) === 1 ? '' : 's') + ' still to fill'"></span>
+                                            <br>
+                                            <span x-text="formatCurrency(sealed.ceilings.remaining_budget)"></span> left,
+                                            holding back
+                                            <span x-text="formatCurrency(sealed.ceilings.reserve_amount)"></span>
+                                            for them
+                                            <span x-show="sealedCapBinds" class="text-amber-400">
+                                                &middot; capped at
+                                                <span x-text="sealed.ceilings.per_player_cap_pct ?? 70"></span>% per player
+                                            </span>
+                                        </p>
+                                    </template>
+
+                                    {{-- Hide the amount from the room.
+                                         A sealed bid is only sealed from the other TEAMS; managers enter it on
+                                         a laptop at a shared table, where the number is the largest thing on the
+                                         screen and readable from the next chair. Masked by default, revealed
+                                         deliberately, and re-masked on submit so the last bid does not sit on
+                                         screen afterwards. The stepper still works while hidden. --}}
+                                    <div class="flex items-center justify-center mb-1.5">
+                                        <button type="button" @click="sealedAmountHidden = !sealedAmountHidden"
+                                                class="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider transition"
+                                                :class="sealedAmountHidden ? 'text-cyan-400 hover:text-cyan-300' : 'text-gray-500 hover:text-gray-300'">
+                                            <template x-if="sealedAmountHidden">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
+                                                </svg>
+                                            </template>
+                                            <template x-if="!sealedAmountHidden">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                </svg>
+                                            </template>
+                                            <span x-text="sealedAmountHidden ? 'Amount hidden — tap to show' : 'Amount visible — tap to hide'"></span>
+                                        </button>
+                                    </div>
+
                                     <div class="flex items-center gap-2">
                                         <button @click="sealedStepDown()" :disabled="sealedRaw <= sealed.floor"
                                                 class="w-9 h-9 rounded-md bg-red-500/15 border border-red-500/25 text-red-400 text-base font-bold flex items-center justify-center hover:bg-red-500/25 transition shrink-0 disabled:opacity-40">&minus;</button>
@@ -390,15 +471,21 @@
                                                  decimal point and 9.1 could not be entered at all. --}}
                                             <div class="flex items-center bg-gray-800/80 border rounded-md"
                                                  :class="sealedStepViolation ? 'border-red-500/40' : 'border-gray-700/50 focus-within:border-cyan-500/60'">
-                                                <input type="number"
+                                                {{-- :type toggles number/password for the privacy mask.
+                                                     A password field cannot carry step/min/max, so those are
+                                                     bound conditionally; the real limits are enforced by
+                                                     sealedCanSubmit and, finally, by the server. --}}
+                                                <input :type="sealedAmountHidden ? 'password' : 'number'"
                                                        x-model="sealedInputM"
                                                        @keydown.enter.prevent="sealedCanSubmit && sealedSubmit()"
-                                                       :step="toM(sealed.step)"
-                                                       :min="toM(sealed.floor)"
-                                                       :max="toM(sealedCeiling)"
+                                                       :step="sealedAmountHidden ? null : toM(sealed.step)"
+                                                       :min="sealedAmountHidden ? null : toM(sealed.floor)"
+                                                       :max="sealedAmountHidden ? null : toM(sealedCeiling)"
+                                                       :disabled="sealedExpired"
+                                                       autocomplete="off"
                                                        inputmode="decimal"
-                                                       class="w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold"
-                                                       :placeholder="toM(sealed.floor)">
+                                                       class="w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold disabled:opacity-50"
+                                                       :placeholder="sealedAmountHidden ? '••••' : toM(sealed.floor)">
                                                 <span class="pr-2.5 text-gray-500 font-semibold text-xs">M</span>
                                             </div>
                                         </div>
@@ -441,7 +528,15 @@
                         <template x-if="sealed.active && sealed.my_entry?.amount && sealed.state !== 'collecting'">
                             <div class="bg-gray-900/60 border border-emerald-500/25 rounded-lg p-3.5 text-center">
                                 <div class="text-gray-400 text-[10px] uppercase tracking-wider mb-1">Your sealed bid</div>
-                                <div class="text-emerald-400 text-xl font-bold" x-text="formatCurrency(sealed.my_entry.amount)"></div>
+                                {{-- Masked here too. This panel is on screen for the whole rest of the
+                                     round, so leaving the figure on it would undo the mask on the input
+                                     the moment the bid was placed. --}}
+                                <div class="text-emerald-400 text-xl font-bold"
+                                     x-text="sealedAmountHidden ? '••••••' : formatCurrency(sealed.my_entry.amount)"></div>
+                                <button type="button" @click="sealedAmountHidden = !sealedAmountHidden"
+                                        class="text-[10px] uppercase tracking-wider mt-1 transition"
+                                        :class="sealedAmountHidden ? 'text-cyan-400 hover:text-cyan-300' : 'text-gray-500 hover:text-gray-300'"
+                                        x-text="sealedAmountHidden ? 'Show' : 'Hide'"></button>
                                 <p class="text-gray-500 text-[10px] mt-1.5">Bidding is closed. Waiting for the result.</p>
                             </div>
                         </template>
@@ -609,6 +704,24 @@ function teamBiddingPanel() {
         // The literal text typed into the amount box. Held as a string and never written
         // back while focused — see the input's comment.
         sealedInputM: '',
+        /*
+         * The sealed amount is masked by default.
+         *
+         * A sealed bid is sealed from the other TEAMS, not from the person typing it — and
+         * managers type it on a laptop at a shared table where the figure is the largest
+         * thing on screen. Defaulting to hidden is the only setting that protects the first
+         * bid of the round, before anyone has thought to press anything.
+         */
+        sealedAmountHidden: true,
+        /*
+         * Seconds left in the round, ticked locally between polls.
+         *
+         * Seeded from the server on every poll (`sealed.timer.remaining`) and only counted
+         * down in between, so a client whose clock is wrong or whose tab was throttled is
+         * corrected within one poll instead of drifting. null means no round is running.
+         */
+        sealedSecondsLeft: null,
+        _sealedTicker: null,
         bidError: "",
         bidSuccess: "",
         isSubmitting: false,
@@ -815,12 +928,56 @@ function teamBiddingPanel() {
             return true;
         },
 
+        get sealedExpired() {
+            return this.sealedSecondsLeft !== null && this.sealedSecondsLeft <= 0;
+        },
+
+        get sealedClockText() {
+            const s = Math.max(0, Number(this.sealedSecondsLeft || 0));
+            return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+        },
+
+        /** Width of the countdown bar, as a share of the round's own limit. */
+        get sealedTimerPct() {
+            const limit = Number(this.sealed.timer?.limit || 0);
+            if (!(limit > 0) || this.sealedSecondsLeft === null) return 0;
+            return Math.max(0, Math.min(100, (this.sealedSecondsLeft / limit) * 100));
+        },
+
         get sealedCanSubmit() {
             return this.sealedCanBid
                 && !this.isSubmitting
                 && !this.sealedStepViolation
+                // The server refuses a late submission outright; this stops the team wasting
+                // the last seconds of a round on a request that cannot be accepted.
+                && !this.sealedExpired
                 && this.sealedRaw >= Number(this.sealed.floor || 0)
                 && this.sealedRaw <= this.sealedCeiling;
+        },
+
+        /**
+         * Take the round's clock from the server and keep it ticking between polls.
+         *
+         * `remaining` is null until the organizer starts the timer, which is not the same as
+         * zero — the round is open and simply not counting yet, so the clock is hidden rather
+         * than shown expired.
+         */
+        syncSealedTimer() {
+            const timer = this.sealed?.active ? this.sealed.timer : null;
+
+            if (!timer || timer.remaining === null || timer.remaining === undefined) {
+                this.sealedSecondsLeft = null;
+                return;
+            }
+
+            this.sealedSecondsLeft = Math.max(0, Number(timer.remaining));
+
+            if (this._sealedTicker) return;
+
+            this._sealedTicker = setInterval(() => {
+                if (this.sealedSecondsLeft === null) return;
+                if (this.sealedSecondsLeft > 0) this.sealedSecondsLeft--;
+            }, 1000);
         },
 
         /* ── Sealed round: actions ── */
@@ -857,7 +1014,14 @@ function teamBiddingPanel() {
             // leaving a figure that is now below the minimum.
             if (previousRound && d.round_id && previousRound !== d.round_id) {
                 this.sealedInputM = '';
+                // …and re-mask it. A fresh round is a fresh secret; leaving the box revealed
+                // because it was revealed for the last player defeats the point of the mask.
+                this.sealedAmountHidden = true;
             }
+
+            // Re-seed the countdown from the server on every poll, so a client clock that is
+            // wrong or a tab that was throttled is corrected rather than left to drift.
+            this.syncSealedTimer();
         },
 
         async sealedPost(path, body = {}) {
@@ -913,6 +1077,9 @@ function teamBiddingPanel() {
         async sealedSubmit() {
             if (!this.sealedCanSubmit) return;
             await this.sealedPost('submit', { amount: this.sealedRaw });
+            // Re-mask once it is in. Otherwise the round's most sensitive number sits on a
+            // shared table for the rest of the round, which is exactly what the mask is for.
+            this.sealedAmountHidden = true;
         },
 
         applyPurse(d) {
@@ -940,7 +1107,10 @@ function teamBiddingPanel() {
          */
         async fetchSealed() {
             if (this.bidType !== 'closed') {
-                if (this.sealed.active) this.sealed = { active: false };
+                if (this.sealed.active) {
+                    this.sealed = { active: false };
+                    this.syncSealedTimer();
+                }
                 return;
             }
             try {
