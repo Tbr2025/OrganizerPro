@@ -1835,14 +1835,39 @@
             {{-- pre-line: some confirmations are a short summary block, not one sentence. --}}
             <p class="mt-3 text-white text-sm whitespace-pre-line" x-text="confirmBox.message"></p>
 
+            {{-- Some confirmations are not yes/no but "yes, to these parts".
+                 A pool restart is the case that forced this: it used to reset sold, unsold and
+                 skipped players together with no way to say which, so an organizer who wanted
+                 the unsold players back had to accept unwinding every sale in the pool too. --}}
+            <div class="mt-5 space-y-2" x-show="confirmBox.checkboxes" x-cloak>
+                <template x-for="box in (confirmBox.checkboxes || [])" :key="box.value">
+                    <label class="flex items-start gap-3 px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition"
+                           :class="box.disabled ? 'opacity-40 cursor-not-allowed' : ''">
+                        <input type="checkbox" class="mt-0.5 w-4 h-4 accent-emerald-500"
+                               :disabled="box.disabled"
+                               :checked="confirmBox.selected.includes(box.value)"
+                               @change="_toggleConfirmBox(box.value)">
+                        <span class="min-w-0">
+                            <span class="block text-sm font-semibold text-white" x-text="box.label"></span>
+                            <span class="block text-xs text-gray-400 mt-0.5" x-show="box.hint" x-text="box.hint"></span>
+                        </span>
+                    </label>
+                </template>
+                <p class="text-[11px] text-amber-400" x-show="confirmBox.selected.length === 0">
+                    Nothing selected — there would be nothing to restart.
+                </p>
+            </div>
+
             {{-- Plain yes/no: every action button on this panel. --}}
             <div class="mt-6 flex items-center justify-end gap-3" x-show="!confirmBox.choices">
                 <button type="button" @click="_settleConfirm(false)"
                         class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition">
                     Cancel
                 </button>
-                <button type="button" @click="_settleConfirm(true)"
-                        class="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition"
+                <button type="button"
+                        @click="_settleConfirm(confirmBox.checkboxes ? [...confirmBox.selected] : true)"
+                        :disabled="confirmBox.checkboxes && confirmBox.selected.length === 0"
+                        class="px-5 py-2.5 rounded-xl text-sm font-bold text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
                         :class="confirmBox.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'">
                     Confirm
                 </button>
@@ -1933,7 +1958,7 @@ function auctionOrganizerPanel() {
         toasts: [],
         _toastSeq: 0,
 
-        confirmBox: { open: false, title: '', message: '', danger: false, choices: null, _resolve: null },
+        confirmBox: { open: false, title: '', message: '', danger: false, choices: null, checkboxes: null, selected: [], _resolve: null },
 
         toast(message, type = 'info', title = null) {
             const id = ++this._toastSeq;
@@ -1951,15 +1976,28 @@ function auctionOrganizerPanel() {
          * or false if the dialog is dismissed. Everything on this panel goes through here
          * rather than native confirm(), which drops fullscreen the moment it opens.
          */
-        askConfirm(message, { title = 'Confirm', danger = false, choices = null } = {}) {
+        askConfirm(message, { title = 'Confirm', danger = false, choices = null, checkboxes = null } = {}) {
             return new Promise((resolve) => {
-                this.confirmBox = { open: true, title, message, danger, choices, _resolve: resolve };
+                this.confirmBox = {
+                    open: true, title, message, danger, choices, checkboxes,
+                    // Everything not explicitly opted out of starts ticked, so Confirm on a
+                    // glance does the whole thing — the same answer the dialog gave before it
+                    // had checkboxes at all.
+                    selected: (checkboxes || []).filter(b => b.checked !== false && ! b.disabled).map(b => b.value),
+                    _resolve: resolve,
+                };
             });
+        },
+
+        _toggleConfirmBox(value) {
+            this.confirmBox.selected = this.confirmBox.selected.includes(value)
+                ? this.confirmBox.selected.filter(v => v !== value)
+                : [...this.confirmBox.selected, value];
         },
 
         _settleConfirm(answer) {
             const resolve = this.confirmBox._resolve;
-            this.confirmBox = { open: false, title: '', message: '', danger: false, choices: null, _resolve: null };
+            this.confirmBox = { open: false, title: '', message: '', danger: false, choices: null, checkboxes: null, selected: [], _resolve: null };
             if (resolve) resolve(answer);
         },
 
@@ -3897,11 +3935,47 @@ function auctionOrganizerPanel() {
                     + warning;
             }
 
-            if (! await this.askConfirm(warning, { title: live ? 'Force restart pool' : 'Restart pool', danger: true })) return;
+            /*
+             * Which players come back, chosen rather than assumed.
+             *
+             * A restart used to reset sold, unsold and skipped together with no way to say
+             * which — so an organizer who only wanted the unsold players back on the block had
+             * to accept unwinding every sale in the pool as the price. All three start ticked,
+             * so pressing Confirm still does what it always did.
+             */
+            const include = await this.askConfirm(warning, {
+                title: live ? 'Force restart pool' : 'Restart pool',
+                danger: true,
+                checkboxes: [
+                    {
+                        value: 'unsold',
+                        label: 'Unsold players',
+                        hint: 'Go back on the block to be offered again.',
+                    },
+                    {
+                        value: 'skipped',
+                        label: 'Passed / skipped players',
+                        hint: 'Return to the queue in their lot order.',
+                    },
+                    {
+                        value: 'sold',
+                        label: sold > 0 ? `Sold players (${sold})` : 'Sold players',
+                        hint: sold > 0
+                            ? 'Sales are UNDONE — those teams get their money back and lose those players.'
+                            : 'Nothing in this pool has been sold.',
+                        disabled: sold === 0,
+                    },
+                ],
+            });
+
+            if (! include || ! include.length) return;
 
             // force only when there is genuinely something to force past, so the guard keeps
             // protecting the ordinary case.
-            const result = await this.sendCommand(`pools/${pool.id}/restart`, live ? { force: true } : {});
+            const result = await this.sendCommand(`pools/${pool.id}/restart`, {
+                include,
+                ...(live ? { force: true } : {}),
+            });
             if (! result?.success) return;
 
             // Same clean-up the whole-auction restart does: what the panel was holding

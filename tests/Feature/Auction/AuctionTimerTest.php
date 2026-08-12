@@ -43,8 +43,22 @@ class AuctionTimerTest extends TestCase
         $this->assertSame(30, $auction->timerSecondsRemaining());
     }
 
+    /**
+     * The clock binds the room, not the person running it.
+     *
+     * This used to assert that the operator's own bid was refused after expiry, on the
+     * reasoning that their buttons should obey the same rule the teams do. In a hall that is
+     * backwards: the countdown exists to stop teams stalling, and when it runs out the
+     * organizer is the one who has to record what the room already heard — a raise called a
+     * second before the hammer, a correction, a bid from the floor. Refusing them left the
+     * only person who could put it right unable to act, with a player stuck on the block.
+     *
+     * The lock did not go away, it moved: a TEAM's own bid after expiry is still refused
+     * (AuctionBiddingController::placeBid), as is a late sealed submission. See
+     * PoolRestartChoicesTest for both sides of that.
+     */
     #[Test]
-    public function a_bid_after_the_clock_runs_out_is_rejected(): void
+    public function the_operator_may_still_bid_after_the_clock_runs_out(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org, ['bid_timer_seconds' => 30, 'max_budget_per_team' => 100000]);
@@ -70,8 +84,10 @@ class AuctionTimerTest extends TestCase
             ->postJson(route('admin.auctions.players.addBid'), [
                 'auctionId' => $auction->id, 'playerID' => $ap->id, 'teamId' => $teamB->id,
             ])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame($teamB->id, $ap->fresh()->current_bid_team_id);
     }
 
     #[Test]

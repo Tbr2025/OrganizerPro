@@ -613,16 +613,42 @@ class AuctionOrganizerController extends Controller
             ], 422);
         }
 
+        /*
+         * WHICH players come back, chosen by the organizer.
+         *
+         * This used to reset every non-retained player in the pool, so wanting the unsold
+         * players back on the block cost you every sale in that pool as well. The panel now
+         * asks, and defaults to all three — an absent `include` means the old behaviour, which
+         * keeps any other caller working.
+         *
+         * `on_auction` is always in the set: whoever is on the block belongs to the run being
+         * wiped, and a forced restart that left them there would strand a live board. That is
+         * what `force` is agreeing to, so it is not a separate choice.
+         */
+        $allStatuses = ['sold', 'unsold', 'skipped'];
+        $include = $request->input('include');
+        $include = is_array($include) && $include !== []
+            ? array_values(array_intersect($allStatuses, $include))
+            : $allStatuses;
+
+        if ($include === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Choose at least one kind of player to put back on the block.',
+            ], 422);
+        }
+
         // Retained players were never auctioned, so they are not part of a re-run.
         $auctionPlayers = $auction->auctionPlayers()
             ->where('auction_pool_id', $pool->id)
             ->where('is_retained', false)
+            ->whereIn('status', array_merge($include, ['on_auction']))
             ->get();
 
         if ($auctionPlayers->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => sprintf('%s has no players to restart.', $pool->name),
+                'message' => sprintf('%s has no %s players to restart.', $pool->name, implode(' or ', $include)),
             ], 422);
         }
 
@@ -646,7 +672,15 @@ class AuctionOrganizerController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => sprintf('%s restarted — %d players back on the block.', $pool->name, $auctionPlayers->count()),
+            // Names what actually happened rather than "restarted": with a partial restart the
+            // count alone does not tell the organizer whether the sales were unwound.
+            'message' => sprintf(
+                '%s restarted — %d %s player%s back on the block.',
+                $pool->name,
+                $auctionPlayers->count(),
+                implode(' / ', $include),
+                $auctionPlayers->count() === 1 ? '' : 's'
+            ),
             'progress' => $this->pools->poolProgress($auction->fresh()),
         ]);
     }

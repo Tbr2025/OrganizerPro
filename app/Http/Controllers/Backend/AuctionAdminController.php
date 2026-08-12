@@ -1035,9 +1035,27 @@ class AuctionAdminController extends Controller
                     throw new \Exception('This team is already the highest bidder.');
                 }
 
-                // The clock is enforced here too, so the organizer's own buttons obey
-                // the same rule the team managers do.
-                if ($auction->timerStateFor($player)['expired']) {
+                /*
+                 * The clock binds the ROOM, not the person running it.
+                 *
+                 * This used to refuse an expired bid here as well, on the reasoning that the
+                 * organizer's buttons should obey the same rule the team managers do. In a hall
+                 * that is backwards: the countdown exists to stop teams stalling, and when it
+                 * runs out the organizer is the one who has to put things right — record a bid
+                 * that was called a second before the hammer, correct a mis-entry, take a raise
+                 * from the floor. Refusing them left the only person who could fix it unable to
+                 * act, with a player stuck on the block.
+                 *
+                 * The lock stays where it belongs: AuctionBiddingController::placeBid() still
+                 * refuses a team's own bid after expiry, and the sealed round still refuses a
+                 * late submission. Both of those are the room. This is the operator.
+                 */
+                $operator = auth()->user();
+                $runsTheAuction = (bool) ($operator?->can('auction.control') || $operator?->can('auction.edit'));
+
+                // Both permissions, because that is exactly the set this route admits — keying
+                // the exemption off a narrower one would lock out an operator the router let in.
+                if (! $runsTheAuction && $auction->timerStateFor($player)['expired']) {
                     throw new \Exception('Time is up for this player. Bidding is closed — use SELL or PASS.');
                 }
 
