@@ -1594,14 +1594,23 @@ class AuctionOrganizerController extends Controller
                 ]);
             }
 
-            // The clock ran out, so an empty round is a real result rather than a slip.
-            $result = $closedBids->lockAndReveal($round, auth()->user(), force: true);
-
+            /*
+             * Time up HOLDS the round; it does not end it.
+             *
+             * This used to force a lock-and-reveal, so a clock running out with nothing submitted
+             * resolved the round as "nobody entered" — and a round can easily reach zero with
+             * every team still accepting, or (until recently) unable to reach the entry box at
+             * all. The organizer lost the player to a countdown rather than to a decision.
+             *
+             * The deadline itself is unchanged: ClosedBidService::submit() still refuses a late
+             * amount, so nobody gains time by this. What changes is that ending the round is now
+             * an act — Lock & Reveal, or Extend to give the room longer.
+             */
             return response()->json([
                 'success' => true,
-                'handled' => (bool) ($result['handled'] ?? false),
-                'message' => $result['message'] ?? null,
-                'action' => 'sealed_locked',
+                'message' => 'Time up — the sealed round is held. Lock & Reveal it, or extend the clock.',
+                'handled' => false,
+                'action' => 'sealed_held',
             ]);
         }
 

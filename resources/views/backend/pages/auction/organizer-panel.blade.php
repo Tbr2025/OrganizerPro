@@ -343,10 +343,15 @@
                                     Floor <span x-text="formatCurrency(sealed.floor)"></span>
                                     <span class="text-gray-600">&middot; steps of <span x-text="formatCurrency(sealed.step)"></span></span>
                                 </div>
+                                {{-- A frozen 0 reads as a broken clock. Once time is up the round is HELD,
+                                     and saying so is the difference between waiting for something and
+                                     realising it is waiting for you. --}}
                                 <div x-show="sealed.timer?.remaining !== null && sealed.state === 'collecting'"
-                                     class="text-2xl font-black tabular-nums"
-                                     :class="(sealed.timer?.remaining ?? 99) <= 5 ? 'text-red-400' : 'text-cyan-400'"
-                                     x-text="sealed.timer?.remaining"></div>
+                                     class="font-black tabular-nums"
+                                     :class="(sealed.timer?.remaining ?? 99) <= 0
+                                        ? 'text-amber-400 text-sm uppercase tracking-wider'
+                                        : ((sealed.timer?.remaining ?? 99) <= 5 ? 'text-red-400 text-2xl' : 'text-cyan-400 text-2xl')"
+                                     x-text="(sealed.timer?.remaining ?? 99) <= 0 ? 'Time up — held' : sealed.timer?.remaining"></div>
                             </div>
                         </div>
 
@@ -475,7 +480,13 @@
                                     </div>
 
                                     <div class="col-span-3 flex items-center justify-end gap-1">
-                                        <template x-if="sealed.state === 'collecting' && !entry.withdrawn">
+                                        {{-- Amount fields only when the organizer is the one entering.
+                                             With Open Entry the teams type their own, and this row is
+                                             something the organizer READS — a stepper and a text box
+                                             over it are clutter, and one stray keystroke writes a bid
+                                             for somebody else's team. What replaces them is below:
+                                             the amount if it is in, "pending" if it is not. --}}
+                                        <template x-if="sealed.state === 'collecting' && !entry.withdrawn && !sealed.entry_opened">
                                             <div class="flex items-center gap-1">
                                                 <button @click="sealedAdjust(entry, 'down')"
                                                         class="w-6 h-6 rounded bg-red-500/15 border border-red-500/25 text-red-400 text-xs font-bold">&minus;</button>
@@ -511,6 +522,16 @@
                                                         title="Record the typed amount">Set</button>
                                             </div>
                                         </template>
+                                        {{-- What the organizer needs from a round the teams are running:
+                                             is this team's bid in, or are we still waiting. The amount
+                                             itself stays hidden until the reveal — this panel is
+                                             routinely on a projector. --}}
+                                        <template x-if="sealed.state === 'collecting' && !entry.withdrawn && sealed.entry_opened">
+                                            <span class="text-[11px] font-semibold"
+                                                  :class="entry.submitted ? 'text-emerald-400' : 'text-gray-500'"
+                                                  x-text="entry.submitted ? 'Bid in' : 'Pending'"></span>
+                                        </template>
+
                                         <button x-show="!entry.withdrawn && !sealed.revealed"
                                                 @click="sealedEntryCommand(entry.entry_id, 'withdraw')"
                                                 class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 text-[10px] hover:text-red-400">Withdraw</button>
@@ -589,6 +610,13 @@
                                 </button>
                                 <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedStart()"
                                         class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold">Start Closed Bid</button>
+                                {{-- Time up holds the round rather than ending it, so there has to be a
+                                     way to give the room longer — otherwise "held" is simply stuck. --}}
+                                <button x-show="sealed.state === 'collecting' && (sealed.timer?.expired || (sealed.timer?.remaining ?? 99) <= 0)"
+                                        @click="sealedExtend()"
+                                        class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold">
+                                    Extend Clock
+                                </button>
                                 <button x-show="sealed.state === 'collecting'" @click="sealedLock()"
                                         class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold">Lock &amp; Reveal</button>
                                 <button x-show="sealed.state === 'revealed' && sealed.winner_team_id" @click="sealedAward()"
@@ -2811,6 +2839,11 @@ function auctionOrganizerPanel() {
                 this.toast('That did not go through.', 'error', 'Sealed round');
                 return null;
             }
+        },
+
+        /** Give a held round more time. Refused once it is locked or revealed. */
+        async sealedExtend() {
+            await this.sealedCommand('extend-timer');
         },
 
         /** Back to the team-selection step. The server refuses it once a team has responded. */

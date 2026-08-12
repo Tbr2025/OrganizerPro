@@ -153,6 +153,12 @@ class ClosedBidRoundController extends Controller
         return $this->run($request, $auction, fn ($round) => $this->closedBids->reopenSelection($round, auth()->user()));
     }
 
+    /** Give a held round more time, rather than ending it. */
+    public function extendTimer(Request $request, Auction $auction): JsonResponse
+    {
+        return $this->run($request, $auction, fn ($round) => $this->closedBids->extendTimer($round, auth()->user()));
+    }
+
     /**
      * Start collecting sealed amounts, and start the round's clock.
      *

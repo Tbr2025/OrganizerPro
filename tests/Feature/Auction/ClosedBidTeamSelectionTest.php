@@ -295,4 +295,49 @@ class ClosedBidTeamSelectionTest extends TestCase
         $this->assertSame('entry_open', $round->fresh()->state);
         $this->assertSame(1, $round->fresh()->entries()->count());
     }
+
+    #[Test]
+    public function open_entry_marks_the_round_as_the_teams_to_run(): void
+    {
+        [$org, $auction, $round, $alpha] = $this->scenario();
+
+        // `opened_at` cannot answer this — starting without picking teams auto-invites everyone
+        // and sets it too. The panel drops its amount fields on this flag, so that a board the
+        // organizer is only reading has no stepper to fat-finger a bid into.
+        $this->assertNull($round->entry_opened_at);
+
+        app(ClosedBidService::class)->openEntry($round, null, [$alpha->id]);
+        $this->assertNotNull($round->fresh()->entry_opened_at);
+
+        $state = app(ClosedBidService::class)->stateForOrganizer($auction, $round->fresh()->auctionPlayer);
+        $this->assertTrue($state['entry_opened']);
+    }
+
+    #[Test]
+    public function starting_without_open_entry_leaves_the_organizer_entering(): void
+    {
+        [$org, $auction, $round] = $this->scenario();
+
+        // Straight to Start: everyone is invited, but the organizer never handed the round over,
+        // so the amount fields stay.
+        app(ClosedBidService::class)->start($round, null);
+
+        $this->assertNull($round->fresh()->entry_opened_at);
+        $this->assertFalse(
+            app(ClosedBidService::class)->stateForOrganizer($auction, $round->fresh()->auctionPlayer)['entry_opened']
+        );
+    }
+
+    #[Test]
+    public function stepping_back_un_hands_the_round(): void
+    {
+        [$org, $auction, $round, $alpha] = $this->scenario();
+
+        app(ClosedBidService::class)->openEntry($round, null, [$alpha->id]);
+        app(ClosedBidService::class)->reopenSelection($round->fresh(), null);
+
+        // Otherwise a stepped-back round keeps claiming its entry was opened, and the fields stay
+        // hidden for a round the organizer is about to run themselves.
+        $this->assertNull($round->fresh()->entry_opened_at);
+    }
 }

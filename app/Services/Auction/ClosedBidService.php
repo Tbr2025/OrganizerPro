@@ -293,6 +293,9 @@ class ClosedBidService
             'floor' => (float) $round->floor,
             'step' => (float) $round->step,
             'revealed' => $revealed,
+            // Whether the organizer handed this round to the teams — the panel drops its amount
+            // fields when they are entering their own.
+            'entry_opened' => $round->entry_opened_at !== null,
             'timer' => $auction->closedBidRoundTimerState($round),
             'tie_amount' => $round->tie_amount !== null ? (float) $round->tie_amount : null,
             'tied_team_ids' => $round->tied_team_ids ?? [],
@@ -433,6 +436,8 @@ class ClosedBidService
                 // The clock has not started for a pending round, and leaving a stale start time
                 // would have the next Start inherit an already-expired timer.
                 'timer_started_at' => null,
+                // Stepping back un-hands the round, so the panel offers its amount fields again.
+                'entry_opened_at' => null,
             ]);
 
             return [
@@ -443,9 +448,19 @@ class ClosedBidService
         });
     }
 
-    public function openEntry(AuctionClosedBidRound $round, ?User $actor = null, ?array $teamIds = null): array
-    {
-        return DB::transaction(function () use ($round, $actor, $teamIds) {
+    /**
+     * @param  bool  $handToTeams  True when the organizer pressed Open Entry — the round is being
+     *                             handed to the teams to enter their own amounts. False when this
+     *                             is start() creating the invitations on its way past, which
+     *                             invites everyone but hands nothing over.
+     */
+    public function openEntry(
+        AuctionClosedBidRound $round,
+        ?User $actor = null,
+        ?array $teamIds = null,
+        bool $handToTeams = true
+    ): array {
+        return DB::transaction(function () use ($round, $actor, $teamIds, $handToTeams) {
             $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
 
             if ($round->state !== AuctionClosedBidRound::STATE_PENDING) {
@@ -491,6 +506,15 @@ class ClosedBidService
                 'state' => AuctionClosedBidRound::STATE_ENTRY_OPEN,
                 'opened_at' => now(),
                 'opened_by' => $actor?->id,
+                /*
+                 * Marks that the organizer handed this round to the teams.
+                 *
+                 * `opened_at` cannot say this — starting without picking teams auto-invites
+                 * everyone and sets it too. The panel reads this to drop its amount fields, which
+                 * over a board the organizer is only reading are clutter, and one stray keystroke
+                 * in them writes a bid for somebody else.
+                 */
+                'entry_opened_at' => $handToTeams ? now() : null,
             ]);
 
             return [
@@ -529,7 +553,9 @@ class ClosedBidService
 
             // Starting without opening entry first is allowed — it just skips the gate.
             if ($round->entries()->count() === 0) {
-                $invited = $this->openEntry($round, $actor, $teamIds);
+                // handToTeams: false — this invites everyone so the round can start, but the
+                // organizer never chose to hand it over, so the panel keeps its amount fields.
+                $invited = $this->openEntry($round, $actor, $teamIds, handToTeams: false);
 
                 // An empty selection is refused rather than quietly starting a round with
                 // everyone in it, which is the outcome the selection exists to avoid.
@@ -548,6 +574,38 @@ class ClosedBidService
             ]);
 
             return ['handled' => true, 'message' => 'Sealed bidding is open.', 'round' => $round->fresh()];
+        });
+    }
+
+    /**
+     * Give a running round more time.
+     *
+     * Time up holds the round rather than ending it, so there has to be a way to give the room
+     * longer — otherwise "held" is just stuck. Restarts the clock from now, at the round's own
+     * configured length, and only while it is still collecting: extending a locked or revealed
+     * round would reopen bidding on a result people have already seen.
+     */
+    public function extendTimer(AuctionClosedBidRound $round, ?User $actor = null): array
+    {
+        return DB::transaction(function () use ($round, $actor) {
+            $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
+
+            if ($round->state !== AuctionClosedBidRound::STATE_COLLECTING || $round->locked_at !== null) {
+                return ['handled' => false, 'message' => 'Only a round that is still collecting can be extended.'];
+            }
+
+            $seconds = (int) ($round->timer_seconds ?: $round->auction->closedBidTimerSeconds());
+
+            $round->update([
+                'timer_started_at' => now(),
+                'timer_seconds' => $seconds,
+            ]);
+
+            return [
+                'handled' => true,
+                'message' => sprintf('Clock restarted — %d seconds.', $seconds),
+                'round' => $round->fresh(),
+            ];
         });
     }
 

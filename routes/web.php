@@ -342,6 +342,8 @@ Route::middleware(['auth', 'permission:auction.edit|auction.observe', 'organizer
                 Route::post('/open-entry', [ClosedBidRoundController::class, 'openEntry'])->name('open-entry')->middleware('permission:auction.control|auction.edit');
                 // Back out of the invite list, before the round starts.
                 Route::post('/reopen-selection', [ClosedBidRoundController::class, 'reopenSelection'])->name('reopen-selection')->middleware('permission:auction.control|auction.edit');
+                // Time up holds the round; this is how the room is given longer.
+                Route::post('/extend-timer', [ClosedBidRoundController::class, 'extendTimer'])->name('extend-timer')->middleware('permission:auction.control|auction.edit');
                 Route::post('/start', [ClosedBidRoundController::class, 'start'])->name('start')->middleware('permission:auction.control|auction.edit');
                 Route::post('/lock', [ClosedBidRoundController::class, 'lock'])->name('lock')->middleware('permission:auction.control|auction.edit');
                 Route::post('/award', [ClosedBidRoundController::class, 'award'])->name('award')->middleware('permission:auction.control|auction.edit');

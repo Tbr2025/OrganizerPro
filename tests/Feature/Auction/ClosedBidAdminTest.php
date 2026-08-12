@@ -397,7 +397,7 @@ class ClosedBidAdminTest extends TestCase
     /* ── The two hazards in existing screens ─────────────────────────────────── */
 
     #[Test]
-    public function an_expiring_sealed_round_locks_instead_of_auto_selling_to_the_open_leader(): void
+    public function an_expiring_sealed_round_is_held_instead_of_auto_selling_to_the_open_leader(): void
     {
         ['org' => $org, 'auction' => $auction, 'teamA' => $teamA, 'teamB' => $teamB, 'round' => $round, 'player' => $player] = $this->scenario([
             // The setting that would have caused the damage.
@@ -416,15 +416,31 @@ class ClosedBidAdminTest extends TestCase
                 'auction_player_id' => $player->id,
             ])
             ->assertOk()
-            ->assertJsonPath('action', 'sealed_locked');
+            ->assertJsonPath('action', 'sealed_held');
 
         $player->refresh();
 
-        // Left to the open-bid path this would have sold the player to Alpha — the OPEN
-        // leader at the threshold — skipping the sealed round entirely.
+        /*
+         * The guarantee this test exists for is unchanged: left to the open-bid path an expiring
+         * sealed round would have sold the player to Alpha — the OPEN leader at the threshold —
+         * skipping the sealed round entirely.
+         *
+         * What changed is that time up now HOLDS the round rather than locking it. A clock can
+         * reach zero with every team still accepting, and resolving on that turned a countdown
+         * into the thing that decided the player. Ending it is an act: Lock & Reveal, or Extend.
+         */
         $this->assertNotSame('sold', $player->status);
-        $this->assertSame(AuctionClosedBidRound::STATE_REVEALED, $round->fresh()->state);
-        $this->assertSame($teamB->id, $round->fresh()->winner_team_id);
+        $this->assertSame(AuctionClosedBidRound::STATE_COLLECTING, $round->fresh()->state);
+        $this->assertNull($round->fresh()->winner_team_id);
+
+        // The deadline itself still stands — holding is not extra time.
+        $late = $this->closedBids()->submit($round->fresh(), $teamA, 9_900_000, null);
+        $this->assertFalse($late['handled']);
+        $this->assertStringContainsString('Time is up', $late['message']);
+
+        // And Extend is the way to give the room longer, deliberately.
+        $this->assertTrue($this->closedBids()->extendTimer($round->fresh(), null)['handled']);
+        $this->assertFalse($auction->fresh()->closedBidRoundTimerState($round->fresh())['expired']);
     }
 
     #[Test]
