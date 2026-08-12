@@ -254,4 +254,26 @@ class AuctionWallScriptIntegrityTest extends TestCase
         $this->assertStringContainsString("&& ! data?.auctionPlayer", $html);
         $this->assertStringContainsString("&& ! data?.lastActionPlayer", $html);
     }
+
+    #[Test]
+    public function the_card_never_shrinks_below_its_designed_canvas(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id, 'status' => 'running']);
+        $this->makeAuctionPlayer($auction, ['status' => 'on_auction']);
+
+        $html = (string) $this->get(route('public.auction.live', $auction))->assertOk()->getContent();
+
+        /*
+         * body is a flex container, so the card is a flex ITEM — and a flex item's default
+         * `flex-shrink: 1` let it collapse to the viewport width. At exactly 1601px nothing
+         * shrank and the wall looked right, which is why this hid: zoom in and the box narrowed
+         * while every element stayed pinned at its designed offset (up to left:1050px), so the
+         * right-hand half was cut off by the overflow rule. The card must keep its layout and be
+         * sized only by scaleLive()'s transform, which scales the artwork and the text together.
+         */
+        $this->assertStringContainsString('flex-shrink: 0;', $html);
+        $this->assertMatchesRegularExpression('/min-width:\s*\d+px;/', $html);
+    }
 }

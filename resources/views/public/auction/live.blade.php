@@ -135,6 +135,24 @@
             height: {{ $canvasHeight }}px;
 
             /*
+             * Never shrink below the designed canvas.
+             *
+             * body is a flex container, so this card was a flex ITEM — and a flex item's default
+             * `flex-shrink: 1` let it collapse to the viewport width. At 1601px wide nothing
+             * shrank and the wall looked right, which is why this hid: zoom the browser in (or
+             * open it on a smaller screen) and the box narrowed to, say, 700px while every
+             * element inside stayed pinned at its designed offset — up to left:1050px — so the
+             * right-hand half was cut off by the overflow rule below. The stats table slid under
+             * the sponsor logo, the photo swallowed the panel, and the text did not shrink at all.
+             *
+             * The card must keep its 1601x910 layout and be sized ONLY by scaleLive()'s
+             * transform, which scales the artwork and every piece of text on it together.
+             */
+            flex-shrink: 0;
+            min-width: {{ $canvasWidth }}px;
+            min-height: {{ $canvasHeight }}px;
+
+            /*
              * The canvas is the edge of the artwork, so anything hanging over it is cut.
              *
              * Every element on this card is absolutely positioned, and a template is free to
