@@ -276,24 +276,60 @@ class ClosedBidTeamSelectionTest extends TestCase
     }
 
     #[Test]
-    public function stepping_back_is_refused_once_a_team_has_responded(): void
+    public function stepping_back_is_refused_once_a_team_has_submitted_a_bid(): void
     {
         [$org, $auction, $round, $alpha] = $this->scenario();
 
         app(ClosedBidService::class)->openEntry($round, null, [$alpha->id]);
+        app(ClosedBidService::class)->start($round->fresh());
         app(ClosedBidService::class)->accept($round->fresh(), $alpha);
+        app(ClosedBidService::class)->submit($round->fresh(), $alpha, 8_100_000, null);
 
         /*
-         * Un-inviting a team that has already accepted would silently discard its own act. At
-         * that point the round is carried forward or undone deliberately — it is not something to
-         * step back out of.
+         * An amount is a team's own act and cannot be discarded silently — that has to be undone
+         * deliberately. Acceptance is not the line: it is cheap to do again, and refusing on it
+         * would block an ordinary correction for no benefit.
          */
         $result = app(ClosedBidService::class)->reopenSelection($round->fresh(), null);
 
         $this->assertFalse($result['handled']);
-        $this->assertStringContainsString('already responded', $result['message']);
-        $this->assertSame('entry_open', $round->fresh()->state);
+        $this->assertStringContainsString('already submitted', $result['message']);
         $this->assertSame(1, $round->fresh()->entries()->count());
+    }
+
+    #[Test]
+    public function stepping_back_is_allowed_when_a_team_has_only_accepted(): void
+    {
+        [$org, $auction, $round, $alpha] = $this->scenario();
+
+        app(ClosedBidService::class)->openEntry($round, null, [$alpha->id]);
+        app(ClosedBidService::class)->start($round->fresh());
+        app(ClosedBidService::class)->accept($round->fresh(), $alpha);
+
+        $result = app(ClosedBidService::class)->reopenSelection($round->fresh(), null);
+
+        $this->assertTrue($result['handled'], $result['message'] ?? '');
+        $this->assertSame('pending', $round->fresh()->state);
+        $this->assertSame(0, $round->fresh()->entries()->count());
+    }
+
+    #[Test]
+    public function a_round_that_ran_out_with_nothing_in_it_can_still_go_back(): void
+    {
+        [$org, $auction, $round, $alpha] = $this->scenario();
+
+        app(ClosedBidService::class)->openEntry($round, null, [$alpha->id]);
+        app(ClosedBidService::class)->start($round->fresh());
+        $round->fresh()->update(['state' => \App\Models\AuctionClosedBidRound::STATE_NO_ENTRIES]);
+
+        /*
+         * Awarding the open leader used to be the only way out of here, so a round that ran out
+         * with the wrong teams in it had to be RESOLVED rather than corrected.
+         */
+        $result = app(ClosedBidService::class)->reopenSelection($round->fresh(), null);
+
+        $this->assertTrue($result['handled'], $result['message'] ?? '');
+        $this->assertSame('pending', $round->fresh()->state);
     }
 
     #[Test]

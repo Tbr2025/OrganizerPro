@@ -414,6 +414,12 @@
                                     No leading team to award — use <span class="font-semibold text-gray-400">PASS</span>
                                     on the toolbar if this player should not sell.
                                 </p>
+                                {{-- Awarding was the only way out of here, so a round that ran out with
+                                     the wrong teams in it had to be resolved rather than corrected. --}}
+                                <p class="text-gray-500 text-xs mt-2">
+                                    Or press <span class="font-semibold text-gray-400">Back</span> below to choose
+                                    the teams again.
+                                </p>
                             </div>
                         </template>
 
@@ -597,7 +603,7 @@
                                      withdrawing invitations one at a time. Neither reads as "go
                                      back". Refused server-side once a team has actually responded,
                                      because stepping back out then would discard their act. --}}
-                                <button x-show="sealed.state === 'entry_open'" @click="sealedReopenSelection()"
+                                <button x-show="['entry_open','collecting','no_entries'].includes(sealed.state)" @click="sealedReopenSelection()"
                                         class="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold inline-flex items-center gap-1.5">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
@@ -608,8 +614,13 @@
                                         class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold">
                                     Open Entry (<span x-text="sealedSelectedCount"></span>)
                                 </button>
+                                {{-- Same action, named for the round the organizer just set up: once
+                                     Open Entry has been pressed the teams are entering their own
+                                     amounts, and calling it "Start Closed Bid" described the
+                                     mechanism rather than what was about to happen. --}}
                                 <button x-show="['pending','entry_open'].includes(sealed.state)" @click="sealedStart()"
-                                        class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold">Start Closed Bid</button>
+                                        class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold"
+                                        x-text="sealed.entry_opened ? 'Start Open Bid' : 'Start Closed Bid'"></button>
                                 {{-- Time up holds the round rather than ending it, so there has to be a
                                      way to give the room longer — otherwise "held" is simply stuck. --}}
                                 <button x-show="sealed.state === 'collecting' && (sealed.timer?.expired || (sealed.timer?.remaining ?? 99) <= 0)"

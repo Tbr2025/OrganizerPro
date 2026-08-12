@@ -289,15 +289,19 @@
                             </div>
                         </template>
 
-                        {{-- Left out of this round. The organizer chooses which teams take
-                             part, so say so plainly rather than showing an entry form the
-                             server would refuse. --}}
+                        {{-- Left out of this round, or the round is over.
+                             The organizer chooses which teams take part, so say so plainly rather
+                             than showing an entry form the server would refuse. But a FINISHED
+                             round said the same thing — so a manager whose round had simply ended
+                             was told their team was excluded from it, which is a different and
+                             more alarming statement. The two are separated. --}}
                         <template x-if="sealed.active && sealed.invited === false">
                             <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3.5 text-center">
                                 <div class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Sealed Round</div>
-                                <p class="text-gray-500 text-[11px]">
-                                    Your team is not taking part in this player's sealed round.
-                                </p>
+                                <p class="text-gray-500 text-[11px]"
+                                   x-text="['no_entries','awarded','abandoned','revealed'].includes(sealed.state)
+                                        ? 'This player\'s sealed round has finished. Waiting for the organizer.'
+                                        : 'This round is between the teams the organizer selected.'"></p>
                             </div>
                         </template>
 

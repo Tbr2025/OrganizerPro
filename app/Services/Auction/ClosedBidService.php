@@ -408,28 +408,43 @@ class ClosedBidService
         return DB::transaction(function () use ($round, $actor) {
             $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
 
-            if ($round->state !== AuctionClosedBidRound::STATE_ENTRY_OPEN) {
-                return ['handled' => false, 'message' => 'The team selection can only be reopened before the round starts.'];
+            /*
+             * Available after the clock ends too, not only before the round starts.
+             *
+             * A round whose timer ran out with nothing in it used to leave the organizer with one
+             * way forward — award the open leader — and no way back to fix a selection that was
+             * wrong in the first place. Going back is the ordinary correction there, so the states
+             * that can reach it are: not started, running, and ran-out-with-nothing.
+             */
+            if (! in_array($round->state, [
+                AuctionClosedBidRound::STATE_ENTRY_OPEN,
+                AuctionClosedBidRound::STATE_COLLECTING,
+                AuctionClosedBidRound::STATE_NO_ENTRIES,
+            ], true)) {
+                return ['handled' => false, 'message' => 'This round can no longer be taken back to team selection.'];
             }
 
-            $acted = $round->entries()
-                ->whereNotIn('state', [AuctionClosedBidEntry::STATE_INVITED, AuctionClosedBidEntry::STATE_DECLINED])
-                ->count();
+            /*
+             * A SUBMITTED bid is the line, not an acceptance.
+             *
+             * Accepting is cheap to do again, so refusing on it would block the correction for no
+             * benefit. An amount is a team's own act and cannot be thrown away silently — that has
+             * to be undone deliberately.
+             */
+            $submitted = $round->entries()->whereNotNull('submitted_at')->count();
 
-            if ($acted > 0) {
+            if ($submitted > 0) {
                 return [
                     'handled' => false,
-                    'message' => $acted === 1
-                        ? 'A team has already responded to this round — undo that first, or carry on.'
-                        : sprintf('%d teams have already responded to this round — undo those first, or carry on.', $acted),
+                    'message' => $submitted === 1
+                        ? 'A team has already submitted a bid — undo that first, or carry on.'
+                        : sprintf('%d teams have already submitted bids — undo those first, or carry on.', $submitted),
                 ];
             }
 
-            // Only the untouched invitations go; nothing a team did is thrown away, because the
-            // guard above means there is nothing.
-            $round->entries()
-                ->whereIn('state', [AuctionClosedBidEntry::STATE_INVITED, AuctionClosedBidEntry::STATE_DECLINED])
-                ->delete();
+            // Every invitation goes. None of them carries an amount — the guard above is what
+            // guarantees that — so nothing a team decided is being discarded.
+            $round->entries()->delete();
 
             $round->update([
                 'state' => AuctionClosedBidRound::STATE_PENDING,
