@@ -276,4 +276,36 @@ class AuctionWallScriptIntegrityTest extends TestCase
         $this->assertStringContainsString('flex-shrink: 0;', $html);
         $this->assertMatchesRegularExpression('/min-width:\s*\d+px;/', $html);
     }
+
+    #[Test]
+    public function the_stats_header_reads_the_way_it_was_typed(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id, 'status' => 'running']);
+        $this->makeAuctionPlayer($auction, ['status' => 'on_auction']);
+
+        $html = (string) $this->get(route('public.auction.live', $auction))->assertOk()->getContent();
+
+        /*
+         * The wall had `text-transform: uppercase` hardcoded on the header cells, BELOW the rule
+         * carrying the template's own transform — so "Matches / wkts / Runs" as typed in the
+         * editor always came out "MATCHES / WKTS / RUNS", and no template could ask for anything
+         * else. Asserted as an absence because that is what the bug was.
+         */
+        // Scoped to the header cells: the sold badge and the result banners are uppercase on
+        // purpose, so asserting against the whole page would prove nothing.
+        $start = strpos($html, '#stats-table-wrap th {');
+        $this->assertNotFalse($start, 'the wall must style the stats header');
+        $headerRule = substr($html, $start, strpos($html, '}', $start) - $start);
+
+        // The DECLARATION, with its colon — the rule's own comment mentions the property by
+        // name to explain why it is absent, and matching that would pass for the wrong reason.
+        $this->assertStringNotContainsString('text-transform:', $headerRule);
+
+        // Header and figures are template-driven, so they can be tuned without touching CSS.
+        $this->assertStringContainsString('font-size: 0.72em;', $headerRule);
+        $this->assertStringContainsString('font-size: 1.15em;', $html);
+        $this->assertStringContainsString('font-weight: 700;', $html);
+    }
 }

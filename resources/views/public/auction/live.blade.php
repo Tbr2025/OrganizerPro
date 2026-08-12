@@ -715,6 +715,7 @@
                 'top'=>480,'left'=>550,'width'=>500,'height'=>150,'fontSize'=>20,'zIndex'=>10,
                 // Declared so the `?:` fallbacks below never touch a missing key.
                 'headerBg'=>'', 'rowBg'=>'', 'cellBg'=>'', 'headerHeight'=>'',
+                'headerFontSize'=>'', 'headerLetterSpacing'=>'', 'cellFontSize'=>'', 'cellFontWeight'=>'',
             ], $positions['stats_table'] ?? []);
         @endphp
         #stats-table-wrap {
@@ -769,11 +770,20 @@
         }
         #stats-table-wrap th {
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-size: 0.62em;
+            /*
+             * NO forced uppercase.
+             *
+             * The wrap already carries the template's own text-transform, and this rule sat
+             * below it — so "Matches / wkts / Runs" as typed in the editor always came out
+             * "MATCHES / WKTS / RUNS" on the wall, and there was no way to ask for anything
+             * else. The label now reads the way it was written.
+             */
+            letter-spacing: {{ $st['headerLetterSpacing'] !== '' ? $st['headerLetterSpacing'] : 1 }}px;
+            /* Closer to the figures beneath them than 0.62em was — the headers are part of the
+               block, not a caption for it. */
+            font-size: {{ $st['headerFontSize'] ?: '0.72' }}em;
             padding-bottom: 2px;
-            opacity: 0.8;
+            opacity: 0.85;
             vertical-align: middle;
             @if(!empty($st['headerHeight']))
             /*
@@ -800,8 +810,8 @@
          * back sets cellBg in the editor.
          */
         #stats-table-wrap td {
-            font-weight: 800;
-            font-size: 1.25em;
+            font-weight: {{ $st['cellFontWeight'] ?: 700 }};
+            font-size: {{ $st['cellFontSize'] ?: '1.15' }}em;
             line-height: 1.1;
             vertical-align: middle;
             @if(!empty($st['cellBg']))
