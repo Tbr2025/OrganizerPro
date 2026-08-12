@@ -87,9 +87,21 @@ class AuctionCardRenderer
              * Say which of the two failures this is, because they look identical in the raw
              * puppeteer output and have completely different fixes: one is a dev server that
              * cannot answer a second request, the other is a card that will not paint.
+             *
+             * Any timeout counts, not just a navigation one. The deadlock actually surfaces as
+             * `TimeoutError: Waiting failed: 15000ms exceeded` from waitForFunction — Chrome DOES
+             * reach the page, it just never gets served, so data-card-ready never appears. Only
+             * 'Navigation timeout' was matched, so the one message that explains this never fired
+             * and every operator got a bare "could not be rendered" with the cause sitting
+             * unexplained in a log.
              */
-            $hint = str_contains($e->getMessage(), 'Navigation timeout')
-                ? ' The card page could not be loaded. If this is a local `php artisan serve`,'
+            $message = $e->getMessage();
+            $timedOut = str_contains($message, 'Navigation timeout')
+                || str_contains($message, 'TimeoutError')
+                || str_contains($message, 'Waiting failed');
+
+            $hint = $timedOut
+                ? ' The card page could not be loaded in time. If this is a local `php artisan serve`,'
                     . ' it serves one request at a time and cannot answer Chrome while it is busy'
                     . ' answering this one — restart it as `PHP_CLI_SERVER_WORKERS=4 php artisan serve`.'
                 : '';

@@ -2192,6 +2192,10 @@ class AuctionAdminController extends Controller
         }
 
         $rendered = [];
+        // Kept so a total failure can SAY why instead of pointing at the log. Every card fails
+        // for the same reason in practice — the renderer cannot reach the page — and making the
+        // operator go and read a log file to learn that is not an answer.
+        $firstFailure = null;
 
         foreach ($players as $ap) {
             try {
@@ -2201,6 +2205,7 @@ class AuctionAdminController extends Controller
                 // so deleting one here would put an empty entry in the zip.
                 $rendered[] = $png;
             } catch (\Throwable $e) {
+                $firstFailure ??= $e->getMessage();
                 /*
                  * One unrenderable player must not lose the other 199. A missing photo or a
                  * name Chrome chokes on is exactly the kind of thing found by exporting, so the
@@ -2222,7 +2227,7 @@ class AuctionAdminController extends Controller
         if ($rendered === []) {
             @unlink($zipPath);
 
-            return back()->with('error', 'None of the cards could be rendered — see the log for why.');
+            return back()->with('error', 'None of the cards could be rendered. ' . ($firstFailure ?: 'See the log for why.'));
         }
 
         $name = sprintf('auction-%d-cards%s.zip', $auction->id, $withResult ? '-sold' : '');
