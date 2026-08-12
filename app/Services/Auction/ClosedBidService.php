@@ -453,6 +453,16 @@ class ClosedBidService
                 'timer_started_at' => null,
                 // Stepping back un-hands the round, so the panel offers its amount fields again.
                 'entry_opened_at' => null,
+                // And it is certainly not locked or revealed any more — see start() for what
+                // leaving these behind does to a round that is started again.
+                'locked_at' => null,
+                'locked_by' => null,
+                'revealed_at' => null,
+                'winner_team_id' => null,
+                'winning_amount' => null,
+                'resolution' => null,
+                'resolved_at' => null,
+                'resolved_by' => null,
             ]);
 
             return [
@@ -586,6 +596,25 @@ class ClosedBidService
                 'opened_at' => $round->opened_at ?? now(),
                 'timer_started_at' => now(),
                 'timer_seconds' => $round->timer_seconds ?: $round->auction->closedBidTimerSeconds(),
+
+                /*
+                 * Clear the reveal stamps. A round being started is not a locked round.
+                 *
+                 * These survived: a round that had been locked and revealed, then taken back to
+                 * team selection and started again, kept its old `locked_at` and `revealed_at`
+                 * while reading state = collecting. Every guard that asks "is this locked?" —
+                 * submit(), adjust(), extendTimer() — tests `locked_at`, not the state, so the
+                 * round refused bids AND refused to be extended while presenting itself as open.
+                 * From the room's side the sealed box simply did nothing.
+                 */
+                'locked_at' => null,
+                'locked_by' => null,
+                'revealed_at' => null,
+                'winner_team_id' => null,
+                'winning_amount' => null,
+                'resolution' => null,
+                'resolved_at' => null,
+                'resolved_by' => null,
             ]);
 
             return ['handled' => true, 'message' => 'Sealed bidding is open.', 'round' => $round->fresh()];

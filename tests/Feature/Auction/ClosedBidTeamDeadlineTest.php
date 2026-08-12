@@ -344,4 +344,24 @@ class ClosedBidTeamDeadlineTest extends TestCase
         // And nothing was recorded for the team.
         $this->assertNull($round->fresh()->entries()->where('actual_team_id', $team->id)->value('amount'));
     }
+
+    #[Test]
+    public function an_open_round_bid_is_never_shown_as_a_sealed_bid(): void
+    {
+        ['auction' => $auction, 'user' => $user] = $this->scenario();
+
+        $html = $this->actingAs($user)
+            ->get(route('team.auction.bidding.show', $auction))
+            ->assertOk()
+            ->getContent();
+
+        /*
+         * This panel read `myBidAmount` — the team's last OPEN bid on the player — and labelled it
+         * "Your Sealed Bid" whenever bidding had gone closed. A team that raised 4.1M in the open
+         * round and entered nothing in the sealed one was shown 4.1M as its sealed bid, which is
+         * both wrong and, in a sealed round, the most misleading number available.
+         */
+        $this->assertStringNotContainsString("myBidAmount > 0 && bidType === 'closed'", $html);
+        $this->assertStringContainsString("bidType === 'closed' && sealed.my_entry?.amount", $html);
+    }
 }

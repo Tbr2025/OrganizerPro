@@ -211,8 +211,13 @@
                             </div>
                         </template>
 
-                        {{-- Timer --}}
-                        <div x-show="timerSeconds > 0 || timerExpired" class="mb-2">
+                        {{-- Timer — the OPEN round's clock.
+                             Hidden once a sealed round is collecting: the open clock has expired by
+                             definition (that expiry is what opens the sealed round), so it sat there
+                             reading TIME UP over a sealed round that had just started and had a
+                             clock of its own further down the page. Two clocks, one of them wrong.
+                             The sealed countdown is the one that matters then. --}}
+                        <div x-show="(timerSeconds > 0 || timerExpired) && !(sealed.active && sealed.state === 'collecting')" class="mb-2">
                             <span class="font-bold font-mono"
                                   :class="timerExpired
                                     ? 'text-red-500 text-base'
@@ -235,9 +240,16 @@
                             </div>
                         </template>
 
-                        <div x-show="myBidAmount > 0 && bidType === 'closed'" class="mt-2.5 pt-2.5 border-t border-gray-800/60">
+                        {{-- The team's own SEALED amount, from the sealed entry.
+                             This read `myBidAmount` — the team's last OPEN bid on this player — and
+                             labelled it "Your Sealed Bid" whenever bidding had gone closed. So a
+                             team that had raised 4.1M in the open round, and had entered nothing at
+                             all in the sealed one, was shown 4.1M as its sealed bid. The only
+                             honest source is the entry itself, which is null until they submit. --}}
+                        <div x-show="bidType === 'closed' && sealed.my_entry?.amount" class="mt-2.5 pt-2.5 border-t border-gray-800/60">
                             <div class="text-[9px] text-gray-500 uppercase tracking-wider">Your Sealed Bid</div>
-                            <div class="text-sm font-bold text-cyan-400 mt-0.5" x-text="formatCurrency(myBidAmount)"></div>
+                            <div class="text-sm font-bold text-cyan-400 mt-0.5"
+                                 x-text="sealedAmountHidden ? '••••••' : formatCurrency(sealed.my_entry?.amount)"></div>
                         </div>
                     </div>
 

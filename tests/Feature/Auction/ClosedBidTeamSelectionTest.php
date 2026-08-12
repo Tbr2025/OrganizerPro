@@ -376,4 +376,42 @@ class ClosedBidTeamSelectionTest extends TestCase
         // hidden for a round the organizer is about to run themselves.
         $this->assertNull($round->fresh()->entry_opened_at);
     }
+
+    #[Test]
+    public function starting_a_round_again_does_not_leave_it_looking_locked(): void
+    {
+        [$org, $auction, $round, $alpha] = $this->scenario();
+
+        $svc = app(ClosedBidService::class);
+        $svc->openEntry($round, null, [$alpha->id]);
+        $svc->start($round->fresh());
+        $svc->accept($round->fresh(), $alpha);
+        $svc->submit($round->fresh(), $alpha, 8_100_000, null);
+        $svc->lockAndReveal($round->fresh(), null);
+
+        $this->assertNotNull($round->fresh()->locked_at);
+
+        // Undo the reveal by hand the way an organizer does, then run the round again.
+        $round->fresh()->update(['state' => \App\Models\AuctionClosedBidRound::STATE_PENDING]);
+        $round->fresh()->entries()->delete();
+        $svc->start($round->fresh(), null, [$alpha->id]);
+
+        /*
+         * The reveal stamps used to survive this, leaving a round that read `collecting` while
+         * still carrying locked_at. Every guard that asks "is this locked?" tests locked_at rather
+         * than the state — submit(), adjust(), extendTimer() — so the round refused bids AND
+         * refused to be extended while presenting itself as open. From the room's side the sealed
+         * box simply did nothing.
+         */
+        $fresh = $round->fresh();
+        $this->assertSame('collecting', $fresh->state);
+        $this->assertNull($fresh->locked_at);
+        $this->assertNull($fresh->revealed_at);
+        $this->assertNull($fresh->winner_team_id);
+
+        // And the things that were blocked now work.
+        $this->assertTrue($svc->extendTimer($fresh, null)['handled']);
+        $svc->accept($round->fresh(), $alpha);
+        $this->assertTrue($svc->submit($round->fresh(), $alpha, 8_200_000, null)['handled']);
+    }
 }
