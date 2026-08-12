@@ -191,6 +191,15 @@ class AuctionOrganizerController extends Controller
          */
         $timerState = $auction->timerStateFor($currentPlayer);
 
+        /*
+         * Pool state in the FIRST paint, not one poll later.
+         *
+         * The panel's Alpine state started with `activePool: null` and `pools: []`, and the pool
+         * strip reads that as "no pool running — no enabled pool has players left". On every
+         * reload the operator was told the auction had no pool, in amber, for as long as the
+         * first poll took. Seeded here so the very first frame is correct rather than merely
+         * quiet.
+         */
         return view('backend.pages.auction.organizer-panel', compact(
             'auction',
             'availablePlayers',
@@ -199,7 +208,10 @@ class AuctionOrganizerController extends Controller
             'teams',
             'stats',
             'timerState'
-        ) + ['canControl' => $this->canControl()]);
+        ) + [
+            'canControl' => $this->canControl(),
+            'poolProgress' => $this->pools->poolProgress($auction),
+        ]);
     }
 
     /**

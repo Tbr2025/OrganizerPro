@@ -1194,8 +1194,11 @@
             <div class="bg-gray-950 border-t border-gray-800 px-4 py-2 flex items-center gap-3 overflow-x-auto">
                 <span class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold flex-shrink-0">Pool</span>
 
-                {{-- No pool running yet. --}}
-                <template x-if="!activePool">
+                {{-- No pool running — and only once that has actually been checked.
+                     Gated on stateLoaded as well as the seeded value: an auction whose pools
+                     genuinely are all idle still gets this message, but a reload no longer
+                     announces it before any server state has arrived. --}}
+                <template x-if="!activePool && stateLoaded">
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <span class="text-xs text-amber-400">No pool running —</span>
                         <template x-for="p in pools.filter(p => p.is_enabled && p.waiting > 0)" :key="p.id">
@@ -1314,10 +1317,13 @@
                                         {{-- aspect-square + rounded-xl: a true square, never
                                              squashed by its grid column. --}}
                                         class="relative group aspect-square rounded-xl border-2 overflow-visible bg-gray-800 flex items-center justify-center transition-all duration-200 flex-shrink-0"
+                                        {{-- 72px, not 50: these are logos being read from across a
+                                             hall and tapped on a touchscreen. Two rows of ten at
+                                             this size is ~790px, so twenty teams still fit. --}}
                                         :class="[
                                             winningTeamName === team.name
-                                                ? 'w-[58px] border-emerald-400 team-pulse scale-105'
-                                                : 'w-[50px] border-gray-600 hover:border-gray-300 hover:scale-105',
+                                                ? 'w-[82px] border-emerald-400 team-pulse scale-105'
+                                                : 'w-[72px] border-gray-600 hover:border-gray-300 hover:scale-105',
                                             team.excluded ? 'border-amber-600/70' : '',
                                             isTeamBidDisabled(team) ? 'opacity-45 cursor-not-allowed hover:scale-100' : ''
                                         ]"
@@ -1330,7 +1336,7 @@
                                             <img :src="team.logo_url" :alt="team.name" class="w-full h-full object-cover">
                                         </template>
                                         <template x-if="!team.logo_url">
-                                            <span class="text-[11px] font-bold text-gray-300 leading-none"
+                                            <span class="text-base font-bold text-gray-300 leading-none"
                                                   x-text="(team.short_name || team.name).substring(0, 3).toUpperCase()"></span>
                                         </template>
 
@@ -1342,7 +1348,7 @@
 
                                     {{-- Squad count, riding the top edge. --}}
                                     <span x-show="team.slots_required"
-                                          class="absolute -top-1.5 -right-1 z-10 px-1.5 rounded-full text-[9px] font-mono font-bold leading-[14px] border border-gray-900"
+                                          class="absolute -top-2 -right-1.5 z-10 px-1.5 rounded-full text-[10px] font-mono font-bold leading-[16px] border border-gray-900"
                                           :class="(team.slots_remaining || 0) > 0 ? 'bg-gray-700 text-gray-200' : 'bg-emerald-600 text-white'"
                                           x-text="(team.players_bought || 0) + '/' + team.slots_required"></span>
 
@@ -1354,7 +1360,7 @@
                                 {{-- Purse, in flow under the square rather than overlapping the
                                      neighbouring cell. The unit word is dropped once there are
                                      more than ten teams, so ten columns still fit a laptop. --}}
-                                <span class="px-1.5 rounded-full text-[10px] font-mono font-bold leading-[15px] whitespace-nowrap border border-gray-900"
+                                <span class="px-2 rounded-full text-[11px] font-mono font-bold leading-[17px] whitespace-nowrap border border-gray-900"
                                       :class="team.excluded ? \'bg-amber-500 text-black\' : \'bg-emerald-600 text-white\'"
                                       x-text="teams.length > 10 ? formatFigure(team.remaining_budget) : formatCurrency(team.remaining_budget)"></span>
                             </div>
@@ -2145,9 +2151,25 @@ function auctionOrganizerPanel() {
         armedStepIndex: null,
 
         // Pool lock: the auction runs one pool at a time.
-        activePool: null,
-        nextPool: null,
-        pools: [],
+        /*
+         * Seeded from the server render, not left empty until the first poll.
+         *
+         * `activePool: null` + `pools: []` is indistinguishable from "this auction has no pool
+         * running", and the strip below says exactly that — in amber — so every reload accused a
+         * perfectly healthy auction of having no pool for as long as the first poll took.
+         */
+        activePool: @json($poolProgress['active_pool'] ?? null),
+        nextPool: @json($poolProgress['next_pool'] ?? null),
+        pools: @json($poolProgress['pools'] ?? []),
+
+        /*
+         * Has real server state landed yet?
+         *
+         * Anything that ASSERTS something about the auction has to wait for this. An empty
+         * default is not a fact, and rendering it as one is how a reload came to announce
+         * conclusions the panel had not yet checked.
+         */
+        stateLoaded: false,
 
         // Timer, driven off the server clock rather than a local countdown.
         timerEnabled: {{ $auction->timerApplies() ? 'true' : 'false' }},
@@ -2469,6 +2491,8 @@ function auctionOrganizerPanel() {
                 this.canUndo = !!data.can_undo;
                 this.nextUndoLabel = data.next_undo || null;
                 this.activePool = data.active_pool || null;
+                // From here on the panel is describing the server, not its own defaults.
+                this.stateLoaded = true;
                 this.syncParticipantsToPool();
                 this.nextPool = data.next_pool || null;
                 this.pools = data.pools || [];
