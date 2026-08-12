@@ -224,6 +224,22 @@ class PermissionService
                     'auction.edit',
                     'auction.delete',
                     'auction.closed-bids',
+                    /*
+                     * Watching an auction run and running it are different jobs.
+                     *
+                     * `auction.edit` used to be both: it gates the configuration wizard AND
+                     * the live control panel, so the only way to let somebody watch the board
+                     * was to let them sell players and rewrite the auction's rules. These two
+                     * split that:
+                     *
+                     *   observe — reach the panel and read it. Every GET.
+                     *   control — change the auction. Every POST.
+                     *
+                     * An Auctioneer holds observe without control: they see the board, the
+                     * queue and every team's purse, and can do nothing to it.
+                     */
+                    'auction.observe',
+                    'auction.control',
                 ],
             ],
             [

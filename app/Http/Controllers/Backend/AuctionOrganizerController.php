@@ -199,7 +199,7 @@ class AuctionOrganizerController extends Controller
             'teams',
             'stats',
             'timerState'
-        ));
+        ) + ['canControl' => $this->canControl()]);
     }
 
     /**
@@ -279,6 +279,21 @@ class AuctionOrganizerController extends Controller
             'stats',
             'bidRules'
         ));
+    }
+
+    /**
+     * May this user CHANGE the auction, or only watch it run?
+     *
+     * The panel is reachable with `auction.observe` alone, which is what an Auctioneer holds:
+     * they call the lots in the room and need the board, the queue and every team's purse in
+     * front of them, but nothing that sells, passes, skips or undoes. The routes enforce this
+     * — every POST in the organizer group requires `auction.control` — and this flag is only
+     * so the panel does not offer buttons that would come back 403. The guard is the route;
+     * this is the courtesy.
+     */
+    private function canControl(): bool
+    {
+        return (bool) auth()->user()?->can('auction.control');
     }
 
     /**

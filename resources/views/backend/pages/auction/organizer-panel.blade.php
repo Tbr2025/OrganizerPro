@@ -1334,8 +1334,35 @@
                  quick-bid jumps) past the width of a laptop, and with no wrap and no scroll
                  whatever sat at the end was simply cut off the screen and unreachable. The
                  export button was the casualty. --}}
+            {{-- Say which seat this is.
+                 Without it, an auctioneer's panel just looks like a control panel with pieces
+                 missing — the difference between "read only" and "broken" has to be stated, not
+                 inferred from an absence. --}}
+            <div x-show="!canControl" x-cloak
+                 class="bg-amber-500/10 border-t border-amber-500/30 px-4 py-2 flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-amber-300">Auctioneer view</span>
+                <span class="text-[11px] text-amber-200/80">
+                    You are following this auction, not running it &mdash; the board, the queue and every
+                    team's purse update live. Bidding, selling, passing, skipping and undo belong to the organizer.
+                </span>
+            </div>
+
             <div class="h-14 bg-gray-900 border-t border-gray-800 flex items-center px-4 gap-2 overflow-x-auto">
 
+                {{-- Everything that CHANGES the auction, in one container.
+                     An Auctioneer reaches this panel to watch it — see canControl in the
+                     Alpine state — so the controls come out and the read-only affordances
+                     below them (fullscreen, the side panels, the export) stay. Wrapped as a
+                     block rather than marked one button at a time, because a per-button list
+                     goes stale the first time somebody adds another one. The routes refuse
+                     these actions regardless; this is so the seat is not offered them. --}}
+                <div class="flex items-center gap-2" x-show="canControl" x-cloak>
                 {{-- 1. Player Input --}}
                 <div class="flex items-center gap-1.5">
                     <span class="text-gray-500 font-mono text-lg">#</span>
@@ -1471,6 +1498,7 @@
                         class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs font-semibold transition">Restart</button>
 
                 <div class="w-px h-8 bg-gray-700"></div>
+                </div>
 
                 {{-- 7. Fullscreen Toggle --}}
                 <button @click="toggleFullscreen()" class="w-8 h-8 rounded flex items-center justify-center bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" title="Toggle Fullscreen (F)">
@@ -1845,6 +1873,17 @@ function auctionOrganizerPanel() {
         // Constants from DB
         BID_TIMER_DURATION: {{ $auction->bid_timer_seconds ?? 30 }},
         BID_TIMER_RESET_TO: {{ $auction->bid_timer_reset_seconds ?? 15 }},
+
+        /*
+         * May this seat change the auction, or only watch it?
+         *
+         * An Auctioneer reaches this panel with `auction.observe` and no `auction.control`:
+         * they call the lots in the room and need the board, the queue and every team's purse
+         * in front of them, and must not be able to sell, pass, skip or undo. Every POST route
+         * in the organizer group enforces that server-side — this flag exists so the panel
+         * does not offer buttons that would come back 403.
+         */
+        canControl: {{ ($canControl ?? true) ? 'true' : 'false' }},
 
         // State
         auctionId: null,
@@ -2535,6 +2574,10 @@ function auctionOrganizerPanel() {
         },
 
         async sealedCommand(path, body = {}) {
+            // `state` is the only sealed GET, and it is fetched elsewhere; everything routed
+            // through here changes the round.
+            if (! this.guardControl('act on the sealed round')) return null;
+
             try {
                 const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/closed-bid/${path}`, {
                     method: 'POST',
@@ -2831,6 +2874,9 @@ function auctionOrganizerPanel() {
         async bidForTeam(teamId, stepIndex = null) {
             if (!this.currentPlayer || this.displayState !== 'bidding') return;
             if (this.currentPlayer?.current_bid_team_id == teamId) return;
+            // This one posts to /admin/auctions/add-bid rather than through sendCommand, so it
+            // needs its own check — the endpoint refuses it too, this just says why.
+            if (! this.guardControl('enter bids')) return;
 
             // A double-tap on a hall touchscreen posted twice and the price climbed two
             // increments. The standalone offline panel has always held this lock; the main
@@ -3310,10 +3356,28 @@ function auctionOrganizerPanel() {
             if (name === 'allPlayers') this.fetchAllPlayers();
         },
 
+        /**
+         * One place every mutating call has to pass.
+         *
+         * Gating ~30 buttons individually is a list that goes stale the first time somebody
+         * adds a thirty-first. The three transports below (sendCommand, sealedCommand and the
+         * direct add-bid fetch) all check here instead, so a read-only seat cannot act however
+         * it got at the control — including through the console. The routes refuse it anyway;
+         * this turns a 403 into a sentence.
+         */
+        guardControl(what = 'change the auction') {
+            if (this.canControl) return true;
+            this.toast(`You are watching this auction, not running it — you cannot ${what}.`, 'info', 'Read only');
+            return false;
+        },
+
         // API Calls
         async sendCommand(endpoint, body = {}) {
             try {
                 const readOnly = ['sealed-bids', 'all-players', 'action-log'].includes(endpoint);
+
+                if (! readOnly && ! this.guardControl()) return null;
+
                 const response = await fetch(`/admin/organizer/auction/${this.auctionId}/api/${endpoint}`, {
                     method: readOnly ? 'GET' : 'POST',
                     headers: {
@@ -3880,6 +3944,15 @@ function auctionOrganizerPanel() {
          */
         async handleTimerExpiry(auctionPlayerId) {
             if (this._timerFiring || this._timerFiredForPlayer === auctionPlayerId) return;
+            /*
+             * A read-only seat must not report expiry.
+             *
+             * This fires automatically off the clock rather than off a button, so on an
+             * auctioneer's screen it would post — and be refused — on every single player,
+             * one 403 per lot, with a toast each time. The seat that actually runs the
+             * auction reports it; that is the one whose clock counts.
+             */
+            if (! this.canControl) return;
 
             this._timerFiring = true;
             this._timerFiredForPlayer = auctionPlayerId;

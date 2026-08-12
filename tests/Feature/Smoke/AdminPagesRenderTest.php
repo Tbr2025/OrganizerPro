@@ -37,8 +37,10 @@ class AdminPagesRenderTest extends TestCase
         $role = Role::create(['name' => 'Superadmin']);
         // `auction.edit` is required for the organizer control panel — running an
         // auction is an edit operation, not a view one.
+        // firstOrCreate, not create: the Auctioneer migration seeds the auction permissions,
+        // so several of these already exist in a freshly migrated test database.
         foreach (['player.create', 'player.edit', 'tournament.edit', 'auction.view', 'auction.edit'] as $perm) {
-            Permission::create(['name' => $perm, 'group_name' => 'smoke']);
+            Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web'], ['group_name' => 'smoke']);
             $role->givePermissionTo($perm);
         }
         $admin = User::factory()->create(['organization_id' => $org->id]);

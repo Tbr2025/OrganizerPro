@@ -32,7 +32,16 @@ class AuctionOrgIsolationTest extends TestCase
         $foreignPlayer = Player::create(['organization_id' => $orgB->id, 'name' => 'Foreign', 'email' => 'foreign@x.test', 'status' => 'approved']);
 
         Permission::create(['name' => 'auction.create', 'group_name' => 'auction']);
+        // A bare Superadmin ROW is not a Superadmin: the auction routes are permission-gated,
+        // and a real Superadmin holds every permission. Granted explicitly so this test stands
+        // for the user it claims to.
         $role = Role::create(['name' => 'Superadmin']);
+        foreach (['auction.view', 'auction.edit'] as $name) {
+            $role->givePermissionTo(Permission::firstOrCreate(
+                ['name' => $name, 'guard_name' => 'web'],
+                ['group_name' => 'auction']
+            ));
+        }
         $role->givePermissionTo('auction.create');
         $admin = User::factory()->create(['organization_id' => $orgA->id]);
         $admin->assignRole($role);

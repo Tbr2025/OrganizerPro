@@ -126,8 +126,34 @@ Route::get('/public/player-image/status', [PlayerImageProcessController::class, 
 // --- Main Admin Route Group for general pages ---
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager', 'organizer.access']], function () {
 
-    // Auction Administration (CRUD for auctions)
-    Route::resource('auctions', AuctionAdminController::class);
+    /*
+     * Auction Administration (CRUD for auctions).
+     *
+     * Split by what each verb actually does. The whole resource used to carry NO permission
+     * gate at all — `organizer.access` only scopes a pure Organizer to their own tournaments,
+     * it does not ask whether the user should be here — so any authenticated non-Team-Manager
+     * could open the configuration wizard and rewrite a live auction's rules. That was
+     * survivable while only Admins had a way in; an Auctioneer who can reach the panel makes
+     * it a real hole.
+     *
+     * Reading the list and a single auction is `auction.view` (a Team Manager holds it, and is
+     * separately redirected). Creating, editing and deleting are `auction.edit` — deliberately
+     * NOT granted to the Auctioneer, whose job is to call the lots, not to change the rules
+     * halfway through.
+     */
+    /*
+     * The write verbs are registered FIRST on purpose. `show` is GET /auctions/{auction},
+     * which happily matches /auctions/create — so with the read resource declared first,
+     * the create form resolved to show() looking for an auction called "create" and 404'd.
+     * A single Route::resource() orders these correctly for you; two of them do not.
+     */
+    Route::resource('auctions', AuctionAdminController::class)
+        ->except(['index', 'show'])
+        ->middleware('permission:auction.edit');
+
+    Route::resource('auctions', AuctionAdminController::class)
+        ->only(['index', 'show'])
+        ->middleware('permission:auction.view');
 
     // Auction pools, lots & per-team budgets are managed in the auction Edit wizard.
     // Pool control actions on the auction Show page (reorder, re-draw lots, merge retained).
@@ -209,12 +235,24 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/auction/{auction}/player/{player}/toggle-status', [AuctionAdminController::class, 'toggleStatus'])
         ->name('auction.player.toggle-status');
 
+    /*
+     * Entering and unwinding bids: `auction.control`, the same permission the organizer
+     * panel's own POSTs require.
+     *
+     * These three carried no gate. The panel's team chips post straight to add-bid rather than
+     * through its sendCommand() helper, so an observer's screen was one fetch away from
+     * raising a price — the client-side guard on the button would have been the only thing
+     * stopping it, and a guard you can skip with the console is not a guard.
+     */
     Route::post('/auctions/add-bid', [AuctionAdminController::class, 'addBid'])
+        ->middleware('permission:auction.control|auction.edit')
         ->name('auctions.players.addBid');
     Route::post('/auctions/decrease-bid', [AuctionAdminController::class, 'decreaseBid'])
+        ->middleware('permission:auction.control|auction.edit')
         ->name('auctions.players.decreaseBid');
 
-    Route::post('/auctions/close-bid', [AuctionAdminController::class, 'closeBid']);
+    Route::post('/auctions/close-bid', [AuctionAdminController::class, 'closeBid'])
+        ->middleware('permission:auction.control|auction.edit');
 
     // Auction Templates (LED wall display configuration).
     // These carried no permission gate at all, and `organizer.access` waves through
@@ -245,32 +283,48 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 // --- Organizer Control Panel Routes ---
 // URL Prefix: /admin/organizer/auction/{auction}
 // Name Prefix: admin.auction.organizer.
-// Running an auction is `auction.edit`, not `auction.view` — a Team Manager holds
-// only `auction.view` and must never reach the control panel. `organizer.access`
-// additionally scopes a pure Organizer to their own tournaments, so one org cannot
-// start, sell in, or end another org's auction.
-Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
+//
+// Reaching the panel is `auction.edit` OR `auction.observe` — never `auction.view`, which a
+// Team Manager holds and which must never open the control panel. Spatie reads `|` as OR.
+//
+// CHANGING the auction is a second, separate permission: every POST below sits in a nested
+// group requiring `auction.control`. That split is what makes an Auctioneer possible — the
+// person calling the lots in the room needs the whole board in front of them and must not be
+// able to sell, pass, skip or undo anything. Enforced on the route, not by hiding buttons:
+// a hidden button is not a permission.
+//
+// `organizer.access` additionally scopes a pure Organizer to their own tournaments, so one
+// org cannot start, sell in, or end another org's auction.
+Route::middleware(['auth', 'permission:auction.edit|auction.observe', 'organizer.access'])
     ->prefix('admin/organizer/auction/{auction}')
     ->name('admin.auction.organizer.')
     ->group(function () {
 
         // **FIX**: Added route to SHOW the panel page
         Route::get('/panel', [AuctionOrganizerController::class, 'showPanel'])->name('panel');
-        Route::get('/offline-panel', [AuctionOrganizerController::class, 'showOfflinePanel'])->name('offline-panel');
+        /*
+         * The offline panel is a control surface by definition — its entire purpose is
+         * entering bids by hand — so unlike the main panel it is not observable. An
+         * auctioneer holding only `auction.observe` is kept out at the door rather than shown
+         * a page of bid entry that would refuse every keystroke.
+         */
+        Route::get('/offline-panel', [AuctionOrganizerController::class, 'showOfflinePanel'])
+            ->middleware('permission:auction.control|auction.edit')
+            ->name('offline-panel');
 
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/poll-state', [AuctionOrganizerController::class, 'pollState'])->name('poll-state');
-            Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('start');
-            Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('end');
-            Route::post('/restart', [AuctionOrganizerController::class, 'restartAuction'])->name('restart');
-            Route::post('/toggle-pause', [AuctionOrganizerController::class, 'togglePause'])->name('toggle-pause');
-            Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('player.onbid');
+            Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('start')->middleware('permission:auction.control|auction.edit');
+            Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('end')->middleware('permission:auction.control|auction.edit');
+            Route::post('/restart', [AuctionOrganizerController::class, 'restartAuction'])->name('restart')->middleware('permission:auction.control|auction.edit');
+            Route::post('/toggle-pause', [AuctionOrganizerController::class, 'togglePause'])->name('toggle-pause')->middleware('permission:auction.control|auction.edit');
+            Route::post('/player-on-bid', [AuctionOrganizerController::class, 'putPlayerOnBid'])->name('player.onbid')->middleware('permission:auction.control|auction.edit');
             // On demand, not on the 2s poll: a roster per team would multiply its cost.
             Route::get('/team/{team}/squad', [AuctionOrganizerController::class, 'teamSquad'])->name('team.squad');
-            Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('player.sell');
-            Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('player.pass');
-            Route::post('/sell-to-team', [AuctionOrganizerController::class, 'sellToTeam'])->name('player.sell-to-team');
-            Route::post('/close-bidding', [AuctionOrganizerController::class, 'closeBidding'])->name('player.close-bidding');
+            Route::post('/sell-player', [AuctionOrganizerController::class, 'sellPlayer'])->name('player.sell')->middleware('permission:auction.control|auction.edit');
+            Route::post('/pass-player', [AuctionOrganizerController::class, 'passPlayer'])->name('player.pass')->middleware('permission:auction.control|auction.edit');
+            Route::post('/sell-to-team', [AuctionOrganizerController::class, 'sellToTeam'])->name('player.sell-to-team')->middleware('permission:auction.control|auction.edit');
+            Route::post('/close-bidding', [AuctionOrganizerController::class, 'closeBidding'])->name('player.close-bidding')->middleware('permission:auction.control|auction.edit');
             Route::get('/sealed-bids', [AuctionOrganizerController::class, 'fetchSealedBids'])->name('sealed-bids');
 
             // Rescue hatch: the whole auction as a spreadsheet, for when something goes
@@ -284,45 +338,45 @@ Route::middleware(['auth', 'permission:auction.edit', 'organizer.access'])
                 Route::get('/state', [ClosedBidRoundController::class, 'state'])->name('state');
                 // The organizer's yes to crossing the sealed threshold. There is no
                 // matching "no" route: no is selling to the leading team.
-                Route::post('/confirm-threshold', [ClosedBidRoundController::class, 'confirmThreshold'])->name('confirm-threshold');
-                Route::post('/open-entry', [ClosedBidRoundController::class, 'openEntry'])->name('open-entry');
-                Route::post('/start', [ClosedBidRoundController::class, 'start'])->name('start');
-                Route::post('/lock', [ClosedBidRoundController::class, 'lock'])->name('lock');
-                Route::post('/award', [ClosedBidRoundController::class, 'award'])->name('award');
-                Route::post('/start-rebid', [ClosedBidRoundController::class, 'startRebid'])->name('start-rebid');
-                Route::post('/lot', [ClosedBidRoundController::class, 'drawLot'])->name('lot');
-                Route::post('/resolve-manual', [ClosedBidRoundController::class, 'resolveManual'])->name('resolve-manual');
-                Route::post('/no-entries-decision', [ClosedBidRoundController::class, 'noEntriesDecision'])->name('no-entries-decision');
+                Route::post('/confirm-threshold', [ClosedBidRoundController::class, 'confirmThreshold'])->name('confirm-threshold')->middleware('permission:auction.control|auction.edit');
+                Route::post('/open-entry', [ClosedBidRoundController::class, 'openEntry'])->name('open-entry')->middleware('permission:auction.control|auction.edit');
+                Route::post('/start', [ClosedBidRoundController::class, 'start'])->name('start')->middleware('permission:auction.control|auction.edit');
+                Route::post('/lock', [ClosedBidRoundController::class, 'lock'])->name('lock')->middleware('permission:auction.control|auction.edit');
+                Route::post('/award', [ClosedBidRoundController::class, 'award'])->name('award')->middleware('permission:auction.control|auction.edit');
+                Route::post('/start-rebid', [ClosedBidRoundController::class, 'startRebid'])->name('start-rebid')->middleware('permission:auction.control|auction.edit');
+                Route::post('/lot', [ClosedBidRoundController::class, 'drawLot'])->name('lot')->middleware('permission:auction.control|auction.edit');
+                Route::post('/resolve-manual', [ClosedBidRoundController::class, 'resolveManual'])->name('resolve-manual')->middleware('permission:auction.control|auction.edit');
+                Route::post('/no-entries-decision', [ClosedBidRoundController::class, 'noEntriesDecision'])->name('no-entries-decision')->middleware('permission:auction.control|auction.edit');
 
                 // {entry} is NOT covered by EnsureOrganizerCanAccess, so each of these
                 // verifies the entry belongs to this auction before doing anything.
-                Route::post('/entries/{entry}/adjust', [ClosedBidRoundController::class, 'adjustEntry'])->name('entries.adjust');
-                Route::post('/entries/{entry}/withdraw', [ClosedBidRoundController::class, 'withdrawEntry'])->name('entries.withdraw');
-                Route::post('/entries/{entry}/reinstate', [ClosedBidRoundController::class, 'reinstateEntry'])->name('entries.reinstate');
+                Route::post('/entries/{entry}/adjust', [ClosedBidRoundController::class, 'adjustEntry'])->name('entries.adjust')->middleware('permission:auction.control|auction.edit');
+                Route::post('/entries/{entry}/withdraw', [ClosedBidRoundController::class, 'withdrawEntry'])->name('entries.withdraw')->middleware('permission:auction.control|auction.edit');
+                Route::post('/entries/{entry}/reinstate', [ClosedBidRoundController::class, 'reinstateEntry'])->name('entries.reinstate')->middleware('permission:auction.control|auction.edit');
             });
-            Route::post('/switch-mode', [AuctionOrganizerController::class, 'switchMode'])->name('switch-mode');
-            Route::post('/switch-bid-type', [AuctionOrganizerController::class, 'switchBidType'])->name('switch-bid-type');
+            Route::post('/switch-mode', [AuctionOrganizerController::class, 'switchMode'])->name('switch-mode')->middleware('permission:auction.control|auction.edit');
+            Route::post('/switch-bid-type', [AuctionOrganizerController::class, 'switchBidType'])->name('switch-bid-type')->middleware('permission:auction.control|auction.edit');
             Route::get('/all-players', [AuctionOrganizerController::class, 'allPlayers'])->name('all-players');
-            Route::post('/re-bid-player', [AuctionOrganizerController::class, 'rebidPlayer'])->name('player.re-bid');
-            Route::post('/re-auction-player', [AuctionOrganizerController::class, 'reAuctionPlayer'])->name('player.re-auction');
-            Route::post('/skip-player', [AuctionOrganizerController::class, 'skipPlayer'])->name('player.skip');
-            Route::post('/start-reauction-round', [AuctionOrganizerController::class, 'startReAuctionRound'])->name('start-reauction-round');
-            Route::post('/update-base-price', [AuctionOrganizerController::class, 'updateBasePrice'])->name('player.update-base-price');
-            Route::post('/update-auction-base-price', [AuctionOrganizerController::class, 'updateAuctionBasePrice'])->name('auction.update-base-price');
+            Route::post('/re-bid-player', [AuctionOrganizerController::class, 'rebidPlayer'])->name('player.re-bid')->middleware('permission:auction.control|auction.edit');
+            Route::post('/re-auction-player', [AuctionOrganizerController::class, 'reAuctionPlayer'])->name('player.re-auction')->middleware('permission:auction.control|auction.edit');
+            Route::post('/skip-player', [AuctionOrganizerController::class, 'skipPlayer'])->name('player.skip')->middleware('permission:auction.control|auction.edit');
+            Route::post('/start-reauction-round', [AuctionOrganizerController::class, 'startReAuctionRound'])->name('start-reauction-round')->middleware('permission:auction.control|auction.edit');
+            Route::post('/update-base-price', [AuctionOrganizerController::class, 'updateBasePrice'])->name('player.update-base-price')->middleware('permission:auction.control|auction.edit');
+            Route::post('/update-auction-base-price', [AuctionOrganizerController::class, 'updateAuctionBasePrice'])->name('auction.update-base-price')->middleware('permission:auction.control|auction.edit');
             // Undo: reverse the last bid / sale / pass / skip.
-            Route::post('/undo', [AuctionOrganizerController::class, 'undoLastAction'])->name('undo');
+            Route::post('/undo', [AuctionOrganizerController::class, 'undoLastAction'])->name('undo')->middleware('permission:auction.control|auction.edit');
             Route::get('/action-log', [AuctionOrganizerController::class, 'actionLog'])->name('action-log');
 
             // Pool-locked auctioning: run one pool at a time.
-            Route::post('/pools/{pool}/activate', [AuctionOrganizerController::class, 'activatePool'])->name('pool.activate');
-            Route::post('/pools/{pool}/complete', [AuctionOrganizerController::class, 'completePool'])->name('pool.complete');
+            Route::post('/pools/{pool}/activate', [AuctionOrganizerController::class, 'activatePool'])->name('pool.activate')->middleware('permission:auction.control|auction.edit');
+            Route::post('/pools/{pool}/complete', [AuctionOrganizerController::class, 'completePool'])->name('pool.complete')->middleware('permission:auction.control|auction.edit');
             // Re-run one pool without wiping the pools around it.
-            Route::post('/pools/{pool}/restart', [AuctionOrganizerController::class, 'restartPool'])->name('pool.restart');
-            Route::post('/pools/{pool}/toggle-enabled', [AuctionOrganizerController::class, 'togglePoolEnabled'])->name('pool.toggle-enabled');
+            Route::post('/pools/{pool}/restart', [AuctionOrganizerController::class, 'restartPool'])->name('pool.restart')->middleware('permission:auction.control|auction.edit');
+            Route::post('/pools/{pool}/toggle-enabled', [AuctionOrganizerController::class, 'togglePoolEnabled'])->name('pool.toggle-enabled')->middleware('permission:auction.control|auction.edit');
 
             // Bid timer.
-            Route::post('/toggle-timer', [AuctionOrganizerController::class, 'toggleTimer'])->name('toggle-timer');
-            Route::post('/timer-expired', [AuctionOrganizerController::class, 'timerExpired'])->name('timer-expired');
+            Route::post('/toggle-timer', [AuctionOrganizerController::class, 'toggleTimer'])->name('toggle-timer')->middleware('permission:auction.control|auction.edit');
+            Route::post('/timer-expired', [AuctionOrganizerController::class, 'timerExpired'])->name('timer-expired')->middleware('permission:auction.control|auction.edit');
         });
 
         // API routes for the panel to call

@@ -110,14 +110,21 @@
                                             <x-buttons.action-item :href="route('admin.auctions.show', $auction)" icon="lucide:eye"
                                                 :label="__('View')" />
 
-                                            @if (!auth()->user()->hasRole('Team Manager') || auth()->user()->hasRole('Super Admin') || auth()->user()->hasRole('Admin'))
-                                                <x-buttons.action-item :href="route('admin.auctions.edit', $auction)" icon="lucide:pencil"
-                                                    :label="__('Edit')" />
+                                            {{-- The panel is reachable by anyone who may WATCH the auction, which
+                                                 now includes an Auctioneer; editing the auction's configuration is
+                                                 a separate permission and gets its own check. Both links used to
+                                                 hang off one role test, so a seat that could open the panel had no
+                                                 way to get to it. --}}
+                                            @if (auth()->user()->can('auction.observe') || auth()->user()->can('auction.control'))
+                                                @can('auction.edit')
+                                                    <x-buttons.action-item :href="route('admin.auctions.edit', $auction)" icon="lucide:pencil"
+                                                        :label="__('Edit')" />
+                                                @endcan
 
                                                 {{-- Manage / Organizer Panel link --}}
                                                 @if (in_array($auction->status, ['running', 'paused', 'scheduled']))
                                                     <x-buttons.action-item :href="route('admin.auction.organizer.panel', $auction)" icon="lucide:settings"
-                                                        :label="__('Organizer Panel')" class="text-emerald-600 dark:text-emerald-400" />
+                                                        :label="__(auth()->user()->can('auction.control') ? 'Organizer Panel' : 'Auctioneer View')" class="text-emerald-600 dark:text-emerald-400" />
                                                 @endif
 
                                                 {{-- Public LED Wall Display --}}

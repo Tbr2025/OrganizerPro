@@ -324,6 +324,34 @@ class RolesService
         ];
         $roles['organizer'] = $this->createOrSyncRole('Organizer', $organizerPermissions);
 
+        /*
+         * 3b. Auctioneer — the person calling the auction in the room.
+         *
+         * They need the whole control panel in front of them: who is on the block, the
+         * queue behind them, what every team has left to spend, and the sealed round's
+         * state. They must not be able to change any of it — no bid, no sell, no pass, no
+         * skip, no next, no undo. Calling the lots and recording them are two jobs, and on
+         * the night they are two people.
+         *
+         * `auction.observe` without `auction.control` is exactly that, and it is enforced on
+         * the routes (every POST in the organizer group requires control), not merely by
+         * hiding buttons. `auction.edit` is deliberately absent: that gates the
+         * configuration wizard, and an auctioneer has no business rewriting the rules
+         * mid-auction.
+         */
+        $auctioneerPermissions = [
+            'dashboard.view',
+            'tournament.view',
+            'team.view',
+            'actual-team.view',
+            'player.view',
+            'auctions.view',
+            'auction.view',
+            'auction.observe',
+            'auction.closed-bids',
+        ];
+        $roles['auctioneer'] = $this->createOrSyncRole('Auctioneer', $auctioneerPermissions);
+
         // 4. Team Manager - Can manage their team, create/add players, participate in auctions
         // Assigned to a specific team and can only manage players of that team.
         // Scoping (e.g., "only players of my team") is enforced via TeamManagerController.

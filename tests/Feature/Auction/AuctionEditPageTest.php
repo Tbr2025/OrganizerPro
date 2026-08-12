@@ -4,6 +4,7 @@ namespace Tests\Feature\Auction;
 
 use App\Models\Auction;
 use App\Models\Organization;
+use App\Models\Permission;
 use App\Models\Player;
 use App\Models\Role;
 use App\Models\Tournament;
@@ -42,7 +43,16 @@ class AuctionEditPageTest extends TestCase
             'bid_timer_seconds' => 30,
         ]);
 
+        // A bare Superadmin ROW is not a Superadmin: the auction routes are permission-gated,
+        // and a real Superadmin holds every permission. Granted explicitly so this test stands
+        // for the user it claims to.
         $role = Role::create(['name' => 'Superadmin']);
+        foreach (['auction.view', 'auction.edit'] as $name) {
+            $role->givePermissionTo(Permission::firstOrCreate(
+                ['name' => $name, 'guard_name' => 'web'],
+                ['group_name' => 'auction']
+            ));
+        }
         $admin = User::factory()->create(['organization_id' => $org->id]);
         $admin->assignRole($role);
 
