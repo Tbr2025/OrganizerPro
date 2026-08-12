@@ -696,15 +696,51 @@
                 </p>
             </div>
 
-            {{-- ── EMPTY STATE ── --}}
+            {{-- ── EMPTY STATE ──
+                 Three situations, not one. This was a single fixed message — "Ready to Auction,
+                 hit START" — shown for every `waiting` state, so an auction thirty players in
+                 kept inviting the operator to start it, and a PAUSED auction offered a NEXT the
+                 server would refuse. Same split the pool-finished state above already makes. --}}
             <div x-show="displayState === 'waiting' && !(activePool && activePool.finished)" x-transition class="text-center">
                 <div class="w-32 h-32 mx-auto mb-6 rounded-full border-2 border-dashed border-gray-700 flex items-center justify-center">
                     <svg class="w-16 h-16 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                     </svg>
                 </div>
-                <h2 class="text-3xl font-bold text-gray-500 mb-2">Ready to Auction</h2>
-                <p class="text-gray-600">Hit <span class="px-2 py-1 bg-blue-600/80 rounded text-white text-sm font-bold">START</span> below, press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd>, or enter a player ID</p>
+
+                {{-- Paused: NEXT is refused server-side, so do not offer it. --}}
+                <template x-if="auctionStatus === 'paused'">
+                    <div>
+                        <h2 class="text-3xl font-bold text-amber-500/80 mb-2">Paused</h2>
+                        <p class="text-gray-600">
+                            Press <span class="px-2 py-1 bg-amber-600/80 rounded text-white text-sm font-bold">Resume</span>
+                            below to carry on.
+                        </p>
+                    </div>
+                </template>
+
+                {{-- Under way, nobody on the block: the action is the next player, not a start. --}}
+                <template x-if="auctionStatus === 'running'">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-500 mb-2">Between players</h2>
+                        <p class="text-gray-600">
+                            Press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd>
+                            or hit <span class="px-2 py-1 bg-blue-600/80 rounded text-white text-sm font-bold" x-text="nextActionLabel"></span>
+                            for the next player, or enter a player ID
+                        </p>
+                    </div>
+                </template>
+
+                {{-- Not started yet. The one case this screen was always right about. --}}
+                <template x-if="auctionStatus !== 'running' && auctionStatus !== 'paused'">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-500 mb-2">Ready to Auction</h2>
+                        <p class="text-gray-600">
+                            Hit <span class="px-2 py-1 bg-blue-600/80 rounded text-white text-sm font-bold" x-text="nextActionLabel"></span>
+                            below, press <kbd class="px-2 py-1 bg-gray-800 rounded text-gray-400 text-sm font-mono">N</kbd>, or enter a player ID
+                        </p>
+                    </div>
+                </template>
             </div>
 
             {{-- ── RESTARTING ──
@@ -1257,55 +1293,73 @@
                  without adding a box. Two rows filled column-wise with equal-width
                  columns, so any number of teams stays evenly spaced and centred. --}}
             <div class="bg-gray-900/60 border-t border-gray-800 px-4 py-3">
-                <div class="grid grid-rows-2 grid-flow-col auto-cols-fr gap-x-3 gap-y-4 justify-items-center">
-                    <template x-for="(team, idx) in teams" :key="team.id">
-                        <button @click="bidForTeam(team.id)"
-                                :disabled="isTeamBidDisabled(team)"
-                                {{-- aspect-square + rounded-full: the control is a true
-                                     circle, never squashed by its grid column. --}}
-                                class="relative group rounded-full border-2 overflow-visible bg-gray-800 flex items-center justify-center transition-all duration-200 flex-shrink-0"
-                                :class="[
-                                    winningTeamName === team.name
-                                        ? 'w-[62px] h-[62px] border-emerald-400 team-pulse scale-105'
-                                        : 'w-[52px] h-[52px] border-gray-600 hover:border-gray-300 hover:scale-105',
-                                    team.excluded ? 'border-amber-600/70' : '',
-                                    isTeamBidDisabled(team) ? 'opacity-45 cursor-not-allowed hover:scale-100' : ''
-                                ]"
-                                :title="teamTooltip(team)">
+                {{-- A table of teams, not a row of bubbles spread to the edges.
 
-                            {{-- Logo fills the bubble. --}}
-                            <span class="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center"
-                                  :class="team.excluded ? 'grayscale' : ''">
-                                <template x-if="team.logo_url">
-                                    <img :src="team.logo_url" :alt="team.name" class="w-full h-full object-cover">
-                                </template>
-                                <template x-if="!team.logo_url">
-                                    <span class="text-[11px] font-bold text-gray-300 leading-none"
-                                          x-text="(team.short_name || team.name).substring(0, 3).toUpperCase()"></span>
-                                </template>
+                     `grid-rows-2 grid-flow-col auto-cols-fr` meant ALWAYS two rows with columns
+                     stretched across the whole band — six teams became three columns each a
+                     third of the panel wide, with the chips floating in the middle of enormous
+                     gaps. Rows now follow the count and the block is centred at its natural
+                     width, so four teams read as one tidy row and twenty as two rows of ten.
 
-                                {{-- Priced out of this player under the squad-reserve rule. --}}
-                                <template x-if="team.excluded">
-                                    <span class="absolute inset-0 flex items-center justify-center bg-black/65 text-amber-400 text-sm">&#128274;</span>
-                                </template>
-                            </span>
+                     Each team is a CELL: square logo on top, purse beneath it in flow. The purse
+                     used to be an absolutely-positioned pill far wider than the 52px chip, which
+                     is what stopped the columns from ever sitting close together. --}}
+                <div class="flex justify-center overflow-x-auto">
+                    <div class="inline-grid gap-x-2 gap-y-3"
+                         :style="`grid-template-columns: repeat(${teamGridColumns}, minmax(0, 1fr))`">
+                        <template x-for="(team, idx) in teams" :key="team.id">
+                            <div class="flex flex-col items-center gap-1.5 px-0.5">
+                                <button @click="bidForTeam(team.id)"
+                                        :disabled="isTeamBidDisabled(team)"
+                                        {{-- aspect-square + rounded-xl: a true square, never
+                                             squashed by its grid column. --}}
+                                        class="relative group aspect-square rounded-xl border-2 overflow-visible bg-gray-800 flex items-center justify-center transition-all duration-200 flex-shrink-0"
+                                        :class="[
+                                            winningTeamName === team.name
+                                                ? 'w-[58px] border-emerald-400 team-pulse scale-105'
+                                                : 'w-[50px] border-gray-600 hover:border-gray-300 hover:scale-105',
+                                            team.excluded ? 'border-amber-600/70' : '',
+                                            isTeamBidDisabled(team) ? 'opacity-45 cursor-not-allowed hover:scale-100' : ''
+                                        ]"
+                                        :title="teamTooltip(team)">
 
-                            {{-- Squad count, riding the top edge. --}}
-                            <span x-show="team.slots_required"
-                                  class="absolute -top-1.5 -right-1 z-10 px-1.5 rounded-full text-[9px] font-mono font-bold leading-[14px] border border-gray-900"
-                                  :class="(team.slots_remaining || 0) > 0 ? 'bg-gray-700 text-gray-200' : 'bg-emerald-600 text-white'"
-                                  x-text="(team.players_bought || 0) + '/' + team.slots_required"></span>
+                                    {{-- Logo fills the square. --}}
+                                    <span class="absolute inset-0 rounded-[10px] overflow-hidden flex items-center justify-center"
+                                          :class="team.excluded ? 'grayscale' : ''">
+                                        <template x-if="team.logo_url">
+                                            <img :src="team.logo_url" :alt="team.name" class="w-full h-full object-cover">
+                                        </template>
+                                        <template x-if="!team.logo_url">
+                                            <span class="text-[11px] font-bold text-gray-300 leading-none"
+                                                  x-text="(team.short_name || team.name).substring(0, 3).toUpperCase()"></span>
+                                        </template>
 
-                            {{-- Purse, riding the bottom edge. --}}
-                            <span class="absolute -bottom-2 left-1/2 -translate-x-1/2 z-10 px-1.5 rounded-full text-[10px] font-mono font-bold leading-[15px] whitespace-nowrap border border-gray-900"
-                                  :class="team.excluded ? 'bg-amber-500 text-black' : 'bg-emerald-600 text-white'"
-                                  x-text="formatCurrency(team.remaining_budget)"></span>
+                                        {{-- Priced out of this player under the squad-reserve rule. --}}
+                                        <template x-if="team.excluded">
+                                            <span class="absolute inset-0 flex items-center justify-center bg-black/65 text-amber-400 text-sm">&#128274;</span>
+                                        </template>
+                                    </span>
 
-                            {{-- Keyboard shortcut hint (1-9, 0). --}}
-                            <span class="absolute -top-1.5 -left-1 z-10 w-[15px] h-[15px] bg-gray-700 border border-gray-900 rounded-full text-[9px] font-mono flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                  x-text="idx < 9 ? String(idx + 1) : (idx === 9 ? '0' : '')"></span>
-                        </button>
-                    </template>
+                                    {{-- Squad count, riding the top edge. --}}
+                                    <span x-show="team.slots_required"
+                                          class="absolute -top-1.5 -right-1 z-10 px-1.5 rounded-full text-[9px] font-mono font-bold leading-[14px] border border-gray-900"
+                                          :class="(team.slots_remaining || 0) > 0 ? 'bg-gray-700 text-gray-200' : 'bg-emerald-600 text-white'"
+                                          x-text="(team.players_bought || 0) + '/' + team.slots_required"></span>
+
+                                    {{-- Keyboard shortcut hint (1-9, 0). --}}
+                                    <span class="absolute -top-1.5 -left-1 z-10 w-[15px] h-[15px] bg-gray-700 border border-gray-900 rounded-full text-[9px] font-mono flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                          x-text="idx < 9 ? String(idx + 1) : (idx === 9 ? \'0\' : \'\')"></span>
+                                </button>
+
+                                {{-- Purse, in flow under the square rather than overlapping the
+                                     neighbouring cell. The unit word is dropped once there are
+                                     more than ten teams, so ten columns still fit a laptop. --}}
+                                <span class="px-1.5 rounded-full text-[10px] font-mono font-bold leading-[15px] whitespace-nowrap border border-gray-900"
+                                      :class="team.excluded ? \'bg-amber-500 text-black\' : \'bg-emerald-600 text-white\'"
+                                      x-text="teams.length > 10 ? formatFigure(team.remaining_budget) : formatCurrency(team.remaining_budget)"></span>
+                            </div>
+                        </template>
+                    </div>
                 </div>
 
                 {{-- Why a team cannot bid, stated rather than hidden in a tooltip.
@@ -1375,15 +1429,14 @@
                 <div class="w-px h-8 bg-gray-700"></div>
 
                 {{-- 2. NEXT button.
-                     Reads START while the block is empty. It was the way to begin a run
-                     and said only "NEXT", so on the Ready to Auction screen there was
-                     nothing that looked like a way in -- the empty state pointed at the N
-                     key and the one button that does it named a different thing. Same
-                     action either way; only the label follows the state. --}}
+                     Named from the AUCTION's status, not from whether somebody is on the
+                     block. Reading `currentPlayer` meant the label fell back to START in the
+                     gap after every sale — so an auction thirty players in kept offering to
+                     start itself. Same action either way; see nextActionLabel. --}}
                 <button @click="loadNextPlayer()"
                         :disabled="isTumbling || displayState === 'bidding' || availablePlayers.length === 0"
                         class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
-                        x-text="currentPlayer ? 'NEXT (N)' : 'START (N)'">
+                        x-text="nextActionLabel + ' (N)'">
                 </button>
 
                 <div class="w-px h-8 bg-gray-700"></div>
@@ -2490,26 +2543,58 @@ function auctionOrganizerPanel() {
                 const prevId = this._lastCurrentPlayerId;
 
                 if (newPlayer) {
-                    if (newPlayer.id !== prevId) {
-                        // New player on the block — allow a fresh time-up announcement.
-                        this._timerFiredForPlayer = null;
+                    /*
+                     * Adopt the server's player when the id changed OR when this panel is not
+                     * showing that player as live.
+                     *
+                     * A matching id used to mean "nothing to do" — including when the panel was
+                     * sitting on `waiting` while the server had that same player on the block.
+                     * Nothing ever recovered it: every later poll saw the same id and did
+                     * nothing, so the operator was left on an empty screen for the rest of the
+                     * lot. Guarded on the two states that legitimately cover a live player, so
+                     * this cannot interrupt the shuffle overlay or the restart notice.
+                     */
+                    const mustAdopt = newPlayer.id !== prevId
+                        || (this.displayState !== 'bidding'
+                            && ! this.isTumbling
+                            && ! this.showShuffleOverlay
+                            && this.displayState !== 'restarting');
+
+                    if (mustAdopt) {
+                        const isNewPlayer = newPlayer.id !== prevId;
+
                         this.currentPlayer = newPlayer;
                         this.currentBid = newPlayer.current_price || newPlayer.base_price;
                         this._lastKnownBid = this.currentBid;
                         this.displayState = 'bidding';
                         this.biddingClosed = false;
-                        this.sealedBids = [];
-                        // A team selection made for the last player's sealed round must not
-                        // silently carry into this one.
-                        this.sealedTeamSelection = null;
-                        this.resetOfflinePanel();
-                        this.statusText = `${newPlayer.player?.name} is now live!`;
                         this._lastCurrentPlayerId = newPlayer.id;
                         /* Kept so the overlay that follows can name the player who just left
                            the block. Without it the UNSOLD branch below had nothing to show and
                            reused whoever was stamped last. */
                         this._lastOnBlockPlayer = newPlayer;
-                        this.startBiddingTimer();
+
+                        /*
+                         * Only a genuinely NEW player resets the room around them.
+                         *
+                         * Recovering a panel that lost track of a player already up must not
+                         * clear a sealed team selection the organizer just made, wipe the offline
+                         * entry they are part-way through, or restart the clock from full — the
+                         * server's own countdown is seeded further down from
+                         * `timer_seconds_remaining`. Recovery adopts the player; it does not
+                         * start the lot over.
+                         */
+                        if (isNewPlayer) {
+                            // Allow a fresh time-up announcement for this player.
+                            this._timerFiredForPlayer = null;
+                            this.sealedBids = [];
+                            // A team selection made for the last player's sealed round must not
+                            // silently carry into this one.
+                            this.sealedTeamSelection = null;
+                            this.resetOfflinePanel();
+                            this.statusText = `${newPlayer.player?.name} is now live!`;
+                            this.startBiddingTimer();
+                        }
                     } else {
                         const newBid = newPlayer.current_price || this.currentBid;
                         if (newBid !== this._lastKnownBid) {
@@ -2916,23 +3001,59 @@ function auctionOrganizerPanel() {
             // needs its own check — the endpoint refuses it too, this just says why.
             if (! this.guardControl('enter bids')) return;
 
-            // A double-tap on a hall touchscreen posted twice and the price climbed two
-            // increments. The standalone offline panel has always held this lock; the main
-            // panel never did, and going live in offline is what makes it reachable.
-            if (this._isBidding) return;
-            this._isBidding = true;
-
             const team = this.teams.find(t => t.id == teamId);
+
+            /*
+             * Every refusal is decided BEFORE the lock is taken.
+             *
+             * The excluded-team check used to sit after `_isBidding = true` and return without
+             * releasing it — so one tap on a priced-out team wedged the flag on and the panel
+             * silently ignored every bid for the rest of the lot. Clicks looked like they were
+             * doing nothing, which is exactly what it feels like from the operator's chair.
+             */
             if (team?.excluded) {
                 this.statusText = `${team.name}: ${team.exclusion_reason || 'cannot bid on this player.'}`;
+                this.toast(team.exclusion_reason || `${team.name} cannot bid on this player.`, 'info', team.name);
                 return;
             }
+
+            // A double-tap on a hall touchscreen posted twice and the price climbed two
+            // increments. The chips are also :disabled while this is held, so the guard is
+            // visible as well as enforced.
+            if (this._isBidding) return;
+            this._isBidding = true;
 
             // An armed jump applies to this one bid, then disarms.
             if (stepIndex === null && this.armedStepIndex !== null) {
                 stepIndex = this.armedStepIndex;
             }
             this.armedStepIndex = null;
+
+            /*
+             * Show the raise NOW, then reconcile with the server.
+             *
+             * The price and the leader used to change only once the round trip came back, so in
+             * a hall the chip was pressed and nothing happened for as long as the request took —
+             * which is the lag being reported. The server remains the authority: its
+             * `current_price` overwrites this a moment later, and a refusal puts back exactly
+             * what was on screen before.
+             *
+             * The optimistic price is only applied for an ordinary increment. A quick-bid jump
+             * has an amount this panel does not compute, so that case shows the new leader and
+             * leaves the figure to the response rather than flashing a wrong number.
+             */
+            const previous = {
+                bid: this.currentBid,
+                leader: this.winningTeamName,
+                teamId: this.currentPlayer.current_bid_team_id,
+            };
+
+            if (team) this.winningTeamName = team.name;
+            this.currentPlayer.current_bid_team_id = teamId;
+            if (stepIndex === null && this.nextBidAmount) {
+                this.currentBid = this.nextBidAmount;
+            }
+            this.resetBiddingTimer();
 
             try {
                 const response = await fetch('/admin/auctions/add-bid', {
@@ -2951,16 +3072,21 @@ function auctionOrganizerPanel() {
                 });
                 const data = await response.json();
                 if (data.success) {
+                    // The server's figure wins over the guess above.
                     this.currentBid = data.current_price;
-                    const team = this.teams.find(t => t.id == teamId);
-                    if (team) this.winningTeamName = team.name;
-                    this.currentPlayer.current_bid_team_id = teamId;
-                    this.resetBiddingTimer();
+                    this._lastKnownBid = data.current_price;
                 } else {
+                    this.currentBid = previous.bid;
+                    this.winningTeamName = previous.leader;
+                    this.currentPlayer.current_bid_team_id = previous.teamId;
                     this.toast(data.message || 'Bid failed', 'error');
                 }
             } catch (e) {
+                this.currentBid = previous.bid;
+                this.winningTeamName = previous.leader;
+                this.currentPlayer.current_bid_team_id = previous.teamId;
                 console.error('Bid error:', e);
+                this.toast('That bid did not go through.', 'error');
             } finally {
                 this._isBidding = false;
             }
@@ -3115,12 +3241,29 @@ function auctionOrganizerPanel() {
                 this.currentBid = 0;
                 this.winningTeamName = 'No Bids';
             }
-            if (this.displayState === 'sold' || this.displayState === 'unsold') {
-                this.displayState = 'waiting';
-            }
+
+            /*
+             * Cover the screen BEFORE the first await.
+             *
+             * This used to set displayState = 'waiting' here and then await a poll — so for the
+             * whole round trip the never-started "Ready to Auction" screen was on the panel,
+             * flashing between the last result and the next player. The overlay goes up first
+             * and _runShuffleAnimation() takes it from there; the previous result stays
+             * underneath it rather than being replaced by an empty state.
+             */
+            this.shufflePhase = 'spinning';
+            this.shuffleSelectedPlayer = null;
+            this.shuffleDisplayName = '';
+            this.showShuffleOverlay = true;
 
             await this.pollAuctionState();
             if (this.availablePlayers.length === 0) {
+                // Nothing to show: put the overlay back down, or the panel sits behind a
+                // spinner that will never land.
+                this.showShuffleOverlay = false;
+                if (this.displayState === 'sold' || this.displayState === 'unsold') {
+                    this.displayState = 'waiting';
+                }
                 this.toast('No more players waiting.', 'info');
                 return;
             }
@@ -3160,6 +3303,8 @@ function auctionOrganizerPanel() {
                 const spinMs = Math.max(600, opts.spinMs ?? 2800);
                 const holdMs = opts.holdMs ?? 1500;
 
+                /* Idempotent on the flag: loadNextPlayer() raises the overlay before its first
+                   await so no empty state can flash, and a lot draw calls in with it down. */
                 this.shufflePhase = 'spinning';
                 this.showShuffleOverlay = true;
                 this.shuffleSelectedPlayer = null;
@@ -3325,7 +3470,11 @@ function auctionOrganizerPanel() {
             return !this.currentPlayer
                 || this.displayState !== 'bidding'
                 || this.currentPlayer?.current_bid_team_id == team.id
-                || !!team.excluded;
+                || !!team.excluded
+                // While a bid is in flight the whole strip is inert, so a double-tap on a hall
+                // touchscreen cannot post twice. bidForTeam() holds the same flag; this is what
+                // makes the guard visible instead of a click that appears to do nothing.
+                || this._isBidding;
         },
 
         teamTooltip(team) {
@@ -3407,6 +3556,20 @@ function auctionOrganizerPanel() {
             if (this.canControl) return true;
             this.toast(`You are watching this auction, not running it — you cannot ${what}.`, 'info', 'Read only');
             return false;
+        },
+
+        /**
+         * What the one blue control does next: START a run, or bring the NEXT player.
+         *
+         * Driven by the auction's status rather than by `currentPlayer`, which is null in the
+         * gap between players — so the button used to revert to START after every single sale,
+         * on an auction that was well under way. The empty state's keyboard hint reads the same
+         * getter, so the two cannot describe the same key differently.
+         */
+        get nextActionLabel() {
+            return (this.auctionStatus === 'running' || this.auctionStatus === 'paused')
+                ? 'NEXT'
+                : 'START';
         },
 
         // API Calls
@@ -4091,6 +4254,33 @@ function auctionOrganizerPanel() {
             return window.auctionAmount
                 ? window.auctionAmount(amount, this.amountUnit)
                 : String(Number(amount) || 0);
+        },
+
+        /**
+         * The figure with no unit word — "100M", not "100M Points".
+         *
+         * For the team strip once there are more than ten teams: ten columns of
+         * "100M Points" does not fit a laptop, and the unit is stated everywhere else on
+         * the panel already.
+         */
+        formatFigure(amount) {
+            return window.auctionFigure
+                ? window.auctionFigure(amount)
+                : String(Number(amount) || 0);
+        },
+
+        /**
+         * How many columns the team strip uses.
+         *
+         * Rows follow the count instead of being fixed at two: up to ten teams read best as a
+         * single centred row, and beyond that two rows keep the squares big enough to hit.
+         * Twenty teams therefore become two rows of ten rather than ten columns of two.
+         */
+        get teamGridColumns() {
+            const count = this.teams.length || 1;
+            const rows = count > 10 ? 2 : 1;
+
+            return Math.ceil(count / rows);
         },
 
         getPlayerType(player) {

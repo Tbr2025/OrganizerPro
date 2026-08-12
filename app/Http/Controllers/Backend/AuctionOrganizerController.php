@@ -1610,11 +1610,19 @@ class AuctionOrganizerController extends Controller
         }
 
         if (! $auction->timerAutoSells()) {
-            // Manual mode: bidding is closed by the elapsed clock (placeBid and addBid
-            // both check it), and the organizer presses SELL.
+            /*
+             * Manual mode: the clock is an ANNOUNCEMENT to the operator, not a lock on them.
+             *
+             * This used to say "bidding is closed", which was true when addBid() refused an
+             * expired bid from the organizer as well as from a team. It no longer does — the
+             * countdown exists to stop teams stalling, and when it runs out the person running
+             * the room is the one who has to record what the room already heard. Teams are
+             * still locked out (AuctionBiddingController::placeBid), so the room's clock is
+             * unchanged; only the message was lying to the operator.
+             */
             return response()->json([
                 'success' => true,
-                'message' => 'Time up — bidding is closed. Press SELL to award the player.',
+                'message' => "Time up. Sell, pass or skip — you can still take bids if the room is not finished.",
                 'handled' => true,
                 'action' => 'locked',
             ]);
