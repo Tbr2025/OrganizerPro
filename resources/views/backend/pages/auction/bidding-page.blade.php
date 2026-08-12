@@ -301,6 +301,61 @@
                             </div>
                         </template>
 
+                        {{-- The round's clock, for anyone taking part.
+                             This used to live inside the bid box, which only renders once the team
+                             CAN bid — so a team still deciding whether to accept had no idea how
+                             long it had, and the countdown appeared only after the decision it was
+                             supposed to inform. Shown to any invited team while the round collects. --}}
+                        <template x-if="sealed.active && sealed.invited !== false && sealed.state === 'collecting'">
+                            <div class="mb-2.5">
+                            {{-- The round's clock.
+                                 The server has always refused a late submission — ClosedBidService::submit()
+                                 checks closedBidRoundTimerState() before anything else — but the team could
+                                 not SEE the deadline, so the first they knew of it was a rejection. The bar
+                                 turns amber then red as it runs down, and everything below locks at zero. --}}
+                            <template x-if="sealedSecondsLeft !== null">
+                                <div class="mb-2.5 rounded-lg border p-2.5"
+                                     :class="sealedExpired
+                                        ? 'bg-red-500/10 border-red-500/40'
+                                        : (sealedSecondsLeft <= 10 ? 'bg-red-500/10 border-red-500/30' : 'bg-gray-900/60 border-gray-800/60')">
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <span class="text-[10px] uppercase tracking-wider"
+                                              :class="sealedExpired ? 'text-red-400' : 'text-gray-400'"
+                                              x-text="sealedExpired ? 'Time is up' : 'Time remaining'"></span>
+                                        <span class="font-bold tabular-nums"
+                                              :class="sealedExpired ? 'text-red-400 text-sm'
+                                                    : (sealedSecondsLeft <= 10 ? 'text-red-400 text-lg animate-pulse' : 'text-white text-lg')"
+                                              x-text="sealedClockText"></span>
+                                    </div>
+                                    <div class="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-500 ease-linear"
+                                             :class="sealedSecondsLeft <= 10 ? 'bg-red-500' : (sealedSecondsLeft <= 30 ? 'bg-amber-400' : 'bg-cyan-500')"
+                                             :style="`width: ${sealedTimerPct}%`"></div>
+                                    </div>
+                                </div>
+                            </template>
+                            </div>
+                        </template>
+
+                        {{-- The round is finished and this team had a bid in it.
+                             Otherwise a submitted team was left looking at a live-looking panel
+                             after the round had closed, with no statement that it was done. --}}
+                        <template x-if="sealed.active
+                                        && sealed.my_entry?.amount
+                                        && ['revealed','awarded','no_entries','abandoned','tie','awaiting_lot'].includes(sealed.state)">
+                            <div class="bg-emerald-500/10 border border-emerald-500/25 rounded-lg p-3.5 text-center">
+                                <div class="text-emerald-400 text-[11px] font-bold uppercase tracking-wider mb-1">
+                                    Sealed bid completed
+                                </div>
+                                <div class="text-white text-lg font-black"
+                                     x-text="sealedAmountHidden ? '••••••' : formatCurrency(sealed.my_entry.amount)"></div>
+                                <button type="button" @click="sealedAmountHidden = !sealedAmountHidden"
+                                        class="text-[10px] uppercase tracking-wider mt-1 text-gray-500 hover:text-gray-300 transition"
+                                        x-text="sealedAmountHidden ? 'Show' : 'Hide'"></button>
+                                <p class="text-gray-500 text-[10px] mt-1.5">Waiting for the organizer to resolve the round.</p>
+                            </div>
+                        </template>
+
                         {{-- Left out of this round, or the round is over.
                              The organizer chooses which teams take part, so say so plainly rather
                              than showing an entry form the server would refuse. But a FINISHED
@@ -361,11 +416,17 @@
                                     </div>
                                 </div>
 
+                                {{-- The clock disables these too.
+                                     Accepting after the deadline gets a team into a round it can no
+                                     longer bid in — the server refuses the amount — so the button has
+                                     to stop offering it rather than lead them there. --}}
                                 <div class="flex gap-2 mt-3">
-                                    <button @click="sealedAccept()" :disabled="isSubmitting"
-                                            class="flex-1 py-2.5 rounded-lg font-bold text-xs bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white transition">
-                                        I ACCEPT
-                                    </button>
+                                    <button @click="sealedAccept()" :disabled="isSubmitting || sealedExpired"
+                                            class="flex-1 py-2.5 rounded-lg font-bold text-xs text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                            :class="sealedExpired
+                                                ? 'bg-gray-700'
+                                                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'"
+                                            x-text="sealedExpired ? 'TIME UP' : 'I ACCEPT'"></button>
                                     <button @click="sealedDecline()" :disabled="isSubmitting"
                                             class="px-4 py-2.5 rounded-lg font-bold text-xs bg-gray-800/60 border border-gray-700/40 text-gray-400 hover:text-gray-200 transition">
                                         WITHDRAW
@@ -388,33 +449,6 @@
                         {{-- Bidding --}}
                         <template x-if="sealedCanBid">
                             <div>
-                                {{-- The round's clock.
-                                     The server has always refused a late submission — ClosedBidService::submit()
-                                     checks closedBidRoundTimerState() before anything else — but the team could
-                                     not SEE the deadline, so the first they knew of it was a rejection. The bar
-                                     turns amber then red as it runs down, and everything below locks at zero. --}}
-                                <template x-if="sealedSecondsLeft !== null">
-                                    <div class="mb-2.5 rounded-lg border p-2.5"
-                                         :class="sealedExpired
-                                            ? 'bg-red-500/10 border-red-500/40'
-                                            : (sealedSecondsLeft <= 10 ? 'bg-red-500/10 border-red-500/30' : 'bg-gray-900/60 border-gray-800/60')">
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <span class="text-[10px] uppercase tracking-wider"
-                                                  :class="sealedExpired ? 'text-red-400' : 'text-gray-400'"
-                                                  x-text="sealedExpired ? 'Time is up' : 'Time remaining'"></span>
-                                            <span class="font-bold tabular-nums"
-                                                  :class="sealedExpired ? 'text-red-400 text-sm'
-                                                        : (sealedSecondsLeft <= 10 ? 'text-red-400 text-lg animate-pulse' : 'text-white text-lg')"
-                                                  x-text="sealedClockText"></span>
-                                        </div>
-                                        <div class="h-1.5 rounded-full bg-gray-800 overflow-hidden">
-                                            <div class="h-full rounded-full transition-all duration-500 ease-linear"
-                                                 :class="sealedSecondsLeft <= 10 ? 'bg-red-500' : (sealedSecondsLeft <= 30 ? 'bg-amber-400' : 'bg-cyan-500')"
-                                                 :style="`width: ${sealedTimerPct}%`"></div>
-                                        </div>
-                                    </div>
-                                </template>
-
                                 <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3 mb-2.5">
                                     {{-- A tie-break round tells the team the amount to beat and
                                          how many shared it. Never which teams, never a losing

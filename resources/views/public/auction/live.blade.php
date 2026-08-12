@@ -1418,7 +1418,12 @@
 
         <!-- Player Image -->
         @if(isVisible($positions, 'player_image'))
-        <img id="player-image" src="https://via.placeholder.com/300" alt="Player">
+        {{-- A 1x1 transparent pixel, not via.placeholder.com.
+             The wall runs in a hall on whatever network the venue has, and this pointed at an
+             external service that no longer resolves — so the initial paint carried a broken
+             image, and a venue that blocks outbound traffic got one for every player until the
+             real photo landed. The pixel is inline: nothing to fetch, nothing to fail. --}}
+        <img id="player-image" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Player">
         @endif
 
         <!-- Player Name -->

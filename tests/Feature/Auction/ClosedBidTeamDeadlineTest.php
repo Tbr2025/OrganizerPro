@@ -364,4 +364,26 @@ class ClosedBidTeamDeadlineTest extends TestCase
         $this->assertStringNotContainsString("myBidAmount > 0 && bidType === 'closed'", $html);
         $this->assertStringContainsString("bidType === 'closed' && sealed.my_entry?.amount", $html);
     }
+
+    #[Test]
+    public function the_clock_is_visible_before_the_decision_it_should_inform(): void
+    {
+        ['auction' => $auction, 'user' => $user] = $this->scenario();
+
+        $html = $this->actingAs($user)
+            ->get(route('team.auction.bidding.show', $auction))
+            ->assertOk()
+            ->getContent();
+
+        /*
+         * The countdown lived inside the bid box, which only renders once the team CAN bid — so a
+         * team still deciding whether to accept had no idea how long it had, and the clock appeared
+         * only after the decision it was supposed to inform. It is now shown to any invited team
+         * while the round is collecting, and Accept is disabled once the deadline passes: accepting
+         * late gets a team into a round it can no longer bid in.
+         */
+        $this->assertStringContainsString("sealed.invited !== false && sealed.state === 'collecting'", $html);
+        $this->assertStringContainsString('isSubmitting || sealedExpired', $html);
+        $this->assertStringContainsString('Sealed bid completed', $html);
+    }
 }
