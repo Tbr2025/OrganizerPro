@@ -172,4 +172,45 @@ class ClosedBidTeamDeadlineTest extends TestCase
         $this->assertStringContainsString('You can bid up to', $html);
         $this->assertStringContainsString('still to fill', $html);
     }
+
+    #[Test]
+    public function an_offline_auction_refuses_a_teams_own_sealed_bid_and_says_so(): void
+    {
+        ['auction' => $auction, 'team' => $team, 'round' => $round, 'user' => $user] = $this->scenario([
+            'open_bid_mode' => 'offline',
+        ]);
+
+        $this->closedBids()->accept($round, $team);
+
+        /*
+         * Deliberate: in offline mode the organizer types every amount on the panel, and the
+         * team's own controls are hidden. The point of this test is the MESSAGE — a board of
+         * "Awaiting" with a silent refusal behind it is indistinguishable from teams ignoring
+         * the round, which is what cost an operator a live round's worth of confusion.
+         */
+        $response = $this->actingAs($user)->postJson(
+            route('team.auction.bidding.api.closed-bid.submit', $auction),
+            ['amount' => 9_000_000]
+        );
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('offline', strtolower((string) $response->json('error')));
+        $this->assertStringContainsString('organizer', strtolower((string) $response->json('error')));
+    }
+
+    #[Test]
+    public function the_panel_says_who_is_entering_the_amounts(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario(['open_bid_mode' => 'offline']);
+
+        $html = $this->actingAs($this->makeSuperadmin($org))
+            ->get(route('admin.auction.organizer.panel', $auction))
+            ->assertOk()
+            ->getContent();
+
+        // Both states are named on the sealed console, so a full board of AWAITING is never left
+        // to be explained by an absence.
+        $this->assertStringContainsString('Offline round.', $html);
+        $this->assertStringContainsString('Teams enter their own amounts.', $html);
+    }
 }

@@ -350,6 +350,47 @@
                             </div>
                         </div>
 
+                        {{-- WHO is entering these amounts.
+                             In offline mode a team's sealed controls are hidden on their own
+                             screen and the endpoint refuses their submissions — the organizer
+                             types every amount here. That is deliberate, but nothing said it, so
+                             a full board of AWAITING looked like teams ignoring the round or the
+                             page being broken. Both states are named rather than left to be
+                             inferred from an absence. --}}
+                        <div class="mb-4 px-4 py-2.5 rounded-xl flex items-start gap-2.5"
+                             :class="openBidMode === 'offline'
+                                ? 'bg-amber-500/10 border border-amber-500/30'
+                                : 'bg-cyan-500/10 border border-cyan-500/25'">
+                            <svg class="w-4 h-4 mt-0.5 shrink-0"
+                                 :class="openBidMode === 'offline' ? 'text-amber-400' : 'text-cyan-400'"
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="text-[12px] leading-relaxed"
+                               :class="openBidMode === 'offline' ? 'text-amber-200/90' : 'text-cyan-200/90'">
+                                <template x-if="openBidMode === 'offline'">
+                                    <span>
+                                        <span class="font-bold">Offline round.</span>
+                                        Team managers cannot enter sealed bids from their own screens —
+                                        type each amount below and press Set. Switch to
+                                        <span class="font-semibold">Live</span> on the toolbar if the teams
+                                        should enter their own.
+                                    </span>
+                                </template>
+                                <template x-if="openBidMode !== 'offline'">
+                                    <span>
+                                        <span class="font-bold">Teams enter their own amounts.</span>
+                                        <span x-show="sealed.requires_acceptance">
+                                            Each team must accept the round first — a team still reading
+                                            <span class="font-semibold">Awaiting</span> has not accepted yet.
+                                        </span>
+                                        You can still enter on a team's behalf below.
+                                    </span>
+                                </template>
+                            </p>
+                        </div>
+
                         {{-- Tie banner --}}
                         <template x-if="sealed.tie_amount && ['tie','awaiting_lot'].includes(sealed.state)">
                             <div class="mb-4 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-center font-bold">
