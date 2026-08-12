@@ -454,11 +454,18 @@
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label for="min_squad_size" class="form-label text-xs">Minimum Squad Size</label>
+                                        {{-- One squad number. There is no separate maximum: nothing in
+                                             the auction used the difference except to refuse a save when
+                                             the pair disagreed. max_squad_size is derived from this
+                                             server-side. --}}
+                                        <label for="min_squad_size" class="form-label text-xs">Team Size</label>
                                         <input type="number" name="min_squad_size" id="min_squad_size" min="1" max="50"
                                                x-model.number="minSquadSize"
                                                class="form-control" placeholder="11">
-                                        <p class="text-xs text-gray-400 mt-1">Players each team must end up with.</p>
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            Players in each team's squad. Drives the reserve below and the
+                                            count shown on the live screens.
+                                        </p>
                                     </div>
                                     <div>
                                         <label for="min_price_per_player" class="form-label text-xs">Reserve Per Remaining Place</label>

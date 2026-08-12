@@ -16,11 +16,15 @@ use Tests\TestCase;
  * A refused save must say so.
  *
  * An operator set Maximum Squad Size to 8 on an auction whose minimum is 11, along with two
- * retention settings, and pressed Save. `max_squad_size` is validated `gte:min_squad_size`, so
- * the whole request was rejected — but the edit page rendered `$errors` nowhere and the form is
- * Alpine state seeded from the model rather than from old(), so the page reloaded looking
- * untouched with nothing written. Indistinguishable from a broken save, and the two settings
- * that were perfectly valid went down with it.
+ * retention settings, and pressed Save. The whole request was rejected — but the edit page
+ * rendered `$errors` nowhere and the form is Alpine state seeded from the model rather than from
+ * old(), so the page reloaded looking untouched with nothing written. Indistinguishable from a
+ * broken save, and the two settings that were perfectly valid went down with it.
+ *
+ * That particular conflict is now impossible: the wizard asks for one Team Size and derives the
+ * maximum from it. The class of bug is not, so these tests moved to a refusal that can still
+ * happen — a negative team budget, which also sits on step 2 (Financials), so the "reopens on
+ * the failing step" guarantee is still exercised where it was.
  */
 class AuctionSaveFailureIsVisibleTest extends TestCase
 {
@@ -69,7 +73,7 @@ class AuctionSaveFailureIsVisibleTest extends TestCase
     }
 
     #[Test]
-    public function a_maximum_squad_below_the_minimum_is_refused_with_a_message_that_names_both(): void
+    public function a_refused_field_takes_the_whole_form_down_with_it(): void
     {
         $org = Organization::create(['name' => 'Org']);
         $tournament = Tournament::create(['name' => 'C', 'slug' => 'c', 'start_date' => '2026-01-01', 'organization_id' => $org->id]);
@@ -78,22 +82,18 @@ class AuctionSaveFailureIsVisibleTest extends TestCase
         $response = $this->actingAs($this->admin($org))
             ->from(route('admin.auctions.edit', $auction))
             ->put(route('admin.auctions.update', $auction), $this->payload($auction, [
-                'max_squad_size' => 8,
+                'max_budget_per_team' => -5,
                 'default_retained_value' => 2000000,
                 'expected_retained_per_team' => 2,
             ]));
 
-        $response->assertSessionHasErrors('max_squad_size');
-
-        $message = session('errors')->first('max_squad_size');
-        $this->assertStringContainsString('Maximum Squad Size', $message);
-        $this->assertStringContainsString('Minimum Squad Size', $message);
+        $response->assertSessionHasErrors('max_budget_per_team');
 
         // Everything in the request goes down together — which is why the operator has to be
         // told, rather than left to conclude the form is broken.
         $auction->refresh();
-        $this->assertNull($auction->max_squad_size);
         $this->assertNull($auction->default_retained_value);
+        $this->assertNull($auction->expected_retained_per_team);
     }
 
     #[Test]
@@ -106,13 +106,14 @@ class AuctionSaveFailureIsVisibleTest extends TestCase
 
         $this->actingAs($admin)
             ->from(route('admin.auctions.edit', $auction))
-            ->put(route('admin.auctions.update', $auction), $this->payload($auction, ['max_squad_size' => 8]));
+            ->put(route('admin.auctions.update', $auction), $this->payload($auction, ['max_budget_per_team' => -5]));
 
         $page = $this->actingAs($admin)->get(route('admin.auctions.edit', $auction));
 
         $page->assertOk();
+        // The layout's banner, on the page the operator lands back on.
         $page->assertSee('Nothing was saved');
-        $page->assertSee('Maximum Squad Size cannot be below the Minimum Squad Size', false);
+        $page->assertSee('max budget per team', false);
     }
 
     #[Test]
@@ -126,13 +127,13 @@ class AuctionSaveFailureIsVisibleTest extends TestCase
         $this->actingAs($admin)
             ->from(route('admin.auctions.edit', $auction))
             ->put(route('admin.auctions.update', $auction), $this->payload($auction, [
-                'max_squad_size' => 8,
+                'max_budget_per_team' => -5,
                 'expected_retained_per_team' => 2,
             ]));
 
         $html = $this->actingAs($admin)->get(route('admin.auctions.edit', $auction))->getContent();
 
-        // Squad size lives on step 2 (Financials), not on the front of the wizard.
+        // The team budget lives on step 2 (Financials), not on the front of the wizard.
         $this->assertStringContainsString('auctionEditForm(', $html);
         $this->assertMatchesRegularExpression('/auctionEditForm\(.*, 2\)/s', $html);
 
@@ -140,7 +141,7 @@ class AuctionSaveFailureIsVisibleTest extends TestCase
         // JSON inside the x-data attribute, so its quotes arrive HTML-escaped; and a number
         // typed into the form posts as a string while a test posts an int, so accept either.
         $decoded = html_entity_decode($html, ENT_QUOTES);
-        $this->assertMatchesRegularExpression('/"max_squad_size":"?8"?/', $decoded);
+        $this->assertMatchesRegularExpression('/"max_budget_per_team":"?-5"?/', $decoded);
         $this->assertMatchesRegularExpression('/"expected_retained_per_team":"?2"?/', $decoded);
     }
 
@@ -153,13 +154,15 @@ class AuctionSaveFailureIsVisibleTest extends TestCase
 
         $this->actingAs($this->admin($org))
             ->put(route('admin.auctions.update', $auction), $this->payload($auction, [
-                'max_squad_size' => 14,
+                'min_squad_size' => 14,
                 'default_retained_value' => 2000000,
                 'expected_retained_per_team' => 2,
             ]))
             ->assertSessionHasNoErrors();
 
         $auction->refresh();
+        // One Team Size, feeding both columns.
+        $this->assertSame(14, $auction->min_squad_size);
         $this->assertSame(14, $auction->max_squad_size);
         $this->assertEquals(2000000, $auction->default_retained_value);
         $this->assertSame(2, $auction->expected_retained_per_team);

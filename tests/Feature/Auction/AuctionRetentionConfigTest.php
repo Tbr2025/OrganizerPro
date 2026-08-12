@@ -55,6 +55,7 @@ class AuctionRetentionConfigTest extends TestCase
                 'organization_id' => $org->id,
                 'tournament_id' => $tournament->id,
                 'min_squad_size' => 15,
+                // Any max sent is ignored: the wizard asks for ONE squad number now.
                 'max_squad_size' => 25,
                 'default_retained_value' => 5_000_000,
                 'expected_retained_per_team' => 4,
@@ -65,7 +66,8 @@ class AuctionRetentionConfigTest extends TestCase
         $auction->refresh();
 
         $this->assertSame(15, $auction->minSquadSize());
-        $this->assertSame(25, $auction->maxSquadSize());
+        // Derived from Team Size, so the two columns cannot contradict each other.
+        $this->assertSame(15, $auction->maxSquadSize());
         $this->assertSame(5_000_000.0, $auction->defaultRetainedValue());
         $this->assertSame(4, $auction->expectedRetainedPerTeam());
     }
@@ -88,7 +90,7 @@ class AuctionRetentionConfigTest extends TestCase
             ->put(route('admin.auctions.update', $auction), $this->payload([
                 'organization_id' => $org->id,
                 'tournament_id' => $tournament->id,
-                'max_squad_size' => '',
+                'min_squad_size' => 12,
                 'default_retained_value' => '',
                 'expected_retained_per_team' => '',
             ]))
@@ -97,7 +99,8 @@ class AuctionRetentionConfigTest extends TestCase
 
         $auction->refresh();
 
-        $this->assertNull($auction->max_squad_size);
+        // max_squad_size is no longer clearable on its own — it tracks Team Size.
+        $this->assertSame(12, $auction->max_squad_size);
         $this->assertNull($auction->default_retained_value);
         $this->assertNull($auction->expected_retained_per_team);
         // ...and the accessors fall back to their constants.
@@ -105,8 +108,16 @@ class AuctionRetentionConfigTest extends TestCase
         $this->assertSame(4, $auction->expectedRetainedPerTeam());
     }
 
+    /**
+     * The pair can no longer disagree, because there is no longer a pair.
+     *
+     * The wizard asked for a minimum AND a maximum, and the only thing the difference ever did
+     * was refuse the entire save when they conflicted — which is how a maximum of 8 under a
+     * minimum of 11 silently rejected a whole form, retention settings and all. One Team Size
+     * feeds both columns; a max sent by hand is ignored rather than validated.
+     */
     #[Test]
-    public function a_max_squad_size_below_the_minimum_is_rejected(): void
+    public function a_max_squad_size_sent_by_hand_is_ignored_not_refused(): void
     {
         $org = $this->makeOrganization();
         $tournament = $this->makeTournament($org);
@@ -119,7 +130,9 @@ class AuctionRetentionConfigTest extends TestCase
                 'min_squad_size' => 18,
                 'max_squad_size' => 11,
             ]))
-            ->assertSessionHasErrors('max_squad_size');
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(18, $auction->fresh()->maxSquadSize());
     }
 
     #[Test]

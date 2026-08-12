@@ -797,11 +797,25 @@
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label for="min_squad_size" class="form-label text-xs">Minimum Squad Size</label>
+                                    {{-- ONE squad number, not a minimum and a maximum.
+                                         Two fields asked the operator to distinguish "the squad
+                                         teams must reach" from "the squad teams may reach", and
+                                         nothing in the auction used the difference except to
+                                         refuse a save when the pair disagreed — which is how a
+                                         maximum of 8 under a minimum of 11 silently rejected a
+                                         whole form. `max_squad_size` is mirrored from this on
+                                         save, so the reserve rule and the live screens keep
+                                         reading the columns they always have. --}}
+                                    <label for="min_squad_size" class="form-label text-xs">Team Size</label>
                                     <input type="number" name="min_squad_size" id="min_squad_size" min="1" max="50"
                                            x-model.number="auctionData.min_squad_size"
                                            class="form-control" placeholder="11">
-                                    <p class="text-xs text-gray-400 mt-1">Players each team must end up with.</p>
+                                    {{-- Mirrored, so the two columns can never disagree again. --}}
+                                    <input type="hidden" name="max_squad_size" :value="auctionData.min_squad_size">
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        Players in each team's squad. Drives the reserve below and the
+                                        count shown on the live screens.
+                                    </p>
                                 </div>
                                 <div>
                                     <label for="min_price_per_player" class="form-label text-xs">Reserve Per Remaining Place</label>
@@ -815,28 +829,6 @@
                                     <input type="hidden" name="min_price_per_player" :value="auctionData.min_price_per_player">
                                     <p class="text-xs text-gray-400 mt-1">Leave blank to use the base price above.</p>
                                 </div>
-                                <div>
-                                    <label for="max_squad_size" class="form-label text-xs">Maximum Squad Size</label>
-                                    {{-- :min tracks the minimum, so the browser refuses a ceiling
-                                         below the floor before the form is ever posted. The server
-                                         enforces the same rule; this only saves the round trip. --}}
-                                    <input type="number" name="max_squad_size" id="max_squad_size"
-                                           :min="auctionData.min_squad_size || 1" max="50"
-                                           x-model.number="auctionData.max_squad_size"
-                                           class="form-control" placeholder="No maximum">
-                                    <template x-if="auctionData.max_squad_size && auctionData.min_squad_size
-                                                    && Number(auctionData.max_squad_size) < Number(auctionData.min_squad_size)">
-                                        <p class="text-xs mt-1 font-semibold text-red-600 dark:text-red-400">
-                                            A maximum of <span x-text="auctionData.max_squad_size"></span> is below the
-                                            minimum of <span x-text="auctionData.min_squad_size"></span> — this will be
-                                            refused. Lower the minimum, or raise this.
-                                        </p>
-                                    </template>
-                                    <p class="text-xs text-gray-400 mt-1">
-                                        Shown on the live screens. Blank means no ceiling — it never blocks a bid.
-                                    </p>
-                                </div>
-
                                 {{-- The second half of "how much can this team bid".
                                      The reserve rule stops a team going broke; it does nothing to stop
                                      one spending 90% of its purse on a single marquee player and filling

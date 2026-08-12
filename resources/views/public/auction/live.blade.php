@@ -832,6 +832,25 @@
             opacity: 0.75;
         }
 
+        /*
+         * Travel plan. Hidden unless the player has one, which most do not — so it is laid out
+         * as an inline-flex row that simply is not painted rather than an empty box holding a
+         * gap open on the artwork.
+         */
+        #travel-plan {
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45em;
+            visibility: hidden;
+            {!! elementStyle($positions, 'travel_plan', ['top'=>470,'left'=>550,'fontSize'=>24,'color'=>'#7dd3fc'], $boxShadowMap, $textShadowMap) !!}
+        }
+        #travel-plan svg {
+            width: 1em;
+            height: 1em;
+            flex-shrink: 0;
+        }
+
         #current-bid {
             position: absolute;
             {!! elementStyle($positions, 'current_bid', ['bottom'=>197,'left'=>234,'fontSize'=>32,'color'=>'#ffffff'], $boxShadowMap, $textShadowMap) !!}
@@ -1407,6 +1426,17 @@
         <div id="base-price"><span id="base-price-value">1,00,000</span></div>
         @endif
 
+        <!-- Travel plan: shown only for a player who has one -->
+        @if(isVisible($positions, 'travel_plan'))
+        <div id="travel-plan">
+            {{-- A paper plane, inline so it takes the element's own colour and font size. --}}
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+            </svg>
+            <span id="travel-plan-value"></span>
+        </div>
+        @endif
+
         <!-- Stats Table -->
         @if(isVisible($positions, 'stats_table'))
         @php
@@ -1903,6 +1933,7 @@
              * whole card rendering when the price was hidden.
              */
             renderBasePrice(ap.base_price, price);
+            renderTravelPlan(ap.player);
 
             if (bidEl) {
                 bidEl.textContent = formatMillions(price);
@@ -2200,6 +2231,7 @@
              * whole card rendering when the price was hidden.
              */
             renderBasePrice(p.base_price, price);
+            renderTravelPlan(p.player);
 
             if (bidEl) {
                 bidEl.textContent = formatMillions(price);
@@ -3207,6 +3239,25 @@
         }
 
         /**
+         * The player's travel plan, when they have one.
+         *
+         * The label is computed by the Player model (travel_plan_label) rather than assembled
+         * here, so the wall, the organizer panel and the downloaded card cannot answer the same
+         * question three different ways. Hidden by visibility rather than display, so a template
+         * author dragging the element in the editor still sees where it sits.
+         */
+        function renderTravelPlan(player) {
+            const el = document.getElementById('travel-plan');
+            if (! el) return;
+
+            const label = player?.travel_plan_label || '';
+            const valueEl = document.getElementById('travel-plan-value');
+
+            if (valueEl) valueEl.textContent = label;
+            el.style.visibility = label ? 'visible' : 'hidden';
+        }
+
+        /**
          * Show the opening figure only when it says something the live figure does not.
          *
          * Before the first bid, `current_bid` IS the base price — so the card read
@@ -3231,7 +3282,7 @@
         function fitCardText() {
             [
                 'player-name', 'player-role', 'player-batting', 'player-bowling',
-                'current-bid', 'bid-label', 'bidder-name', 'sold-text', 'base-price',
+                'current-bid', 'bid-label', 'bidder-name', 'sold-text', 'base-price', 'travel-plan',
             ].forEach((id) => fitTextElement(document.getElementById(id)));
         }
 

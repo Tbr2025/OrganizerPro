@@ -562,6 +562,7 @@
                             'current_bid' => ['label' => 'Current Bid', 'type' => 'text', 'borderColor' => '239,68,68', 'content' => '10.5 L'],
                             'bid_label' => ['label' => 'Bid Label', 'type' => 'text', 'borderColor' => '236,72,153', 'content' => 'SOLD PRICE'],
                             'base_price' => ['label' => 'Base Price', 'type' => 'text', 'borderColor' => '250,204,21', 'content' => '1 M'],
+                            'travel_plan' => ['label' => 'Travel Plan', 'type' => 'text', 'borderColor' => '56,189,248', 'content' => '12 Mar – 20 Mar'],
                             'sold_badge' => ['label' => 'Sold Badge', 'type' => 'box', 'borderColor' => '16,185,129', 'content' => ''],
                             'team_logo' => ['label' => 'Team Logo', 'type' => 'box', 'borderColor' => '6,182,212', 'content' => '<span class="text-cyan-400 text-xs">TEAM LOGO</span>'],
                             'highest_bidder' => ['label' => 'Highest Bidder', 'type' => 'text', 'borderColor' => '0,255,0', 'content' => 'Thunder Kings'],

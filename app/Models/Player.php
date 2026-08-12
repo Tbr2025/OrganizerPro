@@ -153,6 +153,49 @@ class Player extends Model implements MustVerifyEmail
         // 'password', // If players ever have passwords
     ];
 
+    /*
+     * Appended so every JSON payload that already carries a Player carries this too.
+     *
+     * The organizer panel, the LED wall and the card renderer each receive the whole model and
+     * would otherwise need their own copy of the "does this player have a travel plan" rule —
+     * three copies of one question, in two languages.
+     */
+    protected $appends = ['travel_plan_label'];
+
+    /**
+     * The player's travel plan as one short line, or null when there is nothing to say.
+     *
+     * `no_travel_plan` is the player's own "I have not booked anything", so it wins outright:
+     * dates left behind from an earlier edit must not be presented as a plan. Otherwise the
+     * dates are the plan, and a single date is a legitimate answer — somebody who knows when
+     * they arrive but not when they leave.
+     */
+    public function getTravelPlanLabelAttribute(): ?string
+    {
+        if ($this->no_travel_plan) {
+            return null;
+        }
+
+        $from = $this->travel_date_from?->format('d M');
+        $to = $this->travel_date_to?->format('d M');
+
+        if ($from && $to) {
+            return $from === $to ? $from : $from . ' – ' . $to;
+        }
+
+        if ($from) {
+            return 'from ' . $from;
+        }
+
+        if ($to) {
+            return 'until ' . $to;
+        }
+
+        // No dates at all, but transport was asked for — worth saying, since it is the fact an
+        // organizer is actually chasing.
+        return $this->transportation_required ? 'Transport needed' : null;
+    }
+
     // ... (your existing relationships) ...
     public function team()
     {

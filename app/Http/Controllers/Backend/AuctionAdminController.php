@@ -331,10 +331,6 @@ class AuctionAdminController extends Controller
             'organization_id.required' => 'You must select an organization for the auction.',
             'tournament_id.required' => 'You must select a tournament for the auction.',
             'bid_rules.*.to.gt' => 'The "To" value in a bid rule must be greater than the "From" value.',
-            // `gte` renders as "must be greater than or equal to min squad size", which names
-            // neither the field as it is labelled on screen nor the number in the way. This is
-            // the rule that silently refused a whole auction save for want of a message.
-            'max_squad_size.gte' => 'Maximum Squad Size cannot be below the Minimum Squad Size. Lower the minimum first, or raise the maximum.',
         ];
 
         $validated = $request->validate([
@@ -352,8 +348,6 @@ class AuctionAdminController extends Controller
             // Open-round per-player ceiling, as a share of a team's allocation. Blank means no
             // ceiling; 0 would mean "may not bid at all", so the floor is 1.
             'max_bid_pct_of_budget' => 'nullable|numeric|min:1|max:100',
-            // A ceiling below the floor is incoherent; everything else here is advisory.
-            'max_squad_size' => 'nullable|integer|min:1|max:50|gte:min_squad_size',
             'auction_template_id' => 'nullable|exists:auction_templates,id',
             'ticker_template_id' => 'nullable|exists:auction_templates,id',
             'default_retained_value' => 'nullable|numeric|min:0',
@@ -475,7 +469,17 @@ class AuctionAdminController extends Controller
                 // blank field stays blank and stays clearable.
                 'auction_template_id' => $validated['auction_template_id'] ?? null,
                 'ticker_template_id' => $validated['ticker_template_id'] ?? null,
-                'max_squad_size' => $validated['max_squad_size'] ?? null,
+                /*
+                 * Derived from Team Size, never taken from the request.
+                 *
+                 * The wizard used to ask for a minimum AND a maximum, and nothing in the auction
+                 * used the difference — the only thing the pair did was refuse the whole save
+                 * when they disagreed, which is how a maximum of 8 under a minimum of 11 silently
+                 * rejected an entire form. One number now feeds both columns, so the reserve rule
+                 * and the live screens keep reading the fields they always have and the two can
+                 * never contradict each other again.
+                 */
+                'max_squad_size' => $validated['min_squad_size'] ?? Auction::DEFAULT_MIN_SQUAD_SIZE,
                 'default_retained_value' => $validated['default_retained_value'] ?? null,
                 'expected_retained_per_team' => $validated['expected_retained_per_team'] ?? null,
                 'closed_bid_step' => $validated['closed_bid_step'] ?? null,
@@ -1387,10 +1391,6 @@ class AuctionAdminController extends Controller
             'tournament_id.required' => 'You must select a tournament for the auction.',
             'bid_rules.*.to.gt' => 'The "To" value in a bid rule must be greater than the "From" value.',
             'bid_rules.*.increment.min' => 'A bid increment must be greater than zero, otherwise bidding cannot progress past that band.',
-            // `gte` renders as "must be greater than or equal to min squad size", which names
-            // neither the field as it is labelled on screen nor the number in the way. This is
-            // the rule that silently refused a whole auction save for want of a message.
-            'max_squad_size.gte' => 'Maximum Squad Size cannot be below the Minimum Squad Size. Lower the minimum first, or raise the maximum.',
         ];
 
         $validated = $request->validate([
@@ -1412,8 +1412,6 @@ class AuctionAdminController extends Controller
             // Open-round per-player ceiling, as a share of a team's allocation. Blank means no
             // ceiling; 0 would mean "may not bid at all", so the floor is 1.
             'max_bid_pct_of_budget' => 'nullable|numeric|min:1|max:100',
-            // A ceiling below the floor is incoherent; everything else here is advisory.
-            'max_squad_size' => 'nullable|integer|min:1|max:50|gte:min_squad_size',
             'auction_template_id' => 'nullable|exists:auction_templates,id',
             'ticker_template_id' => 'nullable|exists:auction_templates,id',
             'default_retained_value' => 'nullable|numeric|min:0',
@@ -1524,7 +1522,17 @@ class AuctionAdminController extends Controller
                 // impossible to clear, the same trap the colour fields fell into.
                 'auction_template_id' => $validated['auction_template_id'] ?? null,
                 'ticker_template_id' => $validated['ticker_template_id'] ?? null,
-                'max_squad_size' => $validated['max_squad_size'] ?? null,
+                /*
+                 * Derived from Team Size, never taken from the request.
+                 *
+                 * The wizard used to ask for a minimum AND a maximum, and nothing in the auction
+                 * used the difference — the only thing the pair did was refuse the whole save
+                 * when they disagreed, which is how a maximum of 8 under a minimum of 11 silently
+                 * rejected an entire form. One number now feeds both columns, so the reserve rule
+                 * and the live screens keep reading the fields they always have and the two can
+                 * never contradict each other again.
+                 */
+                'max_squad_size' => $validated['min_squad_size'] ?? Auction::DEFAULT_MIN_SQUAD_SIZE,
                 'default_retained_value' => $validated['default_retained_value'] ?? null,
                 'expected_retained_per_team' => $validated['expected_retained_per_team'] ?? null,
                 'closed_bid_step' => $validated['closed_bid_step'] ?? null,

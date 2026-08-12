@@ -354,6 +354,10 @@ class AuctionTemplate extends Model
             // follows whatever state the player is in, so it cannot label a second figure —
             // hence a element of its own, captioned by its own ::before on the wall.
             'base_price',
+            // Travel plan: the player's dates, when they have any. Its own element because an
+            // organizer decides where it belongs on the artwork — and because it is absent for
+            // most players, so it cannot share a line with something always present.
+            'travel_plan',
             'sold_badge', 'team_logo', 'highest_bidder', 'stats_table',
         ];
     }
@@ -425,6 +429,14 @@ class AuctionTemplate extends Model
              * of sold_badge and team_logo below, and of stats_table which starts at x 550.
              */
             'base_price' => ['bottom' => 197, 'left' => 400, 'fontSize' => 26],
+            /*
+             * Below the stats table, not on top of it.
+             *
+             * The first default put this at top 470, which is inside the stats block
+             * (488-635 on the shipped artwork) — so the element landed on the table in the
+             * editor AND on the wall. Same coordinates in both, but the wrong ones.
+             */
+            'travel_plan' => ['top' => 650, 'left' => 545, 'fontSize' => 24],
             'highest_bidder' => ['top' => 715, 'left' => 600, 'fontSize' => 28],
             'stats_table' => ['top' => 545, 'left' => 550, 'width' => 500, 'height' => 150, 'fontSize' => 20,
                 /*
