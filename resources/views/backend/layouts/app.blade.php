@@ -123,6 +123,46 @@ class="bg-gray-50 dark:bg-dark-bg">
 
             <!-- Main Content -->
             <main class="min-h-[calc(100vh-80px)] p-4 lg:p-6">
+                {{--
+                    Why a refused save was invisible.
+
+                    The flash-message block further down turns session('success'|'error'|…)
+                    into toasts, but a validation failure is not a flash message — Laravel
+                    redirects back with an error BAG, and roughly thirty admin pages render
+                    it nowhere. So a rejected form reloaded looking untouched, with nothing
+                    on screen and nothing written to the database: indistinguishable from a
+                    save that simply did not work. On the auction wizard that meant one
+                    out-of-range field silently discarding the whole form.
+
+                    Placed in the layout so every admin page inherits it, and rendered as a
+                    static panel rather than a toast: a toast dismisses itself, and these
+                    have to stay on screen while the operator hunts for the field. Every
+                    message is listed, because a wizard can fail several at once and fixing
+                    them one reload at a time is miserable.
+                --}}
+                @if ($errors->any())
+                    <div class="mb-6 rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-900/60 dark:bg-red-950/40"
+                         role="alert">
+                        <div class="flex items-start gap-3">
+                            <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" fill="none"
+                                 stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+                            </svg>
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold text-red-800 dark:text-red-200">
+                                    Nothing was saved &mdash; please fix the following:
+                                </p>
+                                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-red-700 dark:text-red-300">
+                                    @foreach ($errors->all() as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 @yield('admin-content')
             </main>
             <!-- End Main Content -->

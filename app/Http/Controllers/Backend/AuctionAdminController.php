@@ -331,6 +331,10 @@ class AuctionAdminController extends Controller
             'organization_id.required' => 'You must select an organization for the auction.',
             'tournament_id.required' => 'You must select a tournament for the auction.',
             'bid_rules.*.to.gt' => 'The "To" value in a bid rule must be greater than the "From" value.',
+            // `gte` renders as "must be greater than or equal to min squad size", which names
+            // neither the field as it is labelled on screen nor the number in the way. This is
+            // the rule that silently refused a whole auction save for want of a message.
+            'max_squad_size.gte' => 'Maximum Squad Size cannot be below the Minimum Squad Size. Lower the minimum first, or raise the maximum.',
         ];
 
         $validated = $request->validate([
@@ -1348,6 +1352,10 @@ class AuctionAdminController extends Controller
             'tournament_id.required' => 'You must select a tournament for the auction.',
             'bid_rules.*.to.gt' => 'The "To" value in a bid rule must be greater than the "From" value.',
             'bid_rules.*.increment.min' => 'A bid increment must be greater than zero, otherwise bidding cannot progress past that band.',
+            // `gte` renders as "must be greater than or equal to min squad size", which names
+            // neither the field as it is labelled on screen nor the number in the way. This is
+            // the rule that silently refused a whole auction save for want of a message.
+            'max_squad_size.gte' => 'Maximum Squad Size cannot be below the Minimum Squad Size. Lower the minimum first, or raise the maximum.',
         ];
 
         $validated = $request->validate([

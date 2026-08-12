@@ -6,8 +6,14 @@
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8">
     <x-breadcrumbs :breadcrumbs="['title' => 'Edit Auction', 'items' => [['label' => 'Auctions', 'url' => route('admin.auctions.index')]]]" />
 </div>
+@php
+    // A refused save used to come back on step 1 showing the DATABASE values, so the operator
+    // saw their input vanish with no clue where the problem was. See App\Support\AuctionFormWizard.
+    $formData = App\Support\AuctionFormWizard::repopulate($auction->toArray());
+    $openStep = App\Support\AuctionFormWizard::firstFailingStep($errors->getBag('default'));
+@endphp
 <div class="p-4 mx-auto max-w-7xl md:p-6 lg:p-8"
-     x-data="auctionEditForm({{ json_encode($auction) }}, {{ json_encode($availablePlayers) }}, {{ json_encode($existingPools) }}, {{ json_encode($unpooled) }})"
+     x-data="auctionEditForm({{ json_encode($formData) }}, {{ json_encode($availablePlayers) }}, {{ json_encode($existingPools) }}, {{ json_encode($unpooled) }}, {{ $openStep }})"
      x-init="init()">
 
     {{-- Toast Notification --}}
@@ -785,9 +791,21 @@
                                 </div>
                                 <div>
                                     <label for="max_squad_size" class="form-label text-xs">Maximum Squad Size</label>
-                                    <input type="number" name="max_squad_size" id="max_squad_size" min="1" max="50"
+                                    {{-- :min tracks the minimum, so the browser refuses a ceiling
+                                         below the floor before the form is ever posted. The server
+                                         enforces the same rule; this only saves the round trip. --}}
+                                    <input type="number" name="max_squad_size" id="max_squad_size"
+                                           :min="auctionData.min_squad_size || 1" max="50"
                                            x-model.number="auctionData.max_squad_size"
                                            class="form-control" placeholder="No maximum">
+                                    <template x-if="auctionData.max_squad_size && auctionData.min_squad_size
+                                                    && Number(auctionData.max_squad_size) < Number(auctionData.min_squad_size)">
+                                        <p class="text-xs mt-1 font-semibold text-red-600 dark:text-red-400">
+                                            A maximum of <span x-text="auctionData.max_squad_size"></span> is below the
+                                            minimum of <span x-text="auctionData.min_squad_size"></span> — this will be
+                                            refused. Lower the minimum, or raise this.
+                                        </p>
+                                    </template>
                                     <p class="text-xs text-gray-400 mt-1">
                                         Shown on the live screens. Blank means no ceiling — it never blocks a bid.
                                     </p>
@@ -1395,9 +1413,11 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
 document.addEventListener('alpine:init', () => {
-    Alpine.data('auctionEditForm', (auctionData, availablePlayersData, existingPoolsData, unpooledData) => ({
+    Alpine.data('auctionEditForm', (auctionData, availablePlayersData, existingPoolsData, unpooledData, openStep) => ({
         // State
-        step: 1,
+        // Not always 1: after a refused save this is the earliest step that failed, so the
+        // operator lands on the field the error message is talking about.
+        step: openStep || 1,
         auctionData: { ...auctionData },
         rules: [],
         // Optional quick-bid jump amounts (a flat list of numbers).

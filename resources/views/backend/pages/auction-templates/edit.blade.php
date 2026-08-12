@@ -30,16 +30,6 @@
         </div>
     @endif
 
-    @if($errors->any())
-        <div class="mb-6 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
-            <ul class="list-disc list-inside">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
     <form action="{{ route('admin.auction-templates.update', $template) }}" method="POST" enctype="multipart/form-data">
         @csrf
         @method('PUT')

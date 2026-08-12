@@ -40,19 +40,7 @@
 
             <form action="{{ route('admin.auctions.store') }}" method="POST" enctype="multipart/form-data" @submit="serializePools()">
                 @csrf
-                {{-- START: DEBUGGING BLOCK - To See All Errors --}}
-                {{-- ======================================================= --}}
-                @if ($errors->any())
-                    <div
-                        class="p-4 mb-4 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 rounded-lg text-red-800 dark:text-red-200">
-                        <h3 class="font-bold">Validation Errors Found:</h3>
-                        <ul class="mt-2 list-disc list-inside text-sm">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
+                {{-- Validation errors are listed by the admin layout, above this card. --}}
                 {{-- Step Navigation --}}
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700">
                     <nav class="flex space-x-4" aria-label="Tabs">
@@ -820,7 +808,10 @@
 <script>
 function auctionCreateForm() {
     return {
-        step: 1,
+        // Not always 1: after a refused save this is the earliest step that failed, so the
+        // operator lands on the field the layout's error banner is talking about rather than
+        // on the front of a five-step wizard. Fields are already old()-seeded below.
+        step: {{ App\Support\AuctionFormWizard::firstFailingStep($errors->getBag('default')) }},
         bid_type: '{{ old('bid_type', 'open') }}',
         bid_timer_seconds: {{ old('bid_timer_seconds', 30) }},
         bid_timer_reset_seconds: {{ old('bid_timer_reset_seconds', 15) }},
