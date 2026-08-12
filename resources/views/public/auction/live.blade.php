@@ -1253,9 +1253,9 @@
                 border:1px solid rgba(148,163,184,0.25);
                 box-shadow:0 24px 70px rgba(0,0,0,0.6);">
 
-        {{-- A depleting ring reads as "running out" at a glance from the back of a hall,
-             which a plain number does not. --}}
-        <div style="position:relative;width:96px;height:96px;flex-shrink:0;">
+        {{-- The dial. Hidden on the wall — see renderClock(); the hall is told that a player
+             is closing, not counted down at. The organizer's panel keeps the numbers. --}}
+        <div id="clock-dial" style="position:relative;width:96px;height:96px;flex-shrink:0;">
             <svg width="96" height="96" viewBox="0 0 96 96" style="transform:rotate(-90deg);">
                 <circle cx="48" cy="48" r="42" fill="none" stroke="rgba(148,163,184,0.22)" stroke-width="7"/>
                 <circle id="clock-ring" cx="48" cy="48" r="42" fill="none"
@@ -1902,8 +1902,7 @@
              * switch this element off, and an unguarded lookup here is exactly what stopped the
              * whole card rendering when the price was hidden.
              */
-            const baseEl = document.getElementById('base-price-value');
-            if (baseEl) baseEl.textContent = formatMillions(ap.base_price || 0);
+            renderBasePrice(ap.base_price, price);
 
             if (bidEl) {
                 bidEl.textContent = formatMillions(price);
@@ -2200,8 +2199,7 @@
              * switch this element off, and an unguarded lookup here is exactly what stopped the
              * whole card rendering when the price was hidden.
              */
-            const baseEl = document.getElementById('base-price-value');
-            if (baseEl) baseEl.textContent = formatMillions(p.base_price || 0);
+            renderBasePrice(p.base_price, price);
 
             if (bidEl) {
                 bidEl.textContent = formatMillions(price);
@@ -2425,6 +2423,7 @@
             const secondsEl = document.getElementById('clock-seconds');
             const caption = document.getElementById('clock-caption');
             const callEl = document.getElementById('clock-call');
+            const dial = document.getElementById('clock-dial');
             if (!hud || !ring) return;
 
             // A countdown only means something while somebody is on the block. After a
@@ -2490,19 +2489,26 @@
                     lastCallStage = call.stage;
                 }
             } else {
+                /*
+                 * No countdown on the wall.
+                 *
+                 * A ticking number on a hall screen adds nothing the room can act on — the
+                 * clock belongs to whoever is running the auction — and it duplicated the
+                 * countdown already on the organizer's panel, so the two could visibly
+                 * disagree by a poll in front of everyone. The wall is told only when a
+                 * player is CLOSING, which is the part the room has to react to.
+                 *
+                 * The clock itself is untouched: timerRemaining still ticks, finalCallFor()
+                 * still fires off it, and the closing-call branch above still runs.
+                 */
                 lastCallStage = 0;
-                const colour = seconds <= 10 ? '#fbbf24' : '#22d3ee';
-                ring.setAttribute('stroke', colour);
-                secondsEl.style.color = '#fff';
-                caption.textContent = clockPaused ? 'Paused' : 'Time Remaining';
-                caption.style.color = clockPaused ? '#fbbf24' : '#94a3b8';
-                callEl.textContent = '';
-                callEl.style.display = 'none';
-                hud.style.borderColor = 'rgba(148,163,184,0.25)';
-                hud.style.boxShadow = '0 24px 70px rgba(0,0,0,0.6)';
+                hud.classList.add('hidden');
                 hud.style.animation = 'none';
+                return;
             }
 
+            // Reached only during a closing call, and the dial goes with the countdown.
+            if (dial) dial.style.display = 'none';
             secondsEl.textContent = seconds;
         }
 
@@ -3198,6 +3204,28 @@
                 size -= 1;
                 el.style.fontSize = size + 'px';
             }
+        }
+
+        /**
+         * Show the opening figure only when it says something the live figure does not.
+         *
+         * Before the first bid, `current_bid` IS the base price — so the card read
+         * "BASE VALUE 1M Points" next to "BASE PRICE 1M Points": the same number twice, in
+         * two different labels, which looks like a rendering fault rather than a design.
+         * The opening figure earns its place the moment the price moves away from it, and
+         * on a sold card, where the two together tell the story of the lot.
+         */
+        function renderBasePrice(basePrice, livePrice) {
+            const el = document.getElementById('base-price');
+            if (!el) return;
+
+            const base = Number(basePrice || 0);
+            const live = Number(livePrice || 0);
+            const valueEl = document.getElementById('base-price-value');
+
+            if (valueEl) valueEl.textContent = formatMillions(base);
+
+            el.style.visibility = (base > 0 && live > base) ? 'visible' : 'hidden';
         }
 
         function fitCardText() {
