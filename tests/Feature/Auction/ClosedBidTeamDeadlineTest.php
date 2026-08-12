@@ -254,4 +254,66 @@ class ClosedBidTeamDeadlineTest extends TestCase
         $this->assertStringContainsString("this.sealedEntryState === 'submitted'", $html);
         $this->assertStringNotContainsString("'accepted', 'submitted', 'must_rebid', 'may_opt_in'", $html);
     }
+
+    #[Test]
+    public function an_admin_previewing_a_team_sees_that_teams_sealed_round(): void
+    {
+        ['org' => $org, 'auction' => $auction, 'team' => $team, 'round' => $round] = $this->scenario();
+
+        $this->closedBids()->openEntry($round, null, [$team->id]);
+
+        /*
+         * The bidding page has always honoured ?team_id=, but the polls behind it did not — they
+         * resolved the team from the logged-in user, and a superadmin belongs to none. So every
+         * sealed poll came back with no entry and `invited: false`, and the page told an INVITED
+         * team that the round was between the teams the organizer had selected. The sealed box
+         * could never appear in preview at all.
+         */
+        $sealed = $this->actingAs($this->makeSuperadmin($org))
+            ->getJson(route('team.auction.bidding.api.closed-bid.state', $auction) . '?team_id=' . $team->id)
+            ->assertOk()
+            ->json('sealed');
+
+        $this->assertTrue($sealed['invited']);
+        $this->assertNotNull($sealed['my_entry']);
+    }
+
+    #[Test]
+    public function a_team_manager_cannot_read_another_teams_round_by_asking(): void
+    {
+        ['org' => $org, 'auction' => $auction, 'team' => $team, 'round' => $round, 'user' => $user] = $this->scenario();
+
+        $other = $this->makeTeam($org, 'Bravo', $auction->tournament);
+
+        // Bravo is in the round and has committed an amount; the manager of the other team has not.
+        $this->closedBids()->accept($round, $other);
+        $this->closedBids()->submit($round, $other, 9_400_000, null);
+
+        // The preview path is gated on the admin roles, so a query parameter is not a way into
+        // somebody else's round — the answer must still describe the caller's OWN team.
+        $sealed = $this->actingAs($user)
+            ->getJson(route('team.auction.bidding.api.closed-bid.state', $auction) . '?team_id=' . $other->id)
+            ->assertOk()
+            ->json('sealed');
+
+        $this->assertNull($sealed['my_entry']['amount'] ?? null, "Bravo's amount must not leak to another team");
+        $this->assertNotSame('submitted', $sealed['my_entry']['state'] ?? null);
+    }
+
+    #[Test]
+    public function a_team_started_without_accepting_can_still_accept(): void
+    {
+        ['auction' => $auction, 'user' => $user] = $this->scenario();
+
+        $html = $this->actingAs($user)
+            ->get(route('team.auction.bidding.show', $auction))
+            ->assertOk()
+            ->getContent();
+
+        // The organizer can press Start while a team is still `invited`. The accept panel only
+        // rendered for entry_open, so that team had no way to accept and no bid box either — a
+        // dead end while the clock ran down.
+        $this->assertStringContainsString("['entry_open','collecting'].includes(sealed.state)", $html);
+        $this->assertStringContainsString("['invited','may_opt_in'].includes(sealedEntryState)", $html);
+    }
 }

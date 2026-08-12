@@ -434,9 +434,36 @@ class AuctionBiddingController extends Controller
      * Always from the session, never from the request. Scoped to the tournament because
      * somebody managing teams in several tournaments would otherwise bid as the wrong one.
      */
+    /**
+     * Which team this request speaks for.
+     *
+     * showBiddingPage() has always honoured `?team_id=` so an admin can look at the auction
+     * through a team's eyes — but this did not, so every poll behind that page answered as
+     * "no team at all". A superadmin previewing a team belongs to none, so the sealed state came
+     * back with no entry, `invited: false`, and the page told an invited team that the round was
+     * between the teams the organizer had selected. The sealed box could never appear in preview.
+     *
+     * The preview path is gated on the admin roles exactly as the page is, so a team manager
+     * cannot read another team's round by adding a query parameter. Actions are unaffected:
+     * sealedAction() refuses preview outright, and placeBid() has its own check — this only
+     * decides whose state is being READ.
+     */
     private function resolveTeam(Request $request, Auction $auction)
     {
-        return Auth::user()?->actualTeams()->forTournament($auction->tournament_id)->first();
+        $user = Auth::user();
+        $previewTeamId = $request->query('team_id') ?: session('auction_preview_team_id');
+
+        if ($previewTeamId && $user?->hasRole(['Superadmin', 'Admin'])) {
+            $team = ActualTeam::whereKey($previewTeamId)
+                ->forTournament($auction->tournament_id)
+                ->first();
+
+            if ($team) {
+                return $team;
+            }
+        }
+
+        return $user?->actualTeams()->forTournament($auction->tournament_id)->first();
     }
 
     /** The player on the block, with its sealed round resolved. */

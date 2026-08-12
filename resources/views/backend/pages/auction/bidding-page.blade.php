@@ -306,7 +306,14 @@
                         </template>
 
                         {{-- The conditions, and the decision to enter --}}
-                        <template x-if="sealed.active && sealed.invited !== false && sealed.state === 'entry_open' && sealedEntryState !== 'accepted'">
+                        {{-- Reachable in COLLECTING too, not only entry_open.
+                             The organizer can press Start while a team is still `invited`, and the
+                             accept panel only rendered for entry_open — so that team was left with
+                             no way to accept AND no bid box: a dead end while the clock ran. --}}
+                        <template x-if="sealed.active
+                                        && sealed.invited !== false
+                                        && ['entry_open','collecting'].includes(sealed.state)
+                                        && ['invited','may_opt_in'].includes(sealedEntryState)">
                             <div class="bg-gray-900/60 border border-purple-500/25 rounded-lg p-3.5">
                                 <div class="text-purple-300 text-xs font-bold uppercase tracking-wider mb-2.5 text-center">Enter Sealed Round</div>
 
@@ -746,6 +753,14 @@ function teamBiddingPanel() {
         teamPurse: {{ $purse['auction_purse'] ?? ($maxBudget ?? 0) }},
         maxBidAllowed: {{ $maxBidAllowed ?? 0 }},
         /*
+         * The team this page is being viewed AS, when an admin is previewing.
+         *
+         * The page has always honoured ?team_id=, but its polls did not send it — so every poll
+         * behind a previewed page answered as "no team", and the sealed round in particular came
+         * back with no entry at all. Carried on the requests that are team-specific.
+         */
+        previewTeamId: {{ ($isPreviewMode ?? false) && isset($userTeam) ? (int) $userTeam->id : 'null' }},
+        /*
          * The open round's own ceiling, and why it is what it is.
          *
          * The page has always known maxBidAllowed — it greys the bid button out with
@@ -979,6 +994,11 @@ function teamBiddingPanel() {
         },
 
         /** Is the team in a position to type an amount at all? */
+        /** `?team_id=` when previewing, so a poll answers for the team on screen. */
+        teamQuery() {
+            return this.previewTeamId ? `?team_id=${this.previewTeamId}` : '';
+        },
+
         get sealedCanBid() {
             if (!this.sealed.active || this.sealed.state !== 'collecting') return false;
             // Not one of the teams this round was opened to. Without this, a round that
@@ -1171,7 +1191,7 @@ function teamBiddingPanel() {
 
         async fetchPurse() {
             try {
-                const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/purse", {
+                const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/purse" + this.teamQuery(), {
                     headers: { "Accept": "application/json" },
                 });
                 if (!res.ok) return;
@@ -1193,7 +1213,7 @@ function teamBiddingPanel() {
                 return;
             }
             try {
-                const res = await fetch(`/admin/team/auction/${this.auctionId}/api/closed-bid/state`, {
+                const res = await fetch(`/admin/team/auction/${this.auctionId}/api/closed-bid/state${this.teamQuery()}`, {
                     headers: { Accept: 'application/json' },
                 });
                 if (!res.ok) return;
