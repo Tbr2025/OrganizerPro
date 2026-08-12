@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Auction;
 
 use App\Models\AuctionPlayer;
+use App\Services\Auction\SquadAcquisitionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\CreatesAuctionScenario;
@@ -50,12 +51,9 @@ class TeamSquadAcquisitionTest extends TestCase
             'is_retained' => true, 'team_id' => $team->id, 'retained_price' => 2_000_000,
         ]);
 
-        $controller = app(\App\Http\Controllers\Backend\TeamManagerController::class);
-        $method = new \ReflectionMethod($controller, 'attachAcquisition');
-        $method->setAccessible(true);
 
         $players = collect([$bought->fresh(), $kept->fresh()]);
-        $method->invoke($controller, $players, $team);
+        app(SquadAcquisitionService::class)->attach($players, $team);
 
         $this->assertSame('auction', $players[0]->acquisition);
         $this->assertSame(4_500_000.0, $players[0]->acquisition_price);
@@ -76,12 +74,9 @@ class TeamSquadAcquisitionTest extends TestCase
         // through the auction — so nothing is claimed about them.
         $plain = $this->makePlayer($org, ['name' => 'Plain Pat', 'actual_team_id' => $team->id]);
 
-        $controller = app(\App\Http\Controllers\Backend\TeamManagerController::class);
-        $method = new \ReflectionMethod($controller, 'attachAcquisition');
-        $method->setAccessible(true);
 
         $players = collect([$plain->fresh()]);
-        $method->invoke($controller, $players, $team);
+        app(SquadAcquisitionService::class)->attach($players, $team);
 
         $this->assertNull($players[0]->acquisition);
         $this->assertNull($players[0]->acquisition_price_label);
@@ -105,12 +100,9 @@ class TeamSquadAcquisitionTest extends TestCase
             'sold_to_team_id' => $theirs->id, 'final_price' => 9_000_000,
         ]);
 
-        $controller = app(\App\Http\Controllers\Backend\TeamManagerController::class);
-        $method = new \ReflectionMethod($controller, 'attachAcquisition');
-        $method->setAccessible(true);
 
         $players = collect([$player->fresh()]);
-        $method->invoke($controller, $players, $mine);
+        app(SquadAcquisitionService::class)->attach($players, $mine);
 
         $this->assertNull($players[0]->acquisition, 'a rival\'s purchase must not appear on our squad');
     }

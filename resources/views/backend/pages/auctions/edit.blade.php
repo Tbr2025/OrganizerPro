@@ -757,6 +757,32 @@
                                 <span class="font-bold font-mono px-2 py-0.5 rounded bg-white dark:bg-gray-800"
                                       x-text="unitSample(500000)"></span>
                             </p>
+
+                            {{-- Prices on squad lists.
+                                 Useful to the organizer, awkward on a team manager's screen —
+                                 which is often on a shared table, where what a rival paid for a
+                                 player is exactly the number people lean over to read. The
+                                 Icon Player / Retained badge is unaffected either way; only the
+                                 money is withheld. --}}
+                            <label class="mt-4 flex items-start gap-3 cursor-pointer">
+                                {{-- An unticked checkbox posts nothing, and the server cannot tell
+                                     "unticked" from "this form has no such field" — so the toggle
+                                     could be switched on and never off. This makes the key always
+                                     present. --}}
+                                <input type="hidden" name="show_squad_values" value="0">
+                                <input type="checkbox" name="show_squad_values" value="1"
+                                       x-model="auctionData.show_squad_values"
+                                       class="mt-0.5 w-4 h-4 accent-blue-600">
+                                <span>
+                                    <span class="block text-sm font-medium text-gray-900 dark:text-white">
+                                        Show what each player cost on squad lists
+                                    </span>
+                                    <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Turn this off to keep the prices to yourself. Players are still
+                                        badged as Icon Player or Retained.
+                                    </span>
+                                </span>
+                            </label>
                         </div>
 
                         {{-- Squad reserve: a team must hold back enough purse to fill the

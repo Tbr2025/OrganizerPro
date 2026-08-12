@@ -50,7 +50,7 @@
                                      TeamManagerController::attachAcquisition(). --}}
                                 @if($player->acquisition === 'auction')
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-400/30 text-white">
-                                        AUCTION{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
+                                        ICON PLAYER{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                                     </span>
                                 @elseif($player->acquisition === 'retained')
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/30 text-white">
@@ -101,10 +101,20 @@
                         @else
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">Pending</span>
                         @endif
-                        @if($player->player_mode === 'retained')
+                        {{-- From `acquisition`, not player_mode.
+                             This badge read player_mode === 'retained' — and selling a player
+                             sets that too, so every player bought in the room wore a purple
+                             "Retained" badge here while the chip at the top of the same card
+                             correctly said they were an auction buy. One card, two answers. --}}
+                        @if($player->acquisition === 'retained')
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white">
                                 <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                                Retained
+                                Retained{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
+                            </span>
+                        @elseif($player->acquisition === 'auction')
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-white">
+                                <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                Icon Player{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                             </span>
                         @endif
                         @if($player->user?->hasRole('Team Manager'))

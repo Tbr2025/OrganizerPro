@@ -6,6 +6,7 @@ use App\Helpers\PlayerFormConfig;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\AuctionPlayer;
+use App\Services\Auction\SquadAcquisitionService;
 use App\Models\Auction;
 use App\Models\Player;
 use App\Support\PlayerFilters;
@@ -1039,71 +1040,13 @@ class TeamManagerController extends Controller
 
         $teamPlayers = $query->orderBy('name')->get();
 
-        $this->attachAcquisition($teamPlayers, $team);
+        app(SquadAcquisitionService::class)->attach($teamPlayers, $team);
 
         $breadcrumbs = ['title' => __('My Squad')];
 
         return view('backend.pages.team-manager.squad', compact('team', 'teamPlayers', 'breadcrumbs'));
     }
 
-    /**
-     * Say how each player joined the squad, and what they cost.
-     *
-     * `players.player_mode` cannot answer this: selling a player sets it to `retained`
-     * (AuctionSaleService), so an auction buy and a genuine retention are indistinguishable
-     * by that column — the value `sold` is never written at all. The auction row is the only
-     * honest source:
-     *
-     *   status = sold, sold_to_team_id = this team  -> bought at auction, final_price
-     *   is_retained = true, team_id = this team     -> kept before it, retained_price
-     *
-     * Anyone with neither is simply a squad member who never went through an auction, and is
-     * left alone — they are all players in the end, just acquired differently.
-     *
-     * One query for the whole squad rather than one per player.
-     */
-    private function attachAcquisition($players, ActualTeam $team): void
-    {
-        if ($players->isEmpty() || ! $team->tournament_id) {
-            return;
-        }
-
-        // The tournament's auction, for formatting money in its own unit (Points, coins,
-        // dollars). `$team->auction` is a nullable direct link and is often unset, so the
-        // auction is resolved from the tournament instead.
-        $auction = Auction::where('tournament_id', $team->tournament_id)->latest('id')->first();
-
-        $rows = AuctionPlayer::query()
-            ->whereIn('player_id', $players->pluck('id'))
-            ->whereHas('auction', fn ($q) => $q->where('tournament_id', $team->tournament_id))
-            ->where(function ($q) use ($team) {
-                $q->where(fn ($sold) => $sold->where('status', 'sold')->where('sold_to_team_id', $team->id))
-                    ->orWhere(fn ($kept) => $kept->where('is_retained', true)->where('team_id', $team->id));
-            })
-            ->get()
-            ->keyBy('player_id');
-
-        foreach ($players as $player) {
-            $row = $rows->get($player->id);
-
-            if (! $row) {
-                $player->acquisition = null;
-                $player->acquisition_price = null;
-                $player->acquisition_price_label = null;
-
-                continue;
-            }
-
-            $bought = $row->status === 'sold' && (int) $row->sold_to_team_id === (int) $team->id;
-            $price = (float) ($bought ? $row->final_price : $row->retained_price);
-
-            $player->acquisition = $bought ? 'auction' : 'retained';
-            $player->acquisition_price = $price;
-            $player->acquisition_price_label = $price > 0
-                ? ($auction ? $auction->formatAmount($price) : format_points($price))
-                : null;
-        }
-    }
 
     /**
      * List other teams in the same tournament

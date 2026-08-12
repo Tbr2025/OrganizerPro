@@ -177,6 +177,20 @@
             $pivotPlayerIds = $pivotPlayers->pluck('player_id')->unique()->toArray();
             $pivotPlayersMap = \App\Models\Player::whereIn('id', $pivotPlayerIds)->get()->keyBy('id');
 
+            /*
+             * How each of these players got here, and what they cost.
+             *
+             * Attached to THIS collection rather than in the controller: the roster on this page
+             * is read straight from the pivot table here, not from $actualTeam->users, so a
+             * controller-side decoration would land on models this loop never looks at.
+             *
+             * The source is the auction row, never players.player_mode — selling sets that to
+             * `retained` as well as keeping does, which is why this page used to call every
+             * player bought in the room "Retained" and offer to un-retain them.
+             */
+            app(\App\Services\Auction\SquadAcquisitionService::class)
+                ->attach($pivotPlayersMap->values(), $actualTeam);
+
             // For auction tournaments, filter pivot roster to only retained/sold players
             if ($isAuctionTournament) {
                 $pivotPlayers = $pivotPlayers->filter(function ($assignment) use ($pivotPlayersMap) {
@@ -213,10 +227,25 @@
                                                     {{ ucfirst($tAssignment->role) }}
                                                 </span>
                                             @endif
-                                            @if($tPlayer->player_mode === 'retained')
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 ml-1">
-                                                    Retained{{ $tPlayer->retained_value ? ' (' . number_format($tPlayer->retained_value) . ')' : '' }}
+                                            {{-- How this player got here, from the auction row rather than
+                                                 from players.player_mode. Selling sets player_mode to
+                                                 `retained` too, so this page called every player bought in
+                                                 the room "Retained" — and then offered to un-retain them,
+                                                 which would have quietly stripped a purchase.
+
+                                                 Prices come through acquisition_price_label, which is null
+                                                 when the auction has squad values switched off, so this
+                                                 template does not have to know about that setting. --}}
+                                            @if($tPlayer->acquisition === 'auction')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 ml-1">
+                                                    Icon Player{{ $tPlayer->acquisition_price_label ? ' (' . $tPlayer->acquisition_price_label . ')' : '' }}
                                                 </span>
+                                            @elseif($tPlayer->acquisition === 'retained')
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 ml-1">
+                                                    Retained{{ $tPlayer->acquisition_price_label ? ' (' . $tPlayer->acquisition_price_label . ')' : '' }}
+                                                </span>
+                                                {{-- Only offered for a genuine retention. Un-retaining an
+                                                     auction buy is not a thing that should be possible. --}}
                                                 <form action="{{ route('admin.players.unretain', $tPlayer) }}" method="POST" class="inline ml-1"
                                                     onsubmit="return confirm('Remove retention for {{ $tPlayer->name }}?')">
                                                     @csrf

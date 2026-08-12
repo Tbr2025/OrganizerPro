@@ -371,6 +371,7 @@ class AuctionAdminController extends Controller
             // What amounts are called on every screen.
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
+            'show_squad_values' => 'nullable|boolean',
             'start_at' => 'required|date',
             'end_at' => 'required|date|after:start_at',
             'bid_rules' => 'required|array|min:1',
@@ -485,6 +486,18 @@ class AuctionAdminController extends Controller
                 'closed_bid_tie_breaker' => $validated['closed_bid_tie_breaker'] ?? null,
                 'amount_unit' => $validated['amount_unit'] ?? Auction::UNIT_POINTS,
                 'amount_unit_label' => $validated['amount_unit_label'] ?? null,
+                /*
+                 * has() then boolean(), not boolean(default: true).
+                 *
+                 * An unticked checkbox posts nothing, and boolean($key, true) returns the
+                 * default when the key is ABSENT — so the toggle could be switched on and never
+                 * off. The edit form posts a hidden 0 alongside it so the key is always present
+                 * and a tick is honoured either way; the create wizard renders no such field, so
+                 * absence there correctly means "new auctions show values".
+                 */
+                'show_squad_values' => $request->has('show_squad_values')
+                    ? $request->boolean('show_squad_values')
+                    : true,
                 'start_at' => $validated['start_at'],
                 'end_at' => $validated['end_at'],
                 'bid_rules' => $validated['bid_rules'],
@@ -1416,6 +1429,7 @@ class AuctionAdminController extends Controller
             // What amounts are called on every screen.
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
+            'show_squad_values' => 'nullable|boolean',
             'bid_rules' => 'required|array|min:1',
             'bid_rules.*.from' => 'required|numeric|min:0',
             'bid_rules.*.to' => 'required|numeric|gt:bid_rules.*.from',
@@ -1521,6 +1535,18 @@ class AuctionAdminController extends Controller
                 'closed_bid_tie_breaker' => $validated['closed_bid_tie_breaker'] ?? null,
                 'amount_unit' => $validated['amount_unit'] ?? $auction->amount_unit ?? Auction::UNIT_POINTS,
                 'amount_unit_label' => $validated['amount_unit_label'] ?? null,
+                /*
+                 * has() then boolean(), not boolean(default: true).
+                 *
+                 * An unticked checkbox posts nothing, and boolean($key, true) returns the
+                 * default when the key is ABSENT — so the toggle could be switched on and never
+                 * off. The edit form posts a hidden 0 alongside it so the key is always present
+                 * and a tick is honoured either way; the create wizard renders no such field, so
+                 * absence there correctly means "new auctions show values".
+                 */
+                'show_squad_values' => $request->has('show_squad_values')
+                    ? $request->boolean('show_squad_values')
+                    : true,
                 'bid_rules' => $validated['bid_rules'],
                 'bid_type' => $validated['bid_type'],
                 'bid_timer_seconds' => $validated['bid_timer_seconds'],

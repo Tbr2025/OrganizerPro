@@ -24,6 +24,7 @@ class Auction extends Model
         'max_bid_pct_of_budget',
         'amount_unit',
         'amount_unit_label',
+        'show_squad_values',
         'notifications_enabled',
         'email_test_mode',
         'email_dispatch',
@@ -93,6 +94,7 @@ class Auction extends Model
         'final_call_enabled' => 'boolean',
         'final_call_interval_seconds' => 'integer',
         'notifications_enabled' => 'boolean',
+        'show_squad_values' => 'boolean',
         'email_test_mode' => 'boolean',
         'emails_flushed_at' => 'datetime',
     ];
@@ -174,6 +176,19 @@ class Auction extends Model
             'label' => $this->amountUnitLabel(),
             'prefix' => $this->amountUnitIsPrefix(),
         ];
+    }
+
+    /**
+     * Whether squad lists show what each player cost.
+     *
+     * Prices are useful to the organizer and awkward on a team manager's screen, which is often
+     * on a shared table — what a rival paid is exactly the number people lean over to read. The
+     * Icon Player / Retained badge is unaffected; only the money is withheld. Defaults to true,
+     * which is what every squad view did before the setting existed.
+     */
+    public function showsSquadValues(): bool
+    {
+        return (bool) ($this->show_squad_values ?? true);
     }
 
     /** Default squad size used when the auction has no explicit rule. */
