@@ -116,7 +116,10 @@
                     <div class="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{{ $approvedPlayers->count() }}</div>
                 </div>
                 <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Retained</div>
+                    {{-- "Claimed", not "Retained". player_mode is `retained` for a player SOLD at
+                         auction as well as one kept, so this figure has always counted both — it
+                         is the complement of Available beside it, which is what it is for. --}}
+                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Claimed</div>
                     <div class="mt-1 text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $approvedPlayers->where('player_mode', 'retained')->count() }}</div>
                 </div>
                 <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -691,9 +694,11 @@
                                     <div>
                                         <h3 class="font-bold text-lg text-gray-900 dark:text-white truncate">
                                             {{ $user->name }}</h3>
-                                              @if ($user->player && $user->player->player_mode === 'retained')
-                <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                    Retained
+                                              {{-- From the auction row, not player_mode — which reads
+                                                   `retained` for a purchase too. --}}
+                                              @if ($user->player?->acquisition_label)
+                <span class="px-2 py-0.5 text-xs font-medium rounded-full {{ $user->player->acquisition === 'auction' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800' }}">
+                    {{ $user->player->acquisition_label }}{{ $user->player->acquisition_price_label ? ' · ' . $user->player->acquisition_price_label : '' }}
                 </span>
             @endif
                                         @if ($user->roles->count())

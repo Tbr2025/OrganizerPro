@@ -133,6 +133,10 @@ class TeamManagerController extends Controller
             ->orderBy('name')
             ->get();
 
+        // How each squad member got here, for the dashboard's player modal. Same source as the
+        // squad page — the auction row, never players.player_mode.
+        app(SquadAcquisitionService::class)->attach($teamPlayers, $team);
+
         // Get upcoming auctions for all tournaments this team belongs to
         $teamTournamentIds = $team->tournaments()->pluck('tournaments.id');
         if ($team->tournament_id) {
@@ -895,6 +899,15 @@ class TeamManagerController extends Controller
 
         $breadcrumbs = ['title' => __('Players')];
 
+        // How each player was claimed, for the status column and the detail modal. Resolved
+        // against each player's OWN team: this list spans every team in the tournament.
+        app(SquadAcquisitionService::class)->attachForOwnTeams(
+            $players instanceof \Illuminate\Contracts\Pagination\Paginator
+                || $players instanceof \Illuminate\Pagination\LengthAwarePaginator
+                    ? $players->getCollection()
+                    : $players
+        );
+
         // Tournament settings for verification percentage calculation
         $tournament = $tournamentModel;
         $tournamentSettings = $tournament?->settings;
@@ -1112,6 +1125,15 @@ class TeamManagerController extends Controller
             ->where('tournament_id', $tournamentId)
             ->pluck('player_id')
             ->toArray();
+
+        /*
+         * This page has a Status column that tries to tell Retained from Sold — and could not.
+         * It read players.player_mode, which AuctionSaleService sets to `retained` on a SALE too,
+         * so every player showed "Retained" and the Sold count was permanently zero.
+         *
+         * Resolved against the other team, since that is whose squad is being shown.
+         */
+        app(SquadAcquisitionService::class)->attach($players, $otherTeam);
 
         $breadcrumbs = ['title' => $otherTeam->name . ' - Players'];
 

@@ -622,9 +622,16 @@
                                                                             {{ ucfirst(str_replace('_', ' ', $assignment->role)) }}
                                                                         </span>
                                                                     @endif
-                                                                    @if($p->player_mode === 'retained')
-                                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                                                            Retained {{ $p->retained_value ? '(' . number_format($p->retained_value) . ')' : '' }}
+                                                                    {{-- From the auction row. player_mode is `retained`
+                                                                         for a purchase too, so this said "Retained" on
+                                                                         every player bought in the room — and showed
+                                                                         retained_value, which for a buy is usually blank. --}}
+                                                                    @if($p->acquisition_label)
+                                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                                                            {{ $p->acquisition === 'auction'
+                                                                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                                                                                : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' }}">
+                                                                            {{ $p->acquisition_label }} {{ $p->acquisition_price_label ? '(' . $p->acquisition_price_label . ')' : '' }}
                                                                         </span>
                                                                     @endif
                                                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -639,7 +646,8 @@
                                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                                                                             </svg>
                                                                         </button>
-                                                                    @elseif($p->player_mode === 'retained')
+                                                                    {{-- Only a genuine retention can be un-retained. --}}
+                                                                    @elseif($p->acquisition === 'retained')
                                                                         <form action="{{ route('admin.players.unretain', $p->id) }}" method="POST" class="inline"
                                                                             onsubmit="return confirm('Remove retention for {{ addslashes($p->name) }}?')">
                                                                             @csrf

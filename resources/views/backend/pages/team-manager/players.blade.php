@@ -136,10 +136,23 @@
                                 </td>
                                 <td class="px-6 py-4">{{ $player->actualTeam?->name ?? $player->playing_team_name_ref ?? '-' }}</td>
                                 <td class="px-6 py-4">
-                                    @if($player->player_mode === 'retained')
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm">
+                                    {{-- WHICH kind of claim comes from the auction row; whether the
+                                         player is claimed at all is still player_mode, which is what
+                                         the pool queries and the wishlist button below use. This said
+                                         "Retained by X" for every player bought in the room. --}}
+                                    @if($player->acquisition)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white shadow-sm
+                                            {{ $player->acquisition === 'auction'
+                                                ? 'bg-gradient-to-r from-emerald-500 to-teal-600'
+                                                : 'bg-gradient-to-r from-purple-500 to-violet-600' }}">
                                             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                                            Retained{{ $player->actualTeam ? ' by ' . $player->actualTeam->name : '' }}
+                                            {{ $player->acquisition_label }}{{ $player->actualTeam ? ' · ' . $player->actualTeam->name : '' }}
+                                        </span>
+                                    @elseif($player->player_mode === 'retained')
+                                        {{-- Claimed, but with no auction row to say how — a manual squad
+                                             assignment. Still not available. --}}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                            In a squad{{ $player->actualTeam ? ' · ' . $player->actualTeam->name : '' }}
                                         </span>
                                     @else
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Available</span>
@@ -237,6 +250,10 @@
             'country' => $player->country,
             'status' => $player->status,
             'player_mode' => $player->player_mode,
+            // So the modal can name the claim the same way the table does.
+            'acquisition' => $player->acquisition,
+            'acquisition_label' => $player->acquisition_label,
+            'acquisition_price_label' => $player->acquisition_price_label,
             'retained_value' => $player->retained_value,
             'image_path' => $player->image_path ? asset('storage/' . $player->image_path) : null,
             'photo' => $player->photo ? asset('storage/' . $player->photo) : null,
@@ -268,10 +285,15 @@
             const sc = player.status === 'approved' ? 'bg-green-100 text-green-800' : player.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
             html += `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sc}">${player.status.charAt(0).toUpperCase() + player.status.slice(1)}</span>`;
         }
-        if (player.player_mode === 'retained') {
-            html += `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white">
+        // acquisition_label, not player_mode: the latter reads `retained` for a purchase too, and
+        // retained_value is usually empty on one.
+        if (player.acquisition_label) {
+            const tone = player.acquisition === 'auction'
+                ? 'from-emerald-500 to-teal-600'
+                : 'from-purple-500 to-violet-600';
+            html += `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r ${tone} text-white">
                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                Retained${player.retained_value ? ' (' + Number(player.retained_value).toLocaleString() + ')' : ''}</span>`;
+                ${player.acquisition_label}${player.acquisition_price_label ? ' · ' + player.acquisition_price_label : ''}</span>`;
         }
         html += `</div></div></div>`;
 

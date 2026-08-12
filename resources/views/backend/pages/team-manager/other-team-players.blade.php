@@ -50,8 +50,11 @@
 
     {{-- INFO BAR --}}
     @php
-        $retainedCount = $players->where('player_mode', 'retained')->count();
-        $soldCount = $players->where('player_mode', 'sold')->count();
+        {{-- From the auction row, not player_mode. `player_mode` is `retained` for a sale as
+             well as a keep, and is never 'sold' at all — so the retained count included every
+             purchase and the sold count was permanently zero. --}}
+        $retainedCount = $players->where('acquisition', 'retained')->count();
+        $soldCount = $players->where('acquisition', 'auction')->count();
     @endphp
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 text-center">
         <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -310,14 +313,18 @@
                                     </td>
                                     {{-- Status --}}
                                     <td class="px-4 py-3 whitespace-nowrap">
-                                        @if($player->player_mode === 'retained')
+                                        @if($player->acquisition === 'retained')
                                             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm">
                                                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                                                Retained
+                                                Retained{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
+                                            </span>
+                                        @elseif($player->acquisition === 'auction')
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                Icon Player{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                                                Sold
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                                Squad
                                             </span>
                                         @endif
                                     </td>

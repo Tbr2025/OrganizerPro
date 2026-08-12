@@ -37,6 +37,7 @@ use Intervention\Image\Facades\Image;
 use Intervention\Image\ImageManager;
 use App\Models\ActionLog;
 use App\Traits\HasActionLogTrait;
+use App\Services\Auction\SquadAcquisitionService;
 
 class PlayerController extends Controller
 {
@@ -374,6 +375,16 @@ class PlayerController extends Controller
         $actualTeams = $user->hasRole('Superadmin')
             ? ActualTeam::with(['tournaments' => fn ($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->orderBy('name')->get(['id', 'name', 'tournament_id'])
             : ActualTeam::with(['tournaments' => fn ($q) => $q->whereIn('tournaments.status', ['active', 'registration'])->select('tournaments.id', 'tournaments.name')->orderByDesc('tournaments.created_at')])->where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
+
+        /*
+         * How each of these players joined their team, and what they cost.
+         *
+         * Not from players.player_mode: AuctionSaleService sets that to `retained` when a player
+         * is SOLD, so the column means "claimed by a team" and this list rendered it as the word
+         * "Retained" for every purchase — next to a Remove Retention action that would have
+         * stripped one. One query for the page, whatever the page size.
+         */
+        app(SquadAcquisitionService::class)->attachForOwnTeams($players->getCollection());
 
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
@@ -756,6 +767,9 @@ class PlayerController extends Controller
         $actualTeams = $user->hasRole('Superadmin')
             ? ActualTeam::orderBy('name')->get(['id', 'name', 'tournament_id'])
             : ActualTeam::where('organization_id', $user->organization_id)->orderBy('name')->get(['id', 'name', 'tournament_id']);
+
+        // Same question as the list, for one player. See attachForOwnTeams().
+        app(SquadAcquisitionService::class)->attachForOwnTeams(collect([$player]));
 
         return view('backend.pages.players.show', [
             'player' => $player,

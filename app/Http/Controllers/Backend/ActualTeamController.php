@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\Auction\SquadAcquisitionService;
 
 class ActualTeamController extends Controller
 {
@@ -320,6 +321,15 @@ class ActualTeamController extends Controller
             ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'user'])->get();
         }
 
+        /*
+         * The member cards further down badge each player, and read it off the Player model
+         * hanging from $actualTeam->users — a different collection from the pivot roster the view
+         * builds for itself. Decorated here so that section gets the same honest answer.
+         */
+        app(SquadAcquisitionService::class)->attachForOwnTeams(
+            $actualTeam->users->map(fn ($u) => $u->player)->filter()->values()
+        );
+
         return view('backend.pages.actual_teams.show', compact('actualTeam', 'approvedPlayers'));
     }
 
@@ -571,6 +581,16 @@ class ActualTeamController extends Controller
         // Get all player details
         $playerIds = $teamPlayers->pluck('player_id')->unique()->toArray();
         $playersMap = Player::with('user')->whereIn('id', $playerIds)->get()->keyBy('id');
+
+        /*
+         * How each roster player got here, from the auction row rather than players.player_mode.
+         *
+         * Selling sets player_mode to `retained` as well as keeping does, so this page badged
+         * every player bought in the room "Retained" — with their retained_value, which for a
+         * purchase is usually empty — and offered to un-retain them, which would have stripped
+         * the purchase.
+         */
+        app(SquadAcquisitionService::class)->attachForOwnTeams($playersMap->values());
 
         // Get all teams for each effective tournament (for the playing-team dropdown)
         $allTeamsForTournaments = [];

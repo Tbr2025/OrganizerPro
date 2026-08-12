@@ -192,4 +192,70 @@ class SquadBadgesAndValuesTest extends TestCase
         $this->assertSame(1, substr_count($html, 'Unretain'));
     }
 
+
+    #[Test]
+    public function a_players_list_resolves_each_player_against_their_own_team(): void
+    {
+        ['team' => $team, 'bought' => $bought, 'kept' => $kept] = $this->scenario();
+
+        // A players list spans every team, so it cannot pass one in. attachForOwnTeams() reads
+        // players.actual_team_id instead — and must reach the same verdict as attach() does.
+        foreach ([$bought, $kept] as $player) {
+            $player->forceFill(['actual_team_id' => $team->id])->save();
+        }
+
+        $players = collect([$bought->fresh(), $kept->fresh()]);
+        app(SquadAcquisitionService::class)->attachForOwnTeams($players);
+
+        $this->assertSame('Icon Player', $players[0]->acquisition_label);
+        $this->assertSame('Retained', $players[1]->acquisition_label);
+        $this->assertSame(4_500_000.0, $players[0]->acquisition_price);
+    }
+
+    #[Test]
+    public function a_player_who_never_went_through_an_auction_gets_no_badge(): void
+    {
+        ['org' => $org] = $this->scenario();
+
+        // Somebody who simply joined a squad is neither bought nor kept, and a list must not
+        // invent a label for them — this is the case player_mode could never express either.
+        $joined = $this->makePlayer($org, ['name' => 'Just Joined', 'player_mode' => 'normal']);
+
+        $players = collect([$joined]);
+        app(SquadAcquisitionService::class)->attachForOwnTeams($players);
+
+        $this->assertNull($players[0]->acquisition);
+        $this->assertNull($players[0]->acquisition_label);
+        $this->assertNull($players[0]->acquisition_price_label);
+    }
+
+    #[Test]
+    public function the_players_list_page_badges_a_purchase_correctly(): void
+    {
+        ['org' => $org, 'team' => $team, 'bought' => $bought] = $this->scenario();
+
+        // The list only shows players with a user account holding the Player role.
+        $playerRole = \App\Models\Role::firstOrCreate(['name' => 'Player', 'guard_name' => 'web']);
+        $account = $this->makePlainUser($org);
+        $account->assignRole($playerRole);
+
+        $bought->forceFill(['actual_team_id' => $team->id, 'user_id' => $account->id])->save();
+
+        $operator = $this->makeSuperadmin($org);
+        $operator->roles->first()->givePermissionTo(
+            \App\Models\Permission::firstOrCreate(
+                ['name' => 'player.view', 'guard_name' => 'web'],
+                ['group_name' => 'player']
+            )
+        );
+
+        $html = $this->actingAs($operator)
+            ->get(route('admin.players.index'))
+            ->assertOk()
+            ->getContent();
+
+        // The badge said "Retained" here for every purchase, beside a Remove Retention action
+        // that would have stripped one.
+        $this->assertStringContainsString('Icon Player', $html);
+    }
 }

@@ -369,10 +369,18 @@
                                                         {{ $player->name }}
                                                     </a>
 
-                                                    @if ($player->player_mode == 'retained')
+                                                    {{-- From the auction row, not player_mode.
+                                                         Selling sets player_mode to `retained` too, so this
+                                                         badge said "Retained" on every player bought in the
+                                                         room. `acquisition_label` reads Icon Player for a buy
+                                                         and Retained for a keep. --}}
+                                                    @if ($player->acquisition_label)
                                                         <span
-                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400">
-                                                            Retained
+                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset
+                                                                {{ $player->acquisition === 'auction'
+                                                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                                                    : 'bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400' }}">
+                                                            {{ $player->acquisition_label }}{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                                                         </span>
                                                     @endif
                                                     @if ($player->created_by)
@@ -570,7 +578,9 @@
                                                                 <iconify-icon icon="lucide:lock" width="16"></iconify-icon>
                                                                 Retain Player
                                                             </button>
-                                                        @elseif ($player->player_mode === 'retained')
+                                                        {{-- A purchase is not a retention: offering this on an
+                                                             auction buy would silently strip it. --}}
+                                                        @elseif ($player->acquisition === 'retained')
                                                             <form action="{{ route('admin.players.unretain', $player->id) }}" method="POST"
                                                                 onsubmit="return confirm('Remove retention for {{ addslashes($player->name) }}?')">
                                                                 @csrf
@@ -643,10 +653,18 @@
                                                         {{ $player->name }}
                                                     </a>
 
-                                                    @if ($player->player_mode == 'retained')
+                                                    {{-- From the auction row, not player_mode.
+                                                         Selling sets player_mode to `retained` too, so this
+                                                         badge said "Retained" on every player bought in the
+                                                         room. `acquisition_label` reads Icon Player for a buy
+                                                         and Retained for a keep. --}}
+                                                    @if ($player->acquisition_label)
                                                         <span
-                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400">
-                                                            Retained
+                                                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset
+                                                                {{ $player->acquisition === 'auction'
+                                                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                                                    : 'bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400' }}">
+                                                            {{ $player->acquisition_label }}{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                                                         </span>
                                                     @endif
                                                     @if ($player->created_by)
@@ -806,7 +824,9 @@
                                                                 <iconify-icon icon="lucide:lock" width="16"></iconify-icon>
                                                                 Retain Player
                                                             </button>
-                                                        @elseif ($player->player_mode === 'retained')
+                                                        {{-- A purchase is not a retention: offering this on an
+                                                             auction buy would silently strip it. --}}
+                                                        @elseif ($player->acquisition === 'retained')
                                                             <form action="{{ route('admin.players.unretain', $player->id) }}" method="POST"
                                                                 onsubmit="return confirm('Remove retention for {{ addslashes($player->name) }}?')">
                                                                 @csrf

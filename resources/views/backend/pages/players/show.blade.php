@@ -46,7 +46,9 @@
                             Retain
                         </button>
                     @endif
-                    @if($player->player_mode === 'retained')
+                    {{-- A purchase is not a retention. player_mode is `retained` for both, so this
+                         offered to un-retain players who had been bought in the room. --}}
+                    @if($player->acquisition === 'retained')
                         <form action="{{ route('admin.players.unretain', $player->id) }}" method="POST"
                             onsubmit="return confirm('Are you sure you want to unretain this player?');">
                             @csrf
@@ -498,10 +500,16 @@
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Team</h4>
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->actualTeam->name }}</p>
                         </div>
-                        @if($tmIsAuction && $player->player_mode === 'retained' && $player->retained_value)
+                        {{-- Names what the figure IS. This read retained_value and called it
+                             "Retained Value" for a player who may have been bought at auction —
+                             where the real figure is their final price, and retained_value is
+                             often empty. --}}
+                        @if($tmIsAuction && $player->acquisition_price_label)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Retained Value</h4>
-                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ number_format($player->retained_value) }}</p>
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                {{ $player->acquisition === 'auction' ? 'Auction Price' : 'Retained Value' }}
+                            </h4>
+                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->acquisition_price_label }}</p>
                         </div>
                         @endif
                     </div>
@@ -523,10 +531,12 @@
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Team</h4>
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->actualTeam->name }}</p>
                         </div>
-                        @if($isAuctionTournament && $player->player_mode === 'retained')
+                        @if($isAuctionTournament && $player->acquisition)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Retained Value</h4>
-                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->retained_value ? number_format($player->retained_value) : '—' }}</p>
+                            <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                {{ $player->acquisition === 'auction' ? 'Auction Price' : 'Retained Value' }}
+                            </h4>
+                            <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->acquisition_price_label ?: '—' }}</p>
                         </div>
                         @endif
                     </div>
