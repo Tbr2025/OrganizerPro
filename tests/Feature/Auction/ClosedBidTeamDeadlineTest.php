@@ -316,4 +316,32 @@ class ClosedBidTeamDeadlineTest extends TestCase
         $this->assertStringContainsString("['entry_open','collecting'].includes(sealed.state)", $html);
         $this->assertStringContainsString("['invited','may_opt_in'].includes(sealedEntryState)", $html);
     }
+
+    #[Test]
+    public function an_admin_previewing_a_team_is_told_why_it_cannot_bid_for_them(): void
+    {
+        ['org' => $org, 'auction' => $auction, 'team' => $team, 'round' => $round] = $this->scenario();
+
+        $this->closedBids()->openEntry($round, null, [$team->id]);
+
+        /*
+         * The read-only rule stands — a bid a team did not make must not enter a sealed round
+         * unattributed, and the organizer has a legitimate logged path on the panel. What was
+         * broken is the explanation: the guard tested `?preview` and the session flag but not
+         * `team_id`, which is how the page is actually opened, so an admin fell through to
+         * "your team is not in this tournament" — not what happened, and pointing nowhere.
+         */
+        $response = $this->actingAs($this->makeSuperadmin($org))->postJson(
+            route('team.auction.bidding.api.closed-bid.submit', $auction) . '?team_id=' . $team->id,
+            ['amount' => 9_000_000]
+        );
+
+        $response->assertStatus(403);
+        $error = (string) $response->json('error');
+        $this->assertStringContainsString('viewing', $error);
+        $this->assertStringContainsString('organizer panel', $error);
+
+        // And nothing was recorded for the team.
+        $this->assertNull($round->fresh()->entries()->where('actual_team_id', $team->id)->value('amount'));
+    }
 }

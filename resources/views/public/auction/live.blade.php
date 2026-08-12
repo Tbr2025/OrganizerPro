@@ -2310,7 +2310,20 @@
                 }
 
                 word.textContent = outcome;
-                nameEl.textContent = p.player?.name || '';
+
+                /*
+                 * Name the BUYER, not just the player.
+                 *
+                 * "Sold — Glenn Maxwell" leaves the one fact the room is waiting for off the
+                 * loudest thing on the screen. The team is on the card below, but the banner is
+                 * what people look up at, and a sale nobody can attribute is a sale that gets
+                 * asked about twice.
+                 */
+                const buyer = p.sold_to_team?.name || p.current_bid_team?.name || '';
+
+                nameEl.textContent = p.status === 'sold' && buyer
+                    ? `${p.player?.name || ''} → ${buyer}`
+                    : (p.player?.name || '');
                 banner.classList.toggle('is-sold', p.status === 'sold');
                 banner.classList.toggle('is-unsold', p.status !== 'sold');
                 banner.classList.remove('hidden');
@@ -3205,6 +3218,24 @@
             container.style.transformOrigin = 'center center';
         }
         window.addEventListener('resize', scaleLive);
+
+        /*
+         * Also re-scale on anything else that changes the space available.
+         *
+         * `resize` covers the ordinary cases, but a wall runs for hours on a screen somebody
+         * else is fiddling with — browser zoom, entering or leaving fullscreen, a devtools pane,
+         * an on-screen keyboard, a projector renegotiating its mode. Any of those can change the
+         * viewport without a resize event landing where we expect it, and the failure is silent
+         * and total: the card keeps its old scale and the right-hand third goes off the screen.
+         *
+         * Cheap insurance — the observer fires only when the box actually changes.
+         */
+        if (window.ResizeObserver) {
+            new ResizeObserver(() => scaleLive()).observe(document.body);
+        }
+
+        // Zoom on some platforms moves only the visual viewport, which does not resize the layout.
+        window.visualViewport?.addEventListener('resize', scaleLive);
 
         /*
          * Fit the card to the window in card mode too.

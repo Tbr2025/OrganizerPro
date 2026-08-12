@@ -575,15 +575,39 @@ class AuctionBiddingController extends Controller
          * ceilings, and one final bid per team per round.
          */
 
-        // Read-only preview: an admin looking at a team's screen must not act as them.
-        if ($request->query('preview') || session('auction_preview_team_id')) {
-            return response()->json(['error' => 'Preview mode is read-only.'], 403);
+        /*
+         * Read-only preview: an admin looking at a team's screen must not act as them.
+         *
+         * The check used to test only `?preview` and the session flag — not `team_id`, which is
+         * how the page is actually opened. So an admin previewing a team fell straight past this
+         * and into the team-resolution failure below, and was told "your team is not in this
+         * tournament" — which is not what happened and points nowhere useful.
+         *
+         * The rule itself stands. A bid a team did not make must not enter a sealed round
+         * unattributed, and the organizer already has a legitimate path for entering on a team's
+         * behalf: the panel's own control, recorded as an admin adjustment and undoable.
+         */
+        $previewing = $request->query('preview')
+            || session('auction_preview_team_id')
+            || ($request->query('team_id') && auth()->user()?->hasRole(['Superadmin', 'Admin']));
+
+        if ($previewing) {
+            return response()->json([
+                'error' => 'You are viewing this team\'s screen, not bidding as them. Enter the amount on the'
+                    . ' organizer panel, or sign in as that team\'s manager.',
+            ], 403);
         }
 
         $userTeam = $this->resolveTeam($request, $auction);
 
         if (! $userTeam) {
-            return response()->json(['error' => 'Your team is not in this tournament.'], 403);
+            return response()->json([
+                'error' => auth()->user()?->hasRole(['Superadmin', 'Admin'])
+                    // An admin with no team of their own is the common case here, and "your team"
+                    // is a confusing way to describe it.
+                    ? 'You are not on a team in this tournament — use the organizer panel to enter an amount.'
+                    : 'Your team is not in this tournament.',
+            ], 403);
         }
 
         $player = $this->sealedTarget($auction);
