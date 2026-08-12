@@ -503,6 +503,9 @@ class AuctionTemplateController extends Controller
                     'rowBg' => $request->input("pos_{$element}_rowBg", ''),
                     'cellColor' => $request->input("pos_{$element}_cellColor", ''),
                     'cellPadding' => $request->input("pos_{$element}_cellPadding", ''),
+                    'cellBg' => $request->input("pos_{$element}_cellBg", ''),
+                    'cellSpacing' => $request->input("pos_{$element}_cellSpacing", ''),
+                    'headerHeight' => $request->input("pos_{$element}_headerHeight", ''),
                     'tableBorderColor' => $request->input("pos_{$element}_tableBorderColor", ''),
                     'tableBorderWidth' => $request->input("pos_{$element}_tableBorderWidth", ''),
                     'tableColumns' => $request->input("pos_{$element}_tableColumns", ''),
@@ -510,7 +513,7 @@ class AuctionTemplateController extends Controller
                 // Remove null/empty position values but keep styling values
                 $positions[$element] = array_filter($positions[$element], function ($v, $k) {
                     // Always keep styling keys even if default
-                    $stylingKeys = ['color', 'bgColor', 'opacity', 'bgOpacity', 'borderRadius', 'borderRadiusTL', 'borderRadiusTR', 'borderRadiusBL', 'borderRadiusBR', 'boxShadow', 'textShadow', 'zIndex', 'visible', 'fontWeight', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'margin', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'rotation', 'borderStyle', 'borderColor', 'borderWidth', 'headerBg', 'headerColor', 'rowBg', 'cellColor', 'cellPadding', 'tableBorderColor', 'tableBorderWidth', 'tableColumns'];
+                    $stylingKeys = ['color', 'bgColor', 'opacity', 'bgOpacity', 'borderRadius', 'borderRadiusTL', 'borderRadiusTR', 'borderRadiusBL', 'borderRadiusBR', 'boxShadow', 'textShadow', 'zIndex', 'visible', 'fontWeight', 'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'margin', 'letterSpacing', 'lineHeight', 'textAlign', 'textTransform', 'rotation', 'borderStyle', 'borderColor', 'borderWidth', 'headerBg', 'headerColor', 'rowBg', 'cellColor', 'cellPadding', 'cellBg', 'cellSpacing', 'headerHeight', 'tableBorderColor', 'tableBorderWidth', 'tableColumns'];
                     if (in_array($k, $stylingKeys)) {
                         return true;
                     }

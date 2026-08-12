@@ -349,6 +349,11 @@ class AuctionTemplate extends Model
         return [
             'player_image', 'player_name', 'player_role',
             'batting_style', 'bowling_style', 'current_bid', 'bid_label',
+            // base_price is the player's OPENING figure, shown alongside the live one.
+            // bid_label is a dynamic caption (BASE VALUE / CURRENT BID / SOLD PRICE) that
+            // follows whatever state the player is in, so it cannot label a second figure —
+            // hence a element of its own, captioned by its own ::before on the wall.
+            'base_price',
             'sold_badge', 'team_logo', 'highest_bidder', 'stats_table',
         ];
     }
@@ -411,11 +416,27 @@ class AuctionTemplate extends Model
              * MATCHES / RUNS / WICKETS row and neither could be read. Moved below the table,
              * which ends at 695, and roughly centred on the 1601-wide canvas.
              */
+            /*
+             * Under the photo, to the right of the live figure.
+             *
+             * player_image sits at bottom 305 / left 114 / width 380, so its lower edge is at
+             * y 605 on a 910 canvas and x 114..494 is its column. current_bid is at bottom 197
+             * (y ~713) / left 234, so this sits beside it at x 400 — clear of the image above,
+             * of sold_badge and team_logo below, and of stats_table which starts at x 550.
+             */
+            'base_price' => ['bottom' => 197, 'left' => 400, 'fontSize' => 26],
             'highest_bidder' => ['top' => 715, 'left' => 600, 'fontSize' => 28],
             'stats_table' => ['top' => 545, 'left' => 550, 'width' => 500, 'height' => 150, 'fontSize' => 20,
-                'headerBg' => 'rgba(0,0,0,0.7)', 'headerColor' => '#ffffff',
-                'rowBg' => 'rgba(255,255,255,0.1)', 'cellColor' => '#ffffff', 'cellPadding' => 10,
-                'tableBorderColor' => 'rgba(255,255,255,0.2)', 'tableBorderWidth' => 1,
+                /*
+                 * No fills by default. A wall template's background is artwork, and a panel
+                 * behind the header plus a tint behind every row stacked two more tinted
+                 * layers on top of it — the stats block read as a dirty grey box pasted over
+                 * the design. The numbers carry themselves on weight and size; a template
+                 * that wants panels back sets headerBg / rowBg / cellBg in the editor.
+                 */
+                'headerBg' => '', 'headerColor' => '#ffffff',
+                'rowBg' => '', 'cellColor' => '#ffffff', 'cellPadding' => 10,
+                'tableBorderColor' => 'rgba(255,255,255,0.2)', 'tableBorderWidth' => 0,
                 'tableColumns' => json_encode([
                     ['label' => 'Matches', 'field' => 'total_matches', 'cellBg' => '', 'cellColor' => '', 'headerBg' => '', 'headerColor' => '', 'width' => ''],
                     ['label' => 'Runs', 'field' => 'total_runs', 'cellBg' => '', 'cellColor' => '', 'headerBg' => '', 'headerColor' => '', 'width' => ''],

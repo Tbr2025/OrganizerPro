@@ -35,6 +35,8 @@ class AuctionCardRenderer
         $url = route('public.auction.live', $auction) . '?' . http_build_query([
             'card' => $auctionPlayer->id,
             'result' => $withResult ? 1 : 0,
+            // Suppress the page's own Download control — see the note beside it in the view.
+            'noui' => 1,
         ]);
 
         $path = tempnam(sys_get_temp_dir(), 'auction-card-') . '.png';

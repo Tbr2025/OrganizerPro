@@ -459,8 +459,22 @@
                             <input type="text" id="prop-cell-color" class="form-control form-control-sm" placeholder="#ffffff">
                         </div>
                         <div>
+                            <label class="text-[10px] text-gray-400">Cell Background</label>
+                            <input type="text" id="prop-cell-bg" class="form-control form-control-sm" placeholder="blank = none">
+                        </div>
+                        <div>
                             <label class="text-[10px] text-gray-400">Cell Padding (px)</label>
                             <input type="number" id="prop-cell-padding" min="0" class="form-control form-control-sm" placeholder="10">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400">Column Gap (px)</label>
+                            <input type="number" id="prop-cell-spacing" min="0" class="form-control form-control-sm" placeholder="10">
+                        </div>
+                        <div>
+                            {{-- For backgrounds with the table printed into the artwork: pin the
+                                 header row to the height of the painted strip. Blank = auto. --}}
+                            <label class="text-[10px] text-gray-400">Header Row Height (px)</label>
+                            <input type="number" id="prop-header-height" min="0" class="form-control form-control-sm" placeholder="auto">
                         </div>
                         <div>
                             <label class="text-[10px] text-gray-400">Table Border Color</label>
@@ -547,6 +561,7 @@
                             'bowling_style' => ['label' => 'Bowling Style', 'type' => 'text', 'borderColor' => '249,115,22', 'content' => 'Right Arm Medium'],
                             'current_bid' => ['label' => 'Current Bid', 'type' => 'text', 'borderColor' => '239,68,68', 'content' => '10.5 L'],
                             'bid_label' => ['label' => 'Bid Label', 'type' => 'text', 'borderColor' => '236,72,153', 'content' => 'SOLD PRICE'],
+                            'base_price' => ['label' => 'Base Price', 'type' => 'text', 'borderColor' => '250,204,21', 'content' => '1 M'],
                             'sold_badge' => ['label' => 'Sold Badge', 'type' => 'box', 'borderColor' => '16,185,129', 'content' => ''],
                             'team_logo' => ['label' => 'Team Logo', 'type' => 'box', 'borderColor' => '6,182,212', 'content' => '<span class="text-cyan-400 text-xs">TEAM LOGO</span>'],
                             'highest_bidder' => ['label' => 'Highest Bidder', 'type' => 'text', 'borderColor' => '0,255,0', 'content' => 'Thunder Kings'],
@@ -609,6 +624,9 @@
                              data-row-bg="{{ $p['rowBg'] ?? '' }}"
                              data-cell-color="{{ $p['cellColor'] ?? '' }}"
                              data-cell-padding="{{ $p['cellPadding'] ?? '' }}"
+                             data-cell-bg="{{ $p['cellBg'] ?? '' }}"
+                             data-cell-spacing="{{ $p['cellSpacing'] ?? '' }}"
+                             data-header-height="{{ $p['headerHeight'] ?? '' }}"
                              data-table-border-color="{{ $p['tableBorderColor'] ?? '' }}"
                              data-table-border-width="{{ $p['tableBorderWidth'] ?? '' }}"
                              data-table-columns="{{ $p['tableColumns'] ?? '' }}"
@@ -633,7 +651,9 @@
                                         ['label'=>'Wickets','field'=>'total_wickets'],
                                     ];
                                     $tCP = $p['cellPadding'] ?? 10;
-                                    $tBW = $p['tableBorderWidth'] ?? 1;
+                                    $tCS = $p['cellSpacing'] ?? 10;
+                                    $tHH = $p['headerHeight'] ?? '';
+                                    $tBW = $p['tableBorderWidth'] ?? 0;
                                     $tBC = $p['tableBorderColor'] ?? 'rgba(255,255,255,0.2)';
                                     $bdr = $tBW.'px solid '.$tBC;
                                 @endphp
@@ -649,14 +669,16 @@
                                 @php
                                     $thCss = 'padding:'.$tCP.'px;border:'.($tBW > 0 ? $bdr : 'none').';text-align:center;'
                                         .'font-weight:700;text-transform:uppercase;letter-spacing:2px;'
-                                        .'font-size:0.62em;padding-bottom:2px;opacity:0.8;';
+                                        .'font-size:0.62em;padding-bottom:2px;opacity:0.8;vertical-align:middle;'
+                                        .($tHH !== '' ? 'height:'.$tHH.'px;' : '');
                                     $tdCss = 'padding:'.$tCP.'px;border:'.($tBW > 0 ? $bdr : 'none').';text-align:center;'
-                                        .'font-weight:800;font-size:1.25em;line-height:1.1;'
-                                        .'background:'.($p['rowBg'] ?? 'rgba(255,255,255,0.07)').';'
-                                        .'border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);';
+                                        .'font-weight:800;font-size:1.25em;line-height:1.1;vertical-align:middle;'
+                                        .(!empty($p['cellBg'])
+                                            ? 'background:'.$p['cellBg'].';border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);'
+                                            : '');
                                 @endphp
-                                <table style="width:100%;height:100%;border-collapse:separate;border-spacing:6px 2px;font-size:{{ $p['fontSize'] ?? 20 }}px;pointer-events:none;">
-                                    <thead><tr style="background:{{ $p['headerBg'] ?? 'rgba(0,0,0,0.7)' }};color:{{ $p['headerColor'] ?? '#fff' }};">
+                                <table style="width:100%;height:100%;table-layout:fixed;border-collapse:separate;border-spacing:{{ $tCS }}px 0;font-size:{{ $p['fontSize'] ?? 20 }}px;pointer-events:none;">
+                                    <thead><tr style="background:{{ !empty($p['headerBg']) ? $p['headerBg'] : 'transparent' }};color:{{ $p['headerColor'] ?? '#fff' }};">
                                         @foreach($cols as $col)
                                         <th style="{{ $thCss }}{{ !empty($col['headerBg']) ? 'background:'.$col['headerBg'].';' : '' }}{{ !empty($col['headerColor']) ? 'color:'.$col['headerColor'].';' : '' }}{{ !empty($col['width']) ? 'width:'.$col['width'].';' : '' }}">{{ $col['label'] ?? '' }}</th>
                                         @endforeach
@@ -874,6 +896,9 @@
         <input type="hidden" name="pos_{{ $el }}_rowBg" id="hid_{{ $el }}_rowBg" value="{{ $positions[$el]['rowBg'] ?? '' }}">
         <input type="hidden" name="pos_{{ $el }}_cellColor" id="hid_{{ $el }}_cellColor" value="{{ $positions[$el]['cellColor'] ?? '' }}">
         <input type="hidden" name="pos_{{ $el }}_cellPadding" id="hid_{{ $el }}_cellPadding" value="{{ $positions[$el]['cellPadding'] ?? '' }}">
+        <input type="hidden" name="pos_{{ $el }}_cellBg" id="hid_{{ $el }}_cellBg" value="{{ $positions[$el]['cellBg'] ?? '' }}">
+        <input type="hidden" name="pos_{{ $el }}_cellSpacing" id="hid_{{ $el }}_cellSpacing" value="{{ $positions[$el]['cellSpacing'] ?? '' }}">
+        <input type="hidden" name="pos_{{ $el }}_headerHeight" id="hid_{{ $el }}_headerHeight" value="{{ $positions[$el]['headerHeight'] ?? '' }}">
         <input type="hidden" name="pos_{{ $el }}_tableBorderColor" id="hid_{{ $el }}_tableBorderColor" value="{{ $positions[$el]['tableBorderColor'] ?? '' }}">
         <input type="hidden" name="pos_{{ $el }}_tableBorderWidth" id="hid_{{ $el }}_tableBorderWidth" value="{{ $positions[$el]['tableBorderWidth'] ?? '' }}">
         <input type="hidden" name="pos_{{ $el }}_tableColumns" id="hid_{{ $el }}_tableColumns" value="{{ $positions[$el]['tableColumns'] ?? '' }}">
@@ -1621,6 +1646,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('prop-row-bg').value = el.dataset.rowBg || '';
             document.getElementById('prop-cell-color').value = el.dataset.cellColor || '';
             document.getElementById('prop-cell-padding').value = el.dataset.cellPadding || '';
+            document.getElementById('prop-cell-bg').value = el.dataset.cellBg || '';
+            document.getElementById('prop-cell-spacing').value = el.dataset.cellSpacing || '';
+            document.getElementById('prop-header-height').value = el.dataset.headerHeight || '';
             document.getElementById('prop-table-border-color').value = el.dataset.tableBorderColor || '';
             document.getElementById('prop-table-border-width').value = el.dataset.tableBorderWidth || '';
             loadColumnsEditor(el);
@@ -1806,14 +1834,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Table styling controls
-    ['prop-header-bg', 'prop-header-color', 'prop-row-bg', 'prop-cell-color', 'prop-cell-padding', 'prop-table-border-color', 'prop-table-border-width'].forEach(id => {
+    ['prop-header-bg', 'prop-header-color', 'prop-row-bg', 'prop-cell-color', 'prop-cell-padding',
+     'prop-cell-bg', 'prop-cell-spacing', 'prop-header-height',
+     'prop-table-border-color', 'prop-table-border-width'].forEach(id => {
         document.getElementById(id).addEventListener('input', (e) => {
             if (!activeEl) return;
             const map = {
                 'prop-header-bg': 'headerBg', 'prop-header-color': 'headerColor',
                 'prop-row-bg': 'rowBg', 'prop-cell-color': 'cellColor',
                 'prop-cell-padding': 'cellPadding', 'prop-table-border-color': 'tableBorderColor',
-                'prop-table-border-width': 'tableBorderWidth'
+                'prop-table-border-width': 'tableBorderWidth', 'prop-cell-bg': 'cellBg',
+                'prop-cell-spacing': 'cellSpacing', 'prop-header-height': 'headerHeight'
             };
             activeEl.dataset[map[id]] = e.target.value;
             refreshTablePreview(activeEl);
@@ -2022,6 +2053,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setHid('rowBg', el.dataset.rowBg || '');
             setHid('cellColor', el.dataset.cellColor || '');
             setHid('cellPadding', el.dataset.cellPadding || '');
+            setHid('cellBg', el.dataset.cellBg || '');
+            setHid('cellSpacing', el.dataset.cellSpacing || '');
+            setHid('headerHeight', el.dataset.headerHeight || '');
             setHid('tableBorderColor', el.dataset.tableBorderColor || '');
             setHid('tableBorderWidth', el.dataset.tableBorderWidth || '');
             setHid('tableColumns', el.dataset.tableColumns || '');
@@ -2031,14 +2065,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Rebuild the table preview inside the drag element from columns JSON
     function refreshTablePreview(el) {
         let tbl = el.querySelector('table');
-        const hBg = el.dataset.headerBg || 'rgba(0,0,0,0.7)';
+        /* Blank means blank, not "use a default".
+           These fell back to a dark header panel and a translucent row tint whenever the
+           field was empty, so an author who cleared them in the editor still saw fills here
+           — and the wall, which now honours empty as transparent, drew none. That mismatch
+           is exactly the "preview and actual output not related" complaint. */
+        const hBg = el.dataset.headerBg || 'transparent';
         const hC = el.dataset.headerColor || '#fff';
-        const rBg = el.dataset.rowBg || 'rgba(255,255,255,0.1)';
+        const rBg = el.dataset.rowBg || 'transparent';
+        const cBg = el.dataset.cellBg || '';
         const cC = el.dataset.cellColor || '#fff';
         const cP = el.dataset.cellPadding || '10';
+        const cS = el.dataset.cellSpacing || '10';
+        const hH = el.dataset.headerHeight || '';
         const tBC = el.dataset.tableBorderColor || 'rgba(255,255,255,0.2)';
-        const tBW = el.dataset.tableBorderWidth || '1';
-        const bdr = `${tBW}px solid ${tBC}`;
+        const tBW = el.dataset.tableBorderWidth || '0';
+        const bdr = tBW === '0' ? 'none' : `${tBW}px solid ${tBC}`;
         const fs = el.style.fontSize || '20px';
 
         let cols;
@@ -2051,12 +2093,15 @@ document.addEventListener('DOMContentLoaded', () => {
            the wall itself; three copies of one table is how the preview stopped resembling the
            output in the first place. */
         const thBase = `padding:${cP}px;border:${bdr};text-align:center;font-weight:700;`
-            + `text-transform:uppercase;letter-spacing:2px;font-size:0.62em;padding-bottom:2px;opacity:0.8;`;
+            + `text-transform:uppercase;letter-spacing:2px;font-size:0.62em;padding-bottom:2px;opacity:0.8;`
+            + `vertical-align:middle;` + (hH ? `height:${hH}px;` : '');
         const tdBase = `padding:${cP}px;border:${bdr};text-align:center;font-weight:800;`
-            + `font-size:1.25em;line-height:1.1;background:${rBg};border-radius:12px;`
-            + `box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);`;
+            + `font-size:1.25em;line-height:1.1;vertical-align:middle;`
+            + (cBg ? `background:${cBg};border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);` : '');
 
-        let html = `<table style="width:100%;height:100%;border-collapse:separate;border-spacing:6px 2px;font-size:${fs};pointer-events:none;">`;
+        /* table-layout:fixed so the columns are the widths the author set (or equal shares),
+           not whatever the label text happens to need — see the note on the wall's copy. */
+        let html = `<table style="width:100%;height:100%;table-layout:fixed;border-collapse:separate;border-spacing:${cS}px 0;font-size:${fs};pointer-events:none;">`;
         html += `<thead><tr style="background:${hBg};color:${hC};">`;
         cols.forEach(c => {
             let thStyle = thBase;

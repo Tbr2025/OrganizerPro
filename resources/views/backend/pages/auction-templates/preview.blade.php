@@ -314,15 +314,31 @@
             position: absolute;
             {!! previewElementStyle($positions, 'stats_table', ['top'=>480,'left'=>550,'width'=>500,'height'=>150,'fontSize'=>20], $boxShadowMap, $textShadowMap) !!}
         }
-        #stats-table-wrap table { width:100%;border-collapse:collapse;font-size:{{ $pst['fontSize'] ?? 20 }}px; }
-        #stats-table-wrap thead tr { background:{{ $pst['headerBg'] ?? 'rgba(0,0,0,0.7)' }};color:{{ $pst['headerColor'] ?? '#fff' }}; }
-        #stats-table-wrap tbody tr { background:{{ $pst['rowBg'] ?? 'rgba(255,255,255,0.1)' }};color:{{ $pst['cellColor'] ?? '#fff' }}; }
+        {{-- Third copy of one table. Kept byte-for-byte in step with #stats-table-wrap on the
+             LED wall and with refreshTablePreview() in the editor: blank fills mean NO fill,
+             fixed layout, and a pinned header height so the rows land in a table that is
+             printed into the background artwork. --}}
+        #stats-table-wrap table {
+            width:100%;height:100%;table-layout:fixed;border-collapse:separate;
+            border-spacing:{{ $pst['cellSpacing'] ?? 10 }}px 0;font-size:{{ $pst['fontSize'] ?? 20 }}px;
+        }
+        #stats-table-wrap thead tr { background:{{ !empty($pst['headerBg']) ? $pst['headerBg'] : 'transparent' }};color:{{ $pst['headerColor'] ?? '#fff' }}; }
+        #stats-table-wrap tbody tr { background:{{ !empty($pst['rowBg']) ? $pst['rowBg'] : 'transparent' }};color:{{ $pst['cellColor'] ?? '#fff' }}; }
         #stats-table-wrap th, #stats-table-wrap td {
             padding:{{ $pst['cellPadding'] ?? 10 }}px;
-            border:{{ $pst['tableBorderWidth'] ?? 1 }}px solid {{ $pst['tableBorderColor'] ?? 'rgba(255,255,255,0.2)' }};
-            text-align:center;
+            border:{{ ($pst['tableBorderWidth'] ?? 0) > 0 ? $pst['tableBorderWidth'].'px solid '.($pst['tableBorderColor'] ?? 'rgba(255,255,255,0.2)') : 'none' }};
+            text-align:center;vertical-align:middle;
         }
-        #stats-table-wrap th { font-weight:bold;text-transform:uppercase;letter-spacing:1px; }
+        #stats-table-wrap th {
+            font-weight:700;text-transform:uppercase;letter-spacing:2px;font-size:0.62em;opacity:0.8;
+            @if(!empty($pst['headerHeight'])) height:{{ $pst['headerHeight'] }}px; @endif
+        }
+        #stats-table-wrap td {
+            font-weight:800;font-size:1.25em;line-height:1.1;
+            @if(!empty($pst['cellBg']))
+            background:{{ $pst['cellBg'] }};border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.10);
+            @endif
+        }
 
         .element-marker {
             border: 2px dashed rgba(255, 255, 0, 0.5);

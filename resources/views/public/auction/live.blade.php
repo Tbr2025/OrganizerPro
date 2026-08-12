@@ -42,12 +42,21 @@
         function elementStyle($positions, $key, $defaults = [], $boxShadowMap = [], $textShadowMap = []) {
             $p = array_merge($defaults, $positions[$key] ?? []);
             $css = '';
-            if (isset($p['top'])) $css .= 'top:'.$p['top'].'px;';
-            if (isset($p['bottom']) && !isset($p['top'])) $css .= 'bottom:'.$p['bottom'].'px;';
-            if (isset($p['left'])) $css .= 'left:'.$p['left'].'px;';
-            if (isset($p['width'])) $css .= 'width:'.$p['width'].'px;';
-            if (isset($p['height'])) $css .= 'height:'.$p['height'].'px;';
-            if (isset($p['fontSize'])) $css .= 'font-size:'.$p['fontSize'].'px;';
+            /*
+             * A blank field is "not set", not zero.
+             *
+             * The editor stores an untouched width/height as an empty string, and `isset()`
+             * is true for `''` — which emitted the invalid declaration `width:px`. The browser
+             * drops the whole declaration, so nothing broke visibly, but every element carried
+             * two dead rules and any future shorthand built the same way would silently fail.
+             */
+            $has = fn($k) => isset($p[$k]) && $p[$k] !== '' && $p[$k] !== null;
+            if ($has('top')) $css .= 'top:'.$p['top'].'px;';
+            if ($has('bottom') && !$has('top')) $css .= 'bottom:'.$p['bottom'].'px;';
+            if ($has('left')) $css .= 'left:'.$p['left'].'px;';
+            if ($has('width')) $css .= 'width:'.$p['width'].'px;';
+            if ($has('height')) $css .= 'height:'.$p['height'].'px;';
+            if ($has('fontSize')) $css .= 'font-size:'.$p['fontSize'].'px;';
             if (!empty($p['color'])) $css .= 'color:'.$p['color'].';';
             if (!empty($p['bgColor'])) {
                 $bgO = floatval($p['bgOpacity'] ?? 1);
@@ -687,7 +696,7 @@
             $st = array_merge([
                 'top'=>480,'left'=>550,'width'=>500,'height'=>150,'fontSize'=>20,'zIndex'=>10,
                 // Declared so the `?:` fallbacks below never touch a missing key.
-                'headerBg'=>'', 'rowBg'=>'',
+                'headerBg'=>'', 'rowBg'=>'', 'cellBg'=>'', 'headerHeight'=>'',
             ], $positions['stats_table'] ?? []);
         @endphp
         #stats-table-wrap {
@@ -700,6 +709,18 @@
            can still opt back into borders by setting tableBorderWidth. */
         #stats-table-wrap table {
             width: 100%;
+            /*
+             * Fixed layout, so every stat column is exactly the same width.
+             *
+             * With `auto`, the columns were sized by their contents — "MATCHES" is a longer
+             * word than "WKTS", so the first column grew and the header chips stopped sitting
+             * over the figures below them. That is the misalignment: nothing was offset, the
+             * columns were just unequal. Fixed layout divides the width evenly and the header
+             * lines up with its number.
+             */
+            table-layout: fixed;
+            /* Fill the wrap so the rows are centred in the panel rather than piled at its top. */
+            height: 100%;
             border-collapse: separate;
             border-spacing: {{ $st['cellSpacing'] ?? 10 }}px 0;
             font-size: {{ $st['fontSize'] ?? 20 }}px;
@@ -735,16 +756,42 @@
             font-size: 0.62em;
             padding-bottom: 2px;
             opacity: 0.8;
+            vertical-align: middle;
+            @if(!empty($st['headerHeight']))
+            /*
+             * Pin the header band's height.
+             *
+             * Several wall backgrounds have the stats table PRINTED INTO THE ARTWORK — a
+             * coloured header strip above a body block. Left to size itself, the header row
+             * takes only as much height as its text, so the labels floated above the strip
+             * they belong in and the figures sat high in the block. Fixing the header height
+             * lets the remaining table height fall to the body row, and both rows land in
+             * their painted slots.
+             */
+            height: {{ $st['headerHeight'] }}px;
+            @endif
         }
-        /* The figure carries the emphasis, on its own translucent tile. */
+        /*
+         * The figure carries the emphasis — by weight and size, not by a panel behind it.
+         *
+         * This used to force a translucent tile on every cell (`?? rgba(255,255,255,0.07)`,
+         * which a template could not switch off because the fallback only applied when the
+         * key was absent, never when it was deliberately blank). Stacked on the wrap's own
+         * background and the header row's, that was three tinted layers over the artwork —
+         * the "table background" that read as dirty on the wall. A template that wants tiles
+         * back sets cellBg in the editor.
+         */
         #stats-table-wrap td {
             font-weight: 800;
             font-size: 1.25em;
             line-height: 1.1;
-            background: {{ $st['rowBg'] ?? 'rgba(255,255,255,0.07)' }};
+            vertical-align: middle;
+            @if(!empty($st['cellBg']))
+            background: {{ $st['cellBg'] }};
             border-radius: 12px;
             backdrop-filter: blur(3px);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+            @endif
         }
 
         #player-role {
@@ -760,6 +807,29 @@
         #player-bowling {
             position: absolute;
             {!! elementStyle($positions, 'bowling_style', ['top'=>404,'left'=>570,'fontSize'=>34,'color'=>'#ffffff'], $boxShadowMap, $textShadowMap) !!}
+        }
+
+        /*
+         * The opening figure, alongside the live one.
+         *
+         * Captioned by its own ::before rather than by bid_label, which is dynamic — it reads
+         * BASE VALUE, CURRENT BID or SOLD PRICE depending on the player's state, so it belongs
+         * to #current-bid and cannot also label this. Same approach as #highest-bidder.
+         */
+        #base-price {
+            position: absolute;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            line-height: 1.05;
+            {!! elementStyle($positions, 'base_price', ['bottom'=>197,'left'=>400,'fontSize'=>26,'color'=>'#cbd5e1'], $boxShadowMap, $textShadowMap) !!}
+        }
+        #base-price::before {
+            content: 'BASE PRICE';
+            font-size: 0.42em;
+            font-weight: 900;
+            letter-spacing: 0.22em;
+            opacity: 0.75;
         }
 
         #current-bid {
@@ -1237,8 +1307,15 @@
         <span id="bid-flash-amount"></span>
     </div>
 
-    @isset($cardPayload)
-        {{-- Deliberately outside #card-container, or it would appear in its own screenshot. --}}
+    @if(isset($cardPayload) && ! request()->boolean('noui'))
+        {{-- Kept out of #card-container so the browser-side html2canvas capture, which paints
+             that element, cannot include its own button.
+
+             That was not enough for the SERVER-side capture. Browsershot's `->select()` clips
+             the viewport to the element's box, and this button is position:fixed — fixed
+             elements are painted against the viewport, so it landed inside the clip anyway
+             and every downloaded card carried a green button in its corner. The renderer asks
+             for the page with ?noui=1 and gets no chrome to capture at all. --}}
         <button id="card-download" type="button" class="hidden"
                 style="position:fixed;top:16px;right:16px;z-index:99999;padding:12px 22px;
                        border:0;border-radius:10px;cursor:pointer;
@@ -1246,7 +1323,7 @@
                        background:#16a34a;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.45);">
             Download PNG
         </button>
-    @endisset
+    @endif
 
     <div id="card-container" class="card-container hidden">
         @if($auction->auction_logo_url)
@@ -1323,6 +1400,11 @@
         <!-- Current Bid -->
         @if(isVisible($positions, 'current_bid'))
         <div id="current-bid" class="text-3xl font-extrabold" style="color: #fff;">1,00,000</div>
+        @endif
+
+        <!-- Base price: the opening figure, shown next to the live one -->
+        @if(isVisible($positions, 'base_price'))
+        <div id="base-price"><span id="base-price-value">1,00,000</span></div>
         @endif
 
         <!-- Stats Table -->
@@ -1814,6 +1896,15 @@
             const price = ap.current_price || ap.base_price || 0;
             const bidEl = document.getElementById('current-bid');
 
+            /*
+             * The opening figure, which does not change as bidding runs — so it is set from
+             * base_price and never from current_price. Null-checked because the template may
+             * switch this element off, and an unguarded lookup here is exactly what stopped the
+             * whole card rendering when the price was hidden.
+             */
+            const baseEl = document.getElementById('base-price-value');
+            if (baseEl) baseEl.textContent = formatMillions(ap.base_price || 0);
+
             if (bidEl) {
                 bidEl.textContent = formatMillions(price);
 
@@ -2102,6 +2193,15 @@
              * renderLiveBid() was already guarded; this one never was.
              */
             const bidEl = document.getElementById('current-bid');
+
+            /*
+             * The opening figure, which does not change as bidding runs — so it is set from
+             * base_price and never from current_price. Null-checked because the template may
+             * switch this element off, and an unguarded lookup here is exactly what stopped the
+             * whole card rendering when the price was hidden.
+             */
+            const baseEl = document.getElementById('base-price-value');
+            if (baseEl) baseEl.textContent = formatMillions(p.base_price || 0);
 
             if (bidEl) {
                 bidEl.textContent = formatMillions(price);
@@ -3079,7 +3179,7 @@
         function fitCardText() {
             [
                 'player-name', 'player-role', 'player-batting', 'player-bowling',
-                'current-bid', 'bid-label', 'bidder-name', 'sold-text',
+                'current-bid', 'bid-label', 'bidder-name', 'sold-text', 'base-price',
             ].forEach((id) => fitTextElement(document.getElementById(id)));
         }
 
