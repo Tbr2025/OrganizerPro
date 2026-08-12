@@ -525,7 +525,10 @@
                         </template>
 
                         {{-- Submitted, waiting for the round to close --}}
-                        <template x-if="sealed.active && sealed.my_entry?.amount && sealed.state !== 'collecting'">
+                        {{-- Once a bid is in, this replaces the entry box for the rest of the round —
+                             it is no longer only a post-lock summary, because a submitted team can no
+                             longer edit and has nothing else to look at. --}}
+                        <template x-if="sealed.active && sealed.my_entry?.amount && (sealed.state !== 'collecting' || sealedEntryState === 'submitted')">
                             <div class="bg-gray-900/60 border border-emerald-500/25 rounded-lg p-3.5 text-center">
                                 <div class="text-gray-400 text-[10px] uppercase tracking-wider mb-1">Your sealed bid</div>
                                 {{-- Masked here too. This panel is on screen for the whole rest of the
@@ -537,7 +540,10 @@
                                         class="text-[10px] uppercase tracking-wider mt-1 transition"
                                         :class="sealedAmountHidden ? 'text-cyan-400 hover:text-cyan-300' : 'text-gray-500 hover:text-gray-300'"
                                         x-text="sealedAmountHidden ? 'Show' : 'Hide'"></button>
-                                <p class="text-gray-500 text-[10px] mt-1.5">Bidding is closed. Waiting for the result.</p>
+                                <p class="text-gray-500 text-[10px] mt-1.5"
+                                   x-text="sealed.state === 'collecting'
+                                        ? 'This is final — it cannot be changed. Waiting for the other teams.'
+                                        : 'Bidding is closed. Waiting for the result.'"></p>
                             </div>
                         </template>
                     </div>
@@ -967,8 +973,19 @@ function teamBiddingPanel() {
             // does not require acceptance offered the bid box to every team.
             if (this.sealed.invited === false) return false;
             if (this.sealedEntryState === 'withdrawn' || this.sealedEntryState === 'declined') return false;
+
+            /*
+             * Already in. A sealed bid is one committed decision, so the box closes.
+             *
+             * The button used to read CHANGE SEALED BID and the server accepted the change — a
+             * manager could sit on the clock and revise, which is exactly the behaviour a sealed
+             * round exists to prevent. The server now refuses it; this stops the screen offering
+             * an edit that would only come back as an error.
+             */
+            if (this.sealedEntryState === 'submitted' && this.sealed.my_entry?.amount) return false;
+
             if (this.sealed.requires_acceptance) {
-                return ['accepted', 'submitted', 'must_rebid', 'may_opt_in'].includes(this.sealedEntryState);
+                return ['accepted', 'must_rebid', 'may_opt_in'].includes(this.sealedEntryState);
             }
             return true;
         },

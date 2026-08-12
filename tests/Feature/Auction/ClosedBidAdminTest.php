@@ -212,7 +212,12 @@ class ClosedBidAdminTest extends TestCase
 
         $this->closedBids()->accept($round, $teamA);
         $this->closedBids()->submit($round, $teamA, 9_000_000, null);
-        $this->closedBids()->submit($round, $teamA, 9_500_000, null);
+
+        // The second change comes from the ORGANIZER, because a team's own bid is final once
+        // submitted. The guarantee under test is unchanged: undoing an amount change returns the
+        // previous amount rather than clearing the bid.
+        $entry = $round->entries()->where('actual_team_id', $teamA->id)->first();
+        $this->closedBids()->submit($round, $teamA, 9_500_000, null, \App\Models\AuctionClosedBidEntry::ROLE_ADMIN);
 
         $result = app(AuctionUndoService::class)->undoLast($auction);
 

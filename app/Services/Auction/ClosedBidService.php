@@ -619,6 +619,30 @@ class ClosedBidService
                 ], true)) {
                     return ['handled' => false, 'message' => 'Accept the round conditions before bidding.'];
                 }
+
+                /*
+                 * A team's sealed bid is final once it is in.
+                 *
+                 * Re-submitting was allowed, so a manager could keep nudging their amount right
+                 * up to the lock — and in a sealed round that is not a small convenience: the
+                 * bid is supposed to be a single committed decision made without knowing what
+                 * anyone else has done. Watching the clock and revising is the behaviour a
+                 * sealed round exists to prevent.
+                 *
+                 * The ORGANIZER can still correct an amount (adjustEntry, ROLE_ADMIN) — that is
+                 * a deliberate, logged and undoable act by the person running the room, not the
+                 * team changing its own mind. A re-bid round is unaffected: it moves the entry
+                 * to must_rebid, so this only ever blocks a second bid within one round.
+                 */
+                if ($existing->state === AuctionClosedBidEntry::STATE_SUBMITTED && $existing->amount !== null) {
+                    return [
+                        'handled' => false,
+                        'message' => sprintf(
+                            'Your sealed bid of %s is already in. It cannot be changed — ask the organizer if it is wrong.',
+                            format_points((float) $existing->amount)
+                        ),
+                    ];
+                }
             }
 
             // Rejected, never rounded: silently correcting an amount under time pressure

@@ -247,20 +247,31 @@ class ClosedBidSealingTest extends TestCase
     }
 
     #[Test]
-    public function a_second_submission_replaces_rather_than_stacks(): void
+    /**
+     * A team's sealed bid is final once it is in.
+     *
+     * Re-submitting used to be allowed, so a manager could sit on the clock and revise their
+     * amount — which is precisely the behaviour a sealed round exists to prevent: one committed
+     * decision, made without knowing what anyone else has done. The organizer can still correct
+     * an amount, deliberately and undoably; the team cannot change its own mind.
+     */
+    public function a_teams_second_submission_is_refused(): void
     {
         ['round' => $round, 'teamA' => $teamA] = $this->scenario();
 
         $this->closedBids()->accept($round, $teamA);
-        $this->closedBids()->submit($round, $teamA, 9_000_000, null);
-        $this->closedBids()->submit($round, $teamA, 9_400_000, null);
+        $this->assertTrue($this->closedBids()->submit($round, $teamA, 9_000_000, null)['handled']);
 
-        // One standing amount per team per round, enforced by a unique index — this is
-        // what stops the latest-versus-highest confusion the old board suffered from.
+        $second = $this->closedBids()->submit($round, $teamA, 9_400_000, null);
+
+        $this->assertFalse($second['handled']);
+        $this->assertStringContainsString('already in', $second['message']);
+
+        // One standing amount per team per round, and it is the first one.
         $entries = $round->entries()->where('actual_team_id', $teamA->id)->get();
 
         $this->assertCount(1, $entries);
-        $this->assertSame(9_400_000.0, (float) $entries->first()->amount);
+        $this->assertSame(9_000_000.0, (float) $entries->first()->amount);
     }
 
     #[Test]

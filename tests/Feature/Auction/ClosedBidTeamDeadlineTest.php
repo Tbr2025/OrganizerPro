@@ -213,4 +213,45 @@ class ClosedBidTeamDeadlineTest extends TestCase
         $this->assertStringContainsString('Offline round.', $html);
         $this->assertStringContainsString('Teams enter their own amounts.', $html);
     }
+
+    #[Test]
+    public function a_team_cannot_revise_a_bid_it_has_already_submitted(): void
+    {
+        ['auction' => $auction, 'team' => $team, 'round' => $round, 'user' => $user] = $this->scenario();
+
+        $this->closedBids()->accept($round, $team);
+
+        $this->actingAs($user)->postJson(
+            route('team.auction.bidding.api.closed-bid.submit', $auction),
+            ['amount' => 9_000_000]
+        )->assertOk();
+
+        // Sitting on the clock and revising is the behaviour a sealed round exists to prevent.
+        $second = $this->actingAs($user)->postJson(
+            route('team.auction.bidding.api.closed-bid.submit', $auction),
+            ['amount' => 9_500_000]
+        );
+
+        $second->assertStatus(422);
+        $this->assertStringContainsString('already in', (string) $second->json('error'));
+
+        $entry = $round->entries()->where('actual_team_id', $team->id)->first();
+        $this->assertSame(9_000_000.0, (float) $entry->amount);
+    }
+
+    #[Test]
+    public function the_entry_box_closes_once_a_bid_is_in(): void
+    {
+        ['auction' => $auction, 'user' => $user] = $this->scenario();
+
+        $html = $this->actingAs($user)
+            ->get(route('team.auction.bidding.show', $auction))
+            ->assertOk()
+            ->getContent();
+
+        // The screen must not offer an edit the server will refuse — the button used to read
+        // CHANGE SEALED BID and the change was accepted.
+        $this->assertStringContainsString("this.sealedEntryState === 'submitted'", $html);
+        $this->assertStringNotContainsString("'accepted', 'submitted', 'must_rebid', 'may_opt_in'", $html);
+    }
 }
