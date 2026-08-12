@@ -3009,6 +3009,13 @@
                     dlBtn.textContent = 'Rendering…';
                     dlBtn.disabled = true;
 
+                    /* Capture the card at its true 1601x910, not at whatever fraction of it
+                       the window is showing. scaleLive() fits the card to the window, and
+                       html2canvas honours that transform — which would otherwise bake the
+                       preview's scaling into the downloaded file. */
+                    const savedTransform = card.style.transform;
+                    card.style.transform = '';
+
                     try {
                         const canvas = await html2canvas(card, {
                             // Same-origin assets, but the flag is needed for the crossOrigin
@@ -3031,6 +3038,7 @@
                         console.error('[Card] capture failed:', e);
                         alert('Could not capture the card: ' + e.message);
                     } finally {
+                        card.style.transform = savedTransform;
                         dlBtn.textContent = label;
                         dlBtn.disabled = false;
                     }
@@ -3131,6 +3139,22 @@
             container.style.transformOrigin = 'center center';
         }
         window.addEventListener('resize', scaleLive);
+
+        /*
+         * Fit the card to the window in card mode too.
+         *
+         * scaleLive() is wired into showCard(), which only the live path uses, so a card page
+         * was drawn at its true 1601x910 — and a laptop window showed the MIDDLE of it with
+         * the top and bottom cut off. That reads as broken clipping when nothing is clipped:
+         * the page simply never scaled. The headless renderer opens a window of exactly the
+         * canvas size, so it still gets scale 1 and the PNG is unchanged.
+         *
+         * Called HERE, not up in the card branch: scaleLive() closes over canvasWidth and
+         * canvasHeight, which are `const`s declared just above this line. Calling it earlier
+         * hits them in the temporal dead zone, and the ReferenceError kills the rest of the
+         * script — including the data-card-ready flag the screenshotter waits for.
+         */
+        if (CARD_PAYLOAD) scaleLive();
         // Entering or leaving fullscreen changes the viewport without firing resize on
         // every browser, and the wall is run fullscreen more often than not.
         document.addEventListener('fullscreenchange', () => setTimeout(scaleLive, 60));
@@ -3207,6 +3231,7 @@
             setTimeout(scaleLive, 50);
             setTimeout(fitCardText, 60);
         };
+
         scaleLive();
 
         /* Web fonts land after first paint and change every measurement, so anything fitted
