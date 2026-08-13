@@ -61,6 +61,21 @@
         </div>
 
         <div class="px-5 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-2">
+            {{-- Stop, while it is still running. A 300-player pool is minutes of work and the
+                 wrong template or the wrong pool is not something to wait out. Whatever has
+                 rendered so far goes with it: half a pool of posters is not a deliverable, and
+                 keeping it would mean downloading an archive that silently misses players. --}}
+            <button type="button" x-show="! $store.cardExport.finished && $store.cardExport.total > 0"
+                    @click="$store.cardExport.stop()"
+                    class="mr-auto px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600">
+                Stop
+            </button>
+
+            <a x-show="$store.cardExport.archiveUrl" x-cloak :href="$store.cardExport.archiveUrl"
+               class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                Archives
+            </a>
+
             <button type="button" @click="$store.cardExport.dismiss()"
                     class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                     x-text="$store.cardExport.finished ? 'Close' : 'Hide'"></button>
@@ -93,12 +108,17 @@
             _timer: null,
             _auctionId: null,
             _token: null,
+            /** Link to this auction's archive list, set once an export has started. */
+            archiveUrl: null,
 
             failed() {
-                return this.status === 'failed';
+                // A cancellation is not a failure — nothing went wrong — but the bar should stop
+                // reading as progress, so both colour it away from green.
+                return this.status === 'failed' || this.status === 'cancelled';
             },
 
             title() {
+                if (this.status === 'cancelled') return 'Export stopped';
                 if (this.status === 'failed') return 'Export failed';
                 if (this.status === 'done') return 'Cards ready';
                 return 'Rendering cards…';
@@ -110,6 +130,7 @@
                         ? `${this.completed} rendered, ${this.failedCount} could not be`
                         : 'Every card rendered.';
                 }
+                if (this.status === 'cancelled') return 'Stopped. Nothing was kept.';
                 if (this.status === 'failed') return 'Nothing was produced.';
                 return 'This runs on the server — the zip appears here when it is done.';
             },
@@ -143,6 +164,7 @@
                 this.downloadUrl = null;
                 this._auctionId = auctionId;
                 this._token = null;
+                this.archiveUrl = `/admin/auctions/${auctionId}/card-exports`;
 
                 try {
                     const res = await fetch(`/admin/auctions/${auctionId}/cards/export`, {
@@ -178,6 +200,33 @@
                     }
                 } catch (e) {
                     this._fail('The export could not be started. Check your connection and try again.');
+                }
+            },
+
+            /**
+             * Stop the export on the server.
+             *
+             * The job re-reads the status between players, not only between chunks — a chunk is
+             * twenty cards, which on a 300-player pool is twenty more renders after the press.
+             */
+            async stop() {
+                if (! this._token || this.finished) return;
+
+                try {
+                    const res = await fetch(`/admin/auctions/${this._auctionId}/cards/export/${this._token}/cancel`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            Accept: 'application/json',
+                        },
+                    });
+
+                    if (res.ok) {
+                        this._apply(await res.json());
+                        this._stopPolling();
+                    }
+                } catch (e) {
+                    // The next poll will show it either way.
                 }
             },
 

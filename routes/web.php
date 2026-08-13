@@ -190,6 +190,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/auctions/{auction}/cards/export', [AuctionAdminController::class, 'startCardExport'])->name('auctions.cards.export');
     Route::get('/auctions/{auction}/cards/export/{token}', [AuctionAdminController::class, 'cardExportProgress'])->name('auctions.cards.export.progress');
     Route::get('/auctions/{auction}/cards/export/{token}/download', [AuctionAdminController::class, 'cardExportDownload'])->name('auctions.cards.export.download');
+    Route::post('/auctions/{auction}/cards/export/{token}/cancel', [AuctionAdminController::class, 'cancelCardExport'])->name('auctions.cards.export.cancel');
+    Route::delete('/auctions/{auction}/cards/export/{token}', [AuctionAdminController::class, 'deleteCardExport'])->name('auctions.cards.export.destroy');
+    // Every archive this auction has produced — see AuctionAdminController::cardExports().
+    Route::get('/auctions/{auction}/card-exports', [AuctionAdminController::class, 'cardExports'])->name('auctions.card-exports');
 
     Route::get('/auctions/{auction}/cards/{auctionPlayer}', [AuctionAdminController::class, 'downloadPlayerCard'])->name('auctions.cards.player');
     // Broadcast screens picker — the ticker and LED wall had no home in the menu.

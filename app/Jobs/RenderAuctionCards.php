@@ -112,6 +112,24 @@ class RenderAuctionCards implements ShouldQueue
         $message = $export->message;
 
         foreach ($chunk as $id) {
+            /*
+             * Stop between players, not only between chunks.
+             *
+             * A chunk is twenty cards; on a 307-player pool that is up to twenty more renders
+             * after the operator presses Stop, each one a browser or a GD pass. Re-reading the
+             * status per player costs one indexed query against a job that spends seconds on
+             * every iteration.
+             */
+            if (AuctionCardExport::whereKey($export->id)->value('status') === AuctionCardExport::STATUS_CANCELLED) {
+                $zip->close();
+
+                foreach ($written as $png) {
+                    @unlink($png);
+                }
+
+                return;
+            }
+
             $auctionPlayer = $players->get($id);
 
             /*

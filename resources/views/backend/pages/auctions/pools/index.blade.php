@@ -10,6 +10,17 @@
 <div class="p-4 mx-auto max-w-7xl md:p-6" x-data="poolManager({{ $auction->id }})">
     <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
 
+    {{-- The archive, findable without the progress dialog. Once that was dismissed the export was
+         invisible: the zip sat on disk for an hour with no way to fetch it again, so a second run
+         of three hundred posters was the only way to recover a download somebody had closed. --}}
+    <div class="mb-4 flex justify-end">
+        <a href="{{ route('admin.auctions.card-exports', $auction) }}"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+            <iconify-icon icon="lucide:archive" width="14"></iconify-icon>
+            Poster Archives
+        </a>
+    </div>
+
     {{-- Header --}}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>

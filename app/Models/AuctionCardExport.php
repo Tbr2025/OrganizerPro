@@ -19,6 +19,8 @@ class AuctionCardExport extends Model
     public const STATUS_RUNNING = 'running';
     public const STATUS_DONE = 'done';
     public const STATUS_FAILED = 'failed';
+    /** Stopped by the operator. Distinct from failed: nothing went wrong. */
+    public const STATUS_CANCELLED = 'cancelled';
 
     /** Where the zips live. Private: a card carries a player's photo and their price. */
     public const DISK = 'local';
@@ -75,7 +77,11 @@ class AuctionCardExport extends Model
 
     public function isFinished(): bool
     {
-        return in_array($this->status, [self::STATUS_DONE, self::STATUS_FAILED], true);
+        return in_array($this->status, [
+            self::STATUS_DONE,
+            self::STATUS_FAILED,
+            self::STATUS_CANCELLED,
+        ], true);
     }
 
     /** What the polling endpoint hands back. Deliberately small — it is fetched every second. */
@@ -90,6 +96,7 @@ class AuctionCardExport extends Model
             'percent' => $this->percent(),
             'message' => $this->message,
             'finished' => $this->isFinished(),
+            'cancelled' => $this->status === self::STATUS_CANCELLED,
             'download_url' => $this->status === self::STATUS_DONE
                 ? route('admin.auctions.cards.export.download', [$this->auction_id, $this->token])
                 : null,

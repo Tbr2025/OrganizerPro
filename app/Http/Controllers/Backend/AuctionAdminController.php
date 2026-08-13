@@ -2493,6 +2493,84 @@ class AuctionAdminController extends Controller
     }
 
     /**
+     * Stop a running export.
+     *
+     * Marked rather than deleted, so the job that is mid-render sees the change and stops —
+     * deleting the row would leave the job writing into a zip nothing points at. Whatever it
+     * managed to render is discarded with it: half a pool of posters is not a deliverable, and
+     * keeping it would mean an operator downloading an archive that silently misses players.
+     */
+    public function cancelCardExport(Auction $auction, string $token)
+    {
+        $this->authorize('auction.view');
+
+        $export = $this->findExport($auction, $token);
+
+        if ($export->isFinished()) {
+            return response()->json(['message' => 'That export has already finished.'], 422);
+        }
+
+        $export->update([
+            'status' => AuctionCardExport::STATUS_CANCELLED,
+            'message' => sprintf('Stopped after %d of %d.', $export->settled(), $export->total),
+        ]);
+
+        if ($export->path && Storage::disk(AuctionCardExport::DISK)->exists($export->path)) {
+            Storage::disk(AuctionCardExport::DISK)->delete($export->path);
+            $export->update(['path' => null]);
+        }
+
+        return response()->json($export->fresh()->toProgressPayload());
+    }
+
+    /** Delete one archive and its zip. */
+    public function deleteCardExport(Auction $auction, string $token)
+    {
+        $this->authorize('auction.edit');
+
+        $export = $this->findExport($auction, $token);
+
+        // A running export is stopped first, or its job would go on writing to a deleted row.
+        if (! $export->isFinished()) {
+            $export->update(['status' => AuctionCardExport::STATUS_CANCELLED]);
+        }
+
+        $export->discard();
+
+        return back()->with('success', 'Archive deleted.');
+    }
+
+    /**
+     * Every archive this auction has produced.
+     *
+     * The exports were invisible once the dialog was closed: the zip stayed on disk for an hour
+     * and there was no way to fetch it again, see what had already been generated, or delete one
+     * — so a second pool of 300 posters was the only way to recover a download that had been
+     * dismissed.
+     */
+    public function cardExports(Auction $auction)
+    {
+        $this->authorize('auction.view');
+
+        $exports = AuctionCardExport::where('auction_id', $auction->id)
+            ->with('tournamentTemplate:id,name,type')
+            ->latest('id')
+            ->paginate(30);
+
+        return view('backend.pages.auctions.card-exports', [
+            'auction' => $auction,
+            'exports' => $exports,
+            'breadcrumbs' => [
+                'title' => __('Poster Archives'),
+                'items' => [
+                    ['label' => __('Auctions'), 'url' => route('admin.auctions.index')],
+                    ['label' => $auction->name, 'url' => route('admin.auctions.show', $auction)],
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * Scoped to the auction in the URL as well as matched on the token.
      *
      * The token alone would be enough to find the row, but binding it to the auction means the
