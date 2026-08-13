@@ -484,14 +484,6 @@
             50% { opacity: 1; transform: scale(1.02); }
         }
 
-        /* "Coming up" name swap. Each new name is re-triggered by removing and re-adding
-           the class, so the cycle reads as a deliberate change rather than a flicker. */
-        @keyframes upNextSwap {
-            0%   { opacity: 0; transform: translateY(10px); filter: blur(4px); }
-            100% { opacity: 1; transform: translateY(0); filter: blur(0); }
-        }
-        .waiting-upnext-name.swapping { animation: upNextSwap 0.45s ease-out; }
-
         /* ── Waiting screen: bat and ball ──
            Pure CSS and inline SVG. No image and no library, so the screen has nothing to
            download and cannot sit on a broken asset while a hall watches it. One shared
@@ -1287,19 +1279,6 @@
                         text-transform:uppercase;color:rgba(255,255,255,0.55);"></div>
         </div>
 
-        {{-- "Coming up" teaser. Cycles the names still in the queue, which the feed already
-             sends for the shuffle animation, so a stalled screen still reads as live. --}}
-        <div id="waiting-upnext" class="hidden"
-             style="position:relative;z-index:1;margin-top:22px;display:flex;align-items:center;gap:14px;
-                    padding:12px 26px;border-radius:999px;
-                    background:rgba(2,6,23,0.55);backdrop-filter:blur(6px);
-                    border:1px solid rgba(var(--primary-rgb),0.25);">
-            <span style="font-size:15px;letter-spacing:0.22em;text-transform:uppercase;
-                         color:rgba(var(--primary-rgb),0.9);">Coming up</span>
-            <span id="waiting-upnext-name" class="waiting-upnext-name"
-                  style="font-size:26px;font-weight:700;color:#fff;"></span>
-        </div>
-
         <div class="glow-dots" style="position:relative;z-index:1;">
             <div class="glow-dot"></div>
             <div class="glow-dot"></div>
@@ -1927,9 +1906,6 @@
 
                     document.getElementById('waiting-screen')?.classList.add('hidden');
                     document.getElementById('card-container')?.classList.add('hidden');
-                    // The teaser cycles on a timer of its own; left running it would keep
-                    // animating behind the card once this finishes.
-                    stopUpNext();
                     screen.classList.remove('hidden');
                     screen.style.display = 'flex';
 
@@ -2129,43 +2105,6 @@
            empty between players. What decides the wording is not `status` alone — an
            auction is `running` from the moment it starts, before anyone is up — but how
            much of the room has actually been worked through. */
-        let upNextIndex = 0;
-        let upNextTimer = null;
-
-        function stopUpNext() {
-            if (upNextTimer) { clearInterval(upNextTimer); upNextTimer = null; }
-        }
-
-        function renderUpNext(names) {
-            const wrap = document.getElementById('waiting-upnext');
-            const label = document.getElementById('waiting-upnext-name');
-            if (!wrap || !label) return;
-
-            if (!Array.isArray(names) || names.length === 0) {
-                wrap.classList.add('hidden');
-                stopUpNext();
-                return;
-            }
-
-            wrap.classList.remove('hidden');
-
-            const show = () => {
-                if (upNextIndex >= names.length) upNextIndex = 0;
-                label.textContent = names[upNextIndex] || '';
-                upNextIndex = (upNextIndex + 1) % names.length;
-                // Re-trigger the keyframe: removing the class and forcing a reflow is the
-                // only reliable way to replay a CSS animation on the same element.
-                label.classList.remove('swapping');
-                void label.offsetWidth;
-                label.classList.add('swapping');
-            };
-
-            if (!upNextTimer) {
-                show();
-                upNextTimer = setInterval(show, 2600);
-            }
-        }
-
         function renderWaitingScreen(data) {
             const title = document.getElementById('waiting-title');
             const sub = document.getElementById('waiting-sub');
@@ -2215,21 +2154,12 @@
                     bar.classList.add('hidden');
                 }
             }
-
-            /* Only tease names while nobody is on the block. Left running it kept cycling
-               over a live player card, because the cycle has its own interval and was only
-               stopped from showCard(). */
-            const somebodyUp = data?.auctionPlayer?.status === 'on_auction';
-            renderUpNext(started && waiting > 0 && ! somebodyUp ? (data?.waitingPlayers || []) : []);
         }
 
         function showCard() {
             console.log('[Live] showCard()');
             document.getElementById('waiting-screen').classList.add('hidden');
             document.getElementById('card-container').classList.remove('hidden');
-            // Nothing is watching the teaser behind the card; leaving its interval running
-            // would keep re-animating a hidden node for the rest of the session.
-            stopUpNext();
         }
 
         // Set from each poll before the card is rendered. A variable rather than a new
