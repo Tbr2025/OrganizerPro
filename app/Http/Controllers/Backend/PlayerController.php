@@ -1266,7 +1266,18 @@ class PlayerController extends Controller
             ? PlayerFormConfig::getFieldConfig($settings)
             : PlayerFormConfig::defaultFormFields();
 
-        $layout = PlayerFormConfig::getFormLayout($settings, true);
+        /*
+         * EVERY field, not only the ones the tournament's registration form asks for.
+         *
+         * This passed `visibleOnly = true`, so a field the tournament had switched off simply
+         * was not on the admin's edit form — travel plan among them on tournament 25. An
+         * organizer who needed to record when a player arrives had nowhere to put it, and no
+         * indication the field existed. What the registration form shows is a decision about
+         * what to ask an APPLICANT for; it is not a decision about what an administrator may
+         * correct. The partial marks the ones the form does not ask for, so it is still clear
+         * which is which — see `fieldConfig`, already passed to the view.
+         */
+        $layout = PlayerFormConfig::getFormLayout($settings, false);
 
         // Welcome card uses the player's tournament's welcome_card editor template.
         $welcomeRegistration = TournamentRegistration::where('player_id', $player->id)
