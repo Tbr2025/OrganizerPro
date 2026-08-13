@@ -121,6 +121,19 @@ class AuctionPool extends Model
         return $query->where('is_unsold_pool', false);
     }
 
+    /**
+     * Players who went unsold FROM this pool.
+     *
+     * They no longer live in it — an unsold player is moved to the auction's shared pile — so
+     * this joins on the origin recorded on the player instead. It is what "Reopen a pool" counts
+     * and brings back.
+     */
+    public function unsoldFrom(): HasMany
+    {
+        return $this->hasMany(AuctionPlayer::class, 'source_pool_id')
+            ->whereIn('status', ['unsold', 'passed', 'skipped']);
+    }
+
     /** The pool this unsold holding pool collects players for. */
     public function parentPool(): BelongsTo
     {

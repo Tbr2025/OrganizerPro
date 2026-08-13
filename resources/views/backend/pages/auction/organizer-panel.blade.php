@@ -1338,6 +1338,16 @@
                         </template>
                         <span x-show="pools.filter(p => p.is_enabled && p.waiting > 0).length === 0"
                               class="text-xs text-gray-500">no enabled pool has players left</span>
+
+                        {{-- Any pool, at any time — including the ones already finished.
+                             "No enabled pool has players left" was the end of the road: the
+                             remaining pools were closed or disabled, activatePool refuses both,
+                             and the only way on was the pools admin screen mid-auction. --}}
+                        <button x-show="reopenablePools.length" @click="choosePoolToReopen()"
+                                class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 text-xs font-semibold rounded transition whitespace-nowrap">
+                            Reopen a pool
+                            <span class="opacity-70" x-text="'(' + reopenablePools.length + ')'"></span>
+                        </button>
                     </div>
                 </template>
 
@@ -3344,6 +3354,86 @@ function auctionOrganizerPanel() {
             this.resetBiddingTimer();
         },
 
+        /**
+         * Pools the auction could go back to.
+         *
+         * Anything not currently running that still has somebody in it — including pools that
+         * were closed early (their uncalled players are in the unsold pile with a source_pool_id
+         * pointing here) and pools taken out of play. `activatePool` refuses both, which is why
+         * "no enabled pool has players left" used to be the end of the road with the only way on
+         * being the pools admin screen in the middle of a live auction.
+         *
+         * `unsold_from` comes from the server, because only it can count a pile the client never
+         * sees.
+         */
+        get reopenablePools() {
+            return (this.pools || []).filter(p => {
+                if (this.activePool && p.id === this.activePool.id) return false;
+
+                return (p.waiting || 0) > 0 || (p.unsold_from || 0) > 0;
+            });
+        },
+
+        /**
+         * Pick a finished pool and run it again.
+         *
+         * Confirmed twice on purpose. This changes which pool the auction is serving, in front of
+         * a room, and the second dialog is the one that says how many players are coming back —
+         * a number the operator cannot see from the strip and would otherwise discover only
+         * after the pool was already live.
+         */
+        async choosePoolToReopen() {
+            const choices = this.reopenablePools.map(p => ({
+                value: String(p.id),
+                label: `${p.name}`,
+                hint: [
+                    (p.waiting || 0) > 0 ? `${p.waiting} still waiting` : null,
+                    (p.unsold_from || 0) > 0 ? `${p.unsold_from} to bring back from unsold` : null,
+                    p.status === 'completed' ? 'closed' : (p.is_enabled ? null : 'disabled'),
+                ].filter(Boolean).join(' · '),
+                class: 'bg-indigo-600 hover:bg-indigo-700',
+            }));
+
+            if (! choices.length) return;
+
+            const answer = await this.askConfirm('Which pool should be reopened?', {
+                title: 'Reopen a pool',
+                choices,
+            });
+
+            if (! answer) return;
+
+            const pool = this.reopenablePools.find(p => String(p.id) === String(answer));
+
+            if (! pool) return;
+
+            const coming = (pool.waiting || 0) + (pool.unsold_from || 0);
+
+            /*
+             * The second confirmation. Says what will actually happen, and what will NOT —
+             * "sales are kept" is the distinction between this and Restart, and getting the two
+             * confused costs a team its squad.
+             */
+            if (! await this.askConfirm(
+                `Reopen ${pool.name} and start it now?\n\n`
+                + `\u2022 ${coming} player(s) go back on the block\n`
+                + `\u2022 Its sales are KEPT — teams keep the players they bought\n`
+                + `\u2022 The pool running now stops`,
+                { title: `Reopen ${pool.name}`, danger: true }
+            )) return;
+
+            const result = await this.sendCommand(`pools/${pool.id}/reopen`);
+
+            if (result?.success) {
+                this.statusText = result.message;
+                this.toast(result.message, 'success', 'Pool reopened');
+                this.displayState = 'waiting';
+                this.currentPlayer = null;
+                this._lastCurrentPlayerId = null;
+                await this.pollAuctionState();
+            }
+        },
+
         /** Send the next queued raise, now that the previous one has settled. */
         _drainBidQueue() {
             const next = this._bidQueue.shift();
@@ -3842,6 +3932,9 @@ function auctionOrganizerPanel() {
         async undoLast() {
             if (this.isUndoing) return;
 
+            // Which pool this is happening in. With several pools in an evening, "undo the last
+            // action" is a different sentence depending on where the auction currently is.
+            const pool = this.activePool?.name ? `\n\nPool: ${this.activePool.name}` : '';
             const label = this.nextUndoLabel ? `\n\nWill undo: ${this.nextUndoLabel}` : '';
             /* What ELSE the click does — the price it falls back to, and a sealed round that
                goes with it. Worked out server-side from the state as it is now, because the
@@ -3849,7 +3942,7 @@ function auctionOrganizerPanel() {
             const notes = (this.nextUndoNotes || []).length
                 ? '\n\n' + this.nextUndoNotes.map(n => `\u2022 ${n}`).join('\n')
                 : '';
-            if (! await this.askConfirm(`Undo the last action?${label}${notes}`, { title: 'Undo', danger: true })) return;
+            if (! await this.askConfirm(`Undo the last action?${pool}${label}${notes}`, { title: 'Undo', danger: true })) return;
 
             this.isUndoing = true;
             try {
@@ -4006,9 +4099,22 @@ function auctionOrganizerPanel() {
             }
 
             const choices = [
+                /*
+                 * Reopening comes FIRST, because it is almost always what is wanted: carry on
+                 * with a pool that still has players, keeping every sale already made. Restart
+                 * is the destructive cousin and sits below it.
+                 */
+                ...pools
+                    .filter(p => (p.waiting || 0) > 0 || (p.unsold_from || 0) > 0)
+                    .map(p => ({
+                        value: `reopen:${p.id}`,
+                        label: `Carry on with ${p.name}`,
+                        hint: `${(p.waiting || 0) + (p.unsold_from || 0)} player(s) back on the block — its sales are kept.`,
+                        class: 'bg-emerald-600 hover:bg-emerald-700',
+                    })),
                 ...pools.map(p => ({
                     value: `pool:${p.id}`,
-                    label: `Run ${p.name} again`,
+                    label: `Run ${p.name} again from scratch`,
                     hint: `${p.sold ?? 0} sold of ${p.total ?? 0} — its sales are undone and the teams get their purse back.`,
                     class: 'bg-indigo-600 hover:bg-indigo-700',
                 })),
@@ -4021,14 +4127,36 @@ function auctionOrganizerPanel() {
             ];
 
             const answer = await this.askConfirm(
-                'The auction has ended. What should be restarted?',
-                { title: 'Restart', danger: true, choices }
+                'The auction has ended. What happens next?',
+                { title: 'Next', danger: true, choices }
             );
 
             if (! answer) return;
 
             if (answer === 'all') {
                 return this.restartAuction();
+            }
+
+            // Carry on with a pool: the same reopen path the strip uses mid-auction, so an ended
+            // auction and a running one behave identically once a pool is chosen.
+            if (String(answer).startsWith('reopen:')) {
+                const pool = pools.find(p => String(p.id) === String(answer).split(':')[1]);
+
+                if (! pool) return;
+
+                const result = await this.sendCommand(`pools/${pool.id}/reopen`);
+
+                if (result?.success) {
+                    this.auctionStatus = 'running';
+                    this.displayState = 'waiting';
+                    this.currentPlayer = null;
+                    this._lastCurrentPlayerId = null;
+                    this.statusText = result.message;
+                    this.toast(result.message, 'success', 'Pool reopened');
+                    await this.pollAuctionState();
+                }
+
+                return;
             }
 
             const poolId = Number(String(answer).split(':')[1]);
@@ -4326,7 +4454,16 @@ function auctionOrganizerPanel() {
 
         async rebidCurrentPlayer() {
             if (!this.currentPlayer) return;
-            if (! await this.askConfirm('Reset this player\'s bids and start fresh? All current bids will be cleared.', { title: 'Re-bid', danger: true })) return;
+            // Names the player and the pool. In an evening of four pools, "this player" is
+            // whoever the operator believes is up, and that is exactly what a re-bid is for
+            // when they are wrong.
+            const who = this.currentPlayer.player?.name ? ` for ${this.currentPlayer.player.name}` : '';
+            const pool = this.activePool?.name ? `\n\nPool: ${this.activePool.name}` : '';
+
+            if (! await this.askConfirm(
+                `Reset the bids${who} and start fresh? All current bids will be cleared.${pool}`,
+                { title: 'Re-bid', danger: true }
+            )) return;
             const result = await this.sendCommand('re-bid-player', { auction_player_id: this.currentPlayer.id });
             if (result && result.success) {
                 this.statusText = 'Player re-bid started!';

@@ -180,6 +180,21 @@ class AuctionPoolService
                 // Counts every run of this pool, including a re-auction round.
                 'times_used' => (int) $pool->times_used + 1,
             ]);
+
+            /*
+             * An ENDED auction comes back to life when a pool is started in it.
+             *
+             * Otherwise the auction sits `completed` with an active pool underneath — the panel
+             * reads the auction's status, not the pool's, so it would show the ended screen over
+             * a pool that is genuinely running and refuse to serve a player from it.
+             *
+             * Only `completed` is lifted. `paused` is a deliberate act with its own Resume
+             * control, and `scheduled` means the organizer has not started the auction yet —
+             * quietly starting it here would take that decision away from them.
+             */
+            if ($auction->status === 'completed') {
+                $auction->update(['status' => 'running']);
+            }
         });
 
         return [
@@ -244,6 +259,103 @@ class AuctionPoolService
     }
 
     /**
+     * Reopen a pool the auction has already finished with, and run it again.
+     *
+     * Not the same thing as restarting a pool. A restart undoes that pool's SALES and refunds
+     * the purses — right when a pool was run wrongly, and wrong when the organizer simply wants
+     * another go at the players nobody took. Closing a pool early sets its uncalled players
+     * unsold, and those are what this brings back: the sales stand, the teams keep their squads,
+     * and the players who found no buyer go up again.
+     *
+     * `source_pool_id` is what makes it possible — unsold players share one pile per auction, so
+     * the pile itself cannot say where anybody came from.
+     *
+     * @return array{success: bool, message: string, reclaimed?: int}
+     */
+    public function reopenPool(Auction $auction, AuctionPool $pool): array
+    {
+        if ($pool->auction_id !== $auction->id) {
+            return ['success' => false, 'message' => 'That pool belongs to a different auction.'];
+        }
+
+        if ($pool->isUnsoldPool()) {
+            return ['success' => false, 'message' => 'The unsold list is not a pool that can be auctioned. Use a re-auction round.'];
+        }
+
+        // A live player belongs to the pool that is running; switching under them would strand
+        // them mid-bid.
+        if (AuctionPlayer::where('auction_id', $auction->id)->where('status', 'on_auction')->exists()) {
+            return ['success' => false, 'message' => 'Finish the player currently on the block first.'];
+        }
+
+        $reclaimed = 0;
+
+        DB::transaction(function () use ($auction, $pool, &$reclaimed) {
+            $returning = AuctionPlayer::where('auction_id', $auction->id)
+                ->where('source_pool_id', $pool->id)
+                ->whereIn('status', ['unsold', 'passed', 'skipped'])
+                ->get();
+
+            foreach ($returning as $player) {
+                $player->update([
+                    'auction_pool_id' => $pool->id,
+                    'source_pool_id' => null,
+                    'status' => 'waiting',
+                    'current_price' => $player->base_price,
+                    'current_bid_team_id' => null,
+                    'final_price' => null,
+                    // The draw is redone below; a stale lot number would order them by the run
+                    // they were dropped from.
+                    'lot_number' => null,
+                ]);
+
+                $reclaimed++;
+            }
+
+            /*
+             * Enabled and pending again, whatever it was.
+             *
+             * A pool closed early is `completed`, and one taken out of play is disabled — and
+             * either would make activatePool() refuse the very thing the organizer just asked
+             * for. Reopening is that decision, so it carries it out rather than reporting a
+             * state the operator then has to go and fix by hand.
+             */
+            $pool->update([
+                'is_enabled' => true,
+                'status' => AuctionPool::STATUS_PENDING,
+                'completed_at' => null,
+            ]);
+
+            if ($reclaimed > 0) {
+                $this->generateLotNumbers($pool->fresh());
+            }
+        });
+
+        $waiting = $pool->fresh()->waitingPlayers()->count();
+
+        if ($waiting === 0) {
+            return [
+                'success' => false,
+                'message' => sprintf('%s has nobody to auction — every player in it was sold.', $pool->name),
+            ];
+        }
+
+        $activated = $this->activatePool($auction, $pool->fresh());
+
+        return $activated + [
+            'reclaimed' => $reclaimed,
+            'message' => $activated['success']
+                ? sprintf(
+                    '%s reopened with %d player(s)%s.',
+                    $pool->name,
+                    $waiting,
+                    $reclaimed > 0 ? sprintf(' — %d brought back from unsold', $reclaimed) : ''
+                )
+                : $activated['message'],
+        ];
+    }
+
+    /**
      * The next enabled pool with players left, by sequence. Used as a suggestion when
      * the active pool runs dry.
      */
@@ -276,6 +388,15 @@ class AuctionPoolService
                 'players as on_block_count' => fn ($q) => $q->where('status', 'on_auction'),
                 'players as total_count',
             ])
+            /*
+             * How many of this pool's players are sitting in the unsold pile.
+             *
+             * Counted through `source_pool_id` rather than `auction_pool_id`, because an unsold
+             * player has been MOVED to the shared pile — the pool no longer contains them. This
+             * is the number "Reopen a pool" offers to bring back, and only the server can work
+             * it out: the panel never sees the pile.
+             */
+            ->withCount(['unsoldFrom as unsold_from_count'])
             ->orderBy('sequence')
             ->get();
 
@@ -321,6 +442,8 @@ class AuctionPoolService
                 'total' => (int) $p->total_count,
                 'waiting' => (int) $p->waiting_count,
                 'sold' => (int) $p->sold_count,
+                // Players from this pool now in the unsold pile — what reopening would reclaim.
+                'unsold_from' => (int) $p->unsold_from_count,
             ])->values()->all(),
         ];
     }

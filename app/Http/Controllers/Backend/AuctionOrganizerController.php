@@ -1545,6 +1545,23 @@ class AuctionOrganizerController extends Controller
     }
 
     /**
+     * Reopen a pool the auction has already finished with, and start it.
+     *
+     * Distinct from restart, which undoes that pool's sales. This keeps them and brings back
+     * only the players nobody took — see AuctionPoolService::reopenPool(). The panel confirms
+     * twice before calling it, because it changes which pool the auction is serving.
+     */
+    public function reopenPool(Auction $auction, AuctionPool $pool)
+    {
+        $result = $this->pools->reopenPool($auction, $pool);
+
+        return response()->json(
+            $result + ['progress' => $this->pools->poolProgress($auction)],
+            $result['success'] ? 200 : 422
+        );
+    }
+
+    /**
      * Close the running pool. Returns the next enabled pool as a suggestion but does
      * not start it — pacing between pools stays with the organizer.
      */

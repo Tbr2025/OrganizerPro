@@ -47,6 +47,69 @@ class RestartAfterAuctionEndsTest extends TestCase
     }
 
     #[Test]
+    public function an_ended_auction_can_carry_on_with_a_pool_that_still_has_players(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'max_budget_per_team' => 100_000_000,
+            'min_squad_size' => 11,
+        ]);
+        $operator = $this->makeAuctionOperator($org);
+        $team = $this->makeTeam($org, 'Buyers', $tournament);
+
+        $pool = $this->makePool($auction, ['name' => 'Pool A']);
+        $sold = $this->makeAuctionPlayer($auction, [
+            'auction_pool_id' => $pool->id, 'status' => 'sold',
+            'sold_to_team_id' => $team->id, 'final_price' => 4_000,
+        ]);
+        $waiting = $this->makeAuctionPlayer($auction, [
+            'auction_pool_id' => $pool->id, 'status' => 'waiting', 'lot_number' => 2,
+        ]);
+
+        $auction->update(['status' => 'completed']);
+
+        /*
+         * "Carry on" rather than "restart". Ending an auction with players still in a pool is
+         * ordinary — a break, a room that has to be cleared — and the way back should not cost
+         * every sale already made.
+         */
+        $this->actingAs($operator)
+            ->postJson(route('admin.auction.organizer.api.pool.reopen', [$auction, $pool]))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('running', $auction->fresh()->status);
+        $this->assertSame('waiting', $waiting->fresh()->status);
+        // The sale stands.
+        $this->assertSame($team->id, $sold->fresh()->sold_to_team_id);
+    }
+
+    #[Test]
+    public function the_panel_offers_carrying_on_before_it_offers_a_reset(): void
+    {
+        $org = $this->makeOrganization();
+        $auction = $this->makeAuction($org, ['status' => 'completed']);
+        $this->makePool($auction, ['name' => 'Pool A']);
+
+        $html = $this->actingAs($this->makeAuctionOperator($org))
+            ->get(route('admin.auction.organizer.panel', $auction))
+            ->assertOk()
+            ->getContent();
+
+        // Order matters: the non-destructive option has to be the one read first.
+        $carryOn = strpos($html, 'Carry on with ');
+        $fromScratch = strpos($html, 'again from scratch');
+        $resetAll = strpos($html, 'Reset the entire auction');
+
+        $this->assertNotFalse($carryOn);
+        $this->assertNotFalse($fromScratch);
+        $this->assertLessThan($fromScratch, $carryOn);
+        $this->assertLessThan($resetAll, $fromScratch);
+    }
+
+    #[Test]
     public function restarting_one_pool_of_an_ended_auction_leaves_the_others_alone(): void
     {
         $org = $this->makeOrganization();
