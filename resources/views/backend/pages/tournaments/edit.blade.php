@@ -275,6 +275,23 @@
                         </div>
                     </div>
 
+                    {{-- The badge switch. Two different disclosures, deliberately two switches:
+                         a competition may be happy for everyone to see who bought whom and still
+                         not want a rival's kept players advertised. --}}
+                    <label class="mt-4 flex items-start gap-2.5 cursor-pointer">
+                        <input type="hidden" name="show_acquisition_badge" value="0">
+                        <input type="checkbox" name="show_acquisition_badge" value="1" class="mt-0.5 rounded border-gray-300 text-indigo-600"
+                               {{ old('show_acquisition_badge', $settings->show_acquisition_badge ?? true) ? 'checked' : '' }}>
+                        <span>
+                            <span class="block text-sm font-medium text-gray-700 dark:text-gray-300">Show Icon Player / Auction badges</span>
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">
+                                The label and its icon on squad lists — a padlock for an icon player
+                                kept before the auction, a hammer for one bought in the room. Turn it
+                                off and a squad reads as a squad rather than as a transfer record.
+                            </span>
+                        </span>
+                    </label>
+
                     {{-- The amounts switch. Never hides figures from the organizer's own panel:
                          that is the working tool and needs every number. --}}
                     <label class="mt-4 flex items-start gap-2.5 cursor-pointer">

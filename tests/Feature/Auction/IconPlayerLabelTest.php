@@ -82,6 +82,49 @@ class IconPlayerLabelTest extends TestCase
      */
 
     #[Test]
+    public function the_tournament_can_switch_the_badge_off_without_touching_the_data(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        \App\Models\TournamentSetting::updateOrCreate(
+            ['tournament_id' => $tournament->id],
+            ['show_acquisition_badge' => false]
+        );
+
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'overrides_tournament_rules' => false,
+        ]);
+        $team = $this->makeTeam($org, 'Keepers', $tournament);
+
+        $kept = $this->makePlayer($org, ['name' => 'Kept Kohli']);
+        $kept->update(['actual_team_id' => $team->id]);
+        $this->makeAuctionPlayer($auction, [
+            'player' => $kept, 'is_retained' => true, 'team_id' => $team->id,
+            'retained_price' => 5_000_000, 'status' => 'waiting',
+        ]);
+
+        $players = collect([$kept->fresh()]);
+        app(SquadAcquisitionService::class)->attach($players, $team);
+
+        /*
+         * The LABEL goes; what the player IS does not. Filters, exports and squad arithmetic all
+         * read `acquisition`, so hiding a badge must not change the answer to "how did this
+         * player get here" — only whether the screen says so.
+         */
+        $this->assertNull($players[0]->acquisition_label);
+        $this->assertSame('retained', $players[0]->acquisition);
+
+        // And with it on, the badge is back.
+        $tournament->settings->update(['show_acquisition_badge' => true]);
+
+        $again = collect([$kept->fresh()]);
+        app(SquadAcquisitionService::class)->attach($again, $team);
+
+        $this->assertSame('Icon Player', $again[0]->acquisition_label);
+    }
+
+    #[Test]
     public function the_players_list_filter_keeps_its_value_and_gains_the_new_label(): void
     {
         $org = $this->makeOrganization();

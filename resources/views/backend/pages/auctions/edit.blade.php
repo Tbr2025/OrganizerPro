@@ -779,7 +779,7 @@
                                     </span>
                                     <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                         Turn this off to keep the prices to yourself. Players are still
-                                        badged as Icon Player or Icon Player.
+                                        badged as Icon Player or Auction.
                                     </span>
                                 </span>
                             </label>

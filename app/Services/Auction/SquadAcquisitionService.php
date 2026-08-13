@@ -94,6 +94,7 @@ class SquadAcquisitionService
             ->keyBy('player_id');
 
         $showValues = $auction === null || $auction->showsSquadValues();
+        $showBadge = $auction === null || $auction->showsAcquisitionBadge();
 
         foreach ($players as $player) {
             $row = $rows->get($player->id);
@@ -108,7 +109,14 @@ class SquadAcquisitionService
             $price = (float) ($bought ? $row->final_price : $row->retained_price);
 
             $player->acquisition = $bought ? self::AUCTION : self::RETAINED;
-            $player->acquisition_label = self::label($player->acquisition);
+            /*
+             * The badge LABEL is null when the tournament has the badge switched off, exactly as
+             * the price label is when values are off — so a view renders what it is given and
+             * there is one decision here rather than one per template. `acquisition` itself is
+             * left alone: filters, exports and squad arithmetic all read it, and hiding a badge
+             * must not change what a player IS.
+             */
+            $player->acquisition_label = $showBadge ? self::label($player->acquisition) : null;
             $player->acquisition_price = $price;
 
             /*
@@ -184,7 +192,10 @@ class SquadAcquisitionService
             $auction = $row->auction;
 
             $player->acquisition = $bought ? self::AUCTION : self::RETAINED;
-            $player->acquisition_label = self::label($player->acquisition);
+            // Null when the tournament has the badge off — see attach() for why.
+            $player->acquisition_label = ($auction === null || $auction->showsAcquisitionBadge())
+                ? self::label($player->acquisition)
+                : null;
             $player->acquisition_price = $price;
             $player->acquisition_price_label = ($auction === null || $auction->showsSquadValues()) && $price > 0
                 ? ($auction ? $auction->formatAmount($price) : format_points($price))

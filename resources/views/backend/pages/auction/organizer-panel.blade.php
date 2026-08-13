@@ -1023,7 +1023,10 @@
                         {{-- Current Bid Amount --}}
                         <div class="border-2 border-emerald-500/50 bg-emerald-500/10 rounded-2xl px-6 py-5 backdrop-blur-sm">
                             <div class="text-xs uppercase tracking-widest text-emerald-400 mb-1">Current Bid</div>
-                            <div class="text-5xl font-black text-emerald-400" x-text="formatCurrency(currentBid)"></div>
+                            {{-- displayBid, not currentBid — see countBidTo(). tabular-nums so the
+                                 digits do not jitter sideways while they roll. --}}
+                            <div class="text-5xl font-black text-emerald-400 tabular-nums"
+                                 x-text="formatCurrency(displayBid)"></div>
                         </div>
 
                         {{-- Team Budget --}}
@@ -2139,6 +2142,20 @@ function auctionOrganizerPanel() {
         currentPlayer: null,
         lastSoldPlayer: null,
         currentBid: 0,
+
+        /**
+         * The figure actually on screen, which chases `currentBid` rather than snapping to it.
+         *
+         * A raise is optimistic — the price changes the instant a chip is tapped — but a number
+         * that simply replaces itself gives the eye nothing to follow, so the room reads the jump
+         * as the screen having lagged and then caught up. Counting up occupies the same moment
+         * with motion: the value is already correct, and the animation is what makes it look it.
+         *
+         * Kept separate from `currentBid` so nothing else has to care. Every guard, comparison
+         * and request still reads the real value; only the display reads this.
+         */
+        displayBid: 0,
+        _bidCountFrame: null,
         winningTeamName: 'No Bids',
         bidLog: [],
 
@@ -2242,17 +2259,27 @@ function auctionOrganizerPanel() {
          */
         sealedTeamSelection: null,
 
+        /**
+         * Nothing is ticked until the organizer ticks it.
+         *
+         * `null` used to mean "everybody", so the board opened with every team already in the
+         * round and choosing a subset meant UNticking the ones you did not want. That is the
+         * wrong way round for a control whose whole purpose is to leave teams out: the common
+         * case is a handful of interested sides, and starting from all of them makes the
+         * expensive mistake — a team in a round it was never meant to be in — the one that
+         * happens by doing nothing.
+         *
+         * `null` and `[]` now mean the same thing here, so a panel that has not yet been
+         * touched and one that has been cleared both read as empty.
+         */
         isSealedTeamSelected(teamId) {
-            return this.sealedTeamSelection === null || this.sealedTeamSelection.includes(teamId);
+            return (this.sealedTeamSelection || []).includes(teamId);
         },
 
         toggleSealedTeam(teamId) {
             if (this.sealedTeamSelection === null) {
-                // Leaving "all selected" for an explicit set: everyone stays checked
-                // except the one just clicked.
-                this.sealedTeamSelection = (this.teams || [])
-                    .map(t => t.id)
-                    .filter(id => id !== teamId);
+                // First tick on an untouched panel: this team, and only this team.
+                this.sealedTeamSelection = [teamId];
                 return;
             }
             if (this.sealedTeamSelection.includes(teamId)) {
@@ -2263,9 +2290,7 @@ function auctionOrganizerPanel() {
         },
 
         get sealedSelectedCount() {
-            return this.sealedTeamSelection === null
-                ? (this.teams || []).length
-                : this.sealedTeamSelection.length;
+            return (this.sealedTeamSelection || []).length;
         },
 
         showShuffleOverlay: false,
@@ -2371,6 +2396,16 @@ function auctionOrganizerPanel() {
             this.availablePlayers = players;
             this.teams = teams;
 
+            /*
+             * One hook instead of thirteen assignment sites.
+             *
+             * `currentBid` is set from the optimistic raise, the poll, a pushed frame, an undo,
+             * a restart and several resets — watching it means the display follows all of them
+             * and no future one can be forgotten. countBidTo() decides for itself whether a
+             * given change is worth animating.
+             */
+            this.$watch('currentBid', (value) => this.countBidTo(value));
+
             if (currentPlayer) {
                 this.currentPlayer = currentPlayer;
                 // Also on load, not only when the poll adopts a new player: a panel opened with
@@ -2378,6 +2413,8 @@ function auctionOrganizerPanel() {
                 this._lastOnBlockPlayer = currentPlayer;
                 this.currentBid = currentPlayer.current_price || currentPlayer.base_price;
                 this._lastKnownBid = this.currentBid;
+                // Already up when the panel opened — the figure is history, not a raise.
+                this.countBidTo(this.currentBid, { instant: true });
                 this.displayState = 'bidding';
                 this.sealedBids = [];
 
@@ -2784,6 +2821,12 @@ function auctionOrganizerPanel() {
                          * start the lot over.
                          */
                         if (isNewPlayer) {
+                            /*
+                             * A new player arrives AT their base price; they do not climb to it
+                             * from the last lot's final bid, which is what a roll would show.
+                             */
+                            this.countBidTo(this.currentBid, { instant: true });
+
                             // Allow a fresh time-up announcement for this player.
                             this._timerFiredForPlayer = null;
                             this.sealedBids = [];
@@ -2945,12 +2988,12 @@ function auctionOrganizerPanel() {
         },
 
         async sealedOpenEntry() {
-            const ids = this.sealedTeamSelection === null
-                ? (this.teams || []).map(t => t.id)
-                : this.sealedTeamSelection;
+            const ids = this.sealedTeamSelection || [];
 
             if (ids.length === 0) {
-                this.toast('Select at least one team to invite.', 'error');
+                // Nothing is ticked by default now, so this is the ordinary first press rather
+                // than an odd one — say what to do rather than only that it failed.
+                this.toast('Tick the teams that should take part in this round first.', 'error');
                 return null;
             }
 
@@ -2969,12 +3012,10 @@ function auctionOrganizerPanel() {
          */
         async sealedStart() {
             if (this.sealed.state === 'pending') {
-                const ids = this.sealedTeamSelection === null
-                    ? (this.teams || []).map(t => t.id)
-                    : this.sealedTeamSelection;
+                const ids = this.sealedTeamSelection || [];
 
                 if (ids.length === 0) {
-                    this.toast('Select at least one team to invite.', 'error');
+                    this.toast('Tick the teams that should take part in this round first.', 'error');
                     return null;
                 }
 
@@ -3353,6 +3394,58 @@ function auctionOrganizerPanel() {
                 this._isBidding = false;
                 this._drainBidQueue();
             }
+        },
+
+        /**
+         * Roll the displayed figure to a new one.
+         *
+         * Interruptible by construction: a second raise mid-roll cancels the frame in flight and
+         * starts again from wherever the number had got to, so rapid bidding reads as one
+         * continuous climb rather than a series of restarts from the old value.
+         *
+         * Instant when there is nothing to animate between — a new player arriving at their base
+         * price should simply be at it, not count up from the last lot's final bid — and instant
+         * for anyone who has asked their system for reduced motion.
+         */
+        countBidTo(target, { instant = false } = {}) {
+            const to = Number(target) || 0;
+            const from = Number(this.displayBid) || 0;
+
+            if (this._bidCountFrame) {
+                cancelAnimationFrame(this._bidCountFrame);
+                this._bidCountFrame = null;
+            }
+
+            const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+            if (instant || reduced || from === to || from === 0) {
+                this.displayBid = to;
+                return;
+            }
+
+            const started = performance.now();
+            // Long enough to be a movement, short enough that the next bid is never waiting on
+            // it — an auctioneer can take raises faster than this.
+            const duration = 320;
+
+            const step = (now) => {
+                const t = Math.min(1, (now - started) / duration);
+                // Ease-out: quick off the mark, settling onto the figure rather than stopping
+                // dead on it.
+                const eased = 1 - Math.pow(1 - t, 3);
+
+                this.displayBid = from + (to - from) * eased;
+
+                if (t < 1) {
+                    this._bidCountFrame = requestAnimationFrame(step);
+                } else {
+                    // Land exactly on the real number, never on a rounding of it.
+                    this.displayBid = to;
+                    this._bidCountFrame = null;
+                }
+            };
+
+            this._bidCountFrame = requestAnimationFrame(step);
         },
 
         /**

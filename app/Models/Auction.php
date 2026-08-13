@@ -188,6 +188,25 @@ class Auction extends Model
      * The Icon Player badge is unaffected; only the money is withheld. Defaults to true,
      * which is what every squad view did before the setting existed.
      */
+    /**
+     * Whether squad lists show HOW a player was acquired.
+     *
+     * The Icon Player / Auction badge, separately from the money. A competition may be happy for
+     * everyone to see who bought whom and still not want a rival's kept players advertised —
+     * these are two different disclosures and were one switch.
+     *
+     * Same resolution as showsSquadValues(): the tournament decides unless this auction
+     * overrides. NOT NULL with a default, so it always has an opinion and is read directly.
+     */
+    public function showsAcquisitionBadge(): bool
+    {
+        if (! $this->overrides_tournament_rules && $this->tournament?->settings) {
+            return (bool) $this->tournament->settings->show_acquisition_badge;
+        }
+
+        return true;
+    }
+
     public function showsSquadValues(): bool
     {
         /*

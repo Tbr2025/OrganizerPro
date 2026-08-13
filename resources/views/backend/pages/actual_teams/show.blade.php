@@ -239,11 +239,12 @@
                                                  Prices come through acquisition_price_label, which is null
                                                  when the auction has squad values switched off, so this
                                                  template does not have to know about that setting. --}}
-                                            @if($tPlayer->acquisition === 'auction')
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 ml-1">
-                                                    Icon Player{{ $tPlayer->acquisition_price_label ? ' (' . $tPlayer->acquisition_price_label . ')' : '' }}
+                                            @if($tPlayer->acquisition_label && $tPlayer->acquisition === 'auction')
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 ml-1">
+                                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M11.3 1.7a1 1 0 011.4 0l3.6 3.6a1 1 0 010 1.4l-1.1 1.1a1 1 0 01-1.4 0l-3.6-3.6a1 1 0 010-1.4l1.1-1.1z"/><path d="M9.1 4.9l3.6 3.6-1.4 1.4-3.6-3.6 1.4-1.4z"/><path d="M7 7.7l3.6 3.6-4.4 4.4a2.5 2.5 0 01-3.6-3.6L7 7.7z"/><path d="M12 17.2h6a.9.9 0 010 1.8h-6a.9.9 0 010-1.8z"/></svg>
+                                                    Auction{{ $tPlayer->acquisition_price_label ? ' (' . $tPlayer->acquisition_price_label . ')' : '' }}
                                                 </span>
-                                            @elseif($tPlayer->acquisition === 'retained')
+                                            @elseif($tPlayer->acquisition_label && $tPlayer->acquisition === 'retained')
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 ml-1">
                                                     Icon Player{{ $tPlayer->acquisition_price_label ? ' (' . $tPlayer->acquisition_price_label . ')' : '' }}
                                                 </span>

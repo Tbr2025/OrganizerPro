@@ -398,6 +398,7 @@ class TournamentController extends Controller
             'icon_player_value' => 'nullable|numeric|min:0',
             'player_base_value' => 'nullable|numeric|min:0',
             'show_amounts' => 'nullable|boolean',
+            'show_acquisition_badge' => 'nullable|boolean',
         ]);
 
         // Handle empty zone_id
@@ -441,7 +442,7 @@ class TournamentController extends Controller
             'icon_players_per_team', 'icon_player_value', 'player_base_value',
         ];
 
-        if ($request->hasAny([...$ruleFields, 'show_amounts'])) {
+        if ($request->hasAny([...$ruleFields, 'show_amounts', 'show_acquisition_badge'])) {
             /*
              * Blanks are dropped, not written as null — the numbers are "not decided here", and
              * clearing one has to leave the auction's own value in charge rather than forcing a
@@ -462,8 +463,10 @@ class TournamentController extends Controller
              * box is a real answer rather than an absent one. The hidden 0 beside the checkbox
              * is what makes an untick reach the server at all.
              */
-            if ($request->has('show_amounts')) {
-                $settingsData['show_amounts'] = $request->boolean('show_amounts');
+            foreach (['show_amounts', 'show_acquisition_badge'] as $switch) {
+                if ($request->has($switch)) {
+                    $settingsData[$switch] = $request->boolean($switch);
+                }
             }
 
             if (! empty($settingsData)) {

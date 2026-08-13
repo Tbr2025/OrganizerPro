@@ -318,14 +318,15 @@
                                     </td>
                                     {{-- Status --}}
                                     <td class="px-4 py-3 whitespace-nowrap">
-                                        @if($player->acquisition === 'retained')
+                                        @if($player->acquisition_label && $player->acquisition === 'retained')
                                             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm">
                                                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
                                                 Icon Player{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                                             </span>
-                                        @elseif($player->acquisition === 'auction')
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                                                Icon Player{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
+                                        @elseif($player->acquisition_label && $player->acquisition === 'auction')
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M11.3 1.7a1 1 0 011.4 0l3.6 3.6a1 1 0 010 1.4l-1.1 1.1a1 1 0 01-1.4 0l-3.6-3.6a1 1 0 010-1.4l1.1-1.1z"/><path d="M9.1 4.9l3.6 3.6-1.4 1.4-3.6-3.6 1.4-1.4z"/><path d="M7 7.7l3.6 3.6-4.4 4.4a2.5 2.5 0 01-3.6-3.6L7 7.7z"/><path d="M12 17.2h6a.9.9 0 010 1.8h-6a.9.9 0 010-1.8z"/></svg>
+                                                Auction{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                                             </span>
                                         @else
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">

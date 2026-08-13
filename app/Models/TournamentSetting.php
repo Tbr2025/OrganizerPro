@@ -49,6 +49,7 @@ class TournamentSetting extends Model
         'icon_player_value',
         'player_base_value',
         'show_amounts',
+        'show_acquisition_badge',
         'default_country',
         'default_phone_country',
         'min_age',
@@ -111,6 +112,7 @@ class TournamentSetting extends Model
 
     protected $casts = [
         'show_amounts' => 'boolean',
+        'show_acquisition_badge' => 'boolean',
         'player_registration_open' => 'boolean',
         'team_registration_open' => 'boolean',
         'registration_deadline' => 'datetime',
