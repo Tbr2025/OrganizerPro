@@ -110,15 +110,25 @@ class AuctionOrganizerController extends Controller
                 $team->slots_required = $state['slots_required'];
                 $team->slots_remaining = $state['slots_remaining'];
                 $team->excluded = $state['excluded'];
-                $team->exclusion_reason = $state['excluded']
-                    ? sprintf(
+                $team->squad_full = $state['squad_full'];
+                $team->squad_size = $state['squad_size'];
+                // Two different exclusions, and the difference matters to the person reading it:
+                // one is "cannot afford this player", the other is "has no place left for any".
+                $team->exclusion_reason = match (true) {
+                    $state['squad_full'] => sprintf(
+                        'Squad is full — %d of %d places taken.',
+                        $state['slots_filled'],
+                        $state['squad_size']
+                    ),
+                    (bool) $state['excluded'] => sprintf(
                         'Can only bid up to %s — must retain %s for %d more squad slot%s.',
                         format_points($state['max_bid_allowed']),
                         format_points($state['reserve']),
                         max(0, $state['slots_remaining'] - 1),
                         max(0, $state['slots_remaining'] - 1) === 1 ? '' : 's'
-                    )
-                    : null;
+                    ),
+                    default => null,
+                };
 
                 return $team;
             });

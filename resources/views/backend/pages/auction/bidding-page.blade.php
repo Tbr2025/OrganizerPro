@@ -1051,6 +1051,35 @@ function teamBiddingPanel() {
             if (!channel) return;
 
             channel.listen('.bid.raised', (e) => this.applyRaise(e));
+
+            /*
+             * A sale changes this team's PURSE, and a raise does not.
+             *
+             * `.bid.raised` moves the price and the leader and nothing else, so budget, places
+             * still to fill and the squad list only ever came from `fetchPurse()` on the poll.
+             * That was tolerable at a 2 s poll and is not at the 15 s reconciliation sweep the
+             * screen now uses while push is healthy: a manager watched a player sell and then
+             * sat looking at a stale purse and a stale places-to-fill for up to fifteen seconds,
+             * which is exactly the window they need those figures in.
+             *
+             * So the sale is pushed too. The wall already listens for this event; this screen
+             * simply never did.
+             */
+            channel.listen('.player-on-sold', () => {
+                this.fetchPurse();
+                this.fetchSoldPlayers();
+                this.fetchCurrentPlayer();
+            });
+
+            /*
+             * And the player changing. Ceilings are worked out per player — the per-player cap
+             * and the squad reserve both depend on who is up — so arriving at a new lot with the
+             * previous one's maximum on screen is a figure a manager could bid against.
+             */
+            channel.listen('.player.onbid', () => {
+                this.fetchCurrentPlayer();
+                this.fetchPurse();
+            });
         },
 
         /**

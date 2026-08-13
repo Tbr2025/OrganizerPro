@@ -1204,6 +1204,15 @@ class AuctionPoolService
         $slotsFilled = $soldCount + $retainedCount;
         $slotsRemaining = max(0, $auction->minSquadSize() - $slotsFilled);
 
+        /*
+         * A team that has filled every place is out of the auction, whatever its purse says.
+         *
+         * Derived from the counts already in hand rather than by calling squadIsFull(), which
+         * would re-run both count queries for a figure this method has just computed.
+         */
+        $squadSize = $auction->maxSquadSize() ?? $auction->minSquadSize();
+        $squadFull = $squadSize >= 1 && $slotsFilled >= $squadSize;
+
         $remaining = $applies ? $allocated - $spent : PHP_FLOAT_MAX;
         $reserve = $applies ? $this->reserveFrom($auction, $slotsRemaining) : 0.0;
         $maxBid = $applies ? max(0.0, $remaining - $reserve) : PHP_FLOAT_MAX;
@@ -1217,13 +1226,21 @@ class AuctionPoolService
             'slots_filled' => $slotsFilled,
             'slots_required' => $auction->minSquadSize(),
             'slots_remaining' => $slotsRemaining,
-            // Checked against the SAME ceiling canAffordWithReserve() uses, or a team would
-            // look able to bid an amount the server then refuses.
-            'excluded' => $applies && $nextBidAmount !== null && $nextBidAmount > (
+            'squad_full' => $squadFull,
+            'squad_size' => $squadSize,
+            /*
+             * Checked against the SAME ceiling canAffordWithReserve() uses, or a team would look
+             * able to bid an amount the server then refuses.
+             *
+             * A full squad is excluded outright, whatever the amount: openBidCeiling() returns 0
+             * for one, so every bid path refuses it server-side and this is what says so on the
+             * screens before anybody tries.
+             */
+            'excluded' => $squadFull || ($applies && $nextBidAmount !== null && $nextBidAmount > (
                 $auction->maxBidPct() !== null
                     ? min($maxBid, $allocated * $auction->maxBidPct() / 100)
                     : $maxBid
-            ),
+            )),
 
             // The "show both" split: the whole allocation, and the purse left for
             // bidding once retentions are paid for.

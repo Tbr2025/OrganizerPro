@@ -166,7 +166,10 @@
                 <select x-model="sellModalData.team_id"
                         class="w-full px-4 py-3 bg-gray-900 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500">
                     <option value="">-- Choose a team --</option>
-                    <template x-for="team in teams" :key="team.id">
+                    {{-- Only teams that can actually take a player. Selling to a full squad is
+                         refused server-side (openBidCeiling is 0 for one), so offering it here
+                         is offering a choice that ends in an error. --}}
+                    <template x-for="team in biddableTeams" :key="team.id">
                         <option :value="team.id" x-text="team.name + ' (Balance: ' + formatCurrency(team.remaining_budget) + ')'"></option>
                     </template>
                 </select>
@@ -1435,7 +1438,7 @@
                 <div class="flex justify-center overflow-x-auto">
                     <div class="inline-grid gap-x-2 gap-y-3"
                          :style="`grid-template-columns: repeat(${teamGridColumns}, minmax(0, 1fr))`">
-                        <template x-for="(team, idx) in teams" :key="team.id">
+                        <template x-for="(team, idx) in biddableTeams" :key="team.id">
                             <div class="flex flex-col items-center gap-1.5 px-0.5">
                                 <button @click="bidForTeam(team.id)"
                                         :disabled="isTeamBidDisabled(team)"
@@ -1779,7 +1782,11 @@
                     </div>
                 </div>
 
-                {{-- ═══ TEAMS PANEL ═══ --}}
+                {{-- ═══ TEAMS PANEL ═══
+                     Every team, including the full ones. This is a scoreboard rather than a
+                     control: "who has finished" is exactly what an organizer opens it to see,
+                     and hiding a completed squad here would make it look as though the team had
+                     left the auction. Only the CONTROLS drop them. --}}
                 <div x-show="sidePanel === 'teams'" class="p-4 space-y-3">
                     <template x-for="team in teams" :key="team.id">
                         <div class="bg-gray-800 rounded-xl p-4">
@@ -4686,8 +4693,24 @@ function auctionOrganizerPanel() {
          * single centred row, and beyond that two rows keep the squares big enough to hit.
          * Twenty teams therefore become two rows of ten rather than ten columns of two.
          */
+        /**
+         * The teams still in the auction.
+         *
+         * A side that has filled every place cannot bid — the server's ceiling for it is zero —
+         * so leaving it on the strip is an invitation to a click that will be refused, and a
+         * hall of ten logos where two are decorative. They come off as they fill up, which also
+         * keeps the remaining chips as large as possible on the wall-facing panel.
+         *
+         * `squad_full` comes from the server (AuctionPoolService::purseFrom), not from counting
+         * on the client: the squad size can be a tournament setting and retained players occupy
+         * places, and getting that arithmetic wrong here would hide a team that may still bid.
+         */
+        get biddableTeams() {
+            return (this.teams || []).filter(t => ! t.squad_full);
+        },
+
         get teamGridColumns() {
-            const count = this.teams.length || 1;
+            const count = this.biddableTeams.length || 1;
             const rows = count > 10 ? 2 : 1;
 
             return Math.ceil(count / rows);

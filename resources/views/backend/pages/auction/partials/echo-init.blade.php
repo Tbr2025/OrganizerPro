@@ -9,10 +9,14 @@
 
     Two deliberate choices:
 
-    - CDN, not the Vite bundle. `laravel-echo` and `pusher-js` are in package.json but
-      imported nowhere in resources/js, and public/auction/live.blade.php already proves
-      these exact CDN versions work in production. Introducing a bundle step days before a
-      live auction buys nothing.
+    - SAME ORIGIN, not a CDN. This loaded pusher-js from js.pusher.com and laravel-echo from
+      cdnjs, and at a venue that is two more things that have to work: an ad blocker or
+      privacy extension recognising js.pusher.com takes the whole push layer down, and so
+      does a hall connection that cannot reach a third-party CDN. The symptom is a permanent
+      "Slow link" badge on a perfectly good network, with every screen quietly back on its
+      poll. The files are 105KB together, they are already in node_modules, and served from
+      our own domain they cannot be blocked or unreachable while the auction itself is
+      loading. The CDN stays as a fallback for a deploy that forgot to copy them.
 
     - config(), not env(). The wall reads env('PUSHER_APP_KEY') directly, which returns null
       the moment anyone runs `php artisan config:cache` — a silent failure that would take
@@ -26,8 +30,19 @@
     @endphp
 
     @if ($pushEnabled)
-        <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"></script>
+        <script src="{{ asset('js/push/pusher.min.js') }}"></script>
+        <script src="{{ asset('js/push/echo.iife.js') }}"></script>
+        {{-- Only if the same-origin copies are missing — a deploy that did not carry them.
+             document.write because these have to be in place before the init below runs, and
+             a dynamically appended script is not. --}}
+        <script>
+            if (typeof Pusher === 'undefined') {
+                document.write('<script src="https://js.pusher.com/7.2/pusher.min.js"><\/script>');
+            }
+            if (typeof Echo === 'undefined') {
+                document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"><\/script>');
+            }
+        </script>
         <script>
             /**
              * Subscribe to an auction's public channel, or return null.
@@ -48,8 +63,8 @@
                      * privacy extension blocking js.pusher.com is the usual cause.
                      */
                     if (typeof Echo === 'undefined') {
-                        console.warn('[auction] Echo failed to load (js.pusher.com or cdnjs '
-                            + 'blocked by an extension?) — polling only.');
+                        console.warn('[auction] Echo failed to load from ' + '{{ asset('js/push/echo.iife.js') }}'
+                            + ' and from the CDN fallback — live updates are off, polling only.');
                         return null;
                     }
 

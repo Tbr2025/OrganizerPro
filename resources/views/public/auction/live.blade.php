@@ -1564,8 +1564,20 @@
         {{-- Only on a card page. The wall never loads this. --}}
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     @endisset
-    <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"></script>
+    {{-- Same origin, not a CDN — see partials/echo-init.blade.php for why. A hall connection
+         that cannot reach js.pusher.com, or an extension that blocks it, took push down on the
+         one screen the whole room is looking at. The CDN stays as a fallback for a deploy that
+         did not carry the local copies. --}}
+    <script src="{{ asset('js/push/pusher.min.js') }}"></script>
+    <script src="{{ asset('js/push/echo.iife.js') }}"></script>
+    <script>
+        if (typeof Pusher === 'undefined') {
+            document.write('<script src="https://js.pusher.com/7.2/pusher.min.js"><\/script>');
+        }
+        if (typeof Echo === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.3/echo.iife.js"><\/script>');
+        }
+    </script>
     <script>
         const auctionId = {{ $auction->id }};
         // JSON-encoded rather than interpolated into quotes: an auction named O'Brien's Cup
