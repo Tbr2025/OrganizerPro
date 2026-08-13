@@ -466,6 +466,10 @@
                                         @if($styles)
                                             <span class="block text-[10px] text-gray-400 truncate">{{ implode(' · ', $styles) }}</span>
                                         @endif
+                                        {{-- When they are in the country. An organizer building
+                                             pools is deciding who can actually turn up, and that
+                                             answer lived only on the player's own page. --}}
+                                        <x-travel-plan :player="$ap->player" class="block" />
                                     </span>
                                     @if($ap->is_retained)
                                         <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">Icon Player{{ $ap->team ? ' · '.$ap->team->name : '' }}{{ (float) $ap->retained_price > 0 ? ' · ' . $auction->formatAmount($ap->retained_price) : '' }}</span>@if((float) $ap->retained_price <= 0)<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 whitespace-nowrap" title="No retention price — this player currently costs their team nothing.">no price</span>@endif

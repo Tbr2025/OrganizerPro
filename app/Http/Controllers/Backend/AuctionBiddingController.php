@@ -376,13 +376,21 @@ class AuctionBiddingController extends Controller
                     'bid_source' => 'online',
                 ]);
 
-                // Update highest bid on the auction player
-                if ($bidAmount > $auctionPlayer->current_price) {
-                    $auctionPlayer->update([
-                        'current_price' => $bidAmount,
-                        'current_bid_team_id' => $userTeam->id,
-                    ]);
-                }
+                /*
+                 * Record the bid — unconditionally, because the SERVER chose $bidAmount from the
+                 * ladder a moment ago and there is no client figure here to distrust.
+                 *
+                 * This was guarded by `$bidAmount > current_price`, which was invisible while
+                 * every bid was a raise. Now that the opening bid TAKES the base price, the
+                 * opening bid is equal to it — so the guard skipped the write, no leader was
+                 * recorded, and the player was still "nobody has bid" afterwards. Pressing bid
+                 * again offered the same base and appeared to reset: a team could never take the
+                 * opening price at all.
+                 */
+                $auctionPlayer->update([
+                    'current_price' => $bidAmount,
+                    'current_bid_team_id' => $userTeam->id,
+                ]);
 
                 // Log it so the organizer can undo a bid placed in error.
                 $this->undo->record(
