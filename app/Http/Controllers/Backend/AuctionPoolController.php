@@ -53,6 +53,10 @@ class AuctionPoolController extends Controller
             'tournament',
             'pools' => fn ($q) => $q->orderBy('sequence'),
             'pools.players.player.playerType',
+            // Read by each pool row's summary. Eager-loaded, or a pool of three hundred players
+            // is three hundred extra queries for two style names apiece.
+            'pools.players.player.battingProfile:id,style',
+            'pools.players.player.bowlingProfile:id,style',
             'pools.players.team:id,name',
             // Unsold holding pools name the pool they collect for.
             'pools.parentPool:id,name',

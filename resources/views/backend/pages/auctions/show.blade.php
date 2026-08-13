@@ -239,86 +239,14 @@
             </div>
         @endif
 
-        {{-- ════ Pools & Draw Order (Pool Control Center) ════ --}}
-        @if(isset($isAdmin) && $isAdmin)
-        @php
-            $poolModeLabels = ['sequential' => 'Sequential', 'random' => 'Random', 'odd_even' => 'Odd-Even', 'manual' => 'Custom'];
-            $statusChip = [
-                'waiting' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-                'on_auction' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-                'sold' => 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-                'unsold' => 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-                'skipped' => 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-            ];
-        @endphp
-        <div class="mb-8" x-data="auctionPoolCenter({{ $auction->id }})" x-init="init()">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                <div>
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7H5m14 14H5"/></svg>
-                        Pools &amp; Draw Order
-                    </h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Drag pools to reorder. Build &amp; assign players in the full pool manager.</p>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium">Manage Pools</a>
-                    <button @click="startAuction()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">Start auction</button>
-                    <a href="{{ route('admin.auction.organizer.panel', $auction) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium">Live Panel</a>
-                    <button @click="reAuctionRound()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium">Re-auction round</button>
-                </div>
-            </div>
 
-            <div id="poolList" class="space-y-4">
-                @forelse($auction->pools as $pool)
-                    @php
-                        // Icon Player rows are pool-less by design, so a pool holds only
-                        // biddable players. Icon players are listed once, below.
-                        $biddable = $pool->players->where('is_retained', false)->sortBy('lot_number')->values();
-                    @endphp
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4"
-                         data-pool-id="{{ $pool->id }}" x-data="{ showRetained: false }">
-                        <div class="flex items-center justify-between mb-3 gap-2">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="pool-drag cursor-move text-gray-400 select-none" title="Drag to reorder">⠿</span>
-                                <span class="font-semibold text-gray-900 dark:text-white truncate">{{ $pool->name }}</span>
-                                <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{{ $poolModeLabels[$pool->order_mode] ?? $pool->order_mode }}</span>
-                                <span class="text-xs text-gray-400">{{ $biddable->count() }}{{ $pool->capacity ? '/'.$pool->capacity : '' }} players</span>
-                            </div>
-                            <button @click="redraw({{ $pool->id }})" class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded px-2 py-1 hover:bg-gray-200">Re-draw lots</button>
-                        </div>
-
-                        <ol class="text-sm divide-y divide-gray-100 dark:divide-gray-700">
-                            @foreach($biddable as $ap)
-                                <li class="py-1.5 flex items-center justify-between gap-2">
-                                    <span class="truncate">
-                                        <span class="text-gray-400">{{ $ap->lot_number ? '#'.$ap->lot_number : '—' }}</span>
-                                        {{ $ap->player->name ?? 'Player #'.$ap->player_id }}
-                                    </span>
-                                    <span class="flex items-center gap-2">
-                                        <span class="text-[11px] px-2 py-0.5 rounded-full {{ $statusChip[$ap->status] ?? 'bg-gray-100 text-gray-700' }}">{{ $ap->status }}</span>
-                                        {{-- The same card download as the grid below, so it is
-                                             to hand from whichever listing is open. Sold players
-                                             get the stamped version by default; everyone else the
-                                             plain one, which is the useful default in each case. --}}
-                                        <a href="{{ route('public.auction.live', [$auction, 'card' => $ap->id] + ($ap->status === 'sold' ? ['result' => 1] : [])) }}"
-                                           target="_blank" rel="noopener"
-                                           class="text-[11px] text-indigo-600 hover:underline whitespace-nowrap"
-                                           title="Preview this card in a new tab">Preview</a>
-
-                                    </span>
-                                </li>
-                            @endforeach
-                            @if($biddable->isEmpty())
-                                <li class="py-2 text-xs text-gray-400">No biddable players in this pool.</li>
-                            @endif
-                        </ol>
-
-                    </div>
-                @empty
-                    <p class="text-sm text-gray-500 dark:text-gray-400">No pools configured.
-                        <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="text-indigo-600 underline">Manage pools</a>.</p>
-                @endforelse
-
+        {{-- ════ Icon players ════
+             Kept when the Pools & Draw Order list was removed from this page — that list
+             duplicates Manage Pools, but this does not: merging an icon player into a pool is
+             the one control that exists nowhere else, and deleting it made the feature
+             unreachable rather than tidier. --}}
+        @if(isset($isAdmin) && $isAdmin && $retainedPlayers->count())
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
                 {{-- ── Icon players ──
                      Listed against the auction, not inside a pool: a retained player is
                      never bid on, so they have no place in a bidding queue. Their price is
@@ -371,7 +299,6 @@
                     @endif
                 @endisset
             </div>
-        </div>
         @endif
 
         {{-- Filters --}}

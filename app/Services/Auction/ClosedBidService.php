@@ -1283,11 +1283,16 @@ class ClosedBidService
             foreach ($round->entries as $entry) {
                 $isTied = in_array((int) $entry->actual_team_id, $tied, true);
 
-                // Left of their own accord — not invited back.
-                $leftVoluntarily = $entry->state === AuctionClosedBidEntry::STATE_DECLINED
-                    || ($entry->isWithdrawn() && ! $entry->wasWithdrawnByAdmin());
-
-                if (! $isTied && $leftVoluntarily) {
+                /*
+                 * ONLY the tied teams.
+                 *
+                 * Everyone else used to be invited back as MAY_OPT_IN, which let a team that had
+                 * been outbid re-enter at a figure above the tie and win — so a round that exists
+                 * solely to separate two equal top bids could be taken by a third party who had
+                 * already lost it. A re-bid is a tie-break between the teams that tied, and
+                 * nobody else has anything to break.
+                 */
+                if (! $isTied) {
                     continue;
                 }
 
@@ -1300,10 +1305,9 @@ class ClosedBidService
                     ],
                     [
                         'auction_id' => $auction->id,
-                        'state' => $isTied
-                            ? AuctionClosedBidEntry::STATE_MUST_REBID
-                            : AuctionClosedBidEntry::STATE_MAY_OPT_IN,
-                        'required' => $isTied,
+                        // Only tied teams reach here now, so the state is not a choice.
+                        'state' => AuctionClosedBidEntry::STATE_MUST_REBID,
+                        'required' => true,
                         'ceiling_at_entry' => $this->cap($purse['sealed_max_bid']),
                         'per_player_cap_at_entry' => $this->cap($purse['per_player_cap']),
                         'reserve_at_entry' => $purse['reserve'],
@@ -1316,7 +1320,12 @@ class ClosedBidService
 
             return [
                 'handled' => true,
-                'message' => sprintf('Round %d is open — bids must exceed %s.', $child->round_number, format_points((float) $round->tie_amount)),
+                'message' => sprintf(
+                    'Round %d is open to the %d tied team(s) — bids must exceed %s.',
+                    $child->round_number,
+                    count($tied),
+                    format_points((float) $round->tie_amount)
+                ),
                 'round' => $child->fresh(),
             ];
         });

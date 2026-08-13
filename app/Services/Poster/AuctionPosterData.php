@@ -39,7 +39,17 @@ class AuctionPosterData
             'player_name' => (string) ($player?->name ?? ''),
             'jersey_name' => (string) ($player?->jersey_name ?? $player?->name ?? ''),
             'jersey_number' => (string) ($player?->jersey_number ?? ''),
-            'player_image' => $this->imagePath($player?->image),
+            /*
+             * `image_path`, not `image`.
+             *
+             * Both columns exist on `players` and only one is ever written — every player on live
+             * has `image_path` set and `image` null — so reading `image` gave an empty string and
+             * the poster fell back to its silhouette on every render since this shipped. Every
+             * other renderer uses image_path (TournamentNotificationService, the LED wall, the
+             * organizer panel); this was the outlier. `image` is kept as a fallback in case an
+             * older row carries it.
+             */
+            'player_image' => $this->imagePath($player?->image_path ?: $player?->image),
             'player_type' => (string) ($player?->playerType?->type ?? ''),
             'batting_style' => (string) ($player?->battingProfile?->style ?? ''),
             'bowling_style' => (string) ($player?->bowlingProfile?->style ?? ''),

@@ -85,7 +85,7 @@ class ClosedBidTieTest extends TestCase
     }
 
     #[Test]
-    public function the_tied_teams_must_rebid_and_the_others_may_opt_in(): void
+    public function only_the_tied_teams_are_invited_to_the_rebid(): void
     {
         ['round' => $round, 'teams' => $teams] = $this->scenario();
 
@@ -111,8 +111,14 @@ class ClosedBidTieTest extends TestCase
 
         $this->assertSame(AuctionClosedBidEntry::STATE_MUST_REBID, $entryFor($teams['a'])->state);
         $this->assertTrue($entryFor($teams['a'])->required);
-        $this->assertSame(AuctionClosedBidEntry::STATE_MAY_OPT_IN, $entryFor($teams['c'])->state);
-        $this->assertFalse($entryFor($teams['c'])->required);
+
+        /*
+         * Team C bid 8.5M and lost. It used to be invited back as MAY_OPT_IN, which let a team
+         * that had already been outbid re-enter above the tie and win — so a round whose only
+         * purpose is to separate two equal top bids could be taken by a third party. A tie-break
+         * is between the teams that tied; nobody else has anything to break.
+         */
+        $this->assertNull($entryFor($teams['c']));
     }
 
     #[Test]
@@ -137,7 +143,7 @@ class ClosedBidTieTest extends TestCase
     }
 
     #[Test]
-    public function a_team_the_admin_withdrew_is_invited_back(): void
+    public function a_tied_team_the_admin_withdrew_is_still_invited_back(): void
     {
         ['round' => $round, 'teams' => $teams] = $this->scenario();
 
@@ -145,19 +151,24 @@ class ClosedBidTieTest extends TestCase
             $this->closedBids()->accept($round, $team);
             $this->closedBids()->submit($round, $team, 9_000_000, null);
         }
-        $this->closedBids()->accept($round, $teams['c']);
-        $this->closedBids()->submit($round, $teams['c'], 8_500_000, null);
-
-        // An admin withdrawal is a correction, not the team's decision to leave.
-        $entry = $round->entries()->where('actual_team_id', $teams['c']->id)->first();
-        $this->closedBids()->withdraw($entry, null, AuctionClosedBidEntry::ROLE_ADMIN);
 
         $this->closedBids()->lockAndReveal($round->fresh(), null);
+
+        /*
+         * An admin withdrawal is a correction, not the team's own decision to leave — so a TIED
+         * team that was withdrawn by an organizer still belongs in the tie-break they tied for.
+         *
+         * The distinction only survives for tied teams now: a non-tied team is not in the re-bid
+         * at all, however it left, because a tie-break is between the teams that tied.
+         */
+        $entry = $round->fresh()->entries()->where('actual_team_id', $teams['b']->id)->first();
+        $this->closedBids()->withdraw($entry, null, AuctionClosedBidEntry::ROLE_ADMIN);
+
         $child = $this->closedBids()->startRebid($round->fresh(), null)['round'];
 
         $this->assertSame(
-            AuctionClosedBidEntry::STATE_MAY_OPT_IN,
-            $child->entries()->where('actual_team_id', $teams['c']->id)->first()?->state
+            AuctionClosedBidEntry::STATE_MUST_REBID,
+            $child->entries()->where('actual_team_id', $teams['b']->id)->first()?->state
         );
     }
 

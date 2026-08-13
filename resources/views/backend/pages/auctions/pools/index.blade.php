@@ -58,8 +58,16 @@
                     Auto-assign by type
                 </button>
             </form>
-            <button type="button" @click="showCreate = !showCreate" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-brand-500 text-white hover:bg-brand-600">
-                + New Pool
+            {{-- Scrolls the panel into view and reflects its own state.
+                 The toggle worked but the form opens ABOVE this button, so on a page of three
+                 hundred players a click could scroll nothing into sight and read as a dead
+                 button. `aria-expanded` and the label make the response visible either way. --}}
+            <button type="button"
+                    @click="showCreate = !showCreate; if (showCreate) $nextTick(() => document.getElementById('create-pool')?.scrollIntoView({ behavior: 'smooth', block: 'center' }))"
+                    :aria-expanded="showCreate"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white"
+                    :class="showCreate ? 'bg-gray-700 hover:bg-gray-600' : 'bg-brand-500 hover:bg-brand-600'">
+                <span x-text="showCreate ? 'Close' : '+ New Pool'"></span>
             </button>
             <a href="{{ route('admin.auctions.show', $auction) }}" class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200">Back to auction</a>
         </div>
@@ -119,7 +127,7 @@
     @endif
 
     {{-- Create Pool --}}
-    <div x-show="showCreate" x-cloak class="mb-6 rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-5">
+    <div id="create-pool" x-show="showCreate" x-cloak class="mb-6 rounded-md border-2 border-brand-400 bg-white dark:border-brand-600 dark:bg-white/[0.03] p-5">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Create a pool</h3>
         <form action="{{ route('admin.auctions.pools.store', $auction) }}" method="POST" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
             @csrf
@@ -421,7 +429,35 @@
                                         <span class="inline-block w-4 shrink-0"></span>
                                     @endif
                                     <span class="text-xs text-gray-400 w-5">{{ $ap->is_retained ? '★' : ($ap->lot_number ?? '–') }}</span>
-                                    <span class="truncate text-gray-800 dark:text-gray-100">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
+
+                                    {{-- The same summary the players list gives: face, name, and how
+                                         they bat and bowl. A pool is reviewed to judge whether it is a
+                                         sensible group to auction together, and a name alone cannot
+                                         answer that. Deliberately no contact details — this screen is
+                                         shared and projected, and a phone number has no bearing on
+                                         which pool somebody belongs in. --}}
+                                    @if($ap->player?->image_path)
+                                        <img src="{{ asset('storage/' . $ap->player->image_path) }}" alt=""
+                                             loading="lazy"
+                                             class="w-7 h-7 rounded-full object-cover shrink-0 bg-gray-100 dark:bg-gray-700">
+                                    @else
+                                        <span class="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 shrink-0 flex items-center justify-center text-[9px] font-bold text-gray-500">
+                                            {{ strtoupper(substr($ap->player->name ?? '?', 0, 2)) }}
+                                        </span>
+                                    @endif
+
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-gray-800 dark:text-gray-100">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
+                                        @php
+                                            $styles = array_filter([
+                                                $ap->player?->battingProfile?->style,
+                                                $ap->player?->bowlingProfile?->style,
+                                            ]);
+                                        @endphp
+                                        @if($styles)
+                                            <span class="block text-[10px] text-gray-400 truncate">{{ implode(' · ', $styles) }}</span>
+                                        @endif
+                                    </span>
                                     @if($ap->is_retained)
                                         <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">Icon Player{{ $ap->team ? ' · '.$ap->team->name : '' }}{{ (float) $ap->retained_price > 0 ? ' · ' . $auction->formatAmount($ap->retained_price) : '' }}</span>@if((float) $ap->retained_price <= 0)<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 whitespace-nowrap" title="No retention price — this player currently costs their team nothing.">no price</span>@endif
                                     @elseif($ap->player?->playerType)<span class="text-[10px] text-gray-400">{{ $ap->player->playerType->name }}</span>@endif

@@ -972,8 +972,18 @@
 
                         {{-- Retention defaults: a blank retention price used to be stored as
                              0, so a retained player cost their team nothing. --}}
-                        <div class="mt-6 p-5 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-200 dark:border-purple-800/60">
+                        {{-- Dimmed while the tournament owns these, like Squad Reserve above.
+                             Icon count and value are inherited too — the section stayed bright and
+                             editable, so an organizer typed a retention price into fields the
+                             auction was ignoring and had no way to tell. Dimmed rather than hidden,
+                             so what would take effect if the toggle were flipped is still visible. --}}
+                        <div class="mt-6 p-5 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-200 dark:border-purple-800/60"
+                             :class="auctionData.overrides_tournament_rules ? '' : 'opacity-60'">
                             <h3 class="font-semibold text-gray-900 dark:text-white">Icon Players</h3>
+                            <p x-show="! auctionData.overrides_tournament_rules" x-cloak
+                               class="text-[11px] text-purple-700 dark:text-purple-300 mt-1">
+                                Inherited from the tournament. Tick <strong>Override</strong> above to set them here.
+                            </p>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
                                 Retentions are charged against a team's budget before the auction starts.
                             </p>

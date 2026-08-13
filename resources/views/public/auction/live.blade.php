@@ -2175,8 +2175,17 @@
 
             if (title) title.textContent = heading;
             if (line) {
-                line.textContent = sealedState.total_rounds > 1 && sealedState.round_number
-                    ? `${text} — round ${sealedState.round_number} of ${sealedState.total_rounds}`
+                /*
+                 * Always name the round, not only when more than one is configured.
+                 *
+                 * A tie sends the player to a second round in front of the whole hall, and the
+                 * wall said only "Tie — going to a re-bid" — nothing that told the room it was now
+                 * watching round 2, or how many there could be. Gating on total_rounds > 1 also
+                 * meant a first round never identified itself even in an auction that allows
+                 * several.
+                 */
+                line.textContent = sealedState.round_number
+                    ? `${text} — round ${sealedState.round_number} of ${sealedState.total_rounds || 1}`
                     : text;
             }
 
