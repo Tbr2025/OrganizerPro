@@ -231,14 +231,24 @@ class PlayerController extends Controller
     }
 
     /**
-     * Every club present in the current scope, as names.
+     * Every club present in the current scope, as name => how many players are in it.
      *
      * Three sources, because "current playing team" has no single column: the free-text
      * `playing_team_name_ref` an applicant typed, the registration team's own name, and
      * `team_name_ref` for players whose registration team is the catch-all `Others`. The same
      * cascade the Team column renders and the same one the filter matches on.
      *
-     * @return \Illuminate\Support\Collection<int, string>
+     * Counted, not just listed. On live, tournament 25 has 113 clubs and 93 of them hold exactly
+     * one player — names typed once, including near-duplicates of each other ("Kanhangad CC" and
+     * "Kanhanhad CC", "Sloggers" and "Sloggers CC"). An alphabetical list of 113 buries the six
+     * clubs anybody is looking for, so the view groups them by the count returned here.
+     *
+     * Restricting the list to clubs that exist as a registered team was considered and rejected:
+     * measured on live, only 7 of the 113 match one, and not one of the clubs with the most
+     * players does — "Blazing Bandits" has 11 and is nobody's team record. It would have hidden
+     * the entries the filter is for.
+     *
+     * @return \Illuminate\Support\Collection<string, int>
      */
     private function playingTeamOptions(array $filters, $user)
     {
@@ -246,37 +256,62 @@ class PlayerController extends Controller
         // already chosen.
         $scope = fn () => $this->filteredPlayerQuery(array_merge($filters, ['playing_team' => null]), $user);
 
-        $typed = $scope()->toBase()->reorder()
-            ->whereNotNull('players.playing_team_name_ref')
-            ->where('players.playing_team_name_ref', '<>', '')
-            ->distinct()
-            ->pluck('players.playing_team_name_ref');
+        $countBy = function ($query, string $column) {
+            return collect($query->toBase()->reorder()
+                ->select([DB::raw($column . ' as label'), DB::raw('COUNT(*) as aggregate')])
+                ->groupBy(DB::raw($column))
+                ->get())
+                ->mapWithKeys(fn ($row) => [(string) $row->label => (int) $row->aggregate]);
+        };
 
-        // Only for players with no typed club — anyone who has one is already covered above, and
+        $typed = $countBy(
+            $scope()->whereNotNull('players.playing_team_name_ref')
+                ->where('players.playing_team_name_ref', '<>', ''),
+            'players.playing_team_name_ref'
+        );
+
+        // Only for players with no typed club — anyone who has one is already counted above, and
         // their registration team is not what the list shows for them.
         $withoutTyped = fn ($q) => $q->where(fn ($b) => $b->whereNull('players.playing_team_name_ref')
             ->orWhere('players.playing_team_name_ref', ''));
 
-        $teamIds = $withoutTyped($scope())->toBase()->reorder()
-            ->whereNotNull('players.team_id')
-            ->distinct()
-            ->pluck('players.team_id');
+        $byTeamId = $countBy(
+            $withoutTyped($scope())->whereNotNull('players.team_id'),
+            'players.team_id'
+        );
 
-        $registered = $teamIds->isEmpty()
+        $teamNames = $byTeamId->isEmpty()
             ? collect()
-            : Team::whereIn('id', $teamIds)->where('name', '!=', 'Others')->pluck('name');
+            : Team::whereIn('id', $byTeamId->keys())->where('name', '!=', 'Others')->pluck('name', 'id');
 
-        $viaOthers = $withoutTyped($scope())->toBase()->reorder()
-            ->whereNotNull('players.team_name_ref')
-            ->where('players.team_name_ref', '<>', '')
-            ->distinct()
-            ->pluck('players.team_name_ref');
+        $registered = collect();
+        foreach ($byTeamId as $teamId => $count) {
+            if ($name = $teamNames->get((int) $teamId)) {
+                $registered[$name] = ($registered[$name] ?? 0) + $count;
+            }
+        }
 
-        return $typed->merge($registered)->merge($viaOthers)
-            ->filter(fn ($name) => filled($name))
-            ->unique()
-            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+        $viaOthers = $countBy(
+            $withoutTyped($scope())->whereNotNull('players.team_name_ref')
+                ->where('players.team_name_ref', '<>', ''),
+            'players.team_name_ref'
+        );
+
+        $all = collect();
+        foreach ([$typed, $registered, $viaOthers] as $source) {
+            foreach ($source as $name => $count) {
+                if (filled($name)) {
+                    $all[$name] = ($all[$name] ?? 0) + $count;
+                }
+            }
+        }
+
+        // Biggest first, then alphabetical within a count — so the list reads as "the clubs that
+        // matter, then the rest" rather than as 113 equals.
+        return $all->sortBy([
+            fn ($count, $name) => -$count,
+            fn ($count, $name) => mb_strtolower((string) $name),
+        ]);
     }
 
     /**

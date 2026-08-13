@@ -94,10 +94,28 @@
                     <div class="sm:col-span-2">
                         <label for="playing_team"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Playing Team</label>
+                        @php
+                            // Clubs with more than one player first, the single entries below.
+                            // 93 of tournament 25's 113 clubs hold exactly one player — names typed
+                            // once, many of them near-duplicates of each other ("Kanhangad CC" and
+                            // "Kanhanhad CC") — and an alphabetical list of 113 buries the six
+                            // clubs anybody is actually looking for. Nothing is hidden: a club with
+                            // one player is still a club, and still filterable.
+                            $clubGroups = $playingTeams->partition(fn ($count) => $count > 1);
+                        @endphp
                         <select name="playing_team" id="playing_team" class="form-control mt-1">
                             <option value="">All Clubs</option>
-                            @foreach ($playingTeams as $club)
-                                <option value="{{ $club }}" @selected(request('playing_team') === $club)>{{ $club }}</option>
+                            @foreach ($clubGroups as $index => $group)
+                                @if ($group->isNotEmpty())
+                                    <optgroup label="{{ $index === 0 ? 'Clubs' : 'Single entry (' . $group->count() . ')' }}">
+                                        @foreach ($group as $club => $count)
+                                            {{-- On one line: a browser renders an option's text
+                                                 verbatim, and Blade's indentation would otherwise
+                                                 arrive as leading whitespace in the dropdown. --}}
+                                            <option value="{{ $club }}" @selected(request('playing_team') === (string) $club)>{{ $club }}@if($index === 0) ({{ $count }})@endif</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             @endforeach
                         </select>
                     </div>
