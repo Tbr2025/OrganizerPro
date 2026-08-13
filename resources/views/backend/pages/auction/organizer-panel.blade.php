@@ -2960,6 +2960,36 @@ function auctionOrganizerPanel() {
            Every control here reports a no-op as success: two panels both pressing
            Lock is ordinary operation, not something to raise a red toast about. */
 
+        /**
+         * Clear everything the panel is holding for the player just finished, and stand ready
+         * for the next one.
+         *
+         * Written out by hand in three places, and the two "reopen a pool" paths had a shortened
+         * copy that reset the pointer and the display state but nothing else. So pressing Run
+         * Unsold left the previous player's sealed board on screen — a tie, its DRAW LOT and its
+         * Pick buttons — over a pool that had already moved on, along with their last bid, the
+         * winning-team caption and a running clock. The only way to a clean panel was a reload,
+         * mid-auction, in front of the room.
+         *
+         * The stale pointer is the dangerous half: `_lastCurrentPlayerId` is what the next poll
+         * compares against, and left pointing at the finished player it stamps UNSOLD over
+         * somebody who has merely gone back into the queue.
+         */
+        _clearForNextPlayer() {
+            this.auctionStatus = 'running';
+            this.displayState = 'waiting';
+            this.currentPlayer = null;
+            this.stopBiddingTimer();
+            this._lastCurrentPlayerId = null;
+            this._lastKnownBid = 0;
+            this.lastSoldPlayer = null;
+            this.currentBid = 0;
+            this.winningTeamName = 'No Bids';
+            this.sealedBids = [];
+            // Shape, not null — the markup reads sealed.active unguarded.
+            this.sealed = { active: false };
+        },
+
         async fetchSealedState() {
             if (this.bidType !== 'closed' || !this.currentPlayer) {
                 if (this.sealed.active) this.sealed = { active: false };
@@ -3586,12 +3616,9 @@ function auctionOrganizerPanel() {
             const result = await this.sendCommand(`pools/${pool.id}/reopen`);
 
             if (result?.success) {
-                this.auctionStatus = 'running';
+                this._clearForNextPlayer();
                 this.statusText = result.message;
                 this.toast(result.message, 'success', 'Pool reopened');
-                this.displayState = 'waiting';
-                this.currentPlayer = null;
-                this._lastCurrentPlayerId = null;
                 await this.pollAuctionState();
             }
         },
@@ -4363,10 +4390,7 @@ function auctionOrganizerPanel() {
                 const result = await this.sendCommand(`pools/${pool.id}/reopen`);
 
                 if (result?.success) {
-                    this.auctionStatus = 'running';
-                    this.displayState = 'waiting';
-                    this.currentPlayer = null;
-                    this._lastCurrentPlayerId = null;
+                    this._clearForNextPlayer();
                     this.statusText = result.message;
                     this.toast(result.message, 'success', 'Pool reopened');
                     await this.pollAuctionState();
@@ -4388,22 +4412,8 @@ function auctionOrganizerPanel() {
 
             if (! result?.success) return;
 
-            /*
-             * The same clean-up the whole-auction restart does. What the panel is holding
-             * belongs to the run just wiped, and a stale pointer makes the next poll stamp
-             * UNSOLD over a player who has simply gone back into the queue.
-             */
-            this.auctionStatus = 'running';
-            this.displayState = 'waiting';
-            this.currentPlayer = null;
-            this.stopBiddingTimer();
-            this._lastCurrentPlayerId = null;
-            this._lastKnownBid = 0;
-            this.lastSoldPlayer = null;
-            this.currentBid = 0;
-            this.winningTeamName = 'No Bids';
-            this.sealedBids = [];
-            this.sealed = { active: false };
+            // What the panel is holding belongs to the run just wiped.
+            this._clearForNextPlayer();
 
             this.statusText = result.message;
             this.toast(result.message, 'success', 'Pool restarted');
@@ -4911,21 +4921,8 @@ function auctionOrganizerPanel() {
             });
             if (! result?.success) return;
 
-            // Same clean-up the whole-auction restart does: what the panel was holding
-            // belongs to the run just wiped, and a stale pointer makes the next poll stamp
-            // UNSOLD over a player who simply went back into the queue.
-            this.auctionStatus = 'running';
-            this.displayState = 'waiting';
-            this.currentPlayer = null;
-            this.stopBiddingTimer();
-            this._lastCurrentPlayerId = null;
-            this._lastKnownBid = 0;
-            this.lastSoldPlayer = null;
-            this.currentBid = 0;
-            this.winningTeamName = 'No Bids';
-            this.sealedBids = [];
-            // Shape, not null — the markup reads sealed.active unguarded.
-            this.sealed = { active: false };
+            // What the panel was holding belongs to the run just wiped.
+            this._clearForNextPlayer();
 
             this.statusText = result.message;
             this.toast(result.message, 'success', 'Pool restarted');
