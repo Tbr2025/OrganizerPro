@@ -258,4 +258,37 @@ class SquadBadgesAndValuesTest extends TestCase
         // that would have stripped one.
         $this->assertStringContainsString('Icon Player', $html);
     }
+
+    #[Test]
+    public function every_player_field_is_exported_to_a_workbook(): void
+    {
+        ['org' => $org, 'team' => $team, 'bought' => $bought] = $this->scenario();
+        $bought->forceFill(['actual_team_id' => $team->id])->save();
+
+        $players = \App\Models\Player::with(['actualTeam', 'playerType'])->get();
+        app(SquadAcquisitionService::class)->attachForOwnTeams($players);
+
+        $path = tempnam(sys_get_temp_dir(), 'players-') . '.xlsx';
+        app(\App\Services\Export\PlayerWorkbookExport::class)->write($players, $path);
+
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($path) === true, 'the workbook must be a readable xlsx');
+        $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        @unlink($path);
+
+        /*
+         * The columns are read from the SCHEMA, not hand-listed like the CSV beside this — so a
+         * field added to `players` appears in the export the day it is added rather than being
+         * silently absent. Asserted on a couple that the CSV never carried.
+         */
+        $this->assertStringContainsString('Jersey Number', $sheet);
+        $this->assertStringContainsString('Visa Status', $sheet);
+        $this->assertStringContainsString('Tshirt Size', $sheet);
+
+        // And the relationship columns a human actually reads, rather than raw foreign keys.
+        $this->assertStringContainsString('Acquired As', $sheet);
+        $this->assertStringContainsString('Icon Player', $sheet);
+        $this->assertStringNotContainsString('Batting Profile Id', $sheet);
+    }
 }

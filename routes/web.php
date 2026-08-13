@@ -665,6 +665,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Organizer management: create/pick organizer users and assign tournaments/teams/matches
     Route::resource('organizers', OrganizerController::class)->except(['show'])->parameters(['organizers' => 'organizer']);
     Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');
+    // Every field, as a spreadsheet. GET so it can be a plain link with the current filters.
+    Route::get('/players/export-xlsx', [PlayerController::class, 'exportXlsx'])->name('players.export-xlsx');
 
     Route::post('players/import', [PlayerController::class, 'importCsv'])->name('players.import');
 

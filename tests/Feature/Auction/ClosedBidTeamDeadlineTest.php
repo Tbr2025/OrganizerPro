@@ -318,51 +318,55 @@ class ClosedBidTeamDeadlineTest extends TestCase
     }
 
     #[Test]
-    public function an_admin_previewing_a_team_is_told_why_it_cannot_bid_for_them(): void
+    public function an_organizer_may_enter_from_a_teams_screen_and_it_is_attributed_to_them(): void
     {
         ['org' => $org, 'auction' => $auction, 'team' => $team, 'round' => $round] = $this->scenario();
 
         $this->closedBids()->openEntry($round, null, [$team->id]);
+        $this->closedBids()->start($round->fresh());
+        $this->closedBids()->accept($round->fresh(), $team);
 
         /*
-         * The read-only rule stands — a bid a team did not make must not enter a sealed round
-         * unattributed, and the organizer has a legitimate logged path on the panel. What was
-         * broken is the explanation: the guard tested `?preview` and the session flag but not
-         * `team_id`, which is how the page is actually opened, so an admin fell through to
-         * "your team is not in this tournament" — not what happened, and pointing nowhere.
+         * Refusing this bought no integrity: the organizer could already enter for a team from the
+         * panel, so the same act by the same person was blocked only on a different screen — and
+         * in a room where a manager cannot reach their own device, that block lands mid-round.
+         *
+         * What matters is that it is attributed and reversible, so it is recorded as an ADMIN act
+         * exactly as the panel's control is.
          */
-        $response = $this->actingAs($this->makeSuperadmin($org))->postJson(
+        $this->actingAs($this->makeSuperadmin($org))->postJson(
             route('team.auction.bidding.api.closed-bid.submit', $auction) . '?team_id=' . $team->id,
             ['amount' => 9_000_000]
-        );
+        )->assertOk();
 
-        $response->assertStatus(403);
-        $error = (string) $response->json('error');
-        $this->assertStringContainsString('viewing', $error);
-        $this->assertStringContainsString('organizer panel', $error);
+        $entry = $round->fresh()->entries()->where('actual_team_id', $team->id)->first();
 
-        // And nothing was recorded for the team.
-        $this->assertNull($round->fresh()->entries()->where('actual_team_id', $team->id)->value('amount'));
+        $this->assertSame(9_000_000.0, (float) $entry->amount);
+        // The trail is what makes this safe — an organizer's entry is visible as one, and undoable.
+        $this->assertSame(1, (int) $entry->adjusted_count);
+        $this->assertNotEmpty($entry->adjustments);
     }
 
     #[Test]
-    public function an_open_round_bid_is_never_shown_as_a_sealed_bid(): void
+    public function a_team_manager_still_cannot_act_through_another_teams_screen(): void
     {
-        ['auction' => $auction, 'user' => $user] = $this->scenario();
+        ['org' => $org, 'auction' => $auction, 'team' => $team, 'round' => $round, 'user' => $user] = $this->scenario();
 
-        $html = $this->actingAs($user)
-            ->get(route('team.auction.bidding.show', $auction))
-            ->assertOk()
-            ->getContent();
+        $other = $this->makeTeam($org, 'Bravo', $auction->tournament);
+        $this->closedBids()->openEntry($round, null, [$team->id, $other->id]);
+        $this->closedBids()->start($round->fresh());
 
-        /*
-         * This panel read `myBidAmount` — the team's last OPEN bid on the player — and labelled it
-         * "Your Sealed Bid" whenever bidding had gone closed. A team that raised 4.1M in the open
-         * round and entered nothing in the sealed one was shown 4.1M as its sealed bid, which is
-         * both wrong and, in a sealed round, the most misleading number available.
-         */
-        $this->assertStringNotContainsString("myBidAmount > 0 && bidType === 'closed'", $html);
-        $this->assertStringContainsString("bidType === 'closed' && sealed.my_entry?.amount", $html);
+        // The organizer exemption is gated on the admin roles; a manager adding a query parameter
+        // is still just themselves.
+        $this->actingAs($user)->postJson(
+            route('team.auction.bidding.api.closed-bid.accept', $auction) . '?team_id=' . $other->id
+        );
+
+        $this->assertNotSame(
+            'accepted',
+            $round->fresh()->entries()->where('actual_team_id', $other->id)->value('state'),
+            'a manager must not act on another team behalf'
+        );
     }
 
     #[Test]

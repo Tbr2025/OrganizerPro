@@ -509,8 +509,8 @@ class AuctionBiddingController extends Controller
     {
         $validated = $request->validate(['amount' => 'required|numeric|min:0']);
 
-        return $this->sealedAction($request, $auction, function ($service, $round, $team) use ($validated) {
-            return $service->submit($round, $team, (float) $validated['amount'], auth()->user());
+        return $this->sealedAction($request, $auction, function ($service, $round, $team, $source) use ($validated) {
+            return $service->submit($round, $team, (float) $validated['amount'], auth()->user(), $source);
         });
     }
 
@@ -587,25 +587,37 @@ class AuctionBiddingController extends Controller
          * unattributed, and the organizer already has a legitimate path for entering on a team's
          * behalf: the panel's own control, recorded as an admin adjustment and undoable.
          */
-        $previewing = $request->query('preview')
+        /*
+         * An organizer looking at a team's screen may act — ATTRIBUTED AS THE ORGANIZER.
+         *
+         * This refused outright, on the reasoning that a bid a team did not make must not enter a
+         * sealed round. The reasoning is right; the remedy was not. The organizer has always been
+         * able to enter on a team's behalf from the panel, so refusing the same act by the same
+         * person on a different screen bought no integrity — it just sent them to another tab, and
+         * in a room where a manager cannot reach their own screen it sent them there mid-round.
+         *
+         * What matters is that the act is attributed and reversible, so it is recorded as
+         * ROLE_ADMIN exactly as the panel's own control is: it lands in the entry's adjustment
+         * trail and it can be undone. A team's own submission stays ROLE_TEAM.
+         */
+        $isPreview = $request->query('preview')
             || session('auction_preview_team_id')
-            || ($request->query('team_id') && auth()->user()?->hasRole(['Superadmin', 'Admin']));
+            || ($request->query('team_id') && $user?->hasRole(['Superadmin', 'Admin']));
 
-        if ($previewing) {
-            return response()->json([
-                'error' => 'You are viewing this team\'s screen, not bidding as them. Enter the amount on the'
-                    . ' organizer panel, or sign in as that team\'s manager.',
-            ], 403);
+        $actingAsOrganizer = $isPreview && (bool) $user?->hasRole(['Superadmin', 'Admin']);
+
+        if ($isPreview && ! $actingAsOrganizer) {
+            return response()->json(['error' => 'Preview mode is read-only.'], 403);
         }
 
         $userTeam = $this->resolveTeam($request, $auction);
 
         if (! $userTeam) {
             return response()->json([
-                'error' => auth()->user()?->hasRole(['Superadmin', 'Admin'])
+                'error' => $user?->hasRole(['Superadmin', 'Admin'])
                     // An admin with no team of their own is the common case here, and "your team"
                     // is a confusing way to describe it.
-                    ? 'You are not on a team in this tournament — use the organizer panel to enter an amount.'
+                    ? 'Open this from a team\'s screen, or use the organizer panel, to enter an amount.'
                     : 'Your team is not in this tournament.',
             ], 403);
         }
@@ -618,7 +630,9 @@ class AuctionBiddingController extends Controller
             return response()->json(['error' => 'No sealed round is open for this player.'], 422);
         }
 
-        $result = $do($service, $round, $userTeam);
+        $result = $do($service, $round, $userTeam, $actingAsOrganizer
+            ? AuctionClosedBidEntry::ROLE_ADMIN
+            : AuctionClosedBidEntry::ROLE_TEAM);
 
         if (! ($result['handled'] ?? false)) {
             return response()->json(['error' => $result['message'] ?? 'That is not possible right now.'], 422);
@@ -640,8 +654,8 @@ class AuctionBiddingController extends Controller
             return response()->json(['error' => 'A bid amount is required in a sealed round.'], 422);
         }
 
-        return $this->sealedAction($request, $auction, function ($service, $round, $team) use ($validated) {
-            return $service->submit($round, $team, (float) $validated['amount'], auth()->user());
+        return $this->sealedAction($request, $auction, function ($service, $round, $team, $source) use ($validated) {
+            return $service->submit($round, $team, (float) $validated['amount'], auth()->user(), $source);
         });
     }
 

@@ -439,6 +439,50 @@ class PlayerController extends Controller
         ]);
     }
 
+    /**
+     * Every field a player carries, as a spreadsheet.
+     *
+     * Excel rather than the CSV beside this: the CSV hand-lists 25 columns, so anything added to
+     * `players` since it was written is silently missing, and the ask was for every field.
+     * PlayerWorkbookExport derives its columns from the model, so a new one appears the day it
+     * does. The CSV stays for anyone with a pipeline pointed at it.
+     */
+    public function exportXlsx(Request $request, \App\Services\Export\PlayerWorkbookExport $export)
+    {
+        $this->authorize('player.view');
+
+        $request->validate([
+            'player_ids' => 'nullable|array',
+            'player_ids.*' => 'exists:players,id',
+        ]);
+
+        $query = Player::with([
+            'team', 'actualTeam', 'playerType', 'location',
+            'battingProfile', 'bowlingProfile', 'kitSize',
+            'user.organization', 'organization',
+        ]);
+
+        // A selection when one is sent, otherwise everything this user may see. The listing is
+        // already scoped by organization for a non-Superadmin, and the same rule applies here.
+        if ($ids = $request->input('player_ids')) {
+            $query->whereIn('id', $ids);
+        } elseif (! Auth::user()->hasRole('Superadmin') && Auth::user()->organization_id) {
+            $query->where('organization_id', Auth::user()->organization_id);
+        }
+
+        $players = $query->orderBy('name')->get();
+
+        // How each player was acquired, for the two auction columns — one query for the lot.
+        app(\App\Services\Auction\SquadAcquisitionService::class)->attachForOwnTeams($players);
+
+        $path = tempnam(sys_get_temp_dir(), 'players-') . '.xlsx';
+        $export->write($players, $path);
+
+        return response()
+            ->download($path, 'players-' . date('Y-m-d') . '.xlsx')
+            ->deleteFileAfterSend(true);
+    }
+
     public function export(Request $request)
     {
         // 1. Authorize the action

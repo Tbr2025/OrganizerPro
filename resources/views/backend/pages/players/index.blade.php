@@ -12,12 +12,23 @@
                 <h1 class="text-xl font-bold text-gray-800 dark:text-white">Player Management</h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Search, filter, and manage all players.</p>
             </div>
-            @can('player.create')
-                <a href="{{ route('admin.players.create') }}" class="btn btn-primary inline-flex items-center gap-2">
-                    <iconify-icon icon="lucide:plus" width="16"></iconify-icon>
-                    Add New Player
+            <div class="flex items-center gap-2">
+                {{-- Export the whole visible set, no selection needed. The selection-bound buttons
+                     lower down only appear once rows are ticked, so "export everything" had no
+                     control at all — which is the usual reason for opening this page. --}}
+                <a href="{{ route('admin.players.export-xlsx') }}"
+                   class="btn btn-secondary inline-flex items-center gap-2">
+                    <iconify-icon icon="lucide:file-spreadsheet" width="16"></iconify-icon>
+                    Export All (Excel)
                 </a>
-            @endcan
+
+                @can('player.create')
+                    <a href="{{ route('admin.players.create') }}" class="btn btn-primary inline-flex items-center gap-2">
+                        <iconify-icon icon="lucide:plus" width="16"></iconify-icon>
+                        Add New Player
+                    </a>
+                @endcan
+            </div>
         </div>
 
         <!-- Filter Section -->
@@ -249,16 +260,30 @@
                 <p class="text-sm font-medium text-indigo-800 dark:text-indigo-200">
                     <span x-text="selectedPlayers.length"></span> player(s) selected.
                 </p>
-                <form action="{{ route('admin.players.export') }}" method="POST">
-                    @csrf
-                    <template x-for="playerId in selectedPlayers" :key="playerId">
-                        <input type="hidden" name="player_ids[]" :value="playerId">
-                    </template>
-                    <button type="submit" class="btn btn-primary btn-sm inline-flex items-center gap-2">
-                        <iconify-icon icon="lucide:download" width="16"></iconify-icon>
-                        Export Selected
-                    </button>
-                </form>
+                <div class="flex items-center gap-2">
+                    <form action="{{ route('admin.players.export') }}" method="POST">
+                        @csrf
+                        <template x-for="playerId in selectedPlayers" :key="playerId">
+                            <input type="hidden" name="player_ids[]" :value="playerId">
+                        </template>
+                        <button type="submit" class="btn btn-secondary btn-sm inline-flex items-center gap-2">
+                            <iconify-icon icon="lucide:download" width="16"></iconify-icon>
+                            CSV (summary)
+                        </button>
+                    </form>
+
+                    {{-- Every field, not the CSV's hand-listed 25 — see PlayerWorkbookExport.
+                         GET with the ids in the query, so it is a plain download link. --}}
+                    <form action="{{ route('admin.players.export-xlsx') }}" method="GET">
+                        <template x-for="playerId in selectedPlayers" :key="playerId">
+                            <input type="hidden" name="player_ids[]" :value="playerId">
+                        </template>
+                        <button type="submit" class="btn btn-primary btn-sm inline-flex items-center gap-2">
+                            <iconify-icon icon="lucide:file-spreadsheet" width="16"></iconify-icon>
+                            Excel (all fields)
+                        </button>
+                    </form>
+                </div>
             </div>
         @endif
 
