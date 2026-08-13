@@ -1189,6 +1189,28 @@ class AuctionAdminController extends Controller
                     $newPrice = $current + $increment;
                 }
 
+                /*
+                 * Open bidding stops AT the sealed threshold, it does not step over it.
+                 *
+                 * With a threshold of 8M and a 1M rung, a bid at 8M took the price to 9M and only
+                 * then asked whether to move to a sealed bid — so the room had called a figure a
+                 * million past the point where open bidding was meant to end, and the dialog's own
+                 * "Sell for 8M" offered less than the standing bid. A quick-step jump is held to
+                 * the same line: it is a bigger raise, not permission to leave open bidding.
+                 */
+                $ceiling = $increments->openBidCeilingFor($auction, $player);
+
+                if ($ceiling !== null && $newPrice > $ceiling) {
+                    if ($current >= $ceiling) {
+                        throw new \Exception(sprintf(
+                            'Open bidding stops at %s, the sealed-bid threshold. Move to a sealed bid, sell to the leading team, or choose to keep open bidding.',
+                            format_points($ceiling)
+                        ));
+                    }
+
+                    $newPrice = $ceiling;
+                }
+
                 // Squad-reserve rule. The organizer's manual bid path previously
                 // had no budget check of any kind, so a team could be bid past
                 // its cap and only be blocked at SELL.

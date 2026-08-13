@@ -1054,12 +1054,13 @@
                         {{-- Current Bid Amount --}}
                         <div class="border-2 border-emerald-500/50 bg-emerald-500/10 rounded-2xl px-6 py-5 backdrop-blur-sm">
                             <div class="text-xs uppercase tracking-widest text-emerald-400 mb-1">Current Bid</div>
-                            {{-- Fades in on each change, and does not move.
-                                 tabular-nums fixes every digit to one width, so "4.5M" becoming
-                                 "11.1M" cannot nudge the panel sideways, and the transition is
-                                 opacity only — nothing that reflows. --}}
-                            <div class="text-5xl font-black text-emerald-400 tabular-nums transition-opacity duration-200"
-                                 :class="bidFading ? 'opacity-100' : 'opacity-60'"
+                            {{-- The figure changes and nothing else happens.
+                                 It counted up to each new amount first, then dipped and faded —
+                                 both read as a flicker on the screen driving the room, and both
+                                 put the true number a moment behind the click. tabular-nums keeps
+                                 every digit one width, so "4.5M" becoming "11.1M" cannot nudge
+                                 the panel sideways. --}}
+                            <div class="text-5xl font-black text-emerald-400 tabular-nums"
                                  x-text="formatCurrency(displayBid)"></div>
                         </div>
 
@@ -2189,8 +2190,6 @@ function auctionOrganizerPanel() {
          * and request still reads the real value; only the display reads this.
          */
         displayBid: 0,
-        // Set briefly after each change so the amount fades in — see countBidTo().
-        bidFading: false,
         winningTeamName: 'No Bids',
         bidLog: [],
 
@@ -3499,15 +3498,6 @@ function auctionOrganizerPanel() {
              * right immediately now and only its opacity moves.
              */
             this.displayBid = Number(target) || 0;
-
-            if (instant || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-                return;
-            }
-
-            // Retriggered by removing and re-adding the class across a frame — a CSS animation
-            // will not replay while its class is already on the element.
-            this.bidFading = false;
-            requestAnimationFrame(() => { this.bidFading = true; });
         },
 
         /**
@@ -3525,6 +3515,19 @@ function auctionOrganizerPanel() {
             // not compute, so it shows the new leader and leaves the figure to the response.
             if (stepIndex === null && this.nextBidAmount) {
                 this.currentBid = this.nextBidAmount;
+
+                /*
+                 * And the player's own price, which everything else reads.
+                 *
+                 * This moved `currentBid` alone, so `currentPlayer.current_price` and its `bids`
+                 * list stayed at whatever the last poll said — and with push healthy that poll is
+                 * fifteen seconds apart. The Sell dialog builds its amount from those, so an
+                 * organizer who had raised to 24M was offered a sale at 9M with the wall behind
+                 * them reading 24M.
+                 */
+                if (this.currentPlayer) {
+                    this.currentPlayer.current_price = this.nextBidAmount;
+                }
             }
 
             this.resetBiddingTimer();
@@ -4640,6 +4643,20 @@ function auctionOrganizerPanel() {
                 ? this.currentPlayer.bids.reduce((a, b) => (a.amount > b.amount ? a : b), this.currentPlayer.bids[0])
                 : null;
 
+            /*
+             * The highest of everything the panel knows — never below the figure on screen.
+             *
+             * `bids` and `current_price` both come from the last poll, so between polls they lag
+             * the raises already taken; `currentBid` is what the room has actually been shown.
+             * Taking the maximum means the dialog cannot offer a sale for less than the standing
+             * bid, whichever of the three is freshest.
+             */
+            const saleAmount = Math.max(
+                Number(this.currentBid) || 0,
+                Number(highestBid?.amount) || 0,
+                Number(this.currentPlayer.current_price) || 0,
+            ) || Number(this.currentPlayer.base_price) || 0;
+
             const leadingTeamId = this.currentPlayer.current_bid_team_id || highestBid?.team_id || null;
             const isOpenLive = this.bidType === 'open' && this.openBidMode !== 'offline';
 
@@ -4654,7 +4671,7 @@ function auctionOrganizerPanel() {
             // Open bidding: award the leading bidder directly.
             if (isOpenLive) {
                 const team = this.getTeamById(leadingTeamId);
-                const amount = highestBid?.amount || this.currentPlayer.current_price;
+                const amount = saleAmount;
                 if (! await this.askConfirm(`Sell ${this.currentPlayer.player?.name} to ${team?.name || 'the leading team'} for ${this.formatCurrency(amount)}?`, { title: 'Confirm sale' })) return;
 
                 const result = await this.sendCommand('sell-player', { auction_player_id: this.currentPlayer.id });
@@ -4668,7 +4685,7 @@ function auctionOrganizerPanel() {
             // Sealed bids / offline: the organizer picks the winner.
             this.sellModalData = {
                 team_id: leadingTeamId || '',
-                amount: highestBid?.amount || this.currentPlayer.current_price || this.currentPlayer.base_price,
+                amount: saleAmount,
             };
             this.showSellModal = true;
         },

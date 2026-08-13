@@ -201,11 +201,58 @@ class BidIncrementService
      */
     public function nextBidForPlayer(Auction $auction, AuctionPlayer $player): ?float
     {
-        if ($player->current_bid_team_id === null) {
-            return (float) $player->current_price;
+        $current = (float) $player->current_price;
+
+        $next = $player->current_bid_team_id === null
+            ? $current
+            : $this->nextBidAmount($auction, $current);
+
+        return $this->capAtSealedThreshold($auction, $player, $next);
+    }
+
+    /**
+     * The highest an OPEN bid may go: the sealed-bid threshold, while that threshold still
+     * applies to this player.
+     *
+     * Open bidding used to walk straight through it. With a threshold of 8M and a 1M rung, a bid
+     * at 8M took the price to 9M and only then asked "this player has reached 8M — move to a
+     * sealed bid?" — so the room had already called a figure a million above the point where
+     * open bidding was supposed to stop, and the dialog's own "Sell for 8M" offered less than the
+     * standing bid. The threshold is where open bidding ENDS, so the last open bid lands on it.
+     *
+     * Null once it no longer applies — the organizer answered "keep open bidding"
+     * (`bid_type_manually_overridden`), the auction is already sealed, or a sealed round exists
+     * for this player. From then on the ladder runs as before.
+     */
+    public function openBidCeilingFor(Auction $auction, AuctionPlayer $player): ?float
+    {
+        if ($auction->closed_bid_starts_at === null
+            || ! $auction->hasAutoPhaseTransition()
+            || $auction->bid_type_manually_overridden
+            || $auction->bid_type !== 'open'
+            || $player->closed_bid_round_id !== null) {
+            return null;
         }
 
-        return $this->nextBidAmount($auction, (float) $player->current_price);
+        return (float) $auction->closed_bid_starts_at;
+    }
+
+    /**
+     * Hold a proposed amount at the threshold, or refuse it once the price is already there.
+     *
+     * Returns null at the ceiling rather than the ceiling again, because a bid that cannot raise
+     * the price is not a bid — the panel reads null as "no further open bid" and puts the
+     * sealed-bid question up instead.
+     */
+    private function capAtSealedThreshold(Auction $auction, AuctionPlayer $player, ?float $next): ?float
+    {
+        $ceiling = $this->openBidCeilingFor($auction, $player);
+
+        if ($ceiling === null || $next === null || $next <= $ceiling) {
+            return $next;
+        }
+
+        return (float) $player->current_price < $ceiling ? $ceiling : null;
     }
 
     /**
@@ -219,13 +266,20 @@ class BidIncrementService
         $opening = $player->current_bid_team_id === null;
 
         if ($opening) {
-            $state['next_bid_amount'] = (float) $player->current_price;
             // A base price above every band leaves no increment, but the base itself is still
             // biddable — the ladder only has to exist for the SECOND bid.
             $state['max_reached'] = false;
         }
 
+        // Both rules in one figure — the opening bid takes the base, and no open bid passes the
+        // sealed threshold. The panel and the team screens read this rather than recomputing.
+        $state['next_bid_amount'] = $this->nextBidForPlayer($auction, $player);
         $state['is_opening_bid'] = $opening;
+        $state['open_bid_ceiling'] = $this->openBidCeilingFor($auction, $player);
+
+        if ($state['next_bid_amount'] === null) {
+            $state['max_reached'] = true;
+        }
 
         return $state;
     }
