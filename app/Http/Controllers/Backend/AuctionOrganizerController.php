@@ -448,6 +448,15 @@ class AuctionOrganizerController extends Controller
             'active_pool' => $poolProgress['active_pool'],
             'next_pool' => $poolProgress['next_pool'],
             'pools' => $poolProgress['pools'],
+            /*
+             * The unsold pile, separately from `pools`.
+             *
+             * `pools` is biddable()-scoped and is what "the next pool" and every pool listing
+             * read, so the pile must not be in it — nothing should pick it up automatically.
+             * The organizer can still choose to run it deliberately, and this is what lets the
+             * panel offer that.
+             */
+            'unsold_pool' => $poolProgress['unsold_pool'] ?? null,
             // Timer, driven off the server clock.
             'timer_enabled' => $timerState['applies'],
             'timer_expiry_action' => $freshAuction->timer_expiry_action,

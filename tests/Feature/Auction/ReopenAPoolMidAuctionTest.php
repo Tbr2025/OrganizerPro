@@ -161,7 +161,7 @@ class ReopenAPoolMidAuctionTest extends TestCase
     }
 
     #[Test]
-    public function the_unsold_pile_is_not_offered_as_a_pool_to_run(): void
+    public function the_unsold_pile_can_be_run_as_a_pool_in_its_own_right(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org);
@@ -173,18 +173,68 @@ class ReopenAPoolMidAuctionTest extends TestCase
 
         $pile = AuctionPool::where('auction_id', $auction->id)->where('is_unsold_pool', true)->sole();
 
+        /*
+         * "One more round for everybody nobody took" is what an organizer reaches for near the
+         * end. It used to be refused outright, leaving the re-auction round — which scatters
+         * those players back across their original pools — as the only way to offer them again.
+         */
         $this->actingAs($operator)
             ->postJson(route('admin.auction.organizer.api.pool.reopen', [$auction, $pile]))
-            ->assertStatus(422);
+            ->assertOk()
+            ->assertJsonPath('success', true);
 
-        // It is also absent from the panel's pool list, which is biddable()-scoped — so the
-        // chooser cannot offer it in the first place.
-        $pools = $this->actingAs($operator)
+        // The player is biddable again, and has NOT been moved anywhere: the pile is the pool.
+        $player->refresh();
+        $this->assertSame('waiting', $player->status);
+        $this->assertSame($pile->id, $player->auction_pool_id);
+        $this->assertSame(AuctionPool::STATUS_ACTIVE, $pile->fresh()->status);
+    }
+
+    #[Test]
+    public function the_pile_is_offered_separately_and_never_inside_the_pool_list(): void
+    {
+        $org = $this->makeOrganization();
+        $auction = $this->makeAuction($org);
+        $operator = $this->makeAuctionOperator($org);
+
+        $pool = $this->makePool($auction, ['name' => 'Pool A']);
+        $player = $this->makeAuctionPlayer($auction, ['auction_pool_id' => $pool->id, 'status' => 'unsold']);
+        app(\App\Services\Auction\AuctionPoolService::class)->moveToUnsoldPool($player);
+
+        $pile = AuctionPool::where('auction_id', $auction->id)->where('is_unsold_pool', true)->sole();
+
+        $state = $this->actingAs($operator)
             ->getJson(route('admin.auction.organizer.api.poll-state', $auction))
             ->assertOk()
-            ->json('pools');
+            ->json();
 
-        $this->assertNotContains($pile->id, array_column($pools, 'id'));
+        /*
+         * `pools` is biddable()-scoped and is what "the next pool" and every pool listing read,
+         * so the pile must stay out of it — nothing should pick it up automatically. It is
+         * offered as its own named thing the organizer chooses deliberately.
+         */
+        $this->assertNotContains($pile->id, array_column($state['pools'], 'id'));
+
+        $this->assertSame($pile->id, $state['unsold_pool']['id']);
+        $this->assertSame(1, $state['unsold_pool']['waiting']);
+        $this->assertTrue($state['unsold_pool']['is_unsold_pool']);
+    }
+
+    #[Test]
+    public function an_empty_unsold_pile_is_not_offered_at_all(): void
+    {
+        $org = $this->makeOrganization();
+        $auction = $this->makeAuction($org);
+        $operator = $this->makeAuctionOperator($org);
+        $this->makePool($auction, ['name' => 'Pool A']);
+
+        // No pile yet, and nothing to run — the strip should not grow a button for it.
+        $state = $this->actingAs($operator)
+            ->getJson(route('admin.auction.organizer.api.poll-state', $auction))
+            ->assertOk()
+            ->json();
+
+        $this->assertNull($state['unsold_pool']);
     }
 
     #[Test]

@@ -278,9 +278,6 @@ class AuctionPoolService
             return ['success' => false, 'message' => 'That pool belongs to a different auction.'];
         }
 
-        if ($pool->isUnsoldPool()) {
-            return ['success' => false, 'message' => 'The unsold list is not a pool that can be auctioned. Use a re-auction round.'];
-        }
 
         // A live player belongs to the pool that is running; switching under them would strand
         // them mid-bid.
@@ -291,13 +288,31 @@ class AuctionPoolService
         $reclaimed = 0;
 
         DB::transaction(function () use ($auction, $pool, &$reclaimed) {
-            $returning = AuctionPlayer::where('auction_id', $auction->id)
-                ->where('source_pool_id', $pool->id)
-                ->whereIn('status', ['unsold', 'passed', 'skipped'])
-                ->get();
+            /*
+             * Which players come back depends on which pool this is.
+             *
+             * A normal pool reclaims the players who went unsold FROM it — they were moved to
+             * the shared pile and `source_pool_id` is the only record of where they came from.
+             *
+             * The unsold pile itself reclaims the players already sitting IN it. Running the
+             * pile directly is the "one more round for everybody nobody took" that an organizer
+             * reaches for near the end, and it used to be refused outright — leaving the
+             * re-auction round, which scatters them back across their original pools, as the
+             * only way to offer them again.
+             */
+            $returning = $pool->isUnsoldPool()
+                ? AuctionPlayer::where('auction_id', $auction->id)
+                    ->where('auction_pool_id', $pool->id)
+                    ->whereIn('status', ['unsold', 'passed', 'skipped'])
+                    ->get()
+                : AuctionPlayer::where('auction_id', $auction->id)
+                    ->where('source_pool_id', $pool->id)
+                    ->whereIn('status', ['unsold', 'passed', 'skipped'])
+                    ->get();
 
             foreach ($returning as $player) {
                 $player->update([
+                    // Stays where it is for the pile; moves home for a normal pool.
                     'auction_pool_id' => $pool->id,
                     'source_pool_id' => null,
                     'status' => 'waiting',
@@ -352,6 +367,36 @@ class AuctionPoolService
                     $reclaimed > 0 ? sprintf(' — %d brought back from unsold', $reclaimed) : ''
                 )
                 : $activated['message'],
+        ];
+    }
+
+    /**
+     * The unsold pile as the panel needs to see it, or null when there is nobody in it.
+     *
+     * `waiting` counts players at any of the unsold statuses as well as `waiting`, because the
+     * pile holds them in both states: `unsold` while it sits there, `waiting` once it is being
+     * run. One number, so the strip reads the same either way.
+     */
+    private function unsoldPoolSummary(Auction $auction): ?array
+    {
+        $pile = AuctionPool::where('auction_id', $auction->id)
+            ->where('is_unsold_pool', true)
+            ->withCount(['players as available_count' => fn ($q) => $q
+                ->whereIn('status', ['unsold', 'passed', 'skipped', 'waiting'])
+                ->where('is_retained', false)])
+            ->orderBy('id')
+            ->first();
+
+        if (! $pile || (int) $pile->available_count < 1) {
+            return null;
+        }
+
+        return [
+            'id' => $pile->id,
+            'name' => $pile->name,
+            'waiting' => (int) $pile->available_count,
+            'status' => $pile->status,
+            'is_unsold_pool' => true,
         ];
     }
 
@@ -431,6 +476,16 @@ class AuctionPoolService
                 'finished' => (int) $active->waiting_count === 0 && (int) $active->on_block_count === 0,
             ] : null,
             'next_pool' => $next ? ['id' => $next->id, 'name' => $next->name] : null,
+            /*
+             * The unsold pile, when it has anybody in it.
+             *
+             * Kept OUT of `pools` on purpose: that list is biddable()-scoped and is read by the
+             * "start the next pool" suggestion and by every screen that means "the pools of this
+             * auction". The pile is not one of those — it is never offered automatically, and
+             * nothing should pick it up by accident. It is offered here as a separate, named
+             * thing the organizer can deliberately choose to run.
+             */
+            'unsold_pool' => $this->unsoldPoolSummary($auction),
             'pools' => $pools->map(fn (AuctionPool $p) => [
                 'id' => $p->id,
                 'name' => $p->name,

@@ -1339,15 +1339,26 @@
                         <span x-show="pools.filter(p => p.is_enabled && p.waiting > 0).length === 0"
                               class="text-xs text-gray-500">no enabled pool has players left</span>
 
-                        {{-- Any pool, at any time — including the ones already finished.
-                             "No enabled pool has players left" was the end of the road: the
-                             remaining pools were closed or disabled, activatePool refuses both,
-                             and the only way on was the pools admin screen mid-auction. --}}
-                        <button x-show="reopenablePools.length" @click="choosePoolToReopen()"
-                                class="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 text-xs font-semibold rounded transition whitespace-nowrap">
-                            Reopen a pool
-                            <span class="opacity-70" x-text="'(' + reopenablePools.length + ')'"></span>
-                        </button>
+                        {{-- Any pool, at any time — including the ones already finished and the
+                             unsold pile. "No enabled pool has players left" was the end of the
+                             road: the remaining pools were closed or disabled, activatePool
+                             refuses both, and the only way on was the pools admin screen
+                             mid-auction.
+
+                             One button per pool, NAMED. "Reopen a pool (2)" made an organizer
+                             open a dialog to find out which two — a count is not a choice, and
+                             the buttons beside it already say "Start Pool A (6)". --}}
+                        <template x-for="p in reopenablePools" :key="'reopen-' + p.id">
+                            <button @click="reopenPool(p)"
+                                    class="px-2.5 py-1 border text-xs font-semibold rounded transition whitespace-nowrap"
+                                    :class="p.is_unsold_pool
+                                        ? 'bg-amber-900/30 hover:bg-amber-900/50 border-amber-700/60 text-amber-300'
+                                        : 'bg-gray-800 hover:bg-gray-700 border-gray-600 text-gray-300'">
+                                <span x-text="(p.is_unsold_pool ? 'Run ' : 'Reopen ') + p.name"></span>
+                                <span class="opacity-70"
+                                      x-text="'(' + ((p.waiting || 0) + (p.unsold_from || 0)) + ')'"></span>
+                            </button>
+                        </template>
                     </div>
                 </template>
 
@@ -2653,6 +2664,7 @@ function auctionOrganizerPanel() {
                 this.canUndo = !!data.can_undo;
                 this.nextUndoLabel = data.next_undo || null;
                 this.nextUndoNotes = data.next_undo_notes || [];
+                this.unsoldPool = data.unsold_pool || null;
                 this.activePool = data.active_pool || null;
                 // From here on the panel is describing the server, not its own defaults.
                 this.stateLoaded = true;
@@ -3208,6 +3220,15 @@ function auctionOrganizerPanel() {
          */
         _bidQueue: [],
 
+        /**
+         * The auction's unsold pile, when it has anybody in it.
+         *
+         * Kept apart from `pools` for the same reason the server keeps it apart: that list is
+         * "the pools of this auction" and is read by the next-pool suggestion, which must never
+         * pick this up on its own. Running it is always a deliberate choice.
+         */
+        unsoldPool: null,
+
         async bidForTeam(teamId, stepIndex = null) {
             if (!this.currentPlayer || this.displayState !== 'bidding') return;
             if (this.currentPlayer?.current_bid_team_id == teamId) return;
@@ -3367,11 +3388,25 @@ function auctionOrganizerPanel() {
          * sees.
          */
         get reopenablePools() {
-            return (this.pools || []).filter(p => {
+            const pools = (this.pools || []).filter(p => {
                 if (this.activePool && p.id === this.activePool.id) return false;
 
                 return (p.waiting || 0) > 0 || (p.unsold_from || 0) > 0;
             });
+
+            /*
+             * And the unsold pile itself, last.
+             *
+             * "One more round for everybody nobody took" is what an organizer reaches for near
+             * the end, and it used to be refused outright — leaving the re-auction round, which
+             * scatters those players back across their original pools, as the only way to offer
+             * them again.
+             */
+            if (this.unsoldPool && (! this.activePool || this.activePool.id !== this.unsoldPool.id)) {
+                pools.push(this.unsoldPool);
+            }
+
+            return pools;
         },
 
         /**
@@ -3382,15 +3417,59 @@ function auctionOrganizerPanel() {
          * a number the operator cannot see from the strip and would otherwise discover only
          * after the pool was already live.
          */
+        /**
+         * Reopen one named pool, straight from its button.
+         *
+         * The strip names each pool, so the "which one" dialog it used to open first is gone —
+         * a dialog that only repeats what the button already said is a click, not a safeguard.
+         * The safeguard is the confirmation below, which states what will happen and what will
+         * NOT, and then asks a second time.
+         */
+        async reopenPool(pool) {
+            if (! pool) return;
+
+            const coming = (pool.waiting || 0) + (pool.unsold_from || 0);
+
+            const detail = pool.is_unsold_pool
+                ? `Run ${pool.name} now?\n\n`
+                    + `\u2022 ${coming} player(s) nobody took go back on the block\n`
+                    + `\u2022 They stay in the unsold list — nothing is moved\n`
+                    + `\u2022 The pool running now stops`
+                : `Reopen ${pool.name} and start it now?\n\n`
+                    + `\u2022 ${coming} player(s) go back on the block\n`
+                    + `\u2022 Its sales are KEPT — teams keep the players they bought\n`
+                    + `\u2022 The pool running now stops`;
+
+            if (! await this.askConfirm(detail, { title: pool.name, danger: true })) return;
+
+            // Asked twice, because this changes which pool the auction is serving in front of
+            // a room.
+            if (! await this.askConfirm(`Start ${pool.name} now?`, { title: 'Confirm', danger: true })) return;
+
+            const result = await this.sendCommand(`pools/${pool.id}/reopen`);
+
+            if (result?.success) {
+                this.auctionStatus = 'running';
+                this.statusText = result.message;
+                this.toast(result.message, 'success', 'Pool reopened');
+                this.displayState = 'waiting';
+                this.currentPlayer = null;
+                this._lastCurrentPlayerId = null;
+                await this.pollAuctionState();
+            }
+        },
+
         async choosePoolToReopen() {
             const choices = this.reopenablePools.map(p => ({
                 value: String(p.id),
                 label: `${p.name}`,
-                hint: [
-                    (p.waiting || 0) > 0 ? `${p.waiting} still waiting` : null,
-                    (p.unsold_from || 0) > 0 ? `${p.unsold_from} to bring back from unsold` : null,
-                    p.status === 'completed' ? 'closed' : (p.is_enabled ? null : 'disabled'),
-                ].filter(Boolean).join(' · '),
+                hint: p.is_unsold_pool
+                    ? `${p.waiting} player(s) nobody took — run them all again`
+                    : [
+                        (p.waiting || 0) > 0 ? `${p.waiting} still waiting` : null,
+                        (p.unsold_from || 0) > 0 ? `${p.unsold_from} to bring back from unsold` : null,
+                        p.status === 'completed' ? 'closed' : (p.is_enabled ? null : 'disabled'),
+                    ].filter(Boolean).join(' · '),
                 class: 'bg-indigo-600 hover:bg-indigo-700',
             }));
 
