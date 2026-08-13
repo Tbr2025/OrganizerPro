@@ -87,7 +87,11 @@
                          yet on a squad, and until now the one thing on that column you could not
                          filter by. Options are the clubs actually present under the current
                          tournament and status, so picking one cannot empty the page. --}}
-                    <div>
+                    {{-- Two columns wide. Club names run long — "First Guide Tours 7 Travels",
+                         "Climate masters Team NSSCE" — and in one column of an eight-column grid
+                         the select clipped every one of them at about half its name, which is
+                         where two clubs sharing a first word become indistinguishable. --}}
+                    <div class="sm:col-span-2">
                         <label for="playing_team"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Playing Team</label>
                         <select name="playing_team" id="playing_team" class="form-control mt-1">

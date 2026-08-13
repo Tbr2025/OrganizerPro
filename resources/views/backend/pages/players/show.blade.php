@@ -148,37 +148,50 @@
                         </div>
                     </div>
 
-                    {{-- Status Badge --}}
-                    <div class="flex items-start gap-2 mt-2 sm:mt-0">
-                        @if($player->status === 'approved')
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-400 text-green-900">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                                Approved
-                            </span>
-                        @elseif($player->status === 'rejected')
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-400 text-red-900">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                                Rejected
-                            </span>
-                        @elseif($player->status === 'queued')
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-sky-400 text-sky-900">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                                </svg>
-                                In Queue
-                            </span>
-                        @else
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-400 text-yellow-900">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                Pending
+                    {{-- Status badges: the player record, and the registration in view.
+                         This showed `$player->status` alone and unqualified. That column is
+                         global — approved for any competition, approved on it forever — so this
+                         page said "Approved" for a player whose registration for the tournament
+                         being viewed had been REJECTED, while the players list, which labels its
+                         badge with the tournament, said "Rejected". Two screens, one person, two
+                         answers, and nothing on either saying they were answering different
+                         questions. Both are shown now, each named. --}}
+                    <div class="flex flex-wrap items-start gap-2 mt-2 sm:mt-0">
+                        @if($selectedRegistration)
+                            @php
+                                $regBadge = match ($selectedRegistration->status) {
+                                    'approved' => 'bg-green-400 text-green-900',
+                                    'rejected' => 'bg-red-400 text-red-900',
+                                    'queued' => 'bg-sky-400 text-sky-900',
+                                    'cancelled' => 'bg-gray-300 text-gray-800',
+                                    default => 'bg-yellow-400 text-yellow-900',
+                                };
+                            @endphp
+                            <span class="inline-flex flex-col items-start px-3 py-1 rounded-xl text-sm font-medium {{ $regBadge }}"
+                                  title="This player's registration for {{ $selectedRegistration->tournament->name ?? 'this tournament' }}">
+                                <span class="text-[9px] uppercase tracking-wider opacity-70 leading-tight">
+                                    {{ Str::limit($selectedRegistration->tournament->name ?? 'Tournament', 22) }}
+                                </span>
+                                <span class="leading-tight">{{ ucfirst($selectedRegistration->status ?: 'pending') }}</span>
                             </span>
                         @endif
+
+                        {{-- And the player record itself, which is what every other screen means
+                             by a player being approved. Labelled, so it cannot be read as a
+                             verdict on the tournament above. --}}
+                        @php
+                            $playerBadge = match ($player->status) {
+                                'approved' => ['bg-green-400 text-green-900', 'Approved'],
+                                'rejected' => ['bg-red-400 text-red-900', 'Rejected'],
+                                'queued' => ['bg-sky-400 text-sky-900', 'In Queue'],
+                                default => ['bg-yellow-400 text-yellow-900', 'Pending'],
+                            };
+                        @endphp
+                        <span class="inline-flex flex-col items-start px-3 py-1 rounded-xl text-sm font-medium {{ $playerBadge[0] }}"
+                              title="This player's own record, across every competition — not a verdict on any one tournament">
+                            <span class="text-[9px] uppercase tracking-wider opacity-70 leading-tight">Player record</span>
+                            <span class="leading-tight">{{ $playerBadge[1] }}</span>
+                        </span>
                     </div>
                 </div>
             </div>
