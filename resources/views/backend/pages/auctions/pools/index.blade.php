@@ -317,7 +317,10 @@
                             <button type="button" x-show="selectedInPool({{ $pool->id }}).length" :disabled="busy"
                                     @click="downloadCards(selectedInPool({{ $pool->id }}))"
                                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
-                                <span x-text="`Download ${selectedInPool({{ $pool->id }}).length} card(s)`"></span>
+                                {{-- "poster" when a design exists, "card" when the wall screenshot is
+                                     the only thing available — the two are different artwork and the
+                                     button should not claim the one it is not producing. --}}
+                                <span x-text="`Download ${selectedInPool({{ $pool->id }}).length} {{ $posterTemplates->isNotEmpty() ? 'poster' : 'card' }}(s)`"></span>
                             </button>
                             <button type="button" x-show="selectedInPool({{ $pool->id }}).length" :disabled="busy"
                                     @click="confirmRemovePlayers(selectedInPool({{ $pool->id }}))"
@@ -623,10 +626,26 @@ function poolManager(auctionId) {
          * with no way to tell a slow export from a dead one — and for a large pool the gateway
          * cut the connection before the zip ever arrived.
          */
+        /**
+         * The ticked players' posters, drawn from the tournament's POSTER TEMPLATE.
+         *
+         * This passed no template, so the export fell through to the LED wall path — a headless
+         * screenshot of the wall card. That is the wrong artwork for a download and it is also the
+         * slow one: a browser per player, seconds each, against GD's milliseconds. The design the
+         * organizer drew in the editor is the one they expect out of this button.
+         *
+         * Falls back to the wall card only when no poster has been designed, because then there
+         * is nothing else to render.
+         */
         downloadCards(ids) {
             if (!ids || ids.length === 0) return;
 
-            Alpine.store('cardExport').start({{ $auction->id }}, ids, false);
+            Alpine.store('cardExport').start(
+                {{ $auction->id }},
+                ids,
+                true,
+                @js($posterTemplates->first()?->id)
+            );
         },
 
         togglePlayer(id) {

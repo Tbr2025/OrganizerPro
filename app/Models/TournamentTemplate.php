@@ -300,12 +300,28 @@ class TournamentTemplate extends Model
                 'lot_number',
                 'pool_name',
                 'base_price',
+                /*
+                 * The team a player CURRENTLY plays for — their club before this auction. A
+                 * separate fact from whoever buys them, and both belong on the poster: one is
+                 * where they come from, the other is where they are going.
+                 */
+                'playing_team_name',
+                'playing_team_logo',
+
                 // The result. Blank before the hammer falls, which is what makes one template
                 // serve both the "coming up" poster and the "sold" one.
                 'sold_price',
                 'sold_status',
+                'sold_team_name',
+                'sold_team_logo',
+                // Kept as aliases of sold_team_* so a template drawn before the split still
+                // renders — renaming a placeholder must not blank an existing design.
                 'team_name',
                 'team_logo',
+
+                // Travel window, for a tournament that flies players in. Pair it with the plane
+                // icon in the editor's icon palette.
+                'travel_plan',
                 // The event
                 'auction_name',
                 'tournament_name',

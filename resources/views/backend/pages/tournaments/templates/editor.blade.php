@@ -546,6 +546,12 @@
                             <div class="icon-category" data-category="sports">
                                 <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1 mt-2 px-1">Sports</div>
                                 <div class="grid grid-cols-5 gap-1">
+                                    {{-- Travel. Pair the plane with the `travel_plan` placeholder,
+                                         which is blank when a player has no plan — generation hides
+                                         blanks, so the text goes and this icon stays unless it is
+                                         grouped with it. --}}
+                                    <div class="icon-item" title="Plane" onclick="editor.addIcon('\uf072','plane')"><i class="fa-solid fa-plane"></i></div>
+                                    <div class="icon-item" title="Plane Departure" onclick="editor.addIcon('\ue07c','plane-departure')"><i class="fa-solid fa-plane-departure"></i></div>
                                     <div class="icon-item" title="Baseball" onclick="editor.addIcon('\uf433','baseball')"><i class="fa-solid fa-baseball"></i></div>
                                     <div class="icon-item" title="Table Tennis" onclick="editor.addIcon('\uf45d','table-tennis')"><i class="fa-solid fa-table-tennis-paddle-ball"></i></div>
                                     <div class="icon-item" title="Bullseye" onclick="editor.addIcon('\uf140','bullseye')"><i class="fa-solid fa-bullseye"></i></div>

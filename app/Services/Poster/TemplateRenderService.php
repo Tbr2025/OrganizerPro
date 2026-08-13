@@ -2042,6 +2042,8 @@ class TemplateRenderService extends PosterGeneratorService
              * a seven-figure price, a full team name — because a layout that only looks
              * right against "1M" is one that breaks on the first real player.
              */
+            'sold_team_name' => 'Dubai Super Kings',
+            'travel_plan' => '12 Mar – 18 Mar',
             'lot_number' => '042',
             'pool_name' => 'Marquee Batters',
             'base_price' => '1,000,000',

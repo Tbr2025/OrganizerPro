@@ -25,6 +25,8 @@ class AuctionPosterData
     {
         $auctionPlayer->loadMissing([
             'player.playerType', 'player.battingProfile', 'player.bowlingProfile', 'player.location',
+            // `team` is the registration club — the only team on a player that carries a logo.
+            'player.team',
             'soldToTeam', 'pool', 'auction.tournament',
         ]);
 
@@ -71,8 +73,28 @@ class AuctionPosterData
              */
             'sold_price' => $sold ? $this->amount($auctionPlayer->final_price, $auction) : '',
             'sold_status' => $this->status($auctionPlayer),
+
+            /*
+             * The buying team. `team_logo` is `actual_teams.team_logo` — there is no `logo`
+             * column and no accessor for one, so reading `$sold->logo` resolved to null and the
+             * sold team's badge has never appeared on a single poster.
+             */
+            'sold_team_name' => (string) ($sold?->name ?? ''),
+            'sold_team_logo' => $this->imagePath($sold?->team_logo),
+            // Aliases, so a template drawn before the split keeps working.
             'team_name' => (string) ($sold?->name ?? ''),
-            'team_logo' => $this->imagePath($sold?->logo),
+            'team_logo' => $this->imagePath($sold?->team_logo),
+
+            /*
+             * The club they play for now. `playing_team_name_ref` is free text and has no logo of
+             * its own, so the logo comes from the registration team — the only one that has one.
+             */
+            'playing_team_name' => (string) ($player?->playing_team_name_ref ?: ($player?->team?->name ?? '')),
+            'playing_team_logo' => $this->imagePath($player?->team?->logo),
+
+            // "12 Mar – 18 Mar", or blank when there is no plan — skipBlanks then drops the
+            // element and its icon rather than leaving a lone plane on the card.
+            'travel_plan' => (string) ($player?->travel_plan_label ?? ''),
 
             'auction_name' => (string) ($auction?->name ?? ''),
             'tournament_name' => (string) ($tournament?->name ?? ''),
