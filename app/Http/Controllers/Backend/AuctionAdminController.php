@@ -1327,6 +1327,21 @@ class AuctionAdminController extends Controller
             'current_price' => $newPrice,
             'increment_used' => $increment,
             'open_bid_mode' => $auction->fresh()->open_bid_mode,
+            /*
+             * What the panel needs to reconcile its own optimistic raise.
+             *
+             * Without these it had nothing authoritative: the success branch could set the price
+             * and no more, so a poll that had gone out BEFORE the click came back with
+             * `current_bid_team_id: null`, wiped the leader, and the chip un-selected itself a
+             * moment after being pressed. The operator clicked again — and because the guard on
+             * "this team already leads" reads that same nulled field, the second click placed a
+             * SECOND bid and the price climbed two rungs.
+             *
+             * `bid_id` is monotonic, which is what makes a stale snapshot recognisable as stale;
+             * it is the same ordering token the BidRaised listener already drops frames by.
+             */
+            'bid_id' => (int) ($result['bid_id'] ?? 0),
+            'current_bid_team_id' => $data['teamId'] ?? null,
         ]);
     }
 

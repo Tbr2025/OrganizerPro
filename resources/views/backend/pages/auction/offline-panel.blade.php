@@ -2567,10 +2567,22 @@
                             this.sealedTeamSelection = null;
                         }
                         this.currentPlayer = cp;
-                        this.currentBidAmount = parseFloat(cp.current_price) || cp.base_price;
-                        this.currentBidTeamId = cp.current_bid_team_id;
                         this.basePrice = parseFloat(cp.base_price) || 0;
                         this._lastCurrentPlayerId = cp.id;
+
+                        /*
+                         * A snapshot answered before a bid of ours must not speak for the price
+                         * or the leading team.
+                         *
+                         * This panel does not paint a raise before the server confirms it, so
+                         * the window is narrower than the organizer panel's — but a poll can
+                         * still land between the POST going out and its reply coming back, and
+                         * it would clear the team that had just been bid for.
+                         */
+                        if (! this._isBidding) {
+                            this.currentBidAmount = parseFloat(cp.current_price) || cp.base_price;
+                            this.currentBidTeamId = cp.current_bid_team_id;
+                        }
                     } else if (this._lastCurrentPlayerId && !this.showSoldOverlay && !this.showUnsoldOverlay && !this.showSkippedOverlay) {
                         // Player disappeared — was sold/unsold by another admin
                         this.currentPlayer = null;

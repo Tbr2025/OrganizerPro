@@ -2343,6 +2343,17 @@ function auctionOrganizerPanel() {
         // Ordering token for pushed raises — socket frames arrive unordered, so anything not
         // newer than this is dropped rather than applied.
         _lastAppliedBidId: 0,
+        // When a pushed frame last arrived, so the poll can tell a working socket from a dead one.
+        _lastPushAt: 0,
+        /*
+         * The raise this panel has shown but the server has not confirmed yet.
+         *
+         * `{ teamId, amount }` from the moment a chip is clicked until the POST answers. Every
+         * poll that lands in that window carries a snapshot taken BEFORE the click, and applying
+         * it wipes the leader off the board — see _snapshotPredatesLocalBid().
+         */
+        _pendingBid: null,
+        _pendingBidTimeout: null,
 
         // How long a lot draw cycles the tied team names before landing. The draw is
         // decided on the server before any of this starts; the spin only shows it.
@@ -2519,7 +2530,52 @@ function auctionOrganizerPanel() {
             const channel = window.auctionChannel(this.auctionId);
             if (!channel) return;
 
-            channel.listen('.bid.raised', (e) => this.applyRaise(e));
+            channel.listen('.bid.raised', (e) => {
+                // A frame arriving is the only proof the socket is actually delivering, which is
+                // what lets the poll below back off — see pollDelay().
+                this._lastPushAt = Date.now();
+                this.applyRaise(e);
+            });
+        },
+
+        /**
+         * Is this poll snapshot older than a raise this panel already knows about?
+         *
+         * The panel polls every two seconds and a click almost always lands inside an open
+         * request. That response was built before the bid existed, so it carries
+         * `current_bid_team_id: null` — and the poll handler used to apply it wholesale, which
+         * un-selected the team a moment after it was pressed. Worse, `bidForTeam` decides "this
+         * team already leads" from that same field, so the operator's natural second click was
+         * not a retry: it placed a SECOND bid and moved the price two rungs.
+         *
+         * Two independent tests, because a raise can reach us by two routes:
+         *  - a bid of ours is still unconfirmed and the snapshot does not show it; or
+         *  - the snapshot's newest bid id is behind one already applied — the same `bid_id`
+         *    ordering the pushed-frame handler above trusts, reused rather than reinvented.
+         */
+        _snapshotPredatesLocalBid(newPlayer) {
+            if (! newPlayer) return false;
+
+            if (this._pendingBid && newPlayer.current_bid_team_id != this._pendingBid.teamId) {
+                return true;
+            }
+
+            const newestId = (newPlayer.bids || []).reduce(
+                (max, b) => Math.max(max, Number(b?.id) || 0),
+                0
+            );
+
+            return newestId > 0 && newestId < (this._lastAppliedBidId || 0);
+        },
+
+        /** Forget the unconfirmed raise, however it resolved. */
+        _clearPendingBid() {
+            this._pendingBid = null;
+
+            if (this._pendingBidTimeout) {
+                clearTimeout(this._pendingBidTimeout);
+                this._pendingBidTimeout = null;
+            }
         },
 
         /**
@@ -2658,11 +2714,38 @@ function auctionOrganizerPanel() {
                 } finally {
                     // finally, not then: a thrown poll must still schedule the next one, or
                     // a single failure silently ends the loop for the rest of the auction.
-                    this._pollTimer = setTimeout(tick, 2000);
+                    this._pollTimer = setTimeout(tick, this.pollDelay());
                 }
             };
 
             tick();
+        },
+
+        /**
+         * How long to wait before polling again.
+         *
+         * This was a flat two seconds whether or not Pusher was connected — so on a healthy
+         * socket the panel was fetching a full state payload thirty times a minute to learn
+         * what the socket had already told it. Worse for correctness than for bandwidth: every
+         * one of those requests is a window in which a snapshot taken before a click comes back
+         * and contradicts it, which is the bug this guard exists for. Fewer requests, fewer
+         * windows.
+         *
+         * Proof of health is a frame actually arriving, not the socket claiming to be
+         * connected — a subscription that connects and then delivers nothing is exactly the
+         * venue failure this has to survive. If nothing has been pushed recently the panel goes
+         * straight back to two seconds, on its own, with no flag to get stuck.
+         *
+         * The team screens already work this way (bidding-page.blade.php); this brings the
+         * panel into line with them.
+         */
+        pollDelay() {
+            const PUSH_FRESH_MS = 20000;
+            const healthy = this._lastPushAt && (Date.now() - this._lastPushAt) < PUSH_FRESH_MS;
+
+            // Still a poll on a healthy socket: it is what reconciles sales, passes, pool
+            // changes and purse figures, none of which the raise frame carries.
+            return healthy ? 6000 : 2000;
         },
 
         stopStatePolling() {
@@ -2883,21 +2966,50 @@ function auctionOrganizerPanel() {
                             this.statusText = `${newPlayer.player?.name} is now live!`;
                             this.startBiddingTimer();
                         }
-                    } else {
-                        const newBid = newPlayer.current_price || this.currentBid;
-                        if (newBid !== this._lastKnownBid) {
-                            this._lastKnownBid = newBid;
-                            this.resetBiddingTimer();
-                        }
-                        this.currentBid = newBid;
-                        this.currentPlayer = newPlayer;
                     }
 
-                    // Update winning team from current player data
-                    if (newPlayer.current_bid_team_id) {
-                        const bidTeam = this.teams.find(t => t.id == newPlayer.current_bid_team_id);
+                    /*
+                     * A snapshot taken before a raise this panel already knows about must not
+                     * speak for the price or the leader. It is still the truth about everything
+                     * else — squad counts, purses, stats, the pool, the sealed round — so it is
+                     * adopted for those and held back only where it is behind.
+                     */
+                    const stale = this._snapshotPredatesLocalBid(newPlayer);
+
+                    if (! mustAdopt) {
+                        if (stale) {
+                            /*
+                             * Keep our figure and our leader. `currentPlayer` is still replaced,
+                             * because everything else on it has moved on — but the field the
+                             * board reads for the leading team is stamped back onto the new
+                             * object, which is exactly what the wholesale assignment used to
+                             * drop.
+                             */
+                            const heldTeamId = this._pendingBid
+                                ? this._pendingBid.teamId
+                                : this.currentPlayer?.current_bid_team_id;
+
+                            this.currentPlayer = newPlayer;
+                            this.currentPlayer.current_price = this.currentBid;
+                            this.currentPlayer.current_bid_team_id = heldTeamId ?? null;
+                        } else {
+                            const newBid = newPlayer.current_price || this.currentBid;
+                            if (newBid !== this._lastKnownBid) {
+                                this._lastKnownBid = newBid;
+                                this.resetBiddingTimer();
+                            }
+                            this.currentBid = newBid;
+                            this.currentPlayer = newPlayer;
+                        }
+                    }
+
+                    // The leading team, from whichever of the two the panel is trusting.
+                    const leaderId = this.currentPlayer?.current_bid_team_id;
+
+                    if (leaderId) {
+                        const bidTeam = this.teams.find(t => t.id == leaderId);
                         if (bidTeam) this.winningTeamName = bidTeam.name;
-                    } else {
+                    } else if (! stale) {
                         this.winningTeamName = 'No Bids';
                     }
 
@@ -3355,6 +3467,14 @@ function auctionOrganizerPanel() {
         async bidForTeam(teamId, stepIndex = null) {
             if (!this.currentPlayer || this.displayState !== 'bidding') return;
             if (this.currentPlayer?.current_bid_team_id == teamId) return;
+            /*
+             * And not while our own raise for that team is still unconfirmed.
+             *
+             * The guard above reads `current_bid_team_id`, which a poll answered before the
+             * click can null out — so a second click on the same chip used to sail past it and
+             * place a SECOND bid, moving the price two rungs with nothing on screen saying so.
+             */
+            if (this._pendingBid && this._pendingBid.teamId == teamId) return;
             // This one posts to /admin/auctions/add-bid rather than through sendCommand, so it
             // needs its own check — the endpoint refuses it too, this just says why.
             if (! this.guardControl('enter bids')) return;
@@ -3463,6 +3583,30 @@ function auctionOrganizerPanel() {
                     // The server's figure wins over the guess above.
                     this.currentBid = data.current_price;
                     this._lastKnownBid = data.current_price;
+
+                    /*
+                     * And its leader, stamped back onto the board.
+                     *
+                     * The success branch used to set the price and nothing else, so if a stale
+                     * poll had already wiped the leader in the meantime the chip stayed
+                     * un-selected even though the bid had gone through — and the next click,
+                     * reading that same nulled field, placed a second bid.
+                     *
+                     * `bid_id` is monotonic, so recording it here also makes every earlier
+                     * snapshot recognisable as stale, and makes this bid's own pushed frame the
+                     * no-op it should be.
+                     */
+                    if (this.currentPlayer) {
+                        this.currentPlayer.current_price = data.current_price;
+
+                        if (data.current_bid_team_id !== undefined) {
+                            this.currentPlayer.current_bid_team_id = data.current_bid_team_id;
+                            const team = this.teams.find(t => t.id == data.current_bid_team_id);
+                            if (team) this.winningTeamName = team.name;
+                        }
+                    }
+
+                    this._lastAppliedBidId = Math.max(this._lastAppliedBidId || 0, Number(data.bid_id) || 0);
                 } else {
                     this.currentBid = previous.bid;
                     this.winningTeamName = previous.leader;
@@ -3476,6 +3620,8 @@ function auctionOrganizerPanel() {
                 console.error('Bid error:', e);
                 this.toast('That bid did not go through.', 'error');
             } finally {
+                // However it went, this raise is no longer waiting on an answer.
+                this._clearPendingBid();
                 this._isBidding = false;
                 this._drainBidQueue();
             }
@@ -3515,6 +3661,18 @@ function auctionOrganizerPanel() {
         _applyOptimisticRaise(team, teamId, stepIndex) {
             if (team) this.winningTeamName = team.name;
             if (this.currentPlayer) this.currentPlayer.current_bid_team_id = teamId;
+
+            /*
+             * Remember that this raise is ours and unconfirmed, so a poll answered before the
+             * click cannot speak for the leader — see _snapshotPredatesLocalBid().
+             *
+             * The timeout is a backstop only: if the POST never answers at all, the board must
+             * eventually go back to believing the server rather than holding a bid that may not
+             * exist.
+             */
+            this._clearPendingBid();
+            this._pendingBid = { teamId, amount: this.nextBidAmount };
+            this._pendingBidTimeout = setTimeout(() => { this._pendingBid = null; }, 8000);
 
             // Only for an ordinary increment: a quick-bid jump has an amount this panel does
             // not compute, so it shows the new leader and leaves the figure to the response.
