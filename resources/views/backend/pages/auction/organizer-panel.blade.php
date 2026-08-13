@@ -1054,9 +1054,12 @@
                         {{-- Current Bid Amount --}}
                         <div class="border-2 border-emerald-500/50 bg-emerald-500/10 rounded-2xl px-6 py-5 backdrop-blur-sm">
                             <div class="text-xs uppercase tracking-widest text-emerald-400 mb-1">Current Bid</div>
-                            {{-- displayBid, not currentBid — see countBidTo(). tabular-nums so the
-                                 digits do not jitter sideways while they roll. --}}
-                            <div class="text-5xl font-black text-emerald-400 tabular-nums"
+                            {{-- Fades in on each change, and does not move.
+                                 tabular-nums fixes every digit to one width, so "4.5M" becoming
+                                 "11.1M" cannot nudge the panel sideways, and the transition is
+                                 opacity only — nothing that reflows. --}}
+                            <div class="text-5xl font-black text-emerald-400 tabular-nums transition-opacity duration-200"
+                                 :class="bidFading ? 'opacity-100' : 'opacity-60'"
                                  x-text="formatCurrency(displayBid)"></div>
                         </div>
 
@@ -2186,7 +2189,8 @@ function auctionOrganizerPanel() {
          * and request still reads the real value; only the display reads this.
          */
         displayBid: 0,
-        _bidCountFrame: null,
+        // Set briefly after each change so the amount fades in — see countBidTo().
+        bidFading: false,
         winningTeamName: 'No Bids',
         bidLog: [],
 
@@ -3482,44 +3486,25 @@ function auctionOrganizerPanel() {
          * for anyone who has asked their system for reduced motion.
          */
         countBidTo(target, { instant = false } = {}) {
-            const to = Number(target) || 0;
-            const from = Number(this.displayBid) || 0;
+            /*
+             * Straight to the figure, with a fade — no counting up to it.
+             *
+             * This used to roll from the old amount to the new one over 320ms. On the screen
+             * driving the room that means the number on the wall is a number nobody has bid for
+             * a third of a second after every raise, and rolling digits change width as they
+             * pass through 9s and 1s, so the panel twitched sideways on each one. The value is
+             * right immediately now and only its opacity moves.
+             */
+            this.displayBid = Number(target) || 0;
 
-            if (this._bidCountFrame) {
-                cancelAnimationFrame(this._bidCountFrame);
-                this._bidCountFrame = null;
-            }
-
-            const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-            if (instant || reduced || from === to || from === 0) {
-                this.displayBid = to;
+            if (instant || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
                 return;
             }
 
-            const started = performance.now();
-            // Long enough to be a movement, short enough that the next bid is never waiting on
-            // it — an auctioneer can take raises faster than this.
-            const duration = 320;
-
-            const step = (now) => {
-                const t = Math.min(1, (now - started) / duration);
-                // Ease-out: quick off the mark, settling onto the figure rather than stopping
-                // dead on it.
-                const eased = 1 - Math.pow(1 - t, 3);
-
-                this.displayBid = from + (to - from) * eased;
-
-                if (t < 1) {
-                    this._bidCountFrame = requestAnimationFrame(step);
-                } else {
-                    // Land exactly on the real number, never on a rounding of it.
-                    this.displayBid = to;
-                    this._bidCountFrame = null;
-                }
-            };
-
-            this._bidCountFrame = requestAnimationFrame(step);
+            // Retriggered by removing and re-adding the class across a frame — a CSS animation
+            // will not replay while its class is already on the element.
+            this.bidFading = false;
+            requestAnimationFrame(() => { this.bidFading = true; });
         },
 
         /**

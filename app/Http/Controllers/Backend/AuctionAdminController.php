@@ -335,6 +335,17 @@ class AuctionAdminController extends Controller
             'organization_id.required' => 'You must select an organization for the auction.',
             'tournament_id.required' => 'You must select a tournament for the auction.',
             'bid_rules.*.to.gt' => 'The "To" value in a bid rule must be greater than the "From" value.',
+            /*
+             * The two online/offline threshold fields, in the words the form uses.
+             *
+             * Laravel's default reads "The online bid limit to must be greater than 1000000." —
+             * a raw column name and a raw figure, on a form whose boxes are labelled "Online Bid
+             * Starts From" and "Organizer Enters Bids From" and are entered in MILLIONS. An
+             * operator who typed 1 in both saw an error about 1000000 naming neither box.
+             */
+            'online_bid_limit_to.gt' => 'Organizer Enters Bids From must be a higher amount than Online Bid Starts From — they set the point where bidding hands over from the teams to the desk, so they cannot be the same.',
+            'online_bid_limit_from.numeric' => 'Online Bid Starts From must be an amount.',
+            'online_bid_limit_to.numeric' => 'Organizer Enters Bids From must be an amount.',
         ];
 
         $validated = $request->validate([
@@ -1483,6 +1494,17 @@ class AuctionAdminController extends Controller
             'tournament_id.required' => 'You must select a tournament for the auction.',
             'bid_rules.*.to.gt' => 'The "To" value in a bid rule must be greater than the "From" value.',
             'bid_rules.*.increment.min' => 'A bid increment must be greater than zero, otherwise bidding cannot progress past that band.',
+            /*
+             * The two online/offline threshold fields, in the words the form uses.
+             *
+             * Laravel's default reads "The online bid limit to must be greater than 1000000." —
+             * a raw column name and a raw figure, on a form whose boxes are labelled "Online Bid
+             * Starts From" and "Organizer Enters Bids From" and are entered in MILLIONS. An
+             * operator who typed 1 in both saw an error about 1000000 naming neither box.
+             */
+            'online_bid_limit_to.gt' => 'Organizer Enters Bids From must be a higher amount than Online Bid Starts From — they set the point where bidding hands over from the teams to the desk, so they cannot be the same.',
+            'online_bid_limit_from.numeric' => 'Online Bid Starts From must be an amount.',
+            'online_bid_limit_to.numeric' => 'Organizer Enters Bids From must be an amount.',
         ];
 
         $validated = $request->validate([

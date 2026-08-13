@@ -254,23 +254,52 @@
                             @error('icon_players_per_team')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
                         </div>
 
-                        <div>
+                        {{-- Entered in MILLIONS, stored in whole units.
+                             These asked for "5000000" while every screen that reads them — the
+                             LED wall, the panel, the auction's own edit form — talks in M, so a
+                             rule set here had to be counted out in zeroes and checked against a
+                             figure written a different way. window.auctionToM/FromM is the same
+                             pair the auction form uses, so both forms are on one scale; the raw
+                             value still posts, through the hidden input. --}}
+                        <div x-data="{
+                            raw: @js(old('icon_player_value', $settings->icon_player_value)),
+                            toM(v) { return window.auctionToM ? window.auctionToM(v) : v },
+                            fromM(v) { return window.auctionFromM ? window.auctionFromM(v) : v },
+                        }">
                             <label for="icon_player_value" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Icon Player Value</label>
-                            <input type="number" step="0.01" name="icon_player_value" id="icon_player_value"
-                                value="{{ old('icon_player_value', $settings->icon_player_value) }}"
-                                min="0" placeholder="e.g. 5000000"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                            <p class="text-xs text-gray-500 mt-1">What an icon player costs their team's purse when no price is entered for them.</p>
+                            <div class="relative mt-1">
+                                <input type="number" step="any" id="icon_player_value"
+                                    :value="toM(raw)" @input="raw = fromM($event.target.value)"
+                                    min="0" placeholder="e.g. 5"
+                                    class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-8">
+                                <span class="absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-gray-400">M</span>
+                            </div>
+                            <input type="hidden" name="icon_player_value" :value="raw">
+                            <p class="text-xs text-gray-500 mt-1">
+                                What an icon player costs their team's purse when no price is entered for them.
+                                In millions &mdash; <span class="font-semibold">5</span> means 5,000,000.
+                            </p>
                             @error('icon_player_value')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
                         </div>
 
-                        <div>
+                        <div x-data="{
+                            raw: @js(old('player_base_value', $settings->player_base_value)),
+                            toM(v) { return window.auctionToM ? window.auctionToM(v) : v },
+                            fromM(v) { return window.auctionFromM ? window.auctionFromM(v) : v },
+                        }">
                             <label for="player_base_value" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Base Value</label>
-                            <input type="number" step="0.01" name="player_base_value" id="player_base_value"
-                                value="{{ old('player_base_value', $settings->player_base_value) }}"
-                                min="0" placeholder="e.g. 1000000"
-                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                            <p class="text-xs text-gray-500 mt-1">The price a player starts at when they come up.</p>
+                            <div class="relative mt-1">
+                                <input type="number" step="any" id="player_base_value"
+                                    :value="toM(raw)" @input="raw = fromM($event.target.value)"
+                                    min="0" placeholder="e.g. 1"
+                                    class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-8">
+                                <span class="absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-gray-400">M</span>
+                            </div>
+                            <input type="hidden" name="player_base_value" :value="raw">
+                            <p class="text-xs text-gray-500 mt-1">
+                                The price a player starts at when they come up, and the first bid any team can make.
+                                In millions &mdash; <span class="font-semibold">1</span> means 1,000,000.
+                            </p>
                             @error('player_base_value')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
                         </div>
                     </div>
