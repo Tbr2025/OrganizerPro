@@ -96,11 +96,41 @@ class TeamManagerController extends Controller
     public function dashboard(Request $request)
     {
         $user = Auth::user();
+        $isAdminPreview = false;
 
         // Get the team(s) this manager is assigned to
         $teams = $user->actualTeams()
             ->with(['tournament.organization', 'players', 'auctionPlayers'])
             ->get();
+
+        /*
+         * An admin belongs to no team, and that is not the same as having nowhere to go.
+         *
+         * This screen dead-ended on "No Team Assigned" for a Superadmin or Admin — the very
+         * people who open it to check what a manager is seeing, usually while an auction is
+         * running and a team says their screen is wrong. The bidding page has had an admin
+         * preview for exactly this reason (`?team_id=`, with a team picker when none is given);
+         * this had nothing, so the answer to "what does their dashboard show" was "log in as
+         * them".
+         *
+         * Scoped by organization for an Admin and unscoped for a Superadmin, which is the same
+         * rule the rest of the admin area uses. A team manager is unaffected: they have teams,
+         * so this branch is never reached for them.
+         */
+        if ($teams->isEmpty() && $user->hasRole(['Superadmin', 'Admin'])) {
+            $teams = ActualTeam::query()
+                ->when(
+                    ! $user->hasRole('Superadmin') && $user->organization_id,
+                    fn ($q) => $q->where('organization_id', $user->organization_id)
+                )
+                ->with(['tournament.organization', 'players', 'auctionPlayers'])
+                ->orderBy('name')
+                ->get();
+
+            // Say whose screen this is, so a figure that looks wrong is not mistaken for the
+            // admin's own.
+            $isAdminPreview = $teams->isNotEmpty();
+        }
 
         if ($teams->isEmpty()) {
             $breadcrumbs = ['title' => __('No Team Assigned')];
@@ -207,7 +237,9 @@ class TeamManagerController extends Controller
             'isManager',
             'isAuctionTeam',
             'managerIsPlayer',
-            'managerRegistrations'
+            'managerRegistrations',
+            // True only when an admin is looking at a team they do not belong to.
+            'isAdminPreview'
         ));
     }
 

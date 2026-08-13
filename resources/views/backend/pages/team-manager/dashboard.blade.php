@@ -10,7 +10,22 @@
 
 <div class="p-4 mx-auto max-w-7xl md:p-6">
 
-    {{-- Team Selector (if managing multiple teams) --}}
+    {{-- An admin looking at somebody else's dashboard.
+         Said plainly, because every figure below — purse, squad, places to fill — belongs to
+         that team and not to the person reading it, and this screen is usually opened mid-auction
+         to check a manager's complaint. --}}
+    @if($isAdminPreview ?? false)
+        <div class="mb-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-2.5 flex items-center gap-2 flex-wrap">
+            <span class="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                Admin preview — you are seeing {{ $team->name }}'s dashboard
+            </span>
+            <span class="text-xs text-amber-700 dark:text-amber-400">
+                You do not belong to this team. Use the picker to switch.
+            </span>
+        </div>
+    @endif
+
+    {{-- Team Selector (if managing multiple teams, or an admin previewing any of them) --}}
     @if($teams->count() > 1)
         <div class="mb-6">
             <select id="team-selector" class="form-control max-w-xs text-sm" onchange="window.location.href='?team=' + this.value">
