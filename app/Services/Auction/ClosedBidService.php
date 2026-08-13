@@ -1155,9 +1155,38 @@ class ClosedBidService
                 : AuctionClosedBidRound::STATE_TIE;
             $round->update($updates);
 
+            $tieMessage = sprintf('%d teams tied at %s.', $tied->count(), format_points($top));
+
+            /*
+             * Open the next round straight away, when the auction says to.
+             *
+             * Everything a tie-break needs was already here — startRebid() sets the floor
+             * strictly above the tied amount, marks the tied teams MUST_REBID and the rest
+             * MAY_OPT_IN, and starts the clock. What was missing was the trigger: a tie stopped
+             * and waited for a button, which in a hall is a pause with nothing in it at the
+             * moment the room is most interested.
+             *
+             * Guarded on isFinalRound() by the state above — a final-round tie is already
+             * `awaiting_lot` and must go to a draw rather than to a round the settings do not
+             * allow to exist.
+             */
+            if ($round->fresh()->state === AuctionClosedBidRound::STATE_TIE
+                && $round->auction?->autoRebidsOnTie()) {
+                $rebid = $this->startRebid($round->fresh(), $actor);
+
+                if ($rebid['handled']) {
+                    return [
+                        'handled' => true,
+                        'message' => $tieMessage . ' ' . $rebid['message'],
+                        'round' => $rebid['round'],
+                        'auto_rebid' => true,
+                    ];
+                }
+            }
+
             return [
                 'handled' => true,
-                'message' => sprintf('%d teams tied at %s.', $tied->count(), format_points($top)),
+                'message' => $tieMessage,
                 'round' => $round->fresh(),
             ];
         });

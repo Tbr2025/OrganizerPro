@@ -61,6 +61,7 @@ class Auction extends Model
         'closed_bid_max_rebid_rounds',
         'closed_bid_timer_seconds',
         'closed_bid_requires_acceptance',
+        'closed_bid_auto_rebid',
         'closed_bid_tie_breaker',
         'restarted_at',
         'bid_type_manually_overridden',
@@ -87,6 +88,7 @@ class Auction extends Model
         'closed_bid_max_rebid_rounds' => 'integer',
         'closed_bid_timer_seconds' => 'integer',
         'closed_bid_requires_acceptance' => 'boolean',
+        'closed_bid_auto_rebid' => 'boolean',
         'restarted_at' => 'datetime',
         'quick_bid_steps' => 'array',
         'timer_enabled' => 'boolean',
@@ -710,6 +712,18 @@ class Auction extends Model
     }
 
     /** Rounds in the ladder, including the first: 1 + re-bids. */
+    /**
+     * Does a tied sealed round open its own re-bid?
+     *
+     * Off by default, and off is the behaviour every auction had before the setting existed: the
+     * round stops at `tie` and waits for the organizer. On, the next round opens the moment the
+     * reveal finds a tie — which is what a room expects, since the pause has nothing in it.
+     */
+    public function autoRebidsOnTie(): bool
+    {
+        return (bool) ($this->closed_bid_auto_rebid ?? false);
+    }
+
     public function closedBidTotalRounds(): int
     {
         return 1 + $this->closedBidMaxRebidRounds();

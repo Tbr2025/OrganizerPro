@@ -489,6 +489,25 @@
                                         </span>
                                     </label>
 
+                                    {{-- The tie-break trigger. Everything a re-bid needs already
+                                         happens on the press of a button; this is only about
+                                         whether a human has to press it. --}}
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input type="hidden" name="closed_bid_auto_rebid" value="0">
+                                        <input type="checkbox" name="closed_bid_auto_rebid" value="1"
+                                               x-model="auctionData.closed_bid_auto_rebid"
+                                               class="mt-0.5 rounded border-gray-300 text-indigo-600">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                                            Open the next re-bid round automatically on a tie
+                                            <span class="block text-xs text-gray-400">
+                                                The tied teams must bid again above the tied amount, everyone
+                                                else may opt in, and the clock starts at once. Leave it off to
+                                                pause on the tie — to read the amount out, or take a query.
+                                                A tie in the last allowed round still goes to the tie-breaker below.
+                                            </span>
+                                        </span>
+                                    </label>
+
                                     <div>
                                         <label for="closed_bid_tie_breaker" class="form-label text-xs">After The Last Re-bid</label>
                                         <select name="closed_bid_tie_breaker" id="closed_bid_tie_breaker"

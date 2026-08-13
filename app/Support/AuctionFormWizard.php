@@ -48,6 +48,7 @@ class AuctionFormWizard
         'closed_bid_max_rebid_rounds' => 1,
         'closed_bid_timer_seconds' => 1,
         'closed_bid_requires_acceptance' => 1,
+        'closed_bid_auto_rebid' => 1,
         'closed_bid_tie_breaker' => 1,
 
         // 2 — Financials
