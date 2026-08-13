@@ -404,7 +404,15 @@ class AuctionBiddingController extends Controller
          * that a later rollback erases, and there is no way to un-send it.
          */
         if ($raise !== null) {
-            \App\Events\BidRaised::announce($raise['player'], $raise['bid_id'], $userTeam->name);
+            /*
+             * And after the response, not before it. ShouldBroadcastNow calls Pusher inline —
+             * ~1160ms for the handshake this request has to make from scratch — so a team
+             * tapping BID waited on that before their own screen said it had gone through.
+             * The push still leaves at the same moment for everyone else.
+             */
+            \App\Support\AfterResponse::run(function () use ($raise, $userTeam) {
+                \App\Events\BidRaised::announce($raise['player'], $raise['bid_id'], $userTeam->name);
+            });
         }
 
         // Hand the fresh purse state back so the bidding page can update its

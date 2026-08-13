@@ -182,6 +182,15 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
      * stamp and price on the card; without it the card is the player before the hammer fell.
      */
     Route::get('/auctions/{auction}/cards', [AuctionAdminController::class, 'downloadPlayerCards'])->name('auctions.cards');
+
+    /*
+     * Registered BEFORE `cards/{auctionPlayer}`, or the wildcard matches the literal segment
+     * "export" and route-model binding 404s looking for an auction player with that id.
+     */
+    Route::post('/auctions/{auction}/cards/export', [AuctionAdminController::class, 'startCardExport'])->name('auctions.cards.export');
+    Route::get('/auctions/{auction}/cards/export/{token}', [AuctionAdminController::class, 'cardExportProgress'])->name('auctions.cards.export.progress');
+    Route::get('/auctions/{auction}/cards/export/{token}/download', [AuctionAdminController::class, 'cardExportDownload'])->name('auctions.cards.export.download');
+
     Route::get('/auctions/{auction}/cards/{auctionPlayer}', [AuctionAdminController::class, 'downloadPlayerCard'])->name('auctions.cards.player');
     // Broadcast screens picker — the ticker and LED wall had no home in the menu.
     Route::get('/auctions-broadcast', [AuctionAdminController::class, 'liveTickerIndex'])->name('auctions.broadcast');

@@ -79,15 +79,47 @@
                         <a href="{{ route('admin.auctions.report', $auction) }}" class="{{ $ghost }}">Report</a>
                         {{-- Every player's card as one zip. A browser is started per card, so
                              this is seconds per player rather than milliseconds — hence a
-                             deliberate click rather than anything the page does on load. --}}
-                        <a href="{{ route('admin.auctions.cards', $auction) }}" class="{{ $ghost }}"
-                           title="Download every player's card as a zip (no SOLD badge). Takes a few seconds per player.">
+                             deliberate click rather than anything the page does on load, and
+                             hence the progress dialog: a 200-player auction is minutes of work
+                             and used to be a silent tab that the gateway eventually cut off. --}}
+                        <button type="button" x-data
+                                @click="$store.cardExport.start({{ $auction->id }}, null, false)"
+                                class="{{ $ghost }}"
+                                title="Download every player's card as a zip (no SOLD badge). Takes a few seconds per player.">
                             <i class="fas fa-images"></i> All cards
-                        </a>
-                        <a href="{{ route('admin.auctions.cards', [$auction, 'result' => 1]) }}" class="{{ $ghost }}"
-                           title="Download every player's card with the SOLD badge and price">
+                        </button>
+                        <button type="button" x-data
+                                @click="$store.cardExport.start({{ $auction->id }}, null, true)"
+                                class="{{ $ghost }}"
+                                title="Download every player's card with the SOLD badge and price">
                             <i class="fas fa-images"></i> All cards + SOLD
-                        </a>
+                        </button>
+                        @if($posterTemplates->isNotEmpty())
+                            {{-- The poster designs, when any have been drawn. A different job
+                                 from the card above: the card is the LED wall screenshotted, so
+                                 the hall and the download agree; these are drawn in the tournament
+                                 template editor, in whatever shape the designer chose. --}}
+                            <div x-data="{ open: false }" class="relative inline-block">
+                                <button type="button" @click="open = !open" class="{{ $ghost }}"
+                                        title="Render every player onto one of this tournament's auction posters">
+                                    <i class="fas fa-file-image"></i> Posters
+                                </button>
+                                <div x-show="open" x-cloak @click.outside="open = false"
+                                     class="absolute right-0 z-40 mt-1 w-64 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+                                    @foreach($posterTemplates as $posterTemplate)
+                                        <button type="button"
+                                                @click="open = false; $store.cardExport.start({{ $auction->id }}, null, true, {{ $posterTemplate->id }})"
+                                                class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">
+                                            <span class="font-semibold block truncate">{{ $posterTemplate->name }}</span>
+                                            <span class="text-gray-400">
+                                                {{ $posterTemplate->type === \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT ? 'Vertical' : 'Horizontal' }}
+                                                &middot; {{ $posterTemplate->canvas_width }}&times;{{ $posterTemplate->canvas_height }}
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                         <a href="{{ route('admin.auction.organizer.offline-panel', $auction) }}" target="_blank" class="{{ $ghost }}">Offline panel</a>
                         <a href="{{ route('public.auction.live', $auction) }}" target="_blank" class="{{ $ghost }}">LED wall</a>
                         {{-- Transparent 1920x1080 overlay for a streaming mixer. --}}
@@ -389,6 +421,56 @@
                                 <option :value="team.id" x-text="team.name"></option>
                             </template>
                         </select>
+                    </div>
+
+                    {{-- Export the posters for whatever the chips are showing.
+                         The status chip beside this is already the selection — an operator who
+                         has clicked Sold is looking at the sold players, and a second, separate
+                         way to choose them would only be a way to disagree with what is on
+                         screen. The button names the set it will export for the same reason. --}}
+                    <div x-data="{ open: false }" class="relative w-full md:w-auto">
+                        @if($posterTemplates->isNotEmpty())
+                            <button type="button" @click="open = !open"
+                                    class="w-full md:w-auto px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition whitespace-nowrap">
+                                <i class="fas fa-file-image mr-1"></i>
+                                <span x-text="statusFilter === 'sold' ? 'Export Sold posters'
+                                    : (statusFilter === 'unsold' ? 'Export Unsold posters' : 'Export posters')"></span>
+                                <span class="opacity-70" x-text="`(${filteredPlayers.length})`"></span>
+                            </button>
+                            <div x-show="open" x-cloak @click.outside="open = false"
+                                 class="absolute right-0 z-40 mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+                                <p class="px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                                    Choose a design
+                                </p>
+                                @foreach($posterTemplates as $posterTemplate)
+                                    <button type="button"
+                                            @click="open = false; $store.cardExport.start(
+                                                {{ $auction->id }}, null, true, {{ $posterTemplate->id }},
+                                                ['sold', 'unsold'].includes(statusFilter) ? statusFilter : 'all')"
+                                            class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">
+                                        <span class="font-semibold block truncate text-gray-900 dark:text-white">{{ $posterTemplate->name }}</span>
+                                        <span class="text-gray-400">
+                                            {{ $posterTemplate->type === \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT ? 'Vertical' : 'Horizontal' }}
+                                            &middot; {{ $posterTemplate->canvas_width }}&times;{{ $posterTemplate->canvas_height }}
+                                        </span>
+                                    </button>
+                                @endforeach
+                                {{-- The chips also offer On Auction and Waiting, neither of which
+                                     has an outcome. Say so rather than exporting them as "all". --}}
+                                <p class="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100 dark:border-gray-800"
+                                   x-show="!['sold', 'unsold'].includes(statusFilter)">
+                                    Every player in the auction. Pick the <b>Sold</b> or <b>Unsold</b>
+                                    chip first to export just those.
+                                </p>
+                            </div>
+                        @else
+                            {{-- An operator who has never drawn a poster should be told that,
+                                 not handed a menu with nothing in it. --}}
+                            <a href="{{ $auction->tournament_id ? route('admin.tournaments.templates.index', $auction->tournament_id) : '#' }}"
+                               class="block w-full md:w-auto text-center px-4 py-2 rounded-lg text-sm font-semibold border border-dashed border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition whitespace-nowrap">
+                                <i class="fas fa-file-image mr-1"></i> Design a poster
+                            </a>
+                        @endif
                     </div>
                 </div>
 
@@ -823,4 +905,6 @@
     {{-- Provides window.auctionChannel. Optional: this page has no poll, so without it
          the list simply keeps the figures it was rendered with. --}}
     @include('backend.pages.auction.partials.echo-init')
+
+    @include('backend.pages.auctions.partials.card-export-progress')
 @endsection

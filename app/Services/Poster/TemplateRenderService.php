@@ -2035,6 +2035,19 @@ class TemplateRenderService extends PosterGeneratorService
             'player_type' => 'All Rounder',
             'batting_style' => 'Right Handed',
             'bowling_style' => 'Right Arm Medium',
+            'player_location' => 'Ernakulam',
+            'player_age' => '27',
+            /*
+             * Auction poster. Sample values are deliberately the LONGEST plausible ones —
+             * a seven-figure price, a full team name — because a layout that only looks
+             * right against "1M" is one that breaks on the first real player.
+             */
+            'lot_number' => '042',
+            'pool_name' => 'Marquee Batters',
+            'base_price' => '1,000,000',
+            'sold_price' => '12,500,000',
+            'sold_status' => 'SOLD',
+            'auction_name' => 'Season Auction',
             'award_name' => 'Player of the Match',
             'achievement_text' => '75 runs off 45 balls',
             'batting_figures' => '59 (36) 9x4 1x6',

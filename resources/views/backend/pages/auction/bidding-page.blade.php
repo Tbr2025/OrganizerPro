@@ -94,6 +94,15 @@
 
                 {{-- Center: Status badges --}}
                 <div class="flex items-center gap-1.5 flex-shrink-0">
+                    {{-- Connection health, so a team on a struggling hall wifi knows that is what
+                         they are looking at. Silent when push is up, which is the normal state:
+                         a permanent indicator is one nobody reads by the time it matters. --}}
+                    <div x-show="!pushConnected" x-cloak
+                         class="flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full"
+                         :title="networkWarning || 'Live updates are not getting through — this screen is refreshing itself instead.'">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span class="text-[10px] font-bold text-amber-300 uppercase tracking-wide">Slow link</span>
+                    </div>
                     <div x-show="auctionStatus !== 'completed'" class="flex items-center gap-1 bg-red-500/15 border border-red-500/25 px-2 py-0.5 rounded-full">
                         <span class="w-1.5 h-1.5 rounded-full bg-red-500 live-dot"></span>
                         <span class="text-[10px] font-bold text-red-400 uppercase tracking-wide">Live</span>
@@ -212,12 +221,18 @@
                         </template>
 
                         {{-- Timer — the OPEN round's clock.
-                             Hidden once a sealed round is collecting: the open clock has expired by
-                             definition (that expiry is what opens the sealed round), so it sat there
-                             reading TIME UP over a sealed round that had just started and had a
-                             clock of its own further down the page. Two clocks, one of them wrong.
-                             The sealed countdown is the one that matters then. --}}
-                        <div x-show="(timerSeconds > 0 || timerExpired) && !(sealed.active && sealed.state === 'collecting')" class="mb-2">
+                             Hidden once a sealed round is live, whether it is COLLECTING or still
+                             waiting for teams to accept. The open clock has expired by definition —
+                             that expiry is what opened the sealed round — so it sat there reading
+                             TIME UP directly above an I ACCEPT button that was, correctly, enabled.
+                             Two clocks, one of them long irrelevant, and the wrong one shouting.
+                             Read literally it said the round was over while inviting entry to it.
+
+                             Only `collecting` was excluded before, so a round in `entry_open` — the
+                             stage where a team decides whether to take part at all — showed exactly
+                             that contradiction. The sealed countdown further down is the clock that
+                             governs anything from here on. --}}
+                        <div x-show="(timerSeconds > 0 || timerExpired) && !(sealed.active && ['entry_open', 'collecting'].includes(sealed.state))" class="mb-2">
                             <span class="font-bold font-mono"
                                   :class="timerExpired
                                     ? 'text-red-500 text-base'
@@ -382,7 +397,15 @@
                                         && ['entry_open','collecting'].includes(sealed.state)
                                         && ['invited','may_opt_in'].includes(sealedEntryState)">
                             <div class="bg-gray-900/60 border border-purple-500/25 rounded-lg p-3.5">
-                                <div class="text-purple-300 text-xs font-bold uppercase tracking-wider mb-2.5 text-center">Enter Sealed Round</div>
+                                <div class="text-purple-300 text-xs font-bold uppercase tracking-wider mb-1 text-center">Enter Sealed Round</div>
+                                {{-- Say why this is on screen. The open round ending is what brings
+                                     a team here, so without this the panel appears out of nowhere
+                                     just as the clock above it reads TIME UP. --}}
+                                <p class="text-[10px] text-gray-500 text-center mb-2.5 leading-snug">
+                                    Open bidding has closed for this player. Accept to place one
+                                    sealed bid — <span class="text-gray-400">the clock below starts when
+                                    the organizer opens entry.</span>
+                                </p>
 
                                 <div class="space-y-1.5 text-[11px]">
                                     <div class="flex justify-between"><span class="text-gray-400">Purse remaining</span>
@@ -787,6 +810,10 @@ function teamBiddingPanel() {
         // Chained poll handle, and the ordering token for pushed raises: socket frames
         // arrive unordered, so anything not newer than this is dropped.
         _pollTimer: null,
+        /** Whether pusher is currently connected. Drives the poll cadence and the warning. */
+        pushConnected: false,
+        /** A one-line note when the connection is degraded, or null when it is fine. */
+        networkWarning: null,
         _lastAppliedBidId: 0,
         player: { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", total_matches: null, total_runs: null, total_wickets: null },
         soldPlayers: @json($soldPlayers ?? []),
@@ -884,6 +911,7 @@ function teamBiddingPanel() {
             }
             this.startPolling();
             this.subscribeToRaises();
+            this.watchPushHealth();
             document.addEventListener('fullscreenchange', () => {
                 this.isFullscreen = !!document.fullscreenElement;
             });
@@ -908,9 +936,27 @@ function teamBiddingPanel() {
          * tick simply stacked more work behind itself. Waiting for the round trip before
          * scheduling the next one keeps at most one tick in flight.
          *
-         * The interval is unchanged. This is the fallback path now — pushed raises arrive
-         * through subscribeToRaises() in milliseconds — so it only has to be steady, not
-         * fast.
+         * The interval SLOWS RIGHT DOWN once push is healthy, the way the LED wall already
+         * works — and for a much sharper reason here, because this screen is the one a hundred
+         * people have open at once.
+         *
+         * Four requests every two seconds, per viewer:
+         *
+         *     100 viewers x 4 requests / 2s   = 200 requests per second at the server
+         *     ~800 bytes of headers + cookies = ~1.3 Mbps of UPLINK from the venue
+         *
+         * A hall on a 1 Mbps upstream cannot carry that, and the first thing it starves is the
+         * one request that matters — a bid. Meanwhile the raises those polls are looking for
+         * already arrive on the socket in milliseconds, at 248 bytes each, pushed once by
+         * Pusher rather than pulled a hundred times through the venue's router.
+         *
+         * So while push is up this drops to a slow reconciliation sweep, and the fast cadence
+         * is kept for exactly the two cases that need it:
+         *
+         *   push down    -> 2s, the cadence that ran before push existed. Nothing else can
+         *                   keep the screen current, and reconnecting refetches on the way back.
+         *   sealed round -> 2s. Its transitions (entry open, collecting, locked, revealed) are
+         *                   the one part of the auction nothing broadcasts.
          */
         startPolling() {
             const tick = async () => {
@@ -925,12 +971,67 @@ function teamBiddingPanel() {
                     // A failed tick must not end the loop — that is what would leave the
                     // screen frozen for the rest of the auction.
                 } finally {
-                    this._pollTimer = setTimeout(tick, 2000);
+                    this._pollTimer = setTimeout(tick, this.pollDelay());
                 }
             };
 
             // First pass immediately, same as before.
             tick();
+        },
+
+        /**
+         * How long to wait before the next reconciliation sweep.
+         *
+         * 2s is the old always-on cadence and stays the answer whenever this screen has no
+         * other way to learn something. 15s is the sweep that merely catches drift while the
+         * socket carries the real news — 8x less traffic per viewer, which at a hundred
+         * viewers is the difference between a venue uplink coping and not.
+         */
+        pollDelay() {
+            const needsFastPolling = ! this.pushConnected
+                || (this.sealed?.active && this.sealed?.state !== 'pending');
+
+            return needsFastPolling ? 2000 : 15000;
+        },
+
+        /**
+         * Whether the socket is carrying events right now.
+         *
+         * Read from pusher's own connection rather than inferred from whether frames have
+         * arrived: a quiet auction produces no frames, and treating silence as a dead socket
+         * would put every screen back on the fast poll for the whole of a slow lot.
+         */
+        watchPushHealth() {
+            try {
+                const conn = window.Echo?.connector?.pusher?.connection;
+                if (! conn) return;
+
+                this.pushConnected = conn.state === 'connected';
+
+                conn.bind('connected', () => {
+                    this.pushConnected = true;
+                    this.networkWarning = null;
+                    // Catch up on whatever was missed while it was down, THEN go quiet.
+                    this.restartPolling();
+                });
+
+                ['unavailable', 'failed', 'disconnected'].forEach((state) => {
+                    conn.bind(state, () => {
+                        this.pushConnected = false;
+                        this.networkWarning = 'Live updates are not getting through — this screen is refreshing itself instead. Bids still work.';
+                        this.restartPolling();
+                    });
+                });
+            } catch (e) {
+                // No socket at all: pushConnected stays false and the 2s poll carries on,
+                // which is exactly how this screen behaved before push existed.
+            }
+        },
+
+        /** Re-tick now rather than waiting out a 15s sleep the health change just invalidated. */
+        restartPolling() {
+            if (this._pollTimer) clearTimeout(this._pollTimer);
+            this.startPolling();
         },
 
         /**

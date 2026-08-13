@@ -93,6 +93,39 @@ class ClosedBidTeamDeadlineTest extends TestCase
     }
 
     #[Test]
+    public function the_expired_open_clock_is_not_shown_over_a_live_sealed_round(): void
+    {
+        ['auction' => $auction, 'user' => $user] = $this->scenario();
+
+        $html = $this->actingAs($user)
+            ->get(route('team.auction.bidding.show', $auction))
+            ->assertOk()
+            ->getContent();
+
+        /*
+         * The open round's clock has expired by definition once a sealed round exists — that
+         * expiry is what opens it — so leaving it on screen put a red TIME UP directly above an
+         * I ACCEPT button that was, correctly, still enabled. Read literally, the page said the
+         * round was over while inviting entry to it.
+         *
+         * Only `collecting` was excluded, so `entry_open` — the stage where a team decides
+         * whether to take part at all — showed exactly that contradiction. Both stages now
+         * suppress it.
+         */
+        $condition = html_entity_decode($html);
+
+        $this->assertMatchesRegularExpression(
+            "/x-show=\"\(timerSeconds > 0 \|\| timerExpired\) && !\(sealed\.active && \['entry_open', 'collecting'\]\.includes\(sealed\.state\)\)\"/",
+            $condition,
+            'The open clock must be hidden for a sealed round that is entry_open as well as one collecting.'
+        );
+
+        // Accept still turns on the SEALED clock, which is the one that governs from here.
+        $this->assertStringContainsString('sealedAccept()', $html);
+        $this->assertStringContainsString(':disabled="isSubmitting || sealedExpired"', $condition);
+    }
+
+    #[Test]
     public function a_submission_after_the_deadline_is_refused_however_the_client_behaves(): void
     {
         ['auction' => $auction, 'team' => $team, 'round' => $round, 'user' => $user] = $this->scenario([

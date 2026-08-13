@@ -401,10 +401,24 @@ class AuctionUndoService
         $teamName = $log->payload['team_name'] ?? 'that team';
         $amount = $log->payload['amount'] ?? null;
 
-        $reverted = $this->reopenIfUndoneBelowThreshold($auctionPlayer->fresh(), (float) $newPrice);
+        /*
+         * Take the sealed round down with the bid, in the same step.
+         *
+         * A round's floor is derived from the price at the moment it opens, and its teams were
+         * invited on that basis. Undoing an open bid moves that price — so the board goes on
+         * showing a floor, a team list and controls built on a bid that no longer exists, and
+         * the only ways out were UNDO again (which reverses by action, not by consequence) or
+         * withdrawing every invitation one at a time.
+         *
+         * Nothing is lost by clearing it: the guard inside refuses outright once any team has a
+         * standing amount in. What is discarded is an invitation and, at most, an acceptance —
+         * neither of which is a bid, and both of which are re-issued by starting the round
+         * again at the price that is now true.
+         */
+        $cleared = $this->clearRoundBuiltOnUndoneBid($auctionPlayer->fresh(), (float) $newPrice);
 
-        // Still sealed, but cheaper than it was: the floor follows the price down.
-        if (! $reverted) {
+        // Still sealed with a round standing: the floor follows the price down instead.
+        if (! $cleared['abandoned']) {
             $this->lowerFloorToPrice($auctionPlayer->fresh(), (float) $newPrice);
         }
 
@@ -413,8 +427,84 @@ class AuctionUndoService
             'message' => ($amount !== null
                 ? sprintf('Undid %s bid of %s.', $teamName, format_points($amount))
                 : sprintf('Undid %s bid.', $teamName))
-                . ($reverted ? ' Back below the sealed threshold — open bidding resumed.' : ''),
+                . sprintf(' Price is back to %s.', format_points($newPrice))
+                . ($cleared['abandoned'] ? ' The sealed round was cancelled with it.' : '')
+                . ($cleared['reverted'] ? ' Back below the sealed threshold — open bidding resumed.' : ''),
         ];
+    }
+
+    /**
+     * What UNDO is about to do, in the words the organizer needs before pressing it.
+     *
+     * `AuctionActionLog::description` is written when the action happens and cannot know what
+     * undoing it will cost later — so the confirm dialog said "Will undo: Bid 8.1M by TEST
+     * Delta" over a live sealed board that the same click was about to cancel. These notes are
+     * computed from the state as it is now, so one press is one informed decision.
+     *
+     * @return array{label: string|null, notes: list<string>}
+     */
+    public function previewFor(Auction $auction): array
+    {
+        $log = $this->nextUndoable($auction);
+
+        if (! $log) {
+            return ['label' => null, 'notes' => []];
+        }
+
+        $notes = [];
+
+        if ($log->action === AuctionActionLog::ACTION_BID && $log->auction_player_id) {
+            $auctionPlayer = AuctionPlayer::find($log->auction_player_id);
+
+            if ($auctionPlayer) {
+                // The bid being undone is still live, so it has to be excluded by hand to see
+                // what the price will fall back TO.
+                $previous = AuctionBid::where('auction_player_id', $auctionPlayer->id)
+                    ->live()
+                    ->when($log->payload['bid_id'] ?? null, fn ($q, $id) => $q->whereKeyNot($id))
+                    ->orderByDesc('id')
+                    ->first();
+
+                $notes[] = $previous
+                    ? sprintf(
+                        'Price goes back to %s by %s',
+                        format_points($previous->amount),
+                        $previous->team?->name ?? 'that team'
+                    )
+                    : sprintf('Price goes back to the base of %s, with no leading team', format_points($auctionPlayer->base_price));
+
+                if ($this->staleRoundFor($auctionPlayer) !== null) {
+                    $notes[] = 'The sealed round for this player will be cancelled too';
+                }
+            }
+        }
+
+        return ['label' => $log->description, 'notes' => $notes];
+    }
+
+    /**
+     * The open sealed round an undo may take down, or null if there is none to take.
+     *
+     * Shared by the preview and the undo itself, so the dialog cannot promise something the
+     * undo then declines to do.
+     */
+    private function staleRoundFor(AuctionPlayer $auctionPlayer): ?AuctionClosedBidRound
+    {
+        $round = AuctionClosedBidRound::where('auction_player_id', $auctionPlayer->id)
+            ->open()
+            ->latest('id')
+            ->first();
+
+        if (! $round) {
+            return null;
+        }
+
+        // A team with a real amount in is the one thing worth more than a stale floor.
+        if (AuctionClosedBidEntry::where('auction_closed_bid_round_id', $round->id)->standing()->exists()) {
+            return null;
+        }
+
+        return $round;
     }
 
     /**
@@ -474,50 +564,41 @@ class AuctionUndoService
     }
 
     /**
-     * If undoing a bid takes the price back below the sealed threshold, take the round
-     * down with it.
+     * Clear the sealed round an undone bid was the basis of, and revert the phase if the
+     * price has fallen back below the threshold.
      *
-     * "Closed" used to be one-way once the price fell — deliberately, because a price that
-     * genuinely rises and falls during open bidding should not repeatedly flip the phase.
-     * But this is not that: undoing the very bid that crossed the threshold is undoing the
-     * reason the round exists at all, and the live panel showed a sealed board — floor 8M,
-     * a full team list, controls — for a player sitting at 6M with nothing anyone can
-     * safely act on, and no way back to ordinary bidding except editing the auction.
+     * These were one thing and are now two, because they answer different questions.
      *
-     * Two guards keep this from undoing more than the one thing it should:
+     * **Abandoning the round** asks: is this board still built on something true? A round's
+     * floor is derived from the price when it opened and its teams were invited on that
+     * basis, so undoing an open bid invalidates it whatever the new price is. Previously the
+     * round was only cleared when the price fell BELOW the threshold, so undoing 8.1M back to
+     * 8.0M on an 8M threshold left the sealed board live with a floor snapped to a bid that no
+     * longer existed — and the only ways out were UNDO again (which reverses by action, not by
+     * consequence) or withdrawing every invitation one at a time.
      *
-     *  - `bid_type_manually_overridden` must be false. A press of the Closed button sets
-     *    it and means the organizer chose sealed regardless of price — undoing an unrelated
-     *    bid must not silently reverse that choice.
-     *  - The round must have no STANDING entries. If a team has already submitted a real
-     *    sealed amount, abandoning the round on the way out would discard their bid; the
-     *    round is left in place and the phase stays closed.
+     * **Reverting the phase** asks a narrower question: should this auction still be sealed at
+     * all? Only the threshold answers that, and only when the organizer has not overridden it.
+     * Staying sealed with no round is the correct resting state for a price still above the
+     * bar — the organizer starts a fresh round at the floor that is now true.
      *
-     * @return bool  Whether the round was abandoned and the phase reverted.
+     * Guards:
+     *
+     *  - No STANDING entry. A team with a real amount in outweighs a stale floor; the round is
+     *    left alone and only its floor moves (see lowerFloorToPrice).
+     *  - `bid_type_manually_overridden` blocks the PHASE revert only. A press of the Closed
+     *    button means the organizer chose sealed regardless of price, and undoing a bid must
+     *    not silently reverse that choice — but it does not make a stale round worth keeping.
+     *
+     * @return array{abandoned: bool, reverted: bool}
      */
-    private function reopenIfUndoneBelowThreshold(AuctionPlayer $auctionPlayer, float $newPrice): bool
+    private function clearRoundBuiltOnUndoneBid(AuctionPlayer $auctionPlayer, float $newPrice): array
     {
         $auction = $auctionPlayer->auction;
+        $round = $this->staleRoundFor($auctionPlayer);
 
-        if (! $auction
-            || $auction->bid_type !== 'closed'
-            || $auction->bid_type_manually_overridden
-            || $auction->closed_bid_starts_at === null
-            || $newPrice >= (float) $auction->closed_bid_starts_at) {
-            return false;
-        }
-
-        $round = AuctionClosedBidRound::where('auction_player_id', $auctionPlayer->id)
-            ->open()
-            ->latest('id')
-            ->first();
-
-        if (! $round) {
-            return false;
-        }
-
-        if (AuctionClosedBidEntry::where('auction_closed_bid_round_id', $round->id)->standing()->exists()) {
-            return false;
+        if (! $auction || ! $round) {
+            return ['abandoned' => false, 'reverted' => false];
         }
 
         /*
@@ -535,9 +616,17 @@ class AuctionUndoService
             ]);
 
         $auctionPlayer->update(['closed_bid_round_id' => null]);
-        $auction->update(['bid_type' => 'open']);
 
-        return true;
+        $reverted = $auction->bid_type === 'closed'
+            && ! $auction->bid_type_manually_overridden
+            && $auction->closed_bid_starts_at !== null
+            && $newPrice < (float) $auction->closed_bid_starts_at;
+
+        if ($reverted) {
+            $auction->update(['bid_type' => 'open']);
+        }
+
+        return ['abandoned' => true, 'reverted' => $reverted];
     }
 
     /**

@@ -395,8 +395,9 @@ class AuctionOrganizerController extends Controller
             // panel guessing from its own local state.
             'restarting' => $freshAuction->isRestarting(),
             'restart_seconds' => $freshAuction->restartNoticeRemaining(),
-            'available_players' => $availablePlayers,
-            'current_player' => $currentPlayer,
+            'available_players' => $this->projectAvailablePlayers($availablePlayers),
+            // Trimmed for the same reason as the queue above — see projectBids().
+            'current_player' => $this->withTrimmedBids($currentPlayer),
             'sold_players' => $soldPlayers,
             'teams' => $teams,
             'stats' => $stats,
@@ -425,6 +426,14 @@ class AuctionOrganizerController extends Controller
             // Undo stack state for the panel's UNDO button.
             'can_undo' => $nextUndo !== null,
             'next_undo' => $nextUndo?->description,
+            /*
+             * What that undo will ALSO do, worked out from the state as it is now.
+             *
+             * The log's own description is written when the action happens and cannot know
+             * later consequences, so the confirm dialog offered "Will undo: Bid 8.1M by TEST
+             * Delta" over a live sealed board the same click was about to cancel.
+             */
+            'next_undo_notes' => $this->undo->previewFor($freshAuction)['notes'],
             // Pool lock: which pool is running and how far through it we are.
             'active_pool' => $poolProgress['active_pool'],
             'next_pool' => $poolProgress['next_pool'],
@@ -1428,7 +1437,74 @@ class AuctionOrganizerController extends Controller
 
         return response()->json($result + [
             'next_undo' => $this->undo->nextUndoable($auction)?->description,
+            'next_undo_notes' => $this->undo->previewFor($auction)['notes'],
         ]);
+    }
+
+    /**
+     * The player on the block, with the bid log cut to the five fields anything reads.
+     *
+     * Each bid was arriving as a full `AuctionBid` plus its whole `team` and `user` models, so
+     * a lot with 23 raises carried 18 KB of bid history in every two-second poll — to satisfy
+     * one `reduce()` over `amount` and `team_id`, and a side panel showing team, amount and
+     * time. The initial page render has always projected exactly these fields; the poll did
+     * not.
+     *
+     * `setRelation` rather than a whole new shape for `current_player`: the offline panel and
+     * the organizer panel both read a dozen other fields off it, and reshaping the lot during
+     * an auction to save 3 KB is not a trade worth making.
+     */
+    private function withTrimmedBids(?AuctionPlayer $currentPlayer): ?AuctionPlayer
+    {
+        if (! $currentPlayer || ! $currentPlayer->relationLoaded('bids')) {
+            return $currentPlayer;
+        }
+
+        $currentPlayer->setRelation('bids', $currentPlayer->bids->map(fn ($b) => [
+            'id' => $b->id,
+            'amount' => $b->amount,
+            'team_id' => $b->team_id,
+            'team' => $b->team ? ['id' => $b->team->id, 'name' => $b->team->name] : null,
+            'user' => $b->user ? ['name' => $b->user->name] : null,
+            'created_at' => $b->created_at?->toISOString(),
+        ])->values());
+
+        return $currentPlayer;
+    }
+
+    /**
+     * The waiting queue, as the ten fields the panel actually shows.
+     *
+     * This was sending full Eloquent models — every column of `auction_players` and `players`
+     * plus three relations, for every waiting player — and the panel then mapped them down to
+     * ten fields in the browser. On a 98-player pool that is **286 KB of the poll's 314 KB,
+     * re-sent every two seconds**, to fill a list that changes when a player leaves the queue.
+     *
+     * That is roughly 1.2 Mbps for one open panel. On a venue running the auction over a
+     * shared connection it is the difference between the room working and the room not; it
+     * also makes each poll slow enough to sit in front of the bid request behind it, which is
+     * the "delay before the bid shows" an operator sees.
+     *
+     * The initial page render has always projected exactly these fields (see the x-init in
+     * organizer-panel.blade.php). The poll simply never did — one shape, described twice.
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\AuctionPlayer>  $players
+     * @return list<array<string, mixed>>
+     */
+    private function projectAvailablePlayers($players): array
+    {
+        return $players->map(fn ($ap) => [
+            'id' => $ap->id,
+            'name' => $ap->player?->name,
+            'base_price' => $ap->base_price,
+            'image_path' => $ap->player?->image_path,
+            'player_type' => $ap->player?->playerType?->name ?? $ap->player?->playerType?->type ?? 'Player',
+            'batting_style' => $ap->player?->battingProfile?->name ?? $ap->player?->battingProfile?->style,
+            'bowling_style' => $ap->player?->bowlingProfile?->name ?? $ap->player?->bowlingProfile?->style,
+            'total_matches' => $ap->player?->total_matches,
+            'total_runs' => $ap->player?->total_runs,
+            'total_wickets' => $ap->player?->total_wickets,
+        ])->values()->all();
     }
 
     /** Recent actions and what Undo would reverse next, for the panel. */
@@ -1437,6 +1513,7 @@ class AuctionOrganizerController extends Controller
         return response()->json([
             'actions' => $this->undo->recentActions($auction),
             'next_undo' => $this->undo->nextUndoable($auction)?->description,
+            'next_undo_notes' => $this->undo->previewFor($auction)['notes'],
         ]);
     }
 

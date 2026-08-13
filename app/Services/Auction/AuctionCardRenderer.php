@@ -112,12 +112,30 @@ class AuctionCardRenderer
         return $path;
     }
 
-    /** A filename a person can read in a folder of two hundred of them. */
+    /**
+     * A filename a person can read in a folder of two hundred of them.
+     *
+     * The outcome suffix comes from the PLAYER, not from $withResult.
+     *
+     * $withResult is a property of the request — "draw the result overlay" — and taking the
+     * suffix from it named every file in a mixed export `-sold`, unsold players included. In a
+     * zip of two hundred posters the filename is the only thing distinguishing them, so that
+     * was not a cosmetic slip: it made the export unsortable and quietly wrong.
+     *
+     * A player who has not been called yet gets no suffix at all rather than `-unsold`, which
+     * would claim an outcome the auction has not reached.
+     */
     public function filename(AuctionPlayer $auctionPlayer, bool $withResult): string
     {
         $name = Str::slug($auctionPlayer->player->name ?? 'player') ?: 'player';
         $lot = $auctionPlayer->lot_number ? str_pad((string) $auctionPlayer->lot_number, 3, '0', STR_PAD_LEFT) : 'x';
 
-        return sprintf('%s-%s%s.png', $lot, $name, $withResult ? '-sold' : '');
+        $outcome = match (true) {
+            $auctionPlayer->sold_to_team_id !== null => '-sold',
+            in_array($auctionPlayer->status, ['unsold', 'passed', 'skipped'], true) => '-unsold',
+            default => '',
+        };
+
+        return sprintf('%s-%s%s.png', $lot, $name, $outcome);
     }
 }

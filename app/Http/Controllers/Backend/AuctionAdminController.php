@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Events\PlayerOnBidEvent;
+use App\Jobs\RenderAuctionCards;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\ActualTeamUser;
 use App\Models\Auction;
 use App\Models\AuctionBid;
+use App\Models\AuctionCardExport;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
 use App\Models\AuctionTeamBudget;
@@ -19,12 +21,14 @@ use App\Services\Auction\AuctionUndoService;
 use App\Services\Auction\BidIncrementService;
 use App\Models\Organization;
 use App\Models\Tournament;
+use App\Models\TournamentTemplate;
 use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AuctionAdminController extends Controller
 {
@@ -917,6 +921,23 @@ class AuctionAdminController extends Controller
             ->with(['player:id,name', 'team:id,name'])
             ->get();
 
+        /*
+         * The poster designs this auction can be exported onto, if any have been drawn.
+         *
+         * Empty is the normal state and the page says nothing when it is — an operator who has
+         * never opened the designer should not be shown a picker with one option in it.
+         */
+        $posterTemplates = $auction->tournament_id
+            ? TournamentTemplate::where('tournament_id', $auction->tournament_id)
+                ->whereIn('type', [
+                    TournamentTemplate::TYPE_AUCTION_POSTER,
+                    TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT,
+                ])
+                ->orderByDesc('is_default')
+                ->orderBy('name')
+                ->get()
+            : collect();
+
         return view('backend.pages.auctions.show', [
             'auction' => $auction,
             'teams' => $teams,
@@ -924,6 +945,7 @@ class AuctionAdminController extends Controller
             'isAdmin' => $isAdmin,
             'userTeam' => $userTeam,
             'retainedPlayers' => $retainedPlayers,
+            'posterTemplates' => $posterTemplates,
         ]);
     }
 
@@ -1186,16 +1208,29 @@ class AuctionAdminController extends Controller
 
         $team = ActualTeam::find($data['teamId'] ?? null);
 
-        broadcast(new PlayerOnBidEvent($player, $team))->toOthers();
-
         /*
-         * The raise itself, for the screens that only need the new number.
+         * Announced AFTER the response, not before it.
          *
-         * Not ->toOthers(): both panels bid through this endpoint, and the panel that did
-         * not place the bid is precisely the one that needs telling. The listener's own
-         * bid_id ordering makes a self-delivered frame a no-op.
+         * Both of these are ShouldBroadcastNow, which calls Pusher inline — measured at ~1160ms
+         * for the first (the TLS handshake, paid per request) plus ~290ms for the second. So a
+         * raise made the organizer wait about a second and a half on a third party's network
+         * before their own screen confirmed the bid, and held a PHP worker for all of it.
+         *
+         * The listening screens are not delayed by this: the same calls go out milliseconds
+         * later. Only the person who acted stops waiting for them.
          */
-        \App\Events\BidRaised::announce($player, (int) $result['bid_id'], $team?->name);
+        \App\Support\AfterResponse::run(function () use ($player, $team, $result) {
+            broadcast(new PlayerOnBidEvent($player, $team))->toOthers();
+
+            /*
+             * The raise itself, for the screens that only need the new number.
+             *
+             * Not ->toOthers(): both panels bid through this endpoint, and the panel that did
+             * not place the bid is precisely the one that needs telling. The listener's own
+             * bid_id ordering makes a self-delivered frame a no-op.
+             */
+            \App\Events\BidRaised::announce($player, (int) $result['bid_id'], $team?->name);
+        });
 
         return response()->json([
             'success' => true,
@@ -2233,6 +2268,196 @@ class AuctionAdminController extends Controller
         $name = sprintf('auction-%d-cards%s.zip', $auction->id, $withResult ? '-sold' : '');
 
         return response()->download($zipPath, $name)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Begin rendering a set of cards, and hand back a token to watch it with.
+     *
+     * Returns immediately. The old synchronous download held the connection open for the whole
+     * render — minutes for a pool, longer than nginx allows for a whole auction — with nothing
+     * on screen but a browser spinner, so an operator could not tell a slow export from a dead
+     * one, and the largest exports never arrived at all.
+     */
+    public function startCardExport(Request $request, Auction $auction)
+    {
+        $this->authorize('auction.view');
+
+        $withResult = $request->boolean('result');
+
+        /*
+         * An optional subset, given as PLAYER ids because that is what the pools screen's
+         * checkboxes carry — its selection drives the remove action too, and re-keying it to
+         * auction-player ids to suit this download would have put that at risk for no gain.
+         * Mapped through this auction, so an id from elsewhere selects nothing.
+         */
+        $only = array_filter(array_map('intval', (array) $request->input('players', [])));
+
+        /*
+         * Which outcome, if the operator asked for one.
+         *
+         * Filtered HERE rather than by posting a list of ids: a 200-player export should not be
+         * a 200-id request body, and a list built from whatever the page last polled can have
+         * drifted from what the auction is by the time the job runs. Composes with $only, so a
+         * subset ticked on the Pools screen can still be narrowed to the sold ones.
+         */
+        $status = in_array($request->input('status'), ['sold', 'unsold'], true)
+            ? $request->input('status')
+            : 'all';
+
+        $ids = $auction->auctionPlayers()
+            ->whereHas('player')
+            ->when($only !== [], fn ($q) => $q->whereIn('player_id', $only))
+            /*
+             * `sold` asks the same question the badge asks — is there a buying team —
+             * rather than `status = 'sold'`. Two sources of truth for one fact is how a zip
+             * ends up holding a poster with no price under a filter that promised sold ones.
+             */
+            ->when($status === 'sold', fn ($q) => $q->whereNotNull('sold_to_team_id'))
+            // Matches AuctionPosterData::status(), skipped included: a player nobody called
+            // back is one the auction finished without selling.
+            ->when($status === 'unsold', fn ($q) => $q
+                ->whereNull('sold_to_team_id')
+                ->whereIn('status', ['unsold', 'passed', 'skipped']))
+            ->orderByRaw('COALESCE(lot_number, 999999)')
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        if ($ids === []) {
+            // Say which nothing this is. "No players" on an auction with two hundred of them
+            // reads as a broken export rather than as an empty filter.
+            return response()->json([
+                'message' => match (true) {
+                    $status === 'sold' => 'No players have been sold yet, so there are no sold posters to render.',
+                    $status === 'unsold' => 'No players have gone unsold, so there are no unsold posters to render.',
+                    $only !== [] => 'None of the selected players are in this auction.',
+                    default => 'This auction has no players to render.',
+                },
+            ], 422);
+        }
+
+        /*
+         * Sweep this auction's old exports before adding another.
+         *
+         * A zip of 200 cards is tens of megabytes, and the box producing them is the same one
+         * serving the auction. An hour is long enough that a download interrupted by a flaky
+         * connection can still be retried, and short enough that a day of exporting does not
+         * fill the disk.
+         */
+        AuctionCardExport::where('auction_id', $auction->id)
+            ->where('created_at', '<', now()->subHour())
+            ->get()
+            ->each
+            ->discard();
+
+        /*
+         * Which design to render.
+         *
+         * Absent means the LED wall's own card, screenshotted from the wall so the hall and the
+         * download cannot disagree. Given, it is an auction poster from the drag editor —
+         * landscape or portrait, drawn with GD, no browser per player. Resolved through THIS
+         * auction's tournament and checked to be an auction poster type, so an id from
+         * elsewhere, or a match poster, selects nothing rather than rendering a design that
+         * has no idea what a player is.
+         */
+        $templateId = (int) $request->input('template_id');
+        $template = null;
+
+        if ($templateId > 0) {
+            $template = TournamentTemplate::where('id', $templateId)
+                ->where('tournament_id', $auction->tournament_id)
+                ->whereIn('type', [
+                    TournamentTemplate::TYPE_AUCTION_POSTER,
+                    TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT,
+                ])
+                ->first();
+
+            if (! $template) {
+                return response()->json([
+                    'message' => 'That poster template does not belong to this auction\'s tournament.',
+                ], 422);
+            }
+        }
+
+        $token = (string) Str::uuid();
+
+        $export = AuctionCardExport::create([
+            'auction_id' => $auction->id,
+            'user_id' => Auth::id(),
+            'token' => $token,
+            'with_result' => $withResult,
+            'tournament_template_id' => $template?->id,
+            'auction_player_ids' => $ids,
+            'total' => count($ids),
+            'status' => AuctionCardExport::STATUS_QUEUED,
+            'path' => AuctionCardExport::DIRECTORY . '/' . $token . '.zip',
+            /*
+             * The zip says what is in it. An operator running a sold export and an unsold one
+             * back to back otherwise ends up with two files of the same name in one folder,
+             * and the second silently becomes "(1)".
+             */
+            'filename' => sprintf(
+                'auction-%d-%s%s.zip',
+                $auction->id,
+                $status === 'all' ? 'all' : $status,
+                $template ? '-posters' : '-cards'
+            ),
+        ]);
+
+        RenderAuctionCards::dispatch($export->id);
+
+        /*
+         * Re-read before answering. Under QUEUE_CONNECTION=sync the dispatch above ran the
+         * whole render inline, so by now this export may already be finished — and replying
+         * with the row as it was created would leave the page polling for something that has
+         * already happened.
+         */
+        return response()->json($export->refresh()->toProgressPayload());
+    }
+
+    /** How far the export has got. Polled about once a second, so it stays small. */
+    public function cardExportProgress(Auction $auction, string $token)
+    {
+        $this->authorize('auction.view');
+
+        return response()->json($this->findExport($auction, $token)->toProgressPayload());
+    }
+
+    /**
+     * The finished zip.
+     *
+     * Kept on disk after sending rather than deleted: a download interrupted halfway is a
+     * normal thing to want to retry, and re-rendering two hundred cards to recover from a
+     * dropped connection is not a reasonable price. The hourly sweep in startCardExport()
+     * clears them.
+     */
+    public function cardExportDownload(Auction $auction, string $token)
+    {
+        $this->authorize('auction.view');
+
+        $export = $this->findExport($auction, $token);
+
+        abort_unless($export->status === AuctionCardExport::STATUS_DONE, 409, 'This export has not finished.');
+
+        $path = $export->absolutePath();
+
+        abort_unless($path && is_file($path), 410, 'This export has expired. Please run it again.');
+
+        return response()->download($path, $export->filename);
+    }
+
+    /**
+     * Scoped to the auction in the URL as well as matched on the token.
+     *
+     * The token alone would be enough to find the row, but binding it to the auction means the
+     * `auction.view` check above is a check on the auction the export actually belongs to,
+     * rather than on whichever auction the caller chose to put in the path.
+     */
+    private function findExport(Auction $auction, string $token): AuctionCardExport
+    {
+        return AuctionCardExport::where('auction_id', $auction->id)
+            ->where('token', $token)
+            ->firstOrFail();
     }
 
     public function report(Auction $auction)

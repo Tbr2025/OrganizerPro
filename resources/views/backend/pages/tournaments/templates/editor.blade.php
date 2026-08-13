@@ -1559,8 +1559,10 @@ const editor = {
     canvas: null,
     history: [],
     historyIndex: -1,
-    canvasWidth: {{ $template?->canvas_width ?? 1080 }},
-    canvasHeight: {{ $template?->canvas_height ?? 1080 }},
+    {{-- A new template opens on the shape its TYPE is for, not on a square that every
+         landscape design then had to be converted from. --}}
+    canvasWidth: {{ $template?->canvas_width ?? ($defaultCanvasWidth ?? 1080) }},
+    canvasHeight: {{ $template?->canvas_height ?? ($defaultCanvasHeight ?? 1080) }},
     zoom: 1,
     showGrid: false,
     backgroundImageData: null,

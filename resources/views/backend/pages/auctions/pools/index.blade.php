@@ -468,6 +468,8 @@
     </div>
 </div>
 
+@include('backend.pages.auctions.partials.card-export-progress')
+
 @push('scripts')
 <script>
 /**
@@ -568,17 +570,15 @@ function poolManager(auctionId) {
         /**
          * The selected players' cards, as a zip.
          *
-         * A plain navigation rather than fetch(): the response is a file download, and letting
-         * the browser handle it keeps its own progress and save dialog. Nothing is posted, so a
-         * mis-click cannot change anything.
+         * Handed to the shared progress dialog rather than navigated to. The render is seconds
+         * per card on the server, so a plain download link left the operator on a blank tab
+         * with no way to tell a slow export from a dead one — and for a large pool the gateway
+         * cut the connection before the zip ever arrived.
          */
         downloadCards(ids) {
             if (!ids || ids.length === 0) return;
 
-            const params = new URLSearchParams();
-            ids.forEach(id => params.append('players[]', id));
-
-            window.location = `{{ route('admin.auctions.cards', $auction) }}?${params.toString()}`;
+            Alpine.store('cardExport').start({{ $auction->id }}, ids, false);
         },
 
         togglePlayer(id) {

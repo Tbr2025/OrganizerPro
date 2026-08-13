@@ -758,12 +758,23 @@ class TournamentTemplateController extends Controller
         $placeholders = TournamentTemplate::getDefaultPlaceholders($type);
         $template = null; // No existing template for create
 
+        /*
+         * Open on the shape the type is for.
+         *
+         * The editor defaulted every new template to 1080x1080, so a landscape auction poster
+         * began as a square that had to be changed before the first element could be placed —
+         * and anything placed before that change moved when it was.
+         */
+        [$defaultCanvasWidth, $defaultCanvasHeight] = TournamentTemplate::defaultCanvas($type);
+
         // Use the new Fabric.js editor
         return view('backend.pages.tournaments.templates.editor', compact(
             'tournament',
             'type',
             'template',
-            'placeholders'
+            'placeholders',
+            'defaultCanvasWidth',
+            'defaultCanvasHeight'
         ));
     }
 

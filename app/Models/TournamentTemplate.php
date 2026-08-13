@@ -42,6 +42,23 @@ class TournamentTemplate extends Model
     public const TYPE_FIXTURES_POSTER = 'fixtures_poster';
     public const TYPE_RETAINED_WELCOME_CARD = 'retained_welcome_card';
 
+    /**
+     * The auction poster, in the two shapes a poster actually gets used in.
+     *
+     * Two types rather than one type with a size picker, because the canvas is not a setting
+     * on a poster — it is the design. A layout drawn for 1920x1080 does not become a portrait
+     * poster by changing two numbers; every element lands in the wrong place. Keeping them
+     * apart also means "is there a vertical one yet" is a question the templates page can
+     * answer, which it could not if both hid behind a single type.
+     *
+     * Distinct from `AuctionTemplate`'s player_card, which is the LED wall's own card: that one
+     * is fixed at the wall's 1601x910 and is screenshotted from the wall so the hall and the
+     * download cannot disagree. These are posters, drawn in the drag editor, for everywhere
+     * else — a feed, a story, a printed sheet.
+     */
+    public const TYPE_AUCTION_POSTER = 'auction_poster';
+    public const TYPE_AUCTION_POSTER_PORTRAIT = 'auction_poster_portrait';
+
     public const TYPES = [
         self::TYPE_WELCOME_CARD,
         self::TYPE_RETAINED_WELCOME_CARD,
@@ -52,6 +69,8 @@ class TournamentTemplate extends Model
         self::TYPE_CHAMPIONS_POSTER,
         self::TYPE_POINT_TABLE,
         self::TYPE_FIXTURES_POSTER,
+        self::TYPE_AUCTION_POSTER,
+        self::TYPE_AUCTION_POSTER_PORTRAIT,
     ];
 
     /**
@@ -248,7 +267,57 @@ class TournamentTemplate extends Model
                 'tournament_logo',
                 'fixture_area',
             ],
+            /*
+             * Both orientations carry the SAME fields. The difference between them is the
+             * canvas, not the content — a vertical poster is not a horizontal one with less
+             * on it, and offering a different field list per shape would only mean designing
+             * one and then discovering the other cannot say what the first one said.
+             */
+            self::TYPE_AUCTION_POSTER, self::TYPE_AUCTION_POSTER_PORTRAIT => [
+                // The player
+                'player_name',
+                'jersey_name',
+                'jersey_number',
+                'player_image',
+                'player_type',
+                'batting_style',
+                'bowling_style',
+                'player_location',
+                'player_age',
+                // The lot
+                'lot_number',
+                'pool_name',
+                'base_price',
+                // The result. Blank before the hammer falls, which is what makes one template
+                // serve both the "coming up" poster and the "sold" one.
+                'sold_price',
+                'sold_status',
+                'team_name',
+                'team_logo',
+                // The event
+                'auction_name',
+                'tournament_name',
+                'tournament_logo',
+            ],
             default => [],
+        };
+    }
+
+    /**
+     * The canvas a type should start on.
+     *
+     * A poster type that opens on the wrong shape is one the designer has to fix before they
+     * can start, every time — and the two auction types exist precisely to BE two shapes.
+     * 1920x1080 is the ordinary landscape screen; 1080x1350 is the 4:5 the feeds crop to.
+     *
+     * @return array{0: int, 1: int}
+     */
+    public static function defaultCanvas(string $type): array
+    {
+        return match ($type) {
+            self::TYPE_AUCTION_POSTER => [1920, 1080],
+            self::TYPE_AUCTION_POSTER_PORTRAIT => [1080, 1350],
+            default => [1080, 1080],
         };
     }
 
@@ -345,6 +414,8 @@ class TournamentTemplate extends Model
             self::TYPE_CHAMPIONS_POSTER => 'Champions Poster',
             self::TYPE_POINT_TABLE => 'Point Table',
             self::TYPE_FIXTURES_POSTER => 'Fixtures Poster',
+            self::TYPE_AUCTION_POSTER => 'Auction Poster (Horizontal)',
+            self::TYPE_AUCTION_POSTER_PORTRAIT => 'Auction Poster (Vertical)',
             default => ucfirst(str_replace('_', ' ', $type)),
         };
     }

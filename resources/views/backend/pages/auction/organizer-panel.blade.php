@@ -2272,6 +2272,8 @@ function auctionOrganizerPanel() {
         // Undo stack
         canUndo: false,
         nextUndoLabel: null,
+        /** The consequences of the next undo, as lines for its confirm dialog. */
+        nextUndoNotes: [],
         isUndoing: false,
 
         // Increment ladder, resolved server-side.
@@ -2602,17 +2604,25 @@ function auctionOrganizerPanel() {
 
                 this.maybeAskSealedThreshold(data);
 
+                /*
+                 * The server now sends these ten fields flat, instead of whole models this
+                 * mapper then threw 90% of away — 286 KB of a 314 KB poll, every two seconds.
+                 *
+                 * The nested fallbacks are kept on purpose: a panel loaded BEFORE that change
+                 * deployed is still running this code against the old shape, and an auction is
+                 * not the moment to require a hard refresh.
+                 */
                 this.availablePlayers = (data.available_players || []).map(ap => ({
                     id: ap.id,
-                    name: ap.player?.name || 'Unknown',
+                    name: ap.name || ap.player?.name || 'Unknown',
                     base_price: ap.base_price,
-                    image_path: ap.player?.image_path || null,
-                    player_type: ap.player?.player_type?.name || ap.player?.player_type?.type || 'Player',
-                    batting_style: ap.player?.batting_profile?.name || ap.player?.batting_profile?.style || null,
-                    bowling_style: ap.player?.bowling_profile?.name || ap.player?.bowling_profile?.style || null,
-                    total_matches: ap.player?.total_matches || null,
-                    total_runs: ap.player?.total_runs || null,
-                    total_wickets: ap.player?.total_wickets || null,
+                    image_path: ap.image_path ?? ap.player?.image_path ?? null,
+                    player_type: ap.player_type || ap.player?.player_type?.name || ap.player?.player_type?.type || 'Player',
+                    batting_style: ap.batting_style ?? ap.player?.batting_profile?.name ?? ap.player?.batting_profile?.style ?? null,
+                    bowling_style: ap.bowling_style ?? ap.player?.bowling_profile?.name ?? ap.player?.bowling_profile?.style ?? null,
+                    total_matches: ap.total_matches ?? ap.player?.total_matches ?? null,
+                    total_runs: ap.total_runs ?? ap.player?.total_runs ?? null,
+                    total_wickets: ap.total_wickets ?? ap.player?.total_wickets ?? null,
                 }));
 
                 // Purse figures come from the server (AuctionPoolService) — no local
@@ -2622,6 +2632,7 @@ function auctionOrganizerPanel() {
 
                 this.canUndo = !!data.can_undo;
                 this.nextUndoLabel = data.next_undo || null;
+                this.nextUndoNotes = data.next_undo_notes || [];
                 this.activePool = data.active_pool || null;
                 // From here on the panel is describing the server, not its own defaults.
                 this.stateLoaded = true;
@@ -3741,7 +3752,13 @@ function auctionOrganizerPanel() {
             if (this.isUndoing) return;
 
             const label = this.nextUndoLabel ? `\n\nWill undo: ${this.nextUndoLabel}` : '';
-            if (! await this.askConfirm(`Undo the last action?${label}`, { title: 'Undo', danger: true })) return;
+            /* What ELSE the click does — the price it falls back to, and a sealed round that
+               goes with it. Worked out server-side from the state as it is now, because the
+               log's own description was written when the action happened and cannot know. */
+            const notes = (this.nextUndoNotes || []).length
+                ? '\n\n' + this.nextUndoNotes.map(n => `\u2022 ${n}`).join('\n')
+                : '';
+            if (! await this.askConfirm(`Undo the last action?${label}${notes}`, { title: 'Undo', danger: true })) return;
 
             this.isUndoing = true;
             try {
