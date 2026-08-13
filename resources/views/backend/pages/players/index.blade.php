@@ -192,21 +192,20 @@
         {{-- Summary Cloud Tags --}}
         @if($players->total() > 0)
             @php
-                $allItems = $players->getCollection();
+                /*
+                 * From the controller, over the WHOLE filtered set.
+                 *
+                 * These were built from `$players->getCollection()` — the current page — while the
+                 * heading beside them used `$players->total()`. So 327 players showed chips adding
+                 * up to the page size of 100, and every number an operator read was wrong.
+                 */
                 $totalShown = $players->total();
-
-                // Player type counts
-                $typeCounts = $allItems->groupBy(fn($p) => $p->playerType?->type ?? 'Unknown')->map->count()->sortDesc();
-                // Wicket keeper count
-                $wkCount = $allItems->where('is_wicket_keeper', true)->count();
-                // Batting profile counts
-                $batCounts = $allItems->groupBy(fn($p) => $p->battingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
-                // Bowling profile counts
-                $bowlCounts = $allItems->groupBy(fn($p) => $p->bowlingProfile?->style)->filter(fn($v, $k) => $k)->map->count()->sortDesc();
-                // Status counts
-                $statusCounts = $allItems->groupBy('status')->map->count();
-                // Transportation required
-                $transportCount = $allItems->where('transportation_required', true)->count();
+                $typeCounts = $tagCounts['types'];
+                $wkCount = $tagCounts['wicket_keeper'];
+                $batCounts = $tagCounts['batting'];
+                $bowlCounts = $tagCounts['bowling'];
+                $statusCounts = $tagCounts['status'];
+                $transportCount = $tagCounts['transport'];
             @endphp
             <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 p-4 mb-6">
                 <div class="flex items-center gap-2 mb-3">

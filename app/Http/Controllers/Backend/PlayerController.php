@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\Notification\TournamentNotificationService;
 use App\Notifications\CustomVerifyEmail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -124,9 +125,29 @@ class PlayerController extends Controller
         $query = $this->filteredPlayerQuery($filters, $user);
         $players = $query;
 
+        /*
+         * The quick-filter counts, over the WHOLE filtered set.
+         *
+         * The view built these from `$players->getCollection()` — the current page — while the
+         * heading beside them used `$players->total()`. So a list of 327 players showed a heading
+         * of 327 above chips that added up to the page size of 100, and every count an operator
+         * read off them was wrong. Computed here because only the query knows the full set;
+         * loading all of it to count in PHP would mean fetching thousands of rows to produce
+         * seven numbers.
+         */
+        $tagCounts = $this->quickFilterCounts(clone $query);
+
         // Branch: verification filter needs post-fetch computation
         if ($filters['verification']) {
             $allPlayers = $this->applyVerificationFilter($query->get(), $filters['verification']);
+
+            /*
+             * Verification is not expressible in SQL — it needs each player's per-tournament field
+             * layout — so with that filter on, the aggregates above counted rows the list is about
+             * to discard. This branch already holds the full filtered collection, so the counts
+             * come from it instead.
+             */
+            $tagCounts = $this->quickFilterCountsFrom($allPlayers);
 
             $page = request()->input('page', 1);
             $perPage = 100;
@@ -195,8 +216,101 @@ class PlayerController extends Controller
             'battingProfiles' => $battingProfiles,
             'bowlingProfiles' => $bowlingProfiles,
             'tournaments' => $tournaments,
+            'tagCounts' => $tagCounts,
             'breadcrumbs' => ['title' => __('Players')],
         ]);
+    }
+
+    /**
+     * The quick-filter tallies, as grouped COUNTs over the filtered query.
+     *
+     * Six aggregates rather than one row per player: this list runs to thousands on a live
+     * tournament, and loading all of it to count six things in PHP is what the page was already
+     * avoiding by paginating.
+     *
+     * Safe to group on because every filter in filteredPlayerQuery() is a where or a whereHas
+     * subquery — no joins — so COUNT(*) counts players, not join rows.
+     *
+     * @return array<string, mixed>
+     */
+    private function quickFilterCounts($query): array
+    {
+        return [
+            /*
+             * LEFT, and null becomes 'Unknown' — the chip for players with no type is a working
+             * filter (`role=Unknown` → whereDoesntHave('playerType')), so dropping those rows
+             * would leave a chip nothing could account for.
+             */
+            'types' => $this->groupedCount($query, 'player_types', 'player_type_id', 'type', 'Unknown'),
+
+            // Inner: a player with no batting or bowling profile belongs under no chip, which is
+            // what the view did when it filtered blank labels out.
+            'batting' => $this->groupedCount($query, 'batting_profiles', 'batting_profile_id', 'style'),
+            'bowling' => $this->groupedCount($query, 'bowling_profiles', 'bowling_profile_id', 'style'),
+
+            'status' => $this->groupedCount($query, null, null, 'status'),
+            'wicket_keeper' => (clone $query)->where('is_wicket_keeper', true)->count(),
+            'transport' => (clone $query)->where('transportation_required', true)->count(),
+        ];
+    }
+
+    /**
+     * One grouping: label => count, biggest first.
+     *
+     * Grouped on the related table's LABEL rather than its id, because the chips are keyed by the
+     * human style — "Right-arm Medium" — which is also what the filter posts back.
+     *
+     * Runs on the base query builder (`toBase()`), not the Eloquent one, so the `with()` eager
+     * loads on the index query are not dragged into an aggregate that selects two columns.
+     *
+     * @return \Illuminate\Support\Collection<string, int>
+     */
+    private function groupedCount($query, ?string $table, ?string $foreignKey, string $column, ?string $nullLabel = null)
+    {
+        $base = (clone $query)->toBase()->reorder();
+
+        if ($table !== null) {
+            $join = $nullLabel !== null ? 'leftJoin' : 'join';
+            $base->{$join}($table, $table . '.id', '=', 'players.' . $foreignKey);
+            $labelColumn = $table . '.' . $column;
+        } else {
+            $labelColumn = 'players.' . $column;
+        }
+
+        $rows = $base->select([
+            DB::raw($labelColumn . ' as label'),
+            DB::raw('COUNT(*) as aggregate'),
+        ])->groupBy($labelColumn)->get();
+
+        return collect($rows)
+            ->mapWithKeys(fn ($row) => [(string) ($row->label ?? $nullLabel ?? '') => (int) $row->aggregate])
+            ->filter(fn ($count, $label) => $label !== '')
+            ->sortDesc();
+    }
+
+    /**
+     * The same tallies from an already-loaded collection.
+     *
+     * Only used by the verification branch, which has the full filtered set in memory and cannot
+     * express its filter in SQL.
+     *
+     * @param  \Illuminate\Support\Collection<int, Player>  $players
+     */
+    private function quickFilterCountsFrom($players): array
+    {
+        $group = fn (callable $key) => $players->groupBy($key)
+            ->filter(fn ($rows, $label) => $label !== '' && $label !== null)
+            ->map->count()
+            ->sortDesc();
+
+        return [
+            'types' => $group(fn ($p) => $p->playerType?->type ?? 'Unknown'),
+            'batting' => $group(fn ($p) => $p->battingProfile?->style ?? ''),
+            'bowling' => $group(fn ($p) => $p->bowlingProfile?->style ?? ''),
+            'status' => $players->groupBy('status')->map->count(),
+            'wicket_keeper' => $players->where('is_wicket_keeper', true)->count(),
+            'transport' => $players->where('transportation_required', true)->count(),
+        ];
     }
 
     /**
