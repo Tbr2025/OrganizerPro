@@ -746,10 +746,12 @@ class AuctionUndoService
             'final_price' => $before['final_price'] ?? null,
         ];
 
-        // A pass moves the player into their pool's unsold holding pool; undoing it has
-        // to put them back where they were, lot number included.
+        // A pass moves the player into the auction's unsold pile; undoing it has to put them
+        // back where they were, lot number included — and clear the origin the move recorded,
+        // which is now a lie about a player who is on the block again.
         if (array_key_exists('auction_pool_id', $before)) {
             $restore['auction_pool_id'] = $before['auction_pool_id'];
+            $restore['source_pool_id'] = null;
             $restore['lot_number'] = $before['lot_number'] ?? null;
         }
 

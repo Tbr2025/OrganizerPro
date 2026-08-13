@@ -388,6 +388,93 @@ class AuctionCardExportProgressTest extends TestCase
     }
 
     #[Test]
+    public function a_pool_export_finds_its_unsold_players_even_though_they_have_been_moved_out(): void
+    {
+        Queue::fake();
+
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+        $team = $this->makeTeam($org, 'Buyers', $tournament);
+
+        $poolOne = $this->makePool($auction, ['name' => 'Pool 1']);
+        $poolTwo = $this->makePool($auction, ['name' => 'Pool 2']);
+
+        $soldFromOne = $this->makeAuctionPlayer($auction, [
+            'auction_pool_id' => $poolOne->id, 'status' => 'sold', 'sold_to_team_id' => $team->id,
+        ]);
+        $unsoldFromOne = $this->makeAuctionPlayer($auction, ['auction_pool_id' => $poolOne->id, 'status' => 'unsold']);
+        $soldFromTwo = $this->makeAuctionPlayer($auction, [
+            'auction_pool_id' => $poolTwo->id, 'status' => 'sold', 'sold_to_team_id' => $team->id,
+        ]);
+
+        // As the auction does it: unsold players leave their pool for the shared pile.
+        app(\App\Services\Auction\AuctionPoolService::class)->moveToUnsoldPool($unsoldFromOne);
+
+        $operator = $this->makeAuctionOperator($org);
+
+        $this->assertSame(
+            [$soldFromOne->id],
+            $this->exportIds($operator, $auction, ['pool_id' => $poolOne->id, 'status' => 'sold'])
+        );
+
+        /*
+         * The one that would have been missed. An unsold player no longer sits in the pool
+         * they came from, so matching on auction_pool_id alone returns every sold player from
+         * Pool 1 and none of its unsold ones — which is exactly the run this exists for.
+         */
+        $this->assertSame(
+            [$unsoldFromOne->id],
+            $this->exportIds($operator, $auction, ['pool_id' => $poolOne->id, 'status' => 'unsold'])
+        );
+
+        $bothFromOne = $this->exportIds($operator, $auction, ['pool_id' => $poolOne->id]);
+        sort($bothFromOne);
+        $this->assertSame([$soldFromOne->id, $unsoldFromOne->id], $bothFromOne);
+        $this->assertNotContains($soldFromTwo->id, $bothFromOne);
+    }
+
+    #[Test]
+    public function a_pool_from_another_auction_is_refused(): void
+    {
+        Queue::fake();
+
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $mine = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+        $theirs = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+        $this->makeAuctionPlayer($mine);
+
+        $theirPool = $this->makePool($theirs, ['name' => 'Not Mine']);
+
+        $this->actingAs($this->makeAuctionOperator($org))
+            ->postJson(route('admin.auctions.cards.export', $mine), ['pool_id' => $theirPool->id])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'That pool is not part of this auction.');
+
+        Queue::assertNothingPushed();
+    }
+
+    #[Test]
+    public function an_empty_pool_run_names_the_pool_rather_than_the_auction(): void
+    {
+        Queue::fake();
+
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id]);
+        $pool = $this->makePool($auction, ['name' => 'Marquee']);
+        $this->makeAuctionPlayer($auction, ['auction_pool_id' => $pool->id, 'status' => 'waiting']);
+
+        // "No players have been sold yet" on a five-pool auction does not tell an operator
+        // which of their five runs came back empty.
+        $this->actingAs($this->makeAuctionOperator($org))
+            ->postJson(route('admin.auctions.cards.export', $auction), ['pool_id' => $pool->id, 'status' => 'sold'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'No players from Marquee have been sold yet.');
+    }
+
+    #[Test]
     public function selecting_players_that_are_not_in_this_auction_says_so_rather_than_exporting_everything(): void
     {
         Queue::fake();

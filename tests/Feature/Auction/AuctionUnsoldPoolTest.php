@@ -12,11 +12,16 @@ use Tests\Concerns\CreatesAuctionScenario;
 use Tests\TestCase;
 
 /**
- * A player nobody bids on is set aside in an unsold holding pool tied to the pool they
- * came from, so final allotment after the auction can be run pool by pool.
+ * A player nobody bids on is set aside in the auction's unsold pile.
  *
- * `is_unsold_pool` existed on auction_pools from the start but was never written or
- * read by anything.
+ * ONE pile for the auction, not one per source pool. The per-pool split read well on paper —
+ * "run allotment pool by pool" — and was wrong in the room: allotment asks which teams are
+ * short of a legal squad and which players are left, and both are properties of the whole
+ * auction. Divided by origin, the screen showed several short lists that had to be recombined
+ * in the operator's head before any of them could be acted on.
+ *
+ * Where a player came from survives on `auction_players.source_pool_id`, because re-auction
+ * needs it to return them somewhere biddable.
  */
 class AuctionUnsoldPoolTest extends TestCase
 {
@@ -30,7 +35,7 @@ class AuctionUnsoldPoolTest extends TestCase
     }
 
     #[Test]
-    public function passing_a_player_moves_them_into_their_pools_unsold_pool(): void
+    public function passing_a_player_moves_them_into_the_auctions_unsold_pile(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org);
@@ -50,8 +55,9 @@ class AuctionUnsoldPoolTest extends TestCase
         $unsoldPool = AuctionPool::where('auction_id', $auction->id)->where('is_unsold_pool', true)->first();
 
         $this->assertNotNull($unsoldPool, 'An unsold holding pool should have been created.');
-        $this->assertSame('Pool A — Unsold', $unsoldPool->name);
-        $this->assertSame($pool->id, $unsoldPool->parent_pool_id);
+        $this->assertSame('Unsold', $unsoldPool->name);
+        // It belongs to the auction, not to any one pool.
+        $this->assertNull($unsoldPool->parent_pool_id);
         // Holding pool, never a bidding round.
         $this->assertFalse($unsoldPool->isEnabled());
 
@@ -59,10 +65,12 @@ class AuctionUnsoldPoolTest extends TestCase
         $this->assertSame('unsold', $ap->status);
         $this->assertSame($unsoldPool->id, $ap->auction_pool_id);
         $this->assertNull($ap->lot_number);
+        // Where they came from moves onto the player, since the shared pile cannot say.
+        $this->assertSame($pool->id, $ap->source_pool_id);
     }
 
     #[Test]
-    public function each_pool_gets_its_own_unsold_pool(): void
+    public function every_pool_feeds_the_same_unsold_pile(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org);
@@ -80,10 +88,13 @@ class AuctionUnsoldPoolTest extends TestCase
 
         $unsold = AuctionPool::where('auction_id', $auction->id)->where('is_unsold_pool', true)->get();
 
-        $this->assertCount(2, $unsold);
+        $this->assertCount(1, $unsold, 'One pile for the auction, whichever pool they came from.');
+        $this->assertNull($unsold->first()->parent_pool_id);
+
+        // Both are in it, and each still knows where it came from.
         $this->assertEqualsCanonicalizing(
             [$poolA->id, $poolB->id],
-            $unsold->pluck('parent_pool_id')->all()
+            $auction->auctionPlayers()->pluck('source_pool_id')->all()
         );
     }
 
@@ -223,7 +234,7 @@ class AuctionUnsoldPoolTest extends TestCase
     }
 
     #[Test]
-    public function unsold_pools_are_listed_for_allotment_with_their_source_pool(): void
+    public function the_unsold_pile_is_listed_for_allotment_with_a_count(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org);
@@ -238,7 +249,9 @@ class AuctionUnsoldPoolTest extends TestCase
         $pools = app(AuctionPoolService::class)->unsoldPools($auction);
 
         $this->assertCount(1, $pools);
-        $this->assertSame('Marquee', $pools->first()->parentPool->name);
+        $this->assertSame('Unsold', $pools->first()->name);
         $this->assertSame(1, (int) $pools->first()->unsold_count);
+        // The origin is a property of the player now, not of the pile they are sitting in.
+        $this->assertSame('Marquee', $ap->fresh()->sourcePool->name);
     }
 }

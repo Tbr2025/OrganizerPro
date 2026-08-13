@@ -151,6 +151,14 @@
                                 <p class="text-[11px] text-gray-500">
                                     {{ $ap->player?->playerType?->name ?? 'Player' }}
                                     · base {{ format_points($ap->base_price) }}
+                                    {{-- Which pool they went unsold from. Unsold players now share
+                                         one pile for the whole auction, because allotment is a
+                                         question about the whole auction — but the origin is still
+                                         worth knowing when deciding who goes where, so it rides on
+                                         the player rather than organising the screen. --}}
+                                    @if($ap->sourcePool)
+                                        · from {{ $ap->sourcePool->name }}
+                                    @endif
                                     @if($ap->status === 'skipped')
                                         · <span class="text-amber-600">skipped</span>
                                     @endif

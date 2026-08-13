@@ -324,6 +324,54 @@
                                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
                                 <span x-text="`Remove ${selectedInPool({{ $pool->id }}).length} from pool`"></span>
                             </button>
+
+                            @if($posterTemplates->isNotEmpty())
+                                {{-- Posters for this pool, sold and unsold as separate runs.
+                                     Separate because they are separate jobs: a sold poster is
+                                     an announcement and an unsold one is a list for allotment,
+                                     and each usually wants its own design. The server matches
+                                     on where a player came FROM as well as where they are now,
+                                     since an unsold player has already been moved out of this
+                                     pool into the auction's shared unsold pile. --}}
+                                <div x-data="{ open: false, status: 'sold' }" class="relative ml-auto">
+                                    <button type="button" @click="open = !open"
+                                            class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600">
+                                        Posters
+                                    </button>
+                                    <div x-show="open" x-cloak @click.outside="open = false"
+                                         class="absolute right-0 z-40 mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
+                                        <div class="flex border-b border-gray-100 dark:border-gray-800">
+                                            <button type="button" @click="status = 'sold'"
+                                                    class="flex-1 px-3 py-2 text-[11px] font-bold uppercase tracking-wide"
+                                                    :class="status === 'sold' ? 'bg-emerald-500 text-white' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'">
+                                                Sold
+                                            </button>
+                                            <button type="button" @click="status = 'unsold'"
+                                                    class="flex-1 px-3 py-2 text-[11px] font-bold uppercase tracking-wide"
+                                                    :class="status === 'unsold' ? 'bg-red-500 text-white' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'">
+                                                Unsold
+                                            </button>
+                                            <button type="button" @click="status = 'all'"
+                                                    class="flex-1 px-3 py-2 text-[11px] font-bold uppercase tracking-wide"
+                                                    :class="status === 'all' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'">
+                                                All
+                                            </button>
+                                        </div>
+                                        @foreach($posterTemplates as $posterTemplate)
+                                            <button type="button"
+                                                    @click="open = false; Alpine.store('cardExport').start(
+                                                        {{ $auction->id }}, null, true, {{ $posterTemplate->id }}, status, {{ $pool->id }})"
+                                                    class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">
+                                                <span class="font-semibold block truncate text-gray-900 dark:text-white">{{ $posterTemplate->name }}</span>
+                                                <span class="text-gray-400">
+                                                    {{ $posterTemplate->type === \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT ? 'Vertical' : 'Horizontal' }}
+                                                    &middot; {{ $posterTemplate->canvas_width }}&times;{{ $posterTemplate->canvas_height }}
+                                                </span>
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             @foreach($players as $ap)

@@ -6,11 +6,12 @@
 
      Usage from any component on the page:
 
-         $store.cardExport.start({{ $auction->id }}, playerIds, withResult, templateId, status)
+         $store.cardExport.start({{ $auction->id }}, playerIds, withResult, templateId, status, poolId)
 
      Pass `null` for playerIds to export every player in the auction, `null` for templateId to
      render the LED wall's card rather than an auction poster design, and 'all' | 'sold' |
-     'unsold' for status. --}}
+     'unsold' for status, and a pool id to narrow to one pool (matched on where a player came
+     from as well as where they are now, since unsold players have been moved out of it). --}}
 
 <div x-data x-show="$store.cardExport.open" x-cloak
      class="fixed inset-0 z-[70] flex items-center justify-center p-4"
@@ -128,7 +129,7 @@
              * screen — the first keeps rendering on the server, it simply stops being the one
              * being watched.
              */
-            async start(auctionId, players, withResult, templateId = null, status = 'all') {
+            async start(auctionId, players, withResult, templateId = null, status = 'all', poolId = null) {
                 this._stopPolling();
 
                 this.open = true;
@@ -156,6 +157,7 @@
                             result: withResult ? 1 : 0,
                             template_id: templateId || 0,
                             status: status || 'all',
+                            pool_id: poolId || 0,
                         }),
                     });
 

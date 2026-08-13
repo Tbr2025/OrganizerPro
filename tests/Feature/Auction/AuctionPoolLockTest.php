@@ -216,7 +216,7 @@ class AuctionPoolLockTest extends TestCase
         $operator = $this->makeAuctionOperator($org);
 
         $pool = $this->makePool($auction);
-        $this->makeAuctionPlayer($auction, ['auction_pool_id' => $pool->id, 'lot_number' => 1]);
+        $ap = $this->makeAuctionPlayer($auction, ['auction_pool_id' => $pool->id, 'lot_number' => 1]);
 
         foreach ([1, 2, 3] as $expected) {
             $this->actingAs($operator)
@@ -227,6 +227,20 @@ class AuctionPoolLockTest extends TestCase
             $this->actingAs($operator)
                 ->postJson(route('admin.auction.organizer.api.pool.complete', [$auction, $pool]))
                 ->assertOk();
+
+            /*
+             * Closing the pool sets its uncalled players aside as unsold, which is what the
+             * confirm dialog has always promised and what used to silently not happen. So a
+             * pool cannot simply be re-activated on the same players — they have to come back
+             * first, which is what a re-auction round does. Put the player back by hand here,
+             * because this test is about `times_used` and not about re-auction.
+             */
+            $ap->fresh()->update([
+                'status' => 'waiting',
+                'auction_pool_id' => $pool->id,
+                'source_pool_id' => null,
+                'lot_number' => 1,
+            ]);
         }
     }
 

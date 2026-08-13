@@ -123,9 +123,27 @@ class AuctionPoolController extends Controller
                 });
         }
 
+        /*
+         * The poster designs this auction can be exported onto, if any exist.
+         *
+         * Empty is the normal state and the screen says nothing when it is — an operator who
+         * has never opened the designer should not be shown a menu with nothing in it.
+         */
+        $posterTemplates = $auction->tournament_id
+            ? \App\Models\TournamentTemplate::where('tournament_id', $auction->tournament_id)
+                ->whereIn('type', [
+                    \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER,
+                    \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT,
+                ])
+                ->orderByDesc('is_default')
+                ->orderBy('name')
+                ->get()
+            : collect();
+
         return view('backend.pages.auctions.pools.index', [
             'auction' => $auction,
             'pools' => $auction->pools,
+            'posterTemplates' => $posterTemplates,
             'available' => $available,
             'orderModes' => self::ORDER_MODES,
             'isAuctionType' => $isAuctionType,

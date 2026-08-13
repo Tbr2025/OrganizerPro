@@ -1809,12 +1809,30 @@ class AuctionOrganizerController extends Controller
             $poolsToRedraw = [];
             foreach ($resetPlayers as $player) {
                 $pool = $player->pool;
-                if (! $pool?->isUnsoldPool() || ! $pool->parent_pool_id) {
+                if (! $pool?->isUnsoldPool()) {
                     continue;
                 }
 
-                $player->update(['auction_pool_id' => $pool->parent_pool_id, 'lot_number' => null]);
-                $poolsToRedraw[$pool->parent_pool_id] = true;
+                /*
+                 * The player's own recorded origin first, the holding pool's parent second.
+                 *
+                 * Unsold players now share one pile per auction, which has no parent — reading
+                 * only the parent would have skipped every one of them and left them waiting
+                 * inside a pool the auction never serves. The fallback covers a player set
+                 * aside before source_pool_id existed and never backfilled.
+                 */
+                $target = $player->source_pool_id ?: $pool->parent_pool_id;
+
+                if (! $target) {
+                    continue;
+                }
+
+                $player->update([
+                    'auction_pool_id' => $target,
+                    'source_pool_id' => null,
+                    'lot_number' => null,
+                ]);
+                $poolsToRedraw[$target] = true;
                 $repooled++;
             }
 

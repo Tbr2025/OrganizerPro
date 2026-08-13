@@ -201,7 +201,26 @@ class AuctionPoolService
             return ['success' => false, 'message' => 'That pool belongs to a different auction.'];
         }
 
-        $remaining = $pool->waitingPlayers()->count();
+        /*
+         * Closing early actually SETS THE REST ASIDE, rather than only saying so.
+         *
+         * The confirm dialog has always told the operator that "N player(s) still in it will be
+         * left unsold" — and nothing carried that out. The pool was stamped completed and its
+         * players were left sitting at status `waiting` inside it: not auctioned, not unsold,
+         * absent from final allotment (which looks for unsold players in the unsold pile), and
+         * unreachable from the panel because the pool they are in is closed. Ninety-five
+         * players could disappear from the auction on one click that promised the opposite.
+         *
+         * They go where a player nobody bid on goes, because that is what happened to them —
+         * the pool closed without their lot being called. Re-auction brings them back, using
+         * the source pool recorded on each, exactly as it does for a player who was passed.
+         */
+        $remaining = $pool->waitingPlayers()->get();
+
+        foreach ($remaining as $auctionPlayer) {
+            $auctionPlayer->update(['status' => 'unsold']);
+            $this->moveToUnsoldPool($auctionPlayer);
+        }
 
         $pool->update([
             'status' => AuctionPool::STATUS_COMPLETED,
@@ -212,9 +231,14 @@ class AuctionPoolService
 
         return [
             'success' => true,
-            'message' => $remaining > 0
-                ? sprintf('%s closed with %d player(s) still unsold in it.', $pool->name, $remaining)
+            'message' => $remaining->isNotEmpty()
+                ? sprintf(
+                    '%s closed. %d player(s) moved to the unsold list for final allotment.',
+                    $pool->name,
+                    $remaining->count()
+                )
                 : sprintf('%s complete.', $pool->name),
+            'unsold_count' => $remaining->count(),
             'next_pool' => $next ? ['id' => $next->id, 'name' => $next->name] : null,
         ];
     }
@@ -302,40 +326,62 @@ class AuctionPoolService
     }
 
     /**
-     * The companion pool that collects players a given pool failed to sell, created on
-     * first use.
+     * The auction's single unsold pool, created on first use.
      *
-     * Unsold players are held per source pool rather than in one undifferentiated pile,
-     * so final allotment after the auction can be run pool by pool.
+     * ONE pile for the whole auction, not one per source pool.
+     *
+     * Splitting them per source read well on paper — "run allotment pool by pool" — and was
+     * wrong in the room. Allotment is not a per-pool exercise: it asks which teams are short
+     * of a legal squad and which players are left, and both of those are properties of the
+     * whole auction. Divided by origin, the screen showed four short lists that had to be
+     * mentally recombined before any of them could be acted on, a team's remaining slots had
+     * to be tracked across all four, and a player's pool of origin — which stopped mattering
+     * the moment nobody bid on them — decided which list they appeared in.
+     *
+     * Nothing is lost by merging: a player's origin now rides on `auction_players.source_pool_id`,
+     * so re-auction can still return them somewhere biddable and the list can still say where
+     * they came from. It is simply no longer the thing that organises the screen.
      */
-    public function unsoldPoolFor(AuctionPool $pool): AuctionPool
+    public function unsoldPoolFor(AuctionPool|Auction $poolOrAuction): AuctionPool
     {
         // An unsold pool collects for itself — a re-auctioned player who goes unsold
         // again stays where they are rather than nesting another level.
-        if ($pool->isUnsoldPool()) {
-            return $pool;
+        if ($poolOrAuction instanceof AuctionPool && $poolOrAuction->isUnsoldPool()) {
+            return $poolOrAuction;
         }
 
-        $existing = AuctionPool::where('auction_id', $pool->auction_id)
-            ->where('parent_pool_id', $pool->id)
+        $auctionId = $poolOrAuction instanceof AuctionPool
+            ? $poolOrAuction->auction_id
+            : $poolOrAuction->id;
+
+        /*
+         * Oldest first, so an auction carrying per-pool unsold pools from before this change
+         * keeps using the one it already has rather than opening a second alongside them. The
+         * migration merges the rest into it.
+         */
+        $existing = AuctionPool::where('auction_id', $auctionId)
             ->where('is_unsold_pool', true)
+            ->orderBy('id')
             ->first();
 
         if ($existing) {
             return $existing;
         }
 
+        $organizationId = $poolOrAuction instanceof AuctionPool
+            ? $poolOrAuction->organization_id
+            : $poolOrAuction->organization_id;
+
         return AuctionPool::create([
-            'auction_id' => $pool->auction_id,
-            'organization_id' => $pool->organization_id,
-            'name' => $pool->name . ' — Unsold',
-            'category' => $pool->category,
-            'base_price' => $pool->base_price,
+            'auction_id' => $auctionId,
+            'organization_id' => $organizationId,
+            'name' => 'Unsold',
             'order_mode' => AuctionPool::MODE_SEQUENTIAL,
             // Sits after every biddable pool so it never gets picked up as "next".
-            'sequence' => (int) AuctionPool::where('auction_id', $pool->auction_id)->max('sequence') + 1,
+            'sequence' => (int) AuctionPool::where('auction_id', $auctionId)->max('sequence') + 1,
             'is_unsold_pool' => true,
-            'parent_pool_id' => $pool->id,
+            // No parent: it belongs to the auction, not to any one pool.
+            'parent_pool_id' => null,
             // Holding pool: never started as a bidding round.
             'is_enabled' => false,
             'status' => AuctionPool::STATUS_PENDING,
@@ -359,6 +405,14 @@ class AuctionPoolService
 
         $auctionPlayer->update([
             'auction_pool_id' => $unsoldPool->id,
+            /*
+             * Where they came from, kept on the player.
+             *
+             * The pile is shared by the whole auction now, so it cannot answer this itself —
+             * and re-auction needs the answer to put them back somewhere biddable rather than
+             * leaving them in a pool the auction never serves.
+             */
+            'source_pool_id' => $sourcePool->id,
             // The draw is over for this player; a re-auction round redraws.
             'lot_number' => null,
         ]);
@@ -383,7 +437,13 @@ class AuctionPoolService
     }
 
     /**
-     * Players waiting to be allotted, grouped by the pool they went unsold from.
+     * Players waiting to be allotted.
+     *
+     * Kept as a collection of groups because the allotment screen renders it that way, but
+     * there is now one group: unsold players go to a single pool for the whole auction rather
+     * than one per source pool (see unsoldPoolFor). An auction that still has several from
+     * before that change is handled honestly — each is listed — and the migration collapses
+     * them, so in practice this is one list of everyone still unplaced.
      *
      * @return \Illuminate\Support\Collection<int, array<string, mixed>>
      */
@@ -393,7 +453,7 @@ class AuctionPoolService
             ->map(function (AuctionPool $pool) {
                 $players = $pool->players()
                     ->whereIn('status', ['unsold', 'skipped'])
-                    ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
+                    ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile', 'sourcePool:id,name'])
                     ->orderBy('id')
                     ->get();
 

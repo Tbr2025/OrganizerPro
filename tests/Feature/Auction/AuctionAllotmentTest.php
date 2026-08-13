@@ -22,7 +22,7 @@ class AuctionAllotmentTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function the_screen_lists_unsold_players_grouped_by_their_source_pool(): void
+    public function the_screen_lists_every_unsold_player_in_one_list(): void
     {
         $org = $this->makeOrganization();
         $tournament = $this->makeTournament($org);
@@ -45,9 +45,13 @@ class AuctionAllotmentTest extends TestCase
             ->get(route('admin.auctions.allotment', $auction))
             ->assertOk()
             ->assertSee('Final Allotment')
-            // Grouped under the pool they went unsold from, not the holding pool's name.
-            ->assertSee('Marquee')
-            ->assertSee('Unsold Ravi');
+            // One list for the auction — allotment asks which teams are short and who is left,
+            // and both are questions about the whole auction, not about one pool.
+            ->assertSee('Unsold')
+            ->assertSee('Unsold Ravi')
+            // The pool they came from is still shown, as a label on the player rather than as
+            // the thing the screen is divided by.
+            ->assertSee('from Marquee');
     }
 
     #[Test]

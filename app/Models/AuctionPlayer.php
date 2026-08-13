@@ -10,7 +10,7 @@ class AuctionPlayer extends Model
 {
     use HasFactory;
     use BelongsToOrganization;
-    protected $fillable = ['auction_id', 'auction_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'is_retained', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price', 'closed_bid_round_id'];
+    protected $fillable = ['auction_id', 'auction_pool_id', 'source_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'is_retained', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price', 'closed_bid_round_id'];
     // retained_price/base_price/starting_price were left uncast and came back as raw
     // strings, unlike the two money columns beside them.
     protected $casts = ['current_price' => 'decimal:2', 'final_price' => 'decimal:2', 'base_price' => 'decimal:2', 'starting_price' => 'decimal:2', 'retained_price' => 'decimal:2', 'lot_number' => 'integer', 'is_retained' => 'boolean'];
@@ -37,6 +37,18 @@ class AuctionPlayer extends Model
     public function pool()
     {
         return $this->belongsTo(AuctionPool::class, 'auction_pool_id');
+    }
+
+    /**
+     * The pool this player was in when nobody bid on them.
+     *
+     * Unsold players share one pile per auction, so `pool` answers "where are they now" and
+     * this answers "where did they come from" — which is what re-auction needs to put them
+     * back somewhere biddable. Null for anyone who has never gone unsold.
+     */
+    public function sourcePool()
+    {
+        return $this->belongsTo(AuctionPool::class, 'source_pool_id');
     }
 
     /** Order players by their pool sequence then lot number (nulls last). */

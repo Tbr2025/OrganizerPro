@@ -2304,6 +2304,23 @@ class AuctionAdminController extends Controller
             ? $request->input('status')
             : 'all';
 
+        /*
+         * One pool, when the operator picked one.
+         *
+         * Scoped through THIS auction so an id from another auction selects nothing rather
+         * than exporting somebody else's players. Composes with $status, which is the whole
+         * point: "the sold players from Pool 1" is a poster run people actually want, and
+         * neither filter alone expresses it.
+         */
+        $poolId = (int) $request->input('pool_id');
+        $pool = $poolId > 0
+            ? AuctionPool::where('auction_id', $auction->id)->find($poolId)
+            : null;
+
+        if ($poolId > 0 && ! $pool) {
+            return response()->json(['message' => 'That pool is not part of this auction.'], 422);
+        }
+
         $ids = $auction->auctionPlayers()
             ->whereHas('player')
             ->when($only !== [], fn ($q) => $q->whereIn('player_id', $only))
@@ -2318,6 +2335,17 @@ class AuctionAdminController extends Controller
             ->when($status === 'unsold', fn ($q) => $q
                 ->whereNull('sold_to_team_id')
                 ->whereIn('status', ['unsold', 'passed', 'skipped']))
+            /*
+             * Matched on where a player came FROM as well as where they are now.
+             *
+             * A sold player still sits in the pool they were bought out of, but an unsold one
+             * has been moved to the auction's shared unsold pile — so filtering on
+             * auction_pool_id alone would return every sold player from Pool 1 and none of its
+             * unsold ones, which is exactly the run this feature exists for.
+             */
+            ->when($pool, fn ($q) => $q->where(fn ($w) => $w
+                ->where('auction_pool_id', $pool->id)
+                ->orWhere('source_pool_id', $pool->id)))
             ->orderByRaw('COALESCE(lot_number, 999999)')
             ->orderBy('id')
             ->pluck('id')
@@ -2328,6 +2356,9 @@ class AuctionAdminController extends Controller
             // reads as a broken export rather than as an empty filter.
             return response()->json([
                 'message' => match (true) {
+                    $pool && $status === 'sold' => sprintf('No players from %s have been sold yet.', $pool->name),
+                    $pool && $status === 'unsold' => sprintf('No players from %s have gone unsold.', $pool->name),
+                    (bool) $pool => sprintf('%s has no players to render.', $pool->name),
                     $status === 'sold' => 'No players have been sold yet, so there are no sold posters to render.',
                     $status === 'unsold' => 'No players have gone unsold, so there are no unsold posters to render.',
                     $only !== [] => 'None of the selected players are in this auction.',
@@ -2397,8 +2428,9 @@ class AuctionAdminController extends Controller
              * and the second silently becomes "(1)".
              */
             'filename' => sprintf(
-                'auction-%d-%s%s.zip',
+                'auction-%d-%s%s%s.zip',
                 $auction->id,
+                $pool ? \Illuminate\Support\Str::slug($pool->name) . '-' : '',
                 $status === 'all' ? 'all' : $status,
                 $template ? '-posters' : '-cards'
             ),
