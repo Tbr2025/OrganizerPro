@@ -434,6 +434,14 @@ class AuctionOrganizerController extends Controller
             'bid_increment' => $bidState['increment'] ?? null,
             'next_bid_amount' => $bidState['next_bid_amount'] ?? null,
             'max_bid_reached' => $bidState['max_reached'] ?? false,
+            /*
+             * Where open bidding stops, when a sealed threshold still applies to this player.
+             *
+             * Sent so the panel can refuse a click at the ceiling on the spot. Without it the
+             * chip posted, waited for the round trip and came back refused — which from the
+             * operator's chair is a chip that does nothing.
+             */
+            'open_bid_ceiling' => $bidState['open_bid_ceiling'] ?? null,
             // Undo stack state for the panel's UNDO button.
             'can_undo' => $nextUndo !== null,
             'next_undo' => $nextUndo?->description,

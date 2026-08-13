@@ -2372,6 +2372,9 @@ function auctionOrganizerPanel() {
 
         // Increment ladder, resolved server-side.
         nextBidAmount: null,
+        // The sealed threshold, while it still applies to this player — see the server's
+        // BidIncrementService::openBidCeilingFor().
+        openBidCeiling: null,
         bidIncrement: null,
         maxBidReached: false,
         quickBidSteps: [],
@@ -2802,6 +2805,8 @@ function auctionOrganizerPanel() {
                 if (data.min_squad_size) this.minSquadSize = data.min_squad_size;
                 if (data.min_price_per_player !== undefined) this.minPricePerPlayer = Number(data.min_price_per_player);
                 this.nextBidAmount = data.next_bid_amount ?? null;
+                // Where open bidding stops, when a sealed threshold is still in force.
+                this.openBidCeiling = data.open_bid_ceiling ?? null;
                 this.bidIncrement = data.bid_increment ?? null;
                 this.maxBidReached = !!data.max_bid_reached;
 
@@ -4120,6 +4125,16 @@ function auctionOrganizerPanel() {
             if (! team) return null;
 
             if (team.squad_full) return `${team.name}'s squad is full.`;
+
+            /*
+             * At the sealed threshold there is no further open bid, so the click had nothing to
+             * do — but it still posted, waited for the round trip and came back refused, which
+             * from the operator's chair is a chip that does nothing. The server sends the
+             * ceiling with the rest of the bid state, so the answer is already here.
+             */
+            if (! this.nextBidAmount && this.openBidCeiling) {
+                return `Open bidding stops at ${this.formatCurrency(this.openBidCeiling)}. Move to a sealed bid, sell to the leading team, or keep open bidding.`;
+            }
 
             if (team.excluded) return team.exclusion_reason || `${team.name} cannot bid on this player.`;
 
