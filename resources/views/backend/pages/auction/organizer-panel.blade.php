@@ -1676,7 +1676,10 @@
                      falls back to wiping the whole auction when it is not pool-locked.
                      Re-running one pool used to mean resetting every pool, so a finished
                      pool could not be redone without throwing away the ones after it. --}}
-                <button @click="activePool ? restartActivePool() : restartAuction()"
+                {{-- An ended auction gets the pool chooser; a running one keeps the controls it
+                     has always had. Restarting everything is one option among several rather
+                     than the only way back. --}}
+                <button @click="auctionStatus === 'completed' ? restartAfterEnd() : (activePool ? restartActivePool() : restartAuction())"
                         x-show="auctionStatus === 'completed' || auctionStatus === 'running' || auctionStatus === 'paused'"
                         :title="activePool ? ('Restart ' + activePool.name + ' — its players go back on the block') : 'Restart the whole auction'"
                         class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs font-semibold transition">Restart</button>
@@ -3970,6 +3973,91 @@ function auctionOrganizerPanel() {
             if (result) {
                 this.auctionStatus = 'completed';
             }
+        },
+
+        /**
+         * Restart, once the auction has ended.
+         *
+         * Ending it used to leave exactly one way back: `restartAuction`, which resets every
+         * player and every bid in the whole auction. That is almost never what a finished
+         * auction needs — the usual reason to come back is one pool that wants running again,
+         * or a pool that was closed early and should now be revisited. Nuking three finished
+         * pools to redo the fourth is not a recovery, it is a second auction.
+         *
+         * So: pick the pool. The whole-auction reset is still here, last and marked as such,
+         * because sometimes that genuinely is the answer.
+         */
+        async restartAfterEnd() {
+            // `pools` in the poll payload is already biddable()-scoped, so the unsold pile is
+            // not in it — there is nothing to filter out here, and pretending otherwise would
+            // suggest the payload carries a flag it does not.
+            const pools = this.pools || [];
+
+            if (! pools.length) {
+                // Nothing to choose between — the old behaviour is the only behaviour.
+                return this.restartAuction();
+            }
+
+            const choices = [
+                ...pools.map(p => ({
+                    value: `pool:${p.id}`,
+                    label: `Run ${p.name} again`,
+                    hint: `${p.sold ?? 0} sold of ${p.total ?? 0} — its sales are undone and the teams get their purse back.`,
+                    class: 'bg-indigo-600 hover:bg-indigo-700',
+                })),
+                {
+                    value: 'all',
+                    label: 'Reset the entire auction',
+                    hint: 'Every player and every bid in every pool. There is no undo for this.',
+                    class: 'bg-red-600 hover:bg-red-700',
+                },
+            ];
+
+            const answer = await this.askConfirm(
+                'The auction has ended. What should be restarted?',
+                { title: 'Restart', danger: true, choices }
+            );
+
+            if (! answer) return;
+
+            if (answer === 'all') {
+                return this.restartAuction();
+            }
+
+            const poolId = Number(String(answer).split(':')[1]);
+
+            if (! poolId) return;
+
+            /*
+             * No resume first: restartPool already accepts a `completed` auction and sets it
+             * running itself, and it activates the pool in the same transaction. Doing either
+             * here as well would be a second opinion about state the server has just settled.
+             */
+            const result = await this.sendCommand(`pools/${poolId}/restart`);
+
+            if (! result?.success) return;
+
+            /*
+             * The same clean-up the whole-auction restart does. What the panel is holding
+             * belongs to the run just wiped, and a stale pointer makes the next poll stamp
+             * UNSOLD over a player who has simply gone back into the queue.
+             */
+            this.auctionStatus = 'running';
+            this.displayState = 'waiting';
+            this.currentPlayer = null;
+            this.stopBiddingTimer();
+            this._lastCurrentPlayerId = null;
+            this._lastKnownBid = 0;
+            this.lastSoldPlayer = null;
+            this.currentBid = 0;
+            this.winningTeamName = 'No Bids';
+            this.sealedBids = [];
+            this.sealed = { active: false };
+
+            this.statusText = result.message;
+            this.toast(result.message, 'success', 'Pool restarted');
+
+            await this.pollAuctionState();
         },
 
         async restartAuction() {
