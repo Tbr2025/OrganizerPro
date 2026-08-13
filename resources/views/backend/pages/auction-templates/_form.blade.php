@@ -1,5 +1,8 @@
 @php
     $isEdit = isset($template);
+    // Defaults handed in on the create URL, so a link from the tournament's Templates page can
+    // land on the right type for the right auction instead of on a blank form.
+    $prefill = $prefill ?? [];
     $positions = $isEdit ? ($template->element_positions ?? []) : $defaultPositions;
     $cw = old('canvas_width', $template->canvas_width ?? 1601);
     $ch = old('canvas_height', $template->canvas_height ?? 910);
@@ -23,7 +26,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template Type *</label>
-                    @php $currentType = old('type', $template->type ?? \App\Models\AuctionTemplate::TYPE_LIVE_DISPLAY); @endphp
+                    @php $currentType = old('type', $template->type ?? $prefill['type'] ?? \App\Models\AuctionTemplate::TYPE_LIVE_DISPLAY); @endphp
                     <select name="type" id="template-type" class="form-control"
                             onchange="onTemplateTypeChange(this.value)">
                         @foreach(\App\Models\AuctionTemplate::types() as $value => $label)
@@ -61,7 +64,7 @@
                     <select name="auction_id" class="form-control">
                         <option value="">-- Global Template --</option>
                         @foreach($auctions as $id => $name)
-                            <option value="{{ $id }}" {{ old('auction_id', $template->auction_id ?? '') == $id ? 'selected' : '' }}>{{ $name }}</option>
+                            <option value="{{ $id }}" {{ (string) old('auction_id', $template->auction_id ?? $prefill['auction_id'] ?? '') === (string) $id ? 'selected' : '' }}>{{ $name }}</option>
                         @endforeach
                     </select>
                 </div>

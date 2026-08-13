@@ -271,9 +271,22 @@ class ClosedBidService
                 'binding_ceiling' => $this->cap($purse['sealed_max_bid']),
             ];
 
-            // Only once revealed does an amount appear — including to the organizer.
+            /*
+             * The organizer may see an amount before the reveal — the panel decides whether to.
+             *
+             * This withheld it outright, on the reasoning that the panel is routinely on a
+             * projector. That is a real concern and it is why the panel keeps these masked by
+             * default — but it is a question of what to PAINT, not of what the person running the
+             * auction is allowed to know. Withholding it from the payload meant the organizer had
+             * no way to check a bid a team had queried, or to see that an amount they entered on
+             * a team's behalf had landed.
+             *
+             * `is_tied` still waits for the reveal, because a tie is a fact about the whole board
+             * rather than one entry, and it is not decided until every bid is in.
+             */
+            $row['amount'] = $entry->amount !== null ? (float) $entry->amount : null;
+
             if ($revealed) {
-                $row['amount'] = $entry->amount !== null ? (float) $entry->amount : null;
                 $row['is_tied'] = $entry->isStanding() && $top !== null && (float) $entry->amount === $top;
             }
 

@@ -111,7 +111,7 @@ class ClosedBidSealingTest extends TestCase
     }
 
     #[Test]
-    public function the_organizer_board_hides_amounts_until_the_round_is_revealed(): void
+    public function the_organizer_may_read_an_amount_but_the_public_never_can(): void
     {
         ['org' => $org, 'auction' => $auction, 'teamA' => $teamA, 'teamB' => $teamB, 'round' => $round] = $this->scenario();
 
@@ -120,15 +120,24 @@ class ClosedBidSealingTest extends TestCase
 
         $operator = $this->makeAuctionOperator($org);
 
-        // The panel is routinely on a projector, so "the organizer can see it" is not
-        // the same as "only the organizer can see it".
+        /*
+         * The organizer's own payload carries the amount before the reveal; the PANEL masks it by
+         * default behind a Show amounts switch. That is a question of what to paint — the panel is
+         * routinely on a projector — rather than of what the person running the auction may know.
+         * Withholding it entirely left an organizer unable to check a bid a team had queried, or
+         * to confirm that an amount they had entered on a team's behalf actually landed.
+         */
         $before = $this->actingAs($operator)
             ->getJson(route('admin.auction.organizer.api.closed-bid.state', $auction))
             ->assertOk()
             ->assertJsonPath('closed_bid.revealed', false)
             ->assertJsonPath('closed_bid.counts.submitted', 1);
 
-        $this->assertStringNotContainsString('9500000', $before->getContent());
+        $this->assertStringContainsString('9500000', $before->getContent());
+
+        // The PUBLIC feed is the line that must not move: counts only, never an amount.
+        $public = $this->getJson("/auction/{$auction->id}/active-player")->assertOk();
+        $this->assertStringNotContainsString('9500000', $public->getContent());
 
         $this->actingAs($operator)
             ->postJson(route('admin.auction.organizer.api.closed-bid.lock', $auction))

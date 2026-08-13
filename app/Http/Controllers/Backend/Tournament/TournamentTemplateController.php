@@ -74,10 +74,50 @@ class TournamentTemplateController extends Controller
 
         $templateTypes = TournamentTemplate::TYPES;
 
+        /*
+         * The auction screens live in their own table and their own designer.
+         *
+         * `AuctionTemplate` is scoped to an auction (or to an organization, or global) rather
+         * than to a tournament, so it cannot simply become another TournamentTemplate::TYPES
+         * entry — the two have different owners, different canvases and different editors.
+         * What was missing is that nothing on the tournament's own Templates page said the
+         * auction screens existed, so an organizer looking here for the bidding poster found
+         * eight poster types and no auction among them.
+         *
+         * So: surface them from here, per type, linking into the designer that already owns
+         * them. Only for auction tournaments — an open tournament has no wall to design.
+         */
+        $auctionTemplates = null;
+        $auction = null;
+
+        if ($tournament->isAuction()) {
+            $auction = \App\Models\Auction::where('tournament_id', $tournament->id)
+                ->orderByDesc('id')
+                ->first();
+
+            $auctionTemplates = \App\Models\AuctionTemplate::query()
+                ->visibleTo(auth()->user())
+                // This tournament's own, plus the shared ones it falls back to — which is
+                // exactly the set the LED wall resolves from, so the page cannot claim a
+                // screen is undesigned when the wall would find a template for it.
+                ->where(function ($q) use ($auction) {
+                    $q->whereNull('auction_id');
+
+                    if ($auction) {
+                        $q->orWhere('auction_id', $auction->id);
+                    }
+                })
+                ->orderByDesc('is_default')
+                ->get()
+                ->groupBy('type');
+        }
+
         return view('backend.pages.tournaments.templates.index', compact(
             'tournament',
             'templates',
-            'templateTypes'
+            'templateTypes',
+            'auction',
+            'auctionTemplates'
         ));
     }
 

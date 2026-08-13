@@ -528,14 +528,19 @@
                                                         title="Record the typed amount">Set</button>
                                             </div>
                                         </template>
-                                        {{-- What the organizer needs from a round the teams are running:
-                                             is this team's bid in, or are we still waiting. The amount
-                                             itself stays hidden until the reveal — this panel is
-                                             routinely on a projector. --}}
+                                        {{-- Whether the bid is in, and — if the organizer asks — what it is.
+                                             Masked by default because this panel is routinely on a
+                                             projector, which is a question of what to PAINT rather than
+                                             of what the person running the auction may know. Without any
+                                             way to look, an organizer could not check a bid a team had
+                                             queried, or confirm that an amount they entered on a team's
+                                             behalf had actually landed. --}}
                                         <template x-if="sealed.state === 'collecting' && !entry.withdrawn && sealed.entry_opened">
-                                            <span class="text-[11px] font-semibold"
+                                            <span class="text-[11px] font-semibold tabular-nums"
                                                   :class="entry.submitted ? 'text-emerald-400' : 'text-gray-500'"
-                                                  x-text="entry.submitted ? 'Bid in' : 'Pending'"></span>
+                                                  x-text="! entry.submitted
+                                                        ? 'Pending'
+                                                        : (sealedAmountsVisible ? formatCurrency(entry.amount) : 'Bid in')"></span>
                                         </template>
 
                                         <button x-show="!entry.withdrawn && !sealed.revealed"
@@ -594,6 +599,24 @@
                                 <span x-text="sealed.counts?.submitted ?? 0"></span> submitted &middot;
                                 <span x-text="sealed.counts?.withdrawn ?? 0"></span> withdrawn
                             </div>
+
+                            {{-- One switch for the whole board, not one per row: an organizer who
+                                 wants to see the amounts wants to see them, and a projector in the
+                                 room is the reason they are hidden to begin with. --}}
+                            <button type="button" x-show="sealed.state === 'collecting'"
+                                    @click="sealedAmountsVisible = !sealedAmountsVisible"
+                                    class="mr-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition"
+                                    :class="sealedAmountsVisible
+                                        ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300'
+                                        : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-200'">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                <span x-text="sealedAmountsVisible ? 'Hide amounts' : 'Show amounts'"></span>
+                            </button>
 
                             <div class="flex gap-2">
                                 {{-- Back to team selection.
@@ -2165,6 +2188,13 @@ function auctionOrganizerPanel() {
         // Sealed round, as the organizer may see it. Amounts are absent from this
         // payload until the round is revealed — the panel is often on a projector.
         sealed: { active: false },
+        /*
+         * Sealed amounts are masked on the board until the organizer asks for them.
+         *
+         * Defaults to hidden and is NOT remembered between rounds: a panel left revealing amounts
+         * from the last player is exactly the projector accident this guards against.
+         */
+        sealedAmountsVisible: false,
         sealedAdjustAmount: {},
         sealedManualReason: '',
 
@@ -2717,6 +2747,9 @@ function auctionOrganizerPanel() {
                             // A team selection made for the last player's sealed round must not
                             // silently carry into this one.
                             this.sealedTeamSelection = null;
+                            // Re-mask. A panel left revealing the last player's amounts is
+                            // exactly the projector accident the mask exists for.
+                            this.sealedAmountsVisible = false;
                             this.resetOfflinePanel();
                             this.statusText = `${newPlayer.player?.name} is now live!`;
                             this.startBiddingTimer();

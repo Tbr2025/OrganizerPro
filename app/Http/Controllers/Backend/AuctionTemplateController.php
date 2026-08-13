@@ -121,12 +121,28 @@ class AuctionTemplateController extends Controller
     /**
      * Show the form for creating a new template.
      */
-    public function create()
+    public function create(Request $request)
     {
         $auctions = Auction::orderBy('name')->pluck('name', 'id');
         $defaultPositions = AuctionTemplate::getDefaultPositions();
 
-        return view('backend.pages.auction-templates.create', compact('auctions', 'defaultPositions'));
+        /*
+         * Seed the form from the URL, so a "design the LED wall" link on a tournament's
+         * Templates page arrives on the right type for the right auction. Both are validated
+         * here rather than trusted: `type` against the real list, `auction_id` against the
+         * auctions this account can pick from, so a guessed id cannot preselect somebody
+         * else's auction.
+         */
+        $prefill = [
+            'type' => in_array($request->query('type'), array_keys(AuctionTemplate::types()), true)
+                ? $request->query('type')
+                : null,
+            'auction_id' => $auctions->has((int) $request->query('auction_id'))
+                ? (int) $request->query('auction_id')
+                : null,
+        ];
+
+        return view('backend.pages.auction-templates.create', compact('auctions', 'defaultPositions', 'prefill'));
     }
 
     /**

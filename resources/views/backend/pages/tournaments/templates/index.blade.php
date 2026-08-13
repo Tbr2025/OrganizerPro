@@ -121,6 +121,93 @@
         @endforeach
     </div>
 
+    {{-- Auction screens.
+         These are AuctionTemplate rows, not TournamentTemplate rows: a different table, a
+         different owner (an auction or an organization, never a tournament) and a different
+         editor. They are surfaced here because this is where somebody running an auction
+         tournament comes looking for the bidding poster, and until now the page listed eight
+         poster types with no auction among them. --}}
+    @if($tournament->isAuction())
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="font-semibold text-gray-900 dark:text-white text-sm truncate">Auction Screens</h3>
+                        <p class="text-xs text-gray-500">
+                            The LED wall, the bidding poster and the broadcast ticker for
+                            {{ $auction?->name ?? 'this tournament\'s auction' }}
+                        </p>
+                    </div>
+                </div>
+                <a href="{{ route('admin.auction-templates.index') }}"
+                   class="flex-shrink-0 text-sm text-amber-600 hover:text-amber-800 font-medium whitespace-nowrap">
+                    Open designer →
+                </a>
+            </div>
+
+            <div class="p-4">
+                @if(! $auction)
+                    {{-- Say which of the two nothings this is. An auction tournament with no
+                         Auction record cannot have a wall at all, and pointing the organizer at
+                         the template designer would waste their time. --}}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        This tournament has no auction set up yet, so there is no wall to design.
+                        <a href="{{ route('admin.auctions.create') }}" class="text-amber-600 hover:text-amber-800 font-medium">Create the auction</a>
+                        first.
+                    </p>
+                @else
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        @php
+                            $auctionTypeBlurbs = [
+                                \App\Models\AuctionTemplate::TYPE_LIVE_DISPLAY => 'The hall screen while a player is on the block — photo, base value, live bid.',
+                                \App\Models\AuctionTemplate::TYPE_PLAYER_CARD => 'The landscape bidding poster, downloaded per player with a SOLD or UNSOLD badge.',
+                                \App\Models\AuctionTemplate::TYPE_SOLD_DISPLAY => 'The result screen shown the moment a player is awarded to a team.',
+                                \App\Models\AuctionTemplate::TYPE_TICKER => 'The broadcast lower-third strip. HTML only.',
+                            ];
+                        @endphp
+                        @foreach(\App\Models\AuctionTemplate::types() as $auctionType => $auctionLabel)
+                            @php $forType = $auctionTemplates[$auctionType] ?? collect(); @endphp
+                            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col">
+                                <h4 class="font-medium text-gray-900 dark:text-white text-sm">{{ $auctionLabel }}</h4>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 flex-1">
+                                    {{ $auctionTypeBlurbs[$auctionType] ?? '' }}
+                                </p>
+
+                                <p class="text-xs mt-3 {{ $forType->count() ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
+                                    {{ $forType->count() }} template(s)
+                                    @if($forType->firstWhere('is_default', true))
+                                        · default set
+                                    @endif
+                                </p>
+
+                                @foreach($forType->take(3) as $auctionTemplate)
+                                    <a href="{{ route('admin.auction-templates.preview', $auctionTemplate) }}"
+                                       class="mt-1 text-xs text-indigo-600 hover:text-indigo-800 truncate block">
+                                        {{ $auctionTemplate->name }}
+                                        @if($auctionTemplate->auction_id === null)
+                                            <span class="text-gray-400">(shared)</span>
+                                        @endif
+                                    </a>
+                                @endforeach
+
+                                <a href="{{ route('admin.auction-templates.create', ['type' => $auctionType, 'auction_id' => $auction->id]) }}"
+                                   class="mt-3 inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 transition">
+                                    + New
+                                </a>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
+
     {{-- Templates by Type --}}
     @foreach($templateTypes as $type)
         @if(isset($templates[$type]) && $templates[$type]->count() > 0)

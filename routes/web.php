@@ -659,14 +659,23 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         ->name('players.image-editor');
     Route::post('/players/remove-background', [PlayerController::class, 'removeBackground'])->name('players.removeBackground');
 
+    /*
+     * Registered BEFORE the resource, because `Route::resource` gives it
+     * `GET /players/{player}` — a pattern that matches the literal segment
+     * "export-xlsx" and then 404s on binding a player with that id. That is the
+     * whole reason the live export answered 404 while the route was plainly
+     * present in this file.
+     *
+     * GET so it can be a plain link carrying the list's current filters.
+     */
+    Route::get('/players/export-xlsx', [PlayerController::class, 'exportXlsx'])->name('players.export-xlsx');
+
     Route::resource('players', PlayerController::class);
     Route::post('/players/{player}/retain', [PlayerController::class, 'retain'])->name('players.retain');
     Route::post('/players/{player}/unretain', [PlayerController::class, 'unretain'])->name('players.unretain');
     // Organizer management: create/pick organizer users and assign tournaments/teams/matches
     Route::resource('organizers', OrganizerController::class)->except(['show'])->parameters(['organizers' => 'organizer']);
     Route::post('/players/export', [PlayerController::class, 'export'])->name('players.export');
-    // Every field, as a spreadsheet. GET so it can be a plain link with the current filters.
-    Route::get('/players/export-xlsx', [PlayerController::class, 'exportXlsx'])->name('players.export-xlsx');
 
     Route::post('players/import', [PlayerController::class, 'importCsv'])->name('players.import');
 
