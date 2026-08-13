@@ -496,6 +496,8 @@ class PlayerController extends Controller
             // The club the player currently turns out for, which is not their squad team —
             // see the filter in filteredPlayerQuery() for how the two differ.
             'playing_team' => request('playing_team'),
+            // How a player was acquired, read from the auction row — see filteredPlayerQuery().
+            'acquisition' => request('acquisition'),
             'role' => request('role'),
             'batting_profile' => request('batting_profile'),
             'bowling_profile' => request('bowling_profile'),
@@ -656,6 +658,46 @@ class PlayerController extends Controller
                             ->orWhereNull('player_mode');
                     });
                 }
+            })
+            /*
+             * How the player was acquired, from the AUCTION ROW.
+             *
+             * Not `players.player_mode`. AuctionSaleService sets that column to `retained` when a
+             * player is SOLD as well as when a team keeps one, so it really means "claimed by a
+             * team" — and the Icon Player option that read it returned every purchase in the room
+             * alongside the genuinely kept players. SquadAcquisitionService was written for this
+             * exact confusion; this filter follows it: `is_retained` is a keep, `status = sold`
+             * is a buy, and nothing else can be either.
+             *
+             * Scoped to the chosen tournament's auction when there is one, because a player kept
+             * in one competition is not an icon player in another. Unscoped otherwise — a list
+             * spanning every tournament can only answer "was this player ever kept".
+             */
+            ->when($filters['acquisition'] ?? null, function ($q) use ($filters) {
+                $row = function ($sub) use ($filters) {
+                    $sub->from('auction_players')
+                        ->join('auctions', 'auctions.id', '=', 'auction_players.auction_id')
+                        ->whereColumn('auction_players.player_id', 'players.id');
+
+                    if ($filters['tournament']) {
+                        $sub->where('auctions.tournament_id', $filters['tournament']);
+                    }
+
+                    return $sub;
+                };
+
+                match ($filters['acquisition']) {
+                    'icon' => $q->whereExists(fn ($sub) => $row($sub)->where('auction_players.is_retained', true)),
+                    'auction' => $q->whereExists(fn ($sub) => $row($sub)->where('auction_players.status', 'sold')),
+                    'unsold' => $q->whereExists(fn ($sub) => $row($sub)->where('auction_players.status', 'unsold')),
+                    // Still to come up: in an auction, not kept, not yet resolved.
+                    'waiting' => $q->whereExists(fn ($sub) => $row($sub)
+                        ->where('auction_players.status', 'waiting')
+                        ->where('auction_players.is_retained', false)),
+                    // Never entered an auction at all.
+                    'none' => $q->whereNotExists(fn ($sub) => $row($sub)),
+                    default => null,
+                };
             })
             ->when($filters['bowling_profile'], function ($q) use ($filters) {
                 $q->whereHas('bowlingProfile', fn ($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));

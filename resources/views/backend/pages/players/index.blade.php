@@ -177,14 +177,21 @@
 
                     {{-- Player Mode --}}
                     <div>
-                        <label for="player_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player
-                            Mode</label>
-                        <select name="player_mode" id="player_mode" class="form-control mt-1">
+                        {{-- How the player was acquired, from the AUCTION ROW.
+                             This was "Player Mode", reading `players.player_mode` — a column the
+                             auction sets to `retained` on a SALE as well as on a keep, so the
+                             Icon Player option returned every purchase in the room alongside the
+                             genuinely kept players. Its Sold and Unsold options were worse: the
+                             controller only ever handled `retained` and `normal`, so choosing
+                             either filtered nothing and quietly returned the whole list. --}}
+                        <label for="acquisition" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Acquisition</label>
+                        <select name="acquisition" id="acquisition" class="form-control mt-1">
                             <option value="">All</option>
-                            <option value="retained" @selected(request('player_mode') == 'retained')>Icon Player</option>
-                            <option value="normal" @selected(request('player_mode') == 'normal')>Available</option>
-                            <option value="sold" @selected(request('player_mode') == 'sold')>Sold</option>
-                            <option value="Unsold" @selected(request('player_mode') == 'Unsold')>Unsold</option>
+                            <option value="icon" @selected(request('acquisition') === 'icon')>Icon Player (kept)</option>
+                            <option value="auction" @selected(request('acquisition') === 'auction')>Auction (bought)</option>
+                            <option value="waiting" @selected(request('acquisition') === 'waiting')>Still to be auctioned</option>
+                            <option value="unsold" @selected(request('acquisition') === 'unsold')>Unsold</option>
+                            <option value="none" @selected(request('acquisition') === 'none')>Not in any auction</option>
                         </select>
                     </div>
 
