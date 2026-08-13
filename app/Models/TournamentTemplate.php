@@ -284,6 +284,18 @@ class TournamentTemplate extends Model
                 'bowling_style',
                 'player_location',
                 'player_age',
+                /*
+                 * Career figures — the same three the LED wall puts under a player's name
+                 * (matches, runs, wickets). Left out of the first cut and immediately missed:
+                 * a bidding poster with no stats gives a team nothing to bid on.
+                 *
+                 * These three and no more, because these are the three the players table
+                 * actually holds. A placeholder for an average or a strike rate would render
+                 * blank on every poster ever made, which is worse than not offering it.
+                 */
+                'total_matches',
+                'total_runs',
+                'total_wickets',
                 // The lot
                 'lot_number',
                 'pool_name',

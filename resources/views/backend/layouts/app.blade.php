@@ -163,6 +163,21 @@ class="bg-gray-50 dark:bg-dark-bg">
                     </div>
                 @endif
 
+                {{-- A throttle left on is indistinguishable from the auction breaking, so it
+                     announces itself on every admin page rather than only on the one that set
+                     it. Unmissable on purpose. --}}
+                @php $simulatedKbps = \App\Http\Middleware\SimulateBandwidth::activeLimitKbps(request()); @endphp
+                @if($simulatedKbps)
+                    <div class="mx-4 mt-4 rounded-lg bg-amber-500 text-white px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap shadow">
+                        <span class="text-sm font-semibold flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                            Network test is ON — this browser is throttled to {{ number_format($simulatedKbps) }} kbps
+                        </span>
+                        <a href="{{ route('admin.network-test.index') }}"
+                           class="text-xs font-bold underline whitespace-nowrap">Turn it off</a>
+                    </div>
+                @endif
+
                 @yield('admin-content')
             </main>
             <!-- End Main Content -->

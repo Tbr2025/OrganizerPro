@@ -38,6 +38,13 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\ModuleTranslationMiddleware::class,
+            /*
+             * Off unless an operator has switched it on for their own browser, and it expires
+             * by itself. Registered on the whole web group on purpose: the point is to walk
+             * through the LED wall and a team screen on a slow link, and those are not admin
+             * routes. See the middleware for why it never holds a write.
+             */
+            \App\Http\Middleware\SimulateBandwidth::class,
         ],
 
         'api' => [

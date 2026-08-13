@@ -278,6 +278,16 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('auction-templates/{auctionTemplate}/set-default', [AuctionTemplateController::class, 'setDefault'])->name('auction-templates.set-default');
     });
 
+    /*
+     * Rehearsing the auction on a venue's connection. Gated on auction.view because it is a
+     * testing aid for whoever runs the auction, and it can only ever throttle their own
+     * browser — see SimulateBandwidth.
+     */
+    Route::middleware('permission:auction.view')->group(function () {
+        Route::get('network-test', [\App\Http\Controllers\Backend\NetworkTestController::class, 'index'])->name('network-test.index');
+        Route::post('network-test', [\App\Http\Controllers\Backend\NetworkTestController::class, 'update'])->name('network-test.update');
+    });
+
     Route::middleware('permission:auction.view')->group(function () {
         Route::get('auction-templates', [AuctionTemplateController::class, 'index'])->name('auction-templates.index');
         Route::get('auction-templates/{auctionTemplate}/preview', [AuctionTemplateController::class, 'preview'])

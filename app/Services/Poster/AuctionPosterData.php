@@ -44,6 +44,17 @@ class AuctionPosterData
             'player_location' => (string) ($player?->location?->name ?? ''),
             'player_age' => $this->age($player?->date_of_birth),
 
+            /*
+             * Career figures, blank when zero rather than printed as "0".
+             *
+             * skipBlanks then removes the element entirely, so a player with no recorded
+             * matches gets a clean poster instead of one advertising three zeroes — which on
+             * a bidding screen actively misinforms the room.
+             */
+            'total_matches' => $this->stat($player?->total_matches),
+            'total_runs' => $this->stat($player?->total_runs),
+            'total_wickets' => $this->stat($player?->total_wickets),
+
             // Zero-padded, because a lot list reads as a list only when the numbers line up.
             'lot_number' => $auctionPlayer->lot_number
                 ? str_pad((string) $auctionPlayer->lot_number, 3, '0', STR_PAD_LEFT)
@@ -125,6 +136,12 @@ class AuctionPosterData
     private function imagePath(?string $value): string
     {
         return $value ? ltrim($value, '/') : '';
+    }
+
+    /** A career figure, or nothing at all. Zero on a poster reads as a claim, not as absence. */
+    private function stat(mixed $value): string
+    {
+        return $value !== null && (int) $value > 0 ? (string) (int) $value : '';
     }
 
     private function age(mixed $dateOfBirth): string

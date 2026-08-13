@@ -565,6 +565,13 @@ class AdminMenuService
                     'priority' => 50,
                     'permissions' => 'auction.view',
                 ],
+                [
+                    'label' => __('Network Test'),
+                    'route' => route('admin.network-test.index'),
+                    'active' => Route::is('admin.network-test.*'),
+                    'priority' => 60,
+                    'permissions' => 'auction.view',
+                ],
             ],
         ]);
         $pendingApprovalsCount = TournamentRegistration::whereNotNull('pending_changes')->count();

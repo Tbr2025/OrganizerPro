@@ -89,6 +89,41 @@
         </div>
     </div>
 
+    {{-- Auction posters are generated from the AUCTION, not from here.
+         This page picks a match, a team or a registered player — none of which identifies a
+         lot. An auction poster needs an auction player: their base price, who bought them and
+         for how much, and whether they went unsold. So it says where to go rather than
+         offering a data picker that cannot describe what the design needs. --}}
+    @if(in_array($type, [\App\Models\TournamentTemplate::TYPE_AUCTION_POSTER, \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT], true))
+        @php
+            $posterAuction = \App\Models\Auction::where('tournament_id', $tournament->id)->orderByDesc('id')->first();
+        @endphp
+        <div class="mb-6 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-5">
+            <h3 class="font-semibold text-amber-800 dark:text-amber-300 mb-1.5">Auction posters are generated from the auction</h3>
+            <p class="text-sm text-amber-700 dark:text-amber-400 leading-relaxed">
+                This page picks a match, a team or a registered player. An auction poster needs a
+                <strong>lot</strong> — a base price, a buying team, a sold or unsold outcome — so it is
+                rendered in bulk from the auction instead, one poster per player, with a progress bar.
+            </p>
+            <div class="mt-3 flex flex-wrap gap-2">
+                @if($posterAuction)
+                    <a href="{{ route('admin.auctions.show', $posterAuction) }}"
+                       class="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 transition">
+                        Auction page — Posters ▾ (everyone, or the Sold / Unsold chips)
+                    </a>
+                    <a href="{{ route('admin.auctions.pools.index', $posterAuction) }}"
+                       class="px-3 py-1.5 rounded-lg border border-amber-400 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition">
+                        Pools — per pool, Sold and Unsold separately
+                    </a>
+                @else
+                    <span class="text-xs text-amber-700 dark:text-amber-400">
+                        This tournament has no auction yet, so there are no lots to render.
+                    </span>
+                @endif
+            </div>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {{-- Left: Data Selection --}}
         <div class="lg:col-span-3 space-y-5">
