@@ -640,7 +640,15 @@
                              style="position:absolute;cursor:move;border:2px dashed rgba({{ $elInfo['borderColor'] }},0.7);background:rgba({{ $elInfo['borderColor'] }},0.1);
                              {{ $posStyle }};
                              left:{{ $p['left'] ?? ($defaults[$elKey]['left'] ?? 0) }}px;
-                             @if($isBoxOrImage) width:{{ $p['width'] ?? ($defaults[$elKey]['width'] ?? 150) }}px;height:{{ $p['height'] ?? ($defaults[$elKey]['height'] ?? 150) }}px;display:flex;align-items:center;justify-content:center; @endif
+                             {{-- A sized element carries its font size inline too.
+                                  Only the non-sized branch emitted `font-size`, so the Stats
+                                  Table wrapper had none — and the save sync reads the value back
+                                  with getComputedStyle(), which then returned the browser's
+                                  inherited 16px. Every save round-tripped a font size of 25 into
+                                  16, however many times it was set. The inner table already drew
+                                  at the saved size, so only the round-trip was broken, which is
+                                  why the preview looked right until the page was reloaded. --}}
+                             @if($isBoxOrImage) width:{{ $p['width'] ?? ($defaults[$elKey]['width'] ?? 150) }}px;height:{{ $p['height'] ?? ($defaults[$elKey]['height'] ?? 150) }}px;display:flex;align-items:center;justify-content:center;@if(isset($p['fontSize']) || isset($defaults[$elKey]['fontSize']))font-size:{{ $p['fontSize'] ?? $defaults[$elKey]['fontSize'] }}px;@endif @endif
                              @if(!$isBoxOrImage) font-size:{{ $p['fontSize'] ?? ($defaults[$elKey]['fontSize'] ?? 30) }}px;color:#fff;font-weight:bold;white-space:nowrap;padding:2px 8px; @endif
                              {{ ($p['visible'] ?? true) ? '' : 'opacity:0.3;' }}">
                             <div class="drag-label">{{ $elInfo['label'] }}</div>
