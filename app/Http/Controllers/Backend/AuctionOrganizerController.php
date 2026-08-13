@@ -595,6 +595,28 @@ class AuctionOrganizerController extends Controller
             AuctionBid::where('auction_id', $auction->id)->delete();
             AuctionActionLog::where('auction_id', $auction->id)->delete();
 
+            /*
+             * And every POOL back to pending, which this did not do.
+             *
+             * The players were all unwound to `waiting` above, but the pools they sit in kept
+             * whatever status they had — so a pool completed before the restart stayed
+             * `completed` while holding a full queue of players nobody had bid on. Measured on
+             * live: auction 11's Pool B read `completed` with 15 waiting players and no sales.
+             *
+             * That is not only a wrong label. `activatePool()` refuses a completed pool, so the
+             * organizer could not choose it — a restart that resets every player but leaves half
+             * the pools unrunnable.
+             *
+             * PENDING, not ACTIVE: a restart puts the whole auction back to the start line and
+             * the organizer picks which pool goes first. Same three fields `reopenPool()` resets
+             * for a single pool, so the two agree about what "runnable again" means.
+             */
+            AuctionPool::where('auction_id', $auction->id)->update([
+                'status' => AuctionPool::STATUS_PENDING,
+                'completed_at' => null,
+                'activated_at' => null,
+            ]);
+
             $auction->update([
                 'status' => 'running',
                 // Without this the big screen keeps counting down a player who is no
