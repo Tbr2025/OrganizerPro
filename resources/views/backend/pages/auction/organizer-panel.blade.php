@@ -3365,9 +3365,12 @@ function auctionOrganizerPanel() {
              * silently ignored every bid for the rest of the lot. Clicks looked like they were
              * doing nothing, which is exactly what it feels like from the operator's chair.
              */
-            if (team?.excluded) {
-                this.statusText = `${team.name}: ${team.exclusion_reason || 'cannot bid on this player.'}`;
-                this.toast(team.exclusion_reason || `${team.name} cannot bid on this player.`, 'info', team.name);
+            const blocked = this.teamBidBlockReason(team);
+
+            if (blocked) {
+                this.statusText = blocked;
+                this.toast(blocked, 'info', team?.name || 'Team');
+
                 return;
             }
 
@@ -4097,14 +4100,44 @@ function auctionOrganizerPanel() {
             return this.openBidMode !== 'offline' || this.offlineStageMode === 'live';
         },
 
+        /**
+         * Whether this team could afford the raise being offered RIGHT NOW.
+         *
+         * `team.excluded` is computed by the server for the next-bid amount as it stood when the
+         * poll was answered — and with push healthy that poll is fifteen seconds apart. So after
+         * a raise, a team that can no longer reach the new amount stayed clickable and looking
+         * available until the next tick, and the refusal arrived from the server after the
+         * click. `max_bid_allowed` is already in the payload, so the same question can be
+         * answered against the current amount without waiting to be told.
+         *
+         * Returns a reason rather than a boolean, so the tooltip, the disabled state and the
+         * refusal toast all say the same thing.
+         */
+        teamBidBlockReason(team) {
+            if (! team) return null;
+
+            if (team.squad_full) return `${team.name}'s squad is full.`;
+
+            if (team.excluded) return team.exclusion_reason || `${team.name} cannot bid on this player.`;
+
+            const amount = Number(this.nextBidAmount) || 0;
+            const ceiling = Number(team.max_bid_allowed);
+
+            if (amount > 0 && isFinite(ceiling) && amount > ceiling) {
+                return `${team.name} cannot reach ${this.formatCurrency(amount)} — ${this.formatCurrency(ceiling)} is their limit for this player.`;
+            }
+
+            return null;
+        },
+
         isTeamBidDisabled(team) {
             // No offline clause: the organizer bidding for a team IS how an offline room
             // works. Everything left here is mode-independent -- no player up, the wrong
-            // display state, the team already leading, or the squad-reserve exclusion.
+            // display state, the team already leading, or the team being unable to bid.
             return !this.currentPlayer
                 || this.displayState !== 'bidding'
                 || this.currentPlayer?.current_bid_team_id == team.id
-                || !!team.excluded;
+                || !! this.teamBidBlockReason(team);
             /*
              * NOT disabled while a bid is in flight.
              *
@@ -4122,8 +4155,11 @@ function auctionOrganizerPanel() {
         },
 
         teamTooltip(team) {
-            if (team.excluded && team.exclusion_reason) {
-                return `${team.name} — ${team.exclusion_reason}`;
+            // The same reason the chip is disabled for, so hovering explains the grey.
+            const blocked = this.teamBidBlockReason(team);
+
+            if (blocked) {
+                return blocked;
             }
 
             const parts = [`${this.formatCurrency(team.remaining_budget)} left`];
