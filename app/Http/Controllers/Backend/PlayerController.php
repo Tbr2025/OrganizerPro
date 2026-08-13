@@ -306,12 +306,17 @@ class PlayerController extends Controller
             }
         }
 
-        // Biggest first, then alphabetical within a count — so the list reads as "the clubs that
-        // matter, then the rest" rather than as 113 equals.
-        return $all->sortBy([
-            fn ($count, $name) => -$count,
-            fn ($count, $name) => mb_strtolower((string) $name),
-        ]);
+        /*
+         * Biggest first, alphabetical within a count — so the list reads as "the clubs that
+         * matter, then the rest" rather than as 113 equals.
+         *
+         * Two passes rather than sortBy() with an array of closures: in an array, sortBy treats a
+         * callable as a COMPARATOR taking ($a, $b), not as a value extractor, so
+         * `fn ($count, $name) => -$count` was silently sorting by the negation of its first
+         * argument and Blazing Bandits' 11 players landed near the bottom. uasort is stable in
+         * PHP 8, so sorting by name and then by count keeps the alphabetical order within ties.
+         */
+        return $all->sortKeys(SORT_NATURAL | SORT_FLAG_CASE)->sortByDesc(fn ($count) => $count);
     }
 
     /**
