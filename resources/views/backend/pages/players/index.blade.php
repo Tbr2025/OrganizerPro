@@ -422,7 +422,13 @@
                                             <div class="ml-4">
                                                 <div class="flex items-center gap-2">
                                                     {{-- Player name as a link --}}
-                                                    <a href="{{ route('admin.players.show', $player->id) }}"
+                                                    {{-- Carries the tournament, so the detail page
+                                                         answers about the same one this row was read
+                                                         in. Without it the page fell back to the
+                                                         player's newest registration, which is how a
+                                                         row badged "Rejected · You Selects IPL"
+                                                         opened onto a page reading Approved. --}}
+                                                    <a href="{{ route('admin.players.show', array_filter(['player' => $player->id, 'tournament' => request('tournament')])) }}"
                                                         class="text-sm font-medium text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150">
                                                         {{ $player->name }}
                                                     </a>
@@ -631,7 +637,7 @@
                                                 style="display: none;">
                                                 <div class="py-1" role="menu" aria-orientation="vertical">
                                                     @canany(['player.show', 'player.view'])
-                                                        <a href="{{ route('admin.players.show', $player->id) }}"
+                                                        <a href="{{ route('admin.players.show', array_filter(['player' => $player->id, 'tournament' => request('tournament')])) }}"
                                                             class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
                                                             role="menuitem">
                                                             <iconify-icon icon="lucide:eye" width="16" class="text-gray-400"></iconify-icon>
@@ -723,7 +729,7 @@
                                             <div class="ml-4">
                                                 <div class="flex items-center gap-2">
                                                     {{-- Player name as a link --}}
-                                                    <a href="{{ route('admin.players.show', $player->id) }}"
+                                                    <a href="{{ route('admin.players.show', array_filter(['player' => $player->id, 'tournament' => request('tournament')])) }}"
                                                         class="text-sm font-medium text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-150">
                                                         {{ $player->name }}
                                                     </a>
@@ -877,7 +883,7 @@
                                                 style="display: none;">
                                                 <div class="py-1" role="menu" aria-orientation="vertical">
                                                     @canany(['player.show', 'player.view'])
-                                                        <a href="{{ route('admin.players.show', $player->id) }}"
+                                                        <a href="{{ route('admin.players.show', array_filter(['player' => $player->id, 'tournament' => request('tournament')])) }}"
                                                             class="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
                                                             role="menuitem">
                                                             <iconify-icon icon="lucide:eye" width="16" class="text-gray-400"></iconify-icon>
