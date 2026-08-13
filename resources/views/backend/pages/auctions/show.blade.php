@@ -221,6 +221,27 @@
                     <div class="text-xs font-medium uppercase tracking-wide text-indigo-600 dark:text-indigo-400 mt-1">Total Pool</div>
                 </div>
             </div>
+            {{-- Approved players who are in no pool, and so are in no draw.
+                 The four cards above all count rows in `auction_players`; a player nobody
+                 assigned to a pool has no such row, so this page added up to 371 for a
+                 tournament that approved 378 and said nothing about the other 7. They are one
+                 screen away in Manage Pools, but only if you already suspected they were
+                 there. --}}
+            @if(($unpooledCount ?? 0) > 0)
+                <div class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+                    <iconify-icon icon="lucide:user-round-x" width="18" class="text-amber-600 dark:text-amber-400"></iconify-icon>
+                    <p class="text-sm text-amber-800 dark:text-amber-200 flex-1 min-w-0">
+                        <span class="font-bold">{{ $unpooledCount }}</span>
+                        approved {{ Str::plural('player', $unpooledCount) }}
+                        {{ $unpooledCount === 1 ? 'is' : 'are' }} in no pool, so
+                        {{ $unpooledCount === 1 ? 'it' : 'they' }} will not come up for auction.
+                    </p>
+                    <a href="{{ route('admin.auctions.pools.index', $auction) }}"
+                       class="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 transition whitespace-nowrap">
+                        Assign to a pool &rarr;
+                    </a>
+                </div>
+            @endif
         @else
             {{-- Team Manager view: Team summary --}}
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">

@@ -48,9 +48,29 @@ class ClosedBidRoundTest extends TestCase
     /** Raise the price to the 8M threshold and hand back the player. */
     private function raiseToThreshold($org, $tournament, $auction, $team, $operator)
     {
+        /*
+         * A player already under bid at 7.9M, so the raise below is a raise.
+         *
+         * `current_bid_team_id` matters now: the opening bid on a player nobody has bid for
+         * TAKES the standing price rather than adding an increment to it, so without a
+         * standing bidder this fixture's single bid would land on 7.9M and never cross the
+         * threshold it exists to cross.
+         */
+        /*
+         * A player already under bid at 7.9M by SOMEBODY ELSE, so the raise below is a raise.
+         *
+         * Two things force this. The opening bid on a player nobody has bid for TAKES the
+         * standing price rather than adding an increment, so without a standing bidder the
+         * single bid here would land on 7.9M and never cross the threshold it exists to cross.
+         * And a team may not outbid itself, so the standing bid cannot belong to the team whose
+         * raise is being tested.
+         */
+        $opener = $this->makeTeam($org, 'Openers', $tournament);
+
         $player = $this->makeAuctionPlayer($auction, [
             'status' => 'on_auction',
             'current_price' => 7_900_000,
+            'current_bid_team_id' => $opener->id,
         ]);
 
         $this->actingAs($operator)

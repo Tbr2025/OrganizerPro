@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Auction;
 
 use App\Models\Auction;
+use App\Models\AuctionPlayer;
 
 /**
  * The single implementation of the auction's bid-increment ladder.
@@ -184,6 +185,49 @@ class BidIncrementService
         $increment = $this->incrementFor($auction, $currentPrice);
 
         return $increment > 0 ? $currentPrice + $increment : null;
+    }
+
+    /**
+     * What the next bid on THIS player costs — which is not always price + increment.
+     *
+     * While nobody has bid, the base price is the first bid. Adding an increment to it makes the
+     * base a figure nobody ever pays: a 1,000,000 base opened at 1,100,000, so the number printed
+     * on the player's card, on the poster and on the wall was never a number any team could call.
+     * The first team takes the base, and the ladder starts from there.
+     *
+     * Keyed off `current_bid_team_id` rather than a price comparison, because an organizer may
+     * correct the standing price before anyone has bid, and the rule is "nobody has bid yet",
+     * not "the price is still the base".
+     */
+    public function nextBidForPlayer(Auction $auction, AuctionPlayer $player): ?float
+    {
+        if ($player->current_bid_team_id === null) {
+            return (float) $player->current_price;
+        }
+
+        return $this->nextBidAmount($auction, (float) $player->current_price);
+    }
+
+    /**
+     * The payload of state(), with the opening bid handled — see nextBidForPlayer().
+     *
+     * @return array{current_price: float, increment: float, next_bid_amount: float|null, max_reached: bool, is_opening_bid: bool}
+     */
+    public function stateForPlayer(Auction $auction, AuctionPlayer $player): array
+    {
+        $state = $this->state($auction, (float) $player->current_price);
+        $opening = $player->current_bid_team_id === null;
+
+        if ($opening) {
+            $state['next_bid_amount'] = (float) $player->current_price;
+            // A base price above every band leaves no increment, but the base itself is still
+            // biddable — the ladder only has to exist for the SECOND bid.
+            $state['max_reached'] = false;
+        }
+
+        $state['is_opening_bid'] = $opening;
+
+        return $state;
     }
 
     /**

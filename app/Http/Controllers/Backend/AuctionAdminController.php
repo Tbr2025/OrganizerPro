@@ -929,6 +929,38 @@ class AuctionAdminController extends Controller
             ->get();
 
         /*
+         * Approved players who are in no pool, and so are in no draw.
+         *
+         * This page accounted for the auction and stopped there: Sold, Unsold, Available and
+         * Total Pool all describe rows that exist in `auction_players`, and a player nobody ever
+         * assigned to a pool has no such row. Tournament 25 approved 378 players and the page
+         * added up to 371 — 64 icon players plus a pool of 307 — with no indication that the
+         * remaining 7 had been left out. They are visible one screen away, in Manage Pools'
+         * "Unassigned players" panel, but only if you already suspected they were there.
+         *
+         * Same definition that panel uses (AuctionPoolController::index): approved for this
+         * tournament, not retained, not already in a pool. Counted rather than listed — the
+         * point here is to say a number is missing and where to go, not to duplicate the panel
+         * that fixes it.
+         */
+        $unpooledCount = 0;
+
+        if ($isAdmin && $auction->tournament_id) {
+            $pooledPlayerIds = AuctionPlayer::where('auction_id', $auction->id)
+                ->whereNotNull('auction_pool_id')
+                ->pluck('player_id');
+
+            $unpooledCount = Player::whereHas(
+                'registrations',
+                fn ($q) => $q->where('tournament_id', $auction->tournament_id)->where('status', 'approved')
+            )
+                ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
+                ->whereNotIn('id', $pooledPlayerIds)
+                ->where(fn ($q) => $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode'))
+                ->count();
+        }
+
+        /*
          * The poster designs this auction can be exported onto, if any have been drawn.
          *
          * Empty is the normal state and the page says nothing when it is — an operator who has
@@ -953,6 +985,7 @@ class AuctionAdminController extends Controller
             'userTeam' => $userTeam,
             'retainedPlayers' => $retainedPlayers,
             'posterTemplates' => $posterTemplates,
+            'unpooledCount' => $unpooledCount,
         ]);
     }
 
@@ -1120,13 +1153,30 @@ class AuctionAdminController extends Controller
                     $increment = $increments->incrementFor($auction, $current);
                 }
 
-                if ($increment <= 0) {
-                    // Names the real cause: a base price above the top band is not the same
-                    // thing as a ladder that has been climbed to its end.
-                    throw new \Exception($increments->noIncrementReason($auction, $current));
-                }
+                /*
+                 * The opening bid is the base price itself.
+                 *
+                 * Adding an increment to it made the base a figure nobody ever paid — a
+                 * 1,000,000 base opened at 1,100,000, so the number on the player's card, the
+                 * poster and the wall was never a number a team could call. The first team takes
+                 * the base; the ladder starts from there.
+                 *
+                 * A quick-step jump is still a deliberate jump on top of it: an organizer who
+                 * picks +5M for the opening call means the base plus five, not five.
+                 */
+                $opening = $player->current_bid_team_id === null;
 
-                $newPrice = $current + $increment;
+                if ($opening && $stepIndex === null) {
+                    $newPrice = $current;
+                } else {
+                    if ($increment <= 0) {
+                        // Names the real cause: a base price above the top band is not the same
+                        // thing as a ladder that has been climbed to its end.
+                        throw new \Exception($increments->noIncrementReason($auction, $current));
+                    }
+
+                    $newPrice = $current + $increment;
+                }
 
                 // Squad-reserve rule. The organizer's manual bid path previously
                 // had no budget check of any kind, so a team could be bid past

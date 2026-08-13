@@ -177,7 +177,8 @@ class AuctionBiddingController extends Controller
         // Next price this player would go for, so teams priced out under the
         // reserve rule can be shown as excluded.
         $nextBid = $auctionPlayer
-            ? $this->increments->nextBidAmount($auction, (float) $auctionPlayer->current_price)
+            // The opening bid is the base price itself — see nextBidForPlayer().
+            ? $this->increments->nextBidForPlayer($auction, $auctionPlayer)
             : null;
 
         // Get all teams with their budgets
@@ -249,7 +250,8 @@ class AuctionBiddingController extends Controller
 
         $auctionPlayer = $auction->auctionPlayers()->where('status', 'on_auction')->first();
         $nextBid = $auctionPlayer
-            ? $this->increments->nextBidAmount($auction, (float) $auctionPlayer->current_price)
+            // The opening bid is the base price itself — see nextBidForPlayer().
+            ? $this->increments->nextBidForPlayer($auction, $auctionPlayer)
             : null;
 
         $purse = $this->pools->teamPurseState($auction, $userTeam->id, $nextBid);
@@ -341,9 +343,12 @@ class AuctionBiddingController extends Controller
 
                 $current = (float) $auctionPlayer->current_price;
 
-                // Open bidding only: sealed rounds never reach here. The server sets
-                // the amount from the increment ladder, so a client cannot name it.
-                $bidAmount = $this->increments->nextBidAmount($auction, $current);
+                /*
+                 * Open bidding only: sealed rounds never reach here. The server sets the amount,
+                 * so a client cannot name it — and while nobody has bid, that amount is the base
+                 * price rather than the base plus an increment. See nextBidForPlayer().
+                 */
+                $bidAmount = $this->increments->nextBidForPlayer($auction, $auctionPlayer);
 
                 if ($bidAmount === null) {
                     throw new \Exception($this->increments->noIncrementReason($auction, $current));

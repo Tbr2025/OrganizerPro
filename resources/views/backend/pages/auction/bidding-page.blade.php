@@ -1585,6 +1585,17 @@ function teamBiddingPanel() {
          */
         get nextBidAmount() {
             const current = this.player.current_price || this.player.base_price || 0;
+
+            /*
+             * Nobody has bid yet: the base price IS the first bid, so the button offers it
+             * unchanged. Adding an increment made the base a figure no team could ever call —
+             * a 1,000,000 base opened at 1,100,000, and the number on the card, the poster and
+             * the wall was never a number anyone bid. Mirrors the server's nextBidForPlayer();
+             * this getter recomputes the ladder locally so the button can never show one price
+             * and the server charge another, which is exactly why it needs the rule too.
+             */
+            if (!this.player.current_bid_team_id) return current;
+
             const rules = this.bidRules || [];
 
             let best = null;

@@ -53,7 +53,8 @@ class AuctionOrganizerController extends Controller
         // What the next raise would cost — used to grey out teams priced out of the
         // player currently on the block.
         $nextBid = $currentPlayer
-            ? $this->increments->nextBidAmount($auction, (float) $currentPlayer->current_price)
+            // Opening bid = the base price itself, not base + increment. See nextBidForPlayer().
+            ? $this->increments->nextBidForPlayer($auction, $currentPlayer)
             : null;
 
         /*
@@ -390,7 +391,7 @@ class AuctionOrganizerController extends Controller
 
         // Increment ladder resolved server-side so no client recomputes it.
         $bidState = $currentPlayer
-            ? $this->increments->state($freshAuction, (float) $currentPlayer->current_price)
+            ? $this->increments->stateForPlayer($freshAuction, $currentPlayer)
             : null;
 
         $nextUndo = $this->undo->nextUndoable($freshAuction);

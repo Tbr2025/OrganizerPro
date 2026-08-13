@@ -307,8 +307,8 @@ class AuctionBiddingModeTest extends TestCase
             ])
             ->assertOk();
 
-        // Raised by the ladder increment, not by an arbitrary amount.
-        $this->assertSame(1_100_000.0, (float) $ctx['player']->fresh()->current_price);
+        // The opening bid takes the 1M base itself; the ladder starts from the second bid.
+        $this->assertSame(1_000_000.0, (float) $ctx['player']->fresh()->current_price);
         $this->assertSame($ctx['team']->id, $ctx['player']->fresh()->current_bid_team_id);
     }
 
@@ -325,9 +325,20 @@ class AuctionBiddingModeTest extends TestCase
             'min_squad_size' => 11,
             'min_price_per_player' => 1_000_000,
         ]);
-        // Ceiling is exactly 11M - (10 x 1M) = 1M, and a bid landing ON the ceiling is
-        // legal — so start where the next rung crosses it rather than reaches it.
-        $ctx['player']->update(['current_price' => 1_000_000]);
+        /*
+         * Ceiling is exactly 11M - (10 x 1M) = 1M, and a bid landing ON the ceiling is legal —
+         * so start where the next rung crosses it rather than reaches it.
+         *
+         * A standing bidder is needed for that to be a rung at all: the opening bid on a player
+         * nobody has bid for takes the standing price rather than adding an increment, which
+         * would land exactly ON the legal ceiling and prove nothing. It belongs to another team
+         * because a team may not outbid itself.
+         */
+        $opener = $this->makeTeam($ctx['org'], 'Openers');
+        $ctx['player']->update([
+            'current_price' => 1_000_000,
+            'current_bid_team_id' => $opener->id,
+        ]);
 
         $this->actingAs($this->makeAuctionOperator($ctx['org']))
             ->postJson(route('admin.auctions.players.addBid'), [

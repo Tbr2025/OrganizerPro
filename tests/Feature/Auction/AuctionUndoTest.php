@@ -41,7 +41,8 @@ class AuctionUndoTest extends TestCase
 
         // Three rows, not one overwritten row — this is what makes Undo possible.
         $this->assertSame(3, AuctionBid::where('auction_player_id', $ap->id)->count());
-        $this->assertSame(400.0, (float) $ap->fresh()->current_price); // 100 base + 3 x 100
+        // The opening bid TAKES the base rather than raising it — 100, then 200, then 300.
+        $this->assertSame(300.0, (float) $ap->fresh()->current_price);
     }
 
     #[Test]
@@ -62,7 +63,8 @@ class AuctionUndoTest extends TestCase
         }
 
         $this->assertSame($teamB->id, $ap->fresh()->current_bid_team_id);
-        $this->assertSame(300.0, (float) $ap->fresh()->current_price);
+        // Opening bid takes the 100 base, the second raises to 200.
+        $this->assertSame(200.0, (float) $ap->fresh()->current_price);
 
         // Wrong team was clicked — take it back.
         $this->actingAs($user)
@@ -71,7 +73,8 @@ class AuctionUndoTest extends TestCase
             ->assertJsonPath('success', true);
 
         $ap->refresh();
-        $this->assertSame(200.0, (float) $ap->current_price);
+        // Back to team A's opening bid, which took the 100 base rather than raising it.
+        $this->assertSame(100.0, (float) $ap->current_price);
         $this->assertSame($teamA->id, $ap->current_bid_team_id);
         // The retracted bid stays in the log, flagged void.
         $this->assertSame(1, AuctionBid::where('auction_player_id', $ap->id)->where('is_void', true)->count());
@@ -95,9 +98,9 @@ class AuctionUndoTest extends TestCase
         }
 
         $expected = [
-            [300.0, $teamB->id],
-            [200.0, $teamA->id],
-            [100.0, null], // back to base price, no leading team
+            [200.0, $teamB->id],
+            [100.0, $teamA->id],   // the opening bid, which took the base itself
+            [100.0, null],         // back to the base price, no leading team
         ];
 
         foreach ($expected as [$price, $teamId]) {
@@ -249,7 +252,8 @@ class AuctionUndoTest extends TestCase
             ->postJson(route('admin.auction.organizer.api.undo', $auctionB))
             ->assertStatus(422);
 
-        $this->assertSame(200.0, (float) $ap->fresh()->current_price);
+        // One bid, and the opening bid takes the base rather than raising it.
+        $this->assertSame(100.0, (float) $ap->fresh()->current_price);
         $this->assertSame(0, AuctionActionLog::where('auction_id', $auctionA->id)->whereNotNull('undone_at')->count());
     }
 

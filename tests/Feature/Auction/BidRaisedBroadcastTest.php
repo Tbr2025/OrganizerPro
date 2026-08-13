@@ -84,7 +84,8 @@ class BidRaisedBroadcastTest extends TestCase
                 && $payload['current_bid_team_id'] === $team->id
                 // The ordering token listeners rely on to drop stale frames.
                 && $payload['bid_id'] > 0
-                && $payload['current_price'] > 1_000_000;
+                // >=, not >: the opening bid takes the 1M base rather than raising past it.
+                && $payload['current_price'] >= 1_000_000;
         });
     }
 

@@ -51,9 +51,15 @@ class UndoClearsStaleSealedRoundTest extends TestCase
 
         $ap = $this->makeAuctionPlayer($auction, ['status' => 'on_auction']);
 
-        // Three raises: 100 base -> 200 -> 300 -> 400. Undoing the last leaves 300, which is
-        // still above the 250 threshold — the case where the round used to survive.
-        foreach ([$teamA, $teamB, $teamA] as $team) {
+        /*
+         * Four bids: 100 -> 200 -> 300 -> 400. Undoing the last leaves 300, which is still above
+         * the 250 threshold — the case where the round used to survive.
+         *
+         * Four rather than three because the opening bid TAKES the 100 base rather than raising
+         * it, so three bids now land on 300 and an undo would drop below the threshold, which is
+         * a different scenario from the one this test is for.
+         */
+        foreach ([$teamA, $teamB, $teamA, $teamB] as $team) {
             $this->actingAs($user)->postJson(route('admin.auctions.players.addBid'), [
                 'auctionId' => $auction->id, 'playerID' => $ap->id, 'teamId' => $team->id,
             ])->assertOk();
@@ -171,9 +177,10 @@ class UndoClearsStaleSealedRoundTest extends TestCase
         $this->assertIsArray($notes);
 
         $joined = implode(' | ', $notes);
-        // Alpha 200, Bravo 300, Alpha 400 — undoing the last leaves Bravo leading at 300.
+        // Alpha 100 (the opening bid, which takes the base), Bravo 200, Alpha 300, Bravo 400 —
+        // undoing the last leaves Alpha leading at 300.
         $this->assertStringContainsString('Price goes back to', $joined);
-        $this->assertStringContainsString('Bravo', $joined, 'It should name the team the price falls back to.');
+        $this->assertStringContainsString('Alpha', $joined, 'It should name the team the price falls back to.');
         $this->assertStringContainsString('sealed round', $joined);
     }
 
