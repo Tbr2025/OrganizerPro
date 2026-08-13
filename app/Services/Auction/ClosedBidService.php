@@ -73,7 +73,27 @@ class ClosedBidService
             ? (float) $auction->closed_bid_starts_at
             : 0.0;
 
-        return $this->increments->snapUpToStep($auction, max($threshold, $price));
+        $base = max($threshold, $price);
+
+        /*
+         * A sealed bid has to BEAT what is already on the table.
+         *
+         * This used to be `snapUpToStep($base)`, which lands ON the standing bid: a player at 8M
+         * got a floor of 8M, so a sealed bid could match the open bid rather than outbid it — and
+         * win, because the sealed round replaces the open one. A tie-break round has always used
+         * nextLegalAbove() for precisely this reason; the first round did not.
+         *
+         * Hence `price_plus_step` as the default rule. `price` keeps the old arithmetic for
+         * anyone who wants it, and `price_plus_fixed` adds a set amount.
+         */
+        return match ($auction->closedBidMinRule()) {
+            Auction::CLOSED_BID_MIN_PRICE => $this->increments->snapUpToStep($auction, $base),
+            Auction::CLOSED_BID_MIN_FIXED => $this->increments->snapUpToStep(
+                $auction,
+                $base + $auction->closedBidMinOffset()
+            ),
+            default => $this->increments->nextLegalAbove($auction, $base),
+        };
     }
 
     /**
@@ -1694,10 +1714,26 @@ class ClosedBidService
                 return ['handled' => false, 'message' => 'That team no longer exists.'];
             }
 
+            /*
+             * At what they actually BID, not at the round's floor.
+             *
+             * `leader_amount` is the open bid that was standing when the sealed round opened, and
+             * it is the only figure this team ever agreed to. The floor is now one step ABOVE that
+             * (a sealed bid has to beat the standing bid), so charging the floor to a team that
+             * never entered the round would bill them for a raise nobody made — 8.1M for an 8M
+             * bid. It was invisible while the two numbers happened to be equal.
+             *
+             * Falls back to the floor only when there is no recorded leader amount, which is the
+             * old behaviour and the only figure available in that case.
+             */
+            $awardAt = $round->leader_amount !== null
+                ? (float) $round->leader_amount
+                : (float) $round->floor;
+
             return $this->awardTo(
                 $round,
                 $team,
-                (float) $round->floor,
+                $awardAt,
                 AuctionClosedBidRound::RESOLUTION_LEADER_AT_THRESHOLD,
                 $actor
             );

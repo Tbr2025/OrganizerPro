@@ -73,9 +73,27 @@
         transition: filter .12s ease-out;
     }
 
-    .sealed-amount.is-masked:focus,
+    /*
+     * Hover reveals. Focus deliberately does NOT.
+     *
+     * Clearing the blur on focus left the figure in plain sight for the whole time it was being
+     * typed, which is the only moment anybody is looking over a shoulder. Typing happens behind
+     * the blur; a deliberate hover is what shows it.
+     */
     .sealed-amount.is-masked:hover {
         filter: none;
+    }
+
+    /* No spin arrows. The step can be 100K, which makes them fifty presses to move 5M. */
+    .no-spinner::-webkit-outer-spin-button,
+    .no-spinner::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .no-spinner {
+        -moz-appearance: textfield;
+        appearance: textfield;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -577,9 +595,17 @@
                                         </button>
                                     </div>
 
+                                    {{-- Amount and PLACE BID on one row.
+                                         The two are one action, and a full-width button below the
+                                         box put the confirm a thumb-travel away from the number it
+                                         confirms — on a phone at a table, with a clock running.
+
+                                         No steppers, native or otherwise. The +/- buttons and the
+                                         browser's spin arrows both nudged by one step, which on a
+                                         100K step is fifty presses to move 5M; the figure is typed,
+                                         and the floor and ceiling are stated above and enforced by
+                                         sealedCanSubmit and the server. --}}
                                     <div class="flex items-center gap-2">
-                                        <button @click="sealedStepDown()" :disabled="sealedRaw <= sealed.floor"
-                                                class="w-9 h-9 rounded-md bg-red-500/15 border border-red-500/25 text-red-400 text-base font-bold flex items-center justify-center hover:bg-red-500/25 transition shrink-0 disabled:opacity-40">&minus;</button>
                                         <div class="flex-1">
                                             {{-- x-model, NOT a :value bound to a converted number.
                                                  The old binding recomputed the displayed value on
@@ -587,35 +613,39 @@
                                                  decimal point and 9.1 could not be entered at all. --}}
                                             <div class="flex items-center bg-gray-800/80 border rounded-md"
                                                  :class="sealedStepViolation ? 'border-red-500/40' : 'border-gray-700/50 focus-within:border-cyan-500/60'">
-                                                {{-- Blurred, not a password field.
-                                                     `type=password` cannot carry step/min/max, so all three
-                                                     had to be nulled out whenever the mask was on — the
-                                                     spinner stopped stepping and the browser stopped
-                                                     enforcing the floor at exactly the moment somebody was
-                                                     typing a number they could not read.
+                                                {{-- Blurred, not a password field — `type=password` cannot
+                                                     carry min/max, so both had to be dropped whenever the
+                                                     mask was on and the browser stopped enforcing the floor
+                                                     at exactly the moment somebody was typing a figure they
+                                                     could not read.
 
-                                                     A blur keeps a real number input and is better
-                                                     privacy in a hall: the figure is unreadable over a
-                                                     shoulder but sharpens for the person typing it, because
-                                                     it clears on focus and on hover. The eye above still
-                                                     toggles it outright. --}}
+                                                     The blur stays on WHILE typing. Clearing it on focus
+                                                     meant the number was in plain sight for the whole time
+                                                     it was being entered, which is the only moment anyone
+                                                     is looking — so hover is the reveal, and typing is done
+                                                     behind the blur. --}}
                                                 <input type="number"
                                                        x-model="sealedInputM"
                                                        @keydown.enter.prevent="sealedCanSubmit && sealedSubmit()"
-                                                       :step="toM(sealed.step)"
                                                        :min="toM(sealed.floor)"
                                                        :max="toM(sealedCeiling)"
                                                        :disabled="sealedExpired"
                                                        autocomplete="off"
                                                        inputmode="decimal"
-                                                       class="sealed-amount w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold disabled:opacity-50"
+                                                       class="sealed-amount no-spinner w-full px-2.5 py-2.5 bg-transparent text-white text-lg text-center focus:outline-none font-bold disabled:opacity-50"
                                                        :class="sealedAmountHidden ? 'is-masked' : ''"
                                                        :placeholder="toM(sealed.floor)">
                                                 <span class="pr-2.5 text-gray-500 font-semibold text-xs">M</span>
                                             </div>
                                         </div>
-                                        <button @click="sealedStepUp()" :disabled="sealedRaw >= sealedCeiling"
-                                                class="w-9 h-9 rounded-md bg-green-500/15 border border-green-500/25 text-green-400 text-base font-bold flex items-center justify-center hover:bg-green-500/25 transition shrink-0 disabled:opacity-40">+</button>
+
+                                        <button @click="sealedSubmit()" :disabled="!sealedCanSubmit"
+                                                class="px-4 py-2.5 rounded-md font-bold text-xs whitespace-nowrap transition-all shrink-0"
+                                                :class="sealedCanSubmit
+                                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/20'
+                                                    : 'bg-gray-800/60 border border-gray-700/40 text-gray-500 cursor-not-allowed'">
+                                            <span x-text="isSubmitting ? 'Submitting…' : (sealedExpired ? 'TIME UP' : 'PLACE BID')"></span>
+                                        </button>
                                     </div>
 
                                     {{-- Both neighbours named: "invalid amount" is no use to
@@ -632,19 +662,18 @@
                                     </p>
                                 </div>
 
-                                <button @click="sealedSubmit()" :disabled="!sealedCanSubmit"
-                                        class="w-full py-3 rounded-lg font-bold text-sm transition-all"
-                                        :class="sealedCanSubmit
-                                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/20'
-                                            : 'bg-gray-800/60 border border-gray-700/40 text-gray-500 cursor-not-allowed'">
-                                    <span x-text="isSubmitting ? 'Submitting…' : (sealed.my_entry?.amount ? 'CHANGE SEALED BID' : 'PLACE SEALED BID')"></span>
-                                </button>
-
                                 <div class="flex items-center justify-between mt-2 text-[10px]">
                                     <span class="text-gray-500">
                                         Round <span x-text="sealed.round_number"></span> of <span x-text="sealed.total_rounds"></span>
                                     </span>
-                                    <button @click="sealedWithdraw()" class="text-gray-500 hover:text-red-400 transition">Withdraw</button>
+                                    {{-- Not in an offline room. Withdrawing is a team telling the system
+                                         it is out; offline, the organizer is running the round in front
+                                         of everyone and says so on their own board. Two ways to leave the
+                                         same round is how one screen ends up disagreeing with the other.
+                                         `requires_acceptance` is false for offline auctions server-side. --}}
+                                    <button x-show="sealed.requires_acceptance"
+                                            @click="sealedWithdraw()"
+                                            class="text-gray-500 hover:text-red-400 transition">Withdraw</button>
                                 </div>
                             </div>
                         </template>

@@ -68,8 +68,9 @@ class ClosedBidAdjustBaselineTest extends TestCase
 
         $service->adjust($this->entryFor($round, $alpha), null, 'up');
 
-        // Nothing to go over yet, so the floor is the pace.
-        $this->assertSame(8_100_000.0, (float) $this->entryFor($round, $alpha)->fresh()->amount);
+        // Nothing to go over yet, so the floor is the pace — and the floor is now one step
+        // above the standing 8M bid rather than equal to it.
+        $this->assertSame(8_200_000.0, (float) $this->entryFor($round, $alpha)->fresh()->amount);
     }
 
     #[Test]
@@ -97,7 +98,7 @@ class ClosedBidAdjustBaselineTest extends TestCase
 
         // standing() is the one definition of a bid that counts, and a withdrawn bid does
         // not — so the room is back at the floor.
-        $this->assertSame(8_100_000.0, (float) $this->entryFor($round, $bravo)->fresh()->amount);
+        $this->assertSame(8_200_000.0, (float) $this->entryFor($round, $bravo)->fresh()->amount);
     }
 
     #[Test]

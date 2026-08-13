@@ -387,7 +387,9 @@ class ClosedBidRoundTest extends TestCase
 
         // The rules in force are snapshotted, so the round stays defensible even if the
         // auction is reconfigured afterwards.
-        $this->assertSame(8_000_000.0, (float) $round->floor);
+        // One step ABOVE the standing bid: a sealed floor equal to it would let a sealed bid
+        // match the open bid and win, since the sealed round replaces the open one.
+        $this->assertSame(8_100_000.0, (float) $round->floor);
         $this->assertSame(100_000.0, (float) $round->step);
         $this->assertSame(70.0, (float) $round->max_pct_of_budget);
 

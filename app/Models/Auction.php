@@ -47,6 +47,8 @@ class Auction extends Model
         'online_bid_limit_to',
         'mode_manually_overridden',
         'closed_bid_starts_at',
+        'closed_bid_min_rule',
+        'closed_bid_min_offset',
         'background_image',
         'auction_logo',
         'waiting_background_image',
@@ -727,6 +729,32 @@ class Auction extends Model
     public function autoRebidsOnTie(): bool
     {
         return (bool) ($this->closed_bid_auto_rebid ?? false);
+    }
+
+    /** How the minimum sealed bid is derived — see ClosedBidService::floorFor(). */
+    public const CLOSED_BID_MIN_PRICE = 'price';
+    public const CLOSED_BID_MIN_STEP = 'price_plus_step';
+    public const CLOSED_BID_MIN_FIXED = 'price_plus_fixed';
+
+    /**
+     * Defaults to one step above the standing price.
+     *
+     * Not to the price itself: a floor equal to the standing bid lets a sealed bid MATCH the open
+     * bid and win, since the sealed round replaces the open one.
+     */
+    public function closedBidMinRule(): string
+    {
+        return in_array($this->closed_bid_min_rule, [
+            self::CLOSED_BID_MIN_PRICE,
+            self::CLOSED_BID_MIN_STEP,
+            self::CLOSED_BID_MIN_FIXED,
+        ], true) ? $this->closed_bid_min_rule : self::CLOSED_BID_MIN_STEP;
+    }
+
+    /** Only consulted by the `price_plus_fixed` rule. */
+    public function closedBidMinOffset(): float
+    {
+        return (float) ($this->closed_bid_min_offset ?? 0);
     }
 
     public function closedBidTotalRounds(): int

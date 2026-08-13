@@ -235,7 +235,9 @@ class ClosedBidSealingTest extends TestCase
         $result = $this->closedBids()->submit($round, $teamA, 7_900_000, null);
 
         $this->assertFalse($result['handled']);
-        $this->assertStringContainsString('8M', $result['message']);
+        // 8.1M, not 8M — the floor is one step above the standing bid now, so a sealed bid has
+        // to beat it rather than match it.
+        $this->assertStringContainsString('8.1M', $result['message']);
     }
 
     #[Test]
