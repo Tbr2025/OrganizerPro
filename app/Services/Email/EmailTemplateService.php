@@ -47,7 +47,7 @@ class EmailTemplateService
                 'placeholders' => array_merge($common, ['{player_name}', '{complete_profile_url}']),
             ],
             EmailTemplate::TYPE_RETAINED_WELCOME_CARD => [
-                'label' => 'Retained Welcome Card (on retention, with poster attached)',
+                'label' => 'Icon Player Welcome Card (when a team keeps a player, with poster attached)',
                 'subject' => 'Welcome to the Team!',
                 'placeholders' => array_merge($common, ['{player_name}', '{team_name}', '{retained_value}', '{complete_profile_url}']),
             ],

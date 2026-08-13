@@ -59,7 +59,7 @@
     <div class="mb-6 rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Team budgets</h3>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Remaining = allocated − retained − sold. Retained players are deducted up front.</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Remaining = allocated − retained − sold. Icon players are deducted up front.</p>
         </div>
         <div class="p-4 overflow-x-auto">
             <table class="w-full text-sm min-w-[520px]">
@@ -67,7 +67,7 @@
                     <tr class="text-left text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-100 dark:border-gray-800">
                         <th class="py-2 pr-4">Team</th>
                         <th class="py-2 px-3 text-right">Allocated</th>
-                        <th class="py-2 px-3 text-right">Retained</th>
+                        <th class="py-2 px-3 text-right">Icon Player</th>
                         <th class="py-2 px-3 text-center">Kept</th>
                         <th class="py-2 px-3 text-right">Sold</th>
                         <th class="py-2 pl-3 text-right">Remaining</th>
@@ -398,7 +398,7 @@
                                     <span class="text-xs text-gray-400 w-5">{{ $ap->is_retained ? '★' : ($ap->lot_number ?? '–') }}</span>
                                     <span class="truncate text-gray-800 dark:text-gray-100">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
                                     @if($ap->is_retained)
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">Retained{{ $ap->team ? ' · '.$ap->team->name : '' }}{{ (float) $ap->retained_price > 0 ? ' · ' . $auction->formatAmount($ap->retained_price) : '' }}</span>@if((float) $ap->retained_price <= 0)<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 whitespace-nowrap" title="No retention price — this player currently costs their team nothing.">no price</span>@endif
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">Icon Player{{ $ap->team ? ' · '.$ap->team->name : '' }}{{ (float) $ap->retained_price > 0 ? ' · ' . $auction->formatAmount($ap->retained_price) : '' }}</span>@if((float) $ap->retained_price <= 0)<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 whitespace-nowrap" title="No retention price — this player currently costs their team nothing.">no price</span>@endif
                                     @elseif($ap->player?->playerType)<span class="text-[10px] text-gray-400">{{ $ap->player->playerType->name }}</span>@endif
                                     @if($ap->status !== 'waiting')<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ $ap->status }}</span>@endif
                                 </span>
@@ -443,7 +443,7 @@
                         <input type="checkbox" @change="$root.querySelectorAll('input[name=\'player_ids[]\']').forEach(c => c.checked = $event.target.checked)"> Select all (visible)
                     </label>
                     <div class="max-h-[28rem] overflow-y-auto space-y-1 pr-1">
-                        {{-- Retained players are not listed: this panel feeds a bidding
+                        {{-- Icon players are not listed: this panel feeds a bidding
                              queue, and a retained player is never bid on. Their retention
                              price is set on their team (Teams -> edit -> squad). --}}
                         @foreach($available as $p)

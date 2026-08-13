@@ -762,7 +762,7 @@
                                  Useful to the organizer, awkward on a team manager's screen —
                                  which is often on a shared table, where what a rival paid for a
                                  player is exactly the number people lean over to read. The
-                                 Icon Player / Retained badge is unaffected either way; only the
+                                 Icon Player / Icon Player badge is unaffected either way; only the
                                  money is withheld. --}}
                             <label class="mt-4 flex items-start gap-3 cursor-pointer">
                                 {{-- An unticked checkbox posts nothing, and the server cannot tell
@@ -779,7 +779,7 @@
                                     </span>
                                     <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                         Turn this off to keep the prices to yourself. Players are still
-                                        badged as Icon Player or Retained.
+                                        badged as Icon Player or Icon Player.
                                     </span>
                                 </span>
                             </label>
@@ -936,7 +936,7 @@
                         {{-- Retention defaults: a blank retention price used to be stored as
                              0, so a retained player cost their team nothing. --}}
                         <div class="mt-6 p-5 bg-purple-50 dark:bg-purple-900/10 rounded-2xl border border-purple-200 dark:border-purple-800/60">
-                            <h3 class="font-semibold text-gray-900 dark:text-white">Retained Players</h3>
+                            <h3 class="font-semibold text-gray-900 dark:text-white">Icon Players</h3>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
                                 Retentions are charged against a team's budget before the auction starts.
                             </p>
@@ -1302,7 +1302,7 @@
                                     {{-- Explain the filter rather than leaving a blank panel. --}}
                                     <p x-show="!searchAvailable" class="text-xs text-gray-400 dark:text-gray-500 mt-2 max-w-xs mx-auto">
                                         Only players with an approved registration for this tournament appear here.
-                                        Retained players are excluded — manage them on the
+                                        Icon players are excluded — manage them on the
                                         <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="text-indigo-500 underline">Pools</a> screen.
                                     </p>
                                 </div>

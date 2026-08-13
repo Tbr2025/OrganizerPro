@@ -245,7 +245,7 @@
                                                 </span>
                                             @elseif($tPlayer->acquisition === 'retained')
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 ml-1">
-                                                    Retained{{ $tPlayer->acquisition_price_label ? ' (' . $tPlayer->acquisition_price_label . ')' : '' }}
+                                                    Icon Player{{ $tPlayer->acquisition_price_label ? ' (' . $tPlayer->acquisition_price_label . ')' : '' }}
                                                 </span>
                                                 {{-- Only offered for a genuine retention. Un-retaining an
                                                      auction buy is not a thing that should be possible. --}}
@@ -458,7 +458,7 @@
                             <select x-model="filterStatus" class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">All</option>
                                 <option value="available">Available</option>
-                                <option value="retained">Retained</option>
+                                <option value="retained">Icon Player</option>
                             </select>
                         </div>
                         {{-- Min Matches --}}
@@ -586,12 +586,12 @@
                                             @if($ap->player_mode === 'retained' && $ap->actual_team_id == $actualTeam->id)
                                                 <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm">
                                                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                                                    Retained ({{ number_format($ap->retained_value) }})
+                                                    Icon Player ({{ number_format($ap->retained_value) }})
                                                 </span>
                                             @elseif($ap->player_mode === 'retained' && $ap->actual_team_id && $ap->actual_team_id != $actualTeam->id)
                                                 <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-sm">
                                                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                                                    Retained by {{ $ap->actualTeam->name ?? 'Other' }}
+                                                    Icon Player of {{ $ap->actualTeam->name ?? 'Other' }}
                                                 </span>
                                             @else
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">
@@ -650,7 +650,7 @@
                             <input type="hidden" name="actual_team_id" value="{{ $actualTeam->id }}">
                             <input type="hidden" name="retained_value" x-model="retainAmount">
                             <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value (in Millions)</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon Player Value (in Millions)</label>
                                 <input type="number" x-model="retainDisplayM" min="0" step="0.01" required
                                     class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-purple-500 focus:ring-purple-500"
                                     placeholder="e.g. 1.5 for 15,00,000">

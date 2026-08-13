@@ -29,16 +29,39 @@ class SquadAcquisitionService
     public const RETAINED = 'retained';
 
     /**
-     * The badge a squad list should show. "Icon Player" for someone bought in the room,
-     * "Retained" for someone kept — the two facts squad views most need to tell apart.
+     * What this competition calls a player kept by their team before the auction.
+     *
+     * One place, so a rename is one line rather than a sweep of twenty Blade files. The DATA
+     * keeps its own name — `player_mode = 'retained'`, `retained_price`, `is_retained`, every
+     * route and request field — because renaming a column to match a label is how one thing
+     * ends up with two meanings.
+     */
+    public const RETAINED_LABEL = 'Icon Player';
+
+    /** And what it calls a player bought in the room. */
+    public const AUCTION_LABEL = 'Auction';
+
+    /**
+     * The badge a squad list should show.
+     *
+     * These were the wrong way round: a player bought at auction was labelled "Icon Player" and
+     * a player KEPT was labelled "Retained". An icon player is one a team keeps before the
+     * auction — that is the whole meaning of the word here — so every squad list has been
+     * calling buys icons and keeps something else.
      */
     public static function label(?string $acquisition): ?string
     {
         return match ($acquisition) {
-            self::AUCTION => 'Icon Player',
-            self::RETAINED => 'Retained',
+            self::AUCTION => self::AUCTION_LABEL,
+            self::RETAINED => self::RETAINED_LABEL,
             default => null,
         };
+    }
+
+    /** The label for a kept player, for views that have no acquisition value to hand. */
+    public static function retainedLabel(): string
+    {
+        return self::RETAINED_LABEL;
     }
 
     /**

@@ -437,7 +437,7 @@
                             </div>
                             @if($player->player_mode === 'retained')
                             <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Retained Value</h4>
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Icon Player Value</h4>
                                 <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->retained_value ? number_format($player->retained_value) : '—' }}</p>
                             </div>
                             @endif

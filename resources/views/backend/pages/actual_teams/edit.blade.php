@@ -798,7 +798,7 @@
                                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                                                 </button>
                                                             </div>
-                                                            {{-- Retained checkbox + value --}}
+                                                            {{-- Icon Player checkbox + value --}}
                                                             <div class="flex items-center gap-2 ml-9">
                                                                 <label class="inline-flex items-center gap-1.5 cursor-pointer">
                                                                     <input type="checkbox"
@@ -806,7 +806,7 @@
                                                                         @change="toggleRetained(spId, $event.target.checked)"
                                                                         :disabled="getPlayerById(spId)?.status !== 'approved'"
                                                                         class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 h-3.5 w-3.5">
-                                                                    <span class="text-xs text-gray-600 dark:text-gray-400">Retained</span>
+                                                                    <span class="text-xs text-gray-600 dark:text-gray-400">Icon Player</span>
                                                                 </label>
                                                                 <template x-if="getPlayerById(spId)?.status !== 'approved'">
                                                                     <span class="text-[10px] text-amber-500" title="Player must be approved to retain">Not approved</span>
@@ -906,13 +906,13 @@
                                         <option value="captain">Captain</option>
                                         <option value="vice_captain">Vice Captain</option>
                                         <option value="wicket_keeper">Wicket Keeper</option>
-                                        <option value="retained">Retained</option>
+                                        <option value="retained">Icon Player</option>
                                     </select>
                                 </div>
 
-                                {{-- Retained Value (shown when role is retained, new mode only) --}}
+                                {{-- Icon Player Value (shown when role is retained, new mode only) --}}
                                 <div x-show="addMode === 'new' && playerRole === 'retained'" x-cloak>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Retained Value <span class="text-red-500">*</span></label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Icon Player Value <span class="text-red-500">*</span></label>
                                     <input type="number" x-model="retainedValue" min="0" step="any" placeholder="e.g. 500000" class="form-control mt-1 text-sm">
                                     <p class="text-xs text-gray-500 mt-1">This amount will be deducted from the team's auction budget.</p>
                                 </div>
@@ -1009,7 +1009,7 @@
 
                         <div class="px-6 py-5 space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon Player Value <span class="text-red-500">*</span></label>
                                 <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="form-control">
                                 <p class="text-xs text-gray-500 mt-1">This amount will be deducted from the team's auction budget.</p>
                             </div>
@@ -1077,7 +1077,7 @@
                                 <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $ab->formatAmount($teamBudget['allocated'], '0') }}</p>
                             </div>
                             <div>
-                                <p class="text-[11px] uppercase tracking-wider text-gray-400">Retained</p>
+                                <p class="text-[11px] uppercase tracking-wider text-gray-400">Icon Player</p>
                                 <p class="text-lg font-bold text-amber-600">{{ $ab->formatAmount($teamBudget['retained_spent'], '0') }}</p>
                                 {{-- Interpolated, not an inline @if: Blade will not compile a
                                      directive glued to a word character, so "expected@endif"
@@ -1525,7 +1525,7 @@
                         }
 
                         if (this.addMode === 'new' && this.playerRole === 'retained' && (!this.retainedValue || parseFloat(this.retainedValue) < 0)) {
-                            this.error = 'Retained value is required when retaining a player.';
+                            this.error = 'Icon Player value is required when keeping a player.';
                             return;
                         }
 
@@ -1535,7 +1535,7 @@
                                 const settings = this.playerRetainedSettings[spId];
                                 if (settings?.retained && (!settings.value || parseFloat(settings.value) < 0)) {
                                     const player = this.getPlayerById(spId);
-                                    this.error = `Retained value is required for ${player?.name || 'selected player'}.`;
+                                    this.error = `Icon Player value is required for ${player?.name || 'selected player'}.`;
                                     return;
                                 }
                             }
@@ -1996,7 +1996,7 @@
 
                     const retainedTag = memberData.player_mode === 'retained' ?
                         `<span class="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-         Retained
+         Icon Player
        </span>` :
                         '';
 
@@ -2015,7 +2015,7 @@
                 ${
                     memberData.player_mode === 'retained'
                         ? `<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                                                Retained
+                                                                                Icon Player
                                                                            </span>`
                         : ''
                 }

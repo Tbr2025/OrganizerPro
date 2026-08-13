@@ -418,7 +418,8 @@ class TournamentTemplate extends Model
     {
         return match ($type) {
             self::TYPE_WELCOME_CARD => 'Welcome Card',
-            self::TYPE_RETAINED_WELCOME_CARD => 'Retained Welcome Card',
+            // The label moved to Icon Player; the type CONSTANT and its stored value did not.
+            self::TYPE_RETAINED_WELCOME_CARD => 'Icon Player Welcome Card',
             self::TYPE_MATCH_POSTER => 'Match Poster',
             self::TYPE_MATCH_SUMMARY => 'Match Summary',
             self::TYPE_AWARD_POSTER => 'Award Poster',

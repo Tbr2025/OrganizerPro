@@ -141,7 +141,7 @@
                             Mode</label>
                         <select name="player_mode" id="player_mode" class="form-control mt-1">
                             <option value="">All</option>
-                            <option value="retained" @selected(request('player_mode') == 'retained')>Retained</option>
+                            <option value="retained" @selected(request('player_mode') == 'retained')>Icon Player</option>
                             <option value="normal" @selected(request('player_mode') == 'normal')>Available</option>
                             <option value="sold" @selected(request('player_mode') == 'sold')>Sold</option>
                             <option value="Unsold" @selected(request('player_mode') == 'Unsold')>Unsold</option>
@@ -410,7 +410,7 @@
                                                          Selling sets player_mode to `retained` too, so this
                                                          badge said "Retained" on every player bought in the
                                                          room. `acquisition_label` reads Icon Player for a buy
-                                                         and Retained for a keep. --}}
+                                                         and Icon Player for a keep. --}}
                                                     @if ($player->acquisition_label)
                                                         <span
                                                             class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset
@@ -694,7 +694,7 @@
                                                          Selling sets player_mode to `retained` too, so this
                                                          badge said "Retained" on every player bought in the
                                                          room. `acquisition_label` reads Icon Player for a buy
-                                                         and Retained for a keep. --}}
+                                                         and Icon Player for a keep. --}}
                                                     @if ($player->acquisition_label)
                                                         <span
                                                             class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset
@@ -1000,7 +1000,7 @@
                             </select>
                         </div>
                         <div x-data="{ retainVal: '' }">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon Player Value <span class="text-red-500">*</span></label>
                             <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="form-control" x-model="retainVal">
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-show="retainVal > 0" x-text="(retainVal / 1000000).toFixed(2) + 'M'"></p>
                         </div>

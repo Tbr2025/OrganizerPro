@@ -271,8 +271,8 @@
             <div id="poolList" class="space-y-4">
                 @forelse($auction->pools as $pool)
                     @php
-                        // Retained rows are pool-less by design, so a pool holds only
-                        // biddable players. Retained players are listed once, below.
+                        // Icon Player rows are pool-less by design, so a pool holds only
+                        // biddable players. Icon players are listed once, below.
                         $biddable = $pool->players->where('is_retained', false)->sortBy('lot_number')->values();
                     @endphp
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-4"
@@ -319,7 +319,7 @@
                         <a href="{{ route('admin.auctions.pools.index', $auction) }}" class="text-indigo-600 underline">Manage pools</a>.</p>
                 @endforelse
 
-                {{-- ── Retained players ──
+                {{-- ── Icon players ──
                      Listed against the auction, not inside a pool: a retained player is
                      never bid on, so they have no place in a bidding queue. Their price is
                      set on their team. Merging is the one thing that changes that — it gives
@@ -331,7 +331,7 @@
                          x-data="{ mergePool: {{ $auction->pools->first()->id }} }">
                         <div class="flex items-center justify-between gap-2 mb-2">
                             <h4 class="font-semibold text-purple-700 dark:text-purple-300 text-sm">
-                                Retained players ({{ $retainedPlayers->count() }})
+                                Icon players ({{ $retainedPlayers->count() }})
                             </h4>
                             <a href="{{ route('admin.auctions.pools.index', $auction) }}"
                                class="text-xs text-gray-500 hover:underline">Budgets &rarr;</a>

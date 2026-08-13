@@ -79,7 +79,7 @@
                     ['status' => 'rejected',   'label' => 'Rejected',   'count' => $rejectedCount,   'bg' => 'bg-rose-50 dark:bg-rose-950/40',      'border' => 'border-rose-200 dark:border-rose-800',     'icon_bg' => 'bg-rose-100 dark:bg-rose-900/50',      'icon_color' => 'text-rose-600 dark:text-rose-400',      'text' => 'text-rose-600 dark:text-rose-400',      'num' => 'text-rose-700 dark:text-rose-200',      'hover_border' => 'hover:border-rose-400 dark:hover:border-rose-600',      'shadow' => 'hover:shadow-rose-200/50 dark:hover:shadow-rose-900/30',      'icon' => 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z'],
                     ['status' => 'cancelled',  'label' => 'Cancelled',  'count' => $cancelledCount,  'bg' => 'bg-gray-50 dark:bg-gray-900/40',      'border' => 'border-gray-200 dark:border-gray-700',     'icon_bg' => 'bg-gray-100 dark:bg-gray-800/50',      'icon_color' => 'text-gray-500 dark:text-gray-400',      'text' => 'text-gray-500 dark:text-gray-400',      'num' => 'text-gray-700 dark:text-gray-200',      'hover_border' => 'hover:border-gray-400 dark:hover:border-gray-500',      'shadow' => 'hover:shadow-gray-200/50 dark:hover:shadow-gray-900/30',      'icon' => 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'],
                     ['status' => 'queued',     'label' => 'In Queue',   'count' => $queuedCount,     'bg' => 'bg-sky-50 dark:bg-sky-950/40',        'border' => 'border-sky-200 dark:border-sky-800',       'icon_bg' => 'bg-sky-100 dark:bg-sky-900/50',        'icon_color' => 'text-sky-600 dark:text-sky-400',        'text' => 'text-sky-600 dark:text-sky-400',        'num' => 'text-sky-700 dark:text-sky-200',        'hover_border' => 'hover:border-sky-400 dark:hover:border-sky-600',        'shadow' => 'hover:shadow-sky-200/50 dark:hover:shadow-sky-900/30',        'icon' => 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'],
-                    ['status' => 'retained',   'label' => 'Retained',   'count' => $retainedCount,   'bg' => 'bg-purple-50 dark:bg-purple-950/40',  'border' => 'border-purple-200 dark:border-purple-800', 'icon_bg' => 'bg-purple-100 dark:bg-purple-900/50',  'icon_color' => 'text-purple-600 dark:text-purple-400',  'text' => 'text-purple-600 dark:text-purple-400',  'num' => 'text-purple-700 dark:text-purple-200',  'hover_border' => 'hover:border-purple-400 dark:hover:border-purple-600',  'shadow' => 'hover:shadow-purple-200/50 dark:hover:shadow-purple-900/30',  'icon' => 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z'],
+                    ['status' => 'retained',   'label' => 'Icon Player',   'count' => $retainedCount,   'bg' => 'bg-purple-50 dark:bg-purple-950/40',  'border' => 'border-purple-200 dark:border-purple-800', 'icon_bg' => 'bg-purple-100 dark:bg-purple-900/50',  'icon_color' => 'text-purple-600 dark:text-purple-400',  'text' => 'text-purple-600 dark:text-purple-400',  'num' => 'text-purple-700 dark:text-purple-200',  'hover_border' => 'hover:border-purple-400 dark:hover:border-purple-600',  'shadow' => 'hover:shadow-purple-200/50 dark:hover:shadow-purple-900/30',  'icon' => 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z'],
                     ['status' => 'unretained', 'label' => 'Unretained', 'count' => $unretainedCount, 'bg' => 'bg-teal-50 dark:bg-teal-950/40',      'border' => 'border-teal-200 dark:border-teal-800',     'icon_bg' => 'bg-teal-100 dark:bg-teal-900/50',      'icon_color' => 'text-teal-600 dark:text-teal-400',      'text' => 'text-teal-600 dark:text-teal-400',      'num' => 'text-teal-700 dark:text-teal-200',      'hover_border' => 'hover:border-teal-400 dark:hover:border-teal-600',      'shadow' => 'hover:shadow-teal-200/50 dark:hover:shadow-teal-900/30',      'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
                 ];
             @endphp
@@ -105,7 +105,7 @@
             @php $q = request()->query(); @endphp
             <div class="mb-4 border-b border-gray-200 dark:border-gray-700">
                 <nav class="-mb-px flex flex-wrap gap-x-8">
-                    @foreach(['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'queued' => 'In Queue', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'retained' => 'Retained', 'unretained' => 'Unretained'] as $key => $label)
+                    @foreach(['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'queued' => 'In Queue', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'retained' => 'Icon Player', 'unretained' => 'Unretained'] as $key => $label)
                         @php $active = request('status', 'pending') === $key; @endphp
                         <a href="{{ route('admin.tournaments.registrations.index', array_merge($q, ['tournament' => $tournament, 'status' => $key])) }}"
                             class="py-2 px-1 border-b-2 font-medium text-sm {{ $active ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400' }}">
@@ -433,7 +433,7 @@
                                             @if($registration->player?->player_mode === 'retained')
                                                 <div class="mt-1">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                                        Retained
+                                                        Icon Player
                                                     </span>
                                                 </div>
                                                 @if($registration->player->actualTeam)
@@ -839,7 +839,7 @@
                             </select>
                         </div>
                         <div x-data="{ retainVal: '' }">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon Player Value <span class="text-red-500">*</span></label>
                             <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" x-model="retainVal">
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" x-show="retainVal > 0" x-text="(retainVal / 1000000).toFixed(2) + 'M'"></p>
                         </div>

@@ -50,9 +50,14 @@
 
     {{-- INFO BAR --}}
     @php
-        {{-- From the auction row, not player_mode. `player_mode` is `retained` for a sale as
-             well as a keep, and is never 'sold' at all — so the retained count included every
-             purchase and the sold count was permanently zero. --}}
+        /*
+         * From the auction row, not player_mode. `player_mode` is `retained` for a sale as well
+         * as a keep, and is never 'sold' at all — so the retained count included every purchase
+         * and the sold count was permanently zero.
+         *
+         * A PHP comment, not a Blade one: inside @php the contents are raw PHP, so `{{--` is a
+         * syntax error rather than a comment and this page returned a 500.
+         */
         $retainedCount = $players->where('acquisition', 'retained')->count();
         $soldCount = $players->where('acquisition', 'auction')->count();
     @endphp
@@ -62,7 +67,7 @@
             <div class="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{{ $players->count() }}</div>
         </div>
         <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Retained</div>
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Icon Player</div>
             <div class="mt-1 text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $retainedCount }}</div>
         </div>
         <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -197,7 +202,7 @@
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1">Status</label>
                         <select x-model="filterStatus" class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
                             <option value="">All</option>
-                            <option value="retained">Retained</option>
+                            <option value="retained">Icon Player</option>
                             <option value="sold">Sold</option>
                         </select>
                     </div>
@@ -316,7 +321,7 @@
                                         @if($player->acquisition === 'retained')
                                             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm">
                                                 <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                                                Retained{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
+                                                Icon Player{{ $player->acquisition_price_label ? ' · ' . $player->acquisition_price_label : '' }}
                                             </span>
                                         @elseif($player->acquisition === 'auction')
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">

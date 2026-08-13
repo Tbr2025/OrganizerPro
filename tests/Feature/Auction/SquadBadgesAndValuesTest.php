@@ -12,16 +12,21 @@ use Tests\Concerns\CreatesAuctionScenario;
 use Tests\TestCase;
 
 /**
- * A player bought in the room is not a retained player.
+ * A player bought in the room is not an icon player.
  *
  * Squad views read `players.player_mode` to decide the badge — and selling a player sets that
- * to `retained` just as keeping one does. So every player bought at auction wore a "Retained"
+ * to `retained` just as keeping one does. So every player bought at auction wore the keeper's
  * badge, the organizer's team page offered to UN-RETAIN them (which would have quietly stripped
  * a purchase), and on the team manager's own card the chip at the top said "auction" while the
- * badge underneath said "retained": one card, two answers.
+ * badge underneath disagreed: one card, two answers.
  *
- * The honest source is the auction row, and it now has one owner — SquadAcquisitionService —
- * because the two views had already started to drift apart on it.
+ * The honest source is the auction row, and it has one owner — SquadAcquisitionService.
+ *
+ * The two labels were then the wrong way round: a BUY was called "Icon Player" and a KEEP was
+ * called "Retained". An icon player is one a team keeps before the auction — that is what the
+ * word means here — so the badges have been swapped. The DATA keeps its own names
+ * (`player_mode = 'retained'`, `retained_price`), because renaming a column to match a label is
+ * how one thing ends up with two meanings.
  */
 class SquadBadgesAndValuesTest extends TestCase
 {
@@ -59,7 +64,7 @@ class SquadBadgesAndValuesTest extends TestCase
     }
 
     #[Test]
-    public function a_purchase_is_badged_icon_player_and_a_keep_is_badged_retained(): void
+    public function a_keep_is_badged_icon_player_and_a_purchase_is_badged_auction(): void
     {
         ['team' => $team, 'bought' => $bought, 'kept' => $kept] = $this->scenario();
 
@@ -69,10 +74,10 @@ class SquadBadgesAndValuesTest extends TestCase
         app(SquadAcquisitionService::class)->attach($players, $team);
 
         $this->assertSame('auction', $players[0]->acquisition);
-        $this->assertSame('Icon Player', $players[0]->acquisition_label);
+        $this->assertSame('Auction', $players[0]->acquisition_label);
 
         $this->assertSame('retained', $players[1]->acquisition);
-        $this->assertSame('Retained', $players[1]->acquisition_label);
+        $this->assertSame('Icon Player', $players[1]->acquisition_label);
     }
 
     #[Test]
@@ -105,8 +110,8 @@ class SquadBadgesAndValuesTest extends TestCase
         // The badge is the useful part and stays; the price is what a rival leans over to read.
         $this->assertNull($players[0]->acquisition_price_label);
         $this->assertNull($players[1]->acquisition_price_label);
-        $this->assertSame('Icon Player', $players[0]->acquisition_label);
-        $this->assertSame('Retained', $players[1]->acquisition_label);
+        $this->assertSame('Auction', $players[0]->acquisition_label);
+        $this->assertSame('Icon Player', $players[1]->acquisition_label);
 
         // The figure itself is still attached, for anything that needs to compute with it.
         $this->assertSame(4_500_000.0, $players[0]->acquisition_price);
@@ -186,7 +191,7 @@ class SquadBadgesAndValuesTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString('Icon Player', $html);
-        $this->assertStringContainsString('Retained', $html);
+        $this->assertStringContainsString('Auction', $html);
 
         // One Unretain form, for the kept player — not two.
         $this->assertSame(1, substr_count($html, 'Unretain'));
@@ -207,8 +212,8 @@ class SquadBadgesAndValuesTest extends TestCase
         $players = collect([$bought->fresh(), $kept->fresh()]);
         app(SquadAcquisitionService::class)->attachForOwnTeams($players);
 
-        $this->assertSame('Icon Player', $players[0]->acquisition_label);
-        $this->assertSame('Retained', $players[1]->acquisition_label);
+        $this->assertSame('Auction', $players[0]->acquisition_label);
+        $this->assertSame('Icon Player', $players[1]->acquisition_label);
         $this->assertSame(4_500_000.0, $players[0]->acquisition_price);
     }
 

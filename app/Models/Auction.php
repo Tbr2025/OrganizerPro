@@ -185,7 +185,7 @@ class Auction extends Model
      *
      * Prices are useful to the organizer and awkward on a team manager's screen, which is often
      * on a shared table — what a rival paid is exactly the number people lean over to read. The
-     * Icon Player / Retained badge is unaffected; only the money is withheld. Defaults to true,
+     * The Icon Player badge is unaffected; only the money is withheld. Defaults to true,
      * which is what every squad view did before the setting existed.
      */
     public function showsSquadValues(): bool

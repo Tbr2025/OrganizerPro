@@ -501,13 +501,13 @@
                             <p class="mt-1 text-sm text-gray-900 dark:text-white">{{ $player->actualTeam->name }}</p>
                         </div>
                         {{-- Names what the figure IS. This read retained_value and called it
-                             "Retained Value" for a player who may have been bought at auction —
+                             "Icon Player Value" for a player who may have been bought at auction —
                              where the real figure is their final price, and retained_value is
                              often empty. --}}
                         @if($tmIsAuction && $player->acquisition_price_label)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                {{ $player->acquisition === 'auction' ? 'Auction Price' : 'Retained Value' }}
+                                {{ $player->acquisition === 'auction' ? 'Auction Price' : 'Icon Player Value' }}
                             </h4>
                             <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->acquisition_price_label }}</p>
                         </div>
@@ -534,7 +534,7 @@
                         @if($isAuctionTournament && $player->acquisition)
                         <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border border-transparent">
                             <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                {{ $player->acquisition === 'auction' ? 'Auction Price' : 'Retained Value' }}
+                                {{ $player->acquisition === 'auction' ? 'Auction Price' : 'Icon Player Value' }}
                             </h4>
                             <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $player->acquisition_price_label ?: '—' }}</p>
                         </div>
@@ -792,7 +792,7 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Retained Value <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon Player Value <span class="text-red-500">*</span></label>
                             <input type="number" name="retained_value" required min="0" step="any" placeholder="e.g. 500000" class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
                         </div>
                     </div>

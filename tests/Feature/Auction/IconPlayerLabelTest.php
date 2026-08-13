@@ -1,0 +1,100 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Auction;
+
+use App\Services\Auction\SquadAcquisitionService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\Concerns\CreatesAuctionScenario;
+use Tests\TestCase;
+
+/**
+ * An icon player is one a team KEEPS before the auction.
+ *
+ * The two labels were the wrong way round: a player bought in the room was badged "Icon Player"
+ * and a player kept was badged "Retained". That is backwards — keeping a marquee name before the
+ * bidding starts is what the word describes — so every squad list in the application has been
+ * calling purchases icons.
+ *
+ * The rename is display-only, and that boundary is the point of this test. `player_mode` still
+ * stores `retained`, the columns are still `retained_price` / `retained_value` / `is_retained`,
+ * and every route, request field and method name is untouched. Renaming data to match a label is
+ * how one thing ends up with two meanings, and a half-finished rename is how it ends up with two
+ * names for the same thing.
+ */
+class IconPlayerLabelTest extends TestCase
+{
+    use CreatesAuctionScenario;
+    use RefreshDatabase;
+
+    /**
+     * A Superadmin with the permissions these two pages check.
+     *
+     * `makeSuperadmin()` grants auction permissions only, and both screens go through
+     * checkAuthorization() for their own — so without these the test asserts 403s.
+     */
+    private function viewer($org)
+    {
+        $user = $this->makeSuperadmin($org);
+
+        foreach (['player.view', 'actual-team.view', 'team.view'] as $name) {
+            $user->givePermissionTo(
+                \Spatie\Permission\Models\Permission::firstOrCreate(
+                    ['name' => $name, 'guard_name' => 'web'],
+                    ['group_name' => 'general']
+                )
+            );
+        }
+
+        return $user->fresh();
+    }
+
+    #[Test]
+    public function a_kept_player_is_an_icon_player_and_a_bought_one_is_not(): void
+    {
+        $this->assertSame('Icon Player', SquadAcquisitionService::label(SquadAcquisitionService::RETAINED));
+        $this->assertSame('Auction', SquadAcquisitionService::label(SquadAcquisitionService::AUCTION));
+        $this->assertNull(SquadAcquisitionService::label(null));
+
+        // One place to change it, rather than a sweep of twenty Blade files next time.
+        $this->assertSame('Icon Player', SquadAcquisitionService::retainedLabel());
+    }
+
+    #[Test]
+    public function the_data_keeps_its_own_names(): void
+    {
+        /*
+         * The acquisition VALUES are what the rest of the system matches on — a filter posting
+         * `player_mode=retained`, a query on `acquisition`, an export column. Renaming these to
+         * follow the badge would have broken every one of them silently.
+         */
+        $this->assertSame('retained', SquadAcquisitionService::RETAINED);
+        $this->assertSame('auction', SquadAcquisitionService::AUCTION);
+    }
+
+    /*
+     * The RENDERED badge is asserted where the fixtures for it already exist:
+     * SquadBadgesAndValuesTest covers the squad pages, and AuctionPoolRetainedSeparationTest
+     * covers the auction page's "Icon players" heading. Duplicating those here would mean a
+     * third copy of an auction-plus-retention fixture to assert the same string.
+     */
+
+    #[Test]
+    public function the_players_list_filter_keeps_its_value_and_gains_the_new_label(): void
+    {
+        $org = $this->makeOrganization();
+
+        $html = $this->actingAs($this->viewer($org))
+            ->get(route('admin.players.index'))
+            ->assertOk()
+            ->getContent();
+
+        // The option a person reads, and the value the request carries — deliberately different.
+        $this->assertMatchesRegularExpression(
+            '/<option value="retained"[^>]*>\s*Icon Player\s*<\/option>/',
+            $html
+        );
+    }
+}

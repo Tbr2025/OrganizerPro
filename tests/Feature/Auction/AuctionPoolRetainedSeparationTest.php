@@ -282,7 +282,9 @@ class AuctionPoolRetainedSeparationTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.auctions.show', $auction))
             ->assertOk()
-            ->assertSee('Retained players')
+            // The heading reads "Icon players" now — the label for a kept player changed, the
+            // data (`player_mode`, `retained_price`) and this method name did not.
+            ->assertSee('Icon players')
             ->assertSee('Retained Rowan')
             ->assertSee('mergeRetained(', false);
     }

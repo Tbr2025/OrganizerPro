@@ -24,7 +24,7 @@
             @endif
             @if ($member->player && $member->player->player_mode === 'retained')
                 <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                    Retained
+                    Icon Player
                 </span>
             @endif
         </div>

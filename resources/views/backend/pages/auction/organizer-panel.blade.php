@@ -1865,7 +1865,7 @@
                                 </div>
                                 <div class="flex justify-between text-xs" x-show="team.retained_spent > 0">
                                     <span class="text-gray-500">
-                                        Retained
+                                        Icon Player
                                         <span x-show="team.retained_count > 0" class="text-gray-600">(<span x-text="team.retained_count"></span>)</span>
                                     </span>
                                     <span class="text-amber-400">− <span x-text="formatCurrency(team.retained_spent)"></span></span>

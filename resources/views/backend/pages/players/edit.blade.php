@@ -165,12 +165,12 @@
                                 <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Player Mode</h4>
                                 <select name="player_mode" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                                     <option value="normal" {{ old('player_mode', $player->player_mode) !== 'retained' ? 'selected' : '' }}>Normal</option>
-                                    <option value="retained" {{ old('player_mode', $player->player_mode) === 'retained' ? 'selected' : '' }}>Retained</option>
+                                    <option value="retained" {{ old('player_mode', $player->player_mode) === 'retained' ? 'selected' : '' }}>Icon Player</option>
                                 </select>
                                 @error('player_mode')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                             </div>
                             <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Retained Value</h4>
+                                <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Icon Player Value</h4>
                                 <input type="number" name="retained_value" value="{{ old('retained_value', $player->retained_value) }}"
                                     min="0" step="any" placeholder="e.g. 500000"
                                     class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">

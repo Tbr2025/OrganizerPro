@@ -70,7 +70,7 @@
         <div class="flex items-center gap-2 mt-1">
             <label class="flex items-center text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
                 <input type="checkbox" x-model="isRetained" class="mr-1 rounded border-gray-300 text-green-600 focus:ring-green-500">
-                Retained
+                Icon Player
             </label>
         </div>
     </div>

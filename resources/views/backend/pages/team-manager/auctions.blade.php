@@ -74,7 +74,7 @@
                             {{-- Where the money went: retained up front vs won at auction. --}}
                             <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                                 <div>
-                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Retained</p>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Icon Player</p>
                                     <p class="text-sm font-semibold text-purple-600 dark:text-purple-400">
                                         {{ format_points($b['retained_spent'], '0') }}
                                     </p>
@@ -108,7 +108,7 @@
                             <div class="grid grid-cols-3 gap-2 text-center">
                                 <div>
                                     <p class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ $b['retained_count'] }}</p>
-                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Retained</p>
+                                    <p class="text-[10px] uppercase tracking-wide text-gray-400">Icon Player</p>
                                 </div>
                                 <div>
                                     <p class="text-lg font-bold text-emerald-600 dark:text-emerald-400">{{ $b['won_count'] }}</p>
