@@ -139,7 +139,7 @@ class PlayerController extends Controller
 
         // Branch: verification filter needs post-fetch computation
         if ($filters['verification']) {
-            $allPlayers = $this->applyVerificationFilter($query->get(), $filters['verification']);
+            $allPlayers = $this->applyVerificationFilter($query->get(), $filters['verification'], $filters['tournament']);
 
             /*
              * Verification is not expressible in SQL — it needs each player's per-tournament field
@@ -162,6 +162,14 @@ class PlayerController extends Controller
         } else {
             $players = $query->paginate(100)->appends($filters);
         }
+
+        /*
+         * The playing-team options, built from the same filtered scope with THIS filter removed —
+         * so the list offers the clubs actually present under the current tournament and status,
+         * and choosing one never empties the page. Same reason the registrations screen builds its
+         * option lists that way.
+         */
+        $playingTeams = $this->playingTeamOptions($filters, $user);
 
         // 5. Fetch data needed for the filter dropdowns
         $selectedTournamentId = $filters['tournament'];
@@ -217,8 +225,58 @@ class PlayerController extends Controller
             'bowlingProfiles' => $bowlingProfiles,
             'tournaments' => $tournaments,
             'tagCounts' => $tagCounts,
+            'playingTeams' => $playingTeams,
             'breadcrumbs' => ['title' => __('Players')],
         ]);
+    }
+
+    /**
+     * Every club present in the current scope, as names.
+     *
+     * Three sources, because "current playing team" has no single column: the free-text
+     * `playing_team_name_ref` an applicant typed, the registration team's own name, and
+     * `team_name_ref` for players whose registration team is the catch-all `Others`. The same
+     * cascade the Team column renders and the same one the filter matches on.
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    private function playingTeamOptions(array $filters, $user)
+    {
+        // This filter removed, so the options describe what is available rather than what is
+        // already chosen.
+        $scope = fn () => $this->filteredPlayerQuery(array_merge($filters, ['playing_team' => null]), $user);
+
+        $typed = $scope()->toBase()->reorder()
+            ->whereNotNull('players.playing_team_name_ref')
+            ->where('players.playing_team_name_ref', '<>', '')
+            ->distinct()
+            ->pluck('players.playing_team_name_ref');
+
+        // Only for players with no typed club — anyone who has one is already covered above, and
+        // their registration team is not what the list shows for them.
+        $withoutTyped = fn ($q) => $q->where(fn ($b) => $b->whereNull('players.playing_team_name_ref')
+            ->orWhere('players.playing_team_name_ref', ''));
+
+        $teamIds = $withoutTyped($scope())->toBase()->reorder()
+            ->whereNotNull('players.team_id')
+            ->distinct()
+            ->pluck('players.team_id');
+
+        $registered = $teamIds->isEmpty()
+            ? collect()
+            : Team::whereIn('id', $teamIds)->where('name', '!=', 'Others')->pluck('name');
+
+        $viaOthers = $withoutTyped($scope())->toBase()->reorder()
+            ->whereNotNull('players.team_name_ref')
+            ->where('players.team_name_ref', '<>', '')
+            ->distinct()
+            ->pluck('players.team_name_ref');
+
+        return $typed->merge($registered)->merge($viaOthers)
+            ->filter(fn ($name) => filled($name))
+            ->unique()
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
     }
 
     /**
@@ -325,14 +383,25 @@ class PlayerController extends Controller
      * @param  \Illuminate\Support\Collection<int, Player>  $players
      * @return \Illuminate\Support\Collection<int, Player>
      */
-    private function applyVerificationFilter($players, ?string $mode)
+    /**
+     * @param  int|string|null  $tournamentId  the tournament in view, whose registration decides the score
+     */
+    private function applyVerificationFilter($players, ?string $mode, $tournamentId = null)
     {
         if (! $mode) {
             return $players;
         }
 
-        return $players->filter(function ($player) use ($mode) {
-                $reg = $player->registrations->first();
+        $tournamentId = $tournamentId ? (int) $tournamentId : null;
+
+        return $players->filter(function ($player) use ($mode, $tournamentId) {
+                /*
+                 * The registration for the tournament being viewed — see
+                 * Player::registrationFor(). This was `registrations->first()`, the newest
+                 * registration anywhere, so a player was scored against whichever tournament's
+                 * form happened to be most recent rather than the one on screen.
+                 */
+                $reg = $player->registrationFor($tournamentId);
                 $regVerified = (array) ($reg?->verified_fields ?? []);
                 $regSettings = $reg?->tournament?->settings;
                 $vLayout = PlayerFormConfig::getFormLayout($regSettings, false);
@@ -384,6 +453,9 @@ class PlayerController extends Controller
         return [
             'search' => request('search'),
             'actual_team_id' => request('actual_team_id'),
+            // The club the player currently turns out for, which is not their squad team —
+            // see the filter in filteredPlayerQuery() for how the two differ.
+            'playing_team' => request('playing_team'),
             'role' => request('role'),
             'batting_profile' => request('batting_profile'),
             'bowling_profile' => request('bowling_profile'),
@@ -489,6 +561,40 @@ class PlayerController extends Controller
             ->when($filters['actual_team_id'], function ($q) use ($filters) {
                 $q->where('actual_team_id', $filters['actual_team_id']);
             })
+            /*
+             * The club a player currently turns out for — a different question from the Team
+             * filter beside it, which asks which squad in this competition they belong to. A
+             * player can have a playing team and no squad at all (everyone not yet auctioned),
+             * which is exactly when this filter is wanted.
+             *
+             * Matched on the NAME rather than an id because there is no single column holding
+             * it: `playing_team_name_ref` is free text an applicant typed, and when it is blank
+             * the answer is their registration team — whose own name is `Others` for the
+             * catch-all team, in which case the real name is in `team_name_ref`. This is the
+             * same cascade the Team column renders, so the filter matches what the list shows.
+             *
+             * Deliberately no join: this query carries no explicit select, and joining `teams`
+             * would let its `id` overwrite `players.id` in `select *`.
+             */
+            ->when($filters['playing_team'] ?? null, function ($q) use ($filters) {
+                $name = $filters['playing_team'];
+
+                $blankRef = fn ($b) => $b->whereNull('players.playing_team_name_ref')
+                    ->orWhere('players.playing_team_name_ref', '');
+
+                $q->where(function ($w) use ($name, $blankRef) {
+                    $w->where('players.playing_team_name_ref', $name)
+                        ->orWhere(function ($fallback) use ($name, $blankRef) {
+                            $fallback->where($blankRef)->where(function ($n) use ($name) {
+                                $n->whereHas('team', fn ($t) => $t->where('name', $name)->where('name', '!=', 'Others'))
+                                    ->orWhere(function ($others) use ($name) {
+                                        $others->where('players.team_name_ref', $name)
+                                            ->whereHas('team', fn ($t) => $t->where('name', 'Others'));
+                                    });
+                            });
+                        });
+                });
+            })
             ->when($filters['role'], function ($q) use ($filters) {
                 if ($filters['role'] === 'Wicket Keeper') {
                     $q->where('is_wicket_keeper', true);
@@ -524,16 +630,56 @@ class PlayerController extends Controller
                     $q->whereNull('created_by');
                 }
             })
+            /*
+             * Status, and WHOSE status.
+             *
+             * `players.status` is one global column: a player approved for any competition is
+             * approved on it forever. So with a tournament selected, "Approved" was answering a
+             * different question from the one the screen appears to ask — measured on live,
+             * tournament 25 listed 391 approved players where the tournament itself has 378, the
+             * extra 13 being players approved elsewhere whose registration for THIS tournament is
+             * still pending. Two screens describing the same tournament disagreed by 13 people,
+             * and the players list was the one that could not be reconciled with anything.
+             *
+             * With a tournament chosen, the status therefore comes from that tournament's
+             * registration. Without one there is no registration to read and the global column is
+             * all there is, which is the original behaviour.
+             */
             ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
-                if ($filters['status'] === 'approved') {
-                    $q->where('status', 'approved');
-                } elseif ($filters['status'] === 'pending') {
-                    $q->where(fn ($q) => $q->where('status', 'pending')->orWhereNull('status'));
-                } elseif ($filters['status'] === 'queued') {
-                    $q->where('status', 'queued');
-                } elseif ($filters['status'] === 'rejected') {
-                    $q->where('status', 'rejected');
+                // `pending` covers a NULL status as well — an older registration may have none.
+                $matches = function ($query, string $column) use ($filters) {
+                    match ($filters['status']) {
+                        'approved' => $query->where($column, 'approved'),
+                        'pending' => $query->where(fn ($w) => $w->where($column, 'pending')->orWhereNull($column)),
+                        'queued' => $query->where($column, 'queued'),
+                        'rejected' => $query->where($column, 'rejected'),
+                        default => null,
+                    };
+                };
+
+                if (! $filters['tournament']) {
+                    $matches($q, 'status');
+
+                    return;
                 }
+
+                $q->where(function ($w) use ($filters, $matches) {
+                    $w->whereHas('registrations', function ($r) use ($filters, $matches) {
+                        $r->where('tournament_id', $filters['tournament']);
+                        $matches($r, 'status');
+                    })
+                        /*
+                         * A player on one of this tournament's squads with no registration for it
+                         * falls back to their own status. Retained players get there that way —
+                         * a team keeps them and they never register — and the tournament filter
+                         * below was deliberately widened to include them, so a status filter must
+                         * not quietly drop them again.
+                         */
+                        ->orWhere(function ($squadOnly) use ($filters, $matches) {
+                            $squadOnly->whereDoesntHave('registrations', fn ($r) => $r->where('tournament_id', $filters['tournament']));
+                            $matches($squadOnly, 'players.status');
+                        });
+                });
             })
             /*
              * Everyone connected to this tournament: on one of its squads, OR registered for it.
@@ -663,7 +809,7 @@ class PlayerController extends Controller
         $players = $query->get();
 
         // Verification is computed after loading — see applyVerificationFilter().
-        $players = $this->applyVerificationFilter($players, $filters['verification'])->values();
+        $players = $this->applyVerificationFilter($players, $filters['verification'], $filters['tournament'])->values();
 
         // How each player was acquired, for the two auction columns — one query for the lot.
         app(\App\Services\Auction\SquadAcquisitionService::class)->attachForOwnTeams($players);

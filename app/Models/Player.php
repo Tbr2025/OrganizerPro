@@ -207,6 +207,37 @@ class Player extends Model implements MustVerifyEmail
         return $this->belongsTo(KitSize::class);
     }
 
+    /**
+     * The registration this player should be read through, for a given tournament.
+     *
+     * Callers were taking `registrations->first()` — the newest one anywhere — or the first
+     * approved one anywhere. Both answer "some registration of theirs", and the verification
+     * percentage is computed from a registration's `verified_fields` against its OWN
+     * tournament's field layout, so reading the wrong one scores a player against a form they
+     * were never shown. On live, 3 of tournament 25's 378 approved players have their newest
+     * registration in a different tournament, and their percentage was being computed there.
+     *
+     * Approved is preferred within the tournament because that is the registration whose
+     * verification was actually carried out.
+     */
+    public function registrationFor(?int $tournamentId)
+    {
+        $regs = $this->registrations;
+
+        if ($tournamentId) {
+            $forTournament = $regs->where('tournament_id', $tournamentId);
+
+            $chosen = $forTournament->firstWhere('status', 'approved') ?? $forTournament->first();
+
+            if ($chosen) {
+                return $chosen;
+            }
+        }
+
+        // No tournament in view, or none of theirs matches it: fall back to the old behaviour.
+        return $regs->firstWhere('status', 'approved') ?? $regs->first();
+    }
+
     public function battingProfile()
     {
         return $this->belongsTo(BattingProfile::class);

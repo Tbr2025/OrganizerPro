@@ -80,6 +80,24 @@
                         </select>
                     </div>
 
+                    {{-- Current playing team.
+                         A different question from Team above, which asks which squad in this
+                         competition a player belongs to. This asks which club they currently turn
+                         out for — the thing the Team column falls back to showing for anyone not
+                         yet on a squad, and until now the one thing on that column you could not
+                         filter by. Options are the clubs actually present under the current
+                         tournament and status, so picking one cannot empty the page. --}}
+                    <div>
+                        <label for="playing_team"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300">Current Playing Team</label>
+                        <select name="playing_team" id="playing_team" class="form-control mt-1">
+                            <option value="">All Clubs</option>
+                            @foreach ($playingTeams as $club)
+                                <option value="{{ $club }}" @selected(request('playing_team') === $club)>{{ $club }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     {{-- Player Role --}}
                     <div>
                         <label for="role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player
@@ -508,16 +526,33 @@
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="px-3 py-3.5 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                                        {{ ($player->actualTeam?->name === 'Others' && $player->playing_team_name_ref) ? $player->playing_team_name_ref : ($player->actualTeam?->name ?? ($player->playing_team_name_ref ?: ($player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : ($player->team?->name ?? 'N/A')))) }}
+                                    @php
+                                        $teamLabel = ($player->actualTeam?->name === 'Others' && $player->playing_team_name_ref)
+                                            ? $player->playing_team_name_ref
+                                            : ($player->actualTeam?->name ?? ($player->playing_team_name_ref ?: ($player->team?->name === 'Others' ? ($player->team_name_ref ?? 'Others') : ($player->team?->name ?? 'N/A'))));
+                                    @endphp
+                                    {{-- Fixed width, and truncated rather than nowrapped.
+                                         The header already carried w-36, but the cell was
+                                         `whitespace-nowrap` in an auto-layout table — so one long
+                                         club name ("Royal Strikers cc DXB") set the column's
+                                         intrinsic width and every other column was squeezed to pay
+                                         for it. Capping the text is what makes the width hold; the
+                                         full name stays available on hover. --}}
+                                    <td class="px-3 py-3.5 w-36 max-w-36 text-sm text-gray-800 dark:text-gray-200 align-top">
+                                        <div class="truncate" title="{{ $teamLabel }}">{{ $teamLabel }}</div>
                                         @if($player->actualTeam && $player->team && $player->actualTeam->name !== $player->team->name && $player->team->name !== 'Others')
-                                            <div class="text-[10px] text-gray-400 dark:text-gray-500">Reg: {{ $player->team->name }}</div>
+                                            <div class="text-[10px] text-gray-400 dark:text-gray-500 truncate" title="{{ $player->team->name }}">Reg: {{ $player->team->name }}</div>
                                         @endif
                                     </td>
                                     <td class="px-3 py-3.5 whitespace-nowrap">
                                         @php
-                                            $reg = $player->registrations->where('status', 'approved')->first()
-                                                ?? $player->registrations->first();
+                                            // The registration for the tournament being viewed, not
+                                            // whichever of theirs is newest — see
+                                            // Player::registrationFor(). The percentage is scored
+                                            // against a registration's own tournament's field
+                                            // layout, so the wrong one scores a player against a
+                                            // form they were never shown.
+                                            $reg = $player->registrationFor(request('tournament') ? (int) request('tournament') : null);
                                             $regVerified = (array) ($reg?->verified_fields ?? []);
                                             $regSettings = $reg?->tournament?->settings;
                                             $vLayout = \App\Helpers\PlayerFormConfig::getFormLayout($regSettings, false);
