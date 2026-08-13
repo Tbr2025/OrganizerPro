@@ -370,6 +370,8 @@ class AuctionAdminController extends Controller
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
             'show_squad_values' => 'nullable|boolean',
+            // Whether this auction ignores the tournament's squad rules — Auction::rule().
+            'overrides_tournament_rules' => 'nullable|boolean',
             'start_at' => 'required|date',
             'end_at' => 'required|date|after:start_at',
             'bid_rules' => 'required|array|min:1',
@@ -503,6 +505,7 @@ class AuctionAdminController extends Controller
                  * and a tick is honoured either way; the create wizard renders no such field, so
                  * absence there correctly means "new auctions show values".
                  */
+                'overrides_tournament_rules' => $request->boolean('overrides_tournament_rules'),
                 'show_squad_values' => $request->has('show_squad_values')
                     ? $request->boolean('show_squad_values')
                     : true,
@@ -1463,6 +1466,8 @@ class AuctionAdminController extends Controller
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
             'show_squad_values' => 'nullable|boolean',
+            // Whether this auction ignores the tournament's squad rules — Auction::rule().
+            'overrides_tournament_rules' => 'nullable|boolean',
             'bid_rules' => 'required|array|min:1',
             'bid_rules.*.from' => 'required|numeric|min:0',
             'bid_rules.*.to' => 'required|numeric|gt:bid_rules.*.from',
@@ -1587,6 +1592,7 @@ class AuctionAdminController extends Controller
                  * and a tick is honoured either way; the create wizard renders no such field, so
                  * absence there correctly means "new auctions show values".
                  */
+                'overrides_tournament_rules' => $request->boolean('overrides_tournament_rules'),
                 'show_squad_values' => $request->has('show_squad_values')
                     ? $request->boolean('show_squad_values')
                     : true,

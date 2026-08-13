@@ -971,10 +971,54 @@ class AuctionPoolService
      */
     public function openBidCeiling(Auction $auction, int $actualTeamId): float
     {
+        /*
+         * A full squad can bid nothing at all.
+         *
+         * Expressed as a ceiling of zero rather than as a separate check at each call site,
+         * because `canAffordWithReserve()` below is the one gate every bid path already goes
+         * through — an open raise, a sell, a sealed submission, the organizer bidding on a team's
+         * behalf, final allotment. Six places would have needed the same new condition, and the
+         * one that got missed would be the one that let a full team buy a player.
+         *
+         * It is also simply true: a team with no places left has nothing to spend a purse on.
+         */
+        if ($this->squadIsFull($auction, $actualTeamId)) {
+            return 0.0;
+        }
+
         return min(
             $this->maxAllowedBid($auction, $actualTeamId),
             $this->openPerPlayerCap($auction, $actualTeamId)
         );
+    }
+
+    /**
+     * Has this team filled every place the rules allow?
+     *
+     * `maxSquadSize()` when one is set, else the required size — both now resolve through the
+     * TOURNAMENT unless the auction overrides (Auction::rule()), so a squad size set once for the
+     * competition is what closes teams out of the bidding.
+     *
+     * Icon (retained) players count, because they occupy a place exactly as a bought player does:
+     * a squad of 20 with 4 icons has 16 to buy, not 20.
+     */
+    public function squadIsFull(Auction $auction, int $actualTeamId): bool
+    {
+        $size = $auction->maxSquadSize() ?? $auction->minSquadSize();
+
+        if ($size < 1) {
+            return false;
+        }
+
+        /*
+         * The two leaf counts directly, not teamPurseState() — that calls purseFrom(), which is
+         * where `excluded` is decided, and `excluded` depends on this. Reading the leaves keeps
+         * the dependency one-way.
+         */
+        $filled = $this->soldCount($auction, $actualTeamId)
+            + $this->retainedCount($auction, $actualTeamId);
+
+        return $filled >= $size;
     }
 
     /** Budget check including the squad reserve. Use this at every bid/sell. */

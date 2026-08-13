@@ -223,6 +223,75 @@
                     </div>
                 </div>
 
+                {{-- Auction rules the tournament owns.
+                     Squad size, how many icon players a team keeps and what they cost, and the
+                     price a player starts at are facts about the competition rather than about
+                     one auction evening. Every auction in this tournament inherits them unless
+                     it is explicitly set to override — see Auction::rule(). --}}
+                <div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Auction rules</h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                        Inherited by every auction in this tournament. An individual auction can
+                        override them from its own edit screen.
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="icon_players_per_team" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Icon Players Per Team</label>
+                            <input type="number" name="icon_players_per_team" id="icon_players_per_team"
+                                value="{{ old('icon_players_per_team', $settings->icon_players_per_team) }}"
+                                min="0" max="50" placeholder="0"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            {{-- The arithmetic that follows from it, said out loud: this is the
+                                 number that decides how many places are left to auction. --}}
+                            <p class="text-xs text-gray-500 mt-1">
+                                Kept by the team before the auction. A squad of
+                                {{ $settings->max_players_per_team ?? $settings->min_players_per_team ?? 11 }}
+                                with {{ $settings->icon_players_per_team ?: 0 }} icons leaves
+                                <strong>{{ max(0, ($settings->max_players_per_team ?? $settings->min_players_per_team ?? 11) - (int) ($settings->icon_players_per_team ?: 0)) }}</strong>
+                                to auction.
+                            </p>
+                            @error('icon_players_per_team')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div>
+                            <label for="icon_player_value" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Icon Player Value</label>
+                            <input type="number" step="0.01" name="icon_player_value" id="icon_player_value"
+                                value="{{ old('icon_player_value', $settings->icon_player_value) }}"
+                                min="0" placeholder="e.g. 5000000"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <p class="text-xs text-gray-500 mt-1">What an icon player costs their team's purse when no price is entered for them.</p>
+                            @error('icon_player_value')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div>
+                            <label for="player_base_value" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Player Base Value</label>
+                            <input type="number" step="0.01" name="player_base_value" id="player_base_value"
+                                value="{{ old('player_base_value', $settings->player_base_value) }}"
+                                min="0" placeholder="e.g. 1000000"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <p class="text-xs text-gray-500 mt-1">The price a player starts at when they come up.</p>
+                            @error('player_base_value')<p class="text-red-500 text-sm mt-1">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    {{-- The amounts switch. Never hides figures from the organizer's own panel:
+                         that is the working tool and needs every number. --}}
+                    <label class="mt-4 flex items-start gap-2.5 cursor-pointer">
+                        <input type="hidden" name="show_amounts" value="0">
+                        <input type="checkbox" name="show_amounts" value="1" class="mt-0.5 rounded border-gray-300 text-indigo-600"
+                               {{ old('show_amounts', $settings->show_amounts ?? true) ? 'checked' : '' }}>
+                        <span>
+                            <span class="block text-sm font-medium text-gray-700 dark:text-gray-300">Show amounts on public screens</span>
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">
+                                Prices on the LED wall, posters, team screens and squad lists. Turn
+                                it off and the Icon Player badge stays but the money is withheld.
+                                The organizer's panel always shows every figure.
+                            </span>
+                        </span>
+                    </label>
+                </div>
+
                 </fieldset>
 
                 {{-- Actions --}}

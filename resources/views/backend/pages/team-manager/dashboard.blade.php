@@ -196,7 +196,7 @@
                                          left to bid with once retentions are paid for. --}}
                                     <span class="text-purple-500 dark:text-purple-400">
                                         · {{ $auction->formatAmount($budget['auction_purse']) }} auction purse
-                                        (after {{ $auction->formatAmount($budget['retained_spent']) }} retained)
+                                        (after {{ $auction->formatAmount($budget['retained_spent']) }} on icon players)
                                     </span>
                                 @endif
                             </span>
@@ -210,18 +210,36 @@
                             @endif
                         </div>
 
-                        {{-- How the squad was built: retained up front vs won at auction. --}}
+                        {{-- How the squad was built: icon players kept up front vs won at auction.
+                             Every figure here comes from the auction's resolved rules, which now
+                             fall back to the TOURNAMENT unless the auction overrides — so a manager
+                             sees the size and icon count the competition actually set, rather than
+                             whatever was typed into one auction. --}}
                         @if(isset($budget['squad_required']))
-                            <div class="flex items-center gap-3 mt-2 text-[11px]">
+                            @php
+                                // The arithmetic a manager keeps doing in their head: squad size
+                                // minus the icons they keep is the number they have to buy.
+                                $iconExpected = (int) $budget['retained_expected'];
+                                $sizeForAuction = (int) ($budget['squad_max'] ?: $budget['squad_required']);
+                                $toAuction = max(0, $sizeForAuction - $iconExpected);
+                            @endphp
+                            <div class="flex items-center gap-3 mt-2 text-[11px] flex-wrap">
                                 <span class="text-gray-400">
-                                    Squad <span class="font-semibold text-gray-600 dark:text-gray-300">{{ $budget['squad_size'] }}/{{ $budget['squad_required'] }}</span>@if($budget['squad_max'])<span class="text-gray-400"> (max {{ $budget['squad_max'] }})</span>@endif
+                                    Squad <span class="font-semibold text-gray-600 dark:text-gray-300">{{ $budget['squad_size'] }}/{{ $sizeForAuction }}</span>
                                 </span>
-                                <span class="{{ $budget['retained_expected'] > 0 && $budget['retained_count'] !== $budget['retained_expected'] ? 'text-amber-600 dark:text-amber-400' : 'text-purple-600 dark:text-purple-400' }}">
-                                    {{ $budget['retained_count'] }}@if($budget['retained_expected'] > 0)/{{ $budget['retained_expected'] }}@endif retained
+                                <span class="{{ $iconExpected > 0 && $budget['retained_count'] !== $iconExpected ? 'text-amber-600 dark:text-amber-400' : 'text-purple-600 dark:text-purple-400' }}">
+                                    {{ $budget['retained_count'] }}@if($iconExpected > 0)/{{ $iconExpected }}@endif icon
                                 </span>
                                 <span class="text-emerald-600 dark:text-emerald-400">{{ $budget['won_count'] }} won</span>
                                 @if($budget['squad_remaining'] > 0)
                                     <span class="text-amber-600 dark:text-amber-400">{{ $budget['squad_remaining'] }} to fill</span>
+                                @else
+                                    <span class="text-emerald-600 dark:text-emerald-400">squad complete</span>
+                                @endif
+                                @if($iconExpected > 0)
+                                    <span class="text-gray-400">
+                                        &middot; {{ $toAuction }} of {{ $sizeForAuction }} bought at auction
+                                    </span>
                                 @endif
                             </div>
                         @endif

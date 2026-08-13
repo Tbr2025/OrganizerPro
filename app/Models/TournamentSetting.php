@@ -44,6 +44,11 @@ class TournamentSetting extends Model
         'registration_deadline',
         'max_players_per_team',
         'min_players_per_team',
+        // Squad rules an auction inherits — see Auction::rule().
+        'icon_players_per_team',
+        'icon_player_value',
+        'player_base_value',
+        'show_amounts',
         'default_country',
         'default_phone_country',
         'min_age',
@@ -105,6 +110,7 @@ class TournamentSetting extends Model
     ];
 
     protected $casts = [
+        'show_amounts' => 'boolean',
         'player_registration_open' => 'boolean',
         'team_registration_open' => 'boolean',
         'registration_deadline' => 'datetime',

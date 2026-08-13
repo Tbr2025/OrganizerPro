@@ -25,6 +25,7 @@ class Auction extends Model
         'amount_unit',
         'amount_unit_label',
         'show_squad_values',
+        'overrides_tournament_rules',
         'notifications_enabled',
         'email_test_mode',
         'email_dispatch',
@@ -95,6 +96,7 @@ class Auction extends Model
         'final_call_interval_seconds' => 'integer',
         'notifications_enabled' => 'boolean',
         'show_squad_values' => 'boolean',
+        'overrides_tournament_rules' => 'boolean',
         'email_test_mode' => 'boolean',
         'emails_flushed_at' => 'datetime',
     ];
@@ -188,6 +190,17 @@ class Auction extends Model
      */
     public function showsSquadValues(): bool
     {
+        /*
+         * The tournament decides unless this auction overrides.
+         *
+         * `show_amounts` is NOT NULL with a default of true, so it always has an opinion — which
+         * is why this reads it directly rather than through rule(), whose null-means-undecided
+         * step would never fire.
+         */
+        if (! $this->overrides_tournament_rules && $this->tournament?->settings) {
+            return (bool) $this->tournament->settings->show_amounts;
+        }
+
         return (bool) ($this->show_squad_values ?? true);
     }
 
@@ -520,7 +533,40 @@ class Auction extends Model
      */
     public function minSquadSize(): int
     {
-        return (int) ($this->min_squad_size ?: self::DEFAULT_MIN_SQUAD_SIZE);
+        return (int) ($this->rule('min_players_per_team', $this->min_squad_size)
+            ?: self::DEFAULT_MIN_SQUAD_SIZE);
+    }
+
+    /**
+     * A squad rule, from the tournament unless this auction overrides it.
+     *
+     * Squad size, how many icon players a team keeps and what they cost, the price a player
+     * starts at — these are facts about the competition, not about one auction evening. They
+     * lived only on `auctions`, so a tournament running two auctions had to have them typed
+     * twice and could disagree with itself, and `min_players_per_team` / `max_players_per_team`
+     * were already collected on the tournament's edit screen and read by nothing at all.
+     *
+     * Resolution order, and each step is deliberate:
+     *
+     *  1. `overrides_tournament_rules` — the organizer has said this auction is different, so
+     *     the tournament is not consulted. Existing auctions were all set to this by the
+     *     migration: they carry numbers somebody chose, and inheriting is opt-in for them.
+     *  2. The tournament's setting, when it is not null. Null means "not decided here".
+     *  3. The auction's own column, which is what every auction used before this existed.
+     *
+     * Returns null when nothing anywhere has an answer, so each caller keeps its own final
+     * default — those differ, and meaningfully: an unset max squad size renders "—" while an
+     * unset retention count means "none expected".
+     */
+    private function rule(string $tournamentColumn, mixed $ownValue): mixed
+    {
+        if ($this->overrides_tournament_rules) {
+            return $ownValue;
+        }
+
+        $fromTournament = $this->tournament?->settings?->{$tournamentColumn};
+
+        return $fromTournament !== null ? $fromTournament : $ownValue;
     }
 
     /**
@@ -532,7 +578,20 @@ class Auction extends Model
     {
         $configured = (float) ($this->min_price_per_player ?? 0);
 
-        return $configured > 0 ? $configured : (float) ($this->base_price ?? 0);
+        return $configured > 0 ? $configured : $this->playerBasePrice();
+    }
+
+    /**
+     * What a player starts at, from the tournament unless this auction overrides it.
+     *
+     * The one place that answers "base price", so the reserve rule, a new pool's default and a
+     * poster all quote the same figure.
+     */
+    public function playerBasePrice(): float
+    {
+        $resolved = $this->rule('player_base_value', $this->base_price);
+
+        return (float) ($resolved ?? 0);
     }
 
     /**
@@ -544,7 +603,9 @@ class Auction extends Model
      */
     public function maxSquadSize(): ?int
     {
-        return $this->max_squad_size !== null ? (int) $this->max_squad_size : null;
+        $resolved = $this->rule('max_players_per_team', $this->max_squad_size);
+
+        return $resolved !== null ? (int) $resolved : null;
     }
 
     /**
@@ -555,9 +616,9 @@ class Auction extends Model
      */
     public function defaultRetainedValue(): float
     {
-        return $this->default_retained_value !== null
-            ? (float) $this->default_retained_value
-            : (float) self::DEFAULT_RETAINED_VALUE;
+        $resolved = $this->rule('icon_player_value', $this->default_retained_value);
+
+        return $resolved !== null ? (float) $resolved : (float) self::DEFAULT_RETAINED_VALUE;
     }
 
     /**
@@ -568,9 +629,9 @@ class Auction extends Model
      */
     public function expectedRetainedPerTeam(): int
     {
-        return $this->expected_retained_per_team !== null
-            ? (int) $this->expected_retained_per_team
-            : self::DEFAULT_EXPECTED_RETAINED_PER_TEAM;
+        $resolved = $this->rule('icon_players_per_team', $this->expected_retained_per_team);
+
+        return $resolved !== null ? (int) $resolved : self::DEFAULT_EXPECTED_RETAINED_PER_TEAM;
     }
 
     /*

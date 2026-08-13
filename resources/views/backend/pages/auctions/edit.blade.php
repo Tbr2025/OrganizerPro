@@ -785,10 +785,55 @@
                             </label>
                         </div>
 
+                        {{-- Inherit or override.
+                             Squad size, icon players and the base price belong to the tournament —
+                             they are facts about the competition, not about one auction evening.
+                             This auction uses them unless the organizer says it is different, and
+                             the inherited figures are shown so the difference is visible BEFORE
+                             the toggle is flipped rather than discovered afterwards. --}}
+                        @php
+                            $tSettings = $auction->tournament?->settings;
+                            $inheritedSize = $tSettings?->max_players_per_team ?? $tSettings?->min_players_per_team;
+                        @endphp
+                        <div class="mt-6 p-5 rounded-2xl border"
+                             :class="auctionData.overrides_tournament_rules
+                                ? 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800/60'
+                                : 'bg-gray-50 dark:bg-gray-800/40 border-gray-200 dark:border-gray-700'">
+                            <label class="flex items-start gap-3 cursor-pointer">
+                                <input type="hidden" name="overrides_tournament_rules" value="0">
+                                <input type="checkbox" name="overrides_tournament_rules" value="1"
+                                       x-model="auctionData.overrides_tournament_rules"
+                                       class="mt-0.5 rounded border-gray-300 text-indigo-600">
+                                <span>
+                                    <span class="block font-semibold text-gray-900 dark:text-white">
+                                        Override the tournament's rules for this auction
+                                    </span>
+                                    <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Off: this auction follows
+                                        <a href="{{ route('admin.tournaments.edit', $auction->tournament_id) }}"
+                                           class="underline font-medium">{{ $auction->tournament?->name ?? 'the tournament' }}</a>
+                                        — @if($tSettings)
+                                            team size <strong>{{ $inheritedSize ?? '—' }}</strong>,
+                                            <strong>{{ $tSettings->icon_players_per_team ?? '—' }}</strong> icon players
+                                            at <strong>{{ $tSettings->icon_player_value !== null ? $auction->formatAmount($tSettings->icon_player_value) : '—' }}</strong>,
+                                            base <strong>{{ $tSettings->player_base_value !== null ? $auction->formatAmount($tSettings->player_base_value) : '—' }}</strong>.
+                                        @else
+                                            the tournament has no auction rules set yet, so the values below are used.
+                                        @endif
+                                        On: the values below are used and the tournament is ignored.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+
                         {{-- Squad reserve: a team must hold back enough purse to fill the
                              places it still has to fill, so it cannot spend everything
                              early and end up unable to field a legal side. --}}
-                        <div class="mt-6 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/60">
+                        <div class="mt-6 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800/60"
+                             {{-- Dimmed, not hidden: an organizer needs to see what would take
+                                  effect if they flipped the toggle, and a section that vanishes
+                                  reads as a section that was deleted. --}}
+                             :class="auctionData.overrides_tournament_rules ? '' : 'opacity-60'">
                             <h3 class="font-semibold text-gray-900 dark:text-white">Squad Reserve Rule</h3>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
                                 Teams must keep back enough to buy the places they still have to fill. A bid is

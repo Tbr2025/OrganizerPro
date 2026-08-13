@@ -96,6 +96,13 @@ class AuctionTickerTest extends TestCase
         $auction = $this->makeAuction($org, [
             'tournament_id' => $tournament->id,
             'max_budget_per_team' => 100000,
+            /*
+             * Room for both sales. The shared fixture uses a squad size of 1 to keep the reserve
+             * rule from swamping small test budgets — and a squad of 1 is FULL after one player,
+             * so the second sale is now refused (a full squad has a bidding ceiling of zero).
+             * The two meanings of that number were indistinguishable until fullness was enforced.
+             */
+            'min_squad_size' => 11,
         ]);
         $team = $this->makeTeam($org, 'Strikers', $tournament);
         $operator = $this->makeAuctionOperator($org);

@@ -393,6 +393,11 @@ class TournamentController extends Controller
             'max_budget_per_team' => 'nullable|numeric|min:0',
             'max_players_per_team' => 'nullable|integer|min:1|max:50',
             'min_players_per_team' => 'nullable|integer|min:1|max:50',
+            // Auction rules the tournament owns and every auction inherits — Auction::rule().
+            'icon_players_per_team' => 'nullable|integer|min:0|max:50',
+            'icon_player_value' => 'nullable|numeric|min:0',
+            'player_base_value' => 'nullable|numeric|min:0',
+            'show_amounts' => 'nullable|boolean',
         ]);
 
         // Handle empty zone_id
@@ -430,12 +435,36 @@ class TournamentController extends Controller
             }
         }
 
-        // Save squad size settings
-        if ($request->hasAny(['max_players_per_team', 'min_players_per_team'])) {
-            $settingsData = array_filter([
-                'max_players_per_team' => $request->input('max_players_per_team'),
-                'min_players_per_team' => $request->input('min_players_per_team'),
-            ], fn ($v) => $v !== null);
+        // Save the squad and auction rules every auction in this tournament inherits.
+        $ruleFields = [
+            'max_players_per_team', 'min_players_per_team',
+            'icon_players_per_team', 'icon_player_value', 'player_base_value',
+        ];
+
+        if ($request->hasAny([...$ruleFields, 'show_amounts'])) {
+            /*
+             * Blanks are dropped, not written as null — the numbers are "not decided here", and
+             * clearing one has to leave the auction's own value in charge rather than forcing a
+             * zero squad or a free icon player.
+             */
+            $settingsData = [];
+
+            foreach ($ruleFields as $field) {
+                $value = $request->input($field);
+
+                if ($value !== null && $value !== '') {
+                    $settingsData[$field] = $value;
+                }
+            }
+
+            /*
+             * `show_amounts` is different: it is NOT NULL with a default of true, so an unticked
+             * box is a real answer rather than an absent one. The hidden 0 beside the checkbox
+             * is what makes an untick reach the server at all.
+             */
+            if ($request->has('show_amounts')) {
+                $settingsData['show_amounts'] = $request->boolean('show_amounts');
+            }
 
             if (! empty($settingsData)) {
                 \App\Models\TournamentSetting::updateOrCreate(

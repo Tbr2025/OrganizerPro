@@ -54,6 +54,8 @@ class AuctionFormWizard
         'max_budget_per_team' => 2,
         'base_price' => 2,
         'min_squad_size' => 2,
+        // The inherit/override switch sits with the squad rules it governs.
+        'overrides_tournament_rules' => 2,
         'max_squad_size' => 2,
         'min_price_per_player' => 2,
         'default_retained_value' => 2,
